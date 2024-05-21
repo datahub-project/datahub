@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.GraphQLEngine;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
@@ -25,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -50,8 +50,6 @@ public class GraphQLController {
   @Inject GraphQLEngine _engine;
 
   @Inject AuthorizerChain _authorizerChain;
-
-  public static final ForkJoinPool GRAPHQL_FORK_JOIN_POOL = new ForkJoinPool(ForkJoinPool.getCommonPoolParallelism());
 
   @Nonnull
   @Inject
@@ -128,7 +126,7 @@ public class GraphQLController {
     log.info("Processing request, operation: {}, actor urn: {}", queryName, context.getActorUrn());
     log.debug("Query: {}, variables: {}", query, variables);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           log.info("Executing operation {} for {}", queryName, threadName);
 
@@ -167,7 +165,7 @@ public class GraphQLController {
                 executionResult.toSpecification());
             return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
           }
-        }, GRAPHQL_FORK_JOIN_POOL);
+        });
   }
 
   @GetMapping("/graphql")

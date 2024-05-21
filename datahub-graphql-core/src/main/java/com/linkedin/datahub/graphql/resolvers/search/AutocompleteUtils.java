@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleResults;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResultForEntity;
@@ -37,7 +38,7 @@ public class AutocompleteUtils {
         entities.stream()
             .map(
                 entity ->
-                    CompletableFuture.supplyAsync(
+                    GraphQLConcurrencyUtils.supplyAsync(
                         () -> {
                           final Filter filter =
                               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());

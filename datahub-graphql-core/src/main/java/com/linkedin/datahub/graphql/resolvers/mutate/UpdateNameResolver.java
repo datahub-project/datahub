@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -49,7 +50,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
     Urn targetUrn = Urn.createFromString(input.getUrn());
     log.info("Updating name. input: {}", input);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!_entityService.exists(context.getOperationContext(), targetUrn, true)) {
             throw new IllegalArgumentException(

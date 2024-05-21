@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataHubViewType;
@@ -57,7 +58,7 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
     final ListGlobalViewsInput input =
         bindArgument(environment.getArgument("input"), ListGlobalViewsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
           final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();

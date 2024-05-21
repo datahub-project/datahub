@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
@@ -43,7 +44,7 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
     final Urn parentNode =
         input.getParentNode() != null ? UrnUtils.getUrn(input.getParentNode()) : null;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (GlossaryUtils.canManageChildrenEntities(context, parentNode, _entityClient)) {
             try {

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CreateDynamicFormAssignmentInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
 import com.linkedin.form.DynamicFormAssignment;
@@ -34,7 +35,7 @@ public class CreateDynamicFormAssignmentResolver
     final Urn formUrn = UrnUtils.getUrn(input.getFormUrn());
     final DynamicFormAssignment formAssignment = FormUtils.mapDynamicFormAssignment(input);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _formService.createDynamicFormAssignment(

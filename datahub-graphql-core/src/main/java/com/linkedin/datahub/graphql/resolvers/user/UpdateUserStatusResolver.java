@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CorpUserStatus;
 import com.linkedin.entity.client.EntityClient;
@@ -45,7 +46,7 @@ public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<S
               .setTime(System.currentTimeMillis())
               .setActor(Urn.createFromString(context.getActorUrn())));
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               final MetadataChangeProposal proposal =

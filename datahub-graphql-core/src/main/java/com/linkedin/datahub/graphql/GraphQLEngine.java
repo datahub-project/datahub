@@ -77,8 +77,9 @@ public class GraphQLEngine {
     List<Instrumentation> instrumentations = new ArrayList<>(3);
     instrumentations.add(new TracingInstrumentation());
     instrumentations.add(new MaxQueryDepthInstrumentation(graphQLQueryDepthLimit));
-    instrumentations.add(new MaxQueryComplexityInstrumentation(graphQLQueryComplexityLimit,
-        new DataHubFieldComplexityCalculator()));
+    instrumentations.add(
+        new MaxQueryComplexityInstrumentation(
+            graphQLQueryComplexityLimit, new DataHubFieldComplexityCalculator()));
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
     _graphQL =
         new GraphQL.Builder(graphQLSchema)

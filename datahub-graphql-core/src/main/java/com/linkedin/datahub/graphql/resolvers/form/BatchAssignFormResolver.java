@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchAssignFormInput;
 import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetcher;
@@ -35,7 +36,7 @@ public class BatchAssignFormResolver implements DataFetcher<CompletableFuture<Bo
     final List<String> entityUrns = input.getEntityUrns();
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _formService.batchAssignFormToEntities(

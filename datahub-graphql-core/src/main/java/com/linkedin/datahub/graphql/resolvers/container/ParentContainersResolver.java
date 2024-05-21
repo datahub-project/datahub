@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -65,7 +66,7 @@ public class ParentContainersResolver
     final String urn = ((Entity) environment.getSource()).getUrn();
     final List<Container> containers = new ArrayList<>();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             aggregateParentContainers(containers, urn, context);

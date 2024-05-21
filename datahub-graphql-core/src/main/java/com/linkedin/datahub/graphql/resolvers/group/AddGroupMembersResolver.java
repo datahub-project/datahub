@@ -10,6 +10,7 @@ import com.linkedin.common.OriginType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -51,7 +52,7 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
           String.format("Failed to add members to group %s. Group does not exist.", groupUrnStr),
           DataHubGraphQLErrorCode.NOT_FOUND);
     }
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           Origin groupOrigin =
               _groupService.getGroupOrigin(context.getOperationContext(), groupUrn);

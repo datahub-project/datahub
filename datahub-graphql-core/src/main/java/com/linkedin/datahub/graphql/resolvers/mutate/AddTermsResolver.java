@@ -7,6 +7,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddTermsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -34,7 +35,7 @@ public class AddTermsResolver implements DataFetcher<CompletableFuture<Boolean>>
         input.getTermUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!LabelUtils.isAuthorizedToUpdateTerms(context, targetUrn, input.getSubResource())) {
             throw new AuthorizationException(

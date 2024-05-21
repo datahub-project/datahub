@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
@@ -74,7 +75,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateContainerDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateContainerDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -104,7 +105,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateDomainDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDomainDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -179,7 +180,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
   private CompletableFuture<Boolean> updateDatasetSchemaFieldDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -202,7 +203,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateTagDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -231,7 +232,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateGlossaryTermDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)
@@ -262,7 +263,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateGlossaryNodeDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)
@@ -293,7 +294,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateCorpGroupDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -322,7 +323,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateNotebookDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -351,7 +352,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateMlModelDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -380,7 +381,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateMlModelGroupDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -409,7 +410,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateMlFeatureDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -438,7 +439,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateMlPrimaryKeyDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -467,7 +468,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateMlFeatureTableDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -496,7 +497,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateDataProductDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
@@ -525,7 +526,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   private CompletableFuture<Boolean> updateBusinessAttributeDescription(
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // check if user has the rights to update description for business attribute
           if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {

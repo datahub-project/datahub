@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.RemoveOwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
@@ -37,7 +38,7 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
 
     OwnerUtils.validateAuthorizedToUpdateOwners(context, targetUrn);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           OwnerUtils.validateRemoveInput(context.getOperationContext(), targetUrn, _entityService);
           try {

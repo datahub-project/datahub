@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.user;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
@@ -27,7 +28,7 @@ public class RemoveUserResolver implements DataFetcher<CompletableFuture<Boolean
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
       final String userUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(userUrn);
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               _entityClient.deleteEntity(context.getOperationContext(), urn);

@@ -9,6 +9,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateTestInput;
 import com.linkedin.entity.client.EntityClient;
@@ -32,7 +33,7 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
     final QueryContext context = environment.getContext();
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (canManageTests(context)) {
 

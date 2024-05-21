@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchUpdateDeprecationInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -33,7 +34,7 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
         bindArgument(environment.getArgument("input"), BatchUpdateDeprecationInput.class);
     final List<ResourceRefInput> resources = input.getResources();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the resources

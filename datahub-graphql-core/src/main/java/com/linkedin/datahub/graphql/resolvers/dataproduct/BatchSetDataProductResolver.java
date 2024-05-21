@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchSetDataProductInput;
 import com.linkedin.metadata.service.DataProductService;
@@ -31,7 +32,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
     final String maybeDataProductUrn = input.getDataProductUrn();
     final List<String> resources = input.getResourceUrns();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           verifyResources(resources, context);
           verifyDataProduct(maybeDataProductUrn, context);

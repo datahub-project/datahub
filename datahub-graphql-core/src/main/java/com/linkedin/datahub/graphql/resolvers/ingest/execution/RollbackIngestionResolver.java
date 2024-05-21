@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RollbackIngestionInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
@@ -23,7 +24,7 @@ public class RollbackIngestionResolver implements DataFetcher<CompletableFuture<
       throws Exception {
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!IngestionAuthUtils.canManageIngestion(context)) {
             throw new AuthorizationException(
@@ -41,7 +42,7 @@ public class RollbackIngestionResolver implements DataFetcher<CompletableFuture<
 
   public CompletableFuture<Boolean> rollbackIngestion(
       final String runId, final QueryContext context) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _entityClient.rollbackIngestion(

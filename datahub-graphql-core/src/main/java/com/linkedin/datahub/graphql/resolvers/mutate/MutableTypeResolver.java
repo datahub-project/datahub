@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.types.MutableType;
 import graphql.schema.DataFetcher;
@@ -31,7 +32,7 @@ public class MutableTypeResolver<I, T> implements DataFetcher<CompletableFuture<
   public CompletableFuture<T> get(DataFetchingEnvironment environment) throws Exception {
     final String urn = environment.getArgument("urn");
     final I input = bindArgument(environment.getArgument("input"), _mutableType.inputClass());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _logger.debug(String.format("Mutating entity. input: %s", input));

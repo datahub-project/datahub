@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.analytics.resolver.GetHighlightsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetMetadataAnalyticsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.IsAnalyticsEnabledResolver;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AccessToken;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
@@ -390,7 +391,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -2886,7 +2886,7 @@ public class GmsGraphQLEngine {
         DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
     return DataLoader.newDataLoader(
         (keys, context) ->
-            CompletableFuture.supplyAsync(
+            GraphQLConcurrencyUtils.supplyAsync(
                 () -> {
                   try {
                     log.debug(

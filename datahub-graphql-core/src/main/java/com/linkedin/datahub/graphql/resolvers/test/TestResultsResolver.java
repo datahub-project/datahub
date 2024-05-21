@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.test;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResult;
@@ -35,7 +36,7 @@ public class TestResultsResolver implements DataFetcher<CompletableFuture<TestRe
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(((Entity) environment.getSource()).getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final com.linkedin.test.TestResults gmsTestResults = getTestResults(entityUrn, context);
 

@@ -9,6 +9,7 @@ import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -38,7 +39,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn assertionUrn = Urn.createFromString(environment.getArgument("urn"));
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // 1. check the entity exists. If not, return false.

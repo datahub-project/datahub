@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -24,7 +25,7 @@ public class DeleteSecretResolver implements DataFetcher<CompletableFuture<Strin
     if (IngestionAuthUtils.canManageSecrets(context)) {
       final String secretUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(secretUrn);
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               _entityClient.deleteEntity(context.getOperationContext(), urn);

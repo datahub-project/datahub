@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 public class DataHubFieldComplexityCalculator implements FieldComplexityCalculator {
 
@@ -33,32 +32,37 @@ public class DataHubFieldComplexityCalculator implements FieldComplexityCalculat
         Integer count = (Integer) input.get(COUNT_ARG);
         Field field = environment.getField();
         List<Selection> subFields = field.getSelectionSet().getSelections();
-        Optional<FragmentSpread> searchResultsFieldsField = subFields.stream()
-            .filter(selection -> selection instanceof Field)
-            .map(selection -> (Field) selection)
-            .filter(subField -> SEARCH_RESULTS_FIELD.equals(subField.getName()))
-            .map(Field::getSelectionSet)
-            .map(SelectionSet::getSelections)
-            .flatMap(List::stream)
-            .filter(selection -> selection instanceof Field)
-            .map(selection -> (Field) selection)
-            .filter(subField -> ENTITY_FIELD.equals(subField.getName()))
-            .map(Field::getSelectionSet)
-            .map(SelectionSet::getSelections)
-            .flatMap(List::stream)
-            .filter(selection -> selection instanceof FragmentSpread)
-            .map(selection -> (FragmentSpread) selection)
-            .filter(subField -> SEARCH_RESULT_FIELDS_FIELD.equals(subField.getName())).findFirst();
+        Optional<FragmentSpread> searchResultsFieldsField =
+            subFields.stream()
+                .filter(selection -> selection instanceof Field)
+                .map(selection -> (Field) selection)
+                .filter(subField -> SEARCH_RESULTS_FIELD.equals(subField.getName()))
+                .map(Field::getSelectionSet)
+                .map(SelectionSet::getSelections)
+                .flatMap(List::stream)
+                .filter(selection -> selection instanceof Field)
+                .map(selection -> (Field) selection)
+                .filter(subField -> ENTITY_FIELD.equals(subField.getName()))
+                .map(Field::getSelectionSet)
+                .map(SelectionSet::getSelections)
+                .flatMap(List::stream)
+                .filter(selection -> selection instanceof FragmentSpread)
+                .map(selection -> (FragmentSpread) selection)
+                .filter(subField -> SEARCH_RESULT_FIELDS_FIELD.equals(subField.getName()))
+                .findFirst();
         if (searchResultsFieldsField.isPresent()) {
-          // This fragment includes 2 lineage queries, we account for this additional complexity by multiplying
+          // This fragment includes 2 lineage queries, we account for this additional complexity by
+          // multiplying
           // by the count of entities attempting to be returned
           complexity += 2 * count;
         }
-
       }
     }
     if (GRAPHQL_QUERY_TYPE.equals(environment.getParentType().getName())) {
-      log.info("Query complexity for query: {} is {}", environment.getField().getName(), complexity + childComplexity);
+      log.info(
+          "Query complexity for query: {} is {}",
+          environment.getField().getName(),
+          complexity + childComplexity);
     }
     return complexity + childComplexity;
   }

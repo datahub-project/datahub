@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateViewInput;
 import com.linkedin.datahub.graphql.generated.DataHubView;
@@ -37,7 +38,7 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
     final CreateViewInput input =
         bindArgument(environment.getArgument("input"), CreateViewInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (ViewUtils.canCreateView(
               DataHubViewType.valueOf(input.getViewType().toString()), context)) {

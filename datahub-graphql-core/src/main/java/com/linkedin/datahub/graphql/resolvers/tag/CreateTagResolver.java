@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTagInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
@@ -42,7 +43,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
     final CreateTagInput input =
         bindArgument(environment.getArgument("input"), CreateTagInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canCreateTags(context)) {
             throw new AuthorizationException(

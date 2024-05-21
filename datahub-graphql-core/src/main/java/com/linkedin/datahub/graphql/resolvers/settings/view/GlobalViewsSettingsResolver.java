@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.settings.view;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.GlobalViewsSettings;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -30,7 +31,7 @@ public class GlobalViewsSettingsResolver
   public CompletableFuture<GlobalViewsSettings> get(final DataFetchingEnvironment environment)
       throws Exception {
     final QueryContext context = environment.getContext();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final GlobalSettingsInfo globalSettings =
