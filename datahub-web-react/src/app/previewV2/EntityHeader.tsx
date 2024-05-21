@@ -19,7 +19,7 @@ const EntityTitleContainer = styled.div`
     width: 100%;
 `;
 
-const StyledLink = styled(Link)`
+export const StyledLink = styled(Link)`
     display: block;
     max-width: 75%;
 `;

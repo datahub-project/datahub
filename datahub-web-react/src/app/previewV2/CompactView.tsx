@@ -4,7 +4,7 @@ import LaunchIcon from '@mui/icons-material/Launch';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import ColoredBackgroundPlatformIconGroup, { PlatformContentWrapper } from './ColoredBackgroundPlatformIconGroup';
 import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
-import EntityHeader from './EntityHeader';
+import EntityHeader, { StyledLink } from './EntityHeader';
 import { PreviewType } from '../entity/Entity';
 import { BrowsePathV2, Deprecation, Entity, EntityType, Health, ParentContainersResult } from '../../types.generated';
 import { EntityMenuActions } from '../entityV2/Entity';
@@ -25,7 +25,7 @@ export const RowContainer = styled.div<RowContainerProps>`
     display: ${(props) => (props.hidden ? 'none' : 'flex')};
     flex-direction: row;
     width: 100%;
-    gap: 5px;
+    justify-content: space-between;
 
     ${PlatformContentWrapper} {
         max-width: fit-content;
@@ -36,10 +36,9 @@ export const RowContainer = styled.div<RowContainerProps>`
 export const ActionsAndStatusSection = styled.div`
     display: flex;
     flex-direction: row;
-    gap: 5px;
-    width: 100%;
     justify-content: end;
     margin-right: -0.3rem;
+    flex: 0 0 auto;
 `;
 
 export const ActionsSection = styled.div`
@@ -59,7 +58,11 @@ const HeaderContainerV2 = styled.div`
     display: flex;
     flex-direction: column;
     align-items: start;
-    max-width: 55%;
+    width: 70%;
+    flex: 1 1 auto;
+    ${StyledLink} {
+        max-width: 75%;
+    }
 `;
 const PlatformDivider = styled.div`
     font-size: 16px;
