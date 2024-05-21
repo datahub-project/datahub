@@ -729,7 +729,7 @@ plugins:
         - entityName: '*'
           aspectName: '*'
     - className: 'com.linkedin.metadata.aspect.validation.FieldPathValidator'
-      enabled: true
+      enabled: false
       supportedOperations:
         - CREATE
         - UPSERT
