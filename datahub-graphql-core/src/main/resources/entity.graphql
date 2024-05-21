@@ -8336,28 +8336,31 @@ enum DatasetAssertionScope {
 }
 
 """
-The top-level assertion type. Currently single Dataset assertions are the only type supported.
+The top-level assertion type.
 """
 enum AssertionType {
+    """
+    A single-dataset assertion.
+    """
     DATASET
     """
-    A Freshness assertion
+    An assertion which indicates when a particular operation should occur to an asset.
     """
     FRESHNESS
     """
-    A Volume assertion
+    An assertion which indicates how much data should be available for a particular asset.
     """
     VOLUME
     """
-    A raw SQL-statement based assertion
+    A raw SQL-statement based assertion.
     """
     SQL
     """
-    A Field assertion
+    A structured assertion targeting a specific column or field of the Dataset.
     """
     FIELD
     """
-    A Data Schema Assertion
+    A schema or structural assertion.
     """
     DATA_SCHEMA
 }
