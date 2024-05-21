@@ -82,16 +82,22 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
 
   private FieldResolver.FieldValue getDomains(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-    final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
-    // In the case that the entity is a domain, the associated domain is the domain itself
-    if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
-      return FieldResolver.FieldValue.builder()
-          .values(Collections.singleton(entityUrn.toString()))
-          .build();
-    }
 
     final EnvelopedAspect domainsAspect;
     try {
+      if (entitySpec.getEntity().isEmpty()) {
+        return FieldResolver.emptyFieldValue();
+      }
+
+      final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+
+      // In the case that the entity is a domain, the associated domain is the domain itself
+      if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
+        return FieldResolver.FieldValue.builder()
+            .values(Collections.singleton(entityUrn.toString()))
+            .build();
+      }
+
       EntityResponse response =
           _entityClient.getV2(
               opContext,
@@ -103,7 +109,7 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       }
       domainsAspect = response.getAspects().get(DOMAINS_ASPECT_NAME);
     } catch (Exception e) {
-      log.error("Error while retrieving domains aspect for urn {}", entityUrn, e);
+      log.error("Error while retrieving domains aspect for entitySpec {}", entitySpec, e);
       return FieldResolver.emptyFieldValue();
     }
 

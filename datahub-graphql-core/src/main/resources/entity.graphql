@@ -1144,6 +1144,11 @@ enum EntityType {
     CUSTOM_OWNERSHIP_TYPE
 
     """
+    A connection to an external source.
+    """
+    DATAHUB_CONNECTION
+
+    """
     A DataHub incident - SaaS only
     """
     INCIDENT
@@ -2685,6 +2690,11 @@ enum FabricType {
     Designates corporation fabrics
     """
     CORP
+
+    """
+    Designates review fabrics
+    """
+    RVW
 }
 
 """
@@ -7761,10 +7771,33 @@ enum DatasetAssertionScope {
 }
 
 """
-The top-level assertion type. Currently single Dataset assertions are the only type supported.
+The top-level assertion type.
 """
 enum AssertionType {
+    """
+    A single-dataset assertion.
+    """
     DATASET
+    """
+    An assertion which indicates when a particular operation should occur to an asset.
+    """
+    FRESHNESS
+    """
+    An assertion which indicates how much data should be available for a particular asset.
+    """
+    VOLUME
+    """
+    A raw SQL-statement based assertion.
+    """
+    SQL
+    """
+    A structured assertion targeting a specific column or field of the Dataset.
+    """
+    FIELD
+    """
+    A schema or structural assertion.
+    """
+    DATA_SCHEMA
 }
 
 """

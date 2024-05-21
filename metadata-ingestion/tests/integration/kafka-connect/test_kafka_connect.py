@@ -88,9 +88,7 @@ def test_resources_dir(pytestconfig):
 def loaded_kafka_connect(kafka_connect_runner):
     # # Setup mongo cluster
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-init.js"
-    ret = subprocess.run(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
 
     # Creating MySQL source with no transformations , only topic prefix
@@ -167,7 +165,7 @@ def loaded_kafka_connect(kafka_connect_runner):
                             "query": "select * from member",
                             "topic.prefix": "query-topic",
                             "tasks.max": "1",
-                            "connection.url": "${env:MYSQL_CONNECTION_URL}"
+                            "connection.url": "jdbc:mysql://foo:datahub@test_mysql:${env:MYSQL_PORT}/${env:MYSQL_DB}"
                         }
                     }
                     """,
@@ -298,9 +296,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     assert r.status_code == 201  # Created
 
     command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-populate.js"
-    ret = subprocess.run(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
 
     # Creating S3 Sink source
@@ -419,7 +415,17 @@ def test_kafka_connect_ingest_stateful(
                         "provider": "env",
                         "path_key": "MYSQL_CONNECTION_URL",
                         "value": "jdbc:mysql://test_mysql:3306/librarydb",
-                    }
+                    },
+                    {
+                        "provider": "env",
+                        "path_key": "MYSQL_PORT",
+                        "value": "3306",
+                    },
+                    {
+                        "provider": "env",
+                        "path_key": "MYSQL_DB",
+                        "value": "librarydb",
+                    },
                 ],
                 "stateful_ingestion": {
                     "enabled": True,

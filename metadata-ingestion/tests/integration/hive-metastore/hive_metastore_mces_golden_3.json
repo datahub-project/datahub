@@ -212,6 +212,71 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1.map_test,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "map_test"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/totalSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numRows",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1715258696"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numFiles",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/COLUMN_STATS_ACCURATE",
+                "value": "{\"BASIC_STATS\":\"true\"}"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/rawDataSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "MANAGED_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_location",
+                "value": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/create_date",
+                "value": "2024-05-09"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1.map_test,PROD)",
@@ -271,23 +336,6 @@
                                 "jsonProps": "{\"native_data_type\": \"map<int,string>\", \"key_type\": {\"type\": \"int\", \"native_data_type\": \"int\", \"_nullable\": true}, \"key_native_data_type\": \"int\"}"
                             }
                         ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "totalSize": "0",
-                            "numRows": "0",
-                            "numFiles": "0",
-                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
-                            "transient_lastDdlTime": "1700805676",
-                            "rawDataSize": "0",
-                            "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
-                            "create_date": "2023-11-24"
-                        },
-                        "name": "map_test",
-                        "tags": []
                     }
                 }
             ]
@@ -351,6 +399,71 @@
         "json": {
             "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1.union_test,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "union_test"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numRows",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1715258696"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numFiles",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/COLUMN_STATS_ACCURATE",
+                "value": "{\"BASIC_STATS\":\"true\"}"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/rawDataSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/totalSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "MANAGED_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_location",
+                "value": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/create_date",
+                "value": "2024-05-09"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -476,23 +589,6 @@
                             }
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "numRows": "0",
-                            "numFiles": "0",
-                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
-                            "transient_lastDdlTime": "1700805676",
-                            "rawDataSize": "0",
-                            "totalSize": "0",
-                            "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test",
-                            "create_date": "2023-11-24"
-                        },
-                        "name": "union_test",
-                        "tags": []
-                    }
                 }
             ]
         }
@@ -555,6 +651,71 @@
         "json": {
             "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1.nested_struct_test,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "nested_struct_test"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1715258695"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numFiles",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/COLUMN_STATS_ACCURATE",
+                "value": "{\"BASIC_STATS\":\"true\"}"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/rawDataSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numRows",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/totalSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "MANAGED_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_location",
+                "value": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/create_date",
+                "value": "2024-05-09"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -672,23 +833,6 @@
                             }
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "totalSize": "0",
-                            "numFiles": "0",
-                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
-                            "transient_lastDdlTime": "1700805676",
-                            "rawDataSize": "0",
-                            "numRows": "0",
-                            "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test",
-                            "create_date": "2023-11-24"
-                        },
-                        "name": "nested_struct_test",
-                        "tags": []
-                    }
                 }
             ]
         }
@@ -751,6 +895,86 @@
         "json": {
             "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1.array_struct_test,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "array_struct_test"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "This table has array of structs"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/another.comment",
+                "value": "This table has no partitions"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numFiles",
+                "value": "1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numRows",
+                "value": "1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/rawDataSize",
+                "value": "32"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1715258689"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/totalSize",
+                "value": "33"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/comment",
+                "value": "This table has array of structs"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/COLUMN_STATS_ACCURATE",
+                "value": "{\"BASIC_STATS\":\"true\"}"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "MANAGED_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_location",
+                "value": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/create_date",
+                "value": "2024-05-09"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -852,26 +1076,6 @@
                             }
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "another.comment": "This table has no partitions",
-                            "numRows": "1",
-                            "rawDataSize": "32",
-                            "totalSize": "33",
-                            "numFiles": "1",
-                            "transient_lastDdlTime": "1700805674",
-                            "comment": "This table has array of structs",
-                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
-                            "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
-                            "create_date": "2023-11-24"
-                        },
-                        "name": "array_struct_test",
-                        "description": "This table has array of structs",
-                        "tags": []
-                    }
                 }
             ]
         }
@@ -934,6 +1138,71 @@
         "json": {
             "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1.struct_test,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "struct_test"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numRows",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numFiles",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/COLUMN_STATS_ACCURATE",
+                "value": "{\"BASIC_STATS\":\"true\"}"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1715258680"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/rawDataSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/totalSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "MANAGED_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_location",
+                "value": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/create_date",
+                "value": "2024-05-09"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -1029,23 +1298,6 @@
                             }
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "transient_lastDdlTime": "1700805671",
-                            "numFiles": "0",
-                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
-                            "rawDataSize": "0",
-                            "numRows": "0",
-                            "totalSize": "0",
-                            "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
-                            "create_date": "2023-11-24"
-                        },
-                        "name": "struct_test",
-                        "tags": []
-                    }
                 }
             ]
         }
@@ -1116,6 +1368,71 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1._test_table_underscore,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "_test_table_underscore"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numRows",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/numFiles",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/COLUMN_STATS_ACCURATE",
+                "value": "{\"BASIC_STATS\":\"true\"}"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1715258680"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/rawDataSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/totalSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "MANAGED_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_location",
+                "value": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/create_date",
+                "value": "2024-05-09"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1._test_table_underscore,PROD)",
@@ -1172,23 +1489,6 @@
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "transient_lastDdlTime": "1700805671",
-                            "numFiles": "0",
-                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
-                            "rawDataSize": "0",
-                            "numRows": "0",
-                            "totalSize": "0",
-                            "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
-                            "create_date": "2023-11-24"
-                        },
-                        "name": "_test_table_underscore",
-                        "tags": []
                     }
                 }
             ]
@@ -1260,6 +1560,51 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1.pokes,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/name",
+                "value": "pokes"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1715258672"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_type",
+                "value": "MANAGED_TABLE"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/table_location",
+                "value": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/create_date",
+                "value": "2024-05-09"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/partitioned_columns",
+                "value": "baz"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,metastore.db1.pokes,PROD)",
@@ -1290,19 +1635,6 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=int].foo",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
-                            },
-                            {
                                 "fieldPath": "[version=2.0].[type=string].baz",
                                 "nullable": true,
                                 "type": {
@@ -1315,6 +1647,19 @@
                                 "isPartOfKey": false,
                                 "isPartitioningKey": true,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].foo",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].bar",
@@ -1330,19 +1675,6 @@
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "transient_lastDdlTime": "1700805669",
-                            "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
-                            "create_date": "2023-11-24",
-                            "partitioned_columns": "baz"
-                        },
-                        "name": "pokes",
-                        "tags": []
                     }
                 }
             ]

@@ -143,33 +143,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.book,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d",
-                    "urn": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
-                },
-                {
-                    "id": "views"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.book,PROD)",
@@ -240,6 +213,17 @@
                                 "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.book,PROD),issue_date_3)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.book,PROD),count)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.book,PROD),count)"
                                 ],
                                 "confidenceScore": 1.0
                             }
@@ -396,6 +380,33 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d",
+                    "urn": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.extend_book,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -438,33 +449,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.extend_book,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d",
-                    "urn": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
-                },
-                {
-                    "id": "views"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -525,6 +509,33 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.extend_book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d",
+                    "urn": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.order,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -567,33 +578,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.order,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d",
-                    "urn": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
-                },
-                {
-                    "id": "views"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -744,6 +728,33 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.order,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d",
+                    "urn": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_2.view.issue_history,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -786,33 +797,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_2.view.issue_history,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d",
-                    "urn": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
-                },
-                {
-                    "id": "views"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -870,6 +854,17 @@
                                 "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_2.view.issue_history,PROD),user_name)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.issue_history,PROD),count)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_2.view.issue_history,PROD),count)"
                                 ],
                                 "confidenceScore": 1.0
                             }
@@ -972,6 +967,33 @@
                         "name": "issue_history",
                         "tags": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_2.view.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d",
+                    "urn": "urn:li:container:6f4a333fac5ec55b27b0e65bfb57ef0d"
+                },
+                {
+                    "id": "views"
                 }
             ]
         }

@@ -10,6 +10,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.EntityLineageResult;
@@ -28,6 +29,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -38,6 +40,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
@@ -905,6 +908,99 @@ public class Neo4jGraphService implements GraphService {
       int count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
-    throw new IllegalArgumentException("Not implemented");
+
+    if (sourceTypes != null && sourceTypes.isEmpty()
+        || destinationTypes != null && destinationTypes.isEmpty()) {
+      return new RelatedEntitiesScrollResult(0, 0, null, Collections.emptyList());
+    }
+
+    final String srcCriteria = filterToCriteria(sourceEntityFilter).trim();
+    final String destCriteria = filterToCriteria(destinationEntityFilter).trim();
+    final String edgeCriteria = relationshipFilterToCriteria(relationshipFilter);
+
+    final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
+    String srcNodeLabel = "";
+    // Create a URN from the String. Only proceed if srcCriteria is not null or empty
+    if (srcCriteria != null && !srcCriteria.isEmpty()) {
+      final String urnValue =
+          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValue().toString();
+      try {
+        final Urn urn = Urn.createFromString(urnValue);
+        srcNodeLabel = urn.getEntityType();
+      } catch (URISyntaxException e) {
+        log.error("Failed to parse URN: {} ", urnValue, e);
+      }
+    }
+    String matchTemplate = "MATCH (src:%s %s)-[r%s %s]-(dest %s)%s";
+    if (relationshipDirection == RelationshipDirection.INCOMING) {
+      matchTemplate = "MATCH (src:%s %s)<-[r%s %s]-(dest %s)%s";
+    } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+      matchTemplate = "MATCH (src:%s %s)-[r%s %s]->(dest %s)%s";
+    }
+
+    final String returnNodes =
+        String.format(
+            "RETURN dest, src, type(r)"); // Return both related entity and the relationship type.
+    final String returnCount = "RETURN count(*)"; // For getting the total results.
+
+    String relationshipTypeFilter = "";
+    if (!relationshipTypes.isEmpty()) {
+      relationshipTypeFilter = ":" + StringUtils.join(relationshipTypes, "|");
+    }
+
+    String whereClause = computeEntityTypeWhereClause(sourceTypes, destinationTypes);
+
+    // Build Statement strings
+    String baseStatementString =
+        String.format(
+            matchTemplate,
+            srcNodeLabel,
+            srcCriteria,
+            relationshipTypeFilter,
+            edgeCriteria,
+            destCriteria,
+            whereClause);
+
+    log.info(baseStatementString);
+
+    final String resultStatementString =
+        String.format("%s %s SKIP $offset LIMIT $count", baseStatementString, returnNodes);
+    final String countStatementString = String.format("%s %s", baseStatementString, returnCount);
+
+    int offset = 0;
+    if (Objects.nonNull(scrollId)) {
+      offset = Integer.valueOf(SearchAfterWrapper.fromScrollId(scrollId).getPitId().toString());
+    }
+
+    // Build Statements
+    final Statement resultStatement =
+        new Statement(resultStatementString, ImmutableMap.of("offset", offset, "count", count));
+    final Statement countStatement = new Statement(countStatementString, Collections.emptyMap());
+
+    // Execute Queries
+    final List<RelatedEntities> relatedEntities =
+        runQuery(resultStatement)
+            .list(
+                record ->
+                    new RelatedEntities(
+                        record.values().get(2).asString(), // Relationship Type
+                        record.values().get(0).asNode().get("urn").asString(),
+                        record.values().get(1).asNode().get("urn").asString(),
+                        relationshipDirection,
+                        null));
+    final int totalCount = runQuery(countStatement).single().get(0).asInt();
+    log.info("Total Related Entities: {}", totalCount);
+    // return new RelatedEntitiesResult(0, relatedEntities.size(), totalCount, relatedEntities);
+    String nextScrollId = null;
+    if (relatedEntities.size() == count) {
+      String pitId = Integer.toString(offset + count);
+      nextScrollId = new SearchAfterWrapper(null, pitId, 0L).toScrollId();
+    }
+    return RelatedEntitiesScrollResult.builder()
+        .entities(relatedEntities)
+        .pageSize(relatedEntities.size())
+        .numResults(totalCount)
+        .scrollId(nextScrollId)
+        .build();
   }
 }
