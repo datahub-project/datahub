@@ -509,6 +509,7 @@ def default_source_config():
         },
         "env": "DEV",
         "extract_workspaces_to_containers": False,
+        "enable_advance_lineage_sql_construct": False,
     }
 
 
