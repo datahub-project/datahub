@@ -236,6 +236,8 @@ public class GraphQLEngineFactory {
     args.setDataProductService(dataProductService);
     args.setGraphQLQueryComplexityLimit(
         configProvider.getGraphQL().getQuery().getComplexityLimit());
+    args.setGraphQLQueryIntrospectionEnabled(
+        configProvider.getGraphQL().getQuery().isIntrospectionEnabled());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     args.setBusinessAttributeService(businessAttributeService);
     args.setConnectionService(_connectionService);
