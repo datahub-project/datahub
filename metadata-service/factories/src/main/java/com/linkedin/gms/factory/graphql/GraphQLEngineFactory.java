@@ -21,6 +21,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
+import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
@@ -181,6 +182,10 @@ public class GraphQLEngineFactory {
   @Qualifier("businessAttributeService")
   private BusinessAttributeService businessAttributeService;
 
+  @Autowired
+  @Qualifier("connectionService")
+  private ConnectionService _connectionService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -233,6 +238,7 @@ public class GraphQLEngineFactory {
         configProvider.getGraphQL().getQuery().getComplexityLimit());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     args.setBusinessAttributeService(businessAttributeService);
+    args.setConnectionService(_connectionService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 }
