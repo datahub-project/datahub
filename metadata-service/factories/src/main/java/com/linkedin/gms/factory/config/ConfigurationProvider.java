@@ -4,6 +4,7 @@ import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
+import com.linkedin.metadata.config.ClassificationConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.ExecutorConfiguration;
@@ -105,4 +106,7 @@ public class ConfigurationProvider {
 
   /** Configuration related to datahub executors */
   private ExecutorConfiguration executors;
+
+  /** Configuration related to classifications and automations */
+  private ClassificationConfiguration classificationConfig;
 }

@@ -48,6 +48,12 @@ export const DEFAULT_APP_CONFIG = {
     viewsConfig: {
         enabled: false,
     },
+    classificationConfig: {
+        enabled: false,
+        automations: {
+            snowflake: false
+        }
+    },
     featureFlags: {
         readOnlyModeEnabled: false,
         showSearchFiltersV2: true,

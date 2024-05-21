@@ -9,6 +9,8 @@ import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.AuthConfig;
 import com.linkedin.datahub.graphql.generated.ChromeExtensionConfig;
+import com.linkedin.datahub.graphql.generated.ClassificationAutomations;
+import com.linkedin.datahub.graphql.generated.ClassificationConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfilesConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -26,6 +28,7 @@ import com.linkedin.datahub.graphql.generated.TestsConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
+import com.linkedin.metadata.config.ClassificationConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -54,6 +57,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final ViewsConfiguration _viewsConfiguration;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
+  private final ClassificationConfiguration _classificationConfiguration;
+//  private final ClassificationAutomations _automations;
   private final Integer _defaultLineageLastDaysFilter;
 
   public AppConfigResolver(
@@ -70,6 +75,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final ViewsConfiguration viewsConfiguration,
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
+      final ClassificationConfiguration classificationConfiguration,
       final Integer defaultLineageLastDaysFilter) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
@@ -84,6 +90,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _viewsConfiguration = viewsConfiguration;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
+    _classificationConfiguration = classificationConfiguration; 
     _defaultLineageLastDaysFilter = defaultLineageLastDaysFilter;
   }
 
@@ -226,6 +233,15 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     chromeExtensionConfig.setEnabled(_chromeExtensionConfiguration.isEnabled());
     chromeExtensionConfig.setLineageEnabled(_chromeExtensionConfiguration.isLineageEnabled());
     appConfig.setChromeExtensionConfig(chromeExtensionConfig);
+
+    // Classification Configuration
+    final ClassificationConfig classificationConfig = new ClassificationConfig();
+    final ClassificationAutomations automations = new ClassificationAutomations();
+
+    classificationConfig.setEnabled(_classificationConfiguration.isEnabled());
+    automations.setSnowflake(_classificationConfiguration.getAutomations().isSnowflake());
+    classificationConfig.setAutomations(automations);
+    appConfig.setClassificationConfig(classificationConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }

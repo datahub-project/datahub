@@ -61,6 +61,9 @@ services:
     - DOCUMENTATION_AI_ENABLED=${DOCUMENTATION_AI_ENABLED:-false}
     - THEME_V2_ENABLED=${THEME_V2_ENABLED:-true}
     - FEATURE_DOCUMENTATION_FORMS_ENABLED=${FEATURE_DOCUMENTATION_FORMS_ENABLED:-true}
+    # Classification
+    - CLASSIFICATION_CONFIG_ENABLED=${CLASSIFICATION_CONFIG_ENABLED:-true}
+    - CLASSIFICATION_AUTOMATIONS_SNOWFLAKE_ENABLED=${CLASSIFICATION_AUTOMATIONS_SNOWFLAKE_ENABLED:-true}
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml

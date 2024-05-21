@@ -248,6 +248,11 @@ type AppConfig {
   Configuration related to the DataHub Chrome Extension
   """
   chromeExtensionConfig: ChromeExtensionConfig!
+
+  """
+  Configurations for Classification
+  """
+  classificationConfig: ClassificationConfig!
 }
 
 """
@@ -1157,6 +1162,31 @@ type ChromeExtensionConfig {
   Whether lineage is enabled
   """
   lineageEnabled: Boolean!
+}
+
+"""
+Configurations related to Classification Automation
+"""
+type ClassificationAutomations {
+  """
+  Individual automation settings
+  """
+  snowflake: Boolean!
+}
+
+"""
+Configurations related to Classification
+"""
+type ClassificationConfig {
+  """
+  Whether the Classification Center is senabled
+  """
+  enabled: Boolean!
+
+  """
+  Individual automation settings
+  """
+  automations: ClassificationAutomations!
 }
 
 """

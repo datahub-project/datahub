@@ -329,6 +329,8 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
+import com.linkedin.metadata.config.ClassificationConfiguration;
+import com.linkedin.metadata.config.ClassificationAutomations;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -434,6 +436,7 @@ public class GmsGraphQLEngine {
   private final DataHubConfiguration datahubConfiguration;
   private final ViewsConfiguration viewsConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
+  private final ClassificationConfiguration classificationConfiguration;
 
   private final DatasetType datasetType;
 
@@ -548,6 +551,7 @@ public class GmsGraphQLEngine {
     this.viewsConfiguration = args.viewsConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
+    this.classificationConfiguration = args.classificationConfiguration;
 
     this.datasetType = new DatasetType(entityClient);
     this.roleType = new RoleType(entityClient);
@@ -921,6 +925,7 @@ public class GmsGraphQLEngine {
                         this.viewsConfiguration,
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
+                        this.classificationConfiguration,
                         this.defaultLineageLastDaysFilter))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
                 .dataFetcher("search", new SearchResolver(this.entityClient))

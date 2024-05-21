@@ -149,6 +149,14 @@ visualConfig:
   searchResult:
     enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
 
+# Classification/Propagation Automation Config
+classificationConfig:
+  # enable the classification center
+  enabled: ${CLASSIFICATION_CONFIG_ENABLED:false}
+  automations:
+    # support enabling/disabling individual automation types
+    snowflake: ${CLASSIFICATION_AUTOMATIONS_SNOWFLAKE_ENABLED:false}
+
 # Storage Layer
 
 # Only required if entityService.impl is ebean

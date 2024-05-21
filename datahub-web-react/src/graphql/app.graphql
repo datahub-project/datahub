@@ -65,6 +65,12 @@ query appConfig {
         viewsConfig {
             enabled
         }
+        classificationConfig {
+            enabled
+            automations {
+                snowflake
+            }
+        }
         featureFlags {
             readOnlyModeEnabled
             showSearchFiltersV2
