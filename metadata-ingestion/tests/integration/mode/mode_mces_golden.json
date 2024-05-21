@@ -111,6 +111,22 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(mode,2934237)",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:800cfcb4cec6ad587cafde11a0b0bb4a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
         "json": {
