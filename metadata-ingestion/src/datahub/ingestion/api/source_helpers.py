@@ -30,6 +30,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     OwnershipClass as Ownership,
+    SchemaFieldClass,
     SchemaMetadataClass,
     StatusClass,
     TimeWindowSizeClass,
@@ -397,16 +398,19 @@ def auto_fix_duplicate_schema_field_paths(
 
             has_duplicates = False
             seen_fields = set()
-            updated_fields = []
+            updated_fields: List[SchemaFieldClass] = []
             for field in schema_metadata.fields:
                 if field.fieldPath in seen_fields:
                     has_duplicates = True
                     duplicated_field_paths += 1
                 else:
                     seen_fields.add(field.fieldPath)
-                    updated_fields.append(field.fieldPath)
+                    updated_fields.append(field)
 
             if has_duplicates:
+                logger.info(
+                    f"Fixing duplicate field paths in schema aspect for {wu.get_urn()}"
+                )
                 schemas_with_duplicates += 1
                 schema_metadata.fields = updated_fields
 
