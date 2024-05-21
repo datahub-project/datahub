@@ -1,4 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # About DataHub Properties
 <FeatureAvailability/>
@@ -117,7 +119,7 @@ Here's how we would define the above examples in YAML:
 </TabItem>
 </Tabs>
 
-:::Note
+:::note
 To learn more about creating and assigning Structured Properties via CLI, please see the [Create Structured Properties](/docs/api/tutorials/structured-properties.md) tutorial.
 :::
 
