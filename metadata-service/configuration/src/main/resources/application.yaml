@@ -449,6 +449,7 @@ graphQL:
   query:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
+    introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
 
 springdoc.api-docs.groups.enabled: true
 

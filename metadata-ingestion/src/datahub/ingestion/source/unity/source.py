@@ -163,7 +163,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
     def __init__(self, ctx: PipelineContext, config: UnityCatalogSourceConfig):
-        super(UnityCatalogSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
 
         self.config = config
         self.report: UnityCatalogReport = UnityCatalogReport()

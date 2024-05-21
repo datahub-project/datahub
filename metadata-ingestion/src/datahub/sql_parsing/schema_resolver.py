@@ -81,7 +81,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return False
 
     def get_urns(self) -> Set[str]:
-        return set(k for k, v in self._schema_cache.items() if v is not None)
+        return {k for k, v in self._schema_cache.items() if v is not None}
 
     def schema_count(self) -> int:
         return int(

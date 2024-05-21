@@ -17,6 +17,7 @@ import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
+import graphql.schema.visibility.NoIntrospectionGraphqlFieldVisibility;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,15 +46,18 @@ public class GraphQLEngine {
   private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _dataLoaderSuppliers;
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
+  private final boolean graphQLQueryIntrospectionEnabled;
 
   private GraphQLEngine(
       @Nonnull final List<String> schemas,
       @Nonnull final RuntimeWiring runtimeWiring,
       @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers,
       @Nonnull final int graphQLQueryComplexityLimit,
-      @Nonnull final int graphQLQueryDepthLimit) {
+      @Nonnull final int graphQLQueryDepthLimit,
+      @Nonnull final boolean graphQLQueryIntrospectionEnabled) {
     this.graphQLQueryComplexityLimit = graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = graphQLQueryDepthLimit;
+    this.graphQLQueryIntrospectionEnabled = graphQLQueryIntrospectionEnabled;
 
     _dataLoaderSuppliers = dataLoaderSuppliers;
 
@@ -133,6 +137,7 @@ public class GraphQLEngine {
     private final RuntimeWiring.Builder _runtimeWiringBuilder = newRuntimeWiring();
     private int graphQLQueryComplexityLimit = 2000;
     private int graphQLQueryDepthLimit = 50;
+    private boolean graphQLQueryIntrospectionEnabled = true;
 
     /**
      * Used to add a schema file containing the GQL types resolved by the engine.
@@ -180,6 +185,9 @@ public class GraphQLEngine {
      * any required data + type resolvers.
      */
     public Builder configureRuntimeWiring(final Consumer<RuntimeWiring.Builder> builderFunc) {
+      if (!this.graphQLQueryIntrospectionEnabled)
+        _runtimeWiringBuilder.fieldVisibility(
+            NoIntrospectionGraphqlFieldVisibility.NO_INTROSPECTION_FIELD_VISIBILITY);
       builderFunc.accept(_runtimeWiringBuilder);
       return this;
     }
@@ -194,6 +202,11 @@ public class GraphQLEngine {
       return this;
     }
 
+    public Builder setGraphQLQueryIntrospectionEnabled(final boolean introspectionEnabled) {
+      this.graphQLQueryIntrospectionEnabled = introspectionEnabled;
+      return this;
+    }
+
     /** Builds a {@link GraphQLEngine}. */
     public GraphQLEngine build() {
       return new GraphQLEngine(
@@ -201,7 +214,8 @@ public class GraphQLEngine {
           _runtimeWiringBuilder.build(),
           _loaderSuppliers,
           graphQLQueryComplexityLimit,
-          graphQLQueryDepthLimit);
+          graphQLQueryDepthLimit,
+          graphQLQueryIntrospectionEnabled);
     }
   }
 
