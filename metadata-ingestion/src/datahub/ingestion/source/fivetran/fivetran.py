@@ -284,7 +284,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         connectors = self.audit_log.get_allowed_connectors_list(
             self.config.connector_patterns,
             self.report,
-            self.config.extract_syncs_for_interval,
+            self.config.extract_sync_history_for_interval,
         )
         for connector in connectors:
             logger.info(f"Processing connector id: {connector.connector_id}")
