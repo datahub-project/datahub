@@ -31,14 +31,15 @@ class FivetranLogQuery:
         WHERE id = '{user_id}'"""
 
     def get_sync_logs_query(self) -> str:
-        return f"""
+        return """
         SELECT connector_id,
         sync_id,
         message_event,
         message_data,
         time_stamp
-        FROM {self.db_clause}log
-        WHERE message_event in ('sync_start', 'sync_end')"""
+        FROM {}log
+        WHERE message_event in ('sync_start', 'sync_end')
+        and time_stamp > CURRENT_TIMESTAMP - INTERVAL '{} days'"""
 
     def get_table_lineage_query(self) -> str:
         return f"""
