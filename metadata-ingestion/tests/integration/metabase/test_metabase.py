@@ -305,10 +305,7 @@ def test_mode_ingest_failure(pytestconfig, tmp_path, default_json_response_map):
             assert list(exec_error.args[1].failures.keys())[0] == "metabase-dashboard"
 
 
-@freeze_time(FROZEN_TIME)
-def test_9767_templated_query_is_stripped(
-    pytestconfig, tmp_path, test_pipeline, mock_datahub_graph
-):
+def test_strip_template_expressions():
     query_with_variables = (
         "SELECT count(*) FROM products WHERE category = {{category}}",
         "SELECT count(*) FROM products WHERE category = 1",
