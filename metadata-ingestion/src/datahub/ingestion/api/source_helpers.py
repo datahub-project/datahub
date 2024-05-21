@@ -379,7 +379,7 @@ def auto_browse_path_v2(
         telemetry.telemetry_instance.ping("incorrect_browse_path_v2", properties)
 
 
-def auto_flag_duplicate_schema_field_paths(
+def auto_fix_duplicate_schema_field_paths(
     stream: Iterable[MetadataWorkUnit],
     *,
     platform: Optional[str] = None,
@@ -387,24 +387,37 @@ def auto_flag_duplicate_schema_field_paths(
     """Count schema metadata aspects with duplicate field paths and emit telemetry."""
 
     total_schema_aspects = 0
-    duplicate_field_paths = 0
+    schemas_with_duplicates = 0
+    duplicated_field_paths = 0
 
     for wu in stream:
         schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
         if schema_metadata:
             total_schema_aspects += 1
 
-            field_paths = [field.fieldPath for field in schema_metadata.fields]
-            if len(field_paths) != len(set(field_paths)):
-                duplicate_field_paths += 1
+            has_duplicates = False
+            seen_fields = set()
+            updated_fields = []
+            for field in schema_metadata.fields:
+                if field.fieldPath in seen_fields:
+                    has_duplicates = True
+                    duplicated_field_paths += 1
+                else:
+                    seen_fields.add(field.fieldPath)
+                    updated_fields.append(field.fieldPath)
+
+            if has_duplicates:
+                schemas_with_duplicates += 1
+                schema_metadata.fields = updated_fields
 
         yield wu
 
-    if duplicate_field_paths:
+    if schemas_with_duplicates:
         properties = {
             "platform": platform,
             "total_schema_aspects": total_schema_aspects,
-            "duplicate_field_paths": duplicate_field_paths,
+            "schemas_with_duplicates": schemas_with_duplicates,
+            "duplicated_field_paths": duplicated_field_paths,
         }
         telemetry.telemetry_instance.ping(
             "ingestion_duplicate_schema_field_paths", properties
