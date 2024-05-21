@@ -81,8 +81,6 @@ module.exports = {
             },
           ],
         },
-        "docs/features/feature-guides/properties",
-        "docs/features/feature-guides/documentation-forms",
         {
           label: "Business Attributes",
           type: "doc",
@@ -108,6 +106,7 @@ module.exports = {
           type: "doc",
           id: "docs/features/dataset-usage-and-query-history",
         },
+        "docs/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
@@ -164,6 +163,7 @@ module.exports = {
           type: "doc",
           id: "docs/posts",
         },
+        "docs/features/feature-guides/properties",
         {
           label: "Schema history",
           type: "doc",
