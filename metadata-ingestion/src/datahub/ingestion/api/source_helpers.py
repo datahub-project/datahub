@@ -396,23 +396,23 @@ def auto_fix_duplicate_schema_field_paths(
         if schema_metadata:
             total_schema_aspects += 1
 
-            has_duplicates = False
             seen_fields = set()
+            dropped_fields = []
             updated_fields: List[SchemaFieldClass] = []
             for field in schema_metadata.fields:
                 if field.fieldPath in seen_fields:
-                    has_duplicates = True
-                    duplicated_field_paths += 1
+                    dropped_fields.append(field.fieldPath)
                 else:
                     seen_fields.add(field.fieldPath)
                     updated_fields.append(field)
 
-            if has_duplicates:
+            if dropped_fields:
                 logger.info(
-                    f"Fixing duplicate field paths in schema aspect for {wu.get_urn()}"
+                    f"Fixing duplicate field paths in schema aspect for {wu.get_urn()} by dropping fields: {dropped_fields}"
                 )
-                schemas_with_duplicates += 1
                 schema_metadata.fields = updated_fields
+                schemas_with_duplicates += 1
+                duplicated_field_paths += len(dropped_fields)
 
         yield wu
 
