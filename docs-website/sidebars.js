@@ -106,6 +106,7 @@ module.exports = {
           type: "doc",
           id: "docs/features/dataset-usage-and-query-history",
         },
+        "docs/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
@@ -162,6 +163,7 @@ module.exports = {
           type: "doc",
           id: "docs/posts",
         },
+        "docs/features/feature-guides/properties",
         {
           label: "Schema history",
           type: "doc",
@@ -676,11 +678,6 @@ module.exports = {
               label: "OpenAPI",
               id: "docs/api/openapi/openapi-usage-guide",
             },
-            {
-              type: "doc",
-              label: "Structured Properties",
-              id: "docs/api/openapi/openapi-structured-properties",
-            },
           ],
         },
         "docs/dev-guides/timeline",
@@ -810,6 +807,8 @@ module.exports = {
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/ml",
+        "docs/api/tutorials/structured-properties",
+        "docs/api/tutorials/forms",
       ],
     },
     {
