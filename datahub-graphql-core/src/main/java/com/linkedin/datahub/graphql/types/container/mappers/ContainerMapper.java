@@ -44,7 +44,7 @@ public class ContainerMapper {
     final Container result = new Container();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspects);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspects);
     result.setLastIngested(lastIngested);
 
     result.setUrn(entityUrn.toString());

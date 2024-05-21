@@ -79,7 +79,7 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.MLMODEL);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<MLModel> mappingHelper = new MappingHelper<>(aspectMap, result);

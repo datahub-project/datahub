@@ -28,7 +28,7 @@ public class SystemMetadataUtils {
   }
 
   @Nullable
-  public static Long getLastIngestedTime(@Nonnull EnvelopedAspectMap aspectMap) {
+  public static Long lastIngestedTime(@Nonnull EnvelopedAspectMap aspectMap) {
     RunInfo lastIngestionRun = getLastIngestionRun(aspectMap);
     return lastIngestionRun != null ? lastIngestionRun.getTime() : null;
   }

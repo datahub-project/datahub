@@ -69,7 +69,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DASHBOARD);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<Dashboard> mappingHelper = new MappingHelper<>(aspectMap, result);

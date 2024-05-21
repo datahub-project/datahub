@@ -73,7 +73,7 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
     result.setType(EntityType.DATA_JOB);
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     entityResponse

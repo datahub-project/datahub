@@ -60,7 +60,7 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.MLFEATURE_TABLE);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<MLFeatureTable> mappingHelper = new MappingHelper<>(aspectMap, result);

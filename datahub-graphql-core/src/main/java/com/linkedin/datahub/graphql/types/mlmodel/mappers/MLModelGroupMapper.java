@@ -60,7 +60,7 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.MLMODEL_GROUP);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<MLModelGroup> mappingHelper = new MappingHelper<>(aspectMap, result);
