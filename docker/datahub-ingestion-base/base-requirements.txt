@@ -254,7 +254,7 @@ pydruid==0.6.6
 Pygments==2.17.2
 pyiceberg==0.4.0
 pymongo==4.6.3
-PyMySQL==1.1.0
+PyMySQL==1.1.1
 pyOpenSSL==24.1.0
 pyparsing==3.0.9
 pyspnego==0.10.2
