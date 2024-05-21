@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.assertions;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.AssertionService;
 import javax.annotation.Nonnull;
