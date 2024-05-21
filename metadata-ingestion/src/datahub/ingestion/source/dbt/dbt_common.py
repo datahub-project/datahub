@@ -1126,24 +1126,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             elif node.compiled_code:
                 try:
                     # Add CTE stops based on the upstreams list.
+                    cte_mapping = {
+                        cte_name: upstream_node.get_fake_ephemeral_table_name()
+                        for upstream_node in [
+                            all_nodes_map[upstream_node_name]
+                            for upstream_node_name in node.upstream_nodes
+                            if upstream_node_name in all_nodes_map
+                        ]
+                        if upstream_node.is_ephemeral_model()
+                        for cte_name in _get_dbt_cte_names(
+                            upstream_node.name, schema_resolver.platform
+                        )
+                    }
                     preprocessed_sql = detach_ctes(
                         parse_statements_and_pick(
                             node.compiled_code,
                             platform=schema_resolver.platform,
                         ),
                         platform=schema_resolver.platform,
-                        cte_mapping={
-                            cte_name: upstream_node.get_fake_ephemeral_table_name()
-                            for upstream_node in [
-                                all_nodes_map[upstream_node_name]
-                                for upstream_node_name in node.upstream_nodes
-                                if upstream_node_name in all_nodes_map
-                            ]
-                            if upstream_node.is_ephemeral_model()
-                            for cte_name in _get_dbt_cte_names(
-                                upstream_node.name, schema_resolver.platform
-                            )
-                        },
+                        cte_mapping=cte_mapping,
                     )
                 except Exception as e:
                     self.report.sql_parser_detach_ctes_failures.append(node.dbt_name)
