@@ -588,6 +588,6 @@ def rollback(
                 for row in unsafe_entities:
                     writer.writerow([row.get("urn")])
 
-        except IOError as e:
+        except OSError as e:
             logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")

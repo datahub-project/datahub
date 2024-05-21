@@ -68,6 +68,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Schema Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/schema-assertions",
+              className: "saasOnly",
+            },
+            {
               label: "Volume Assertions",
               type: "doc",
               id: "docs/managed-datahub/observe/volume-assertions",
@@ -100,6 +106,7 @@ module.exports = {
           type: "doc",
           id: "docs/features/dataset-usage-and-query-history",
         },
+        "docs/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
@@ -156,6 +163,7 @@ module.exports = {
           type: "doc",
           id: "docs/posts",
         },
+        "docs/features/feature-guides/properties",
         {
           label: "Schema history",
           type: "doc",
@@ -256,6 +264,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_2",
             "docs/managed-datahub/release-notes/v_0_3_1",
             "docs/managed-datahub/release-notes/v_0_2_16",
             "docs/managed-datahub/release-notes/v_0_2_15",
@@ -669,11 +678,6 @@ module.exports = {
               label: "OpenAPI",
               id: "docs/api/openapi/openapi-usage-guide",
             },
-            {
-              type: "doc",
-              label: "Structured Properties",
-              id: "docs/api/openapi/openapi-structured-properties",
-            },
           ],
         },
         "docs/dev-guides/timeline",
@@ -803,6 +807,8 @@ module.exports = {
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/ml",
+        "docs/api/tutorials/structured-properties",
+        "docs/api/tutorials/forms",
       ],
     },
     {
@@ -882,6 +888,7 @@ module.exports = {
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
+    // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // ],

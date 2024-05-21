@@ -38,6 +38,11 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       SQL
 
       /**
+       * A structured assertion targeting a specific column or field of the Dataset.
+       */
+      FIELD
+
+      /**
        * A schema or structural assertion.
        *
        * Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word).
