@@ -17,6 +17,10 @@ from slack_bolt.adapter.fastapi import SlackRequestHandler
 from slack_sdk.oauth import AuthorizeUrlGenerator
 
 from datahub_integrations.app import DATAHUB_FRONTEND_URL, graph
+from datahub_integrations.graphql.incidents import (
+    UPDATE_INCIDENT_PRIORITY_MUTATION,
+    UPDATE_INCIDENT_STATUS_MUTATION,
+)
 from datahub_integrations.graphql.slack import SLACK_GET_ENTITY_QUERY
 from datahub_integrations.graphql.subscription import (
     CREATE_SUBSCRIPTION,
@@ -30,12 +34,19 @@ from datahub_integrations.slack.app_manifest import (
 from datahub_integrations.slack.command.router import handle_command
 from datahub_integrations.slack.command.search import search
 from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
-from datahub_integrations.slack.context import SearchContext
+from datahub_integrations.slack.context import (
+    IncidentContext,
+    IncidentSelectOption,
+    SearchContext,
+)
 from datahub_integrations.slack.oauth_state_store import InMemoryStateStore
 from datahub_integrations.slack.render.constants import ACRYL_COLOR
 from datahub_integrations.slack.render.render_entity import (
     render_entity_modal,
     render_entity_preview,
+)
+from datahub_integrations.slack.render.render_resolve_incident import (
+    render_resolve_incident,
 )
 from datahub_integrations.slack.render.render_subscription import (
     EntityChangeTypeGroup,
@@ -44,6 +55,7 @@ from datahub_integrations.slack.render.render_subscription import (
 from datahub_integrations.slack.utils.datahub_user import (
     get_datahub_user,
     get_user_information,
+    graph_as_system,
     graph_as_user,
 )
 from datahub_integrations.slack.utils.entity_extract import (
@@ -427,6 +439,167 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
         logger.debug(f"create subscription: {data}")
         respond(text="✅ Subscription created 🔔!", replace_original=False)
+
+    @app.action("resolve_incident")
+    def handle_resolve_incident(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        context = IncidentContext(**json.loads(action["value"]))
+
+        app.client.views_open(
+            trigger_id=body["trigger_id"],
+            view=render_resolve_incident(
+                context.urn, body["response_url"], context.stage, context
+            ),
+        )
+
+    @app.view_submission("resolve_incident")
+    def handle_resolve_incident_submit(ack: Ack, body: dict, view: dict) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        private_metadata = json.loads(view["private_metadata"])
+        incident_urn = private_metadata["urn"]
+
+        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+        logger.debug(f"matched user urns: {user_urns}")
+        if not user_urn:
+            logger.warning(
+                f"Could not find corresponding DataHub user with email {email}. Resolving incident as system."
+            )
+        if len(user_urns) > 1:
+            logger.warning(
+                f"Found multiple corresponding DataHub users with email {email}. Resolving incident as system."
+            )
+
+        impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
+
+        note = view["state"]["values"]["incident_message_input"][
+            "incident_message_input_action"
+        ]["value"]
+
+        stage = None
+        if "incident_stage_select" in view["state"]["values"]:
+            select_action = view["state"]["values"]["incident_stage_select"][
+                "select_incident_stage"
+            ]
+            selected_option = IncidentSelectOption(
+                **json.loads(select_action["selected_option"]["value"])
+            )
+            stage = selected_option.value
+
+        input = {"state": "RESOLVED", "message": note, "stage": stage or None}
+        data = impersonation_graph.execute_graphql(
+            UPDATE_INCIDENT_STATUS_MUTATION,
+            variables={"urn": incident_urn, "input": input},
+        )
+
+        logger.debug(f"resolved incident!: {data}")
+
+    @app.action("reopen_incident")
+    def handle_reopen_incident(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        context = IncidentContext(**json.loads(action["value"]))
+        incident_urn = context.urn
+
+        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+        logger.debug(f"matched user urns: {user_urns}")
+
+        if not user_urn:
+            logger.warning(
+                f"Could not find corresponding DataHub user with email {email}. Reopening incident as system user."
+            )
+        if len(user_urns) > 1:
+            logger.warning(
+                f"Found multiple corresponding DataHub users with email {email}. Reopening incident as system user."
+            )
+
+        impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
+
+        input = {
+            "state": "ACTIVE",
+        }
+        data = impersonation_graph.execute_graphql(
+            UPDATE_INCIDENT_STATUS_MUTATION,
+            variables={"urn": incident_urn, "input": input},
+        )
+
+        logger.debug(f"reopened incident!: {data}")
+
+    @app.action("select_incident_stage")
+    def handle_select_incident_stage(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        option = IncidentSelectOption(**json.loads(action["selected_option"]["value"]))
+        context = option.context
+        new_stage = option.value
+
+        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+
+        if not user_urn:
+            logger.warning(
+                f"Could not find corresponding DataHub user with email {email}. Selecting incident stage as system user."
+            )
+        if len(user_urns) > 1:
+            logger.warning(
+                f"Found multiple corresponding DataHub users with email {email}. Selecting incident stage as system user."
+            )
+
+        impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
+
+        input = {"stage": new_stage}
+        data = impersonation_graph.execute_graphql(
+            UPDATE_INCIDENT_STATUS_MUTATION,
+            variables={"urn": context.urn, "input": input},
+        )
+
+        logger.debug(f"updated incident stage: {data}")
+
+    @app.action("select_incident_priority")
+    def handle_select_incident_priority(
+        ack: Ack, respond: Respond, action: dict, body: dict
+    ) -> None:
+        logger.debug(f"body: {body}")
+        logger.debug(f"view: {body}")
+        ack()
+
+        option = IncidentSelectOption(**json.loads(action["selected_option"]["value"]))
+        context = option.context
+        new_priority = option.value
+
+        email, user_urn, user_urns = get_user_information(app, body["user"]["id"])
+
+        if not user_urn:
+            logger.warning(
+                f"Could not find corresponding DataHub user with email {email}. Updating incident priority as system user."
+            )
+        if len(user_urns) > 1:
+            logger.warning(
+                f"Found multiple corresponding DataHub users with email {email}. Updating incident priority as system user."
+            )
+
+        impersonation_graph = graph_as_user(user_urn) if user_urn else graph_as_system()
+
+        data = impersonation_graph.execute_graphql(
+            UPDATE_INCIDENT_PRIORITY_MUTATION,
+            variables={"urn": context.urn, "priority": new_priority},
+        )
+
+        logger.debug(f"updated incident priority: {data}")
 
     @app.action("external_redirect")
     def handle_actions(ack: Ack, respond: Respond, _action: dict) -> None:

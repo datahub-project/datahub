@@ -107,12 +107,42 @@ public class EntityNameProvider {
   }
 
   /**
+   * Returns the fully qualified names for use when displaying any entity.
+   *
+   * <p>Returns the urns of the terms if one cannot be resolved.
+   */
+  public Map<Urn, String> batchGetQualifiedName(
+      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> entityUrns, String entityType) {
+    switch (entityType) {
+      case Constants.DATASET_ENTITY_NAME:
+        return batchGetQualifiedDatasetName(opContext, entityUrns);
+      default:
+        log.warn(
+            String.format(
+                "No qualified name resolver available for entity type %s. Falling back to normal name.",
+                entityType));
+        return batchGetName(opContext, entityUrns, entityType);
+    }
+  }
+
+  /**
    * Returns the name for use when displaying any entity.
    *
    * <p>Returns the urn of the term if one cannot be resolved.
    */
   public String getName(@Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
     return batchGetName(opContext, Set.of(entityUrn), entityUrn.getEntityType()).get(entityUrn);
+  }
+
+  /**
+   * Returns the fully-qualified name for use when displaying any entity.
+   *
+   * <p>Returns the urn of the term if one cannot be resolved.
+   */
+  public String getQualifiedName(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    return batchGetQualifiedName(opContext, Set.of(entityUrn), entityUrn.getEntityType())
+        .get(entityUrn);
   }
 
   /**
@@ -195,6 +225,30 @@ public class EntityNameProvider {
                   DatasetProperties datasetProperties = new DatasetProperties(data);
                   return datasetProperties.hasName()
                       ? datasetProperties.getName()
+                      : key.getEntityKey().get(1);
+                }));
+  }
+
+  private Map<Urn, String> batchGetQualifiedDatasetName(
+      @Nonnull OperationContext opContext, Set<Urn> datasetUrns) {
+    Map<Urn, DataMap> urnToData =
+        batchGetAspectData(
+            opContext,
+            datasetUrns,
+            Constants.DATASET_ENTITY_NAME,
+            Constants.DATASET_PROPERTIES_ASPECT_NAME);
+    return datasetUrns.stream()
+        .collect(
+            Collectors.toMap(
+                k -> k,
+                key -> {
+                  final DataMap data = urnToData.get(key);
+                  if (data == null) {
+                    return key.getEntityKey().get(1);
+                  }
+                  DatasetProperties datasetProperties = new DatasetProperties(data);
+                  return datasetProperties.hasQualifiedName()
+                      ? datasetProperties.getQualifiedName()
                       : key.getEntityKey().get(1);
                 }));
   }

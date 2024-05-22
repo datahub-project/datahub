@@ -652,13 +652,13 @@ public class AssertionActionsHookTest {
                 entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
             .init(mockOperationContext());
 
+    AssertionRunEvent testEvent =
+        buildAssertionRunEvent(
+            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE);
+
     MetadataChangeLog event =
         buildMetadataChangeLog(
-            TEST_ASSERTION_URN,
-            ASSERTION_RUN_EVENT_ASPECT_NAME,
-            ChangeType.UPSERT,
-            buildAssertionRunEvent(
-                TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE));
+            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, testEvent);
 
     hook.invoke(event);
 
@@ -687,13 +687,13 @@ public class AssertionActionsHookTest {
 
     IncidentInfo expectedInfo = new IncidentInfo();
     expectedInfo.setType(IncidentType.CUSTOM);
-    expectedInfo.setTitle("A External Assertion is failing for this asset.");
-    expectedInfo.setDescription(
+    expectedInfo.setTitle(
         String.format(
-                "A External Assertion has failed for this data asset: '%s'. ",
-                AssertionUtils.buildAssertionDescription(TEST_ASSERTION_URN, assertionInfo))
-            + "This may indicate that the asset is unhealthy or unfit for consumption!");
-    expectedInfo.setPriority(0);
+            "%s Assertion `%s` has failed",
+            AssertionUtils.getAssertionTypeName(assertionInfo.getType().toString()),
+            AssertionUtils.buildAssertionDescription(TEST_ASSERTION_URN, assertionInfo)));
+    expectedInfo.setDescription(
+        AssertionUtils.buildAssertionResultReason(TEST_ASSERTION_URN, assertionInfo, testEvent));
     expectedInfo.setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)));
     expectedInfo.setSource(
         new IncidentSource()

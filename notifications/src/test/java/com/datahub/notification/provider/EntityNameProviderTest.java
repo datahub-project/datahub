@@ -17,6 +17,7 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -174,7 +175,33 @@ public class EntityNameProviderTest {
     }
   }
 
+  @Test
+  public void testGetQualifiedName() {
+    try {
+      Mockito.when(
+              entityClient.batchGetV2(
+                  any(OperationContext.class),
+                  Mockito.eq(TEST_DATASET_URN.getEntityType()),
+                  Mockito.eq(Set.of(TEST_DATASET_URN)),
+                  Mockito.eq(ImmutableSet.of(DATASET_PROPERTIES_ASPECT_NAME))))
+          .thenReturn(
+              Map.of(
+                  TEST_DATASET_URN,
+                  getMockDatasetNameResponse(
+                      "Expected Dataset Name", "full.name.Expected Dataset Name")));
+      String qualifiedName =
+          entityNameProvider.getQualifiedName(mock(OperationContext.class), TEST_DATASET_URN);
+      Assert.assertEquals(qualifiedName, "full.name.Expected Dataset Name");
+    } catch (Exception e) {
+      Assert.fail("Exception should not be thrown", e);
+    }
+  }
+
   private EntityResponse getMockDatasetNameResponse(String name) {
+    return getMockDatasetNameResponse(name, null);
+  }
+
+  private EntityResponse getMockDatasetNameResponse(String name, String qualifiedName) {
     return new EntityResponse()
         .setEntityName(Constants.DATASET_ENTITY_NAME)
         .setUrn(TEST_DATASET_URN)
@@ -188,6 +215,7 @@ public class EntityNameProviderTest {
                             new Aspect(
                                 (new com.linkedin.dataset.DatasetProperties()
                                     .setName(name)
+                                    .setQualifiedName(qualifiedName, SetMode.IGNORE_NULL)
                                     .data()))))));
   }
 

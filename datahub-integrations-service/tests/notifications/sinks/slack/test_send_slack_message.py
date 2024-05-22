@@ -37,11 +37,13 @@ def test_send_slack_message_success(mock_client: WebClient) -> None:
     text = "Hello, world!"
 
     # Execute the function
-    result = send_slack_message(mock_client, channel, text)
+    result = send_slack_message(mock_client, channel, text, [], [])
 
     # Verify the result
     assert result == "12345"
-    chat_postMessage.assert_called_once_with(channel=channel, text=text)
+    chat_postMessage.assert_called_once_with(
+        channel=channel, text=text, blocks=[], attachments=[]
+    )
 
 
 def test_send_slack_message_failure(mock_client: WebClient) -> None:
@@ -53,11 +55,13 @@ def test_send_slack_message_failure(mock_client: WebClient) -> None:
     text = "Hello, world!"
 
     # Execute the function
-    result = send_slack_message(mock_client, channel, text)
+    result = send_slack_message(mock_client, channel, text, [], [])
 
     # Verify the result
     assert result is None
-    chat_postMessage.assert_called_once_with(channel=channel, text=text)
+    chat_postMessage.assert_called_once_with(
+        channel=channel, text=text, blocks=[], attachments=[]
+    )
 
 
 @patch(
@@ -73,11 +77,13 @@ def test_send_notification_slack_message(
     text = "Notification test"
 
     # Execute the function
-    result = send_notification_slack_message(mock_client, recipient, text)
+    result = send_notification_slack_message(mock_client, recipient, text, [], [])
 
     # Verify the result
     assert result == "12345"
-    send_slack_message.assert_called_once_with(mock_client, "user123", text)
+    send_slack_message.assert_called_once_with(
+        mock_client, "user123", "Notification test", [], []
+    )
 
 
 @patch(
@@ -97,7 +103,7 @@ def test_send_notification_to_recipients(
     text = "Test notification message"
 
     # Execute function
-    result = send_notification_to_recipients(mock_client, recipients, text)
+    result = send_notification_to_recipients(mock_client, recipients, text, [], [])
 
     # Assert correct message IDs are returned
     assert result == ["message_id1", "message_id2"]

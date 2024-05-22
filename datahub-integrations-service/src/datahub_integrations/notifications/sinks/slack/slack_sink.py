@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -67,19 +67,11 @@ class SlackNotificationSink(NotificationSink):
 
         # Mapping template types to functions
         action_map = {
-            NotificationTemplateTypeClass.BROADCAST_NEW_INCIDENT: lambda: self._send_change_notification(
-                request.recipients,
-                build_new_incident_message(
-                    request, self.identity_provider, self.slack_client, self.base_url
-                ),
-                RetryMode.ENABLED,
+            NotificationTemplateTypeClass.BROADCAST_NEW_INCIDENT: lambda: self._send_new_incident_notification(
+                request
             ),
-            NotificationTemplateTypeClass.BROADCAST_INCIDENT_STATUS_CHANGE: lambda: self._send_change_notification(
-                request.recipients,
-                build_incident_status_change_message(
-                    request, self.identity_provider, self.slack_client, self.base_url
-                ),
-                RetryMode.ENABLED,
+            NotificationTemplateTypeClass.BROADCAST_INCIDENT_STATUS_CHANGE: lambda: self._send_incident_status_change_notification(
+                request
             ),
         }
 
@@ -92,10 +84,42 @@ class SlackNotificationSink(NotificationSink):
         else:
             raise Exception(f"Unsupported template type {template_type} provided.")
 
+    def _send_new_incident_notification(
+        self, request: NotificationRequestClass
+    ) -> List[str]:
+        text, blocks, attachments = build_new_incident_message(
+            request, self.identity_provider, self.slack_client, self.base_url
+        )
+
+        return self._send_change_notification(
+            request.recipients,
+            text,
+            blocks,
+            attachments,
+            RetryMode.ENABLED,
+        )
+
+    def _send_incident_status_change_notification(
+        self, request: NotificationRequestClass
+    ) -> List[str]:
+        text, blocks, attachments = build_incident_status_change_message(
+            request, self.identity_provider, self.slack_client, self.base_url
+        )
+
+        return self._send_change_notification(
+            request.recipients,
+            text,
+            blocks,
+            attachments,
+            RetryMode.ENABLED,
+        )
+
     def _send_change_notification(
         self,
         recipients: List[NotificationRecipientClass],
         text: str,
+        blocks: Optional[Any],
+        attachments: Optional[Any],
         retry_mode: RetryMode,
     ) -> List[str]:
         max_attempts = (
@@ -110,6 +134,8 @@ class SlackNotificationSink(NotificationSink):
                 client=self.slack_client,
                 recipients=recipients,
                 text=text,
+                blocks=blocks,
+                attachments=attachments,
             )
         except Exception as e:
             logger.error(

@@ -397,9 +397,13 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     }
   }
 
-  @Nonnull
-  protected List<Urn> getDownstreamOwners(final Urn entityUrn) {
+  @Nullable
+  protected DownstreamSummary getDownstreamSummary(final Urn entityUrn) {
     try {
+      final DownstreamSummary summary = new DownstreamSummary();
+      summary.setTotal(0);
+      summary.setAssetUrns(new ArrayList<>());
+      summary.setOwnerUrns(new ArrayList<>());
       final EntityLineageResult results =
           _graphClient.getLineageEntities(
               entityUrn.toString(),
@@ -410,6 +414,8 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
               systemOpContext.getSessionAuthentication().getActor().toUrnStr());
       MetricUtils.counter(this.getClass(), NOTIFICATIONS_GRAPH_CALL_COUNT).inc();
 
+      summary.setTotal(results.getTotal());
+
       // Now fetch the ownership for each entity type in batch.
       final Map<String, Set<Urn>> downstreamEntityUrns = new HashMap<>();
       for (LineageRelationship relationship : results.getRelationships()) {
@@ -417,6 +423,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
         downstreamEntityUrns
             .get(relationship.getEntity().getEntityType())
             .add(relationship.getEntity());
+        summary.assetUrns.add(relationship.getEntity());
       }
 
       final List<Urn> ownerUrns = new ArrayList<>();
@@ -428,17 +435,17 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
             .forEach(
                 e -> {
                   // Add each owner from the ownership to the master list of owners.
-                  ownerUrns.addAll(
+                  summary.ownerUrns.addAll(
                       e.getValue().getOwners().stream()
                           .map(Owner::getOwner)
                           .collect(Collectors.toList()));
                 });
       }
-      return ownerUrns;
+      return summary;
     } catch (Exception e) {
       log.error(
           String.format("Failed to retrieve downstream owners for entity urn %s.", entityUrn));
-      return Collections.emptyList();
+      return null;
     }
   }
 

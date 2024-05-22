@@ -400,16 +400,14 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
           systemOpContext,
           getIncidentTypeFromAssertionInfo(info),
           AssertionType.DATASET.equals(info.getType()) ? "External Assertion" : null,
-          0,
+          null,
           String.format(
-              "A %s Assertion is failing for this asset.",
+              "%s Assertion `%s` has failed",
               info.hasSource() && AssertionSourceType.INFERRED.equals(info.getSource().getType())
                   ? "Smart Assertion"
-                  : AssertionUtils.getAssertionTypeName(info.getType().toString())),
-          String.format(
-              "A %s Assertion has failed for this data asset: '%s'. This may indicate that the asset is unhealthy or unfit for consumption!",
-              AssertionUtils.getAssertionTypeName(info.getType().toString()),
+                  : AssertionUtils.getAssertionTypeName(info.getType().toString()),
               AssertionUtils.buildAssertionDescription(assertionUrn, info)),
+          AssertionUtils.buildAssertionResultReason(assertionUrn, info, runEvent),
           ImmutableList.of(entityUrn),
           new IncidentSource()
               .setSourceUrn(assertionUrn)

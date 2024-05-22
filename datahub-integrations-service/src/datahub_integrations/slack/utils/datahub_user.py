@@ -20,6 +20,10 @@ def graph_as_user(impersonation_urn: str) -> DataHubGraph:
     )
 
 
+def graph_as_system() -> DataHubGraph:
+    return graph
+
+
 def get_user_information(
     app: slack_bolt.App, user_id: str
 ) -> Tuple[str, Optional[str], List[str]]:

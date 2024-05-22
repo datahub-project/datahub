@@ -6,7 +6,7 @@ NOTIFICATIONS_ENABLED = os.environ.get("NOTIFICATIONS_ENABLED", "true")
 # Specifically enable or disable email + slack notifications. Disabled since you need an API key by default.
 EMAIL_SINK_ENABLED = os.environ.get("EMAIL_SINK_ENABLED", "true")
 SLACK_SINK_ENABLED = os.environ.get(
-    "SLACK_SINK_ENABLED", "false"
+    "SLACK_SINK_ENABLED", "true"
 )  # Enable if slack messages are not being sent by GMS or MAE consumer services.
 
 MAX_NOTIFICATION_RETRIES = int(os.environ.get("MAX_NOTIFICATION_RETRIES", 3))
@@ -36,7 +36,22 @@ NON_INGESTION_RUN_ID = "no-run-id-provided"
 # Default recipient name when one cannot be resolved. (Hi there)
 DEFAULT_RECIPIENT_NAME = "there"
 
-# Whether we have enabled sharing and updating message ids for incidents on Slack
+# Whether advanced incident actions should be added for incident messages (Priority, stage)
+INCIDENT_ADVANCED_ACTIONS_ENABLED = os.environ.get(
+    "INCIDENT_ADVANCED_ACTIONS_ENABLED", "false"
+)
+
+DATAHUB_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
+
+MAX_ACTOR_TAGS = 10
+
+INCIDENT_STATUS_RESOLVED = "RESOLVED"
+INCIDENT_STATUS_ACTIVE = "ACTIVE"
+
+ACTIVE_INCIDENT_COLOR = "#F5222D"  # RED
+RESOLVED_INCIDENT_COLOR = "#52C41A"  # GREEN
+
+# TODO: Whether we have enabled sharing and updating message ids for incidents on Slack
 STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED = os.environ.get(
     "STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED", "false"
 )

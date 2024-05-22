@@ -416,10 +416,10 @@ input IncidentStatusInput {
   """
   The state of the incident
   """
-  state: IncidentState!
+  state: IncidentState
 
   """
-  The lifecycle stage ofthe incident
+  The lifecycle stage of the incident
   """
   stage: IncidentStage
 
