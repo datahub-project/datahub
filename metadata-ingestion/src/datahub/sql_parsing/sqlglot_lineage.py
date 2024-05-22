@@ -365,7 +365,7 @@ def _column_level_lineage(  # noqa: C901
                 col_normalized = col
 
             table_schema_normalized_mapping[table][col_normalized] = col
-            normalized_table_schema[col_normalized] = col_type
+            normalized_table_schema[col_normalized] = col_type or "UNKNOWN"
 
         sqlglot_db_schema.add_table(
             table.as_sqlglot_table(),
@@ -923,12 +923,20 @@ def _sqlglot_lineage_inner(
     out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
-        column_lineage_urns = [
-            _translate_internal_column_lineage(
-                table_name_urn_mapping, internal_col_lineage, dialect=dialect
+        try:
+            column_lineage_urns = [
+                _translate_internal_column_lineage(
+                    table_name_urn_mapping, internal_col_lineage, dialect=dialect
+                )
+                for internal_col_lineage in column_lineage
+            ]
+        except KeyError as e:
+            # When this happens, it's usually because of things like PIVOT where we can't
+            # really go up the scope chain.
+            logger.debug(
+                f"Failed to translate column lineage to urns: {e}", exc_info=True
             )
-            for internal_col_lineage in column_lineage
-        ]
+            debug_info.column_error = e
 
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
