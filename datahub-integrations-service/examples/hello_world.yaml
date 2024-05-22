@@ -15,7 +15,8 @@ datahub:
 #     filename: ./test_recording.json
 action:
   type: datahub_integrations.propagation.doc.doc_propagation_action.DocPropagationAction
-  config: {}
+  config:
+    bootstrap: True
 # action:
 #   type: datahub_integrations.actions.recording_action.RecordingAction
 #   config:

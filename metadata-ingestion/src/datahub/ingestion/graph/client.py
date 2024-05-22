@@ -291,7 +291,9 @@ class DataHubGraph(DatahubRestEmitter):
                 'Cannot get a timeseries aspect using "get_aspect". Use "get_latest_timeseries_value" instead.'
             )
 
-        url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
+        url: str = (
+            f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
+        )
         response = self._session.get(url)
         if response.status_code == 404:
             # not found
@@ -724,6 +726,7 @@ class DataHubGraph(DatahubRestEmitter):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[SearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -753,7 +756,13 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Env filter.
         orFilters = generate_filter(
-            platform, platform_instance, env, container, status, extraFilters
+            platform,
+            platform_instance,
+            env,
+            container,
+            status,
+            extraFilters,
+            extra_or_filters=extra_or_filters,
         )
 
         graphql_query = textwrap.dedent(

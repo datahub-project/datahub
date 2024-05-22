@@ -33,6 +33,7 @@ from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from pydantic import BaseModel, Field, validator
+from ratelimit import limits, sleep_and_retry
 
 from datahub_integrations.propagation.doc.mcl_utils import MCLProcessor
 
@@ -151,6 +152,20 @@ class DocPropagationConfig(ConfigModel):
         example=["urn:li:glossaryNode:Metrics", "urn:li:glossaryNode:Dimensions"],
     )
 
+    bootstrap: bool = Field(
+        False,
+        description="Indicates whether to bootstrap the action. Default is False.",
+    )
+
+    event_processing_rate_limit: int = Field(
+        1,
+        description="Rate limit for processing events. Default is 1 event per rate period.",
+    )
+    event_processing_rate_period: int = Field(
+        1,
+        description="Rate limit period for processing events. Default is 1 second.",
+    )
+
 
 def get_field_path(schema_field_urn: str) -> str:
     urn = Urn.create_from_string(schema_field_urn)
@@ -175,6 +190,25 @@ def get_field_doc_from_dataset(
     return None
 
 
+ECE_EVENT_TYPE = "EntityChangeEvent_v1"
+
+
+# TODO - move to utils class
+# Define a factory function to create a rate-limited version of the function
+from typing import Callable
+
+
+def create_rate_limited_function(
+    rate_limit: int, time_period: int, func: Callable
+) -> Callable:
+    @sleep_and_retry
+    @limits(calls=rate_limit, period=time_period)
+    def rate_limited_func(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return rate_limited_func
+
+
 class DocPropagationAction(Action):
     def __init__(self, config: DocPropagationConfig, ctx: PipelineContext):
         self.config = config
@@ -194,6 +228,9 @@ class DocPropagationAction(Action):
             "documentation",
             self.process_schema_field_documentation,
         )
+
+        if self.config.bootstrap:
+            self.bootstrap()
 
         # self.term_resolver = GlossaryTermsResolver(graph=self.ctx.graph)
         # if self.config.target_terms:
@@ -237,6 +274,98 @@ class DocPropagationAction(Action):
         action_config = DocPropagationConfig.parse_obj(config_dict or {})
         logger.info(f"Doc Propagation Config action configured with {action_config}")
         return cls(action_config, ctx)
+
+    def bootstrap(self) -> None:
+        self.bootstrapping = True
+        # start a thread to bootstrap the action
+        # while bootstrap is running, the action will continue processing any
+        # real time events
+        # start a threadpool executor
+        # Create a ThreadPoolExecutor
+        import concurrent.futures
+
+        # Create a rate-limited version of the function
+        rate_limit = self.config.event_processing_rate_limit
+        time_period = self.config.event_processing_rate_period
+        rate_limited_bootstrap_dataset = create_rate_limited_function(
+            rate_limit, time_period, self.bootstrap_dataset
+        )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            datasets_with_field_docs = self.ctx.graph.graph.get_urns_by_filter(
+                entity_types=["dataset"],
+                extra_or_filters=[
+                    {
+                        "field": "fieldDescriptions",
+                        "condition": "EXISTS",
+                        "negated": "false",
+                    },
+                    {
+                        "field": "editedFieldDescriptions",
+                        "condition": "EXISTS",
+                        "negated": "false",
+                    },
+                ],
+            )
+            # for dataset_urn in datasets_with_field_docs:
+            #     self.bootstrap_dataset(dataset_urn)
+
+            futures = [
+                executor.submit(rate_limited_bootstrap_dataset, dataset_urn)
+                for dataset_urn in datasets_with_field_docs
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"Error bootstrapping dataset: {e}")
+
+        self.bootstrapping = False
+
+    def bootstrap_dataset(self, dataset_urn: str) -> None:
+        """
+        Bootstrap the action by processing all the field descriptions on the
+        dataset
+        """
+        assert self.ctx.graph
+        from datahub.emitter.mce_builder import make_schema_field_urn
+        from datahub.metadata.schema_classes import SchemaMetadataClass
+
+        edited_field_docs = self.ctx.graph.graph.get_aspect(
+            dataset_urn, EditableSchemaMetadataClass
+        )
+        base_field_docs = self.ctx.graph.graph.get_aspect(
+            dataset_urn, SchemaMetadataClass
+        )
+        field_doc_map = {}
+        if base_field_docs is not None:
+            for field_info in base_field_docs.fields:
+                if field_info.description:
+                    field_doc_map[field_info.fieldPath] = {
+                        "description": field_info.description,
+                        "auditStamp": field_info.lastModified,
+                    }
+        if edited_field_docs is not None:
+            for field_info in edited_field_docs.editableSchemaFieldInfo:
+                if field_info.description:
+                    field_doc_map[field_info.fieldPath] = {
+                        "description": field_info.description,
+                        "auditStamp": edited_field_docs.lastModified,
+                    }
+
+        for field_path, field_dict in field_doc_map.items():
+            schema_field_urn = make_schema_field_urn(dataset_urn, field_path)
+            # make a fake ECE event
+            event = EntityChangeEvent(
+                entityType="schemaField",
+                entityUrn=schema_field_urn,
+                category="DOCUMENTATION",
+                operation="ADD",  # ADD RESTATE later
+                auditStamp=field_dict["auditStamp"],
+                parameters={"description": field_dict["description"]},
+                version=1,
+            )
+            self.act(EventEnvelope(event_type=ECE_EVENT_TYPE, event=event, meta={}))
 
     def process_schema_field_documentation(
         self,
@@ -309,7 +438,6 @@ class DocPropagationAction(Action):
                 and self.config is not None
                 and self.config.enabled
             ):
-                assert semantic_event.modifier
                 if (
                     self.config.columns_enabled
                     and semantic_event.entityType == "schemaField"
