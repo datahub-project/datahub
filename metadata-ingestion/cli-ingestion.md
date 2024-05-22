@@ -1,6 +1,3 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # CLI Ingestion
 
 Batch ingestion involves extracting metadata from a source system in bulk. Typically, this happens on a predefined schedule using the [Metadata Ingestion ](metadata-ingestion/README.md#install-from-pypi)framework.
@@ -12,9 +9,6 @@ The metadata that is extracted includes point-in-time instances of dataset, char
 Installing DataHub CLI requires Python 3.6+.
 :::
 
-<Tabs>
-<TabItem value="pypi" label="Install from pip" default>
-
 Run the following commands in your terminal:
 
 ```
@@ -25,8 +19,6 @@ python3 -m datahub version
 
 Your command line should return the proper version of DataHub upon executing these commands successfully.
 
-</TabItem>
-</Tabs>
 
 Check out the [CLI Installation Guide](../docs/cli.md#installation) for more installation options and troubleshooting tips.
 
@@ -44,32 +36,7 @@ Check out the [alternative installation options](../docs/cli.md#alternate-instal
 
 ## Configuring a Recipe
 
-Create a `recipe.yml` file that defines the source and sink for metadata, as shown below.
-[Recipes](metadata-ingestion/README.md#recipes) are yaml configuration files that serve as input to the Metadata Ingestion framework. Each recipe file define a single source to read from and a single destination to push the metadata.
-The two most important pieces of the file are the _source_ and _sink_ configuration blocks.
-
-The _source_ configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](metadata-ingestion/README.md#sources) documentation.
-
-The _sink_ configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](metadata-ingestion/README.md#sinks) documentation.
-In Acryl DataHub deployments, you _must_ use a sink of type `datahub-rest`, which simply means that metadata will be pushed to the REST endpoints exposed by your DataHub instance. The required configurations for this sink are
-
-1. **server**: the location of the REST API exposed by your instance of DataHub
-2. **token**: a unique API key used to authenticate requests to your instance's REST API
-
-The token can be retrieved by logging in as admin. You can go to Settings page and generate a Personal Access Token with your desired expiration date.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/home-(1).png"/>
-</p>
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/settings.png"/>
-</p>
-
-
-To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your Acryl instance's domain suffixed by the path `/gms`, as shown below.
-A complete example of a DataHub recipe file, which reads from MySQL and writes into a DataHub instance:
-
+Create a [Recipe]((metadata-ingestion/README.md#recipes)) yaml file that defines the source and sink for metadata, as shown below.
 
 ```yaml
 # example-recipe.yml
@@ -89,12 +56,36 @@ sink:
     server: "https://<your domain name>.acryl.io/gms"
     token: <Your API key>
 ```
-:::info Secure Your API Key
-Your API key is a signed JSON Web Token that is valid for 6 months from the date of issuance. Please keep this key secure & avoid sharing it. 
-If you are on Acryl Cloud and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.
-:::
+The **source** configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](metadata-ingestion/README.md#sources) documentation.
+
+The **sink** configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](metadata-ingestion/README.md#sinks) documentation.
+
+To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your Acryl instance's domain suffixed by the path `/gms`, as shown below.
+A complete example of a DataHub recipe file, which reads from MySQL and writes into a DataHub instance:
 
 For more information and examples on configuring recipes, please refer to [Recipes](recipe_overview.md).
+
+
+### Using Recipes with Authentication
+In Acryl DataHub deployments, only the `datahub-rest` sink is supported, which simply means that metadata will be pushed to the REST endpoints exposed by your DataHub instance. The required configurations for this sink are
+
+1. **server**: the location of the REST API exposed by your instance of DataHub
+2. **token**: a unique API key used to authenticate requests to your instance's REST API
+
+The token can be retrieved by logging in as admin. You can go to Settings page and generate a Personal Access Token with your desired expiration date.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/home-(1).png"/>
+</p>
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/settings.png"/>
+</p>
+
+:::info Secure Your API Key
+Please keep Your API key secure & avoid sharing it. 
+If you are on Acryl Cloud and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.
+:::
 
 
 ## Ingesting Metadata
