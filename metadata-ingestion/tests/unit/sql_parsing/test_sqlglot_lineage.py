@@ -956,7 +956,6 @@ FROM table1
     )
 
 
-@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
 def test_postgres_update_subselect():
     assert_sql_result(
         """
@@ -1078,7 +1077,6 @@ CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spect
     )
 
 
-@pytest.mark.skip(reason="sqlglot doesn't recognize the BACKUP directive right now")
 def test_redshift_system_automove() -> None:
     # Came across this in the Redshift query log, but it seems to be a system-generated query.
     assert_sql_result(
@@ -1107,4 +1105,21 @@ AS (
         dialect="redshift",
         default_db="my_db",
         expected_file=RESOURCE_DIR / "test_redshift_system_automove.json",
+    )
+
+
+def test_snowflake_with_unnamed_column_from_udf_call() -> None:
+    assert_sql_result(
+        """SELECT
+  A.ID,
+  B.NAME,
+  PARSE_JSON(B.MY_JSON) AS :userInfo,
+  B.ADDRESS
+FROM my_db.my_schema.my_table AS A
+LEFT JOIN my_db.my_schema.my_table_B AS B
+  ON A.ID = B.ID
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        expected_file=RESOURCE_DIR / "test_snowflake_unnamed_column_udf.json",
     )

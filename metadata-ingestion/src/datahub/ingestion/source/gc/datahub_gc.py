@@ -57,10 +57,7 @@ class DataHubGcSource(Source):
         self.ctx = ctx
         self.config = config
         self.report = DataHubGcSourceReport()
-        self.graph = ctx.graph
-        assert (
-            self.graph is not None
-        ), "DataHubGc source requires a graph. Please either use datahub-rest sink or set datahub_api"
+        self.graph = ctx.require_graph("The DataHubGc source")
 
     @classmethod
     def create(cls, config_dict, ctx):

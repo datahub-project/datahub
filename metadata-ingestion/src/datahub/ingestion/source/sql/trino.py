@@ -86,7 +86,7 @@ if version.parse(trino.__version__) >= version.parse("0.317.0"):
     register_custom_type(datatype.JSON, RecordTypeClass)
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def gen_catalog_connector_dict(engine: Engine) -> Dict[str, str]:
     query = dedent(
         """
@@ -473,7 +473,7 @@ def _parse_struct_fields(parts):
         "type": "record",
         "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
         "fields": fields,
-        "native_data_type": "ROW({})".format(parts),
+        "native_data_type": f"ROW({parts})",
     }
 
 
