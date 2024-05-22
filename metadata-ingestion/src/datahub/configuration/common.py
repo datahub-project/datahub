@@ -152,6 +152,10 @@ class TransformerSemanticsConfigModel(ConfigModel):
 
 
 class DynamicTypedConfig(ConfigModel):
+    # Once support for discriminated unions gets merged into Pydantic, we can
+    # simplify this configuration and validation.
+    # See https://github.com/samuelcolvin/pydantic/pull/2336.
+
     type: str = Field(
         description="The type of the dynamic object",
     )
