@@ -77,7 +77,7 @@ class FivetranLogAPI:
         )
 
     def _query(self, query: str) -> List[Dict]:
-        logger.debug("Query : {}".format(query))
+        logger.debug(f"Query : {query}")
         resp = self.engine.execute(query)
         return [row for row in resp]
 
@@ -156,7 +156,8 @@ class FivetranLogAPI:
         sync_logs = {}
         for row in self._query(
             self.fivetran_log_query.get_sync_logs_query().format(
-                self.fivetran_log_query.db_clause, syncs_interval
+                db_clause=self.fivetran_log_query.db_clause,
+                syncs_interval=syncs_interval,
             )
         ):
             if row[Constant.CONNECTOR_ID] not in sync_logs:

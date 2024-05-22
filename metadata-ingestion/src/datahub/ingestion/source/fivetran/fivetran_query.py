@@ -37,9 +37,9 @@ class FivetranLogQuery:
         message_event,
         message_data,
         time_stamp
-        FROM {}log
+        FROM {db_clause}log
         WHERE message_event in ('sync_start', 'sync_end')
-        and time_stamp > CURRENT_TIMESTAMP - INTERVAL '{} days'"""
+        and time_stamp > CURRENT_TIMESTAMP - INTERVAL '{syncs_interval} days'"""
 
     def get_table_lineage_query(self) -> str:
         return f"""

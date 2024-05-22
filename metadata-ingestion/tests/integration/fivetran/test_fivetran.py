@@ -99,7 +99,7 @@ def default_query_results(
             }
         ]
     elif query == fivetran_log_query.get_sync_logs_query().format(
-        fivetran_log_query.db_clause, 7
+        db_clause=fivetran_log_query.db_clause, syncs_interval=7
     ):
         return [
             {
