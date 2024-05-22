@@ -23,7 +23,11 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey, gen_containers
+from datahub.emitter.mcp_builder import (
+    ContainerKey,
+    add_dataset_to_container,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -1438,6 +1442,7 @@ class ModeSource(StatefulIngestionSourceBase):
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         for space_token, space_name in self.space_tokens.items():
             yield from self.construct_space_container(space_token, space_name)
+            space_container_key = self.gen_space_key(space_token)
 
             reports = self._get_reports(space_token)
             for report in reports:
@@ -1464,6 +1469,10 @@ class ModeSource(StatefulIngestionSourceBase):
                     aspect=SubTypesClass(typeNames=[BIAssetSubTypes.MODE_REPORT]),
                 )
                 yield mcpw.as_workunit()
+                yield from add_dataset_to_container(
+                    container_key=space_container_key,
+                    dataset_urn=dashboard_snapshot_from_report.urn,
+                )
                 yield browse_mcpw.as_workunit()
 
                 usage_statistics = DashboardUsageStatisticsClass(
