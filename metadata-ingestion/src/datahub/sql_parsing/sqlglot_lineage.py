@@ -516,6 +516,7 @@ def _column_level_lineage(  # noqa: C901
                 scope=cached_scope,
                 trim_selects=False,
             )
+            # import pathlib
             # pathlib.Path("sqlglot.html").write_text(
             #     str(lineage_node.to_html(dialect=dialect))
             # )
