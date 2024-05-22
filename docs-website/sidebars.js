@@ -106,6 +106,7 @@ module.exports = {
           type: "doc",
           id: "docs/features/dataset-usage-and-query-history",
         },
+        "docs/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
@@ -162,6 +163,7 @@ module.exports = {
           type: "doc",
           id: "docs/posts",
         },
+        "docs/features/feature-guides/properties",
         {
           label: "Schema history",
           type: "doc",
@@ -676,11 +678,6 @@ module.exports = {
               label: "OpenAPI",
               id: "docs/api/openapi/openapi-usage-guide",
             },
-            {
-              type: "doc",
-              label: "Structured Properties",
-              id: "docs/api/openapi/openapi-structured-properties",
-            },
           ],
         },
         "docs/dev-guides/timeline",
@@ -804,9 +801,11 @@ module.exports = {
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/domains",
+        "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
         "docs/api/tutorials/ml",
         "docs/api/tutorials/owners",
+        "docs/api/tutorials/structured-properties",
         "docs/api/tutorials/tags",
         "docs/api/tutorials/terms",
         {
@@ -893,6 +892,7 @@ module.exports = {
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
+    // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // ],
