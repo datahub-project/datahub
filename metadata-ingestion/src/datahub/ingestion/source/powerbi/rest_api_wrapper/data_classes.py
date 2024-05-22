@@ -159,11 +159,23 @@ class PowerBIDataset:
 
 
 @dataclass
+class UserUsageStat:
+    viewsCount: int
+
+
+@dataclass
+class UsageStat:
+    key_as_guid: bool  # True if userUsageStats key as user_guid else False for key as user_id
+    userUsageStats: Dict[str, UserUsageStat]
+
+
+@dataclass
 class Page:
     id: str
     displayName: str
     name: str
     order: int
+    usageStats: Optional[Dict[str, UsageStat]]  # date as key
 
     def get_urn_part(self):
         return f"pages.{self.id}"
@@ -197,16 +209,6 @@ class User:
 
     def __hash__(self):
         return hash(self.__members())
-
-
-@dataclass
-class UserUsageStat:
-    viewsCount: int
-
-
-@dataclass
-class UsageStat:
-    userUsageStats: Dict[str, UserUsageStat]  # user_id as key
 
 
 @dataclass

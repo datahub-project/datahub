@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from datetime import datetime, time, timedelta, timezone
 from time import sleep
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import msal
 import requests
@@ -29,6 +29,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Workspace,
     new_powerbi_dataset,
 )
+from datahub.ingestion.source.powerbi.rest_api_wrapper.dax_query import PowerBiDaxQuery
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -307,6 +308,205 @@ class DataResolverBase(ABC):
 
         return reports[0]
 
+    def parse_sub_entity_level_usage_metrics_result(
+        self, results: List[Dict], user_stats_key_as_guid: bool
+    ) -> Dict[str, Dict[str, Dict[str, UsageStat]]]:
+        """
+        Return sub entity level usage metrics as Dict[<entity_id>, Dict[<sub_entity_id>, Dict[<date>, UsageStat]]].
+        """
+        usage_stats: Dict[str, Dict[str, Dict[str, UsageStat]]] = defaultdict()
+        for row in results:
+            entity_id = row[Constant.ENTITY_ID].lower()
+            sub_entity_id = row[Constant.SUB_ENTITY_ID].lower()
+            date = row[Constant.DATE]
+            user_id = row[Constant.USER_ID].lower()
+            views_count = row[Constant.VIEWS_COUNT]
+
+            if entity_id not in usage_stats:
+                usage_stats[entity_id] = {
+                    sub_entity_id: {
+                        date: UsageStat(
+                            user_stats_key_as_guid,
+                            {user_id: UserUsageStat(views_count)},
+                        )
+                    }
+                }
+            elif sub_entity_id not in usage_stats[entity_id]:
+                usage_stats[entity_id][sub_entity_id] = {
+                    date: UsageStat(
+                        user_stats_key_as_guid, {user_id: UserUsageStat(views_count)}
+                    )
+                }
+            elif date not in usage_stats[entity_id][sub_entity_id]:
+                usage_stats[entity_id][sub_entity_id][date] = UsageStat(
+                    user_stats_key_as_guid, {user_id: UserUsageStat(views_count)}
+                )
+            elif (
+                user_id
+                not in usage_stats[entity_id][sub_entity_id][date].userUsageStats
+            ):
+                usage_stats[entity_id][sub_entity_id][date].userUsageStats[
+                    user_id
+                ] = UserUsageStat(views_count)
+            else:
+                usage_stats[entity_id][sub_entity_id][date].userUsageStats[
+                    user_id
+                ].viewsCount = (
+                    usage_stats[entity_id][sub_entity_id][date]
+                    .userUsageStats[user_id]
+                    .viewsCount
+                    + views_count
+                )
+        return usage_stats
+
+    def parse_entity_level_usage_metrics_result(
+        self, results: List[Dict], user_stats_key_as_guid: bool
+    ) -> Dict[str, Dict[str, UsageStat]]:
+        """
+        Return entity level usage metrics as Dict[<entity_id>, Dict[<date>, UsageStat]].
+        """
+        usage_stats: Dict[str, Dict[str, UsageStat]] = defaultdict()
+        for row in results:
+            entity_id = row[Constant.ENTITY_ID].lower()
+            date = row[Constant.DATE]
+            user_id = row[Constant.USER_ID].lower()
+            views_count = row[Constant.VIEWS_COUNT]
+            if entity_id not in usage_stats:
+                usage_stats[entity_id] = {
+                    date: UsageStat(
+                        user_stats_key_as_guid, {user_id: UserUsageStat(views_count)}
+                    )
+                }
+            elif date not in usage_stats[entity_id]:
+                usage_stats[entity_id][date] = UsageStat(
+                    user_stats_key_as_guid, {user_id: UserUsageStat(views_count)}
+                )
+            elif user_id not in usage_stats[entity_id][date].userUsageStats:
+                usage_stats[entity_id][date].userUsageStats[user_id] = UserUsageStat(
+                    views_count
+                )
+            else:
+                usage_stats[entity_id][date].userUsageStats[user_id].viewsCount = (
+                    usage_stats[entity_id][date].userUsageStats[user_id].viewsCount
+                    + views_count
+                )
+        return usage_stats
+
+    def get_dataset_id_from_workspace(
+        self, workspace: Workspace, dataset_name: str
+    ) -> Optional[str]:
+        for dataset_id, dataset in workspace.datasets.items():
+            if dataset.name == dataset_name:
+                return dataset_id
+        return None
+
+    def get_dataset_query_result(
+        self, execute_query_endpoint: str, query: str
+    ) -> List[Dict]:
+        response = self._request_session.post(
+            execute_query_endpoint,
+            headers=self.get_authorization_header(),
+            json={"queries": [{"query": query}]},
+        )
+        response.raise_for_status()
+        return response.json()[Constant.RESULTS][0][Constant.TABLES][0][Constant.ROWS]
+
+    def get_report_new_usage_metrics(
+        self, workspace: Workspace, usage_stats_interval: int
+    ) -> Tuple[
+        Dict[str, Dict[str, UsageStat]], Dict[str, Dict[str, Dict[str, UsageStat]]]
+    ]:
+        """
+        Fetch the reports and reports pages usage metrics from semantic model/dataset
+        used by new usage metrics report
+        """
+        usage_metrics_dataset_id: Optional[str] = self.get_dataset_id_from_workspace(
+            workspace=workspace,
+            dataset_name=Constant.NEW_USAGE_METRICS_MODEL,
+        )
+        if usage_metrics_dataset_id is None:
+            logger.debug("New report usage metrics report is not yet created")
+            return ({}, {})
+
+        dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
+        # get report pages view count for per date and per user
+        reports_pages_views_result = self.get_dataset_query_result(
+            execute_query_endpoint=dataset_execute_query_endpoint,
+            query=PowerBiDaxQuery.GET_NEW_USAGE_METRICS_REPORT_PAGE_VIEWS.format(
+                usage_stats_interval=usage_stats_interval
+            ),
+        )
+        # get open report count for per date and per user
+        reports_views_result = self.get_dataset_query_result(
+            execute_query_endpoint=dataset_execute_query_endpoint,
+            query=PowerBiDaxQuery.GET_NEW_USAGE_METRICS_REPORT_VIEWS.format(
+                usage_stats_interval=usage_stats_interval
+            ),
+        )
+        return (
+            self.parse_entity_level_usage_metrics_result(reports_views_result, False),
+            self.parse_sub_entity_level_usage_metrics_result(
+                reports_pages_views_result, False
+            ),
+        )
+
+    def get_report_old_usage_metrics(
+        self, workspace: Workspace, usage_stats_interval: int
+    ) -> Tuple[
+        Dict[str, Dict[str, UsageStat]], Dict[str, Dict[str, Dict[str, UsageStat]]]
+    ]:
+        """
+        Fetch the reports and reports pages usage metrics from semantic model/dataset
+        used by old report usage metrics report
+        """
+        usage_metrics_dataset_id: Optional[str] = self.get_dataset_id_from_workspace(
+            workspace=workspace,
+            dataset_name=Constant.REPORT_USAGE_METRICS_MODEL,
+        )
+        if usage_metrics_dataset_id is None:
+            logger.debug("Report usage metrics report is not yet created")
+            return ({}, {})
+
+        dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
+        # get report view count for per date and per user
+        entities_views_result = self.get_dataset_query_result(
+            execute_query_endpoint=dataset_execute_query_endpoint,
+            query=PowerBiDaxQuery.GET_OLD_USAGE_METRICS_REPORT_VIEWS.format(
+                usage_stats_interval=usage_stats_interval,
+            ),
+        )
+        return (
+            self.parse_entity_level_usage_metrics_result(entities_views_result, True),
+            self.parse_sub_entity_level_usage_metrics_result(
+                entities_views_result, True
+            ),
+        )
+
+    def get_dashboard_usage_metrics(
+        self, workspace: Workspace, usage_stats_interval: int
+    ) -> Dict[str, Dict[str, UsageStat]]:
+        """
+        Fetch the dashboard usage metrics from semantic model/dataset
+        used by old dashboard usage metrics report
+        """
+        usage_metrics_dataset_id: Optional[str] = self.get_dataset_id_from_workspace(
+            workspace=workspace,
+            dataset_name=Constant.DASHBOARD_USAGE_METRICS_MODEL,
+        )
+        if usage_metrics_dataset_id is None:
+            logger.debug("Dashboard usage metrics report is not yet created")
+            return {}
+
+        dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
+        # get dashboard view count for per date and per user
+        entities_views_result = self.get_dataset_query_result(
+            execute_query_endpoint=dataset_execute_query_endpoint,
+            query=PowerBiDaxQuery.GET_OLD_USAGE_METRICS_DASHBOARD_VIEWS.format(
+                usage_stats_interval=usage_stats_interval,
+            ),
+        )
+        return self.parse_entity_level_usage_metrics_result(entities_views_result, True)
+
     def get_report_usage_metrics_from_activity_events(
         self, usage_stats_interval: int
     ) -> Dict[str, Dict[str, UsageStat]]:
@@ -353,9 +553,13 @@ class DataResolverBase(ABC):
             ).strftime(POWERBI_USAGE_DATETIME_FORMAT)
             user_id = activity_event[Constant.ACTIVITY_USER_ID]
             if report_id not in usage_stats:
-                usage_stats[report_id] = {date: UsageStat({user_id: UserUsageStat(1)})}
+                usage_stats[report_id] = {
+                    date: UsageStat(False, {user_id: UserUsageStat(1)})
+                }
             elif date not in usage_stats[report_id]:
-                usage_stats[report_id][date] = UsageStat({user_id: UserUsageStat(1)})
+                usage_stats[report_id][date] = UsageStat(
+                    False, {user_id: UserUsageStat(1)}
+                )
             elif user_id not in usage_stats[report_id][date].userUsageStats:
                 usage_stats[report_id][date].userUsageStats[user_id] = UserUsageStat(1)
             else:
@@ -364,131 +568,6 @@ class DataResolverBase(ABC):
                 )
 
         return usage_stats
-
-    def parse_usage_metrics_result(
-        self, results: List[Dict]
-    ) -> Dict[str, Dict[str, UsageStat]]:
-        usage_stats: Dict[str, Dict[str, UsageStat]] = defaultdict()
-        for row in results:
-            entity_id = row[Constant.ENTITY_ID].lower()
-            date = row[Constant.DATE]
-            user_id = row[Constant.USER_ID].lower()
-            views_count = row[Constant.VIEWS_COUNT]
-
-            if entity_id not in usage_stats:
-                usage_stats[entity_id] = {
-                    date: UsageStat({user_id: UserUsageStat(views_count)})
-                }
-            elif date not in usage_stats[entity_id]:
-                usage_stats[entity_id][date] = UsageStat(
-                    {user_id: UserUsageStat(views_count)}
-                )
-            elif user_id not in usage_stats[entity_id][date].userUsageStats:
-                usage_stats[entity_id][date].userUsageStats[user_id] = UserUsageStat(
-                    views_count
-                )
-            else:
-                usage_stats[entity_id][date].userUsageStats[user_id].viewsCount = (
-                    usage_stats[entity_id][date].userUsageStats[user_id].viewsCount
-                    + views_count
-                )
-        return usage_stats
-
-    def get_report_usage_metrics(
-        self, workspace: Workspace, usage_stats_interval: int
-    ) -> Dict[str, Dict[str, UsageStat]]:
-        """
-        Fetch the report usage metrics from semantic model/dataset used by new usage metrics report
-        """
-        usage_metrics_dataset_id: Optional[str] = None
-        for dataset_id, dataset in workspace.datasets.items():
-            if dataset.name == Constant.NEW_USAGE_METRICS_MODEL:
-                usage_metrics_dataset_id = dataset_id
-                break
-
-        if usage_metrics_dataset_id is None:
-            logger.debug("New report usage metrics report is not yet created")
-            return {}
-
-        dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
-        # get open report count for per date and per user
-        response = self._request_session.post(
-            dataset_execute_query_endpoint,
-            headers=self.get_authorization_header(),
-            json={
-                "queries": [
-                    {
-                        "query": f"""EVALUATE
-                        SELECTCOLUMNS (
-                            SUMMARIZECOLUMNS (
-                                'Report views'[ReportId],
-                                'Report views'[Date],
-                                'Report views'[UserId],
-                                FILTER (
-                                    'Report views',
-                                    'Report views'[Date] > TODAY()-{usage_stats_interval}
-                                ),
-                                "views_count", COUNTROWS('Report views')
-                            ),
-                            "entity_id", 'Report views'[ReportId],
-                            "date", 'Report views'[Date],
-                            "user_id", 'Report views'[UserId],
-                            "views_count", [views_count]
-                        )"""
-                    }
-                ]
-            },
-        )
-        response.raise_for_status()
-        reports_views_result = response.json()[Constant.RESULTS][0][Constant.TABLES][0][
-            Constant.ROWS
-        ]
-        return self.parse_usage_metrics_result(reports_views_result)
-
-    def get_usage_metrics(
-        self, workspace: Workspace, usage_stats_interval: int, entity_type: str
-    ) -> Dict[str, Dict[str, UsageStat]]:
-        """
-        Fetch the usage metrics from semantic model/dataset used by old dashboard/report usage metrics report
-        """
-        usage_metrics_dataset_id: Optional[str] = None
-        for dataset_id, dataset in workspace.datasets.items():
-            if dataset.name == Constant.USAGE_METRICS_MODEL.format(entity_type):
-                usage_metrics_dataset_id = dataset_id
-                break
-
-        if usage_metrics_dataset_id is None:
-            logger.debug(f"{entity_type} usage metrics report is not yet created")
-            return {}
-
-        dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
-        # get entity view count for per date and per user
-        response = self._request_session.post(
-            dataset_execute_query_endpoint,
-            headers=self.get_authorization_header(),
-            json={
-                "queries": [
-                    {
-                        "query": f"""EVALUATE
-                        SELECTCOLUMNS (
-                            FILTER (
-                                'Views',
-                                'Views'[Date] > TODAY()-{usage_stats_interval}
-                            ),
-                            "entity_id", 'Views'[{entity_type}Guid],
-                            "date", 'Views'[Date],
-                            "user_id", 'Views'[UserGuid],
-                            "views_count", 'Views'[GranularViewsCount]
-                        )"""
-                    }
-                ]
-            },
-        )
-        response.raise_for_status()
-        entities_views_result = response.json()[Constant.RESULTS][0][Constant.TABLES][
-            0
-        ][Constant.ROWS]
-        return self.parse_usage_metrics_result(entities_views_result)
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
         """
@@ -699,6 +778,7 @@ class RegularAPIResolver(DataResolverBase):
                 name=raw_instance[Constant.NAME],
                 displayName=raw_instance.get(Constant.DISPLAY_NAME),
                 order=raw_instance.get(Constant.ORDER),
+                usageStats=None,
             )
             for raw_instance in response_dict.get(Constant.VALUE, [])
         ]

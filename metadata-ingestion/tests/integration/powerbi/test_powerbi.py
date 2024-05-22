@@ -77,7 +77,7 @@ def scan_init_response(request, context):
 
 def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:
     override_data = override_data or {}
-    api_vs_response = {
+    api_vs_response: Dict[str, Dict] = {
         "https://api.powerbi.com/v1.0/myorg/groups": {
             "method": "GET",
             "status_code": 200,
@@ -735,37 +735,71 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5c5693bd-b20d-4e8f-8a46-ecf81f51f6de/executeQueries": {
             "method": "POST",
-            "status_code": 200,
-            "json": {
-                "results": [
-                    {
-                        "tables": [
+            "response_list": [
+                {
+                    "status_code": 200,
+                    "json": {
+                        "results": [
                             {
-                                "rows": [
+                                "tables": [
                                     {
-                                        "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
-                                        "[date]": "2024-05-15T00:00:00",
-                                        "[user_id]": "User1@foo.com",
-                                        "[views_count]": 3,
-                                    },
-                                    {
-                                        "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
-                                        "[date]": "2024-05-03T00:00:00",
-                                        "[user_id]": "User1@foo.com",
-                                        "[views_count]": 5,
-                                    },
-                                    {
-                                        "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
-                                        "[date]": "2024-05-16T00:00:00",
-                                        "[user_id]": "User1@foo.com",
-                                        "[views_count]": 1,
-                                    },
+                                        "rows": [
+                                            {
+                                                "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
+                                                "[sub_entity_id]": "Regional Sales Analysis",
+                                                "[date]": "2024-05-03T00:00:00",
+                                                "[user_id]": "User1@foo.com",
+                                                "[views_count]": 2,
+                                            },
+                                            {
+                                                "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
+                                                "[sub_entity_id]": "Geographic Analysis",
+                                                "[date]": "2024-05-03T00:00:00",
+                                                "[user_id]": "User1@foo.com",
+                                                "[views_count]": 3,
+                                            },
+                                            {
+                                                "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
+                                                "[sub_entity_id]": "Geographic Analysis",
+                                                "[date]": "2024-05-16T00:00:00",
+                                                "[user_id]": "User1@foo.com",
+                                                "[views_count]": 1,
+                                            },
+                                        ]
+                                    }
                                 ]
                             }
                         ]
-                    }
-                ]
-            },
+                    },
+                },
+                {
+                    "status_code": 200,
+                    "json": {
+                        "results": [
+                            {
+                                "tables": [
+                                    {
+                                        "rows": [
+                                            {
+                                                "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
+                                                "[date]": "2024-05-03T00:00:00",
+                                                "[user_id]": "User1@foo.com",
+                                                "[views_count]": 5,
+                                            },
+                                            {
+                                                "[entity_id]": "5b218778-e7a5-4d73-8187-f10824047715",
+                                                "[date]": "2024-05-16T00:00:00",
+                                                "[user_id]": "User1@foo.com",
+                                                "[views_count]": 1,
+                                            },
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                },
+            ],
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/bee2f946-84ad-4df2-80b2-bf7f2f3ae15a/executeQueries": {
             "method": "POST",
@@ -781,12 +815,6 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                                         "[date]": "2024-05-03T00:00:00",
                                         "[user_id]": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
                                         "[views_count]": 2,
-                                    },
-                                    {
-                                        "[entity_id]": "7d668cad-7ffc-4505-9215-655bca5bebae",
-                                        "[date]": "2024-05-16T00:00:00",
-                                        "[user_id]": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                                        "[views_count]": 1,
                                     },
                                     {
                                         "[entity_id]": "7d668cad-7ffc-4505-9215-655bca5bebae",
@@ -806,12 +834,19 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
     api_vs_response.update(override_data)
 
     for url in api_vs_response.keys():
-        request_mock.register_uri(
-            api_vs_response[url]["method"],
-            url,
-            json=api_vs_response[url]["json"],
-            status_code=api_vs_response[url]["status_code"],
-        )
+        if api_vs_response[url].get("response_list"):
+            request_mock.register_uri(
+                api_vs_response[url]["method"],
+                url,
+                response_list=api_vs_response[url]["response_list"],
+            )
+        else:
+            request_mock.register_uri(
+                api_vs_response[url]["method"],
+                url,
+                json=api_vs_response[url]["json"],
+                status_code=api_vs_response[url]["status_code"],
+            )
 
 
 def default_source_config():
@@ -1685,7 +1720,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
             webUrl="",
             embedUrl="",
             description=report[Constant.DESCRIPTION],
-            usageStats={},
+            usageStats=None,
             pages=[
                 Page(
                     id="{}.{}".format(
@@ -1694,6 +1729,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
                     name=page[Constant.NAME],
                     displayName=page[Constant.DISPLAY_NAME],
                     order=page[Constant.ORDER],
+                    usageStats=None,
                 )
                 for page in report["pages"]
             ],

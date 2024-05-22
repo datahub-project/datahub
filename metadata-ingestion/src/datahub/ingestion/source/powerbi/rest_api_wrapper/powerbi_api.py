@@ -195,10 +195,16 @@ class PowerBiAPI:
                     "Skipping usage metrics retrieval for reports as extract_usage_stats is set to false"
                 )
                 return
-            # Get all reports usage metrics
+            # Get all reports and reports pages usage metrics
             reports_usage_metrics: Dict[str, Dict[str, UsageStat]] = defaultdict()
+            reports_pages_usage_metrics: Dict[
+                str, Dict[str, Dict[str, UsageStat]]
+            ] = defaultdict()
             try:
-                reports_usage_metrics = self._get_resolver().get_report_usage_metrics(
+                (
+                    reports_usage_metrics,
+                    reports_pages_usage_metrics,
+                ) = self._get_resolver().get_report_new_usage_metrics(
                     workspace=workspace,
                     usage_stats_interval=self.__config.extract_usage_stats_for_interval,
                 )
@@ -206,10 +212,12 @@ class PowerBiAPI:
                     UsageStatsSource.NEW_USAGE_METRICS_REPORT
                 )
                 if not reports_usage_metrics:
-                    reports_usage_metrics = self._get_resolver().get_usage_metrics(
+                    (
+                        reports_usage_metrics,
+                        reports_pages_usage_metrics,
+                    ) = self._get_resolver().get_report_old_usage_metrics(
                         workspace=workspace,
                         usage_stats_interval=self.__config.extract_usage_stats_for_interval,
-                        entity_type=Constant.REPORT.capitalize(),
                     )
                     self.__reporter.reports_usage_stats_source = (
                         UsageStatsSource.OLD_USAGE_METRICS_REPORT
@@ -233,6 +241,20 @@ class PowerBiAPI:
                         )
                         continue
                     report.usageStats = reports_usage_metrics[report.id]
+                    if reports_pages_usage_metrics:
+                        for page in report.pages:
+                            if (
+                                report.id not in reports_pages_usage_metrics
+                                or page.displayName.lower()
+                                not in reports_pages_usage_metrics[report.id]
+                            ):
+                                logger.debug(
+                                    f"Usage stats for page {page.displayName} of report {report.name} not preset or unable to fetch."
+                                )
+                                continue
+                            page.usageStats = reports_pages_usage_metrics[report.id][
+                                page.displayName.lower()
+                            ]
             else:
                 self.__reporter.reports_usage_stats_source = None
 
@@ -530,10 +552,9 @@ class PowerBiAPI:
             # Get all dashboards usage metrics
             dashboards_usage_metrics: Dict[str, Dict] = {}
             try:
-                dashboards_usage_metrics = self._get_resolver().get_usage_metrics(
+                dashboards_usage_metrics = self._get_resolver().get_dashboard_usage_metrics(
                     workspace=workspace,
                     usage_stats_interval=self.__config.extract_usage_stats_for_interval,
-                    entity_type=Constant.DASHBOARD.capitalize(),
                 )
                 self.__reporter.dashboards_usage_stats_source = (
                     UsageStatsSource.OLD_USAGE_METRICS_REPORT

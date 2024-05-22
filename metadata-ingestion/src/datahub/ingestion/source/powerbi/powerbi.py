@@ -66,6 +66,8 @@ from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
     ChangeTypeClass,
     ChartInfoClass,
+    ChartUsageStatisticsClass,
+    ChartUserUsageCountsClass,
     ContainerClass,
     CorpUserKeyClass,
     DashboardInfoClass,
@@ -753,6 +755,79 @@ class Mapper:
                 return user
         return None
 
+    def to_chart_usage_stats_mcp(
+        self, report: powerbi_data_classes.Report
+    ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Map PowerBi report page usage metrics to Datahub chart usage stats
+        """
+        chart_usage_stats_mcps = []
+
+        for page in report.pages:
+            if not page.usageStats:
+                continue
+            logger.debug(
+                f"Extracting usage stats for page {page.displayName} of report {report.name}"
+            )
+            chart_urn = builder.make_chart_urn(
+                platform=self.__config.platform_name,
+                platform_instance=self.__config.platform_instance,
+                name=page.get_urn_part(),
+            )
+            chart_usage_stats_aspects: List[ChartUsageStatisticsClass] = []
+            for date, usage_stat in page.usageStats.items():
+                chart_user_usage_counts: List[ChartUserUsageCountsClass] = []
+                total_views_count = 0
+                for user_id, user_usage_stat in usage_stat.userUsageStats.items():
+                    if usage_stat.key_as_guid:
+                        user = self.get_user_by_guid(report.users, user_id)
+                    else:
+                        user = self.get_user_by_id(report.users, user_id)
+                    if user:
+                        user_urn = builder.make_user_urn(
+                            user.get_urn_part(
+                                use_email=self.__config.ownership.use_powerbi_email,
+                                remove_email_suffix=self.__config.ownership.remove_email_suffix,
+                            )
+                        )
+                        chart_user_usage_counts.append(
+                            ChartUserUsageCountsClass(
+                                user=user_urn,
+                                viewsCount=user_usage_stat.viewsCount,
+                            )
+                        )
+                    total_views_count = total_views_count + user_usage_stat.viewsCount
+                chart_usage_stats_aspects.append(
+                    ChartUsageStatisticsClass(
+                        timestampMillis=round(
+                            datetime.strptime(date, POWERBI_USAGE_DATETIME_FORMAT)
+                            .replace(tzinfo=timezone.utc)
+                            .timestamp()
+                            * 1000
+                        ),
+                        eventGranularity=TimeWindowSizeClass(
+                            unit=CalendarIntervalClass.DAY
+                        ),
+                        viewsCount=total_views_count,
+                        uniqueUserCount=len(usage_stat.userUsageStats),
+                        userCounts=chart_user_usage_counts,
+                    )
+                )
+
+            chart_usage_stats_mcps.extend(
+                [
+                    self.new_mcp(
+                        entity_type=Constant.CHART,
+                        entity_urn=chart_urn,
+                        aspect_name=Constant.CHART_USAGE_STATISTICS,
+                        aspect=aspect,
+                    )
+                    for aspect in chart_usage_stats_aspects
+                ]
+            )
+
+        return chart_usage_stats_mcps
+
     def to_dashboard_usage_stats_mcp(
         self,
         entity_object: Union[
@@ -782,7 +857,7 @@ class Mapper:
             dashboard_user_usage_counts: List[DashboardUserUsageCountsClass] = []
             total_views_count = 0
             for user_id, user_usage_stat in usage_stat.userUsageStats.items():
-                if isinstance(entity_object, powerbi_data_classes.Dashboard):
+                if usage_stat.key_as_guid:
                     user = self.get_user_by_guid(entity_object.users, user_id)
                 else:
                     user = self.get_user_by_id(entity_object.users, user_id)
@@ -1005,15 +1080,13 @@ class Mapper:
         )
         # Convert tiles to charts
         ds_mcps, chart_mcps = self.to_datahub_chart(dashboard.tiles, workspace)
-        # Lets convert dashboard to datahub dashboard
-        dashboard_mcps: List[
-            MetadataChangeProposalWrapper
-        ] = self.to_datahub_dashboard_mcp(dashboard, workspace, chart_mcps, user_mcps)
 
+        # Lets convert dashboard to datahub dashboard
+        dashboard_mcps = self.to_datahub_dashboard_mcp(
+            dashboard, workspace, chart_mcps, user_mcps
+        )
         # generate report usgae stats mcps
-        dashboard_usage_stats_mcps: List[
-            MetadataChangeProposalWrapper
-        ] = self.to_dashboard_usage_stats_mcp(dashboard)
+        dashboard_usage_stats_mcps = self.to_dashboard_usage_stats_mcp(dashboard)
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
@@ -1247,23 +1320,24 @@ class Mapper:
 
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(report.users)
+
         # Convert pages to charts. A report has single dataset and same dataset used in pages to create visualization
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
         chart_mcps = self.pages_to_chart(report.pages, workspace, ds_mcps)
+        # generate report page usage stats mcps
+        chart_usage_stats_mcps = self.to_chart_usage_stats_mcp(report)
 
         # Let's convert report to datahub dashboard
         report_mcps = self.report_to_dashboard(workspace, report, chart_mcps, user_mcps)
-
-        # generate report usgae stats mcps
-        report_usage_stats_mcps: List[
-            MetadataChangeProposalWrapper
-        ] = self.to_dashboard_usage_stats_mcp(report)
+        # generate report usage stats mcps
+        report_usage_stats_mcps = self.to_dashboard_usage_stats_mcp(report)
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
         if self.__config.ownership.create_corp_user:
             mcps.extend(user_mcps)
         mcps.extend(chart_mcps)
+        mcps.extend(chart_usage_stats_mcps)
         mcps.extend(report_mcps)
         mcps.extend(report_usage_stats_mcps)
 
