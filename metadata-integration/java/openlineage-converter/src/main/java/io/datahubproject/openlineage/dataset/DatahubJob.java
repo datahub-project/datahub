@@ -273,20 +273,16 @@ public class DatahubJob {
               for (FineGrainedLineage fineGrainedLineage :
                   Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())) {
                 for (Urn upstream : Objects.requireNonNull(fineGrainedLineage.getUpstreams())) {
-                  upstreamLineagePatchBuilder.addFineGrainedUpstreamField(
-                      upstream,
-                      fineGrainedLineage.getConfidenceScore(),
-                      StringUtils.defaultIfEmpty(
-                          fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
-                      fineGrainedLineage.getUpstreamType());
-                }
-                for (Urn downstream : Objects.requireNonNull(fineGrainedLineage.getDownstreams())) {
-                  upstreamLineagePatchBuilder.addFineGrainedDownstreamField(
-                      downstream,
-                      fineGrainedLineage.getConfidenceScore(),
-                      StringUtils.defaultIfEmpty(
-                          fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
-                      fineGrainedLineage.getDownstreamType());
+                  for (Urn downstream :
+                      Objects.requireNonNull(fineGrainedLineage.getDownstreams())) {
+                    upstreamLineagePatchBuilder.addFineGrainedUpstreamField(
+                        downstream,
+                        fineGrainedLineage.getConfidenceScore(),
+                        StringUtils.defaultIfEmpty(
+                            fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
+                        upstream,
+                        null);
+                  }
                 }
               }
               MetadataChangeProposal mcp = upstreamLineagePatchBuilder.build();
