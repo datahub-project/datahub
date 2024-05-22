@@ -19,26 +19,26 @@ query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
 }
 """
 
-variables = {"input":
-                {
-                "query": "*",
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
-                "count": 10,
-                "direction": "DOWNSTREAM",
-                "orFilters": [
-                                {
-                                "and": [
-                                    {
-                                        "condition": "EQUAL",
-                                        "negated": "false",
-                                        "field": "degree",
-                                        "values": ["1", "2", "3+"]
-                                    }
-                                        ]
-                                }
-                            ]
-                }
+variables = {
+    "input": {
+        "query": "*",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
+        "count": 10,
+        "direction": "DOWNSTREAM",
+        "orFilters": [
+            {
+                "and": [
+                    {
+                        "condition": "EQUAL",
+                        "negated": "false",
+                        "field": "degree",
+                        "values": ["1", "2", "3+"],
+                    }
+                ]
             }
+        ],
+    }
+}
 result = graph.execute_graphql(query=query, variables=variables)
 
 print(result)
