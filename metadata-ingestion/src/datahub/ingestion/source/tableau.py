@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 from dataclasses import dataclass
@@ -16,12 +15,13 @@ from typing import (
     Union,
     cast,
 )
+from urllib.parse import urlparse
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
-from requests.adapters import ConnectionError, HTTPAdapter
+from requests.adapters import HTTPAdapter
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -87,10 +87,13 @@ from datahub.ingestion.source.tableau_common import (
     clean_query,
     custom_sql_graphql_query,
     dashboard_graphql_query,
+    database_servers_graphql_query,
     database_tables_graphql_query,
     embedded_datasource_graphql_query,
+    get_filter_pages,
     get_overridden_info,
     get_unique_custom_sql,
+    make_filter,
     make_fine_grained_lineage_class,
     make_upstream_class,
     published_datasource_graphql_query,
@@ -344,6 +347,11 @@ class TableauConfig(
         description="Mappings to change generated dataset urns. Use only if you really know what you are doing.",
     )
 
+    database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Mappings to change platform instance in generated dataset urns based on database. Use only if you really know what you are doing.",
+    )
+
     extract_usage_stats: bool = Field(
         default=False,
         description="[experimental] Extract usage statistics for dashboards and charts.",
@@ -536,6 +544,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
 
+        # This map keeps track of the database server connection hostnames.
+        self.database_server_hostname_map: Dict[str, str] = {}
         # This list keeps track of sheets in workbooks so that we retrieve those
         # when emitting sheets.
         self.sheet_ids: List[str] = []
@@ -571,11 +581,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             if self.server is not None:
                 self.server.auth.sign_out()
-        except ConnectionError as err:
+        except Exception as ex:
             logger.warning(
                 "During graceful closing of Tableau source a sign-out call was tried but ended up with"
-                " a ConnectionError (%s). Continuing closing of the source",
-                err,
+                " an Exception (%s). Continuing closing of the source",
+                ex,
             )
             self.server = None
         super().close()
@@ -607,6 +617,24 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
+
+    def _populate_database_server_hostname_map(self) -> None:
+        def maybe_parse_hostname():
+            # If the connection string is a URL instead of a hostname, parse it
+            # and extract the hostname, otherwise just return the connection string.
+            parsed_host_name = urlparse(server_connection).hostname
+            if parsed_host_name:
+                return parsed_host_name
+            return server_connection
+
+        for database_server in self.get_connection_objects(
+            database_servers_graphql_query, c.DATABASE_SERVERS_CONNECTION
+        ):
+            database_server_id = database_server.get(c.ID)
+            server_connection = database_server.get(c.HOST_NAME)
+            host_name = maybe_parse_hostname()
+            if host_name:
+                self.database_server_hostname_map[str(database_server_id)] = host_name
 
     def _get_all_project(self) -> Dict[str, TableauProject]:
         all_project_map: Dict[str, TableauProject] = {}
@@ -796,6 +824,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
         logger.debug(
             f"Query {connection_type} to get {count} objects with offset {offset}"
+            f" and filter {query_filter}"
         )
         try:
             assert self.server is not None
@@ -862,45 +891,47 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         self,
         query: str,
         connection_type: str,
-        query_filter: str,
+        query_filter: dict = {},
         page_size_override: Optional[int] = None,
     ) -> Iterable[dict]:
         # Calls the get_connection_object_page function to get the objects,
         # and automatically handles pagination.
-
         page_size = page_size_override or self.config.page_size
 
-        total_count = page_size
-        has_next_page = 1
-        offset = 0
-        while has_next_page:
-            count = (
-                page_size if offset + page_size < total_count else total_count - offset
-            )
-            (
-                connection_objects,
-                total_count,
-                has_next_page,
-            ) = self.get_connection_object_page(
-                query,
-                connection_type,
-                query_filter,
-                count,
-                offset,
-            )
+        filter_pages = get_filter_pages(query_filter, page_size)
 
-            offset += count
+        for filter_page in filter_pages:
+            total_count = page_size
+            has_next_page = 1
+            offset = 0
+            while has_next_page:
+                count = (
+                    page_size
+                    if offset + page_size < total_count
+                    else total_count - offset
+                )
+                (
+                    connection_objects,
+                    total_count,
+                    has_next_page,
+                ) = self.get_connection_object_page(
+                    query,
+                    connection_type,
+                    make_filter(filter_page),
+                    count,
+                    offset,
+                )
 
-            for obj in connection_objects.get(c.NODES) or []:
-                yield obj
+                offset += count
+
+                yield from connection_objects.get(c.NODES) or []
 
     def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
         if self.tableau_project_registry:
             project_names: List[str] = [
                 project.name for project in self.tableau_project_registry.values()
             ]
-            project_names_str: str = json.dumps(project_names)
-            projects = f"{c.PROJECT_NAME_WITH_IN}: {project_names_str}"
+            projects = {c.PROJECT_NAME_WITH_IN: project_names}
 
             for workbook in self.get_connection_objects(
                 workbook_graphql_query,
@@ -998,6 +1029,30 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
+
+        if not upstream_tables:
+            # Tableau's metadata graphql API sometimes returns an empty list for upstreamTables
+            # for embedded datasources. However, the upstreamColumns field often includes information.
+            # This attempts to populate upstream table information from the upstreamColumns field.
+            table_id_to_urn = {
+                column[c.TABLE][c.ID]: builder.make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    column[c.TABLE][c.ID],
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                for field in datasource.get(c.FIELDS, [])
+                for column in field.get(c.UPSTREAM_COLUMNS, [])
+                if column.get(c.TABLE, {}).get(c.TYPE_NAME) == c.CUSTOM_SQL_TABLE
+                and column.get(c.TABLE, {}).get(c.ID)
+            }
+            fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
+                datasource, datasource_urn, table_id_to_urn
+            )
+            upstream_tables = [
+                Upstream(dataset=table_urn, type=DatasetLineageType.TRANSFORMED)
+                for table_urn in table_id_to_urn.values()
+            ]
 
         if datasource.get(c.FIELDS):
             if self.config.extract_column_level_lineage:
@@ -1113,6 +1168,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.env,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
+                self.config.database_hostname_to_platform_instance_map,
+                self.database_server_hostname_map,
             )
             table_id_to_urn[table[c.ID]] = table_urn
 
@@ -1331,9 +1388,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         return op
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
-        custom_sql_filter = (
-            f"{c.ID_WITH_IN}: {json.dumps(self.custom_sql_ids_being_used)}"
-        )
+        custom_sql_filter = {c.ID_WITH_IN: self.custom_sql_ids_being_used}
 
         custom_sql_connection = list(
             self.get_connection_objects(
@@ -1681,8 +1736,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 [
                     str,
                     Optional[str],
+                    Optional[str],
                     Optional[Dict[str, str]],
                     Optional[TableauLineageOverrides],
+                    Optional[Dict[str, str]],
+                    Optional[Dict[str, str]],
                 ],
                 Tuple[Optional[str], Optional[str], str, str],
             ]
@@ -1690,7 +1748,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional["SqlParsingResult"]:
         database_info = datasource.get(c.DATABASE) or {
             c.NAME: c.UNKNOWN.lower(),
-            c.CONNECTION_TYPE: "databricks",
+            c.CONNECTION_TYPE: datasource.get(c.CONNECTION_TYPE),
         }
 
         if (
@@ -1700,7 +1758,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             logger.debug(f"datasource {datasource_urn} is not created from custom sql")
             return None
 
-        if c.NAME not in database_info or c.CONNECTION_TYPE not in database_info:
+        if (
+            database_info.get(c.NAME) is None
+            or database_info.get(c.CONNECTION_TYPE) is None
+        ):
             logger.debug(
                 f"database information is missing from datasource {datasource_urn}"
             )
@@ -1723,8 +1784,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             upstream_db, platform_instance, platform, _ = func_overridden_info(
                 database_info[c.CONNECTION_TYPE],
                 database_info.get(c.NAME),
+                database_info.get(c.ID),
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
+                self.config.database_hostname_to_platform_instance_map,
+                self.database_server_hostname_map,
             )
 
         logger.debug(
@@ -2014,9 +2078,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         return container_key
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = (
-            f"{c.ID_WITH_IN}: {json.dumps(self.datasource_ids_being_used)}"
-        )
+        datasource_filter = {c.ID_WITH_IN: self.datasource_ids_being_used}
 
         for datasource in self.get_connection_objects(
             published_datasource_graphql_query,
@@ -2032,7 +2094,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             if tbl.id:
                 tableau_database_table_id_to_urn_map[tbl.id] = urn
 
-        tables_filter = f"{c.ID_WITH_IN}: {json.dumps(list(tableau_database_table_id_to_urn_map.keys()))}"
+        tables_filter = {
+            c.ID_WITH_IN: list(tableau_database_table_id_to_urn_map.keys())
+        }
 
         # Emmitting tables that came from Tableau metadata
         for tableau_table in self.get_connection_objects(
@@ -2216,7 +2280,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         ).as_workunit()
 
     def emit_sheets(self) -> Iterable[MetadataWorkUnit]:
-        sheets_filter = f"{c.ID_WITH_IN}: {json.dumps(self.sheet_ids)}"
+        sheets_filter = {c.ID_WITH_IN: self.sheet_ids}
 
         for sheet in self.get_connection_objects(
             sheet_graphql_query,
@@ -2502,7 +2566,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def emit_dashboards(self) -> Iterable[MetadataWorkUnit]:
-        dashboards_filter = f"{c.ID_WITH_IN}: {json.dumps(self.dashboard_ids)}"
+        dashboards_filter = {c.ID_WITH_IN: self.dashboard_ids}
 
         for dashboard in self.get_connection_objects(
             dashboard_graphql_query,
@@ -2638,9 +2702,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         return browse_paths
 
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
-        datasource_filter = (
-            f"{c.ID_WITH_IN}: {json.dumps(self.embedded_datasource_ids_being_used)}"
-        )
+        datasource_filter = {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
 
         for datasource in self.get_connection_objects(
             embedded_datasource_graphql_query,
@@ -2730,6 +2792,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # Initialise the dictionary to later look-up for chart and dashboard stat
             if self.config.extract_usage_stats:
                 self._populate_usage_stat_registry()
+
+            # Populate the map of database names and database hostnames to be used later to map
+            # databases to platform instances.
+            if self.config.database_hostname_to_platform_instance_map:
+                self._populate_database_server_hostname_map()
 
             self._populate_projects_registry()
             yield from self.emit_project_containers()

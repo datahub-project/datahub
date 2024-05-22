@@ -52,9 +52,9 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
           final DataHubViewInfo maybeResolvedView =
               (input.getViewUrn() != null)
                   ? resolveView(
+                      context.getOperationContext(),
                       _viewService,
-                      UrnUtils.getUrn(input.getViewUrn()),
-                      context.getAuthentication())
+                      UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
           final Filter baseFilter =
@@ -75,14 +75,20 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 start,
                 count);
 
+            List<String> finalEntities =
+                maybeResolvedView != null
+                    ? SearchUtils.intersectEntityTypes(
+                        entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                    : entityNames;
+            if (finalEntities.size() == 0) {
+              return SearchUtils.createEmptySearchResults(start, count);
+            }
+
             return UrnSearchResultsMapper.map(
                 context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
-                    maybeResolvedView != null
-                        ? SearchUtils.intersectEntityTypes(
-                            entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-                        : entityNames,
+                    finalEntities,
                     sanitizedQuery,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(

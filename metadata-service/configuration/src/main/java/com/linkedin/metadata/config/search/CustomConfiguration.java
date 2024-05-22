@@ -17,7 +17,7 @@ public class CustomConfiguration {
   private String file;
 
   /**
-   * Materialize the search configuration from a location external to main application.yml
+   * Materialize the search configuration from a location external to main application.yaml
    *
    * @param mapper yaml enabled jackson mapper
    * @return search configuration class
@@ -30,9 +30,15 @@ public class CustomConfiguration {
         log.info("Custom search configuration found in classpath: {}", file);
         return mapper.readValue(stream, CustomSearchConfiguration.class);
       } catch (FileNotFoundException e) {
+        log.info("Custom search configuration was NOT found in the classpath.");
         try (InputStream stream = new FileSystemResource(file).getInputStream()) {
           log.info("Custom search configuration found in filesystem: {}", file);
           return mapper.readValue(stream, CustomSearchConfiguration.class);
+        } catch (Exception e2) {
+          log.warn(
+              "Custom search enabled, however there was an error loading configuration: " + file,
+              e2);
+          return null;
         }
       }
     } else {

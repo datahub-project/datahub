@@ -14,6 +14,7 @@ import javax.annotation.Nullable;
 
 /** Differ responsible for determining whether an entity has been soft-deleted or soft-created. */
 public class DeprecationChangeEventGenerator extends EntityChangeEventGenerator<Deprecation> {
+
   @Override
   public List<ChangeEvent> getChangeEvents(
       @Nonnull Urn urn,

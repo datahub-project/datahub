@@ -65,10 +65,10 @@ public class MLFeatureType implements SearchableEntityType<MLFeature, String> {
     try {
       final Map<Urn, EntityResponse> mlFeatureMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               ML_FEATURE_ENTITY_NAME,
               new HashSet<>(mlFeatureUrns),
-              null,
-              context.getAuthentication());
+              null);
 
       final List<EntityResponse> gmsResults =
           mlFeatureUrns.stream()

@@ -20,6 +20,20 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #10419 - `aws_region` is now a required configuration in the DynamoDB connector. The connector will no longer loop through all AWS regions; instead, it will only use the region passed into the recipe configuration.
+- #10389 - Custom validators, mutators, side-effects dropped a previously required constructor
+- #10472 - `RVW` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Change
+
+## 0.13.1
+
+### Breaking Changes
+
 - #9934 and #10075 - Stateful ingestion is now enabled by default if a `pipeline_name` is set and either a datahub-rest sink or `datahub_api` is specified. It will still be disabled by default when any other sink type is used or if there is no pipeline name set.
 - #10002 - The `DataHubGraph` client no longer makes a request to the backend during initialization. If you want to preserve the old behavior, call `graph.test_connection()` after constructing the client.
 - #10026 - The dbt `use_compiled_code` option has been removed, because we now support capturing both source and compiled dbt SQL. This can be configured using `include_compiled_code`, which will be default enabled in 0.13.1.
@@ -27,6 +41,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #10090 - For Redshift ingestion, `use_lineage_v2` is now enabled by default.
 - #10147 - For looker ingestion, the browse paths for looker Dashboard, Chart, View, Explore have been updated to align with Looker UI. This does not affect URNs or lineage but primarily affects (improves) browsing experience.
 - #10164 - For dbt ingestion, `entities_enabled.model_performance` and `include_compiled_code` are now both enabled by default. Upgrading dbt ingestion will also require upgrading the backend to 0.13.1.
+- #10066 - For view access controls, `SEARCH_AUTHORIZATION_ENABLED` replaced by `VIEW_AUTHORIZATION_ENABLED` to more accurately represent the feature.
+- #8231 - Google Analytics 3 has been fully sunsetted by Google as of July 2023, so we now support GA4 thanks to this PR and no longer support GA3 (which would have been broken since last year anyways).
+- #10278 - Renaming Presto-On-Hive Source to Hive Metastore source to reflect better its purpose
 
 ### Potential Downtime
 
@@ -327,7 +344,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 
 - #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [Configuring Authorization with Apache Ranger](./configuring-authorization-with-apache-ranger.md#configuring-your-datahub-deployment) for configuring `apache-ranger-plugin` in DataHub GMS.
 - #6243 apache-ranger authorizer as plugin is not supported in DataHub Kubernetes deployment.
-- #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/configuration/src/main/resources/application.yml). Refer documentation [Migration Of Plugins From application.yml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins.
+- #6243 Authentication and Authorization plugins configuration are removed from [application.yaml](../../metadata-service/configuration/src/main/resources/application.yaml). Refer documentation [Migration Of Plugins From application.yaml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins.
 - `datahub check graph-consistency` command has been removed. It was a beta API that we had considered but decided there are better solutions for this. So removing this.
 - `graphql_url` option of `powerbi-report-server` source deprecated as the options is not used.
 - #6789 BigQuery ingestion: If `enable_legacy_sharded_table_support` is set to False, sharded table names will be suffixed with \_yyyymmdd to make sure they don't clash with non-sharded tables. This means if stateful ingestion is enabled then old sharded tables will be recreated with a new id and attached tags/glossary terms/etc will need to be added again. _This behavior is not enabled by default yet, but will be enabled by default in a future release._

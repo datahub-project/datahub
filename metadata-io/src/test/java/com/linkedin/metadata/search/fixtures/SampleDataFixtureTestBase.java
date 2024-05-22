@@ -11,10 +11,6 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
-import com.datahub.authentication.Authentication;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -46,7 +42,6 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfi
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -73,11 +68,6 @@ import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
-  protected static final Authentication AUTHENTICATION =
-      new Authentication(new Actor(ActorType.USER, "test"), "");
-
-  @Nonnull
-  protected abstract EntityRegistry getEntityRegistry();
 
   @Nonnull
   protected abstract SearchService getSearchService();
@@ -89,43 +79,37 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   protected abstract RestHighLevelClient getSearchClient();
 
   @Nonnull
-  protected OperationContext getOperationContext() {
-    return TestOperationContexts.userContextNoSearchAuthorization(
-        Authorizer.EMPTY, AUTHENTICATION, getEntityRegistry());
-  }
+  protected abstract OperationContext getOperationContext();
 
   @Test
   public void testSearchFieldConfig() throws IOException {
     /*
      For every field in every entity fixture, ensure proper detection of field types and analyzers
     */
+    EntityRegistry entityRegistry = getOperationContext().getEntityRegistry();
     Map<EntitySpec, String> fixtureEntities = new HashMap<>();
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("dataset"), "smpldat_datasetindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("chart"), "smpldat_chartindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("dataset"), "smpldat_datasetindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("chart"), "smpldat_chartindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("container"), "smpldat_containerindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("corpgroup"), "smpldat_corpgroupindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("corpuser"), "smpldat_corpuserindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("dashboard"), "smpldat_dashboardindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("dataflow"), "smpldat_dataflowindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("datajob"), "smpldat_datajobindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("domain"), "smpldat_domainindex_v2");
     fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("container"), "smpldat_containerindex_v2");
+        entityRegistry.getEntitySpec("glossarynode"), "smpldat_glossarynodeindex_v2");
     fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("corpgroup"), "smpldat_corpgroupindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("corpuser"), "smpldat_corpuserindex_v2");
+        entityRegistry.getEntitySpec("glossaryterm"), "smpldat_glossarytermindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("mlfeature"), "smpldat_mlfeatureindex_v2");
     fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("dashboard"), "smpldat_dashboardindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("dataflow"), "smpldat_dataflowindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("datajob"), "smpldat_datajobindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("domain"), "smpldat_domainindex_v2");
+        entityRegistry.getEntitySpec("mlfeaturetable"), "smpldat_mlfeaturetableindex_v2");
     fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("glossarynode"), "smpldat_glossarynodeindex_v2");
+        entityRegistry.getEntitySpec("mlmodelgroup"), "smpldat_mlmodelgroupindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("mlmodel"), "smpldat_mlmodelindex_v2");
     fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("glossaryterm"), "smpldat_glossarytermindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("mlfeature"), "smpldat_mlfeatureindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("mlfeaturetable"), "smpldat_mlfeaturetableindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("mlmodelgroup"), "smpldat_mlmodelgroupindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("mlmodel"), "smpldat_mlmodelindex_v2");
-    fixtureEntities.put(
-        getEntityRegistry().getEntitySpec("mlprimarykey"), "smpldat_mlprimarykeyindex_v2");
-    fixtureEntities.put(getEntityRegistry().getEntitySpec("tag"), "smpldat_tagindex_v2");
+        entityRegistry.getEntitySpec("mlprimarykey"), "smpldat_mlprimarykeyindex_v2");
+    fixtureEntities.put(entityRegistry.getEntitySpec("tag"), "smpldat_tagindex_v2");
 
     for (Map.Entry<EntitySpec, String> entry : fixtureEntities.entrySet()) {
       EntitySpec entitySpec = entry.getKey();
@@ -227,7 +211,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     List<String> entityNamesToTestSearch = List.of("dataset", "chart", "corpgroup");
     List<EntitySpec> entitySpecs =
         entityNamesToTestSearch.stream()
-            .map(name -> getEntityRegistry().getEntitySpec(name))
+            .map(name -> getOperationContext().getEntityRegistry().getEntitySpec(name))
             .collect(Collectors.toList());
     SearchSourceBuilder builder = new SearchSourceBuilder();
     SortCriterion sortCriterion =

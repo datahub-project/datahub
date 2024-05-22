@@ -124,7 +124,12 @@ from datahub.sql_parsing.sqlglot_lineage import (
     infer_output_schema,
     sqlglot_lineage,
 )
-from datahub.sql_parsing.sqlglot_utils import detach_ctes, try_format_query
+from datahub.sql_parsing.sqlglot_utils import (
+    detach_ctes,
+    parse_statements_and_pick,
+    try_format_query,
+)
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
@@ -137,9 +142,19 @@ _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
-    sql_statements_parsed: int = 0
+    sql_parser_skipped_missing_code: LossyList[str] = field(default_factory=LossyList)
+    sql_parser_parse_failures: int = 0
     sql_parser_detach_ctes_failures: int = 0
-    sql_parser_skipped_missing_code: int = 0
+    sql_parser_table_errors: int = 0
+    sql_parser_column_errors: int = 0
+    sql_parser_successes: int = 0
+
+    sql_parser_parse_failures_list: LossyList[str] = field(default_factory=LossyList)
+    sql_parser_detach_ctes_failures_list: LossyList[str] = field(
+        default_factory=LossyList
+    )
+
+    in_manifest_but_missing_catalog: LossyList[str] = field(default_factory=LossyList)
 
 
 class EmitDirective(ConfigEnum):
@@ -549,10 +564,11 @@ class DBTNode:
         assert self.is_ephemeral_model()
 
         # Similar to get_db_fqn.
-        fqn = self._join_parts(
+        db_fqn = self._join_parts(
             [self.database, self.schema, f"__datahub__dbt__ephemeral__{self.name}"]
         )
-        return fqn.replace('"', "")
+        db_fqn = db_fqn.lower()
+        return db_fqn.replace('"', "")
 
     def get_urn_for_upstream_lineage(
         self,
@@ -786,14 +802,17 @@ _field_type_mapping = {
 
 
 def get_column_type(
-    report: DBTSourceReport, dataset_name: str, column_type: str, dbt_adapter: str
+    report: DBTSourceReport,
+    dataset_name: str,
+    column_type: Optional[str],
+    dbt_adapter: str,
 ) -> SchemaFieldDataType:
     """
     Maps known DBT types to datahub types
     """
-    TypeClass: Any = _field_type_mapping.get(column_type)
+    TypeClass: Any = _field_type_mapping.get(column_type) if column_type else None
 
-    if TypeClass is None:
+    if TypeClass is None and column_type:
         # resolve a modified type
         if dbt_adapter == "trino":
             TypeClass = resolve_trino_modified_type(column_type)
@@ -807,9 +826,10 @@ def get_column_type(
 
     # if still not found, report the warning
     if TypeClass is None:
-        report.report_warning(
-            dataset_name, f"unable to map type {column_type} to metadata schema"
-        )
+        if column_type:
+            report.report_warning(
+                dataset_name, f"unable to map type {column_type} to metadata schema"
+            )
         TypeClass = NullTypeClass
 
     return SchemaFieldDataType(type=TypeClass())
@@ -925,12 +945,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _make_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
             platform=mce_builder.make_data_platform_urn(DBT_PLATFORM),
-            instance=mce_builder.make_dataplatform_instance_urn(
-                mce_builder.make_data_platform_urn(DBT_PLATFORM),
-                self.config.platform_instance,
-            )
-            if self.config.platform_instance
-            else None,
+            instance=(
+                mce_builder.make_dataplatform_instance_urn(
+                    mce_builder.make_data_platform_urn(DBT_PLATFORM),
+                    self.config.platform_instance,
+                )
+                if self.config.platform_instance
+                else None
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -989,7 +1011,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _to_schema_info(schema_fields: List[SchemaField]) -> SchemaInfo:
         return {column.fieldPath: column.nativeDataType for column in schema_fields}
 
-    def _infer_schemas_and_update_cll(self, all_nodes_map: Dict[str, DBTNode]) -> None:
+    def _infer_schemas_and_update_cll(  # noqa: C901
+        self, all_nodes_map: Dict[str, DBTNode]
+    ) -> None:
         """Annotate the DBTNode objects with schema information and column-level lineage.
 
         Note that this mutates the DBTNode objects directly.
@@ -1025,7 +1049,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         # Iterate over the dbt nodes in topological order.
         # This ensures that we process upstream nodes before downstream nodes.
-        for dbt_name in topological_sort(
+        node_order = topological_sort(
             list(all_nodes_map.keys()),
             edges=list(
                 (upstream, node.dbt_name)
@@ -1033,7 +1057,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for upstream in node.upstream_nodes
                 if upstream in all_nodes_map
             ),
-        ):
+        )
+        for dbt_name in node_order:
             node = all_nodes_map[dbt_name]
             logger.debug(f"Processing CLL/schemas for {node.dbt_name}")
 
@@ -1103,38 +1128,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # Run sql parser to infer the schema + generate column lineage.
             sql_result = None
-            if node.compiled_code:
-                try:
-                    # Add CTE stops based on the upstreams list.
-                    preprocessed_sql = detach_ctes(
-                        node.compiled_code,
-                        platform=schema_resolver.platform,
-                        cte_mapping={
-                            cte_name: upstream_node.get_fake_ephemeral_table_name()
-                            for upstream_node in [
-                                all_nodes_map[upstream_node_name]
-                                for upstream_node_name in node.upstream_nodes
-                                if upstream_node_name in all_nodes_map
-                            ]
-                            if upstream_node.is_ephemeral_model()
-                            for cte_name in _get_dbt_cte_names(
-                                upstream_node.name, schema_resolver.platform
-                            )
-                        },
+            if node.node_type in {"source", "test", "seed"}:
+                # For sources, we generate CLL as a 1:1 mapping.
+                # We don't support CLL for tests (assertions) or seeds.
+                pass
+            elif node.compiled_code:
+                # Add CTE stops based on the upstreams list.
+                cte_mapping = {
+                    cte_name: upstream_node.get_fake_ephemeral_table_name()
+                    for upstream_node in [
+                        all_nodes_map[upstream_node_name]
+                        for upstream_node_name in node.upstream_nodes
+                        if upstream_node_name in all_nodes_map
+                    ]
+                    if upstream_node.is_ephemeral_model()
+                    for cte_name in _get_dbt_cte_names(
+                        upstream_node.name, schema_resolver.platform
                     )
-                except Exception as e:
-                    self.report.sql_parser_detach_ctes_failures += 1
-                    logger.debug(
-                        f"Failed to detach CTEs from compiled code. {node.dbt_name} will not have column lineage."
-                    )
-                    sql_result = SqlParsingResult.make_from_error(e)
-                else:
-                    sql_result = sqlglot_lineage(
-                        preprocessed_sql, schema_resolver=schema_resolver
-                    )
-                    self.report.sql_statements_parsed += 1
+                }
+
+                sql_result = self._parse_cll(node, cte_mapping, schema_resolver)
             else:
-                self.report.sql_parser_skipped_missing_code += 1
+                self.report.sql_parser_skipped_missing_code.append(node.dbt_name)
 
             # Save the column lineage.
             if self.config.include_column_lineage and sql_result:
@@ -1176,6 +1191,56 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # Save the inferred schema fields into the dbt node.
             if inferred_schema_fields:
                 node.columns_setdefault(inferred_schema_fields)
+
+    def _parse_cll(
+        self,
+        node: DBTNode,
+        cte_mapping: Dict[str, str],
+        schema_resolver: SchemaResolver,
+    ) -> SqlParsingResult:
+        assert node.compiled_code is not None
+
+        try:
+            picked_statement = parse_statements_and_pick(
+                node.compiled_code,
+                platform=schema_resolver.platform,
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to parse compiled code. {node.dbt_name} will not have column lineage."
+            )
+            self.report.sql_parser_parse_failures += 1
+            self.report.sql_parser_parse_failures_list.append(node.dbt_name)
+            return SqlParsingResult.make_from_error(e)
+
+        try:
+            preprocessed_sql = detach_ctes(
+                picked_statement,
+                platform=schema_resolver.platform,
+                cte_mapping=cte_mapping,
+            )
+        except Exception as e:
+            self.report.sql_parser_detach_ctes_failures += 1
+            self.report.sql_parser_detach_ctes_failures_list.append(node.dbt_name)
+            logger.debug(
+                f"Failed to detach CTEs from compiled code. {node.dbt_name} will not have column lineage."
+            )
+            return SqlParsingResult.make_from_error(e)
+
+        sql_result = sqlglot_lineage(preprocessed_sql, schema_resolver=schema_resolver)
+        if sql_result.debug_info.table_error:
+            self.report.sql_parser_table_errors += 1
+            logger.info(
+                f"Failed to generate any CLL lineage for {node.dbt_name}: {sql_result.debug_info.error}"
+            )
+        elif sql_result.debug_info.column_error:
+            self.report.sql_parser_column_errors += 1
+            logger.info(
+                f"Failed to generate CLL for {node.dbt_name}: {sql_result.debug_info.column_error}"
+            )
+        else:
+            self.report.sql_parser_successes += 1
+        return sql_result
 
     def create_dbt_platform_mces(
         self,
@@ -1737,7 +1802,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if node.cll_debug_info and node.cll_debug_info.error:
                 self.report.report_warning(
                     node.dbt_name,
-                    f"Error parsing column lineage: {node.cll_debug_info.error}",
+                    f"Error parsing SQL to generate column lineage: {node.cll_debug_info.error}",
                 )
             cll = [
                 FineGrainedLineage(
@@ -1780,9 +1845,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     )
                     for upstream in upstream_urns
                 ],
-                fineGrainedLineages=(cll or None)
-                if self.config.include_column_lineage
-                else None,
+                fineGrainedLineages=(
+                    (cll or None) if self.config.include_column_lineage else None
+                ),
             )
 
     # This method attempts to read-modify and return the owners of a dataset.
@@ -1819,7 +1884,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         entity_urn: str,
         tags_prefix_filter: str,
     ) -> List[TagAssociationClass]:
-        tag_set = set([new_tag.tag for new_tag in new_tags])
+        tag_set = {new_tag.tag for new_tag in new_tags}
 
         if self.ctx.graph:
             existing_tags_class = self.ctx.graph.get_tags(entity_urn)
@@ -1834,7 +1899,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_transformed_terms(
         self, new_terms: List[GlossaryTermAssociation], entity_urn: str
     ) -> List[GlossaryTermAssociation]:
-        term_id_set = set([term.urn for term in new_terms])
+        term_id_set = {term.urn for term in new_terms}
         if self.ctx.graph:
             existing_terms_class = self.ctx.graph.get_glossary_terms(entity_urn)
             if existing_terms_class and existing_terms_class.terms:

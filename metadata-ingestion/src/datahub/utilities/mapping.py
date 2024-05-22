@@ -6,8 +6,13 @@ import time
 from functools import reduce
 from typing import Any, Dict, List, Mapping, Match, Optional, Union, cast
 
+from datahub.configuration.common import ConfigModel
 from datahub.emitter import mce_builder
-from datahub.emitter.mce_builder import OwnerType
+from datahub.emitter.mce_builder import (
+    OwnerType,
+    make_user_urn,
+    validate_ownership_type,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     InstitutionalMemoryClass,
@@ -83,6 +88,36 @@ class Constants:
     SEPARATOR = "separator"
 
 
+class _MappingOwner(ConfigModel):
+    owner: str
+    owner_type: str = OwnershipTypeClass.DATAOWNER
+
+
+class _DatahubProps(ConfigModel):
+    owners: List[Union[str, _MappingOwner]]
+
+    def make_owner_category_list(self) -> List[Dict]:
+        res = []
+        for owner in self.owners:
+            if isinstance(owner, str):
+                owner_id = owner
+                owner_category = OwnershipTypeClass.DATAOWNER
+            else:
+                owner_id = owner.owner
+                owner_category = owner.owner_type
+            owner_id = make_user_urn(owner_id)
+            owner_category, owner_category_urn = validate_ownership_type(owner_category)
+
+            res.append(
+                {
+                    "urn": owner_id,
+                    "category": owner_category,
+                    "categoryUrn": owner_category_urn,
+                }
+            )
+        return res
+
+
 class OperationProcessor:
     """
     A general class that processes a dictionary of properties and operations defined on it.
@@ -128,7 +163,7 @@ class OperationProcessor:
         self.owner_source_type = owner_source_type
         self.match_nested_props = match_nested_props
 
-    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:
+    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:  # noqa: C901
         # Defining the following local variables -
         # operations_map - the final resulting map when operations are processed.
         # Against each operation the values to be applied are stored.
@@ -137,9 +172,35 @@ class OperationProcessor:
         # operation config: map which contains the parameters to carry out that operation.
         # For e.g for add_tag operation config will have the tag value.
         # operation_type: the type of operation (add_tag, add_term, etc.)
-        aspect_map: Dict[str, Any] = {}  # map of aspect name to aspect object
+
+        # Process the special "datahub" property, which supports tags, terms, and owners.
+        operations_map: Dict[str, list] = {}
         try:
-            operations_map: Dict[str, Union[set, list]] = {}
+            datahub_prop = raw_props.get("datahub")
+            if datahub_prop and isinstance(datahub_prop, dict):
+                if datahub_prop.get("tags"):
+                    # Note that tags get converted to urns later because we need to support the tag prefix.
+                    tags = datahub_prop["tags"]
+                    operations_map.setdefault(Constants.ADD_TAG_OPERATION, []).extend(
+                        tags
+                    )
+
+                if datahub_prop.get("terms"):
+                    terms = datahub_prop["terms"]
+                    operations_map.setdefault(Constants.ADD_TERM_OPERATION, []).extend(
+                        mce_builder.make_term_urn(term) for term in terms
+                    )
+
+                if datahub_prop.get("owners"):
+                    owners = _DatahubProps.parse_obj_allow_extras(datahub_prop)
+                    operations_map.setdefault(Constants.ADD_OWNER_OPERATION, []).extend(
+                        owners.make_owner_category_list()
+                    )
+        except Exception as e:
+            logger.error(f"Error while processing datahub property: {e}")
+
+        # Process the actual directives.
+        try:
             for operation_key in self.operation_defs:
                 operation_type = self.operation_defs.get(operation_key, {}).get(
                     Constants.OPERATION
@@ -177,42 +238,36 @@ class OperationProcessor:
                             isinstance(operation, list)
                             and operation_type == Constants.ADD_OWNER_OPERATION
                         ):
-                            operation_value_list = operations_map.get(
-                                operation_type, list()
-                            )
-                            cast(List, operation_value_list).extend(
+                            operations_map.setdefault(operation_type, []).extend(
                                 operation
-                            )  # cast to silent the lint
-                            operations_map[operation_type] = operation_value_list
+                            )
 
                         elif isinstance(operation, (str, list)):
-                            operations_value_set = operations_map.get(
-                                operation_type, set()
+                            operations_map.setdefault(operation_type, []).extend(
+                                operation
+                                if isinstance(operation, list)
+                                else [operation]
                             )
-                            if isinstance(operation, list):
-                                operations_value_set.update(operation)  # type: ignore
-                            else:
-                                operations_value_set.add(operation)  # type: ignore
-                            operations_map[operation_type] = operations_value_set
                         else:
-                            operations_value_list = operations_map.get(
-                                operation_type, list()
+                            operations_map.setdefault(operation_type, []).append(
+                                operation
                             )
-                            operations_value_list.append(operation)  # type: ignore
-                            operations_map[operation_type] = operations_value_list
-            aspect_map = self.convert_to_aspects(operations_map)
         except Exception as e:
             logger.error(f"Error while processing operation defs over raw_props: {e}")
+
+        aspect_map: Dict[str, Any] = {}  # map of aspect name to aspect object
+        try:
+            aspect_map = self.convert_to_aspects(operations_map)
+        except Exception as e:
+            logger.error(f"Error while converting operations map to aspects: {e}")
         return aspect_map
 
-    def convert_to_aspects(
-        self, operation_map: Dict[str, Union[set, list]]
-    ) -> Dict[str, Any]:
+    def convert_to_aspects(self, operation_map: Dict[str, list]) -> Dict[str, Any]:
         aspect_map: Dict[str, Any] = {}
 
         if Constants.ADD_TAG_OPERATION in operation_map:
             tag_aspect = mce_builder.make_global_tag_aspect_with_tag_list(
-                sorted(operation_map[Constants.ADD_TAG_OPERATION])
+                sorted(set(operation_map[Constants.ADD_TAG_OPERATION]))
             )
 
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
@@ -240,7 +295,7 @@ class OperationProcessor:
 
         if Constants.ADD_TERM_OPERATION in operation_map:
             term_aspect = mce_builder.make_glossary_terms_aspect_from_urn_list(
-                sorted(operation_map[Constants.ADD_TERM_OPERATION])
+                sorted(set(operation_map[Constants.ADD_TERM_OPERATION]))
             )
             aspect_map[Constants.ADD_TERM_OPERATION] = term_aspect
 
@@ -319,12 +374,7 @@ class OperationProcessor:
                 operation_config.get(Constants.OWNER_CATEGORY)
                 or OwnershipTypeClass.DATAOWNER
             )
-            owner_category_urn: Optional[str] = None
-            if owner_category.startswith("urn:li:"):
-                owner_category_urn = owner_category
-                owner_category = OwnershipTypeClass.DATAOWNER
-            else:
-                owner_category = owner_category.upper()
+            owner_category, owner_category_urn = validate_ownership_type(owner_category)
 
             if self.strip_owner_email_id:
                 owner_ids = [

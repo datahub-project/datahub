@@ -1,13 +1,10 @@
 import datetime
 import logging
-import os
 import uuid
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, validator
 
-from datahub.cli.cli_utils import get_url_and_token
-from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
@@ -67,12 +64,8 @@ class FlagsConfig(ConfigModel):
 
 
 class PipelineConfig(ConfigModel):
-    # Once support for discriminated unions gets merged into Pydantic, we can
-    # simplify this configuration and validation.
-    # See https://github.com/samuelcolvin/pydantic/pull/2336.
-
     source: SourceConfig
-    sink: DynamicTypedConfig
+    sink: Optional[DynamicTypedConfig] = None
     transformers: Optional[List[DynamicTypedConfig]] = None
     flags: FlagsConfig = Field(default=FlagsConfig(), hidden_from_docs=True)
     reporting: List[ReporterConfig] = []
@@ -99,36 +92,6 @@ class PipelineConfig(ConfigModel):
         else:
             assert v is not None
             return v
-
-    @root_validator(pre=True)
-    def default_sink_is_datahub_rest(cls, values: Dict[str, Any]) -> Any:
-        if "sink" not in values:
-            gms_host, gms_token = get_url_and_token()
-            default_sink_config = {
-                "type": "datahub-rest",
-                "config": {
-                    "server": gms_host,
-                    "token": gms_token,
-                },
-            }
-            # resolve env variables if present
-            default_sink_config = config_loader.resolve_env_variables(
-                default_sink_config, environ=os.environ
-            )
-            values["sink"] = default_sink_config
-
-        return values
-
-    @validator("datahub_api", always=True)
-    def datahub_api_should_use_rest_sink_as_default(
-        cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
-    ) -> Optional[DatahubClientConfig]:
-        if v is None and "sink" in values and hasattr(values["sink"], "type"):
-            sink_type = values["sink"].type
-            if sink_type == "datahub-rest":
-                sink_config = values["sink"].config
-                v = DatahubClientConfig.parse_obj_allow_extras(sink_config)
-        return v
 
     @classmethod
     def from_dict(

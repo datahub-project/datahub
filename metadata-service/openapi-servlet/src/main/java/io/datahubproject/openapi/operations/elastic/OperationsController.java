@@ -128,7 +128,16 @@ public class OperationsController {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(String.format(actorUrnStr + " is not authorized to get timeseries index sizes"));
     }
-    List<TimeseriesIndexSizeResult> indexSizeResults = timeseriesAspectService.getIndexSizes();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("getIndexSizes", List.of()),
+            authorizerChain,
+            authentication,
+            true);
+
+    List<TimeseriesIndexSizeResult> indexSizeResults =
+        timeseriesAspectService.getIndexSizes(opContext);
     JSONObject j = new JSONObject();
     j.put(
         "sizes",
@@ -267,6 +276,13 @@ public class OperationsController {
         authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            authorizerChain,
+            authentication,
+            true);
 
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()
@@ -282,9 +298,7 @@ public class OperationsController {
             .gePitEpochMs(gePitEpochMs)
             .lePitEpochMs(lePitEpochMs);
 
-    return ResponseEntity.of(
-        Optional.of(
-            entityService.streamRestoreIndices(args, log::info).collect(Collectors.toList())));
+    return ResponseEntity.of(Optional.of(entityService.restoreIndices(opContext, args, log::info)));
   }
 
   @Tag(name = "RestoreIndices")
@@ -302,10 +316,18 @@ public class OperationsController {
         authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            authorizerChain,
+            authentication,
+            true);
 
     return ResponseEntity.of(
         Optional.of(
             entityService.restoreIndices(
+                opContext,
                 urns.stream().map(UrnUtils::getUrn).collect(Collectors.toSet()),
                 aspectNames,
                 batchSize)));

@@ -8,7 +8,7 @@ If you're looking to schedule DataHub ingestion using Airflow, see the guide on 
 
 The DataHub Airflow plugin supports:
 
-- Automatic column-level lineage extraction from various operators e.g. SQL operators (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, and more), `S3FileTransformOperator`, and more.
+- Automatic column-level lineage extraction from various operators e.g. SQL operators (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, `BigQueryInsertJobOperator`, and more), `S3FileTransformOperator`, and more.
 - Airflow DAG and tasks, including properties, ownership, and tags.
 - Task run information, including task successes and failures.
 - Manual lineage annotations using `inlets` and `outlets` on Airflow operators.
@@ -45,6 +45,8 @@ Set up a DataHub connection in Airflow, either via command line or the Airflow U
 airflow connections add  --conn-type 'datahub-rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080' --conn-password '<optional datahub auth token>'
 ```
 
+If you are using hosted Acryl Datahub then please use `https://YOUR_PREFIX.acryl.io/gms` as the `--conn-host` parameter.
+
 #### Airflow UI
 
 On the Airflow UI, go to Admin -> Connections and click the "+" symbol to create a new connection. Select "DataHub REST Server" from the dropdown for "Connection Type" and enter the appropriate values.
@@ -71,6 +73,7 @@ enabled = True  # default
 | capture_ownership_info     | true                 | Extract DAG ownership.                                                                   |
 | capture_tags_info          | true                 | Extract DAG tags.                                                                        |
 | capture_executions         | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab. |
+| materialize_iolets         | true                 | Create or un-soft-delete all entities referenced in lineage.                             |
 | enable_extractors          | true                 | Enable automatic lineage extraction.                                                     |
 | disable_openlineage_plugin | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                          |
 | log_level                  | _no change_          | [debug] Set the log level for the plugin.                                                |
@@ -135,8 +138,9 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 | capture_ownership_info | true                 | If true, the owners field of the DAG will be capture as a DataHub corpuser.                                                                                                            |
 | capture_tags_info      | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
 | capture_executions     | true                 | If true, we'll capture task runs in DataHub in addition to DAG definitions.                                                                                                            |
-| datajob_url_link       | taskinstance         | If taskinstance, the datajob url will be taskinstance link on airflow. It can also be grid. 
-                                                                  |
+| materialize_iolets     | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                                                                           |
+| datajob_url_link       | taskinstance         | If taskinstance, the datajob url will be taskinstance link on airflow. It can also be grid.                                                                                            |
+|                        |
 | graceful_exceptions    | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
 
 #### Validate that the plugin is working
@@ -162,6 +166,7 @@ Supported operators:
 - `SQLExecuteQueryOperator`, including any subclasses. Note that in newer versions of Airflow (generally Airflow 2.5+), most SQL operators inherit from this class.
 - `AthenaOperator` and `AWSAthenaOperator`
 - `BigQueryOperator` and `BigQueryExecuteQueryOperator`
+- `BigQueryInsertJobOperator` (incubating)
 - `MySqlOperator`
 - `PostgresOperator`
 - `RedshiftSQLOperator`
@@ -219,6 +224,14 @@ class DbtOperator(BaseOperator):
 ```
 
 If you override the `pre_execute` and `post_execute` function, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. Reference the [Airflow docs](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage) for more details.
+
+### Custom Extractors
+
+Note: these are only supported in the v2 plugin.
+
+You can also create a custom extractor to extract lineage from any operator. This is useful if you're using a built-in Airflow operator for which we don't support automatic lineage extraction.
+
+See this [example PR](https://github.com/datahub-project/datahub/pull/10452) which adds a custom extractor for the `BigQueryInsertJobOperator` operator.
 
 ## Emit Lineage Directly
 

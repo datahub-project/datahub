@@ -109,28 +109,22 @@ public class BootstrapManagerFactory {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(
-            systemOpContext,
-            _entityRegistry,
-            _entityService,
-            _entitySearchService,
-            _searchDocumentTransformer,
-            _policiesResource);
+            _entityService, _entitySearchService, _searchDocumentTransformer, _policiesResource);
     final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService, _entityRegistry);
     final IngestDataPlatformsStep ingestDataPlatformsStep =
         new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
-        new RestoreGlossaryIndices(
-            systemOpContext, _entityService, _entitySearchService, _entityRegistry);
+        new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
     final IndexDataPlatformsStep indexDataPlatformsStep =
-        new IndexDataPlatformsStep(_entityService, _entitySearchService, _entityRegistry);
+        new IndexDataPlatformsStep(_entityService, _entitySearchService);
     final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
-        new RestoreDbtSiblingsIndices(_entityService, _entityRegistry);
+        new RestoreDbtSiblingsIndices(_entityService);
     final RemoveClientIdAspectStep removeClientIdAspectStep =
         new RemoveClientIdAspectStep(_entityService);
     final RestoreColumnLineageIndices restoreColumnLineageIndices =
-        new RestoreColumnLineageIndices(_entityService, _entityRegistry);
+        new RestoreColumnLineageIndices(_entityService);
     final IngestDefaultGlobalSettingsStep ingestSettingsStep =
         new IngestDefaultGlobalSettingsStep(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
@@ -165,8 +159,7 @@ public class BootstrapManagerFactory {
     }
 
     if (_backfillBrowsePathsV2Enabled) {
-      finalSteps.add(
-          new BackfillBrowsePathsV2Step(systemOpContext, _entityService, _searchService));
+      finalSteps.add(new BackfillBrowsePathsV2Step(_entityService, _searchService));
     }
 
     return new BootstrapManager(finalSteps);

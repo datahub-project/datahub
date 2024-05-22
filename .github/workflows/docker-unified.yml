@@ -6,6 +6,11 @@ on:
   pull_request:
     branches:
       - "**"
+    types:
+      - labeled
+      - opened
+      - synchronize
+      - reopened
   release:
     types: [published]
 
@@ -125,7 +130,8 @@ jobs:
         if: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
         run: |
           python ./.github/scripts/check_python_package.py
-          ./gradlew :smoke-test:lint
+          ./gradlew :smoke-test:pythonLint
+          ./gradlew :smoke-test:cypressLint
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
@@ -453,7 +459,7 @@ jobs:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -474,7 +480,7 @@ jobs:
     name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -495,7 +501,7 @@ jobs:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
-    if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || needs.setup.outputs.publish == 'true' }}
+    if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -645,7 +651,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' || needs.setup.outputs.pr-publish != 'true') }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
     needs: [setup, datahub_ingestion_base_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
@@ -740,7 +746,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' || needs.setup.outputs.pr-publish != 'true' ) }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) }}
     needs: [setup, datahub_ingestion_base_full_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
@@ -870,6 +876,11 @@ jobs:
         test_strategy: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
       - name: Disk Check
         run: df -h . && docker images
       - name: Check out the repo
@@ -990,6 +1001,8 @@ jobs:
                docker tag '${{ env.DATAHUB_INGESTION_IMAGE }}:head-slim' '${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}'
             fi
           fi
+      - name: Disk Check
+        run: df -h . && docker images
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false

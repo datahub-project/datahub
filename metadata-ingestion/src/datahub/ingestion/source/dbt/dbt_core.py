@@ -101,17 +101,31 @@ class DBTCoreConfig(DBTCommonConfig):
 
 
 def get_columns(
-    catalog_node: dict,
+    dbt_name: str,
+    catalog_node: Optional[dict],
     manifest_node: dict,
     tag_prefix: str,
 ) -> List[DBTColumn]:
-    columns = []
-
-    catalog_columns = catalog_node["columns"]
     manifest_columns = manifest_node.get("columns", {})
-
     manifest_columns_lower = {k.lower(): v for k, v in manifest_columns.items()}
 
+    if catalog_node is not None:
+        logger.debug(f"Loading schema info for {dbt_name}")
+        catalog_columns = catalog_node["columns"]
+    elif manifest_columns:
+        # If the end user ran `dbt compile` instead of `dbt docs generate`, then the catalog
+        # file will not have any column information. In this case, we will fall back to using
+        # information from the manifest file.
+        logger.debug(f"Inferring schema info for {dbt_name} from manifest")
+        catalog_columns = {
+            k: {"name": col["name"], "type": col["data_type"] or "", "index": i}
+            for i, (k, col) in enumerate(manifest_columns.items())
+        }
+    else:
+        logger.debug(f"Missing schema info for {dbt_name}")
+        return []
+
+    columns = []
     for key, catalog_column in catalog_columns.items():
         manifest_column = manifest_columns.get(
             key, manifest_columns_lower.get(key.lower(), {})
@@ -185,10 +199,7 @@ def extract_dbt_entities(
         if catalog_node is None:
             if materialization not in {"test", "ephemeral"}:
                 # Test and ephemeral nodes will never show up in the catalog.
-                report.report_warning(
-                    key,
-                    f"Entity {key} ({name}) is in manifest but missing from catalog",
-                )
+                report.in_manifest_but_missing_catalog.append(key)
         else:
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
@@ -267,19 +278,25 @@ def extract_dbt_entities(
             "ephemeral",
             "test",
         ]:
-            logger.debug(f"Loading schema info for {dbtNode.dbt_name}")
-            if catalog_node is not None:
-                # We already have done the reporting for catalog_node being None above.
-                dbtNode.columns = get_columns(
-                    catalog_node,
-                    manifest_node,
-                    tag_prefix,
-                )
+            dbtNode.columns = get_columns(
+                dbtNode.dbt_name,
+                catalog_node,
+                manifest_node,
+                tag_prefix,
+            )
 
         else:
             dbtNode.columns = []
 
         dbt_entities.append(dbtNode)
+
+    if report.in_manifest_but_missing_catalog:
+        # We still want this to show up as a warning, but don't want to spam the warnings section
+        # if there's a lot of them.
+        report.warning(
+            "in_manifest_but_missing_catalog",
+            f"Found {len(report.in_manifest_but_missing_catalog)} nodes in manifest but not in catalog. See in_manifest_but_missing_catalog for details.",
+        )
 
     return dbt_entities
 
@@ -425,22 +442,6 @@ def load_run_results(
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class DBTCoreSource(DBTSourceBase, TestableSource):
-    """
-    The artifacts used by this source are:
-    - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
-      - This file contains model, source, tests and lineage data.
-    - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
-      - This file contains schema data.
-      - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-    - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
-      - This file contains metadata for sources with freshness checks.
-      - We transfer dbt's freshness checks to DataHub's last-modified fields.
-      - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
-    - [dbt run_results file](https://docs.getdbt.com/reference/artifacts/run-results-json)
-      - This file contains metadata from the result of a dbt run, e.g. dbt test
-      - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
-    """
-
     config: DBTCoreConfig
 
     @classmethod
@@ -480,7 +481,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
-            with open(uri, "r") as f:
+            with open(uri) as f:
                 return json.load(f)
 
     def loadManifestAndCatalog(

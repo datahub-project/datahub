@@ -71,7 +71,7 @@ logger = logging.getLogger(__name__)
 # See https://docs.mongodb.com/manual/reference/local-database/ and
 # https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
-DENY_DATABASE_LIST = set(["admin", "config", "local"])
+DENY_DATABASE_LIST = {"admin", "config", "local"}
 
 
 class HostingEnvironment(Enum):
@@ -393,6 +393,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     tags=[],
                     customProperties={},
                 )
+
+                schema_metadata: Optional[SchemaMetadata] = None
 
                 if self.config.enableSchemaInference:
                     assert self.config.maxDocumentSize is not None
