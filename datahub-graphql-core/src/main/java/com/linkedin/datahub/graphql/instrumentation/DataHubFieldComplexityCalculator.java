@@ -31,31 +31,7 @@ public class DataHubFieldComplexityCalculator implements FieldComplexityCalculat
       if (input.containsKey(COUNT_ARG) && (Integer) input.get(COUNT_ARG) > 1) {
         Integer count = (Integer) input.get(COUNT_ARG);
         Field field = environment.getField();
-        List<Selection> subFields = field.getSelectionSet().getSelections();
-        Optional<FragmentSpread> searchResultsFieldsField =
-            subFields.stream()
-                .filter(selection -> selection instanceof Field)
-                .map(selection -> (Field) selection)
-                .filter(subField -> SEARCH_RESULTS_FIELD.equals(subField.getName()))
-                .map(Field::getSelectionSet)
-                .map(SelectionSet::getSelections)
-                .flatMap(List::stream)
-                .filter(selection -> selection instanceof Field)
-                .map(selection -> (Field) selection)
-                .filter(subField -> ENTITY_FIELD.equals(subField.getName()))
-                .map(Field::getSelectionSet)
-                .map(SelectionSet::getSelections)
-                .flatMap(List::stream)
-                .filter(selection -> selection instanceof FragmentSpread)
-                .map(selection -> (FragmentSpread) selection)
-                .filter(subField -> SEARCH_RESULT_FIELDS_FIELD.equals(subField.getName()))
-                .findFirst();
-        if (searchResultsFieldsField.isPresent()) {
-          // This fragment includes 2 lineage queries, we account for this additional complexity by
-          // multiplying
-          // by the count of entities attempting to be returned
-          complexity += 2 * count;
-        }
+        complexity += countRecursiveLineageComplexity(count, field);
       }
     }
     if (GRAPHQL_QUERY_TYPE.equals(environment.getParentType().getName())) {
@@ -65,5 +41,34 @@ public class DataHubFieldComplexityCalculator implements FieldComplexityCalculat
           complexity + childComplexity);
     }
     return complexity + childComplexity;
+  }
+
+  private int countRecursiveLineageComplexity(Integer count, Field field) {
+    List<Selection> subFields = field.getSelectionSet().getSelections();
+    Optional<FragmentSpread> searchResultsFieldsField =
+        subFields.stream()
+            .filter(selection -> selection instanceof Field)
+            .map(selection -> (Field) selection)
+            .filter(subField -> SEARCH_RESULTS_FIELD.equals(subField.getName()))
+            .map(Field::getSelectionSet)
+            .map(SelectionSet::getSelections)
+            .flatMap(List::stream)
+            .filter(selection -> selection instanceof Field)
+            .map(selection -> (Field) selection)
+            .filter(subField -> ENTITY_FIELD.equals(subField.getName()))
+            .map(Field::getSelectionSet)
+            .map(SelectionSet::getSelections)
+            .flatMap(List::stream)
+            .filter(selection -> selection instanceof FragmentSpread)
+            .map(selection -> (FragmentSpread) selection)
+            .filter(subField -> SEARCH_RESULT_FIELDS_FIELD.equals(subField.getName()))
+            .findFirst();
+    if (searchResultsFieldsField.isPresent()) {
+      // This fragment includes 2 lineage queries, we account for this additional complexity by
+      // multiplying
+      // by the count of entities attempting to be returned
+      return 2 * count;
+    }
+    return 0;
   }
 }

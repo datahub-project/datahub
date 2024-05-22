@@ -1,13 +1,14 @@
 package com.linkedin.datahub.graphql.concurrency;
 
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class GraphQLWorkerPoolThreadFactory implements ThreadFactory {
 
-  private static int threadInitNumber;
+  private static final AtomicLong THREAD_INIT_NUMBER = new AtomicLong();
 
-  private static synchronized int nextThreadNum() {
-    return threadInitNumber++;
+  private static long nextThreadNum() {
+    return THREAD_INIT_NUMBER.getAndIncrement();
   }
 
   private long stackSize;
