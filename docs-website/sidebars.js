@@ -799,17 +799,21 @@ module.exports = {
     },
     {
       "API & SDK Guides": [
+        "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/datasets",
-        "docs/api/tutorials/lineage",
-        "docs/api/tutorials/tags",
-        "docs/api/tutorials/terms",
-        "docs/api/tutorials/owners",
-        "docs/api/tutorials/domains",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
-        "docs/api/tutorials/custom-properties",
+        "docs/api/tutorials/domains",
+        "docs/api/tutorials/lineage",
         "docs/api/tutorials/ml",
-        "docs/advanced/patch",
+        "docs/api/tutorials/owners",
+        "docs/api/tutorials/tags",
+        "docs/api/tutorials/terms",
+        {
+            type: "doc",
+            id: "docs/advanced/patch",
+            label: "Patch",
+        },
       ],
     },
     {
