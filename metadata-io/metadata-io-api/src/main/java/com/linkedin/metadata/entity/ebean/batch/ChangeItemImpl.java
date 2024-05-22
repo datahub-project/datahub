@@ -31,7 +31,6 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 @Slf4j
 @Getter
@@ -100,14 +99,21 @@ public class ChangeItemImpl implements ChangeMCP {
 
   @Nonnull
   public MetadataChangeProposal getMetadataChangeProposal() {
-    final MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(getUrn());
-    mcp.setChangeType(getChangeType());
-    mcp.setEntityType(getEntitySpec().getName());
-    mcp.setAspectName(getAspectName());
-    mcp.setAspect(GenericRecordUtils.serializeAspect(getRecordTemplate()));
-    mcp.setSystemMetadata(getSystemMetadata());
-    return mcp;
+    if (metadataChangeProposal != null) {
+      return metadataChangeProposal;
+    } else {
+      final MetadataChangeProposal mcp = new MetadataChangeProposal();
+      mcp.setEntityUrn(getUrn());
+      mcp.setChangeType(getChangeType());
+      mcp.setEntityType(getEntitySpec().getName());
+      mcp.setAspectName(getAspectName());
+      mcp.setAspect(GenericRecordUtils.serializeAspect(getRecordTemplate()));
+      mcp.setSystemMetadata(getSystemMetadata());
+      mcp.setEntityKeyAspect(
+          GenericRecordUtils.serializeAspect(
+              EntityKeyUtils.convertUrnToEntityKey(getUrn(), entitySpec.getKeyAspectSpec())));
+      return mcp;
+    }
   }
 
   public static class ChangeItemImplBuilder {
@@ -248,22 +254,6 @@ public class ChangeItemImpl implements ChangeMCP {
         + recordTemplate
         + ", systemMetadata="
         + systemMetadata
-        + '}';
-  }
-
-  public String toAbbreviatedString() {
-    return "ChangeItemImpl{"
-        + "changeType="
-        + changeType
-        + ", urn="
-        + urn
-        + ", aspectName='"
-        + aspectName
-        + '\''
-        + ", recordTemplate="
-        + StringUtils.abbreviate(recordTemplate.toString(), 256)
-        + ", systemMetadata="
-        + StringUtils.abbreviate(systemMetadata.toString(), 128)
         + '}';
   }
 }

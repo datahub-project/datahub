@@ -36,8 +36,7 @@ public class BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> entityUrns,
       @Nonnull GlobalTags defaultValue) {
-
-    if (entityUrns.size() <= 0) {
+    if (entityUrns.isEmpty()) {
       return Collections.emptyMap();
     }
 
@@ -75,8 +74,7 @@ public class BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> entityUrns,
       @Nonnull EditableSchemaMetadata defaultValue) {
-
-    if (entityUrns.size() <= 0) {
+    if (entityUrns.isEmpty()) {
       return Collections.emptyMap();
     }
 
@@ -114,8 +112,7 @@ public class BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> entityUrns,
       @Nonnull Ownership defaultValue) {
-
-    if (entityUrns.size() <= 0) {
+    if (entityUrns.isEmpty()) {
       return Collections.emptyMap();
     }
 
@@ -153,8 +150,7 @@ public class BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> entityUrns,
       @Nonnull GlossaryTerms defaultValue) {
-
-    if (entityUrns.size() <= 0) {
+    if (entityUrns.isEmpty()) {
       return Collections.emptyMap();
     }
 
@@ -192,8 +188,7 @@ public class BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> entityUrns,
       @Nonnull Domains defaultValue) {
-
-    if (entityUrns.size() <= 0) {
+    if (entityUrns.isEmpty()) {
       return Collections.emptyMap();
     }
 

@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Posts
+# Posts
 
 <FeatureAvailability/>
 DataHub allows users to make Posts that can be displayed on the app. Currently, Posts are only supported on the Home Page, but may be extended to other surfaces of the app in the future. Posts can be used to accomplish the following:
