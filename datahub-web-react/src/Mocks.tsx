@@ -31,6 +31,9 @@ import {
     FilterOperator,
     AppConfig,
     EntityPrivileges,
+    Owner,
+    OwnershipType,
+    GlobalTags,
     BusinessAttribute,
     DataHubViewFilter,
     LogicalOperator,
@@ -52,6 +55,7 @@ import { DEFAULT_APP_CONFIG } from './appConfigContext';
 import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
 import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+import { EntityCapabilityType } from './app/entityV2/Entity';
 import { ViewBuilderState } from './app/entity/view/types';
 import { GenericEntityProperties } from './app/entity/shared/types';
 
@@ -3999,6 +4003,86 @@ export const platformPrivileges: PlatformPrivileges = {
     manageDocumentationForms: true,
 };
 
+export const owners: Owner[] = [
+    {
+        __typename: 'Owner',
+        owner: {
+            __typename: 'CorpUser',
+            username: 'john',
+            urn: 'urn:li:corpuser:3',
+            type: EntityType.CorpUser,
+        },
+        associatedUrn: 'urn:li:dataset:1',
+        type: OwnershipType.Developer,
+    },
+    {
+        owner: {
+            __typename: 'CorpUser',
+            username: 'john',
+            urn: 'urn:li:corpuser:3',
+            type: EntityType.CorpUser,
+        },
+        associatedUrn: 'urn:li:dataset:1',
+        type: OwnershipType.Delegate,
+    },
+    {
+        owner: {
+            __typename: 'CorpUser',
+            username: 'sdas',
+            urn: 'urn:li:corpuser:1',
+            type: EntityType.CorpUser,
+        },
+        associatedUrn: 'urn:li:dataset:2',
+        type: OwnershipType.Dataowner,
+    },
+    {
+        owner: {
+            __typename: 'CorpUser',
+            username: 'sdas',
+            urn: 'urn:li:corpuser:1',
+            type: EntityType.CorpUser,
+        },
+        type: OwnershipType.Delegate,
+        associatedUrn: 'urn:li:dataset:2',
+    },
+];
+
+export const globalTags: GlobalTags = {
+    __typename: 'GlobalTags',
+    tags: [
+        {
+            __typename: 'TagAssociation',
+            tag: {
+                __typename: 'Tag',
+                type: EntityType.Tag,
+                urn: 'urn:li:tag:abc-sample-tag',
+                name: 'abc-sample-tag',
+                description: 'sample tag',
+                properties: {
+                    __typename: 'TagProperties',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    colorHex: 'sample tag color',
+                },
+            },
+            associatedUrn: 'urn:li:corpuser:1',
+        },
+    ],
+};
+
+export const entityCapabilities: Set<EntityCapabilityType> = new Set([
+    EntityCapabilityType.OWNERS,
+    EntityCapabilityType.GLOSSARY_TERMS,
+    EntityCapabilityType.TAGS,
+    EntityCapabilityType.DOMAINS,
+    EntityCapabilityType.DEPRECATION,
+    EntityCapabilityType.SOFT_DELETE,
+    EntityCapabilityType.TEST,
+    EntityCapabilityType.ROLES,
+    EntityCapabilityType.DATA_PRODUCTS,
+    EntityCapabilityType.HEALTH,
+    EntityCapabilityType.LINEAGE,
+]);
 const filters: DataHubViewFilter = {
     filters: [
         {
