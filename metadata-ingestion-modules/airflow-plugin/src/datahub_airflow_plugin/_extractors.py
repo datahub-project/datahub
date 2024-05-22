@@ -203,7 +203,7 @@ def _parse_sql_into_task_metadata(
     task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
 
     run_facets = {}
-    job_facets = {"sql": SqlJobFacet(query=self._normalize_sql(sql))}
+    job_facets = {"sql": SqlJobFacet(query=SqlExtractor._normalize_sql(sql))}
 
     # Prepare to run the SQL parser.
     graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)

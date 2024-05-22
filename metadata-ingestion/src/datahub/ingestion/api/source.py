@@ -30,6 +30,7 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUn
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
+    auto_fix_duplicate_schema_field_paths,
     auto_lowercase_urns,
     auto_materialize_referenced_tags_terms,
     auto_status_aspect,
@@ -243,6 +244,9 @@ class Source(Closeable, metaclass=ABCMeta):
             auto_lowercase_dataset_urns,
             auto_status_aspect,
             auto_materialize_referenced_tags_terms,
+            partial(
+                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+            ),
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
         ]
@@ -286,14 +290,18 @@ class Source(Closeable, metaclass=ABCMeta):
     def close(self) -> None:
         pass
 
-    def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
+    def _infer_platform(self) -> Optional[str]:
         config = self.get_config()
-
-        platform = (
+        return (
             getattr(config, "platform_name", None)
             or getattr(self, "platform", None)
             or getattr(config, "platform", None)
         )
+
+    def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
+        config = self.get_config()
+
+        platform = self._infer_platform()
         env = getattr(config, "env", None)
         browse_path_drop_dirs = [
             platform,

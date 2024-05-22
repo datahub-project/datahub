@@ -1,0 +1,36 @@
+{
+    "query_type": "UPDATE",
+    "query_type_props": {},
+    "query_fingerprint": "c4b756bd9eceebd04abaa0c273b12898f88fc2a9d1f4c7ae03faa7c4e096fa21",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)",
+                "column": "sales_person_name",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)",
+                    "column": "name"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "UPDATE accounts SET sales_person_name = (SELECT name FROM employees WHERE employees.id = accounts.sales_person_id)"
+    }
+}
