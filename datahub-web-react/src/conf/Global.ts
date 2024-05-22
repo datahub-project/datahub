@@ -28,6 +28,7 @@ export enum PageRoutes {
     DOMAIN = '/domain',
     GLOSSARY = '/glossary',
     TESTS = '/tests',
+    AUTOMATIONS = '/automations',
     SETTINGS_VIEWS = '/settings/views',
     EMBED = '/embed',
     EMBED_HEALTH = '/embed/health',

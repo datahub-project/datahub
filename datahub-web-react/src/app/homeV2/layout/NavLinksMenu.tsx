@@ -130,6 +130,7 @@ export function NavLinksMenu(props: Props) {
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
     const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
     const isTestsEnabled = config?.testsConfig.enabled;
+    const isAutomationsEnabled = config?.classificationConfig.enabled;
 
     const showSettings = true;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
@@ -199,6 +200,12 @@ export function NavLinksMenu(props: Props) {
                         description: 'Monitor policies & automate actions across data assets',
                         link: PageRoutes.TESTS,
                         isHidden: !showTests,
+                    },
+                    {
+                        title: 'Automations',
+                        description: 'Monitor policies & automate actions across data assets',
+                        link: PageRoutes.AUTOMATIONS,
+                        isHidden: !isAutomationsEnabled,
                     },
                     {
                         title: 'Documentation',

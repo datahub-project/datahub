@@ -29,6 +29,10 @@ export const TagTermLabel = ({ entity, termName }: Props) => {
         return <TermLabel name={entityRegistry.getDisplayName(entity.type, entity)} />;
     }
 
+    if (entity?.type === EntityType.GlossaryNode) {
+        return <TermLabel name={entityRegistry.getDisplayName(entity.type, entity)} />;
+    }
+
     if (termName) {
         return <TermLabel name={termName} />;
     }

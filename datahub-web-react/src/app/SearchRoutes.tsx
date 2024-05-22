@@ -16,10 +16,11 @@ import GlossaryRoutes from './glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from './glossaryV2/GlossaryRoutes';
 import { SettingsPage } from './settings/SettingsPage';
 import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
+import { Automations } from './automations/Automations';
 import { ManageTestsPage } from './tests/ManageTestsPage';
 import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
 import DomainRoutes from './domain/DomainRoutes';
-import { useBusinessAttributesFlag, useIsAppConfigContextLoaded, useIsNestedDomainsEnabled, useIsDocumentationFormsEnabled } from './useAppConfig';
+import { useBusinessAttributesFlag, useIsAppConfigContextLoaded, useIsNestedDomainsEnabled, useIsDocumentationFormsEnabled, useAppConfig } from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
 
@@ -35,6 +36,7 @@ import { useUserContext } from './context/useUserContext';
  */
 export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const appConfig = useAppConfig();
     const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const entities = isNestedDomainsEnabled
@@ -47,6 +49,8 @@ export const SearchRoutes = (): JSX.Element => {
 
     const businessAttributesFlag = useBusinessAttributesFlag();
     const appConfigContextLoaded = useIsAppConfigContextLoaded();
+
+    const { config } = appConfig;
 
     return (
         <FinalSearchablePage>
@@ -98,6 +102,10 @@ export const SearchRoutes = (): JSX.Element => {
                     path={PageRoutes.ACTION_REQUESTS}
                     render={() => (isDocumentationFormsEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
                 />
+                {config.classificationConfig.enabled && (
+                    <Route path={PageRoutes.AUTOMATIONS} render={() => <Automations />} />
+                )}
+                {/* TODO: Remove this route - currently in place for a grafeful redirect to new Automations center */}
                 <Route path={PageRoutes.TESTS} render={() => <ManageTestsPage />} />
                 <Route path={PageRoutes.DATASET_HEALTH_DASHBOARD} render={() => <DatasetHealthPage />} />
                 <Route
@@ -112,7 +120,7 @@ export const SearchRoutes = (): JSX.Element => {
                         return <BusinessAttributes />;
                     }
                     return <NoPageFound />;
-                }}/>
+                }} />
                 <Route component={NoPageFound} />
             </Switch>
         </FinalSearchablePage>
