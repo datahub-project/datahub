@@ -181,7 +181,7 @@ information like tokens.
 | spark.datahub.partition_regexp_pattern                              |          |         | Strip partition part from the path if path end matches with the specified regexp. Example `year=.*/month=.*/day=.*`                                                                       |
 | spark.datahub.tags                                                  |          |         | Comma separated list of tags to attach to the DataFlow                                                                                                                                    |
 | spark.datahub.domains                                               |          |         | Comma separated list of domain urns to attach to the DataFlow                                                                                                                             |
-| spark.datahub.stage_metadata_coalescing                             |          |         | Normally it coalesce and send metadata at the onApplicationEnd event which is never called on Databricsk. You should enable this on Databricks if you want coalesced run .                |
+| spark.datahub.stage_metadata_coalescing                             |          |         | Normally it coalesce and send metadata at the onApplicationEnd event which is never called on Databricks. You should enable this on Databricks if you want coalesced run .                |
 | spark.datahub.patch.enabled                                         |          | false   | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default it is enabled.                                               
 |
 
