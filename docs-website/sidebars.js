@@ -809,9 +809,9 @@ module.exports = {
         "docs/api/tutorials/tags",
         "docs/api/tutorials/terms",
         {
-            type: "doc",
-            id: "docs/advanced/patch",
-            label: "Patch",
+          type: "doc",
+          id: "docs/advanced/patch",
+          label: "Patch",
         },
       ],
     },
