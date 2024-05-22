@@ -58,7 +58,7 @@ sink:
 ```
 The **source** configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](metadata-ingestion/README.md#sources) documentation.
 
-The **sink** configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](metadata-ingestion/README.md#sinks) documentation.
+The **sink** configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](sink_overview.md) documentation.
 
 To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your Acryl instance's domain suffixed by the path `/gms`, as shown below.
 A complete example of a DataHub recipe file, which reads from MySQL and writes into a DataHub instance:
