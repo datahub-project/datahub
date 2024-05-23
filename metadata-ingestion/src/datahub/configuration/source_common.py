@@ -36,12 +36,6 @@ class EnvConfigMixin(ConfigModel):
         description="The environment that all assets produced by this connector belong to",
     )
 
-    _env_deprecation = pydantic_field_deprecated(
-        "env",
-        message="We recommend using platform_instance instead of env. "
-        "While specifying env does still work, we intend to deprecate it in the future.",
-    )
-
     @validator("env")
     def env_must_be_one_of(cls, v: str) -> str:
         if v.upper() not in ALL_ENV_TYPES:
