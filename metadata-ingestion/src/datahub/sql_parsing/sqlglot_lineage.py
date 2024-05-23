@@ -507,7 +507,12 @@ def _column_level_lineage(  # noqa: C901
         assert isinstance(statement, _SupportedColumnLineageTypesTuple)
 
         cached_scope = sqlglot.optimizer.build_scope(statement)
+    except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
+        raise SqlUnderstandingError(
+            f"sqlglot failed to preprocess statement: {e}"
+        ) from e
 
+    try:
         # List output columns.
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
