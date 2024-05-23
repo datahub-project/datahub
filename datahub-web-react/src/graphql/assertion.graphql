@@ -48,6 +48,67 @@ fragment assertionDetails on Assertion {
         }
         description
     }
+    tags {
+        ...globalTagsFields
+    }
+}
+
+fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
+    field {
+        path
+        type
+        nativeType
+    }
+    transformer {
+        type
+        nativeType
+    }
+}
+
+fragment assertionStdParametersDetails on AssertionStdParameters {
+    value {
+        value
+        type
+    }
+    minValue {
+        value
+        type
+    }
+    maxValue {
+        value
+        type
+    }
+}
+
+fragment assertionResultDetails on AssertionResult {
+    type
+    actualAggValue
+    rowCount
+    missingCount
+    unexpectedCount
+    externalUrl
+    nativeResults {
+        key
+        value
+    }
+    error {
+        type
+        properties {
+            key
+            value
+        }
+    }
+    # acryl only
+    assertion {
+        ...assertionInfo
+    }
+    parameters {
+        ...assertionEvaluationParameters
+    }
+    assertionInferenceDetails {
+        generatedAt
+>>>>>>> 78454d13cd9 (Adding metadata models)
+    }
 }
 
 fragment assertionRunEventDetails on AssertionRunEvent {
