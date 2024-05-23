@@ -206,6 +206,16 @@ class PlatformDetail(ConfigModel):
     )
 
 
+class DataBricksPlatformDetail(PlatformDetail):
+    """
+    metastore is an additional field used in Databricks connector to generate the dataset urn
+    """
+
+    metastore: str = pydantic.Field(
+        description="Databricks Unity Catalog metastore name.",
+    )
+
+
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
         default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
@@ -268,11 +278,14 @@ class PowerBiDashboardSourceConfig(
         hidden_from_docs=True,
     )
     # PowerBI datasource's server to platform instance mapping
-    server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+    server_to_platform_instance: Dict[
+        str, Union[PlatformDetail, DataBricksPlatformDetail]
+    ] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
-        " :port is optional and only needed if your datasource server is running on non-standard port."
-        "For Google BigQuery the datasource's server is google bigquery project name",
+        " :port is optional and only needed if your datasource server is running on non-standard port. "
+        "For Google BigQuery the datasource's server is google bigquery project name. "
+        "For Databricks Unity Catalog the datasource's server is workspace FQDN.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
