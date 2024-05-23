@@ -28,7 +28,7 @@ export const snowflakeTagPropagation = {
 				account_id: 'xaa48144',
 				warehouse: 'COMPUTE_WH',
 				username: 'swaroop',
-				password: 'E*s7oA6mDwNA8Q',
+				password: 'password',
 				role: 'ACCOUNTADMIN',
 			}
 		}
