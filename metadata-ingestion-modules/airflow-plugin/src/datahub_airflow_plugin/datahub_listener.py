@@ -248,6 +248,10 @@ class DataHubListener:
             )
         if sql_parsing_result:
             if sql_parsing_result.debug_info.error:
+                logger.info(
+                    f"SQL parsing error: {sql_parsing_result.debug_info.error}",
+                    exc_info=sql_parsing_result.debug_info.error,
+                )
                 datajob.properties["datahub_sql_parser_error"] = str(
                     sql_parsing_result.debug_info.error
                 )
