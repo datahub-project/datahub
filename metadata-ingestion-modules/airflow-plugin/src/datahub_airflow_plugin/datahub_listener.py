@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 import airflow
 import datahub.emitter.mce_builder as builder
 from airflow.models.serialized_dag import SerializedDagModel
-
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
