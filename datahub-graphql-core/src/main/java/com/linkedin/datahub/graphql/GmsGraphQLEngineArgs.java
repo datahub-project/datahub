@@ -17,7 +17,6 @@ import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ActionPipelineConfiguration;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.ClassificationConfiguration;
-import com.linkedin.metadata.config.ClassificationAutomations;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;

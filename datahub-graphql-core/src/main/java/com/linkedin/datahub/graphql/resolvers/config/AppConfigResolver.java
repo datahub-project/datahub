@@ -58,7 +58,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
   private final ClassificationConfiguration _classificationConfiguration;
-//  private final ClassificationAutomations _automations;
+  //  private final ClassificationAutomations _automations;
   private final Integer _defaultLineageLastDaysFilter;
 
   public AppConfigResolver(
@@ -90,7 +90,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _viewsConfiguration = viewsConfiguration;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
-    _classificationConfiguration = classificationConfiguration; 
+    _classificationConfiguration = classificationConfiguration;
     _defaultLineageLastDaysFilter = defaultLineageLastDaysFilter;
   }
 
