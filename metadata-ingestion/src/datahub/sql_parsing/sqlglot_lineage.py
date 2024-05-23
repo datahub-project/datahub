@@ -441,23 +441,14 @@ def _create_table_ddl_cll(
     return column_lineage
 
 
-# TODO: Break this up into smaller functions.
-def _column_level_lineage(  # noqa: C901
+def _select_statement_cll(  # noqa: C901
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
+    root_scope: sqlglot.optimizer.Scope,
     column_resolver: _ColumnResolver,
     output_table: Optional[_TableName],
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
-
-    try:
-        assert isinstance(statement, _SupportedColumnLineageTypesTuple)
-
-        cached_scope = sqlglot.optimizer.build_scope(statement)
-    except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
-        raise SqlUnderstandingError(
-            f"sqlglot failed to preprocess statement: {e}"
-        ) from e
 
     try:
         # List output columns.
@@ -485,7 +476,7 @@ def _column_level_lineage(  # noqa: C901
                 output_col,
                 statement,
                 dialect=dialect,
-                scope=cached_scope,
+                scope=root_scope,
                 trim_selects=False,
                 # We don't need to pass the schema in here, since we've already qualified the columns.
             )
@@ -546,6 +537,66 @@ def _column_level_lineage(  # noqa: C901
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
         ) from e
+
+    return column_lineage
+
+
+def _column_level_lineage(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    downstream_table: Optional[_TableName],
+    table_name_schema_mapping: Dict[_TableName, SchemaInfo],
+    default_db: Optional[str],
+    default_schema: Optional[str],
+) -> List[_ColumnLineageInfo]:
+    # Simplify the input statement for column-level lineage generation.
+    try:
+        select_statement = _try_extract_select(statement)
+    except Exception as e:
+        raise SqlUnderstandingError(
+            f"Failed to extract select from statement: {e}"
+        ) from e
+
+    try:
+        assert select_statement is not None
+        (select_statement, column_resolver) = _prepare_query_columns(
+            select_statement,
+            dialect=dialect,
+            table_schemas=table_name_schema_mapping,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+    except UnsupportedStatementTypeError as e:
+        # Inject details about the outer statement type too.
+        e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
+        logger.debug(e)
+        raise
+
+    # Handle the create table DDL case separately.
+    if is_create_table_ddl(select_statement):
+        return _create_table_ddl_cll(
+            select_statement,
+            dialect=dialect,
+            column_resolver=column_resolver,
+            output_table=downstream_table,
+        )
+
+    assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
+    try:
+        root_scope = sqlglot.optimizer.build_scope(select_statement)
+    except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
+        raise SqlUnderstandingError(
+            f"sqlglot failed to preprocess statement: {e}"
+        ) from e
+
+    # Generate column-level lineage.
+    column_lineage = _select_statement_cll(
+        select_statement,
+        dialect=dialect,
+        root_scope=root_scope,
+        column_resolver=column_resolver,
+        output_table=downstream_table,
+    )
 
     return column_lineage
 
@@ -862,51 +913,26 @@ def _sqlglot_lineage_inner(
         f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas"
     )
 
-    # Simplify the input statement for column-level lineage generation.
-    try:
-        select_statement = _try_extract_select(statement)
-    except Exception as e:
-        logger.debug(f"Failed to extract select from statement: {e}", exc_info=True)
-        debug_info.column_error = e
-        select_statement = None
-
-    # Generate column-level lineage.
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
-        if select_statement is not None:
-            with cooperative_timeout(
-                timeout=(
-                    SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
-                )
-            ):
-                (select_statement, column_resolver) = _prepare_query_columns(
-                    select_statement,
-                    dialect=dialect,
-                    table_schemas=table_name_schema_mapping,
-                    default_db=default_db,
-                    default_schema=default_schema,
-                )
-                if is_create_table_ddl(select_statement):
-                    column_lineage = _create_table_ddl_cll(
-                        select_statement,
-                        dialect=dialect,
-                        column_resolver=column_resolver,
-                        output_table=downstream_table,
-                    )
-                else:
-                    column_lineage = _column_level_lineage(
-                        select_statement,
-                        dialect=dialect,
-                        column_resolver=column_resolver,
-                        output_table=downstream_table,
-                    )
-    except UnsupportedStatementTypeError as e:
-        # Inject details about the outer statement type too.
-        e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
-        debug_info.column_error = e
-        logger.debug(debug_info.column_error)
+        with cooperative_timeout(
+            timeout=(
+                SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
+            )
+        ):
+            column_lineage = _column_level_lineage(
+                statement,
+                dialect=dialect,
+                downstream_table=downstream_table,
+                table_name_schema_mapping=table_name_schema_mapping,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
     except CooperativeTimeoutError as e:
         logger.debug(f"Timed out while generating column-level lineage: {e}")
+        debug_info.column_error = e
+    except UnsupportedStatementTypeError as e:
+        # For this known exception type, we assume the error is logged at the point of failure.
         debug_info.column_error = e
     except Exception as e:
         logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
