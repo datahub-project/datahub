@@ -7,6 +7,8 @@ import time
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
+from airflow.models.serialized_dag import SerializedDagModel
+
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
@@ -68,6 +70,7 @@ _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower
     "1",
 )
 _RUN_IN_THREAD_TIMEOUT = 30
+_DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
@@ -541,30 +544,52 @@ class DataHubListener:
 
             self.emitter.emit(event)
 
-        assert self.graph
+        if dag.dag_id == _DATAHUB_CLEANUP_DAG:
+            assert self.graph
 
-        # fetch the tasks for the DAG
-        dag_tasks: list[str] = []
-        for task in dag.tasks:
-            dag_tasks.append(
-                builder.make_data_job_urn_with_flow(str(dataflow.urn), task.task_id)
+            logger.debug("Initiating the cleanup of obsselete data from datahub")
+
+            ingested_dataflow_urns = list(
+                self.graph.get_urns_by_filter(
+                    platform="airflow", entity_types=["dataFlow"]
+                )
+            )
+            ingested_datajob_urns = list(
+                self.graph.get_urns_by_filter(
+                    platform="airflow", entity_types=["dataJob"]
+                )
             )
 
-        # fetch the tasks from the graph
-        entities = self.graph.get_related_entities(
-            entity_urn=str(dataflow.urn),
-            relationship_types=["IsPartOf"],
-            direction=DataHubGraph.RelationshipDirection.INCOMING,
-        )
+            all_airflow_dags = SerializedDagModel.read_all_dags().values()
 
-        materialised_tasks: list[str] = []
-        for entity in entities:
-            materialised_tasks.append(str(entity.urn))
+            airflow_flow_urns: List = []
+            airflow_job_urns: List = []
 
-        obsolete_tasks = set(materialised_tasks) - set(dag_tasks)
-        for obsolete_task in obsolete_tasks:
-            self.graph.soft_delete_entity(str(obsolete_task))
-        logger.debug(f"count of soft deleted obsolete tasks {len(obsolete_tasks)}")
+            for dag in all_airflow_dags:
+                flow_urn = builder.make_data_flow_urn(
+                    orchestrator="airflow", flow_id=dag.dag_id
+                )
+                airflow_flow_urns.append(flow_urn)
+
+                for task in dag.tasks:
+                    airflow_job_urns.append(
+                        builder.make_data_job_urn_with_flow(str(flow_urn), task.task_id)
+                    )
+
+            obsolete_pipelines = set(ingested_dataflow_urns) - set(airflow_flow_urns)
+            obsolete_tasks = set(ingested_datajob_urns) - set(airflow_job_urns)
+
+            for obsolete_pipeline in obsolete_pipelines:
+                if self.graph.exists(str(obsolete_pipeline)):
+                    self.graph.soft_delete_entity(str(obsolete_pipeline))
+
+            logger.debug(f"total pipelines removed = {len(obsolete_pipelines)}")
+
+            for obsolete_task in obsolete_tasks:
+                if self.graph.exists(str(obsolete_task)):
+                    self.graph.soft_delete_entity(str(obsolete_task))
+
+            logger.debug(f"total tasks removed = {len(obsolete_tasks)}")
 
     if HAS_AIRFLOW_DAG_LISTENER_API:
 
