@@ -577,7 +577,7 @@ def _column_level_lineage(
         # Inject details about the outer statement type too.
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
         logger.debug(e)
-        raise
+        raise e
 
     # Handle the create table DDL case separately.
     if is_create_table_ddl(select_statement):
@@ -595,7 +595,10 @@ def _column_level_lineage(
     assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
     try:
         root_scope = sqlglot.optimizer.build_scope(select_statement)
-        assert root_scope is not None
+        if root_scope is None:
+            raise SqlUnderstandingError(
+                f"Failed to build scope for statement - scope was empty: {statement}"
+            )
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to preprocess statement: {e}"

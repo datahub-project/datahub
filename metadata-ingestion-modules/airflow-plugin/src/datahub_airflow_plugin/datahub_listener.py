@@ -248,10 +248,7 @@ class DataHubListener:
             )
         if sql_parsing_result:
             if error := sql_parsing_result.debug_info.error:
-                logger.info(
-                    f"SQL parsing error: {error}",
-                    exc_info=error,
-                )
+                logger.info(f"SQL parsing error: {error}", exc_info=error)
                 datajob.properties[
                     "datahub_sql_parser_error"
                 ] = f"{type(error)}: {error}"
