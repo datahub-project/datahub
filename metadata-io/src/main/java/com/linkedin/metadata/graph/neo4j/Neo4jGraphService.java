@@ -393,17 +393,19 @@ public class Neo4jGraphService implements GraphService {
     if (lineageFlags == null
         || (lineageFlags.getStartTimeMillis() == null && lineageFlags.getEndTimeMillis() == null)) {
       // if no time filtering required, simply find all expansion paths to other nodes
-      final var statement = String.format(
-          "MATCH (a:%s {urn: $urn}) "
-              + "CALL apoc.path.spanningTree(a, { "
-              + "  relationshipFilter: $relationshipFilter, "
-              + "  labelFilter: $labelFilter, "
-              + "  minLevel: 1, "
-              + "  maxLevel: $maxHops "
-              + "}) "
-              + "YIELD path "
-              + "WITH a, path AS path "
-              + "RETURN a, path, last(nodes(path));", entityType);
+      final var statement =
+          String.format(
+              "MATCH (a:%s {urn: $urn}) "
+                  + "CALL apoc.path.spanningTree(a, { "
+                  + "  relationshipFilter: $relationshipFilter, "
+                  + "  labelFilter: $labelFilter, "
+                  + "  minLevel: 1, "
+                  + "  maxLevel: $maxHops "
+                  + "}) "
+                  + "YIELD path "
+                  + "WITH a, path AS path "
+                  + "RETURN a, path, last(nodes(path));",
+              entityType);
       return Pair.of(statement, parameterMap);
     } else {
       // when needing time filtering, possibility on multiple paths between two
@@ -425,27 +427,29 @@ public class Neo4jGraphService implements GraphService {
       //    (note: according to the docs of shortestPath, WHERE conditions are applied during path
       // exploration, not
       //     after path exploration is done)
-      final var statement = String.format(
-          "MATCH (a:%s {urn: $urn}) "
-              + "CALL apoc.path.subgraphNodes(a, { "
-              + "  relationshipFilter: $relationshipFilter, "
-              + "  labelFilter: $labelFilter, "
-              + "  minLevel: 1, "
-              + "  maxLevel: $maxHops "
-              + "}) "
-              + "YIELD node AS b "
-              + "WITH a, b "
-              + "MATCH path = shortestPath((a)"
-              + relationshipPattern
-              + "(b)) "
-              + "WHERE a <> b "
-              + "  AND ALL(rt IN relationships(path) WHERE "
-              + "    (rt.source IS NOT NULL AND rt.source = 'UI') OR "
-              + "    (rt.createdOn IS NULL AND rt.updatedOn IS NULL) OR "
-              + "    ($startTimeMillis <= rt.createdOn <= $endTimeMillis OR "
-              + "     $startTimeMillis <= rt.updatedOn <= $endTimeMillis) "
-              + "  ) "
-              + "RETURN a, path, b;", entityType);
+      final var statement =
+          String.format(
+              "MATCH (a:%s {urn: $urn}) "
+                  + "CALL apoc.path.subgraphNodes(a, { "
+                  + "  relationshipFilter: $relationshipFilter, "
+                  + "  labelFilter: $labelFilter, "
+                  + "  minLevel: 1, "
+                  + "  maxLevel: $maxHops "
+                  + "}) "
+                  + "YIELD node AS b "
+                  + "WITH a, b "
+                  + "MATCH path = shortestPath((a)"
+                  + relationshipPattern
+                  + "(b)) "
+                  + "WHERE a <> b "
+                  + "  AND ALL(rt IN relationships(path) WHERE "
+                  + "    (rt.source IS NOT NULL AND rt.source = 'UI') OR "
+                  + "    (rt.createdOn IS NULL AND rt.updatedOn IS NULL) OR "
+                  + "    ($startTimeMillis <= rt.createdOn <= $endTimeMillis OR "
+                  + "     $startTimeMillis <= rt.updatedOn <= $endTimeMillis) "
+                  + "  ) "
+                  + "RETURN a, path, b;",
+              entityType);
 
       // provide dummy start/end time when not provided, so no need to
       // format clause differently if either of them is missing
@@ -496,7 +500,8 @@ public class Neo4jGraphService implements GraphService {
     String srcNodeLabel = "";
     // Create a URN from the String. Only proceed if srcCriteria is not null or empty
     if (srcCriteria != null && !srcCriteria.isEmpty()) {
-      final String urnValue = sourceEntityFilter.getOr().get(0).getAnd().get(0).getValue().toString();
+      final String urnValue =
+          sourceEntityFilter.getOr().get(0).getAnd().get(0).getValue().toString();
       try {
         final Urn urn = Urn.createFromString(urnValue);
         srcNodeLabel = urn.getEntityType();
@@ -601,7 +606,8 @@ public class Neo4jGraphService implements GraphService {
     final String srcNodeLabel = urn.getEntityType();
 
     // also delete any relationship going to or from it
-    final String matchTemplate = String.format("MATCH (node:%s {urn: $urn}) DETACH DELETE node", srcNodeLabel);
+    final String matchTemplate =
+        String.format("MATCH (node:%s {urn: $urn}) DETACH DELETE node", srcNodeLabel);
     final String statement = String.format(matchTemplate);
 
     final Map<String, Object> params = new HashMap<>();
@@ -637,11 +643,17 @@ public class Neo4jGraphService implements GraphService {
     // build node label from entity type
     final String srcNodeLabel = urn.getEntityType();
 
-    String matchTemplate = String.format("MATCH (src:%s {urn: $urn})-[r%s]-(dest) RETURN type(r), dest, 2", srcNodeLabel);
+    String matchTemplate =
+        String.format(
+            "MATCH (src:%s {urn: $urn})-[r%s]-(dest) RETURN type(r), dest, 2", srcNodeLabel);
     if (relationshipDirection == RelationshipDirection.INCOMING) {
-      matchTemplate = String.format("MATCH (src:%s {urn: $urn})<-[r%s]-(dest) RETURN type(r), dest, 0", srcNodeLabel);
+      matchTemplate =
+          String.format(
+              "MATCH (src:%s {urn: $urn})<-[r%s]-(dest) RETURN type(r), dest, 0", srcNodeLabel);
     } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
-      matchTemplate = String.format("MATCH (src:%s {urn: $urn})-[r%s]->(dest) RETURN type(r), dest, 1", srcNodeLabel);
+      matchTemplate =
+          String.format(
+              "MATCH (src:%s {urn: $urn})-[r%s]->(dest) RETURN type(r), dest, 1", srcNodeLabel);
     }
 
     String relationshipTypeFilter = "";
@@ -657,7 +669,8 @@ public class Neo4jGraphService implements GraphService {
     if (!neo4jResult.isEmpty()) {
       String removeMode = neo4jResult.get(0).values().get(2).toString();
       if (removeMode.equals("2")) {
-        final String matchDeleteTemplate = String.format("MATCH (src:%s {urn: $urn})-[r%s]-(dest) DELETE r", srcNodeLabel);
+        final String matchDeleteTemplate =
+            String.format("MATCH (src:%s {urn: $urn})-[r%s]-(dest) DELETE r", srcNodeLabel);
         relationshipTypeFilter = "";
         if (!relationshipTypes.isEmpty()) {
           relationshipTypeFilter =
