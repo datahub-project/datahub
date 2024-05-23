@@ -1408,7 +1408,9 @@ class SnowflakeV2Source(
             try:
                 self.report.num_get_views_for_schema_queries += 1
                 print(f"Inside the TRY for get_views_for_schema")
-                views = self.data_dictionary.get_views_for_schema(schema_name, db_name)
+                print(f"....calling get_views_for_schema_V2....")
+                #views = self.data_dictionary.get_views_for_schema(schema_name, db_name)
+                views = self.data_dictionary.get_views_for_schema_V2(schema_name, db_name)
             
             except Exception as e:
                 print(f"An error occured: {e}")
@@ -1420,7 +1422,9 @@ class SnowflakeV2Source(
                 # https://docs.snowflake.com/en/sql-reference/sql/show-views                
                 #views = self.data_dictionary.get_views_for_schema_starts_with(schema_name, db_name)
                 print(f"Inside the CATCH for get_views_by_pagination_markers")
-                views = self.data_dictionary.get_views_by_pagination_markers(schema_name, db_name)
+                print(f"........calling get_views_by_pagination_markers_V2 .........")
+                ##views = self.data_dictionary.get_views_by_pagination_markers(schema_name, db_name)
+                views = self.data_dictionary.get_views_by_pagination_markers_V2(schema_name, db_name)
         # Some schema may not have any table
         return views.get(schema_name, [])
 
