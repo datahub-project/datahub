@@ -2,11 +2,12 @@ import React from 'react';
 import styled from 'styled-components';
 import { GetChartQuery } from '../../../../graphql/chart.generated';
 import { Entity, EntityType } from '../../../../types.generated';
+import { useBaseEntity, useEntityData } from '../../../entity/shared/EntityContext';
+import Loading from '../../../shared/Loading';
+import SummaryEntityCard from '../../../sharedV2/cards/SummaryEntityCard';
 import { useEntityRegistryV2 } from '../../../useEntityRegistry';
-import { useBaseEntity } from '../../../entity/shared/EntityContext';
 import { SubType } from '../../shared/components/subtypes';
 import { HorizontalList, SummaryColumns } from '../../shared/summary/ListComponents';
-import SummaryEntityCard from '../../../sharedV2/cards/SummaryEntityCard';
 import SummaryCreatedBySection from '../../shared/summary/SummaryCreatedBySection';
 import SummaryQuerySection from './SummaryQuerySection';
 import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from './styledComponents';
@@ -32,6 +33,7 @@ const SectionContainer = styled.div`
 `;
 
 export default function ChartSummaryOverview() {
+    const { loading } = useEntityData();
     const chart = useBaseEntity<GetChartQuery>()?.chart;
     const entityRegistry = useEntityRegistryV2();
 
@@ -42,15 +44,20 @@ export default function ChartSummaryOverview() {
     ) as Entity;
 
     // TODO: Calculate this better?
-    const dataSources = chart?.inputs?.relationships
+    const dataSources = (chart?.inputs?.relationships
         ?.map((r) => r.entity)
-        .filter((e) => e?.__typename === 'Dataset') as Entity[];
+        ?.filter((e) => e?.__typename === 'Dataset') || []) as Entity[];
 
-    const dashboards = chart?.dashboards?.relationships?.map((r) => r.entity) as Entity[];
+    const dashboards = (chart?.dashboards?.relationships?.map((r) => r.entity) || []) as Entity[];
 
     const owner = chart?.ownership?.owners && chart?.ownership?.owners[0].owner;
 
     const query = chart?.query?.rawQuery || '';
+
+    if (loading) {
+        return <Loading />;
+    }
+
     return (
         <SummaryColumns>
             <MainSection>

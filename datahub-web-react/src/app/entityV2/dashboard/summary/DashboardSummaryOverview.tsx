@@ -1,19 +1,20 @@
 import React from 'react';
-import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import { Entity, EntityType } from '../../../../types.generated';
-import { useEntityRegistryV2 } from '../../../useEntityRegistry';
-import { useBaseEntity } from '../../../entity/shared/EntityContext';
-import { SummaryColumns } from '../../shared/summary/ListComponents';
-import { REDESIGN_COLORS } from '../../shared/constants';
-import SummaryCreatedBySection from '../../shared/summary/SummaryCreatedBySection';
+import styled from 'styled-components';
 import { GetDashboardQuery } from '../../../../graphql/dashboard.generated';
-import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from '../../chart/summary/styledComponents';
-import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
+import { Entity, EntityType } from '../../../../types.generated';
+import { useBaseEntity, useEntityData } from '../../../entity/shared/EntityContext';
 import { GenericEntityProperties } from '../../../entity/shared/types';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
+import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
+import { useEntityRegistryV2 } from '../../../useEntityRegistry';
+import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from '../../chart/summary/styledComponents';
+import { REDESIGN_COLORS } from '../../shared/constants';
+import { SummaryColumns } from '../../shared/summary/ListComponents';
+import SummaryCreatedBySection from '../../shared/summary/SummaryCreatedBySection';
 
 import { useGetSearchResultsQuery } from '../../../../graphql/search.generated';
+import Loading from '../../../shared/Loading';
 
 const Count = styled.div`
     padding: 1px 8px;
@@ -48,6 +49,7 @@ const EntitiesList = styled.div`
 `;
 
 export default function DashboardSummaryOverview() {
+    const { loading } = useEntityData();
     const dashboard = useBaseEntity<GetDashboardQuery>()?.dashboard;
     const entityRegistry = useEntityRegistryV2();
 
@@ -73,10 +75,14 @@ export default function DashboardSummaryOverview() {
         },
     });
 
-    const dataSources = dataSourcesData?.search?.searchResults?.map((result) => result.entity) as Entity[];
+    if (loading) {
+        return <Loading />;
+    }
+
+    const dataSources = (dataSourcesData?.search?.searchResults?.map((result) => result.entity) || []) as Entity[];
 
     const owner = dashboard?.ownership?.owners && dashboard?.ownership?.owners[0].owner;
-    const displayName = entityRegistry.getDisplayName(dashboard?.type as EntityType, dashboard);
+    const displayName = entityRegistry.getDisplayName(EntityType.Dashboard, dashboard);
 
     return (
         <SummaryColumns>
@@ -101,7 +107,7 @@ export default function DashboardSummaryOverview() {
                                         <HoverEntityTooltip placement="bottom" entity={dataSource} showArrow={false}>
                                             <EntityItem>
                                                 <PlatformIcon
-                                                    platform={(dataSource as GenericEntityProperties).platform}
+                                                    platform={(dataSource as GenericEntityProperties)?.platform}
                                                     size={18}
                                                     alt={displayName}
                                                     entityType={dataSource.type as EntityType}
