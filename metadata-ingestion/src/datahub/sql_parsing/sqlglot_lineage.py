@@ -321,88 +321,6 @@ class _ColumnResolver:
     table_schema_normalized_mapping: Dict[_TableName, Dict[str, str]]
     use_case_insensitive_cols: bool
 
-    @classmethod
-    def build(
-        cls,
-        statement: sqlglot.exp.Expression,
-        dialect: sqlglot.Dialect,
-        table_schemas: Dict[_TableName, SchemaInfo],
-    ) -> Tuple[sqlglot.exp.Expression, "_ColumnResolver"]:
-        is_create_ddl = _is_create_table_ddl(statement)
-        if (
-            not isinstance(
-                statement,
-                _SupportedColumnLineageTypesTuple,
-            )
-            and not is_create_ddl
-        ):
-            raise UnsupportedStatementTypeError(
-                f"Can only generate column-level lineage for select-like inner statements, not {type(statement)}"
-            )
-
-        use_case_insensitive_cols = is_dialect_instance(
-            dialect, DIALECTS_WITH_CASE_INSENSITIVE_COLS
-        )
-
-        sqlglot_db_schema = sqlglot.MappingSchema(
-            dialect=dialect,
-            # We do our own normalization, so don't let sqlglot do it.
-            normalize=False,
-        )
-        table_schema_normalized_mapping: Dict[_TableName, Dict[str, str]] = defaultdict(
-            dict
-        )
-        for table, table_schema in table_schemas.items():
-            normalized_table_schema: SchemaInfo = {}
-            for col, col_type in table_schema.items():
-                if use_case_insensitive_cols:
-                    col_normalized = (
-                        # This is required to match Sqlglot's behavior.
-                        col.upper()
-                        if is_dialect_instance(
-                            dialect, DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
-                        )
-                        else col.lower()
-                    )
-                else:
-                    col_normalized = col
-
-                table_schema_normalized_mapping[table][col_normalized] = col
-                normalized_table_schema[col_normalized] = col_type or "UNKNOWN"
-
-            sqlglot_db_schema.add_table(
-                table.as_sqlglot_table(),
-                column_mapping=normalized_table_schema,
-            )
-
-        if use_case_insensitive_cols:
-
-            def _sqlglot_force_column_normalizer(
-                node: sqlglot.exp.Expression,
-            ) -> sqlglot.exp.Expression:
-                if isinstance(node, sqlglot.exp.Column):
-                    node.this.set("quoted", False)
-
-                return node
-
-            # logger.debug(
-            #     "Prior to case normalization sql %s",
-            #     statement.sql(pretty=True, dialect=dialect),
-            # )
-            statement = statement.transform(
-                _sqlglot_force_column_normalizer, copy=False
-            )
-            # logger.debug(
-            #     "Sql after casing normalization %s",
-            #     statement.sql(pretty=True, dialect=dialect),
-            # )
-
-        return statement, cls(
-            sqlglot_db_schema=sqlglot_db_schema,
-            table_schema_normalized_mapping=table_schema_normalized_mapping,
-            use_case_insensitive_cols=use_case_insensitive_cols,
-        )
-
     def schema_aware_fuzzy_column_resolve(
         self, table: Optional[_TableName], sqlglot_column: str
     ) -> str:
@@ -417,14 +335,138 @@ class _ColumnResolver:
             return default_col_name
 
 
+def _prepare_query_columns(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    table_schemas: Dict[_TableName, SchemaInfo],
+    default_db: Optional[str],
+    default_schema: Optional[str],
+) -> Tuple[sqlglot.exp.Expression, "_ColumnResolver"]:
+    is_create_ddl = _is_create_table_ddl(statement)
+    if (
+        not isinstance(
+            statement,
+            _SupportedColumnLineageTypesTuple,
+        )
+        and not is_create_ddl
+    ):
+        raise UnsupportedStatementTypeError(
+            f"Can only generate column-level lineage for select-like inner statements, not {type(statement)}"
+        )
+
+    use_case_insensitive_cols = is_dialect_instance(
+        dialect, DIALECTS_WITH_CASE_INSENSITIVE_COLS
+    )
+
+    sqlglot_db_schema = sqlglot.MappingSchema(
+        dialect=dialect,
+        # We do our own normalization, so don't let sqlglot do it.
+        normalize=False,
+    )
+    table_schema_normalized_mapping: Dict[_TableName, Dict[str, str]] = defaultdict(
+        dict
+    )
+    for table, table_schema in table_schemas.items():
+        normalized_table_schema: SchemaInfo = {}
+        for col, col_type in table_schema.items():
+            if use_case_insensitive_cols:
+                col_normalized = (
+                    # This is required to match Sqlglot's behavior.
+                    col.upper()
+                    if is_dialect_instance(
+                        dialect, DIALECTS_WITH_DEFAULT_UPPERCASE_COLS
+                    )
+                    else col.lower()
+                )
+            else:
+                col_normalized = col
+
+            table_schema_normalized_mapping[table][col_normalized] = col
+            normalized_table_schema[col_normalized] = col_type or "UNKNOWN"
+
+        sqlglot_db_schema.add_table(
+            table.as_sqlglot_table(),
+            column_mapping=normalized_table_schema,
+        )
+
+    if use_case_insensitive_cols:
+
+        def _sqlglot_force_column_normalizer(
+            node: sqlglot.exp.Expression,
+        ) -> sqlglot.exp.Expression:
+            if isinstance(node, sqlglot.exp.Column):
+                node.this.set("quoted", False)
+
+            return node
+
+        # logger.debug(
+        #     "Prior to case normalization sql %s",
+        #     statement.sql(pretty=True, dialect=dialect),
+        # )
+        statement = statement.transform(_sqlglot_force_column_normalizer, copy=False)
+        # logger.debug(
+        #     "Sql after casing normalization %s",
+        #     statement.sql(pretty=True, dialect=dialect),
+        # )
+
+    if not is_create_ddl:
+        # Optimize the statement + qualify column references.
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Prior to column qualification sql %s",
+                statement.sql(pretty=True, dialect=dialect),
+            )
+        try:
+            # Second time running qualify, this time with:
+            # - the select instead of the full outer statement
+            # - schema info
+            # - column qualification enabled
+            # - running the full pre-type annotation optimizer
+
+            # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
+            statement = sqlglot.optimizer.optimizer.optimize(
+                statement,
+                dialect=dialect,
+                schema=sqlglot_db_schema,
+                qualify_columns=True,
+                validate_qualify_columns=False,
+                identify=True,
+                # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
+                catalog=default_db,
+                db=default_schema,
+                rules=RULES_BEFORE_TYPE_ANNOTATION,
+            )
+        except (sqlglot.errors.OptimizeError, ValueError) as e:
+            raise SqlUnderstandingError(
+                f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
+            ) from e
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Qualified sql %s", statement.sql(pretty=True, dialect=dialect)
+            )
+
+        # Try to figure out the types of the output columns.
+        try:
+            statement = sqlglot.optimizer.annotate_types.annotate_types(
+                statement, schema=sqlglot_db_schema
+            )
+        except (sqlglot.errors.OptimizeError, sqlglot.errors.ParseError) as e:
+            # This is not a fatal error, so we can continue.
+            logger.debug("sqlglot failed to annotate or parse types: %s", e)
+
+    return statement, _ColumnResolver(
+        sqlglot_db_schema=sqlglot_db_schema,
+        table_schema_normalized_mapping=table_schema_normalized_mapping,
+        use_case_insensitive_cols=use_case_insensitive_cols,
+    )
+
+
 # TODO: Break this up into smaller functions.
 def _column_level_lineage(  # noqa: C901
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
     column_resolver: _ColumnResolver,
     output_table: Optional[_TableName],
-    default_db: Optional[str],
-    default_schema: Optional[str],
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
@@ -460,48 +502,6 @@ def _column_level_lineage(  # noqa: C901
             )
 
         return column_lineage
-
-    # Optimize the statement + qualify column references.
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug(
-            "Prior to column qualification sql %s",
-            statement.sql(pretty=True, dialect=dialect),
-        )
-    try:
-        # Second time running qualify, this time with:
-        # - the select instead of the full outer statement
-        # - schema info
-        # - column qualification enabled
-        # - running the full pre-type annotation optimizer
-
-        # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
-        statement = sqlglot.optimizer.optimizer.optimize(
-            statement,
-            dialect=dialect,
-            schema=column_resolver.sqlglot_db_schema,
-            qualify_columns=True,
-            validate_qualify_columns=False,
-            identify=True,
-            # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
-            catalog=default_db,
-            db=default_schema,
-            rules=RULES_BEFORE_TYPE_ANNOTATION,
-        )
-    except (sqlglot.errors.OptimizeError, ValueError) as e:
-        raise SqlUnderstandingError(
-            f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
-        ) from e
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
-
-    # Try to figure out the types of the output columns.
-    try:
-        statement = sqlglot.optimizer.annotate_types.annotate_types(
-            statement, schema=column_resolver.sqlglot_db_schema
-        )
-    except (sqlglot.errors.OptimizeError, sqlglot.errors.ParseError) as e:
-        # This is not a fatal error, so we can continue.
-        logger.debug("sqlglot failed to annotate or parse types: %s", e)
 
     try:
         assert isinstance(statement, _SupportedColumnLineageTypesTuple)
@@ -933,18 +933,18 @@ def _sqlglot_lineage_inner(
                     SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
                 )
             ):
-                select_statement, column_resolver = _ColumnResolver.build(
+                (select_statement, column_resolver) = _prepare_query_columns(
                     select_statement,
                     dialect=dialect,
                     table_schemas=table_name_schema_mapping,
+                    default_db=default_db,
+                    default_schema=default_schema,
                 )
                 column_lineage = _column_level_lineage(
                     select_statement,
                     dialect=dialect,
                     column_resolver=column_resolver,
                     output_table=downstream_table,
-                    default_db=default_db,
-                    default_schema=default_schema,
                 )
     except UnsupportedStatementTypeError as e:
         # Inject details about the outer statement type too.
