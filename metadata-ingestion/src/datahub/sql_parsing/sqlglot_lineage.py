@@ -461,6 +461,45 @@ def _prepare_query_columns(
     )
 
 
+def _create_table_ddl_cll(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    column_resolver: _ColumnResolver,
+    output_table: Optional[_TableName],
+) -> List[_ColumnLineageInfo]:
+    column_lineage: List[_ColumnLineageInfo] = []
+
+    assert (
+        output_table is not None
+    ), "output_table must be set for create DDL statements"
+
+    create_schema: sqlglot.exp.Schema = statement.this
+    sqlglot_columns = create_schema.expressions
+
+    for column_def in sqlglot_columns:
+        if not isinstance(column_def, sqlglot.exp.ColumnDef):
+            # Ignore things like constraints.
+            continue
+
+        output_col = column_resolver.schema_aware_fuzzy_column_resolve(
+            output_table, column_def.name
+        )
+        output_col_type = column_def.args.get("kind")
+
+        column_lineage.append(
+            _ColumnLineageInfo(
+                downstream=_DownstreamColumnRef(
+                    table=output_table,
+                    column=output_col,
+                    column_type=output_col_type,
+                ),
+                upstreams=[],
+            )
+        )
+
+    return column_lineage
+
+
 # TODO: Break this up into smaller functions.
 def _column_level_lineage(  # noqa: C901
     statement: sqlglot.exp.Expression,
@@ -469,39 +508,6 @@ def _column_level_lineage(  # noqa: C901
     output_table: Optional[_TableName],
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
-
-    # Handle the create DDL case.
-    is_create_ddl = _is_create_table_ddl(statement)
-    if is_create_ddl:
-        assert (
-            output_table is not None
-        ), "output_table must be set for create DDL statements"
-
-        create_schema: sqlglot.exp.Schema = statement.this
-        sqlglot_columns = create_schema.expressions
-
-        for column_def in sqlglot_columns:
-            if not isinstance(column_def, sqlglot.exp.ColumnDef):
-                # Ignore things like constraints.
-                continue
-
-            output_col = column_resolver.schema_aware_fuzzy_column_resolve(
-                output_table, column_def.name
-            )
-            output_col_type = column_def.args.get("kind")
-
-            column_lineage.append(
-                _ColumnLineageInfo(
-                    downstream=_DownstreamColumnRef(
-                        table=output_table,
-                        column=output_col,
-                        column_type=output_col_type,
-                    ),
-                    upstreams=[],
-                )
-            )
-
-        return column_lineage
 
     try:
         assert isinstance(statement, _SupportedColumnLineageTypesTuple)
@@ -945,12 +951,20 @@ def _sqlglot_lineage_inner(
                     default_db=default_db,
                     default_schema=default_schema,
                 )
-                column_lineage = _column_level_lineage(
-                    select_statement,
-                    dialect=dialect,
-                    column_resolver=column_resolver,
-                    output_table=downstream_table,
-                )
+                if _is_create_table_ddl(select_statement):
+                    column_lineage = _create_table_ddl_cll(
+                        select_statement,
+                        dialect=dialect,
+                        column_resolver=column_resolver,
+                        output_table=downstream_table,
+                    )
+                else:
+                    column_lineage = _column_level_lineage(
+                        select_statement,
+                        dialect=dialect,
+                        column_resolver=column_resolver,
+                        output_table=downstream_table,
+                    )
     except UnsupportedStatementTypeError as e:
         # Inject details about the outer statement type too.
         e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
