@@ -63,7 +63,10 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
-    from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+    from datahub.ingestion.sink.datahub_rest import (
+        DatahubRestSink,
+        DatahubRestSinkConfig,
+    )
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
@@ -202,13 +205,8 @@ class DataHubGraph(DatahubRestEmitter):
     def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict)
 
-    @contextlib.contextmanager
-    def make_rest_sink(
-        self, run_id: str = _GRAPH_DUMMY_RUN_ID
-    ) -> Iterator["DatahubRestSink"]:
-        from datahub.ingestion.api.common import PipelineContext
+    def _make_rest_sink_config(self) -> "DatahubRestSinkConfig":
         from datahub.ingestion.sink.datahub_rest import (
-            DatahubRestSink,
             DatahubRestSinkConfig,
             SyncOrAsync,
         )
@@ -218,10 +216,16 @@ class DataHubGraph(DatahubRestEmitter):
         # TODO: We should refactor out the multithreading functionality of the sink
         # into a separate class that can be used by both the sink and the graph client
         # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
-        sink_config = DatahubRestSinkConfig(
-            **self.config.dict(), mode=SyncOrAsync.ASYNC
-        )
+        return DatahubRestSinkConfig(**self.config.dict(), mode=SyncOrAsync.ASYNC)
 
+    @contextlib.contextmanager
+    def make_rest_sink(
+        self, run_id: str = _GRAPH_DUMMY_RUN_ID
+    ) -> Iterator["DatahubRestSink"]:
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+
+        sink_config = self._make_rest_sink_config()
         with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
             yield sink
         if sink.report.failures:
