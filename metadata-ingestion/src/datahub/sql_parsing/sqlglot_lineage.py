@@ -442,7 +442,7 @@ def _create_table_ddl_cll(
 
 
 def _select_statement_cll(  # noqa: C901
-    statement: sqlglot.exp.Expression,
+    statement: _SupportedColumnLineageTypes,
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,
     column_resolver: _ColumnResolver,
@@ -595,6 +595,7 @@ def _column_level_lineage(
     assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
     try:
         root_scope = sqlglot.optimizer.build_scope(select_statement)
+        assert root_scope is not None
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to preprocess statement: {e}"
