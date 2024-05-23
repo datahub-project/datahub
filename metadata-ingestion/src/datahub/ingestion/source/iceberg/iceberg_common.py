@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from pydantic import Field
+from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -50,32 +50,14 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_sample_values: bool = True
 
 
-class IcebergCatalogConfig(ConfigModel):
-    """
-    Iceberg catalog config.
-
-    https://py.iceberg.apache.org/configuration/
-    """
-
-    name: str = Field(
-        default="default",
-        description="Name of catalog",
-    )
-    type: str = Field(
-        description="Type of catalog.  See [PyIceberg](https://py.iceberg.apache.org/configuration/) for list of possible values.",
-    )
-    config: Dict[str, str] = Field(
-        description="Catalog specific configuration.  See [PyIceberg documentation](https://py.iceberg.apache.org/configuration/) for details.",
-    )
-
-
 class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Override the stateful_ingestion config param with the Iceberg custom stateful ingestion config in the IcebergSourceConfig
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Iceberg Stateful Ingestion Config."
     )
-    catalog: IcebergCatalogConfig = Field(
-        description="Catalog configuration where to find Iceberg tables.  See [pyiceberg's catalog configuration details](https://py.iceberg.apache.org/configuration/).",
+    # The catalog configuration is using a dictionary to be open and flexible.  All the keys and values are handled by pyiceberg.  This will future-proof any configuration change done by pyiceberg.
+    catalog: Dict[str, Dict[str, str]] = Field(
+        description="Catalog configuration where to find Iceberg tables.  Only one catalog specification is supported.  The format is the same as [pyiceberg's catalog configuration](https://py.iceberg.apache.org/configuration/), where the catalog name is specified as the object name and attributes are set as key-value pairs.",
     )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -91,6 +73,22 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
 
+    @validator("catalog")
+    def validate_catalog_size(cls, value):
+        if len(value) != 1:
+            raise ValueError("The catalog must contain exactly one entry.")
+
+        # Retrieve the dict associated with the one catalog entry
+        catalog_name, catalog_config = next(iter(value.items()))
+
+        # Check if that dict is not empty
+        if not catalog_config or not isinstance(catalog_config, dict):
+            raise ValueError(
+                f"The catalog configuration for '{catalog_name}' must not be empty and should be a dictionary with at least one key-value pair."
+            )
+
+        return value
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -102,9 +100,11 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         Returns:
             Catalog: Iceberg catalog instance.
         """
-        return load_catalog(
-            name=self.catalog.name, **{"type": self.catalog.type, **self.catalog.config}
-        )
+        if not self.catalog:
+            raise ValueError("No catalog configuration found")
+
+        keys = list(self.catalog.keys())
+        return load_catalog(name=keys[0], **self.catalog.get(keys[0], {}))
 
 
 @dataclass

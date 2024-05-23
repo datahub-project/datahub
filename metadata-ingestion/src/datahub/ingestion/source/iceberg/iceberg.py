@@ -138,9 +138,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             catalog = self.config.get_catalog()
         except Exception as e:
             LOGGER.error("Failed to get catalog", exc_info=True)
-            self.report.report_failure(
-                "get-catalog", f"Failed to get catalog {self.config.catalog.name}: {e}"
-            )
+            self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
             return
 
         for dataset_path in self._get_datasets(catalog):

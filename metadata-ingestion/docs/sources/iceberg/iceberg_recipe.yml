@@ -4,9 +4,8 @@ source:
     env: PROD
     catalog:
       # REST catalog configuration example using S3 storage
-      name: my_iceberg_catalog
-      type: rest
-      config:
+      my_rest_catalog:
+        type: rest
         # Catalog configuration follows pyiceberg's documentation (https://py.iceberg.apache.org/configuration)
         uri: http://localhost:8181
         s3.access-key-id: admin
@@ -15,15 +14,14 @@ source:
         warehouse: s3a://warehouse/wh/
         s3.endpoint: http://localhost:9000
       # SQL catalog configuration example using Azure datalake storage and a PostgreSQL database
-      # name: my_iceberg_catalog
-      # type: sql
-      # config:
+      # my_sql_catalog:
+      #   type: sql
       #   uri: postgresql+psycopg2://user:password@sqldatabase.postgres.database.azure.com:5432/icebergcatalog
       #   adlfs.tenant-id: <Azure tenant ID>
       #   adlfs.account-name: <Azure storage account name>
       #   adlfs.client-id: <Azure Client/Application ID>
       #   adlfs.client-secret: <Azure Client Secret>
-    platform_instance: my_iceberg_catalog
+    platform_instance: my_rest_catalog
     table_pattern:
       allow:
         - marketing.*

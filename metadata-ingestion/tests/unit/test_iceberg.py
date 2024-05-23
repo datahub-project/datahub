@@ -34,7 +34,6 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergSource,
     IcebergSourceConfig,
 )
-from datahub.ingestion.source.iceberg.iceberg_common import IcebergCatalogConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -50,9 +49,7 @@ from datahub.metadata.schema_classes import (
 
 
 def with_iceberg_source() -> IcebergSource:
-    catalog: IcebergCatalogConfig = IcebergCatalogConfig(
-        name="test", type="rest", config={}
-    )
+    catalog = {"test": {"type": "rest"}}
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
         config=IcebergSourceConfig(catalog=catalog),
@@ -95,14 +92,11 @@ def test_config_catalog_not_configured():
     """
     Test when an Iceberg catalog is provided, but not properly configured.
     """
-    with pytest.raises(ValidationError):
-        IcebergCatalogConfig()  # type: ignore
-
-    with pytest.raises(ValidationError, match="conf"):
-        IcebergCatalogConfig(type="a type")  # type: ignore
-
     with pytest.raises(ValidationError, match="type"):
-        IcebergCatalogConfig(conf={})  # type: ignore
+        IcebergSourceConfig(catalog={})  # type: ignore
+
+    with pytest.raises(ValidationError):
+        IcebergSourceConfig(catalog={"test": {}})
 
 
 def test_config_for_tests():
