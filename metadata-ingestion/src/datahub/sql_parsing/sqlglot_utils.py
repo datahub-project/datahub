@@ -81,6 +81,8 @@ def parse_statement(
 
 
 def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expression:
+    logger.debug("Parsing SQL query: %s", sql)
+
     dialect = get_dialect(platform)
     statements = [
         expression for expression in sqlglot.parse(sql, dialect=dialect) if expression
