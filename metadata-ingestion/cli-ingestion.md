@@ -1,6 +1,6 @@
 # CLI Ingestion
 
-Batch ingestion involves extracting metadata from a source system in bulk. Typically, this happens on a predefined schedule using the [Metadata Ingestion ](metadata-ingestion/README.md#install-from-pypi)framework.
+Batch ingestion involves extracting metadata from a source system in bulk. Typically, this happens on a predefined schedule using the [Metadata Ingestion](../docs/components.md#ingestion-framework) framework.
 The metadata that is extracted includes point-in-time instances of dataset, chart, dashboard, pipeline, user, group, usage, and task metadata.
 
 ## Installing DataHub CLI
@@ -25,7 +25,8 @@ Check out the [CLI Installation Guide](../docs/cli.md#installation) for more ins
 
 ## Installing Connector Plugins 
 
-Our CLI follows a plugin architecture. You must install connectors for different data sources individually. For a list of all supported data sources, see [the open source docs](metadata-ingestion/README.md#installing-plugins).
+Our CLI follows a plugin architecture. You must install connectors for different data sources individually. 
+For a list of all supported data sources, see [the open source docs](../docs/cli.md#sources).
 Once you've found the connectors you care about, simply install them using `pip install`.
 For example, to install the `mysql` connector, you can run
 
@@ -36,7 +37,7 @@ Check out the [alternative installation options](../docs/cli.md#alternate-instal
 
 ## Configuring a Recipe
 
-Create a [Recipe]((metadata-ingestion/README.md#recipes)) yaml file that defines the source and sink for metadata, as shown below.
+Create a [Recipe](recipe_overview.md) yaml file that defines the source and sink for metadata, as shown below.
 
 ```yaml
 # example-recipe.yml
@@ -56,7 +57,7 @@ sink:
     server: "https://<your domain name>.acryl.io/gms"
     token: <Your API key>
 ```
-The **source** configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](metadata-ingestion/README.md#sources) documentation.
+The **source** configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](source_overview.md) documentation.
 
 The **sink** configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](sink_overview.md) documentation.
 
