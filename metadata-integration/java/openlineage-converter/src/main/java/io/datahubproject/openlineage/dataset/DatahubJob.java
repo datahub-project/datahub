@@ -174,7 +174,7 @@ public class DatahubJob {
       List<MetadataChangeProposal> mcps) {
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     log.info("Adding DataJob edges to {}", jobUrn);
-    if (config.isUsePatch()) {
+    if (config.isUsePatch() && (!parentJobs.isEmpty() || !inSet.isEmpty() || !outSet.isEmpty())) {
       DataJobInputOutputPatchBuilder dataJobInputOutputPatchBuilder =
           new DataJobInputOutputPatchBuilder().urn(jobUrn);
       for (DatahubDataset dataset : inSet) {
@@ -360,7 +360,7 @@ public class DatahubJob {
       DatahubOpenlineageConfig config,
       List<MetadataChangeProposal> mcps) {
     if (flowGlobalTags != null) {
-      if (config.isUsePatch()) {
+      if ((config.isUsePatch() && (!flowGlobalTags.getTags().isEmpty()))) {
         GlobalTagsPatchBuilder globalTagsPatchBuilder = new GlobalTagsPatchBuilder().urn(flowUrn);
         for (TagAssociation tag : flowGlobalTags.getTags()) {
           globalTagsPatchBuilder.addTag(tag.getTag(), null);
