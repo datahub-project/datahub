@@ -29,6 +29,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
+from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
@@ -41,7 +42,6 @@ from datahub.sql_parsing.sql_parsing_common import (
     QueryTypeProps,
 )
 from datahub.sql_parsing.sqlglot_utils import (
-    DialectOrStr,
     get_dialect,
     get_query_fingerprint_debug,
     is_dialect_instance,
@@ -81,65 +81,6 @@ RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
 )
 # Quick check that the rules were loaded correctly.
 assert 0 < len(RULES_BEFORE_TYPE_ANNOTATION) < len(sqlglot.optimizer.optimizer.RULES)
-
-
-def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
-    identifier: sqlglot.exp.Identifier = table.this
-
-    return identifier.args.get("temporary") or (
-        is_dialect_instance(dialect, "redshift") and identifier.name.startswith("#")
-    )
-
-
-def _get_create_type_from_kind(kind: Optional[str]) -> QueryType:
-    if kind and "TABLE" in kind:
-        return QueryType.CREATE_TABLE_AS_SELECT
-    elif kind and "VIEW" in kind:
-        return QueryType.CREATE_VIEW
-    else:
-        return QueryType.CREATE_OTHER
-
-
-def get_query_type_of_sql(
-    expression: sqlglot.exp.Expression, dialect: DialectOrStr
-) -> Tuple[QueryType, QueryTypeProps]:
-    dialect = get_dialect(dialect)
-    query_type_props: QueryTypeProps = {}
-
-    # For creates, we need to look at the inner expression.
-    if isinstance(expression, sqlglot.exp.Create):
-        if _is_create_table_ddl(expression):
-            return QueryType.CREATE_DDL, query_type_props
-
-        kind = expression.args.get("kind")
-        if kind:
-            kind = kind.upper()
-            query_type_props["kind"] = kind
-
-        target = expression.this
-        if any(
-            isinstance(prop, sqlglot.exp.TemporaryProperty)
-            for prop in (expression.args.get("properties") or [])
-        ) or _is_temp_table(target, dialect=dialect):
-            query_type_props["temporary"] = True
-
-        query_type = _get_create_type_from_kind(kind)
-        return query_type, query_type_props
-
-    # UPGRADE: Once we use Python 3.10, replace this with a match expression.
-    mapping = {
-        sqlglot.exp.Select: QueryType.SELECT,
-        sqlglot.exp.Insert: QueryType.INSERT,
-        sqlglot.exp.Update: QueryType.UPDATE,
-        sqlglot.exp.Delete: QueryType.DELETE,
-        sqlglot.exp.Merge: QueryType.MERGE,
-        sqlglot.exp.Query: QueryType.SELECT,  # unions, etc. are also selects
-    }
-
-    for cls, query_type in mapping.items():
-        if isinstance(expression, cls):
-            return query_type, query_type_props
-    return QueryType.UNKNOWN, {}
 
 
 class _ColumnRef(_FrozenModel):
@@ -342,7 +283,7 @@ def _prepare_query_columns(
     default_db: Optional[str],
     default_schema: Optional[str],
 ) -> Tuple[sqlglot.exp.Expression, "_ColumnResolver"]:
-    is_create_ddl = _is_create_table_ddl(statement)
+    is_create_ddl = is_create_table_ddl(statement)
     if (
         not isinstance(
             statement,
@@ -725,12 +666,6 @@ def _extract_select_from_update(
     return select_statement
 
 
-def _is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
-    return isinstance(statement, sqlglot.exp.Create) and isinstance(
-        statement.this, sqlglot.exp.Schema
-    )
-
-
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
 ) -> sqlglot.exp.Expression:
@@ -951,7 +886,7 @@ def _sqlglot_lineage_inner(
                     default_db=default_db,
                     default_schema=default_schema,
                 )
-                if _is_create_table_ddl(select_statement):
+                if is_create_table_ddl(select_statement):
                     column_lineage = _create_table_ddl_cll(
                         select_statement,
                         dialect=dialect,
