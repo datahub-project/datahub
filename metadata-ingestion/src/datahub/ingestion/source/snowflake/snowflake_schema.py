@@ -334,7 +334,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
         views: List[SnowflakeView] = []
-
+        print(f"Fixin to call show_views_for_schema: schema_name = {schema_name}, db_name = {db_name}")
         cur = self.query(SnowflakeQuery.show_views_for_schema(schema_name, db_name))
         for table in cur:
             views.append(

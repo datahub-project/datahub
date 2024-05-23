@@ -241,7 +241,7 @@ class SnowflakeQuery:
     #def get_views_by_name_substr(schema_name: str, db_name: Optional[str]) -> str:
     def get_views_by_pagination_markers(schema_name: str, db_name: Optional[str], batch_size: int, offset: int) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
-        print(f"inside get_views_by_pagination_markers in snowflake_query.py, fixin to get pagination_marker")
+        print(f"inside get_views_by_pagination_markers in snowflake_query.py, schema_name = {schema_name} batch_size = {batch_size} offset = {offset} ")
         # If show views in schema {db_clause}"{schema_name} is ran against a 
         # Schema with more than 10,000 views, Snowflake returns the following error:
         # The result set size exceeded the max number of rows(10000)
@@ -280,8 +280,10 @@ class SnowflakeQuery:
     @staticmethod
     def show_views_for_schema(schema_name: str, db_name: Optional[str] = None, from_view_marker: Optional[str] = None) -> str:
         #JG 20240516: Let this call fail if the views returned > 10,000. Then Fallback to implementation with pagination
+        print(f"inside show_views_for_schema from_view_marker = {from_view_marker} schema_name = {schema_name} db_name = {db_name}")
         db_clause = f'"{db_name}".' if db_name is not None else ""
         from_view_marker_clause = f' limit 10000 from "{from_view_marker}"' if from_view_marker is not None else ""
+        print(f"inside show_views_for_schema from_view_marker_clause got set and here it is = {from_view_marker_clause} and here is the schema_name again = {schema_name} and db_name again = {db_name}")
         ##return f"show views in schema {db_clause}\"{schema_name}\" {from_view_marker_clause};"
         return f"""show views in schema {db_clause}\"{schema_name}\" {from_view_marker_clause};"""
 
