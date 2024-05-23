@@ -490,12 +490,9 @@ def _column_level_lineage(  # noqa: C901
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
         for output_col, original_col_expression in output_columns:
-            if output_col == "*":
+            if not output_col or output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
-                continue
-
-            if output_col == "":
                 continue
 
             if is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
@@ -522,38 +519,12 @@ def _column_level_lineage(  # noqa: C901
             # )
 
             # Generate SELECT lineage.
-            # Using a set here to deduplicate upstreams.
-            direct_raw_col_upstreams: Set[_ColumnRef] = set()
-            for node in lineage_node.walk():
-                if node.downstream:
-                    # We only want the leaf nodes.
-                    pass
-
-                elif isinstance(node.expression, sqlglot.exp.Table):
-                    table_ref = _TableName.from_sqlglot_table(node.expression)
-
-                    if node.name == "*":
-                        # This will happen if we couldn't expand the * to actual columns e.g. if
-                        # we don't have schema info for the table. In this case, we can't generate
-                        # column-level lineage, so we skip it.
-                        continue
-
-                    # Parse the column name out of the node name.
-                    # Sqlglot calls .sql(), so we have to do the inverse.
-                    normalized_col = sqlglot.parse_one(node.name).this.name
-                    if node.subfield:
-                        normalized_col = f"{normalized_col}.{node.subfield}"
-
-                    direct_raw_col_upstreams.add(
-                        _ColumnRef(table=table_ref, column=normalized_col)
-                    )
-                else:
-                    # This branch doesn't matter. For example, a count(*) column would go here, and
-                    # we don't get any column-level lineage for that.
-                    pass
+            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(lineage_node)
 
             # column_logic = lineage_node.source
 
+            # Fuzzy resolve the output column.
+            original_col_expression = lineage_node.expression
             if output_col.startswith("_col_"):
                 # This is the format sqlglot uses for unnamed columns e.g. 'count(id)' -> 'count(id) AS _col_0'
                 # This is a bit jank since we're relying on sqlglot internals, but it seems to be
@@ -597,6 +568,43 @@ def _column_level_lineage(  # noqa: C901
         ) from e
 
     return column_lineage
+
+
+def _get_direct_raw_col_upstreams(
+    lineage_node: sqlglot.lineage.Node,
+) -> Set[_ColumnRef]:
+    # Using a set here to deduplicate upstreams.
+    direct_raw_col_upstreams: Set[_ColumnRef] = set()
+
+    for node in lineage_node.walk():
+        if node.downstream:
+            # We only want the leaf nodes.
+            pass
+
+        elif isinstance(node.expression, sqlglot.exp.Table):
+            table_ref = _TableName.from_sqlglot_table(node.expression)
+
+            if node.name == "*":
+                # This will happen if we couldn't expand the * to actual columns e.g. if
+                # we don't have schema info for the table. In this case, we can't generate
+                # column-level lineage, so we skip it.
+                continue
+
+            # Parse the column name out of the node name.
+            # Sqlglot calls .sql(), so we have to do the inverse.
+            normalized_col = sqlglot.parse_one(node.name).this.name
+            if node.subfield:
+                normalized_col = f"{normalized_col}.{node.subfield}"
+
+            direct_raw_col_upstreams.add(
+                _ColumnRef(table=table_ref, column=normalized_col)
+            )
+        else:
+            # This branch doesn't matter. For example, a count(*) column would go here, and
+            # we don't get any column-level lineage for that.
+            pass
+
+    return direct_raw_col_upstreams
 
 
 def _extract_select_from_create(
