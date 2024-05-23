@@ -247,13 +247,13 @@ class DataHubListener:
                 SQL_PARSING_RESULT_KEY, None
             )
         if sql_parsing_result:
-            if sql_parsing_result.debug_info.error:
+            if error := sql_parsing_result.debug_info.error:
                 logger.info(
-                    f"SQL parsing error: {sql_parsing_result.debug_info.error}",
-                    exc_info=sql_parsing_result.debug_info.error,
+                    f"SQL parsing error: {error}",
+                    exc_info=error,
                 )
-                datajob.properties["datahub_sql_parser_error"] = str(
-                    sql_parsing_result.debug_info.error
+                datajob.properties["datahub_sql_parser_error"] = (
+                    f"{type(error)}: {error}"
                 )
             if not sql_parsing_result.debug_info.table_error:
                 input_urns.extend(sql_parsing_result.in_tables)
