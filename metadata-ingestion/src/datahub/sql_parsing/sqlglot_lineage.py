@@ -541,6 +541,13 @@ def _select_statement_cll(  # noqa: C901
     return column_lineage
 
 
+class _ColumnLineageWithDebugInfo(_ParserBaseModel):
+    column_lineage: List[_ColumnLineageInfo]
+
+    select_statement: Optional[sqlglot.exp.Expression] = None
+    # TODO: Add column exceptions here.
+
+
 def _column_level_lineage(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
@@ -548,7 +555,7 @@ def _column_level_lineage(
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
     default_db: Optional[str],
     default_schema: Optional[str],
-) -> List[_ColumnLineageInfo]:
+) -> _ColumnLineageWithDebugInfo:
     # Simplify the input statement for column-level lineage generation.
     try:
         select_statement = _try_extract_select(statement)
@@ -574,11 +581,15 @@ def _column_level_lineage(
 
     # Handle the create table DDL case separately.
     if is_create_table_ddl(select_statement):
-        return _create_table_ddl_cll(
+        column_lineage = _create_table_ddl_cll(
             select_statement,
             dialect=dialect,
             column_resolver=column_resolver,
             output_table=downstream_table,
+        )
+        return _ColumnLineageWithDebugInfo(
+            column_lineage=column_lineage,
+            select_statement=select_statement,
         )
 
     assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
@@ -598,7 +609,10 @@ def _column_level_lineage(
         output_table=downstream_table,
     )
 
-    return column_lineage
+    return _ColumnLineageWithDebugInfo(
+        column_lineage=column_lineage,
+        select_statement=select_statement,
+    )
 
 
 def _get_direct_raw_col_upstreams(
@@ -920,7 +934,7 @@ def _sqlglot_lineage_inner(
                 SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
             )
         ):
-            column_lineage = _column_level_lineage(
+            column_lineage_debug_info = _column_level_lineage(
                 statement,
                 dialect=dialect,
                 downstream_table=downstream_table,
@@ -928,6 +942,7 @@ def _sqlglot_lineage_inner(
                 default_db=default_db,
                 default_schema=default_schema,
             )
+            column_lineage = column_lineage_debug_info.column_lineage
     except CooperativeTimeoutError as e:
         logger.debug(f"Timed out while generating column-level lineage: {e}")
         debug_info.column_error = e
