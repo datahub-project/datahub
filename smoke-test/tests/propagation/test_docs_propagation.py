@@ -1,44 +1,21 @@
 import logging
-import os
-import tempfile
-from random import randint
-from typing import Iterable, List, Optional, Union
 import time
+from typing import Any, Generator
+
 import pytest
 
 # import tenacity
 from datahub.api.entities.dataset.dataset import (
     Dataset,
-    SchemaSpecification,
     SchemaFieldSpecification,
+    SchemaSpecification,
 )
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.urns.structured_properties_urn import StructuredPropertyUrn
-from datahub.utilities.urns.urn import Urn
-
 from datahub.metadata.schema_classes import AuditStampClass
 
-from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import (
-    delete_urns,
-    delete_urns_from_file,
-    get_gms_url,
-    get_sleep_info,
-    ingest_file_via_rest,
-    wait_for_writes_to_sync,
-)
-
-
-from tests.utils import (
-    delete_urns_from_file,
-    get_frontend_url,
-    ingest_file_via_rest,
-    wait_for_healthcheck_util,
-)
-
+from tests.utils import get_gms_url, wait_for_healthcheck_util
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +42,7 @@ def graph_client() -> DataHubGraph:
 
 
 @pytest.fixture(scope="module")
-def create_test_data(graph_client: DataHubGraph) -> None:
+def create_test_data(graph_client: DataHubGraph) -> Generator[Any, Any, Any]:
     # Create datasets
     dataset_urns = [make_dataset_urn("snowflake", f"table_foo_{i}") for i in range(2)]
     for i, dataset_urn in enumerate(dataset_urns):
@@ -101,11 +78,11 @@ def create_test_data(graph_client: DataHubGraph) -> None:
         make_schema_field_urn(upstream_dataset_urn, "column_2"),
     ]
     from datahub.metadata.schema_classes import (
-        UpstreamLineageClass,
-        UpstreamClass,
         FineGrainedLineageClass,
-        FineGrainedLineageUpstreamTypeClass,
         FineGrainedLineageDownstreamTypeClass,
+        FineGrainedLineageUpstreamTypeClass,
+        UpstreamClass,
+        UpstreamLineageClass,
     )
 
     upstream_lineage_aspect = UpstreamLineageClass(
@@ -144,7 +121,6 @@ def create_test_data(graph_client: DataHubGraph) -> None:
 
 
 def test_docs_propagation(graph_client: DataHubGraph, create_test_data) -> None:
-
     # Wait for the writes to sync
 
     from time import sleep
@@ -156,13 +132,13 @@ def test_docs_propagation(graph_client: DataHubGraph, create_test_data) -> None:
     upstream_dataset_urn = make_dataset_urn("snowflake", "table_foo_0")
     upstream_schema_field_urn = make_schema_field_urn(upstream_dataset_urn, "column_1")
 
-    from datahub.metadata.schema_classes import (
-        EditableSchemaMetadataClass,
-        EditableSchemaFieldInfoClass,
-        DocumentationClass,
-    )
-
     import datetime
+
+    from datahub.metadata.schema_classes import (
+        DocumentationClass,
+        EditableSchemaFieldInfoClass,
+        EditableSchemaMetadataClass,
+    )
 
     # get human readable timestamp
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -211,6 +187,8 @@ def test_docs_propagation(graph_client: DataHubGraph, create_test_data) -> None:
             first_element.documentation
             == "this is the updated description as of {}".format(timestamp)
         )
+        assert first_element.attribution
+        assert first_element.attribution.sourceDetail
         assert (
             first_element.attribution.sourceDetail.get("origin")
             == upstream_schema_field_urn
