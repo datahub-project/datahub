@@ -659,7 +659,8 @@ def _extract_select_from_update(
         for k in _UPDATE_FROM_TABLE_ARGS_TO_MOVE:
             if k in original_from.this.args:
                 # Mutate the from table clause in-place.
-                extra_args[k] = original_from.this.args.pop(k)
+                extra_args[k] = original_from.this.args.get(k)
+                original_from.this.set(k, None)
 
     select_statement = sqlglot.exp.Select(
         **{
