@@ -25,7 +25,7 @@ fragment incidentsFields on EntityIncidentsResult {
             actor
         }
         tags {
-        ...globalTagsFields
+            ...globalTagsFields
         }
     }
 }
