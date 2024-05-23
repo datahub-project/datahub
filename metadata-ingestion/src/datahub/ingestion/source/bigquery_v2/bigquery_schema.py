@@ -150,12 +150,22 @@ class BigQuerySchemaApi:
     def get_projects(self) -> List[BigqueryProject]:
         with self.report.list_projects:
             try:
-                projects = self.bq_client.list_projects()
-
-                return [
-                    BigqueryProject(id=p.project_id, name=p.friendly_name)
-                    for p in projects
-                ]
+                projects: List[BigqueryProject] = []
+                page_token: Optional[str] = None
+                while True:
+                    projects_iterator = self.bq_client.list_projects(
+                        max_results=5, page_token=page_token
+                    )
+                    projects.extend(
+                        [
+                            BigqueryProject(id=p.project_id, name=p.friendly_name)
+                            for p in projects_iterator
+                        ]
+                    )
+                    page_token = projects_iterator.next_page_token
+                    if page_token is None:
+                        break
+                return projects
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
                 return []

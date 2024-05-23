@@ -271,18 +271,24 @@ def test_get_projects_with_single_project_id(get_bq_client_mock):
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_get_projects_by_list(get_bq_client_mock):
+    mock_projects = MagicMock()
+    mock_projects.__iter__.return_value = iter(
+        [
+            SimpleNamespace(
+                project_id="test-1",
+                friendly_name="one",
+            ),
+            SimpleNamespace(
+                project_id="test-2",
+                friendly_name="two",
+            ),
+        ]
+    )
+    mock_projects.next_page_token = None
+
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
-    client_mock.list_projects.return_value = [
-        SimpleNamespace(
-            project_id="test-1",
-            friendly_name="one",
-        ),
-        SimpleNamespace(
-            project_id="test-2",
-            friendly_name="two",
-        ),
-    ]
+    client_mock.list_projects.return_value = mock_projects
 
     config = BigQueryV2Config.parse_obj({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
