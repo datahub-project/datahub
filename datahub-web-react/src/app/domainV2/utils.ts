@@ -12,7 +12,7 @@ import { useDomainsContext as useDomainsContextV2 }  from './DomainsContext';
 /**
  * Add an entry to the list domains cache.
  */
-export const addToListDomainsCache = (client, newDomain, pageSize, parentDomain?: string) => {
+export const addToListDomainsCache = (client: ApolloClient<any>, newDomain, pageSize, parentDomain?: string) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,

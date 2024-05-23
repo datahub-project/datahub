@@ -1,3 +1,4 @@
+import React from 'react';
 import { GetDatasetDocument, UpdateDatasetDocument, GetDatasetSchemaDocument } from './graphql/dataset.generated';
 import { GetDataFlowDocument } from './graphql/dataFlow.generated';
 import { GetDataJobDocument } from './graphql/dataJob.generated';
@@ -55,6 +56,7 @@ import { DEFAULT_APP_CONFIG } from './appConfigContext';
 import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
 import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+import { Entity } from './app/entity/Entity';
 import { EntityCapabilityType } from './app/entityV2/Entity';
 import { ViewBuilderState } from './app/entity/view/types';
 import { GenericEntityProperties } from './app/entity/shared/types';
@@ -4002,6 +4004,86 @@ export const platformPrivileges: PlatformPrivileges = {
     manageBusinessAttributes: true,
     manageDocumentationForms: true,
 };
+
+export const DomainMock1 = {
+    urn: 'urn:li:domain:afbdad41-c523-469f-9b62-de94f938f702',
+    id: 'afbdad41-c523-469f-9b62-de94f938f702',
+    type: 'DOMAIN',
+    icon: () => <></>,
+    isSearchEnabled: () => false,
+    isBrowseEnabled: () => false,
+    isLineageEnabled: () => false,
+    getCollectionName: () => 'domain1_mock_1',
+    getPathName: () => 'domain_path_1',
+    getGraphName: () => 'domain_graph_1',
+    displayName: () => 'MOCK_DOMAIN_1',
+    parentDomains: {
+        domains: [],
+    },
+    renderProfile: () => <></>,
+    renderPreview: () => <></>,
+    renderSearch: () => <></>,
+    getGenericEntityProperties: () => {
+        return {
+            parentDomains: {
+                count: 1,
+                domains: [
+                    {
+                        urn: 'urn:li:domain:afbdad41-c523-469f-9b62-de94f938f702',
+                        type: 'DOMAIN',
+                        name: 'DOMAIN_1',
+                    },
+                ],
+            },
+        };
+    },
+    supportedCapabilities: () => new Set(),
+} as Entity<any>;
+
+export const DomainMock2 = {
+    urn: 'urn:li:domain:bebdad41-c523-469f-9b62-de94f938f603',
+    id: 'bebdad41-c523-469f-9b62-de94f938f603',
+    type: 'DOMAIN',
+    icon: () => <></>,
+    isSearchEnabled: () => false,
+    isBrowseEnabled: () => false,
+    isLineageEnabled: () => false,
+    getCollectionName: () => 'domain_mock_2',
+    getPathName: () => 'domain_path_2',
+    getGraphName: () => 'domain_graph_2',
+    displayName: () => 'MOCK_DOMAIN_2',
+    parentDomains: {
+        domains: [],
+    },
+    renderProfile: () => <></>,
+    renderPreview: () => <></>,
+    renderSearch: () => <></>,
+    getGenericEntityProperties: () => {
+        return {
+            parentDomains: {
+                count: 1,
+                domains: [
+                    {
+                        urn: 'urn:li:domain:afbdad41-c523-469f-9b62-de94f938f603',
+                        type: 'DOMAIN',
+                        name: 'DOMAIN_2',
+                    },
+                ],
+            },
+        };
+    },
+    supportedCapabilities: () => new Set(),
+} as Entity<any>;
+
+export const DomainMock3 = [DomainMock1, DomainMock2] as Array<Entity<any>>;
+
+export const expectedResult = [
+    {
+        type: 'DOMAIN',
+        urn: 'urn:li:domain:afbdad41-c523-469f-9b62-de94f938f702',
+        name: 'DOMAIN_1',
+    },
+];
 
 export const owners: Owner[] = [
     {
