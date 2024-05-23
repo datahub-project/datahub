@@ -1157,3 +1157,17 @@ LEFT JOIN my_db.my_schema.my_table_B AS B
         default_db="my_db",
         expected_file=RESOURCE_DIR / "test_snowflake_unnamed_column_udf.json",
     )
+
+
+def test_sqlite_insert_into_values() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO my_table (id, month, total_cost, area)
+    VALUES
+        (1, '2021-01', 100, 10),
+        (2, '2021-02', 200, 20),
+        (3, '2021-03', 300, 30)
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_insert_into_values.json",
+    )
