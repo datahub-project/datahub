@@ -116,88 +116,95 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "INT",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"INT\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "full_name",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].full_name",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "TEXT",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"TEXT\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "email",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].email",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "TEXT",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"TEXT\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "address",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].address",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "TEXT",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"TEXT\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "city",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].city",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "TEXT",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"TEXT\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "postal_code",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].postal_code",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "TEXT",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"TEXT\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "phone",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].phone",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "TEXT",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"TEXT\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -319,6 +326,15 @@
                         "formattedViewLogic": "SELECT\n  c.customer_id,\n  c.first_name || ' ' || c.last_name AS \"full_name\",\n  c.email,\n  a.address,\n  m.city,\n  a.postal_code,\n  a.phone\nFROM \"pagila\".\"public\".\"customer\" AS c\nLEFT OUTER JOIN \"pagila\".\"public\".\"address\" AS a\n  ON c.address_id = a.address_id\nLEFT OUTER JOIN \"pagila\".\"public\".\"city\" AS m\n  ON a.city_id = m.city_id",
                         "viewLanguage": "SQL"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "dbt_postgres"
+                            }
+                        ]
+                    }
                 }
             ]
         }
@@ -421,8 +437,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "amount",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=bytes].amount",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -430,23 +446,25 @@
                                 },
                                 "nativeDataType": "numeric",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"decimal\", \"native_data_type\": \"numeric\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "billing_month",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].billing_month",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -454,19 +472,21 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "email",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].email",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -534,6 +554,15 @@
                         "viewLogic": "{{ config(\n    materialized = \"table\",\n    alias='an-aliased-view-for-monthly-billing'\n) }}\n\nSELECT \n    pbc.billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    {{ ref('payments_by_customer_by_month')}} pbc\n    left outer join {{ ref('customer_details')}} cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.billing_month",
                         "formattedViewLogic": "WITH __dbt__CTE__customer_details AS (\n  SELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name AS \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\n  FROM \"pagila\".\"public\".\"customer\" AS c\n  LEFT OUTER JOIN \"pagila\".\"public\".\"address\" AS a\n    ON c.address_id = a.address_id\n  LEFT OUTER JOIN \"pagila\".\"public\".\"city\" AS m\n    ON a.city_id = m.city_id\n)\nSELECT\n  pbc.billing_month,\n  pbc.customer_id,\n  pbc.amount,\n  cust.email\nFROM \"pagila\".\"dbt_postgres\".\"payments_by_customer_by_month\" AS pbc\nLEFT OUTER JOIN __dbt__CTE__customer_details AS cust\n  ON pbc.customer_id = cust.customer_id\nORDER BY\n  pbc.billing_month",
                         "viewLanguage": "SQL"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "dbt_postgres"
+                            }
+                        ]
                     }
                 }
             ]
@@ -631,8 +660,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "amount",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=bytes].amount",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -640,11 +669,12 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"decimal\", \"precision\": 5, \"scale\": 2, \"native_data_type\": \"numeric(5,2)\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -652,23 +682,25 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_date",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].payment_date",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].payment_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -676,11 +708,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "rental_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].rental_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -688,11 +721,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "staff_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].staff_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -700,7 +734,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -872,6 +907,15 @@
                         "formattedViewLogic": "WITH payments AS (\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_01\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_02\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_02\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_03\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_04\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_05\"\n  UNION ALL\n  SELECT\n    *\n  FROM \"pagila\".\"public\".\"payment_p2020_06\"\n)\nSELECT\n  *\nFROM payments",
                         "viewLanguage": "SQL"
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "dbt_postgres"
+                            }
+                        ]
+                    }
                 }
             ]
         }
@@ -969,8 +1013,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "amount",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=bytes].amount",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -978,23 +1022,25 @@
                                 },
                                 "nativeDataType": "numeric",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"decimal\", \"native_data_type\": \"numeric\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "billing_month",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].billing_month",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1002,7 +1048,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1062,6 +1109,15 @@
                         "viewLogic": "{{ config(\n    materialized = \"table\",\n) }}\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    {{ ref('payments_base')}}\nGROUP BY\n    billing_month,\n    customer_id",
                         "formattedViewLogic": "SELECT\n  DATE_TRUNC('MONTH', payment_date) AS \"billing_month\",\n  customer_id,\n  SUM(amount) AS \"amount\"\nFROM \"pagila\".\"dbt_postgres\".\"an-aliased-view-for-payments\"\nGROUP BY\n  billing_month,\n  customer_id",
                         "viewLanguage": "SQL"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "dbt_postgres"
+                            }
+                        ]
                     }
                 }
             ]
@@ -1175,8 +1231,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "actor_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].actor_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1184,15 +1240,16 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "first_name",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].first_name",
+                                "nullable": true,
                                 "description": "dbt comment: Actors column \u2013 from postgres\n\ndbt model description: description for first_name from dbt",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
@@ -1204,33 +1261,36 @@
                                         }
                                     ]
                                 },
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true, \"custom_tags\": [\"dbt:column_tag\"]}"
                             },
                             {
-                                "fieldPath": "last_name",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].last_name",
+                                "nullable": true,
                                 "description": "description for last_name from dbt",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "last_update",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].last_update",
+                                "nullable": true,
                                 "description": "description for last_update from dbt",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1291,6 +1351,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD),last_update)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }
@@ -1388,32 +1457,34 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "address",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].address",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "address2",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].address2",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "address_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].address_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1421,11 +1492,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "city_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].city_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1433,55 +1505,60 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "district",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].district",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "last_update",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].last_update",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "phone",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].phone",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "postal_code",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].postal_code",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1589,6 +1666,15 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
+                            }
+                        ]
+                    }
                 }
             ]
         }
@@ -1683,8 +1769,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "category_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].category_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1692,31 +1778,34 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "last_update",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].last_update",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "name",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].name",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1766,6 +1855,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.category,PROD),name)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }
@@ -1863,20 +1961,21 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "city",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].city",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "city_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].city_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1884,11 +1983,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "country_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].country_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1896,19 +1996,21 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "last_update",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].last_update",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1969,6 +2071,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD),last_update)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }
@@ -2084,20 +2195,21 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "country",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].country",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "country_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].country_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2105,19 +2217,21 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "last_update",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].last_update",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -2167,6 +2281,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.country,PROD),last_update)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }
@@ -2264,8 +2387,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "active",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].active",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2273,11 +2396,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "activebool",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=boolean].activebool",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -2285,11 +2409,12 @@
                                 },
                                 "nativeDataType": "boolean",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"boolean\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "address_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].address_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2297,11 +2422,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "create_date",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].create_date",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -2309,11 +2435,12 @@
                                 },
                                 "nativeDataType": "date",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"date\", \"native_data_type\": \"date\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2321,59 +2448,64 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "email",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].email",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "first_name",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].first_name",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "last_name",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].last_name",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"text\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "last_update",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].last_update",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "store_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].store_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2381,7 +2513,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -2511,6 +2644,15 @@
                             }
                         ]
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
+                            }
+                        ]
+                    }
                 }
             ]
         }
@@ -2605,8 +2747,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "amount",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=bytes].amount",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2614,11 +2756,12 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"decimal\", \"precision\": 5, \"scale\": 2, \"native_data_type\": \"numeric(5,2)\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2626,23 +2769,25 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_date",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].payment_date",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].payment_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2650,11 +2795,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "rental_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].rental_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2662,11 +2808,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "staff_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].staff_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2674,7 +2821,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -2757,6 +2905,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD),staff_id)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }
@@ -2873,8 +3030,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "amount",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=bytes].amount",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2882,11 +3039,12 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"decimal\", \"precision\": 5, \"scale\": 2, \"native_data_type\": \"numeric(5,2)\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2894,23 +3052,25 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_date",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].payment_date",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].payment_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2918,11 +3078,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "rental_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].rental_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2930,11 +3091,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "staff_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].staff_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2942,7 +3104,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -3025,6 +3188,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD),staff_id)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }
@@ -3122,8 +3294,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "amount",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=bytes].amount",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3131,11 +3303,12 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"decimal\", \"precision\": 5, \"scale\": 2, \"native_data_type\": \"numeric(5,2)\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3143,23 +3316,25 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_date",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].payment_date",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].payment_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3167,11 +3342,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "rental_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].rental_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3179,11 +3355,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "staff_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].staff_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3191,7 +3368,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -3274,6 +3452,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_03,PROD),staff_id)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }
@@ -3371,8 +3558,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "amount",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=bytes].amount",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3380,11 +3567,12 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"decimal\", \"precision\": 5, \"scale\": 2, \"native_data_type\": \"numeric(5,2)\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3392,23 +3580,25 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_date",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].payment_date",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].payment_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3416,11 +3606,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "rental_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].rental_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3428,11 +3619,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "staff_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].staff_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3440,7 +3632,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -3523,6 +3716,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD),staff_id)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }
@@ -3620,8 +3822,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "amount",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=bytes].amount",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3629,11 +3831,12 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"decimal\", \"precision\": 5, \"scale\": 2, \"native_data_type\": \"numeric(5,2)\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3641,23 +3844,25 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_date",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].payment_date",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].payment_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3665,11 +3870,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "rental_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].rental_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3677,11 +3883,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "staff_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].staff_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3689,7 +3896,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -3772,6 +3980,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD),staff_id)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }
@@ -3869,8 +4086,8 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "amount",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=bytes].amount",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3878,11 +4095,12 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"logicalType\": \"decimal\", \"precision\": 5, \"scale\": 2, \"native_data_type\": \"numeric(5,2)\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].customer_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3890,23 +4108,25 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_date",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=null].payment_date",
+                                "nullable": true,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"timestamp with time zone\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "payment_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].payment_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3914,11 +4134,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "rental_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].rental_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3926,11 +4147,12 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "staff_id",
-                                "nullable": false,
+                                "fieldPath": "[version=2.0].[type=int].staff_id",
+                                "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3938,7 +4160,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -4021,6 +4244,15 @@
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD),staff_id)"
                                 ],
                                 "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "public"
                             }
                         ]
                     }

@@ -13,6 +13,7 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import OwnerType
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    DomainsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     OwnerClass,
@@ -71,12 +72,14 @@ class Constants:
     ADD_TERM_OPERATION = "add_term"
     ADD_TERMS_OPERATION = "add_terms"
     ADD_OWNER_OPERATION = "add_owner"
+    ADD_DOMAIN_OPERATION = "add_domain"
     OPERATION = "operation"
     OPERATION_CONFIG = "config"
     TAG = "tag"
     TERM = "term"
     DOC_LINK = "link"
     DOC_DESCRIPTION = "description"
+    DOMAIN = "domain"
     OWNER_TYPE = "owner_type"
     OWNER_CATEGORY = "owner_category"
     MATCH = "match"
@@ -291,7 +294,11 @@ class OperationProcessor:
                 logger.error(
                     f"Error while constructing aspect for documentation link and description : {e}"
                 )
-
+        if Constants.ADD_DOMAIN_OPERATION in operation_map:
+            domain_aspect = DomainsClass(
+                domains=list(operation_map[Constants.ADD_DOMAIN_OPERATION])
+            )
+            aspect_map[Constants.ADD_DOMAIN_OPERATION] = domain_aspect
         return aspect_map
 
     def get_operation_value(
@@ -374,6 +381,10 @@ class OperationProcessor:
                 for term in captured_terms.split(separator)
                 if term.strip()
             ]
+        elif operation_type == Constants.ADD_DOMAIN_OPERATION:
+            domain = operation_config[Constants.DOMAIN]
+            domain = _insert_match_value(domain, _get_best_match(match, "domain"))
+            return mce_builder.make_domain_urn(domain)
         return None
 
     def sanitize_owner_ids(self, owner_id: str) -> str:

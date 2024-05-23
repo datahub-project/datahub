@@ -1795,7 +1795,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
-        query = clean_query(datasource.get(c.QUERY))
+        query = clean_query(datasource.get(c.QUERY, ""))
         if query is None:
             logger.debug(
                 f"raw sql query is not available for datasource {datasource_urn}"
@@ -2218,11 +2218,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
             # Browse path V2
             platform = get_dataset_platform_from_urn(database_table.urn)
-            platform_instance = self.config.platform_instance_map.get(
-                platform, self.config.platform_instance
+            platform_instance = (
+                self.config.platform_instance_map.get(
+                    platform, self.config.platform_instance
+                )
+                if self.config.platform_instance_map and platform
+                else None
             )
             browse_paths_V2_path = []
-            if platform_instance:
+            if platform_instance and platform:
                 platform_instance_urn = builder.make_dataplatform_instance_urn(
                     platform, platform_instance
                 )

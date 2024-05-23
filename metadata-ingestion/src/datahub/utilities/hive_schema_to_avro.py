@@ -272,11 +272,11 @@ def get_schema_fields_for_hive_column(
         avro_schema_json = get_avro_schema_for_hive_column(
             hive_column_name=hive_column_name, hive_column_type=hive_column_type
         )
-        if meta_props:
+        if meta_props and isinstance(avro_schema_json, dict):
             avro_schema_json.update(meta_props)
 
         schema_tag_args = {}
-        if custom_tags:
+        if custom_tags and isinstance(avro_schema_json, dict):
             schema_tag_args["schema_tags_field"] = "custom_tags"
             # tag_prefix is required if passing schema_tags_field
             schema_tag_args["tag_prefix"] = ""
@@ -286,7 +286,7 @@ def get_schema_fields_for_hive_column(
             default_nullable=default_nullable,
             swallow_exceptions=False,
             meta_mapping_processor=meta_mapping_processor,
-            **schema_tag_args,
+            **schema_tag_args,  # type: ignore
         )
     except Exception as e:
         logger.warning(

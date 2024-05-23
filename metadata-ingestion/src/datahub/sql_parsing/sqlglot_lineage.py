@@ -844,7 +844,10 @@ def _sqlglot_lineage_inner(
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
-            dialect=dialect, default_db=default_db, default_schema=default_schema, platform=schema_resolver.platform
+            dialect=dialect,
+            default_db=default_db,
+            default_schema=default_schema,
+            platform=schema_resolver.platform,
         )
 
         urn, schema_info = schema_resolver.resolve_table(qualified_table)

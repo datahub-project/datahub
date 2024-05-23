@@ -375,6 +375,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
         description: Optional[str] = None
+        meta_domain_aspect = None
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
@@ -421,6 +422,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         for tag_association in meta_tags_aspect.tags
                     ]
 
+                meta_domain_aspect = meta_aspects.get(Constants.ADD_DOMAIN_OPERATION)
+
             if all_tags:
                 dataset_snapshot.aspects.append(
                     mce_builder.make_global_tag_aspect_with_tag_list(all_tags)
@@ -466,6 +469,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
             )
+        # If domain is defined in the avro schema and captured by meta mapping
+        if meta_domain_aspect:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=meta_domain_aspect,
+            ).as_workunit()
 
     def build_custom_properties(
         self,

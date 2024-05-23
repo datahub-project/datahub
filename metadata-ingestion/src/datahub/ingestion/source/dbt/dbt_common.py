@@ -115,7 +115,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -126,6 +125,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import detach_ctes, try_format_query
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
@@ -1246,6 +1246,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 aspect=self._make_data_platform_instance_aspect(),
             ).as_workunit()
 
+            # Domain aspects
+            meta_domain_aspect = meta_aspects.get(Constants.ADD_DOMAIN_OPERATION)
+            if meta_domain_aspect:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=node_datahub_urn,
+                    aspect=meta_domain_aspect,
+                ).as_workunit()
+
             # add browsePathsV2 aspect
             browse_paths_v2_path = []
             if mce_platform_instance:
@@ -1257,7 +1265,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         id=platform_instance_urn, urn=platform_instance_urn
                     )
                 )
-            browse_paths_v2_path.append(BrowsePathEntryClass(id=node.schema))
+            if node.schema:
+                browse_paths_v2_path.append(BrowsePathEntryClass(id=node.schema))
             aspects.append(BrowsePathsV2Class(path=browse_paths_v2_path))
 
             if len(aspects) == 0:
@@ -1588,7 +1597,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 description=description,
                 default_nullable=True,
                 custom_tags=column.tags,
-                **meta_mapping_args,
+                **meta_mapping_args,  # type: ignore
             )
             assert schema_fields
             canonical_schema.extend(schema_fields)

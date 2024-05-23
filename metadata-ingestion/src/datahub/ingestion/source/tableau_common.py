@@ -640,12 +640,7 @@ class TableauUpstreamReference:
             )
 
         # TODO: See if we can remove this -- made for redshift
-        if (
-            schema
-            and t_table
-            and t_full_name
-            and t_table == t_full_name
-        ):
+        if schema and t_table and t_full_name and t_table == t_full_name:
             logger.debug(
                 f"Omitting schema for upstream table {t_id}, schema included in table name"
             )
