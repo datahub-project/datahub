@@ -498,6 +498,7 @@ public class Neo4jGraphService implements GraphService {
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
 
     String srcNodeLabel = "";
+    String baseStatementString = "";
     // Create a URN from the String. Only proceed if srcCriteria is not null or empty
     if (srcCriteria != null
         && !srcCriteria.isEmpty()
@@ -516,13 +517,6 @@ public class Neo4jGraphService implements GraphService {
       }
     }
 
-    String matchTemplate = "MATCH (src:%s %s)-[r%s %s]-(dest %s)%s";
-    if (relationshipDirection == RelationshipDirection.INCOMING) {
-      matchTemplate = "MATCH (src:%s %s)<-[r%s %s]-(dest %s)%s";
-    } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
-      matchTemplate = "MATCH (src:%s %s)-[r%s %s]->(dest %s)%s";
-    }
-
     final String returnNodes =
         String.format(
             "RETURN dest, type(r)"); // Return both related entity and the relationship type.
@@ -535,16 +529,40 @@ public class Neo4jGraphService implements GraphService {
 
     String whereClause = computeEntityTypeWhereClause(sourceTypes, destinationTypes);
 
-    // Build Statement strings
-    String baseStatementString =
-        String.format(
-            matchTemplate,
-            srcNodeLabel,
-            srcCriteria,
-            relationshipTypeFilter,
-            edgeCriteria,
-            destCriteria,
-            whereClause);
+    if (srcNodeLabel != null && !srcNodeLabel.isEmpty()) {
+      String matchTemplate = "MATCH (src:%s %s)-[r%s %s]-(dest %s)%s";
+      if (relationshipDirection == RelationshipDirection.INCOMING) {
+        matchTemplate = "MATCH (src:%s %s)<-[r%s %s]-(dest %s)%s";
+      } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+        matchTemplate = "MATCH (src:%s %s)-[r%s %s]->(dest %s)%s";
+      }
+      // Build Statement strings
+      baseStatementString =
+          String.format(
+              matchTemplate,
+              srcNodeLabel,
+              srcCriteria,
+              relationshipTypeFilter,
+              edgeCriteria,
+              destCriteria,
+              whereClause);
+    } else {
+      String matchTemplate = "MATCH (src %s)-[r%s %s]-(dest %s)%s";
+      if (relationshipDirection == RelationshipDirection.INCOMING) {
+        matchTemplate = "MATCH (src %s)<-[r%s %s]-(dest %s)%s";
+      } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+        matchTemplate = "MATCH (src %s)-[r%s %s]->(dest %s)%s";
+      }
+      // Build Statement strings
+      baseStatementString =
+          String.format(
+              matchTemplate,
+              srcCriteria,
+              relationshipTypeFilter,
+              edgeCriteria,
+              destCriteria,
+              whereClause);
+    }
 
     log.info(baseStatementString);
 
@@ -648,18 +666,34 @@ public class Neo4jGraphService implements GraphService {
 
     // build node label from entity type
     final String srcNodeLabel = urn.getEntityType();
+    String matchTemplate = "";
 
-    String matchTemplate =
-        String.format(
-            "MATCH (src:%s {urn: $urn})-[r%s]-(dest) RETURN type(r), dest, 2", srcNodeLabel);
-    if (relationshipDirection == RelationshipDirection.INCOMING) {
+    if (srcNodeLabel != null && !srcNodeLabel.isEmpty()) {
       matchTemplate =
           String.format(
-              "MATCH (src:%s {urn: $urn})<-[r%s]-(dest) RETURN type(r), dest, 0", srcNodeLabel);
-    } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+              "MATCH (src:%s {urn: $urn})-[r%s]-(dest) RETURN type(r), dest, 2", srcNodeLabel);
+      if (relationshipDirection == RelationshipDirection.INCOMING) {
+        matchTemplate =
+            String.format(
+                "MATCH (src:%s {urn: $urn})<-[r%s]-(dest) RETURN type(r), dest, 0", srcNodeLabel);
+      } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+        matchTemplate =
+            String.format(
+                "MATCH (src:%s {urn: $urn})-[r%s]->(dest) RETURN type(r), dest, 1", srcNodeLabel);
+      }
+    } else {
       matchTemplate =
           String.format(
-              "MATCH (src:%s {urn: $urn})-[r%s]->(dest) RETURN type(r), dest, 1", srcNodeLabel);
+              "MATCH (src {urn: $urn})-[r%s]-(dest) RETURN type(r), dest, 2", srcNodeLabel);
+      if (relationshipDirection == RelationshipDirection.INCOMING) {
+        matchTemplate =
+            String.format(
+                "MATCH (src {urn: $urn})<-[r%s]-(dest) RETURN type(r), dest, 0", srcNodeLabel);
+      } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+        matchTemplate =
+            String.format(
+                "MATCH (src {urn: $urn})-[r%s]->(dest) RETURN type(r), dest, 1", srcNodeLabel);
+      }
     }
 
     String relationshipTypeFilter = "";
