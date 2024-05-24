@@ -71,6 +71,7 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPIConfig,
     TransportOptionsConfig,
 )
+from datahub.ingestion.source.looker.lookml_sql_parser import SqlQuery, ViewFieldBuilder
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -100,12 +101,6 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     SubTypesClass,
 )
-from datahub.sql_parsing.sqlglot_lineage import (
-    ColumnLineageInfo,
-    ColumnRef,
-    SqlParsingResult,
-    create_lineage_sql_parsed_result,
-)
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.sql_parser import SQLParser
 
@@ -116,20 +111,6 @@ _BASE_PROJECT_NAME = "__BASE"
 _EXPLORE_FILE_EXTENSION = ".explore.lkml"
 _VIEW_FILE_EXTENSION = ".view.lkml"
 _MODEL_FILE_EXTENSION = ".model.lkml"
-
-
-class LookerFieldName:
-    column_ref: ColumnRef
-
-    def __init__(self, column_ref: ColumnRef):
-        self.column_ref = column_ref
-
-    def name(self):
-        qualified_table_name: str = self.column_ref.table.split(",")[-2]
-
-        view_name: str = qualified_table_name.split(".")[-1]
-
-        return f"{view_name}.{self.column_ref.column}"
 
 
 def deduplicate_fields(fields: List[ViewField]) -> List[ViewField]:
@@ -197,7 +178,8 @@ class LookerConnectionDefinition(ConfigModel):
     platform_instance: Optional[str] = None
     platform_env: Optional[str] = Field(
         default=None,
-        description="The environment that the platform is located in. Leaving this empty will inherit defaults from the top level Looker configuration",
+        description="The environment that the platform is located in. Leaving this empty will inherit defaults from "
+        "the top level Looker configuration",
     )
 
     @validator("platform_env")
@@ -1148,10 +1130,8 @@ class LookerView:
         config: LookMLSourceConfig,
         ctx: PipelineContext,
         parse_table_names_from_sql: bool = False,
-        sql_parser_path: str = "datahub.utilities.sql_parser.DefaultSQLParser",
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
-        process_isolation_for_sql_parsing: bool = False,
     ) -> Optional["LookerView"]:
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name} in model {model_name}")
@@ -1229,12 +1209,10 @@ class LookerView:
                         connection,
                         config.env,
                         ctx,
-                        sql_parser_path,
                         view_name,
                         sql_table_name,
                         view_logic,
                         fields,
-                        use_external_process=process_isolation_for_sql_parsing,
                     )
 
             elif "explore_source" in derived_table:
@@ -1307,13 +1285,12 @@ class LookerView:
         connection: LookerConnectionDefinition,
         env: str,
         ctx: PipelineContext,
-        sql_parser_path: str,
         view_name: str,
         sql_table_name: Optional[str],
         sql_query: str,
         fields: List[ViewField],
-        use_external_process: bool,
     ) -> Tuple[List[ViewField], List[str]]:
+
         sql_table_names: List[str] = []
 
         logger.debug(f"Parsing sql from derived table section of view: {view_name}")
@@ -1322,50 +1299,20 @@ class LookerView:
         # Skip queries that contain liquid variables. We currently don't parse them correctly.
         # Docs: https://cloud.google.com/looker/docs/liquid-variable-reference.
         # TODO: also support ${EXTENDS} and ${TABLE}
-
-        # Looker supports sql fragments that omit the SELECT and FROM parts of the query
-        # Add those in if we detect that it is missing
-        if not re.search(r"SELECT\s", sql_query, flags=re.I):
-            # add a SELECT clause at the beginning
-            sql_query = f"SELECT {sql_query}"
-        if not re.search(r"FROM\s", sql_query, flags=re.I):
-            # add a FROM clause at the end
-            sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
-            # Get the list of tables in the query
         try:
-            spr: SqlParsingResult = create_lineage_sql_parsed_result(
-                query=sql_query,
-                default_schema=connection.default_schema,
-                default_db=connection.default_db,
-                platform=connection.platform,
-                platform_instance=connection.platform_instance,
+            view_field_builder: ViewFieldBuilder = ViewFieldBuilder(fields)
+
+            fields, sql_table_names = view_field_builder.create_or_update_fields(
+                sql_query=SqlQuery(
+                    lookml_sql_query=sql_query,
+                    view_name=sql_table_name
+                    if sql_table_name is not None
+                    else view_name,
+                ),
+                connection=connection,
                 env=env,
-                graph=ctx.graph,
+                ctx=ctx,
             )
-
-            if not fields:
-                fields = []
-                column_lineages: List[ColumnLineageInfo] = (
-                    spr.column_lineage if spr.column_lineage is not None else []
-                )
-                for cll in column_lineages:
-                    upstream_fields = [
-                        (LookerFieldName(column_ref)).name()
-                        for column_ref in cll.upstreams
-                    ]
-
-                    fields.append(
-                        ViewField(
-                            name=cll.downstream.column,
-                            label="",
-                            type=cll.downstream.native_column_type
-                            if cll.downstream.native_column_type is not None
-                            else "unknown",
-                            description="",
-                            field_type=ViewFieldType.UNKNOWN,
-                            upstream_fields=upstream_fields,
-                        )
-                    )
 
         except Exception as e:
             reporter.query_parse_failures += 1
@@ -1373,8 +1320,6 @@ class LookerView:
                 f"looker-view-{view_name}",
                 f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
             )
-
-        sql_table_names = [table for table in sql_table_names if "{%" not in table]
 
         return fields, sql_table_names
 
@@ -2206,10 +2151,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 reporter=self.reporter,
                                 max_file_snippet_length=self.source_config.max_file_snippet_length,
                                 parse_table_names_from_sql=self.source_config.parse_table_names_from_sql,
-                                sql_parser_path=self.source_config.sql_parser,
                                 extract_col_level_lineage=self.source_config.extract_column_level_lineage,
                                 populate_sql_logic_in_descriptions=self.source_config.populate_sql_logic_for_missing_descriptions,
-                                process_isolation_for_sql_parsing=self.source_config.process_isolation_for_sql_parsing,
                                 config=self.source_config,
                                 ctx=self.ctx,
                             )
