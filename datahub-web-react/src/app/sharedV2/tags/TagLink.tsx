@@ -8,7 +8,6 @@ import { TagProfileDrawer } from '../../shared/tags/TagProfileDrawer';
 
 const Container = styled.span`
     display: inline-block;
-    margin-bottom: 4px;
 `;
 
 const tagStyle = { cursor: 'pointer' };

@@ -14,6 +14,10 @@ export const StyledTag = styled(Tag)<{
     $highlightTag?: boolean;
     $showOneAndCount?: boolean;
 }>`
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     &&& {
         ${(props) =>
             props.$highlightTag &&
