@@ -128,19 +128,35 @@ class DownstreamColumnRef(_ParserBaseModel):
         return SchemaFieldDataTypeClass.from_obj(v)
 
 
+class ColumnTransformation(_ParserBaseModel):
+    is_direct_copy: bool
+    column_logic: str
+
+
 class _ColumnLineageInfo(_ParserBaseModel):
     downstream: _DownstreamColumnRef
     upstreams: List[_ColumnRef]
 
-    logic: Optional[str] = None
+    logic: Optional[ColumnTransformation] = None
 
 
 class ColumnLineageInfo(_ParserBaseModel):
     downstream: DownstreamColumnRef
     upstreams: List[ColumnRef]
 
-    # Logic for this column, as a SQL expression.
-    logic: Optional[str] = pydantic.Field(default=None, exclude=True)
+    logic: Optional[ColumnTransformation] = pydantic.Field(default=None)
+
+
+class _JoinInfo(_ParserBaseModel):
+    tables: List[_TableName]
+    on_clause: str
+    columns_involved: List[_ColumnRef]
+
+
+class JoinInfo(_ParserBaseModel):
+    tables: List[Urn]
+    on_clause: str
+    columns_involved: List[ColumnRef]
 
 
 class SqlParsingDebugInfo(_ParserBaseModel):
@@ -178,6 +194,7 @@ class SqlParsingResult(_ParserBaseModel):
     out_tables: List[Urn]
 
     column_lineage: Optional[List[ColumnLineageInfo]] = None
+    joins: Optional[List[JoinInfo]] = None
 
     # TODO include formatted original sql logic
     # TODO include list of referenced columns
@@ -520,8 +537,6 @@ def _select_statement_cll(
             # Generate SELECT lineage.
             direct_raw_col_upstreams = _get_direct_raw_col_upstreams(lineage_node)
 
-            # column_logic = lineage_node.source
-
             # Fuzzy resolve the output column.
             original_col_expression = lineage_node.expression
             if output_col.startswith("_col_"):
@@ -560,7 +575,7 @@ def _select_statement_cll(
                         column_type=output_col_type,
                     ),
                     upstreams=sorted(direct_resolved_col_upstreams),
-                    # logic=column_logic.sql(pretty=True, dialect=dialect),
+                    logic=_get_column_transformation(lineage_node, dialect),
                 )
             )
 
@@ -575,6 +590,7 @@ def _select_statement_cll(
 
 class _ColumnLineageWithDebugInfo(_ParserBaseModel):
     column_lineage: List[_ColumnLineageInfo]
+    joins: Optional[List[_JoinInfo]] = None
 
     select_statement: Optional[sqlglot.exp.Expression] = None
     # TODO: Add column exceptions here.
@@ -645,8 +661,18 @@ def _column_level_lineage(
         output_table=downstream_table,
     )
 
+    joins: Optional[List[_JoinInfo]] = None
+    try:
+        # List join clauses.
+        joins = _list_joins(dialect=dialect, root_scope=root_scope)
+        logger.info("Joins: %s", joins)
+    except Exception as e:
+        # This is a non-fatal error, so we can continue.
+        logger.debug("Failed to list joins: %s", e)
+
     return _ColumnLineageWithDebugInfo(
         column_lineage=column_lineage,
+        joins=joins,
         select_statement=select_statement,
     )
 
@@ -688,6 +714,125 @@ def _get_direct_raw_col_upstreams(
             pass
 
     return direct_raw_col_upstreams
+
+
+def _is_single_column_expression(
+    expression: sqlglot.exp.Expression,
+) -> bool:
+    # Check if the expression is trivial, i.e. it's just a single column.
+    # Things like count(*) or coalesce(col, 0) are not single columns.
+    if isinstance(expression, sqlglot.exp.Alias):
+        expression = expression.this
+
+    return isinstance(expression, sqlglot.exp.Column)
+
+
+def _get_column_transformation(
+    lineage_node: sqlglot.lineage.Node,
+    dialect: sqlglot.Dialect,
+    parent: Optional[sqlglot.lineage.Node] = None,
+) -> ColumnTransformation:
+    # expression = lineage_node.expression
+    # is_single_column_expression = _is_single_column_expression(lineage_node.expression)
+    if not lineage_node.downstream:
+        # parent_expression = parent.expression if parent else expression
+        if parent:
+            expression = parent.expression
+            is_copy = _is_single_column_expression(expression)
+        else:
+            # This case should rarely happen.
+            is_copy = True
+            expression = lineage_node.expression
+        return ColumnTransformation(
+            is_direct_copy=is_copy,
+            column_logic=expression.sql(dialect=dialect),
+        )
+
+    elif len(lineage_node.downstream) > 1 or not _is_single_column_expression(
+        lineage_node.expression
+    ):
+        return ColumnTransformation(
+            is_direct_copy=False,
+            column_logic=lineage_node.expression.sql(dialect=dialect),
+        )
+
+    else:
+        return _get_column_transformation(
+            lineage_node=lineage_node.downstream[0],
+            dialect=dialect,
+            parent=lineage_node,
+        )
+
+
+def _get_raw_col_upstreams_for_expression(
+    select: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    scope: sqlglot.optimizer.Scope,
+) -> Set[_ColumnRef]:
+    node = sqlglot.lineage.Node(
+        name="JOIN",
+        source=scope.expression,
+        expression=select,
+        source_name="",
+        reference_node_name="",
+    )
+    sqlglot.lineage._expression_into_node(
+        select,
+        node=node,
+        scope=scope,
+        dialect=dialect,
+        trim_selects=False,
+    )
+
+    return _get_direct_raw_col_upstreams(node)
+
+
+def _list_joins(
+    dialect: sqlglot.Dialect,
+    root_scope: sqlglot.optimizer.Scope,
+) -> List[_JoinInfo]:
+    # TODO: Add a confidence tracker here.
+
+    joins: List[_JoinInfo] = []
+
+    for scope in root_scope.traverse():
+        for join in scope.find_all(sqlglot.exp.Join):
+            on_clause = join.args.get("on")
+            if not on_clause:
+                logger.debug(
+                    "Skipping join without ON clause: %s",
+                    join.sql(dialect=dialect),
+                )
+                continue
+
+            joined_columns = _get_raw_col_upstreams_for_expression(
+                select=on_clause, dialect=dialect, scope=scope
+            )
+
+            unique_tables = {col.table for col in joined_columns}
+            if len(unique_tables) > 2:
+                logger.debug(
+                    "Skipping complex join with more than 2 tables involved: %s",
+                    join.sql(dialect=dialect),
+                )
+                continue
+            elif len(unique_tables) < 2:
+                # Note that this will inadvertently skip self-joins.
+                logger.debug(
+                    "Skipping join with less than 2 tables involved: %s",
+                    join.sql(dialect=dialect),
+                )
+                continue
+
+            joins.append(
+                _JoinInfo(
+                    tables=list(unique_tables),
+                    on_clause=on_clause.sql(dialect=dialect),
+                    columns_involved=list(joined_columns),
+                )
+            )
+
+    return joins
 
 
 def _extract_select_from_create(
@@ -875,6 +1020,29 @@ def _translate_internal_column_lineage(
     )
 
 
+def _translate_internal_joins(
+    table_name_urn_mapping: Dict[_TableName, str],
+    raw_joins: List[_JoinInfo],
+    dialect: sqlglot.Dialect,
+) -> List[JoinInfo]:
+    joins = []
+    for raw_join in raw_joins:
+        joins.append(
+            JoinInfo(
+                tables=[table_name_urn_mapping[table] for table in raw_join.tables],
+                on_clause=raw_join.on_clause,
+                columns_involved=[
+                    ColumnRef(
+                        table=table_name_urn_mapping[col.table],
+                        column=col.column,
+                    )
+                    for col in raw_join.columns_involved
+                ],
+            )
+        )
+    return joins
+
+
 _StrOrNone = TypeVar("_StrOrNone", str, Optional[str])
 
 
@@ -1034,6 +1202,7 @@ def _sqlglot_lineage_inner(
             )
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
+    joins = None
     try:
         with cooperative_timeout(
             timeout=(
@@ -1049,6 +1218,7 @@ def _sqlglot_lineage_inner(
                 default_schema=default_schema,
             )
             column_lineage = column_lineage_debug_info.column_lineage
+            joins = column_lineage_debug_info.joins
     except CooperativeTimeoutError as e:
         logger.debug(f"Timed out while generating column-level lineage: {e}")
         debug_info.column_error = e
@@ -1081,6 +1251,14 @@ def _sqlglot_lineage_inner(
                 f"Failed to translate column lineage to urns: {e}", exc_info=True
             )
             debug_info.column_error = e
+    joins_urns = None
+    if joins:
+        try:
+            joins_urns = _translate_internal_joins(
+                table_name_urn_mapping, raw_joins=joins, dialect=dialect
+            )
+        except KeyError as e:
+            logger.debug(f"Failed to translate joins to urns: {e}", exc_info=True)
 
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
@@ -1095,6 +1273,7 @@ def _sqlglot_lineage_inner(
         in_tables=in_urns,
         out_tables=out_urns,
         column_lineage=column_lineage_urns,
+        joins=joins_urns,
         debug_info=debug_info,
     )
 
