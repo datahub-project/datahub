@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
@@ -42,6 +43,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.services.RestrictedService;
@@ -68,7 +70,8 @@ import org.springframework.context.annotation.Import;
   EntityRegistryFactory.class,
   DataHubTokenServiceFactory.class,
   GitVersionFactory.class,
-  SiblingGraphServiceFactory.class
+  SiblingGraphServiceFactory.class,
+  AssertionServiceFactory.class,
 })
 public class GraphQLEngineFactory {
   @Autowired
@@ -194,6 +197,10 @@ public class GraphQLEngineFactory {
   @Qualifier("connectionService")
   private ConnectionService _connectionService;
 
+  @Autowired
+  @Qualifier("assertionService")
+  private AssertionService assertionsService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -249,6 +256,7 @@ public class GraphQLEngineFactory {
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     args.setBusinessAttributeService(businessAttributeService);
     args.setConnectionService(_connectionService);
+    args.setAssertionService(assertionsService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 

@@ -116,9 +116,21 @@ import com.linkedin.datahub.graphql.generated.TypeQualifier;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.CreateFieldAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.CreateFreshnessAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.CreateSqlAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.CreateVolumeAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.*;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionMetadataResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.DebugAccessResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenMetadataResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
@@ -367,6 +379,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
@@ -444,6 +457,7 @@ public class GmsGraphQLEngine {
   private final FormService formService;
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
+  private final AssertionService assertionService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -565,6 +579,7 @@ public class GmsGraphQLEngine {
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
+    this.assertionService = args.assertionService;
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -814,6 +829,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
@@ -1294,7 +1310,21 @@ public class GmsGraphQLEngine {
               .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
               .dataFetcher(
                   "updateIncidentStatus",
-                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService));
+                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "createDatasetAssertion", new CreateDatasetAssertionResolver(assertionService))
+              .dataFetcher(
+                  "createFreshnessAssertion",
+                  new CreateFreshnessAssertionResolver(assertionService))
+              .dataFetcher(
+                  "createVolumeAssertion", new CreateVolumeAssertionResolver(assertionService))
+              .dataFetcher(
+                  "createFieldAssertion", new CreateFieldAssertionResolver(assertionService))
+              .dataFetcher("createSqlAssertion", new CreateSqlAssertionResolver(assertionService))
+              .dataFetcher(
+                  "updateDatasetAssertion", new UpdateDatasetAssertionResolver(assertionService))
+              .dataFetcher(
+                  "updateAssertionMetadata", new UpdateAssertionMetadataResolver(assertionService));
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(
