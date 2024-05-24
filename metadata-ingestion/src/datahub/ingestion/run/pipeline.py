@@ -488,7 +488,6 @@ class Pipeline:
                         # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
                         self.sink.write_record_async(record_envelope, callback)
 
-                self.sink.close()
                 self.process_commits()
                 self.final_status = "completed"
             except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
@@ -502,6 +501,8 @@ class Pipeline:
                     callback.close()  # type: ignore
 
                 self._notify_reporters_on_ingestion_completion()
+
+                self.sink.close()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
