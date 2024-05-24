@@ -3,12 +3,13 @@ import styled from 'styled-components';
 import { useUserContext } from '../../../../../../context/useUserContext';
 import { HOME_PAGE_INSIGHTS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
 import OnboardingContext from '../../../../../../onboarding/OnboardingContext';
-import { Carousel } from '../../../../../../sharedV2/carousel/Carousel';
+import HorizontalScroller from '../../../../../../sharedV2/carousel/HorizontalScroller';
 
 import { useUserPersona } from '../../../../../persona/useUserPersona';
 import { PersonaType } from '../../../../../shared/types';
 import { HorizontalListSkeletons } from '../../../../HorizontalListSkeletons';
 import { Section } from '../Section';
+import { INSIGHT_CARD_MIN_WIDTH } from './cards/SearchListInsightCard';
 import { InsightStatusProvider } from './InsightStatusProvider';
 import { MostFrequentlyUpdated } from './cards/MostFrequentlyUpdated';
 import { MostQueriedCard } from './cards/MostQueriedCard';
@@ -19,6 +20,8 @@ import { PopularGlossaryTerms } from './cards/PopularGlossaryTerms';
 import { RecentlyCreatedDatasetsCard } from './cards/RecentlyCreatedDatasetsCard';
 import { RecentlyUpdatedDatasetsCard } from './cards/RecentlyUpdatedDatasetsCard';
 import InsightCardSkeleton from './shared/InsightCardSkeleton';
+
+const GAP_PX = 12;
 
 type InsightSection = {
     id: string;
@@ -84,8 +87,10 @@ const ALL_INSIGHTS: InsightSection[] = [
     },
 ];
 
-const StyledCarousel = styled(Carousel)`
+const StyledCarousel = styled(HorizontalScroller)`
+    display: flex;
     align-items: stretch;
+    gap: ${GAP_PX}px;
 `;
 
 export const Insights = () => {
@@ -105,7 +110,7 @@ export const Insights = () => {
         <InsightStatusProvider>
             <div id={HOME_PAGE_INSIGHTS_ID}>
                 <Section title="For you">
-                    <StyledCarousel>
+                    <StyledCarousel scrollDistance={INSIGHT_CARD_MIN_WIDTH + GAP_PX}>
                         {filteredInsights.map((section) => (
                             <section.component key={section.id} />
                         ))}

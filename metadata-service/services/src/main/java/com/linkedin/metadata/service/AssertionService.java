@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
@@ -28,12 +29,21 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.AssertionKey;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -42,15 +52,29 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class AssertionService extends BaseService {
+
+  /**
+   * Maximum number of entities to list when searching for entities with a given assertion summary.
+   * This can be low since assertions are usually tied to 1 entity.
+   */
+  static final int MAX_ENTITIES_TO_LIST = 10000;
+
+  static final String FAILING_ASSERTIONS_INDEX_FIELD_NAME = "failingAssertions";
+  static final String PASSING_ASSERTIONS_INDEX_FIELD_NAME = "passingAssertions";
+
+  static final List<String> ENTITY_TYPES_WITH_ASSERTION_SUMMARIES =
+      ImmutableList.of(Constants.DATASET_ENTITY_NAME);
 
   private final Clock _clock;
 
@@ -176,6 +200,15 @@ public class AssertionService extends BaseService {
         false);
   }
 
+  /** Patches an assertions summary aspect */
+  public void patchAssertionsSummary(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final AssertionsSummaryPatchBuilder patchBuilder)
+      throws Exception {
+    Objects.requireNonNull(patchBuilder, "patchBuilder must not be null");
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
+  }
+
   /**
    * Returns an instance of {@link EntityResponse} for the specified View urn, or null if one cannot
    * be found.
@@ -224,6 +257,43 @@ public class AssertionService extends BaseService {
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Assertion Summary for entity with urn %s", entityUrn),
+          e);
+    }
+  }
+
+  /**
+   * Finds all the entity urns that have the specified assertion URN in their summary currently.
+   * This is done by using the search API to filter on assets with a given summary urn.
+   *
+   * <p>Returns a list of entity urns that have the specified assertion URN in their summary, or
+   * empty list if none are found!
+   */
+  @Nonnull
+  public List<Urn> listEntitiesWithAssertionInSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
+    try {
+      SearchResult result =
+          this.entityClient.searchAcrossEntities(
+              opContext,
+              ENTITY_TYPES_WITH_ASSERTION_SUMMARIES,
+              "*",
+              buildFilterForAssertionSummary(assertionUrn),
+              0,
+              MAX_ENTITIES_TO_LIST,
+              null);
+      if (result == null || !result.hasEntities()) {
+        return Collections.emptyList();
+      }
+      return result.getEntities().stream()
+          .map(SearchEntity::getEntity)
+          .collect(Collectors.toList());
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to list entities with assertion summary containing assertion urn %s",
+              assertionUrn),
           e);
     }
   }
@@ -982,5 +1052,31 @@ public class AssertionService extends BaseService {
 
   private long getCurrentTime() {
     return _clock.millis();
+  }
+
+  @Nonnull
+  private Filter buildFilterForAssertionSummary(@Nonnull final Urn assertionUrn) {
+    /*
+     * Filter for an OR between assets with the assertion in their
+     * 1. Passing Details Array OR
+     * 2. Failing Details Array
+     */
+    final List<ConjunctiveCriterion> orConditions =
+        ImmutableList.of(
+            buildEqualsCriterion(PASSING_ASSERTIONS_INDEX_FIELD_NAME, assertionUrn.toString()),
+            buildEqualsCriterion(FAILING_ASSERTIONS_INDEX_FIELD_NAME, assertionUrn.toString()));
+    return new Filter().setOr(new ConjunctiveCriterionArray(orConditions));
+  }
+
+  @Nonnull
+  private ConjunctiveCriterion buildEqualsCriterion(String field, String value) {
+    return new ConjunctiveCriterion()
+        .setAnd(
+            new CriterionArray(
+                ImmutableList.of(
+                    new Criterion()
+                        .setField(field)
+                        .setValue(value)
+                        .setValues(new StringArray(ImmutableList.of(value))))));
   }
 }

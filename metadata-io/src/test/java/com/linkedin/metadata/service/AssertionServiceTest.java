@@ -1,6 +1,10 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.service.AssertionService.ENTITY_TYPES_WITH_ASSERTION_SUMMARIES;
+import static com.linkedin.metadata.service.AssertionService.FAILING_ASSERTIONS_INDEX_FIELD_NAME;
+import static com.linkedin.metadata.service.AssertionService.MAX_ENTITIES_TO_LIST;
+import static com.linkedin.metadata.service.AssertionService.PASSING_ASSERTIONS_INDEX_FIELD_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 
@@ -42,6 +46,7 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.dataset.DatasetFilterType;
 import com.linkedin.entity.Aspect;
@@ -51,6 +56,15 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.SchemaFieldSpec;
@@ -1073,6 +1087,89 @@ public class AssertionServiceTest {
 
     // Assert result
     Assert.assertEquals(result, TEST_ASSERTION_URN);
+  }
+
+  @Test
+  public void testPatchAssertionsSummary() throws Exception {
+    // Test data and mocks
+
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    AssertionService service =
+        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+
+    AssertionsSummaryPatchBuilder mockPatchBuilder = mock(AssertionsSummaryPatchBuilder.class);
+    Mockito.when(mockPatchBuilder.build()).thenReturn(mockAssertionSummaryMcp());
+
+    // Test method
+    service.patchAssertionsSummary(opContext, mockPatchBuilder);
+
+    // Verify that ingestProposal was called once
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class), Mockito.eq(mockAssertionSummaryMcp()), Mockito.eq(false));
+  }
+
+  @Test
+  public void testListEntitiesWithAssertionInSummary() throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+
+    Urn urn1 = TEST_DATASET_URN;
+    Urn urn2 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
+
+    Filter expectedFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    ImmutableList.of(
+                        new ConjunctiveCriterion()
+                            .setAnd(
+                                new CriterionArray(
+                                    ImmutableList.of(
+                                        new Criterion()
+                                            .setField(PASSING_ASSERTIONS_INDEX_FIELD_NAME)
+                                            .setValue(TEST_ASSERTION_URN.toString())
+                                            .setValues(
+                                                new StringArray(
+                                                    ImmutableList.of(
+                                                        TEST_ASSERTION_URN.toString())))))),
+                        new ConjunctiveCriterion()
+                            .setAnd(
+                                new CriterionArray(
+                                    ImmutableList.of(
+                                        new Criterion()
+                                            .setField(FAILING_ASSERTIONS_INDEX_FIELD_NAME)
+                                            .setValue(TEST_ASSERTION_URN.toString())
+                                            .setValues(
+                                                new StringArray(
+                                                    ImmutableList.of(
+                                                        TEST_ASSERTION_URN.toString())))))))));
+
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(OperationContext.class),
+                Mockito.eq(ENTITY_TYPES_WITH_ASSERTION_SUMMARIES),
+                Mockito.eq("*"),
+                Mockito.eq(expectedFilter),
+                Mockito.eq(0),
+                Mockito.eq(MAX_ENTITIES_TO_LIST),
+                Mockito.eq(null)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableList.of(
+                            new SearchEntity().setEntity(urn1),
+                            new SearchEntity().setEntity(urn2)))));
+
+    AssertionService service =
+        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+
+    List<Urn> urns = service.listEntitiesWithAssertionInSummary(opContext, TEST_ASSERTION_URN);
+    Assert.assertEquals(urns.size(), 2);
+    Assert.assertTrue(urns.contains(urn1));
+    Assert.assertTrue(urns.contains(urn2));
   }
 
   private static SystemEntityClient createMockEntityClient() throws Exception {

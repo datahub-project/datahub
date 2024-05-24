@@ -1,13 +1,13 @@
 import { RightOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
 import React, { useRef } from 'react';
+import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import useSearchFilterDropdown from './useSearchFilterDropdown';
 import { IconWrapper } from './SearchFilterView';
-import { getFilterDropdownIcon, useElementDimensions } from './utils';
 import { MoreFilterOptionLabel } from './styledComponents';
 import { FilterPredicate } from './types';
+import useSearchFilterDropdown from './useSearchFilterDropdown';
+import { getFilterDropdownIcon, useElementDimensions } from './utils';
 import ValueSelector from './value/ValueSelector';
 
 const IconNameWrapper = styled.span`
@@ -56,7 +56,7 @@ export default function MoreFilterOption({ filter, filterPredicates, activeFilte
         >
             <MoreFilterOptionLabel
                 $isActive={!!numActiveFilters}
-                data-testid={`more-filter-${capitalizeFirstLetterOnly(filter.displayName)}`}
+                data-testid={`more-filter-${capitalizeFirstLetterOnly(filter.displayName)?.replace(/\s/g, '-')}`}
                 ref={labelRef}
             >
                 <IconNameWrapper>

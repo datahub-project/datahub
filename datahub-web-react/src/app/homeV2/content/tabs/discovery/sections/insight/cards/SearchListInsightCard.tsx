@@ -13,6 +13,8 @@ import { useUserContext } from '../../../../../../../context/useUserContext';
 import OnboardingContext from '../../../../../../../onboarding/OnboardingContext';
 import InsightCardSkeleton from '../shared/InsightCardSkeleton';
 
+export const INSIGHT_CARD_MIN_WIDTH = 340;
+
 const Header = styled.div`
     display: flex;
     justify-content: space-between;
@@ -80,7 +82,7 @@ export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filt
 
     return (
         <>
-            <InsightCard id={id} minWidth={340} maxWidth={500}>
+            <InsightCard id={id} minWidth={INSIGHT_CARD_MIN_WIDTH} maxWidth={500}>
                 <Header>
                     <Tooltip title={tip} showArrow={false} placement="top">
                         <Title>

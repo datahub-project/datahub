@@ -37,6 +37,13 @@ This is over and above updating-datahub.md file
 
 ### Breaking Changes
 
+- RestoreIndices arguements now match OSS arguments.
+  - `BATCH_SIZE` => `batchSize`
+  - `ASPECT_NAME` => `aspectName`
+  - `URN_LIKE` => `urnLike`
+  - `URN` => `urn`
+  - `URN_BASED_PAGINATION` => `urnBasedPagination`
+
 ### Potential Downtime
 
 ### Deprecations
