@@ -19,7 +19,7 @@ interface Props {
     numActiveFilters: number;
     filterIcon: JSX.Element | null;
     displayName: string;
-    filterPredicate: FilterPredicate,
+    filterPredicate: FilterPredicate;
     onChangeValues: (newValues: FilterValue[]) => void;
 }
 
@@ -30,20 +30,21 @@ export default function SearchFilterView({
     filterPredicate,
     onChangeValues,
 }: Props) {
-    return <ValueSelector
-        field={filterPredicate?.field}
-        values={filterPredicate?.values}
-        defaultOptions={filterPredicate?.defaultValueOptions}
-        onChangeValues={onChangeValues}
-    >
-        <SearchFilterLabel
+    return (
+        <ValueSelector
+            field={filterPredicate?.field}
+            values={filterPredicate?.values}
+            defaultOptions={filterPredicate?.defaultValueOptions}
+            onChangeValues={onChangeValues}
+        >
+            <SearchFilterLabel
                 $isActive={!!numActiveFilters}
-                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
+                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)?.replace(/\s/g, '-')}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
                 {capitalizeFirstLetterOnly(displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </SearchFilterLabel>
-    </ValueSelector> 
-
+        </ValueSelector>
+    );
 }

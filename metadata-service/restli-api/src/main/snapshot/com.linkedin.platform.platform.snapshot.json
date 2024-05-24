@@ -1275,7 +1275,7 @@
           "boostScore" : 0.5,
           "fieldName" : "tags",
           "fieldType" : "URN",
-          "filterNameOverride" : "Tag",
+          "filterNameOverride" : "Tagged With",
           "hasValuesFieldName" : "hasTags",
           "queryByDefault" : true
         }
@@ -1354,7 +1354,7 @@
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
-        "filterNameOverride" : "Glossary Term",
+        "filterNameOverride" : "Glossary Term Applied",
         "hasValuesFieldName" : "hasGlossaryTerms"
       }
     }, {

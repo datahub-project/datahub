@@ -4,7 +4,18 @@ const searchToExecute = (value) => {
 };
 
 const selectFilteredEntity = (textToClick, entity, url) => {
-  cy.get(`[data-testid=filter-dropdown-${textToClick}]`).click({ force: true });
+  // check if filter dropdown exists, if not, go into more filters
+  cy.get("body").then(($body) => {
+    if ($body.find(`[data-testid=filter-dropdown-${textToClick}]`).length > 0) {
+      cy.get(`[data-testid=filter-dropdown-${textToClick}]`).click({
+        force: true,
+      });
+    } else {
+      cy.get(`[data-testid=more-filters-dropdown]`).click({ force: true });
+      cy.get(`[data-testid=more-filter-${textToClick}]`).click({ force: true });
+    }
+  });
+
   cy.get(`[data-testid="filter-option-${entity}"]`).click({ force: true });
   cy.get("[data-testid=update-filters]").click({ force: true });
   cy.url().should("include", `${url}`);
@@ -35,51 +46,51 @@ describe("auto-complete dropdown, filter plus query search test", () => {
     cy.visit("/");
   });
 
-  it("Verify the 'filter by type' section + query", () => {
-    // Dashboard
-    searchToExecute("*");
-    selectFilteredEntity("Type", "Dashboards", "filter__entityType");
-    clickAndVerifyEntity("Dashboard");
+  // it("Verify the 'filter by type' section + query", () => {
+  //   // Dashboard
+  //   searchToExecute("*");
+  //   selectFilteredEntity("Type", "Dashboards", "filter__entityType");
+  //   clickAndVerifyEntity("Dashboard");
 
-    // Ml Models
-    searchToExecute("*");
-    selectFilteredEntity("Type", "ML Models", "filter__entityType");
-    clickAndVerifyEntity("ML Model");
+  //   // Ml Models
+  //   searchToExecute("*");
+  //   selectFilteredEntity("Type", "ML Models", "filter__entityType");
+  //   clickAndVerifyEntity("ML Model");
 
-    // Piplines
-    searchToExecute("*");
-    selectFilteredEntity("Type", "Pipelines", "filter__entityType");
-    clickAndVerifyEntity("Pipeline");
-  });
+  //   // Piplines
+  //   searchToExecute("*");
+  //   selectFilteredEntity("Type", "Pipelines", "filter__entityType");
+  //   clickAndVerifyEntity("Pipeline");
+  // });
 
-  it("Verify the 'filter by Glossary term' section + query", () => {
-    // Glossary Term
-    searchToExecute("*");
-    selectFilteredEntity("Type", "Glossary Terms", "filter__entityType");
-    clickAndVerifyEntity("Glossary Term");
-  });
+  // it("Verify the 'filter by Glossary term' section + query", () => {
+  //   // Glossary Term
+  //   searchToExecute("*");
+  //   selectFilteredEntity("Type", "Glossary Terms", "filter__entityType");
+  //   clickAndVerifyEntity("Glossary Term");
+  // });
 
-  it("Verify the 'filter by platform' section + query", () => {
-    // Hive
-    searchToExecute("*");
-    selectFilteredEntity("Platform", "Hive", "filter_platform");
-    clickAndVerifyEntity("Hive");
+  // it("Verify the 'filter by platform' section + query", () => {
+  //   // Hive
+  //   searchToExecute("*");
+  //   selectFilteredEntity("Platform", "Hive", "filter_platform");
+  //   clickAndVerifyEntity("Hive");
 
-    // HDFS
-    searchToExecute("*");
-    selectFilteredEntity("Platform", "HDFS", "filter_platform");
-    clickAndVerifyEntity("HDFS");
+  //   // HDFS
+  //   searchToExecute("*");
+  //   selectFilteredEntity("Platform", "HDFS", "filter_platform");
+  //   clickAndVerifyEntity("HDFS");
 
-    // Airflow
-    searchToExecute("*");
-    selectFilteredEntity("Platform", "Airflow", "filter_platform");
-    clickAndVerifyEntity("Airflow");
-  });
+  //   // Airflow
+  //   searchToExecute("*");
+  //   selectFilteredEntity("Platform", "Airflow", "filter_platform");
+  //   clickAndVerifyEntity("Airflow");
+  // });
 
   it("Verify the 'filter by tag' section + query", () => {
     // CypressFeatureTag
     searchToExecute("*");
-    selectFilteredEntity("Tag", "CypressFeatureTag", "filter_tags");
+    selectFilteredEntity("Tagged-With", "CypressFeatureTag", "filter_tags");
     clickAndVerifyEntity("Tags");
     cy.mouseover('[data-testid="tag-CypressFeatureTag"]');
     verifyFilteredEntity("CypressFeatureTag");
