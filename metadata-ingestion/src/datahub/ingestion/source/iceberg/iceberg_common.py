@@ -103,8 +103,9 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         if not self.catalog:
             raise ValueError("No catalog configuration found")
 
-        keys = list(self.catalog.keys())
-        return load_catalog(name=keys[0], **self.catalog.get(keys[0], {}))
+        # Retrieve the dict associated with the one catalog entry
+        catalog_name, catalog_config = next(iter(self.catalog.items()))
+        return load_catalog(name=catalog_name, **catalog_config)
 
 
 @dataclass
