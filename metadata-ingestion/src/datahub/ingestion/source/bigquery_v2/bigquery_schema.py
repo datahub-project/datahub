@@ -154,8 +154,9 @@ class BigQuerySchemaApi:
                 projects: List[BigqueryProject] = []
                 page_token: Optional[str] = None
                 # Bigquery API has limit in calling project.list request i.e. 2 request per second.
-                # Assuming list_projects internally not adding any limit in requests call,
-                # externally we are adding limit in requests call per second
+                # Also project.list returns max 50 projects per page.
+                # Assuming list_projects method internally not adding any limit in requests call,
+                # externally we are adding limit in requests call per second.
                 while True:
                     projects_iterator = self.bq_client.list_projects(
                         max_results=50, page_token=page_token
