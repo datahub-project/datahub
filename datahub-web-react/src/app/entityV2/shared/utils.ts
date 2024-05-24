@@ -3,19 +3,22 @@ import {
     ChartStatsSummary,
     DashboardStatsSummary,
     DataProduct,
+    DatasetProfile,
     DatasetStatsSummary,
+    DateInterval,
     Entity,
     EntityRelationshipsResult,
     EntityType,
     SearchResult,
     DatasetProperties,
     ChartProperties,
-    Operation
+    Operation,
 } from '../../../types.generated';
 
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { OUTPUT_PORTS_FIELD } from '../../search/utils/constants';
+import { TimeWindowSize } from '../../shared/time/timeUtils';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)
@@ -93,7 +96,7 @@ export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
 
 export enum SidebarTitleActionType {
     LineageExplore = 'Lineage Explore',
-};
+}
 
 /**
  * Utility function for checking whether a list is a subset of another.
@@ -160,10 +163,77 @@ export function isOutputPort(result: SearchResult) {
     return result.extraProperties?.find((prop) => prop.name === OUTPUT_PORTS_FIELD)?.value === 'true';
 }
 
-// Dataset 
+export const computeChartTickInterval = (windowSize: TimeWindowSize): DateInterval => {
+    switch (windowSize.interval) {
+        case DateInterval.Day:
+            return DateInterval.Hour;
+        case DateInterval.Week:
+            return DateInterval.Day;
+        case DateInterval.Month:
+            return DateInterval.Week;
+        case DateInterval.Year:
+            return DateInterval.Month;
+        default:
+            throw new Error(`Unrecognized DateInterval provided ${windowSize.interval}`);
+    }
+};
+
+export const computeAllFieldPaths = (profiles: Array<DatasetProfile>): Set<string> => {
+    const uniqueFieldPaths = new Set<string>();
+    profiles.forEach((profile) => {
+        const fieldProfiles = profile.fieldProfiles || [];
+        fieldProfiles.forEach((fieldProfile) => {
+            uniqueFieldPaths.add(fieldProfile.fieldPath);
+        });
+    });
+    return uniqueFieldPaths;
+};
+
+const isPresent = (val: any) => {
+    return val !== undefined && val !== null;
+};
+
+/**
+ * Extracts a set of points used to render charts from a list of Dataset Profiles +
+ * a particular numeric statistic name to extract. Note that the stat *must* be numeric for this utility to work.
+ */
+export const extractChartValuesFromTableProfiles = (profiles: Array<any>, statName: string) => {
+    return profiles
+        .filter((profile) => isPresent(profile[statName]))
+        .map((profile) => ({
+            timeMs: profile.timestampMillis,
+            value: profile[statName] as number,
+        }));
+};
+
+/**
+ * Extracts a set of field-specific points used to render charts from a list of Dataset Profiles +
+ * a particular numeric statistic name to extract. Note that the stat *must* be numeric for this utility to work.
+ */
+export const extractChartValuesFromFieldProfiles = (profiles: Array<any>, fieldPath: string, statName: string) => {
+    return profiles
+        .filter((profile) => profile.fieldProfiles)
+        .map((profile) => {
+            const fieldProfiles = profile.fieldProfiles
+                ?.filter((field) => field.fieldPath === fieldPath)
+                .filter((field) => field[statName] !== null && field[statName] !== undefined);
+
+            if (fieldProfiles?.length === 1) {
+                const fieldProfile = fieldProfiles[0];
+                return {
+                    timeMs: profile.timestampMillis,
+                    value: fieldProfile[statName],
+                };
+            }
+            return null;
+        })
+        .filter((value) => value !== null);
+};
+
+// Dataset
 export type DatasetLastUpdatedMs = {
     property: 'lastModified' | 'lastUpdated' | undefined;
-    lastUpdatedMs: number | undefined
+    lastUpdatedMs: number | undefined;
 };
 export function getDatasetLastUpdatedMs(
     properties: Pick<DatasetProperties, 'lastModified'> | null | undefined,
@@ -174,9 +244,9 @@ export function getDatasetLastUpdatedMs(
 
     const max = Math.max(lastModified, lastUpdated);
 
-    if (max === 0) return ({ property: undefined, lastUpdatedMs: undefined });
-    if (max === lastModified) return ({ property: 'lastModified', lastUpdatedMs: lastModified });
-    return ({ property: 'lastUpdated', lastUpdatedMs: lastUpdated });
+    if (max === 0) return { property: undefined, lastUpdatedMs: undefined };
+    if (max === lastModified) return { property: 'lastModified', lastUpdatedMs: lastModified };
+    return { property: 'lastUpdated', lastUpdatedMs: lastUpdated };
 }
 
 // Chart & Dashboard
@@ -193,7 +263,7 @@ export function getDashboardLastUpdatedMs(
 
     const max = Math.max(lastModified, lastRefreshed);
 
-    if (max === 0) return ({ property: undefined, lastUpdatedMs: undefined });
-    if (max === lastModified) return ({ property: 'lastModified', lastUpdatedMs: lastModified });
-    return ({ property: 'lastRefreshed', lastUpdatedMs: lastRefreshed });
+    if (max === 0) return { property: undefined, lastUpdatedMs: undefined };
+    if (max === lastModified) return { property: 'lastModified', lastUpdatedMs: lastModified };
+    return { property: 'lastRefreshed', lastUpdatedMs: lastRefreshed };
 }

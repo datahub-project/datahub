@@ -3,14 +3,19 @@ import styled from 'styled-components';
 import { Divider, Typography } from 'antd';
 import ProfilingRunsChart from './charts/ProfilingRunsChart';
 import StatChart from './charts/StatChart';
-import { DatasetProfile, DateInterval } from '../../../../../../../types.generated';
-import { getFixedLookbackWindow, TimeWindowSize } from '../../../../../../shared/time/timeUtils';
+import { getFixedLookbackWindow } from '../../../../../../shared/time/timeUtils';
 import { useGetDataProfilesLazyQuery } from '../../../../../../../graphql/dataset.generated';
 import { Message } from '../../../../../../shared/Message';
 import { LookbackWindow } from '../lookbackWindows';
 import { ANTD_GRAY } from '../../../../constants';
 import PrefixedSelect from './shared/PrefixedSelect';
 import { formatBytes } from '../../../../../../shared/formatNumber';
+import {
+    computeAllFieldPaths,
+    computeChartTickInterval,
+    extractChartValuesFromFieldProfiles,
+    extractChartValuesFromTableProfiles,
+} from '../../../../utils';
 
 // TODO: Reuse stat sections.
 const StatSection = styled.div`
@@ -36,73 +41,6 @@ const ChartDivider = styled(Divider)<{ height: number; width: number }>`
     width: ${(props) => props.width}px;
     margin: 20px;
 `;
-
-const isPresent = (val: any) => {
-    return val !== undefined && val !== null;
-};
-
-/**
- * Extracts a set of points used to render charts from a list of Dataset Profiles +
- * a particular numeric statistic name to extract. Note that the stat *must* be numeric for this utility to work.
- */
-const extractChartValuesFromTableProfiles = (profiles: Array<any>, statName: string) => {
-    return profiles
-        .filter((profile) => isPresent(profile[statName]))
-        .map((profile) => ({
-            timeMs: profile.timestampMillis,
-            value: profile[statName] as number,
-        }));
-};
-
-/**
- * Extracts a set of field-specific points used to render charts from a list of Dataset Profiles +
- * a particular numeric statistic name to extract. Note that the stat *must* be numeric for this utility to work.
- */
-export const extractChartValuesFromFieldProfiles = (profiles: Array<any>, fieldPath: string, statName: string) => {
-    return profiles
-        .filter((profile) => profile.fieldProfiles)
-        .map((profile) => {
-            const fieldProfiles = profile.fieldProfiles
-                ?.filter((field) => field.fieldPath === fieldPath)
-                .filter((field) => field[statName] !== null && field[statName] !== undefined);
-
-            if (fieldProfiles?.length === 1) {
-                const fieldProfile = fieldProfiles[0];
-                return {
-                    timeMs: profile.timestampMillis,
-                    value: fieldProfile[statName],
-                };
-            }
-            return null;
-        })
-        .filter((value) => value !== null);
-};
-
-const computeChartTickInterval = (windowSize: TimeWindowSize): DateInterval => {
-    switch (windowSize.interval) {
-        case DateInterval.Day:
-            return DateInterval.Hour;
-        case DateInterval.Week:
-            return DateInterval.Day;
-        case DateInterval.Month:
-            return DateInterval.Week;
-        case DateInterval.Year:
-            return DateInterval.Month;
-        default:
-            throw new Error(`Unrecognized DateInterval provided ${windowSize.interval}`);
-    }
-};
-
-const computeAllFieldPaths = (profiles: Array<DatasetProfile>): Set<string> => {
-    const uniqueFieldPaths = new Set<string>();
-    profiles.forEach((profile) => {
-        const fieldProfiles = profile.fieldProfiles || [];
-        fieldProfiles.forEach((fieldProfile) => {
-            uniqueFieldPaths.add(fieldProfile.fieldPath);
-        });
-    });
-    return uniqueFieldPaths;
-};
 
 const getLookbackWindowSize = (window: LookbackWindow) => {
     return window.windowSize;

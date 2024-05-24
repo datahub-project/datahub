@@ -7,10 +7,10 @@ import TrendingDownIcon from '../../../../../../../../images/trending-down-icon.
 import TrendingUpIcon from '../../../../../../../../images/trending-up-icon.svg?react';
 import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../../../constants';
-import { extractChartValuesFromFieldProfiles } from '../../../Stats/historical/HistoricalStats';
 import SampleValueTag from '../../../Stats/snapshot/SampleValueTag';
 import { decimalToPercentStr } from '../../utils/statsUtil';
 import { StyledDivider } from './components';
+import { extractChartValuesFromFieldProfiles } from '../../../../../utils';
 
 const maxLabelWidth = 150;
 
