@@ -1,6 +1,7 @@
 import { Tag } from 'antd';
 import styled, { css } from 'styled-components';
 import ColorHash from 'color-hash';
+import { REDESIGN_COLORS } from '../../../../entityV2/shared/constants';
 
 export const generateColor = new ColorHash({
     saturation: 0.9,
@@ -9,7 +10,13 @@ export const generateColor = new ColorHash({
 export const StyledTag = styled(Tag)<{ $color: any; $colorHash?: string; fontSize?: number; $highlightTag?: boolean }>`
     display: inline-flex;
     align-items: center;
-
+    border-radius: 5px !important;
+    border: 1px dashed #ccd1dd;
+    padding: 2px 8px;
+    margin-bottom: 7px;
+    > span {
+        color: ${REDESIGN_COLORS.TEXT_GREY};
+    }
     &&& {
         ${(props) =>
             props.$highlightTag &&
