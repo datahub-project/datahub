@@ -490,6 +490,52 @@ If running the assertions is successful, the results will be returned as follows
 
 Where you should see one result object for each assertion.
 
+### Run Group of Assertions for Table
+
+If you don't always want to run _all_ assertions for a given table, you can also opt to run a subset of the 
+table's assertions using *Assertion Tags*. First, you'll add tags to your assertions to group and categorize them,
+then you'll call the `runAssertionsForAsset` mutation with the `tagUrns` argument to filter for assertions having those tags.
+
+#### Step 1: Adding Tag to an Assertion
+
+Currently, you can add tags to an assertion only via the DataHub GraphQL API. You can do this using the following mutation:
+
+```graphql
+mutation addTags {
+    addTag(input: {
+        resourceUrn: "urn:li:assertion:your-assertion",
+        tagUrn: "urn:li:tag:my-important-tag",
+    })
+}
+```
+
+#### Step 2: Run All Assertions for a Table with Tags
+
+Now, you can run all assertions for a table with a specific tag(s) using the `runAssertionsForAsset` mutation with the 
+`tagUrns` input parameter:
+
+```graphql
+mutation runAssertionsForAsset {
+    runAssertionsForAsset(urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,purchase_events,PROD)", tagUrns: ["urn:li:tag:my-important-tag"]) {
+        passingCount
+        failingCount
+        errorCount
+        results {
+            urn
+            result {
+                type
+                nativeResults {
+                    key
+                    value
+                }
+            }
+        }
+    }
+}
+```
+
+**Coming Soon**: Support for adding tags to assertions through the DataHub UI.
+
 </TabItem>
 
 <TabItem value="python" label="Python">
@@ -515,6 +561,37 @@ Where you should see one result object for each assertion.
 </TabItem>
 
 </Tabs>
+
+### Experimental: Providing Dynamic Parameters to Assertions
+
+You can provide **dynamic parameters** to your assertions to customize their behavior. This is particularly useful for
+assertions that require dynamic parameters, such as a threshold value that changes based on the time of day.
+
+Dynamic parameters can be injected into the SQL fragment portion of any Assertion. For example, it can appear
+in any part of the SQL statement in a [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md) Assertion, 
+or it can appear in the **Advanced > Filter** section of a [Column](/docs/managed-datahub/observe/column-assertions.md),
+[Volume](/docs/managed-datahub/observe/volume-assertions.md), or [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) Assertion.
+
+To do so, you'll first need to edit the SQL fragment to include the dynamic parameter. Dynamic parameters appear
+as `${parameterName}` in the SQL fragment.
+
+Next, you'll call the `runAssertion`, `runAssertions`, or `runAssertionsForAsset` mutations with the `parameters` input argument.
+This argument is a list of key-value tuples, where the key is the parameter name and the value is the parameter value:
+
+```graphql
+mutation runAssertion {
+    runAssertion(urn: "urn:li:assertion:your-assertion-id", parameters: [{key: "parameterName", value: "parameterValue"}]) {
+        type 
+        nativeResults {
+            key
+            value
+        }
+    }
+}
+```
+
+At runtime, the `${parameterName}` placeholder in the SQL fragment will be replaced with the provided `parameterValue` before the query
+is sent to the database for execution.
 
 ## Get Assertion Details
 
@@ -1010,6 +1087,35 @@ Python support coming soon!
 </TabItem>
 </Tabs>
 
+## Add Tag to Assertion
+
+You can add a tags to individual assertions to group and categorize them, for example by its priority or severity.
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+mutation addTags {
+    addTag(input: {
+        resourceUrn: "urn:li:assertion:your-assertion",
+        tagUrn: "urn:li:tag:my-important-tag",
+    })
+}
+```
+
+If you see the following response, the operation was successful:
+
+```json
+{
+  "data": {
+    "addTag": true
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+</Tabs>
 
 ## Delete Assertions
 
