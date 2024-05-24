@@ -1261,6 +1261,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     user_resolution_latency: Dict[str, datetime.timedelta] = dataclasses_field(
         default_factory=dict
     )
+    user_cache_file: Optional[str] = None
 
     def report_total_dashboards(self, total_dashboards: int) -> None:
         self.total_dashboards = total_dashboards
@@ -1456,8 +1457,11 @@ class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
 
+    _user_email_cache: Dict[str, str] = {}
+
     def __init__(self, looker_api: LookerAPI):
         self.looker_api_wrapper = looker_api
+        self._user_email_cache = {}
 
     def get_by_id(self, id_: str) -> Optional[LookerUser]:
         if not id_:
@@ -1472,4 +1476,8 @@ class LookerUserRegistry:
             return None
 
         looker_user = LookerUser.create_looker_user(raw_user)
+        self._user_email_cache[id_] = looker_user.email
         return looker_user
+
+    def dump_cache(self) -> Dict[str, str]:
+        return self._user_email_cache

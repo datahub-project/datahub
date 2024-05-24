@@ -1,6 +1,8 @@
 import datetime
 import json
 import logging
+import pathlib
+import tempfile
 from json import JSONDecodeError
 from typing import (
     Any,
@@ -1566,6 +1568,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for usage_mcp in usage_mcps:
                 yield usage_mcp.as_workunit()
             self.reporter.report_stage_end("usage_extraction")
+
+        # Dump looker user cache to a file.
+        logger.debug("Dumping looker user cache to a file")
+        user_cache_file = pathlib.Path(tempfile.mktemp(suffix=".json"))
+        user_cache_file.write_text(json.dumps(self.user_registry.dump_cache()))
+        self.reporter.user_cache_file = str(user_cache_file)
 
     def get_report(self) -> SourceReport:
         return self.reporter
