@@ -119,11 +119,14 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
                       Set<Urn> siblingUrns = new HashSet<>(siblings.getSiblings());
 
                       siblingData =
-                          entityService.getEntitiesV2(opContext, entityType, siblingUrns, aspectSpecNames);
+                          entityService.getEntitiesV2(
+                              opContext, entityType, siblingUrns, aspectSpecNames);
                     }
                     result
                         .get(urn)
-                        .put(query, buildSystemQueryResponse(opContext, query, urn, response, siblingData));
+                        .put(
+                            query,
+                            buildSystemQueryResponse(opContext, query, urn, response, siblingData));
                   } catch (RuntimeException | URISyntaxException e) {
                     log.error(
                         "RuntimeException for urn: {} for query {}. Skipping running test for urn",
@@ -151,7 +154,11 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
     switch (queryName) {
       case FIRST_SYNCHRONIZED_FIELD_NAME:
         final TestQueryResponse firstSyncResponse =
-            compute((response) -> firstSynchronized(opContext, response), minBy(Long::compareTo), entityResponse, siblingData);
+            compute(
+                (response) -> firstSynchronized(opContext, response),
+                minBy(Long::compareTo),
+                entityResponse,
+                siblingData);
         if (firstSyncResponse == null) {
           throw new RuntimeException(
               String.format("First synchronized time is null for %s and its siblings", urn));
@@ -236,8 +243,10 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
   }
 
   @Nullable
-  private Long firstSynchronized(@Nonnull OperationContext opContext, EntityResponse entityResponse) {
-    final EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityResponse.getUrn().getEntityType());
+  private Long firstSynchronized(
+      @Nonnull OperationContext opContext, EntityResponse entityResponse) {
+    final EntitySpec entitySpec =
+        opContext.getEntityRegistry().getEntitySpec(entityResponse.getUrn().getEntityType());
     if (entitySpec == null) {
       return null;
     }

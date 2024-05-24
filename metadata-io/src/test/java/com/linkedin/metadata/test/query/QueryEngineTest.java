@@ -1,5 +1,11 @@
 package com.linkedin.metadata.test.query;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.testng.Assert.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -45,12 +51,6 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
 
 public class QueryEngineTest {
   final EntityService<?> _entityService = mock(EntityService.class);
@@ -401,34 +401,42 @@ public class QueryEngineTest {
     entityResponse.getAspects().put(SIBLINGS_ASPECT_NAME, siblingAspect);
 
     Mockito.when(
-            _entityService.getEntitiesV2(any(OperationContext.class),
-                eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)), any()))
+            _entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(DATASET_URN)),
+                any()))
         .thenReturn(ImmutableMap.of(DATASET_URN, entityResponse));
 
     // But sibling is empty, i.e: We have a sibling reference to something that doesn't exist.
     Mockito.when(
             _entityService.getEntitiesV2(
                 any(OperationContext.class),
-                eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(SIBLING_URN)), any()))
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(SIBLING_URN)),
+                any()))
         .thenReturn(ImmutableMap.of());
 
     // Validate system query with null sibling are the same when no sibling information appears.
     testQuery = new TestQuery("__firstSynchronized");
     assertEquals(
-        _queryEngine.batchEvaluateQueries(opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN, ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("2")))));
 
     testQuery = new TestQuery("__lastSynchronized");
     assertEquals(
-        _queryEngine.batchEvaluateQueries(opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
 
     testQuery = new TestQuery("__lastObserved");
     assertEquals(
-        _queryEngine.batchEvaluateQueries(opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
@@ -484,21 +492,26 @@ public class QueryEngineTest {
                 siblingSiblingAspect)));
 
     Mockito.when(
-            _entityService.getEntitiesV2(any(OperationContext.class),
-                eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(SIBLING_URN)), any()))
+            _entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(SIBLING_URN)),
+                any()))
         .thenReturn(ImmutableMap.of(SIBLING_URN, siblingEntityResponse));
 
     testQuery = new TestQuery("__firstSynchronized");
     // first synced from sibling (1) should surface before main entity (2)
     assertEquals(
-        _queryEngine.batchEvaluateQueries(opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN, ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("1")))));
 
     testQuery = new TestQuery("__lastSynchronized");
     // last synched from main entity (10) should surface instead of sibling (2)
     assertEquals(
-        _queryEngine.batchEvaluateQueries(opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
@@ -506,7 +519,8 @@ public class QueryEngineTest {
     testQuery = new TestQuery("__lastObserved");
     // last observed from main entity (10) should surface instead of sibling (2)
     assertEquals(
-        _queryEngine.batchEvaluateQueries(opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
@@ -554,21 +568,26 @@ public class QueryEngineTest {
                 siblingSiblingAspect)));
 
     Mockito.when(
-            _entityService.getEntitiesV2(any(OperationContext.class),
-                eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(SIBLING_URN)), any()))
+            _entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(SIBLING_URN)),
+                any()))
         .thenReturn(ImmutableMap.of(SIBLING_URN, siblingEntityResponse));
 
     testQuery = new TestQuery("__firstSynchronized");
     // first synced from sibling (1) should surface before main entity (2)
     assertEquals(
-        _queryEngine.batchEvaluateQueries(opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN, ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("2")))));
 
     testQuery = new TestQuery("__lastSynchronized");
     // last synched from main entity (10) should surface instead of sibling (2)
     assertEquals(
-        _queryEngine.batchEvaluateQueries(opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("22")))));
@@ -576,7 +595,8 @@ public class QueryEngineTest {
     testQuery = new TestQuery("__lastObserved");
     // last synched from main entity (10) should surface instead of sibling (2)
     assertEquals(
-        _queryEngine.batchEvaluateQueries(opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("22")))));
