@@ -1,4 +1,5 @@
 import logging
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -152,9 +153,12 @@ class BigQuerySchemaApi:
             try:
                 projects: List[BigqueryProject] = []
                 page_token: Optional[str] = None
+                # Bigquery API has limit in calling project.list request i.e. 2 request per second.
+                # Assuming list_projects internally not adding any limit in requests call,
+                # externally we are adding limit in requests call per second
                 while True:
                     projects_iterator = self.bq_client.list_projects(
-                        max_results=5, page_token=page_token
+                        max_results=50, page_token=page_token
                     )
                     projects.extend(
                         [
@@ -165,6 +169,9 @@ class BigQuerySchemaApi:
                     page_token = projects_iterator.next_page_token
                     if page_token is None:
                         break
+                    # Sleep of 30 sec to make limit of two requests per second
+                    time.sleep(30)
+
                 return projects
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
