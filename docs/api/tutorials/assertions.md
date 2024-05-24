@@ -66,7 +66,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 {
   "data": {
     "upsertDatasetFreshnessAssertionMonitor": {
-      "urn": "urn:li:assertion:your-new-assertion-id
+      "urn": "urn:li:assertion:your-new-assertion-id"
     }
   },
   "extensions": {}
@@ -119,7 +119,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 {
   "data": {
     "upsertDatasetVolumeAssertionMonitor": {
-      "urn": "urn:li:assertion:your-new-assertion-id
+      "urn": "urn:li:assertion:your-new-assertion-id"
     }
   },
   "extensions": {}
@@ -178,7 +178,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 {
   "data": {
     "upsertDatasetFieldAssertionMonitor": {
-      "urn": "urn:li:assertion:your-new-assertion-id
+      "urn": "urn:li:assertion:your-new-assertion-id"
     }
   },
   "extensions": {}
@@ -225,7 +225,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 {
   "data": {
     "upsertDatasetSqlAssertionMonitor": {
-      "urn": "urn:li:assertion:your-new-assertion-id
+      "urn": "urn:li:assertion:your-new-assertion-id"
     }
   },
   "extensions": {}
