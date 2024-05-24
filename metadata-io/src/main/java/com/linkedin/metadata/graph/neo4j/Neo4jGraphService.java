@@ -499,7 +499,13 @@ public class Neo4jGraphService implements GraphService {
 
     String srcNodeLabel = "";
     // Create a URN from the String. Only proceed if srcCriteria is not null or empty
-    if (srcCriteria != null && !srcCriteria.isEmpty()) {
+    if (srcCriteria != null
+        && !srcCriteria.isEmpty()
+        && sourceEntityFilter != null
+        && sourceEntityFilter.getOr() != null
+        && !sourceEntityFilter.getOr().isEmpty()
+        && sourceEntityFilter.getOr().get(0).getAnd() != null
+        && !sourceEntityFilter.getOr().get(0).getAnd().isEmpty()) {
       final String urnValue =
           sourceEntityFilter.getOr().get(0).getAnd().get(0).getValue().toString();
       try {
