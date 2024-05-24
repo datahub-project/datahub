@@ -7294,6 +7294,11 @@ type Assertion implements EntityWithRelationships & Entity {
     status: Status
 
     """
+    The standard tags for the Assertion
+    """
+    tags: GlobalTags
+
+    """
     Experimental API.
     For fetching extra aspects that do not have custom UI code yet
     """
