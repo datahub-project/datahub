@@ -32,17 +32,19 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
         display: flex;
         align-items: center;
         justify-content: center;
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
 
         :hover {
-            color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+            color: ${REDESIGN_COLORS.WHITE};
+            background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
         }
     }
 
     &&& .ant-tabs-tab-active {
-        background-color: ${(props) => !props.$isClosed && `${REDESIGN_COLORS.TITLE_PURPLE}`};
+        background-color: ${(props) => !props.$isClosed && `${REDESIGN_COLORS.TITLE_PURPLE_2}`};
 
         :hover {
-            color: ${(props) => (props.$isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
+            color: ${(props) => (props.$isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : `${REDESIGN_COLORS.WHITE}`)};
         }
     }
 

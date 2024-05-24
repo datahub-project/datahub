@@ -27,17 +27,17 @@ const CloseButton = styled.div<{ $isClosed: boolean }>`
     width: 40px;
     border-radius: 6px;
     justify-content: center;
+    color: ${SEARCH_COLORS.TITLE_PURPLE};
     ${(props) =>
         props.$isClosed &&
         `
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        color: ${REDESIGN_COLORS.WHITE}; 
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE_2};
+        color: ${REDESIGN_COLORS.WHITE};  
     `}
     :hover {
-        ${(props) =>
-            !props.$isClosed &&
-            `color: ${SEARCH_COLORS.TITLE_PURPLE};
-        `}
+        background-color: ${REDESIGN_COLORS.TITLE_PURPLE_2};
+        color: ${REDESIGN_COLORS.WHITE};
+    }
 `;
 
 export default function SidebarCollapseIcon() {
