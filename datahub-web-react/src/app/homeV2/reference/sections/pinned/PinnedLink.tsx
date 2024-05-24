@@ -28,6 +28,7 @@ const TextColumn = styled.div`
     align-items: flex-start;
     flex-direction: column;
     justify-content: center;
+    width: 100%;
     > div {
         overflow: hidden;
         text-overflow: ellipsis;
