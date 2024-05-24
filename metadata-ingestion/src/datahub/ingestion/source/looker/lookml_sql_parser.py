@@ -60,7 +60,7 @@ def _update_fields(fields: List[ViewField], spr: SqlParsingResult) -> List[ViewF
 
         if view_field_map.get(cll.downstream.column) is None:
             logger.debug(
-                f"column {cll.downstream.column} is not present in view defined "
+                f"column {cll.downstream.column} is not present in view defined using sql"
                 f"measure/dimension/dimension_group"
             )
             continue
