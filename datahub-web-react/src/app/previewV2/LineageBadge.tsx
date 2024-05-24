@@ -7,6 +7,7 @@ import EntityRegistry from '../entityV2/EntityRegistry';
 import LineageStatusIcon from '../../images/lineage-status.svg?react';
 import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
 import { pluralize } from '../shared/textUtil';
+import { isNullOrUndefined } from './utils';
 
 const Icon = styled(LineageStatusIcon)<{ highlighted?: boolean }>`
     display: flex;
@@ -37,6 +38,10 @@ export default function LineageBadge({ upstreamTotal, downstreamTotal, entityReg
     const upstreamContent = upstreamTotal ? `${upstreamTotal} ${pluralize(upstreamTotal, 'upstream')}` : '';
     const downstreamContent = downstreamTotal ? `${downstreamTotal} ${pluralize(downstreamTotal, 'downstream')}` : '';
     const separator = upstreamContent && downstreamContent ? ', ' : '';
+
+    if (isNullOrUndefined(upstreamTotal) && isNullOrUndefined(downstreamTotal)) {
+        return null;
+    }
 
     return (
         <Popover

@@ -18,3 +18,7 @@ export const getHighlightedTag = (tags?: GlobalTags) => {
     }
     return '';
 };
+
+export const isNullOrUndefined = (value: any) => {
+    return value === null || value === undefined;
+};

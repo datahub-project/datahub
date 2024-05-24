@@ -49,10 +49,11 @@ const Container = styled.div`
     }
 `;
 
-const RightSection = styled.div`
+const RightSection = styled.div<{ isFullViewCard?: boolean }>`
     display: flex;
     justify-content: flex-end;
     width: 100%;
+    padding: ${(props) => (props.isFullViewCard ? '0 10px' : '0 5px')};
 `;
 
 const EntityLink = styled.div`
@@ -126,7 +127,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
                         entityType={entityType}
                     />
                 )}
-                <RightSection>
+                <RightSection isFullViewCard={isFullViewCard}>
                     <PreviewCardFooterRightSection
                         entityType={entityType}
                         urn={urn}
