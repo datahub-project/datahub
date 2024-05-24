@@ -956,7 +956,6 @@ FROM table1
     )
 
 
-@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
 def test_postgres_update_subselect():
     assert_sql_result(
         """
@@ -1078,7 +1077,6 @@ CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spect
     )
 
 
-@pytest.mark.skip(reason="sqlglot doesn't recognize the BACKUP directive right now")
 def test_redshift_system_automove() -> None:
     # Came across this in the Redshift query log, but it seems to be a system-generated query.
     assert_sql_result(

@@ -5,6 +5,7 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 
 import sqlglot
 import sqlglot.errors
+import sqlglot.optimizer.eliminate_ctes
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
@@ -294,4 +295,22 @@ def detach_ctes(
             return node
 
     statement = statement.copy()
-    return statement.transform(replace_cte_refs, copy=False)
+    statement = statement.transform(replace_cte_refs, copy=False)
+
+    # There's a bug in eliminate_ctes that causes it to not remove all unused CTEs
+    # when there's a complex chain of dependent CTEs. As a workaround, we call the
+    # method multiple times until it no longer eliminates any CTEs.
+    max_eliminate_calls = 5
+    for iteration in range(max_eliminate_calls):
+        new_statement = sqlglot.optimizer.eliminate_ctes.eliminate_ctes(
+            statement.copy()
+        )
+        if new_statement == statement:
+            if iteration > 1:
+                logger.debug(
+                    f"Required {iteration+1} iterations to detach and eliminate all CTEs"
+                )
+            break
+        statement = new_statement
+
+    return statement
