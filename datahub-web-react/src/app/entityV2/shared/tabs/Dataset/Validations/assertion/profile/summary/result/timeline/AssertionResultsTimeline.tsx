@@ -9,12 +9,12 @@ import { TimeSelect } from './TimeSelect';
 import { AssertionResultsTimelineViz } from './AssertionResultsTimelineViz';
 import { Assertion, Monitor } from '../../../../../../../../../../../types.generated';
 import { calculateInitialLookbackWindowFromRunEvents } from './utils';
+import { AssertionTimelineSkeleton } from './AssertionTimelineSkeleton';
 
 const RESULT_CHART_WIDTH_PX = 560;
 const Container = styled.div`
     width: ${RESULT_CHART_WIDTH_PX}px;
 `;
-
 
 type Props = {
     assertion: Assertion;
@@ -49,13 +49,13 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
 
         const maybeWindow = allRunEvents && calculateInitialLookbackWindowFromRunEvents(allRunEvents, monitor);
         if (maybeWindow) {
-            setLookbackWindow(maybeWindow)
-        };
+            setLookbackWindow(maybeWindow);
+        }
         if (!loading && hasInitialDataFetchTriggered) {
             // Update initialization state on the next tick so the UI has a tick to react to the new lookback window
             setTimeout(() => setHasInitializedLookbackWindow(true), 0);
         }
-    }, [allRunEvents, monitor, loading, hasInitialDataFetchTriggered, hasInitializedLookbackWindow])
+    }, [allRunEvents, monitor, loading, hasInitialDataFetchTriggered, hasInitializedLookbackWindow]);
 
     /**
      * Whenever the selected lookback window changes (via user selection), then
@@ -79,19 +79,20 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
     const isInitializing = !hasInitializedLookbackWindow;
     return (
         <Container>
-            <AssertionResultsTimelineViz
-                parentDimensions={{
-                    width: RESULT_CHART_WIDTH_PX,
-                }}
-                assertion={assertion}
-                timeRange={selectedWindowTimeRange}
-                isInitializing={isInitializing}
-                results={results as any}
-            />
-            <TimeSelect
-                lookbackWindow={lookbackWindow}
-                setLookbackWindow={setLookbackWindow}
-            />
+            {loading ? (
+                <AssertionTimelineSkeleton />
+            ) : (
+                <AssertionResultsTimelineViz
+                    parentDimensions={{
+                        width: RESULT_CHART_WIDTH_PX,
+                    }}
+                    assertion={assertion}
+                    timeRange={selectedWindowTimeRange}
+                    isInitializing={isInitializing}
+                    results={results as any}
+                />
+            )}
+            <TimeSelect lookbackWindow={lookbackWindow} setLookbackWindow={setLookbackWindow} />
         </Container>
     );
 };
