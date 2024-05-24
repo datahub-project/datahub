@@ -243,7 +243,7 @@ module.exports = {
           "Operator Guide": [
             {
               type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
               className: "saasOnly",
             },
             {
