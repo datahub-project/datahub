@@ -1089,7 +1089,8 @@ Python support coming soon!
 
 ## Add Tag to Assertion
 
-You can add a tags to individual assertions to group and categorize them, for example by its priority or severity.
+You can add tags to individual assertions to group and categorize them, for example by its priority or severity.
+Note that the tag should already exist in DataHub, or the operation will fail. 
 
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
@@ -1113,6 +1114,8 @@ If you see the following response, the operation was successful:
   "extensions": {}
 }
 ```
+
+You can create new tags using the `createTag` mutation or via the UI. 
 
 </TabItem>
 </Tabs>
