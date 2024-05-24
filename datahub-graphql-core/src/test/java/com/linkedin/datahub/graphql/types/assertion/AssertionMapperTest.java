@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
+import static org.testng.Assert.assertEquals;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AdjustmentAlgorithm;
 import com.linkedin.assertion.AssertionAdjustmentSettings;
@@ -21,7 +23,10 @@ import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.SchemaAssertionCompatibility;
 import com.linkedin.assertion.SchemaAssertionInfo;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
@@ -61,6 +66,31 @@ public class AssertionMapperTest {
         createAssertionInfoEntityResponse(input, null);
     output = AssertionMapper.map(null, datasetAssertionEntityResponseWithNullables);
     verifyAssertionInfo(input, output);
+  }
+
+  @Test
+  public void testMapTags() throws Exception {
+    HashMap<String, EnvelopedAspect> aspects = new HashMap<>();
+    AssertionInfo info = createFreshnessAssertionInfoWithoutNullableFields();
+
+    EnvelopedAspect envelopedTagsAspect = new EnvelopedAspect();
+    GlobalTags tags = new GlobalTags();
+    tags.setTags(
+        new TagAssociationArray(
+            new TagAssociationArray(
+                Collections.singletonList(
+                    new com.linkedin.common.TagAssociation()
+                        .setTag(TagUrn.createFromString("urn:li:tag:test"))))));
+    envelopedTagsAspect.setValue(new Aspect(tags.data()));
+
+    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, createEnvelopedAspect(info.data()));
+    aspects.put(Constants.GLOBAL_TAGS_ASPECT_NAME, createEnvelopedAspect(tags.data()));
+    EntityResponse response = createEntityResponse(aspects);
+
+    Assertion assertion = AssertionMapper.map(null, response);
+    assertEquals(assertion.getTags().getTags().size(), 1);
+    assertEquals(
+        assertion.getTags().getTags().get(0).getTag().getUrn().toString(), "urn:li:tag:test");
   }
 
   private AssertionInferenceDetails createAssertionInferenceDetailsWithNullableFields() {

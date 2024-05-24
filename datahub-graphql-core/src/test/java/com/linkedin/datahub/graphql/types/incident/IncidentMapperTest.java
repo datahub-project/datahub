@@ -4,8 +4,12 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -84,9 +88,22 @@ public class IncidentMapperTest {
     incidentInfo.setCreated(created);
 
     envelopedIncidentInfo.setValue(new Aspect(incidentInfo.data()));
+
+    EnvelopedAspect envelopedTagsAspect = new EnvelopedAspect();
+    GlobalTags tags = new GlobalTags();
+    tags.setTags(
+        new TagAssociationArray(
+            new TagAssociationArray(
+                Collections.singletonList(
+                    new com.linkedin.common.TagAssociation()
+                        .setTag(TagUrn.createFromString("urn:li:tag:test"))))));
+    envelopedTagsAspect.setValue(new Aspect(tags.data()));
+
     entityResponse.setAspects(
         new EnvelopedAspectMap(
-            Collections.singletonMap(Constants.INCIDENT_INFO_ASPECT_NAME, envelopedIncidentInfo)));
+            ImmutableMap.of(
+                Constants.INCIDENT_INFO_ASPECT_NAME, envelopedIncidentInfo,
+                Constants.GLOBAL_TAGS_ASPECT_NAME, envelopedTagsAspect)));
 
     Incident incident = IncidentMapper.map(null, entityResponse);
 
@@ -117,8 +134,10 @@ public class IncidentMapperTest {
     assertEquals(incident.getCreated().getTime().longValue(), 1000L);
     assertEquals(incident.getCreated().getActor(), userUrn.toString());
     assertEquals(incident.getAssignees().size(), 2);
-
     assertEquals(((CorpUser) incident.getAssignees().get(0)).getUrn(), "urn:li:corpuser:test");
     assertEquals(((CorpUser) incident.getAssignees().get(1)).getUrn(), "urn:li:corpuser:test2");
+    assertEquals(incident.getTags().getTags().size(), 1);
+    assertEquals(
+        incident.getTags().getTags().get(0).getTag().getUrn().toString(), "urn:li:tag:test");
   }
 }

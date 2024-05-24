@@ -338,6 +338,7 @@ entities:
       - assertionRunEvent
       - assertionActions
       - status
+      - globalTags
       - assertionDryRunEvent # Acryl-Only (Observe)
       - assertionInferenceDetails # Acryl-Only (Observe)
   - name: dataHubRetention
@@ -537,6 +538,7 @@ entities:
     keyAspect: incidentKey
     aspects:
       - incidentInfo
+      - globalTags
   - name: anomaly
     doc: Anomalies represent issues that were detected based on inferred or auto-generated assertions.
     category: core

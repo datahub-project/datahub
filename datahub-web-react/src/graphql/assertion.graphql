@@ -201,6 +201,9 @@ fragment assertionDetails on Assertion {
             type
         }
     }
+    tags {
+        ...globalTagsFields
+    }
 }
 
 fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
