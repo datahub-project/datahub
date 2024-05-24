@@ -1457,7 +1457,7 @@ class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
 
-    _user_email_cache: Dict[str, str] = {}
+    _user_email_cache: Dict[str, Optional[str]] = {}
 
     def __init__(self, looker_api: LookerAPI):
         self.looker_api_wrapper = looker_api
