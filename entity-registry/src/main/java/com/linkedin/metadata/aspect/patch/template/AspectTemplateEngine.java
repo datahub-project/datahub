@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.patch.template;
 
+import static com.linkedin.metadata.Constants.ASSERTIONS_SUMMARY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ASSERTION_INFERENCE_DETAILS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CHART_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DASHBOARD_INFO_ASPECT_NAME;
@@ -40,6 +41,7 @@ public class AspectTemplateEngine {
               MONITOR_INFO_ASPECT_NAME,
               TEST_RESULTS_ASPECT_NAME,
               ASSERTION_INFERENCE_DETAILS_ASPECT_NAME,
+              ASSERTIONS_SUMMARY_ASPECT_NAME,
               // Saas aspects before this line
               DATASET_PROPERTIES_ASPECT_NAME,
               EDITABLE_SCHEMA_METADATA_ASPECT_NAME,

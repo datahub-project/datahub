@@ -27,6 +27,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.monitor.AssertionEvaluationSpec;
@@ -41,7 +42,6 @@ import com.linkedin.timeseries.CalendarInterval;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeTest;
@@ -114,7 +114,7 @@ public class AssertionsSummaryHookTest {
     Mockito.verify(service, Mockito.times(0))
         .getAssertionInfo(any(OperationContext.class), Mockito.any());
 
-    // Case 2: Monitor status change, but enabled
+    // Case 3: Monitor status change, but enabled
     event =
         buildMetadataChangeLog(
             TEST_MONITOR_URN,
@@ -182,53 +182,50 @@ public class AssertionsSummaryHookTest {
   }
 
   @Test(dataProvider = "assertionsSummaryProvider")
-  public void testInvokeAssertionRunEventSuccess(AssertionsSummary summary) throws Exception {
-    AssertionService service = mockAssertionService(summary);
+  public void testInvokeAssertionRunEventSuccess(AssertionsSummary initialSummary)
+      throws Exception {
+    AssertionService service = mockAssertionService(initialSummary);
     AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+
     final AssertionInfo info =
         new AssertionInfo()
             .setType(AssertionType.DATASET)
             .setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
+
     final AssertionRunEvent runEvent =
         mockAssertionRunEvent(
             TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS);
+
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent);
+
     hook.invoke(event);
+
     Mockito.verify(service, Mockito.times(1))
         .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
+
     Mockito.verify(service, Mockito.times(1))
         .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
 
-    if (summary == null) {
-      summary = new AssertionsSummary();
-    }
-    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
-    expectedSummary.setPassingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getPassingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary.setFailingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getFailingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary
-        .getPassingAssertionDetails()
-        .add(buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent));
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.addPassingAssertionDetails(
+        buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent));
 
     // Ensure we ingested a new aspect.
     Mockito.verify(service, Mockito.times(1))
-        .updateAssertionsSummary(
-            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
 
   @Test(dataProvider = "assertionsSummaryProvider")
-  public void testInvokeAssertionRunEventFailure(AssertionsSummary summary) throws Exception {
-    AssertionService service = mockAssertionService(summary);
+  public void testInvokeAssertionRunEventFailure(AssertionsSummary initialSummary)
+      throws Exception {
+    AssertionService service = mockAssertionService(initialSummary);
     AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
+
     final AssertionInfo info =
         new AssertionInfo()
             .setType(AssertionType.DATASET)
@@ -239,91 +236,81 @@ public class AssertionsSummaryHookTest {
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent);
+
     hook.invoke(event);
+
     Mockito.verify(service, Mockito.times(1))
         .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
+
     Mockito.verify(service, Mockito.times(1))
         .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
 
-    if (summary == null) {
-      summary = new AssertionsSummary();
-    }
-    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
-    expectedSummary.setPassingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getPassingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary.setFailingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getFailingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary
-        .getFailingAssertionDetails()
-        .add(buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent));
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromPassingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.addFailingAssertionDetails(
+        buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent));
 
     // Ensure we ingested a new aspect.
     Mockito.verify(service, Mockito.times(1))
-        .updateAssertionsSummary(
-            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
 
-  @Test(dataProvider = "assertionsSummaryProvider")
-  public void testInvokeAssertionRunEventSuccessIgnoredIfEarlier(AssertionsSummary summary)
-      throws Exception {
-    AssertionService service = mockAssertionService(summary);
+  @Test
+  public void testInvokeAssertionRunEventSuccessIgnoredIfEarlier() throws Exception {
+
+    Urn assertionUrn1 = TEST_ASSERTION_URN;
+    Urn assertionUrn2 = TEST_INFERRED_ASSERTION_URN;
+
+    AssertionsSummary existingSummary = new AssertionsSummary();
+    existingSummary.setPassingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(assertionUrn1)
+                    .setType(TEST_ASSERTION_TYPE)
+                    .setLastResultAt(0L) // Latest result!
+                    .setSource(AssertionSourceType.EXTERNAL.toString()))));
+    existingSummary.setFailingAssertionDetails(
+        new AssertionSummaryDetailsArray(
+            ImmutableList.of(
+                new AssertionSummaryDetails()
+                    .setUrn(assertionUrn2)
+                    .setType(TEST_ASSERTION_TYPE)
+                    .setLastResultAt(0L)
+                    .setSource(AssertionSourceType.EXTERNAL.toString()))));
+
+    AssertionService service = mockAssertionService(existingSummary);
     AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
-    final AssertionInfo info =
-        new AssertionInfo()
-            .setType(AssertionType.DATASET)
-            .setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
 
     // 1. Mock failing assertion
     final AssertionRunEvent runEvent =
         mockAssertionRunEventWithTSMillis(
-            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE, 2L);
+            assertionUrn1, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE, -1L);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
-            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent);
+            assertionUrn1, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent);
+
+    // Nothing should change.
     hook.invoke(event);
-    Mockito.verify(service, Mockito.times(1))
-        .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
-    Mockito.verify(service, Mockito.times(1))
-        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+
     // 2. Mock succeeding assertion that's older (i.e. was back-filled)
     final AssertionRunEvent runEvent2 =
         mockAssertionRunEventWithTSMillis(
-            TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS, 1L);
+            assertionUrn2, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS, -1L);
     final MetadataChangeLog event2 =
         buildMetadataChangeLog(
-            TEST_ASSERTION_URN, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent2);
+            assertionUrn2, ASSERTION_RUN_EVENT_ASPECT_NAME, ChangeType.UPSERT, runEvent2);
+
+    // Nothing should change.
     hook.invoke(event2);
 
-    if (summary == null) {
-      summary = new AssertionsSummary();
-    }
-
-    // Expected summary
-    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
-    expectedSummary.setPassingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getPassingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary.setFailingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getFailingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary
-        .getFailingAssertionDetails()
-        .add(buildAssertionSummaryDetails(TEST_ASSERTION_URN, info, runEvent));
-
-    // Ensure we ingested a new aspect.
-    Mockito.verify(service, Mockito.times(1))
-        .updateAssertionsSummary(
-            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
+    // No interactions on summary aspects that have existing data because the timestamps are always
+    // 0L (newer)
+    Mockito.verify(service, Mockito.never())
+        .patchAssertionsSummary(
+            Mockito.any(OperationContext.class), Mockito.any(AssertionsSummaryPatchBuilder.class));
   }
 
   @Test(dataProvider = "assertionsSummaryProvider")
@@ -335,29 +322,15 @@ public class AssertionsSummaryHookTest {
             TEST_ASSERTION_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, mockAssertionSoftDeleted());
     hook.invoke(event);
 
-    Mockito.verify(service, Mockito.times(1))
-        .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
-    Mockito.verify(service, Mockito.times(1))
-        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromPassingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
 
-    if (summary == null) {
-      summary = new AssertionsSummary();
-    }
-    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
-    expectedSummary.setPassingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getPassingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary.setFailingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getFailingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    // Ensure we ingested a new aspect.
+    // Ensure we patched correctly.
     Mockito.verify(service, Mockito.times(1))
-        .updateAssertionsSummary(
-            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
 
   @Test(dataProvider = "assertionsSummaryProvider")
@@ -373,44 +346,50 @@ public class AssertionsSummaryHookTest {
             mockFreshnessAssertion(TEST_DATASET_URN));
     hook.invoke(event);
 
-    if (summary == null) {
-      summary = new AssertionsSummary();
-    }
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromPassingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
 
-    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
-    expectedSummary.setPassingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getPassingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary.setFailingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getFailingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    // Ensure we ingested a new aspect.
+    // Ensure we patched correctly.
     Mockito.verify(service, Mockito.times(1))
-        .updateAssertionsSummary(
-            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
 
   @Test
   public void testInvokeAssertionKeyHardDeleted() throws Exception {
     AssertionService service = Mockito.mock(AssertionService.class);
+
+    Mockito.when(
+            service.listEntitiesWithAssertionInSummary(
+                any(OperationContext.class), eq(TEST_ASSERTION_URN)))
+        .thenReturn(ImmutableList.of(TEST_DATASET_URN));
+
     AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
     final MetadataChangeLog event =
         buildMetadataChangeLog(
             TEST_ASSERTION_URN, ASSERTION_KEY_ASPECT_NAME, ChangeType.DELETE, null, null);
     hook.invoke(event);
+
     Mockito.verify(service, Mockito.times(1))
-        .tryDeleteAssertionReferences(any(OperationContext.class), eq(TEST_ASSERTION_URN));
+        .listEntitiesWithAssertionInSummary(any(OperationContext.class), eq(TEST_ASSERTION_URN));
+
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromPassingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
+
+    // Ensure we patched correctly.
+    Mockito.verify(service, Mockito.times(1))
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
 
   @Test(dataProvider = "assertionsSummaryProvider")
   public void testInvokeAssertionEntityUpdate(AssertionsSummary summary) throws Exception {
 
     // Ensure that the previous summary is removed.
-
     AssertionService service = mockAssertionService(summary);
     AssertionsSummaryHook hook = new AssertionsSummaryHook(service, true).init(opContext);
     final MetadataChangeLog event =
@@ -420,30 +399,18 @@ public class AssertionsSummaryHookTest {
             ChangeType.UPSERT,
             mockFreshnessAssertion(TEST_DATASET_URN_2),
             mockFreshnessAssertion(TEST_DATASET_URN));
+
     hook.invoke(event);
 
-    Mockito.verify(service, Mockito.times(1))
-        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromPassingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
 
-    if (summary == null) {
-      summary = new AssertionsSummary();
-    }
-
-    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
-    expectedSummary.setPassingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getPassingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary.setFailingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getFailingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    // Ensure we ingested a new aspect.
+    // Ensure we patched correctly.
     Mockito.verify(service, Mockito.times(1))
-        .updateAssertionsSummary(
-            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
 
   @Test(dataProvider = "assertionsSummaryProvider")
@@ -458,29 +425,15 @@ public class AssertionsSummaryHookTest {
             mockMonitorInfoEvent(MonitorMode.INACTIVE, ImmutableList.of(TEST_ASSERTION_URN)));
     hook.invoke(event);
 
-    Mockito.verify(service, Mockito.times(1))
-        .getAssertionInfo(any(OperationContext.class), eq(TEST_ASSERTION_URN));
-    Mockito.verify(service, Mockito.times(1))
-        .getAssertionsSummary(any(OperationContext.class), eq(TEST_DATASET_URN));
+    AssertionsSummaryPatchBuilder patchBuilder = new AssertionsSummaryPatchBuilder();
+    patchBuilder.urn(TEST_ASSERTION_URN);
+    patchBuilder.withEntityName(TEST_DATASET_URN.getEntityType());
+    patchBuilder.removeFromPassingAssertionDetails(TEST_ASSERTION_URN);
+    patchBuilder.removeFromFailingAssertionDetails(TEST_ASSERTION_URN);
 
-    if (summary == null) {
-      summary = new AssertionsSummary();
-    }
-    AssertionsSummary expectedSummary = new AssertionsSummary(summary.data());
-    expectedSummary.setPassingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getPassingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    expectedSummary.setFailingAssertionDetails(
-        new AssertionSummaryDetailsArray(
-            expectedSummary.getFailingAssertionDetails().stream()
-                .filter(details -> !details.getUrn().equals(TEST_ASSERTION_URN))
-                .collect(Collectors.toList())));
-    // Ensure we ingested a new aspect.
+    // Ensure we patched correctly.
     Mockito.verify(service, Mockito.times(1))
-        .updateAssertionsSummary(
-            any(OperationContext.class), eq(TEST_DATASET_URN), eq(expectedSummary));
+        .patchAssertionsSummary(any(OperationContext.class), eq(patchBuilder));
   }
 
   private AssertionRunEvent mockAssertionRunEvent(
