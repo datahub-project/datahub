@@ -126,9 +126,15 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     appConfig.setAuthConfig(authConfig);
 
     final VisualConfig visualConfig = new VisualConfig();
-    if (_visualConfiguration != null && _visualConfiguration.getAssets() != null) {
-      visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
-      visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
+    if (_visualConfiguration != null) {
+      if (_visualConfiguration.getAssets() != null) {
+        visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
+        visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
+      }
+      if (_visualConfiguration.getAppTitle() != null) {
+        visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
+      }
+      visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
     }
     if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
       QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
@@ -170,9 +176,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final FeatureFlagsConfig featureFlagsConfig =
         FeatureFlagsConfig.builder()
             .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
+            .setBusinessAttributeEntityEnabled(_featureFlags.isBusinessAttributeEntityEnabled())
             .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
             .setShowBrowseV2(_featureFlags.isShowBrowseV2())
             .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
+            .setErModelRelationshipFeatureEnabled(
+                _featureFlags.isErModelRelationshipFeatureEnabled())
             .setShowAccessManagement(_featureFlags.isShowAccessManagement())
             .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
             .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
@@ -256,6 +265,14 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.CORP_USER;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ER_MODEL_RELATIONSHIP_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.ER_MODEL_RELATIONSHIP;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.BUSINESS_ATTRIBUTE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.BUSINESS_ATTRIBUTE;
     } else {
       return null;
     }

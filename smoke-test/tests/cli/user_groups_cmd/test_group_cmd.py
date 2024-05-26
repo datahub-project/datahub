@@ -1,7 +1,6 @@
 import json
 import sys
 import tempfile
-import time
 from typing import Any, Dict, Iterable, List
 
 import yaml
@@ -10,7 +9,6 @@ from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.entrypoints import datahub
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 
-import requests_wrapper as requests
 from tests.utils import wait_for_writes_to_sync
 
 runner = CliRunner(mix_stderr=False)
@@ -43,7 +41,7 @@ def gen_datahub_groups(num_groups: int) -> Iterable[CorpGroup]:
             description=f"The Group {i}",
             picture_link=f"https://images.google.com/group{i}.jpg",
             slack=f"@group{i}",
-            admins=["user1"],
+            owners=["user1"],
             members=["user2"],
         )
         yield group
@@ -65,7 +63,7 @@ def get_group_ownership(user_urn: str) -> List[str]:
     graph = get_default_graph()
     entities = graph.get_related_entities(
         entity_urn=user_urn,
-        relationship_types="OwnedBy",
+        relationship_types=["OwnedBy"],
         direction=DataHubGraph.RelationshipDirection.INCOMING,
     )
     return [entity.urn for entity in entities]
@@ -75,7 +73,7 @@ def get_group_membership(user_urn: str) -> List[str]:
     graph = get_default_graph()
     entities = graph.get_related_entities(
         entity_urn=user_urn,
-        relationship_types="IsMemberOfGroup",
+        relationship_types=["IsMemberOfGroup"],
         direction=DataHubGraph.RelationshipDirection.OUTGOING,
     )
     return [entity.urn for entity in entities]
@@ -108,6 +106,7 @@ def test_group_upsert(wait_for_healthchecks: Any) -> None:
                 "owners": [
                     {"owner": "urn:li:corpuser:user1", "type": "TECHNICAL_OWNER"}
                 ],
+                "ownerTypes": {},
             },
             "status": {"removed": False},
         }

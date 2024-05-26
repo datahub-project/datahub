@@ -30,7 +30,7 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
       return CompletableFuture.supplyAsync(
           () -> {
             try {
-              _entityClient.deleteEntity(urn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
               return ingestionSourceUrn;
             } catch (Exception e) {
               throw new RuntimeException(

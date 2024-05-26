@@ -74,4 +74,11 @@ record QueryProperties {
     }
   }
   lastModified: AuditStamp
+
+  /**
+   * The origin of the Query.
+   * This is the source of the Query (e.g. a View, Stored Procedure, dbt Model, etc.) that the Query was created from.
+   */
+   origin: optional Urn
+
 }

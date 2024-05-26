@@ -36,6 +36,7 @@ from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -47,8 +48,12 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    BIContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.git.git_import import GitClone
+from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_common import (
     CORPUSER_DATAHUB,
     LookerCommonConfig,
@@ -59,6 +64,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
     ViewFieldValue,
+    gen_project_key,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -86,6 +92,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    ContainerClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -98,16 +107,37 @@ logger = logging.getLogger(__name__)
 
 _BASE_PROJECT_NAME = "__BASE"
 
-# Patch lkml to support the local_dependency and remote_dependency keywords.
-lkml.simple.PLURAL_KEYS = (
-    *lkml.simple.PLURAL_KEYS,
-    "local_dependency",
-    "remote_dependency",
-)
-
 _EXPLORE_FILE_EXTENSION = ".explore.lkml"
 _VIEW_FILE_EXTENSION = ".view.lkml"
 _MODEL_FILE_EXTENSION = ".model.lkml"
+
+
+def deduplicate_fields(fields: List[ViewField]) -> List[ViewField]:
+    # Remove duplicates filed from self.fields
+    # Logic is: If more than a field has same ViewField.name then keep only one filed where ViewField.field_type
+    # is DIMENSION_GROUP.
+    # Looker Constraint:
+    #   - Any field declared as dimension or measure can be redefined as dimension_group.
+    #   - Any field declared in dimension can't be redefined in measure and vice-versa.
+
+    dimension_group_field_names: List[str] = [
+        field.name
+        for field in fields
+        if field.field_type == ViewFieldType.DIMENSION_GROUP
+    ]
+
+    new_fields: List[ViewField] = []
+
+    for field in fields:
+        if (
+            field.name in dimension_group_field_names
+            and field.field_type != ViewFieldType.DIMENSION_GROUP
+        ):
+            continue
+
+        new_fields.append(field)
+
+    return new_fields
 
 
 def _get_bigquery_definition(
@@ -384,10 +414,9 @@ class LookerModel:
         ]
         for included_file in explore_files:
             try:
-                with open(included_file, "r") as file:
-                    parsed = lkml.load(file)
-                    included_explores = parsed.get("explores", [])
-                    explores.extend(included_explores)
+                parsed = load_lkml(included_file)
+                included_explores = parsed.get("explores", [])
+                explores.extend(included_explores)
             except Exception as e:
                 reporter.report_warning(
                     path, f"Failed to load {included_file} due to {e}"
@@ -514,24 +543,23 @@ class LookerModel:
                     f"Will be loading {included_file}, traversed here via {traversal_path}"
                 )
                 try:
-                    with open(included_file, "r") as file:
-                        parsed = lkml.load(file)
-                        seen_so_far.add(included_file)
-                        if "includes" in parsed:  # we have more includes to resolve!
-                            resolved.extend(
-                                LookerModel.resolve_includes(
-                                    parsed["includes"],
-                                    resolved_project_name,
-                                    root_project_name,
-                                    base_projects_folder,
-                                    included_file,
-                                    reporter,
-                                    seen_so_far,
-                                    traversal_path=traversal_path
-                                    + "."
-                                    + pathlib.Path(included_file).stem,
-                                )
+                    parsed = load_lkml(included_file)
+                    seen_so_far.add(included_file)
+                    if "includes" in parsed:  # we have more includes to resolve!
+                        resolved.extend(
+                            LookerModel.resolve_includes(
+                                parsed["includes"],
+                                resolved_project_name,
+                                root_project_name,
+                                base_projects_folder,
+                                included_file,
+                                reporter,
+                                seen_so_far,
+                                traversal_path=traversal_path
+                                + "."
+                                + pathlib.Path(included_file).stem,
                             )
+                        )
                 except Exception as e:
                     reporter.report_warning(
                         path, f"Failed to load {included_file} due to {e}"
@@ -642,27 +670,26 @@ class LookerViewFileLoader:
             return self.viewfile_cache[path]
 
         try:
-            with open(path, "r") as file:
+            with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
             return None
         try:
-            with open(path, "r") as file:
-                logger.debug(f"Loading viewfile {path}")
-                parsed = lkml.load(file)
-                looker_viewfile = LookerViewFile.from_looker_dict(
-                    absolute_file_path=path,
-                    looker_view_file_dict=parsed,
-                    project_name=project_name,
-                    root_project_name=self._root_project_name,
-                    base_projects_folder=self._base_projects_folder,
-                    raw_file_content=raw_file_content,
-                    reporter=reporter,
-                )
-                logger.debug(f"adding viewfile for path {path} to the cache")
-                self.viewfile_cache[path] = looker_viewfile
-                return looker_viewfile
+            logger.debug(f"Loading viewfile {path}")
+            parsed = load_lkml(path)
+            looker_viewfile = LookerViewFile.from_looker_dict(
+                absolute_file_path=path,
+                looker_view_file_dict=parsed,
+                project_name=project_name,
+                root_project_name=self._root_project_name,
+                base_projects_folder=self._base_projects_folder,
+                raw_file_content=raw_file_content,
+                reporter=reporter,
+            )
+            logger.debug(f"adding viewfile for path {path} to the cache")
+            self.viewfile_cache[path] = looker_viewfile
+            return looker_viewfile
         except Exception as e:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
             return None
@@ -1033,10 +1060,11 @@ class LookerView:
                 if "sql" in field_dict and populate_sql_logic_in_descriptions
                 else ""
             )
+
             description = field_dict.get("description", default_description)
             label = field_dict.get("label", "")
             upstream_fields = []
-            if type_cls == ViewFieldType.DIMENSION and extract_column_level_lineage:
+            if extract_column_level_lineage:
                 if field_dict.get("sql") is not None:
                     for upstream_field_match in re.finditer(
                         r"\${TABLE}\.[\"]*([\.\w]+)", field_dict["sql"]
@@ -1154,6 +1182,8 @@ class LookerView:
             populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
         )
         fields: List[ViewField] = dimensions + dimension_groups + measures
+
+        fields = deduplicate_fields(fields)
 
         # Prep "default" values for the view, which will be overridden by the logic below.
         view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
@@ -1487,6 +1517,10 @@ class LookMLSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.source_config = config
         self.reporter = LookMLSourceReport()
+
+        # To keep track of projects (containers) which have already been ingested
+        self.processed_projects: List[str] = []
+
         if self.source_config.api:
             self.looker_client = LookerAPI(self.source_config.api)
             self.reporter._looker_api = self.looker_client
@@ -1498,17 +1532,16 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
     def _load_model(self, path: str) -> LookerModel:
-        with open(path, "r") as file:
-            logger.debug(f"Loading model from file {path}")
-            parsed = lkml.load(file)
-            looker_model = LookerModel.from_looker_dict(
-                parsed,
-                _BASE_PROJECT_NAME,
-                self.source_config.project_name,
-                self.base_projects_folder,
-                path,
-                self.reporter,
-            )
+        logger.debug(f"Loading model from file {path}")
+        parsed = load_lkml(path)
+        looker_model = LookerModel.from_looker_dict(
+            parsed,
+            _BASE_PROJECT_NAME,
+            self.source_config.project_name,
+            self.base_projects_folder,
+            path,
+            self.reporter,
+        )
         return looker_model
 
     def _platform_names_have_2_parts(self, platform: str) -> bool:
@@ -1709,6 +1742,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         custom_properties = {
             "looker.file.path": file_path or looker_view.absolute_file_path,
+            "looker.model": looker_view.id.model_name,
         }
         dataset_props = DatasetPropertiesClass(
             name=looker_view.id.view_name, customProperties=custom_properties
@@ -1732,17 +1766,35 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _build_dataset_mcps(
         self, looker_view: LookerView
     ) -> List[MetadataChangeProposalWrapper]:
+
+        view_urn = looker_view.id.get_urn(self.source_config)
+
         subTypeEvent = MetadataChangeProposalWrapper(
-            entityUrn=looker_view.id.get_urn(self.source_config),
+            entityUrn=view_urn,
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
         )
         events = [subTypeEvent]
         if looker_view.view_details is not None:
+
             viewEvent = MetadataChangeProposalWrapper(
-                entityUrn=looker_view.id.get_urn(self.source_config),
+                entityUrn=view_urn,
                 aspect=looker_view.view_details,
             )
             events.append(viewEvent)
+
+        project_key = gen_project_key(self.source_config, looker_view.id.project_name)
+
+        container = ContainerClass(container=project_key.as_urn())
+        events.append(
+            MetadataChangeProposalWrapper(entityUrn=view_urn, aspect=container)
+        )
+
+        events.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=view_urn,
+                aspect=looker_view.id.get_browse_path_v2(self.source_config),
+            )
+        )
 
         return events
 
@@ -1759,6 +1811,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         browse_paths = BrowsePaths(
             paths=[looker_view.id.get_browse_path(self.source_config)]
         )
+
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(Status(removed=False))
         upstream_lineage = self._get_upstream_lineage(looker_view)
@@ -1797,8 +1850,7 @@ class LookMLSource(StatefulIngestionSourceBase):
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
         if manifest_file.exists():
-            with manifest_file.open() as fp:
-                manifest_dict = lkml.load(fp)
+            manifest_dict = load_lkml(manifest_file)
 
             manifest = LookerManifest(
                 project_name=manifest_dict.get("project_name"),
@@ -1852,9 +1904,11 @@ class LookMLSource(StatefulIngestionSourceBase):
                             tmp_path=f"{tmp_dir}/_included_/{project}",
                             # If a deploy key was provided, use it. Otherwise, fall back
                             # to the main project deploy key, if present.
-                            fallback_deploy_key=self.source_config.git_info.deploy_key
-                            if self.source_config.git_info
-                            else None,
+                            fallback_deploy_key=(
+                                self.source_config.git_info.deploy_key
+                                if self.source_config.git_info
+                                else None
+                            ),
                         )
 
                         p_ref = p_checkout_dir.resolve()
@@ -2065,6 +2119,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             )
 
             project_name = self.get_project_name(model_name)
+
             logger.debug(f"Model: {model_name}; Includes: {model.resolved_includes}")
 
             for include in model.resolved_includes:
@@ -2159,16 +2214,29 @@ class LookMLSource(StatefulIngestionSourceBase):
                                     logger.debug(
                                         f"Generating MCP for view {raw_view['name']}"
                                     )
+
+                                    if (
+                                        maybe_looker_view.id.project_name
+                                        not in self.processed_projects
+                                    ):
+                                        yield from self.gen_project_workunits(
+                                            maybe_looker_view.id.project_name
+                                        )
+
+                                        self.processed_projects.append(
+                                            maybe_looker_view.id.project_name
+                                        )
+
+                                    for mcp in self._build_dataset_mcps(
+                                        maybe_looker_view
+                                    ):
+                                        yield mcp.as_workunit()
                                     mce = self._build_dataset_mce(maybe_looker_view)
                                     yield MetadataWorkUnit(
                                         id=f"lookml-view-{maybe_looker_view.id}",
                                         mce=mce,
                                     )
                                     processed_view_files.add(include.include)
-                                    for mcp in self._build_dataset_mcps(
-                                        maybe_looker_view
-                                    ):
-                                        yield mcp.as_workunit()
                                 else:
                                     (
                                         prev_model_name,
@@ -2199,6 +2267,23 @@ class LookMLSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(
                     id=f"tag-{tag_mce.proposedSnapshot.urn}", mce=tag_mce
                 )
+
+    def gen_project_workunits(self, project_name: str) -> Iterable[MetadataWorkUnit]:
+        project_key = gen_project_key(
+            self.source_config,
+            project_name,
+        )
+        yield from gen_containers(
+            container_key=project_key,
+            name=project_name,
+            sub_types=[BIContainerSubTypes.LOOKML_PROJECT],
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=project_key.as_urn(),
+            aspect=BrowsePathsV2Class(
+                path=[BrowsePathEntryClass("Folders")],
+            ),
+        ).as_workunit()
 
     def get_report(self):
         return self.reporter

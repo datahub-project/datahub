@@ -67,6 +67,7 @@ public class IngestionSourceExecutionRequestsResolver
 
             final SearchResult executionsSearchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.EXECUTION_REQUEST_ENTITY_NAME,
                     new Filter()
                         .setOr(
@@ -78,8 +79,7 @@ public class IngestionSourceExecutionRequestsResolver
                         .setField(REQUEST_TIME_MS_FIELD_NAME)
                         .setOrder(SortOrder.DESCENDING),
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             // 2. Batch fetch the related ExecutionRequests
             final Set<Urn> relatedExecRequests =
@@ -89,12 +89,12 @@ public class IngestionSourceExecutionRequestsResolver
 
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.EXECUTION_REQUEST_ENTITY_NAME,
                     relatedExecRequests,
                     ImmutableSet.of(
                         Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
-                    context.getAuthentication());
+                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME));
 
             // 3. Map the GMS ExecutionRequests into GraphQL Execution Requests
             final IngestionSourceExecutionRequests result = new IngestionSourceExecutionRequests();
@@ -103,6 +103,7 @@ public class IngestionSourceExecutionRequestsResolver
             result.setTotal(executionsSearchResult.getNumEntities());
             result.setExecutionRequests(
                 IngestionResolverUtils.mapExecutionRequests(
+                    context,
                     executionsSearchResult.getEntities().stream()
                         .map(searchResult -> entities.get(searchResult.getEntity()))
                         .filter(Objects::nonNull)

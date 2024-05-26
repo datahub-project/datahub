@@ -1,0 +1,25 @@
+id: pet_of_the_week
+domain: Marketing
+display_name: Pet of the Week Campaign
+description: |-
+  This campaign includes Pet of the Week data.
+
+assets:
+  - urn:li:container:DATABASE
+  - urn:li:container:SCHEMA
+  - urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)
+
+owners:
+  - id: urn:li:corpuser:jdoe
+    type: urn:li:ownershipType:abc
+properties:
+  version: 2.0
+  classification: pii
+
+tags:
+  - urn:li:tag:awesome
+
+terms:
+  - urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance
+
+external_url: https://github.com/datahub-project/datahub

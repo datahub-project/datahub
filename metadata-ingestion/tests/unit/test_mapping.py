@@ -25,6 +25,11 @@ def get_operation_defs() -> Dict[str, Any]:
             "operation": "add_owner",
             "config": {"owner_type": "user"},
         },
+        "multi_user": {
+            "match": ".*",
+            "operation": "add_owner",
+            "config": {"owner_type": "user"},
+        },
         "group.owner": {
             "match": ".*",
             "operation": "add_owner",
@@ -78,6 +83,7 @@ def test_operation_processor_not_matching():
 def test_operation_processor_matching():
     raw_props = {
         "user_owner": "test_user@abc.com",
+        "multi_user": "sales_member1@abc.com, sales_member2@abc.com",
         "user_owner_2": "test_user_2",
         "group.owner": "test.group@abc.co.in",
         "governance.team_owner": "Finance",
@@ -86,6 +92,7 @@ def test_operation_processor_matching():
         "double_property": 2.5,
         "tag": "Finance",
     }
+
     processor = OperationProcessor(
         operation_defs=get_operation_defs(),
         owner_source_type="SOURCE_CONTROL",
@@ -116,11 +123,13 @@ def test_operation_processor_matching():
     )
 
     ownership_aspect: OwnershipClass = aspect_map["add_owner"]
-    assert len(ownership_aspect.owners) == 3
+    assert len(ownership_aspect.owners) == 5
     owner_set = {
         "urn:li:corpuser:test_user",
         "urn:li:corpuser:test_user_2",
         "urn:li:corpGroup:test.group",
+        "urn:li:corpuser:sales_member1",
+        "urn:li:corpuser:sales_member2",
     }
     for single_owner in ownership_aspect.owners:
         assert single_owner.owner in owner_set
@@ -226,7 +235,7 @@ def test_operation_processor_ownership_category():
     new_owner = ownership_aspect.owners[2]
     assert new_owner.owner == "urn:li:corpuser:bob"
     assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
-    assert new_owner.type == OwnershipTypeClass.DATAOWNER  # dummy value
+    assert new_owner.type == OwnershipTypeClass.CUSTOM
     assert new_owner.typeUrn == "urn:li:ownershipType:architect"
 
 
@@ -338,3 +347,52 @@ def test_operation_processor_matching_dot_props():
     tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
     assert len(tag_aspect.tags) == 1
     assert tag_aspect.tags[0].tag == "urn:li:tag:pii"
+
+
+def test_operation_processor_datahub_props():
+    raw_props = {
+        "datahub": {
+            "tags": ["tag1", "tag2"],
+            "terms": ["term1", "term2"],
+            "owners": [
+                "owner1",
+                "urn:li:corpGroup:group1",
+                {
+                    "owner": "owner2",
+                    "owner_type": "urn:li:ownershipType:steward",
+                },
+                {
+                    "owner": "urn:li:corpGroup:group2",
+                    "owner_type": "urn:li:ownershipType:steward",
+                },
+            ],
+        }
+    }
+
+    processor = OperationProcessor(
+        operation_defs={},
+        owner_source_type="SOURCE_CONTROL",
+    )
+    aspect_map = processor.process(raw_props)
+
+    assert isinstance(aspect_map["add_owner"], OwnershipClass)
+    assert [
+        (owner.owner, owner.type, owner.typeUrn)
+        for owner in aspect_map["add_owner"].owners
+    ] == [
+        ("urn:li:corpGroup:group1", "DATAOWNER", None),
+        ("urn:li:corpGroup:group2", "CUSTOM", "urn:li:ownershipType:steward"),
+        ("urn:li:corpuser:owner1", "DATAOWNER", None),
+        ("urn:li:corpuser:owner2", "CUSTOM", "urn:li:ownershipType:steward"),
+    ]
+
+    assert isinstance(aspect_map["add_tag"], GlobalTagsClass)
+    assert [tag_association.tag for tag_association in aspect_map["add_tag"].tags] == [
+        "urn:li:tag:tag1",
+        "urn:li:tag:tag2",
+    ]
+
+    assert isinstance(aspect_map["add_term"], GlossaryTermsClass)
+    assert [
+        term_association.urn for term_association in aspect_map["add_term"].terms
+    ] == ["urn:li:glossaryTerm:term1", "urn:li:glossaryTerm:term2"]

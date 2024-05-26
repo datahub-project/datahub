@@ -39,6 +39,9 @@ fragment entityPreview on Entity {
         deprecation {
             ...deprecationFields
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on CorpUser {
         username
@@ -107,6 +110,9 @@ fragment entityPreview on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on Chart {
         urn
@@ -148,6 +154,9 @@ fragment entityPreview on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }    
     }
     ... on DataFlow {
         urn
@@ -182,6 +191,9 @@ fragment entityPreview on Entity {
         deprecation {
             ...deprecationFields
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on DataJob {
         urn
@@ -215,6 +227,9 @@ fragment entityPreview on Entity {
         }
         subTypes {
             typeNames
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on GlossaryTerm {
@@ -275,6 +290,16 @@ fragment entityPreview on Entity {
         }
         platform {
             ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLFeature {
+        name
+        description
+        ownership {
+            ...ownershipFields
         }
         deprecation {
             ...deprecationFields

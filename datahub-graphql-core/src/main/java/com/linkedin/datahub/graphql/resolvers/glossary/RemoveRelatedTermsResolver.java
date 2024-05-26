@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RelatedTermsInput;
 import com.linkedin.datahub.graphql.generated.TermRelationshipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryRelatedTerms;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -28,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService<?> _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -35,18 +37,19 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
     final QueryContext context = environment.getContext();
     final RelatedTermsInput input =
         bindArgument(environment.getArgument("input"), RelatedTermsInput.class);
+    final Urn urn = Urn.createFromString(input.getUrn());
 
     return CompletableFuture.supplyAsync(
         () -> {
-          if (GlossaryUtils.canManageGlossaries(context)) {
+          final Urn parentUrn = GlossaryUtils.getParentUrn(urn, context, _entityClient);
+          if (GlossaryUtils.canManageChildrenEntities(context, parentUrn, _entityClient)) {
             try {
               final TermRelationshipType relationshipType = input.getRelationshipType();
-              final Urn urn = Urn.createFromString(input.getUrn());
               final List<Urn> termUrnsToRemove =
                   input.getTermUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
               if (!urn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
-                  || !_entityService.exists(urn, true)) {
+                  || !_entityService.exists(context.getOperationContext(), urn, true)) {
                 throw new IllegalArgumentException(
                     String.format(
                         "Failed to update %s. %s either does not exist or is not a glossaryTerm.",
@@ -58,6 +61,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
               GlossaryRelatedTerms glossaryRelatedTerms =
                   (GlossaryRelatedTerms)
                       EntityUtils.getAspectFromEntity(
+                          context.getOperationContext(),
                           urn.toString(),
                           Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                           _entityService,
@@ -78,6 +82,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
                 existingTermUrns.removeIf(
                     termUrn -> termUrnsToRemove.stream().anyMatch(termUrn::equals));
                 persistAspect(
+                    context.getOperationContext(),
                     urn,
                     Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                     glossaryRelatedTerms,
@@ -95,6 +100,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
                 existingTermUrns.removeIf(
                     termUrn -> termUrnsToRemove.stream().anyMatch(termUrn::equals));
                 persistAspect(
+                    context.getOperationContext(),
                     urn,
                     Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                     glossaryRelatedTerms,

@@ -49,3 +49,4 @@ Example snippet:
 
   * Good: https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/dbt-test-logic-view.png
   * Bad: https://github.com/datahub-project/static-assets/blob/main/imgs/dbt-test-logic-view.png
+

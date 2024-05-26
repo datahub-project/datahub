@@ -1,0 +1,87 @@
+namespace com.linkedin.incident
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.EntityReference
+import com.linkedin.common.Urn
+
+/**
+ * Information about an incident raised on an asset.
+ */
+@Aspect = {
+  "name": "incidentInfo"
+}
+record IncidentInfo {
+  /**
+  * The type of incident
+  */
+  @Searchable = {
+    "addToFilters": true,
+    "filterNameOverride": "Type"
+  }
+  type: IncidentType
+
+  /**
+  * An optional custom incident type. Present only if type is 'CUSTOM'.
+  */
+  @Searchable = {
+    "addToFilters": true,
+    "filterNameOverride": "Other Type"
+  }
+  customType: optional string
+
+  /**
+  * Optional title associated with the incident
+  */
+  title: optional string
+
+  /**
+  * Optional description associated with the incident
+  */
+  description: optional string
+
+  /**
+   * A reference to the entity associated with the incident.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "IncidentOn",
+      "entityTypes": [ "dataset", "chart", "dashboard", "dataFlow", "dataJob", "schemaField" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN"
+    }
+  }
+  entities: array[Urn]
+
+  /**
+  * A numeric severity or priority for the incident. On the UI we will translate this into something easy to understand.
+  */
+  @Searchable = {
+    "addToFilters": true,
+    "filterNameOverride": "Priority"
+  }
+  priority: optional int = 0
+
+  /**
+   * The current status of an incident, i.e. active or inactive.
+   */
+  status: IncidentStatus
+
+  /**
+   * The source of an incident, i.e. how it was generated.
+   */
+  source: optional IncidentSource
+
+  /**
+   * The time at which the request was initially created
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "created",
+        "fieldType": "COUNT"
+      }
+  }
+  created: AuditStamp
+}

@@ -2,13 +2,24 @@ import re
 import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
-from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar, Union
+from typing import (
+    IO,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    runtime_checkable,
+)
 
 import pydantic
 from cached_property import cached_property
 from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
-from typing_extensions import Protocol, runtime_checkable
+from typing_extensions import Protocol
 
 from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
@@ -141,6 +152,10 @@ class TransformerSemanticsConfigModel(ConfigModel):
 
 
 class DynamicTypedConfig(ConfigModel):
+    # Once support for discriminated unions gets merged into Pydantic, we can
+    # simplify this configuration and validation.
+    # See https://github.com/samuelcolvin/pydantic/pull/2336.
+
     type: str = Field(
         description="The type of the dynamic object",
     )
@@ -243,14 +258,20 @@ class AllowDenyPattern(ConfigModel):
         return AllowDenyPattern()
 
     def allowed(self, string: str) -> bool:
-        for deny_pattern in self.deny:
-            if re.match(deny_pattern, string, self.regex_flags):
-                return False
+        if self._denied(string):
+            return False
 
         return any(
             re.match(allow_pattern, string, self.regex_flags)
             for allow_pattern in self.allow
         )
+
+    def _denied(self, string: str) -> bool:
+        for deny_pattern in self.deny:
+            if re.match(deny_pattern, string, self.regex_flags):
+                return True
+
+        return False
 
     def is_fully_specified_allow_list(self) -> bool:
         """
@@ -265,8 +286,11 @@ class AllowDenyPattern(ConfigModel):
 
     def get_allowed_list(self) -> List[str]:
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
-        assert self.is_fully_specified_allow_list()
-        return [a for a in self.allow if self.allowed(a)]
+        if not self.is_fully_specified_allow_list():
+            raise ValueError(
+                "allow list must be fully specified to get list of allowed strings"
+            )
+        return [a for a in self.allow if not self._denied(a)]
 
     def __eq__(self, other):  # type: ignore
         return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
@@ -302,15 +326,3 @@ class KeyValuePattern(ConfigModel):
 
 class VersionedConfig(ConfigModel):
     version: str = "1"
-
-
-class LineageConfig(ConfigModel):
-    incremental_lineage: bool = Field(
-        default=False,
-        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
-    )
-
-    sql_parser_use_external_process: bool = Field(
-        default=False,
-        description="When enabled, sql parser will run in isolated in a separate process. This can affect processing time but can protect from sql parser's mem leak.",
-    )

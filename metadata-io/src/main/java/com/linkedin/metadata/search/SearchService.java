@@ -4,7 +4,6 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.codahale.metrics.Timer;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
@@ -12,6 +11,7 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -38,14 +38,22 @@ public class SearchService {
     _entityDocCountCache = entityDocCountCache;
   }
 
-  public Map<String, Long> docCountPerEntity(@Nonnull List<String> entityNames) {
-    return entityNames.stream()
+  public Map<String, Long> docCountPerEntity(
+      @Nonnull OperationContext opContext, @Nonnull List<String> entityNames) {
+    return docCountPerEntity(opContext, entityNames, null);
+  }
+
+  public Map<String, Long> docCountPerEntity(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter) {
+    return getEntitiesToSearch(opContext, entityNames, 0).stream()
         .collect(
             Collectors.toMap(
                 Function.identity(),
                 entityName ->
                     _entityDocCountCache
-                        .getEntityDocCount()
+                        .getEntityDocCount(opContext, filter)
                         .getOrDefault(entityName.toLowerCase(), 0L)));
   }
 
@@ -60,27 +68,26 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags optional set of flags to control search behavior
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
   @Nonnull
   public SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
-      int size,
-      @Nullable SearchFlags searchFlags) {
-    List<String> entitiesToSearch = getEntitiesToSearch(entityNames);
+      int size) {
+    List<String> entitiesToSearch = getEntitiesToSearch(opContext, entityNames, size);
     if (entitiesToSearch.isEmpty()) {
       // Optimization: If the indices are all empty, return empty result
       return getEmptySearchResult(from, size);
     }
     SearchResult result =
         _cachingEntitySearchService.search(
-            entitiesToSearch, input, postFilters, sortCriterion, from, size, searchFlags, null);
+            opContext, entitiesToSearch, input, postFilters, sortCriterion, from, size, null);
 
     try {
       return result
@@ -94,15 +101,15 @@ public class SearchService {
 
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
-      int size,
-      @Nullable SearchFlags searchFlags) {
+      int size) {
     return searchAcrossEntities(
-        entities, input, postFilters, sortCriterion, from, size, searchFlags, null);
+        opContext, entities, input, postFilters, sortCriterion, from, size, null);
   }
 
   /**
@@ -116,20 +123,19 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags optional set of flags to control search behavior
    * @param facets list of facets we want aggregations for
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
   @Nonnull
   public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
       int size,
-      @Nullable SearchFlags searchFlags,
       @Nullable List<String> facets) {
     log.debug(
         String.format(
@@ -147,14 +153,14 @@ public class SearchService {
       facets = new ArrayList<>(facets);
       facets.add(INDEX_VIRTUAL_FIELD);
     }
-    List<String> nonEmptyEntities = getEntitiesToSearch(entities);
+    List<String> nonEmptyEntities = getEntitiesToSearch(opContext, entities, size);
     if (nonEmptyEntities.isEmpty()) {
       // Optimization: If the indices are all empty, return empty result
       return getEmptySearchResult(from, size);
     }
     SearchResult result =
         _cachingEntitySearchService.search(
-            nonEmptyEntities, input, postFilters, sortCriterion, from, size, searchFlags, facets);
+            opContext, nonEmptyEntities, input, postFilters, sortCriterion, from, size, facets);
     if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
       Optional<AggregationMetadata> entityTypeAgg =
           result.getMetadata().getAggregations().stream()
@@ -206,7 +212,8 @@ public class SearchService {
    * @param inputEntities the requested entities
    * @return some entities to search
    */
-  private List<String> getEntitiesToSearch(@Nonnull List<String> inputEntities) {
+  public List<String> getEntitiesToSearch(
+      @Nonnull OperationContext opContext, @Nonnull List<String> inputEntities, int size) {
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities =
         inputEntities.stream().map(String::toLowerCase).collect(Collectors.toList());
@@ -214,7 +221,7 @@ public class SearchService {
     if (lowercaseEntities.isEmpty()) {
       try (Timer.Context ignored =
           MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
-        nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
+        nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities(opContext);
       }
     } else {
       nonEmptyEntities = lowercaseEntities;
@@ -234,38 +241,30 @@ public class SearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier for passing to search backend
    * @param size the number of search hits to return
-   * @param searchFlags optional set of flags to control search behavior
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
   @Nonnull
   public ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
-      @Nullable SearchFlags searchFlags) {
+      int size) {
     log.debug(
         String.format(
             "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
             entities, input, postFilters, sortCriterion, scrollId, size));
-    List<String> entitiesToSearch = getEntitiesToSearch(entities);
+    List<String> entitiesToSearch = getEntitiesToSearch(opContext, entities, size);
     if (entitiesToSearch.isEmpty()) {
       // No indices with non-zero entries: skip querying and return empty result
       return getEmptyScrollResult(size);
     }
     return _cachingEntitySearchService.scroll(
-        entitiesToSearch,
-        input,
-        postFilters,
-        sortCriterion,
-        scrollId,
-        keepAlive,
-        size,
-        searchFlags);
+        opContext, entitiesToSearch, input, postFilters, sortCriterion, scrollId, keepAlive, size);
   }
 
   private static SearchResult getEmptySearchResult(int from, int size) {

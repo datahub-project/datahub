@@ -16,6 +16,7 @@ from datahub.ingestion.source.looker.lookml_source import (
     LookerModel,
     LookerRefinementResolver,
     LookMLSourceConfig,
+    load_lkml,
 )
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
@@ -157,7 +158,7 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
             {"name": "+book", "extends__all": [["order"]]},
             {"name": "+book", "extends__all": [["transaction"]]},
         ],
-        connection=str(),
+        connection="",
         resolved_includes=[],
         includes=[],
     )
@@ -577,7 +578,7 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
-                    "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
+                    "git_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
                 },
@@ -692,7 +693,7 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
-                    "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
+                    "git_info": {"repo": "datahub/looker-demo", "branch": "master"},
                     "emit_reachable_views_only": False,
                     "process_refinements": False,
                 },
@@ -790,7 +791,7 @@ def test_lookml_base_folder():
 
     LookMLSourceConfig.parse_obj(
         {
-            "github_info": {
+            "git_info": {
                 "repo": "acryldata/long-tail-companions-looker",
                 "deploy_key": "this-is-fake",
             },
@@ -851,4 +852,38 @@ def test_same_name_views_different_file_path(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+    )
+
+
+def test_manifest_parser(pytestconfig: pytest.Config) -> None:
+    # This mainly tests that we're permissive enough that we don't crash when parsing the manifest file.
+    # We need the test because we monkeypatch the lkml library.
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    manifest_file = test_resources_dir / "lkml_manifest_samples/complex-manifest.lkml"
+
+    manifest = load_lkml(manifest_file)
+    assert manifest
+
+
+@freeze_time(FROZEN_TIME)
+def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "duplicate_ingest_mces_output.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/lkml_samples_duplicate_field",
+    )
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "duplicate_field_ingestion_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
     )

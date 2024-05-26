@@ -10,7 +10,7 @@ import com.linkedin.datahub.graphql.generated.AspectRenderSpec;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RawAspect;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.models.AspectSpec;
@@ -37,7 +37,12 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
   private static final JacksonDataCodec CODEC = new JacksonDataCodec();
 
   private boolean shouldReturnAspect(AspectSpec aspectSpec, AspectParams params) {
-    return !params.getAutoRenderOnly() || aspectSpec.isAutoRender();
+    return (params.getAutoRenderOnly() == null
+            || !params.getAutoRenderOnly()
+            || aspectSpec.isAutoRender())
+        && (params.getAspectNames() == null
+            || params.getAspectNames().isEmpty()
+            || params.getAspectNames().contains(aspectSpec.getName()));
   }
 
   @Override
@@ -65,10 +70,10 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                       EntityResponse entityResponse =
                           _entityClient
                               .batchGetV2(
+                                  context.getOperationContext(),
                                   urn.getEntityType(),
                                   Collections.singleton(urn),
-                                  Collections.singleton(aspectSpec.getName()),
-                                  context.getAuthentication())
+                                  Collections.singleton(aspectSpec.getName()))
                               .get(urn);
                       if (entityResponse == null
                           || !entityResponse.getAspects().containsKey(aspectSpec.getName())) {

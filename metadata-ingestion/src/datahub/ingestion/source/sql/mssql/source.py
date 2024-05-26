@@ -7,7 +7,6 @@ import pydantic
 import sqlalchemy.dialects.mssql
 
 # This import verifies that the dependencies are available.
-import sqlalchemy_pytds  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
@@ -133,10 +132,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         return uri
 
     @property
-    def host(self):
-        return self.platform_instance or self.host_port.split(":")[0]
-
-    @property
     def db(self):
         return self.database
 
@@ -156,6 +151,7 @@ class SQLServerSource(SQLAlchemySource):
     - Column types associated with each table/view
     - Table, row, and column statistics via optional SQL profiling
     We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install.
+    If you do use pyodbc, make sure to change the source type from `mssql` to `mssql-odbc` so that we pull in the right set of dependencies. This will be needed in most cases where encryption is required, such as managed SQL Server services in Azure.
     """
 
     def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
@@ -369,7 +365,7 @@ class SQLServerSource(SQLAlchemySource):
                     name=job_name,
                     env=sql_config.env,
                     db=db_name,
-                    platform_instance=sql_config.host,
+                    platform_instance=sql_config.platform_instance,
                 )
                 data_flow = MSSQLDataFlow(entity=job)
                 yield from self.construct_flow_workunits(data_flow=data_flow)
@@ -404,7 +400,7 @@ class SQLServerSource(SQLAlchemySource):
             name=procedure_flow_name,
             env=sql_config.env,
             db=db_name,
-            platform_instance=sql_config.host,
+            platform_instance=sql_config.platform_instance,
         )
         data_flow = MSSQLDataFlow(entity=mssql_default_job)
         with inspector.engine.connect() as conn:

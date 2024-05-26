@@ -74,6 +74,10 @@
       }, {
         "name" : "limit",
         "type" : "int"
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
     }, {
@@ -114,6 +118,10 @@
       }, {
         "name" : "limit",
         "type" : "int"
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.browse.BrowseResult"
     }, {
@@ -172,6 +180,10 @@
       "parameters" : [ {
         "name" : "urn",
         "type" : "string"
+      }, {
+        "name" : "includeSoftDelete",
+        "type" : "boolean",
+        "optional" : true
       } ],
       "returns" : "boolean"
     }, {
@@ -278,7 +290,8 @@
         "optional" : true
       }, {
         "name" : "scrollId",
-        "type" : "string"
+        "type" : "string",
+        "optional" : true
       }, {
         "name" : "keepAlive",
         "type" : "string"
@@ -322,7 +335,8 @@
         "optional" : true
       }, {
         "name" : "scrollId",
-        "type" : "string"
+        "type" : "string",
+        "optional" : true
       }, {
         "name" : "keepAlive",
         "type" : "string"

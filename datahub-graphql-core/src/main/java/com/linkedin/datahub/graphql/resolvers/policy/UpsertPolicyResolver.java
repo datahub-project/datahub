@@ -43,7 +43,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
       // Finally, create the MetadataChangeProposal.
       final MetadataChangeProposal proposal;
 
-      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(input);
+      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(context, input);
       info.setLastUpdatedTimestamp(System.currentTimeMillis());
 
       if (policyUrn.isPresent()) {
@@ -69,7 +69,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
           () -> {
             try {
               String urn =
-                  _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
               if (context.getAuthorizer() instanceof AuthorizerChain) {
                 ((AuthorizerChain) context.getAuthorizer())
                     .getDefaultAuthorizer()

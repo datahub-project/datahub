@@ -1,8 +1,13 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.metadata.query.GroupingCriterionArray;
+import com.linkedin.metadata.query.GroupingSpec;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Maps GraphQL SearchFlags to Pegasus
@@ -15,12 +20,13 @@ public class SearchFlagsInputMapper
   public static final SearchFlagsInputMapper INSTANCE = new SearchFlagsInputMapper();
 
   public static com.linkedin.metadata.query.SearchFlags map(
-      @Nonnull final SearchFlags searchFlags) {
-    return INSTANCE.apply(searchFlags);
+      @Nullable QueryContext context, @Nonnull final SearchFlags searchFlags) {
+    return INSTANCE.apply(context, searchFlags);
   }
 
   @Override
-  public com.linkedin.metadata.query.SearchFlags apply(@Nonnull final SearchFlags searchFlags) {
+  public com.linkedin.metadata.query.SearchFlags apply(
+      @Nullable QueryContext context, @Nonnull final SearchFlags searchFlags) {
     com.linkedin.metadata.query.SearchFlags result = new com.linkedin.metadata.query.SearchFlags();
     if (searchFlags.getFulltext() != null) {
       result.setFulltext(searchFlags.getFulltext());
@@ -41,6 +47,22 @@ public class SearchFlagsInputMapper
     }
     if (searchFlags.getGetSuggestions() != null) {
       result.setGetSuggestions(searchFlags.getGetSuggestions());
+    }
+    if (searchFlags.getIncludeSoftDeleted() != null) {
+      result.setIncludeSoftDeleted(searchFlags.getIncludeSoftDeleted());
+    }
+    if (searchFlags.getIncludeRestricted() != null) {
+      result.setIncludeRestricted(searchFlags.getIncludeRestricted());
+    }
+    if (searchFlags.getGroupingSpec() != null
+        && searchFlags.getGroupingSpec().getGroupingCriteria() != null) {
+      result.setGroupingSpec(
+          new GroupingSpec()
+              .setGroupingCriteria(
+                  new GroupingCriterionArray(
+                      searchFlags.getGroupingSpec().getGroupingCriteria().stream()
+                          .map(c -> GroupingCriterionInputMapper.map(context, c))
+                          .collect(Collectors.toList()))));
     }
     return result;
   }

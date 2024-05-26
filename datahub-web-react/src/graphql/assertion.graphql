@@ -46,6 +46,10 @@ fragment assertionDetails on Assertion {
             }
             logic
         }
+        description
+    }
+    tags {
+        ...globalTagsFields
     }
 }
 

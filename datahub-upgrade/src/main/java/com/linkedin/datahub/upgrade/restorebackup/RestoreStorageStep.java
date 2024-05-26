@@ -47,7 +47,7 @@ public class RestoreStorageStep implements UpgradeStep {
   private final ExecutorService _gmsThreadPool;
 
   public RestoreStorageStep(
-      final EntityService entityService, final EntityRegistry entityRegistry) {
+      final EntityService<?> entityService, final EntityRegistry entityRegistry) {
     _entityService = entityService;
     _entityRegistry = entityRegistry;
     _backupReaders = ImmutableBiMap.of(LocalParquetReader.READER_NAME, LocalParquetReader.class);
@@ -178,8 +178,10 @@ public class RestoreStorageStep implements UpgradeStep {
       final RecordTemplate aspectRecord;
       try {
         aspectRecord =
-            EntityUtils.toAspectRecord(
-                entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+            EntityUtils.toSystemAspect(
+                    context.opContext().getRetrieverContext().get(), aspect.toEntityAspect())
+                .get()
+                .getRecordTemplate();
       } catch (Exception e) {
         context
             .report()
@@ -214,7 +216,11 @@ public class RestoreStorageStep implements UpgradeStep {
               () ->
                   _entityService
                       .ingestAspects(
-                          urn, List.of(Pair.of(aspectName, aspectRecord)), auditStamp, null)
+                          context.opContext(),
+                          urn,
+                          List.of(Pair.of(aspectName, aspectRecord)),
+                          auditStamp,
+                          null)
                       .get(0)
                       .getNewValue()));
       if (numRows % REPORT_BATCH_SIZE == 0) {

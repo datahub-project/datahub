@@ -8,7 +8,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aplatform%2Cupstream1%2CPROD%29",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:platform,upstream1,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 0,
@@ -20,7 +20,7 @@
             },
             {
                 "op": "add",
-                "path": "/upstreams/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aplatform%2Cupstream2%2CPROD%29",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:platform,upstream2,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 0,

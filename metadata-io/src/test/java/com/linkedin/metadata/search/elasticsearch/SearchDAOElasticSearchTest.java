@@ -4,7 +4,7 @@ import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.search.query.SearchDAOTestBase;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import lombok.Getter;
@@ -25,8 +25,8 @@ public class SearchDAOElasticSearchTest extends SearchDAOTestBase {
   @Autowired private SearchConfiguration searchConfiguration;
 
   @Autowired
-  @Qualifier("sampleDataIndexConvention")
-  IndexConvention indexConvention;
+  @Qualifier("sampleDataOperationContext")
+  protected OperationContext operationContext;
 
   @Test
   public void initTest() {

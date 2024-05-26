@@ -1,15 +1,17 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationContentArray;
 import com.linkedin.metadata.recommendation.RecommendationModule;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Base interface for defining a candidate source for recommendation module */
 public interface RecommendationSource {
@@ -26,37 +28,49 @@ public interface RecommendationSource {
   /**
    * Whether or not this module is eligible for resolution given the context
    *
-   * @param userUrn User requesting recommendations
+   * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
    * @return whether this source is eligible
    */
-  boolean isEligible(@Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
+  boolean isEligible(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext);
 
   /**
    * Get recommended items (candidates / content) provided the context
    *
-   * @param userUrn User requesting recommendations
+   * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
    * @return list of recommendation candidates
    */
   @WithSpan
   List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext);
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter);
+
+  // retaining this for backward compatibility
+  default List<RecommendationContent> getRecommendations(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    return getRecommendations(opContext, requestContext, null);
+  }
 
   /**
    * Get the full recommendations module itself provided the request context.
    *
-   * @param userUrn User requesting recommendations
+   * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
    * @return list of recommendation candidates
    */
   default Optional<RecommendationModule> getRecommendationModule(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
-    if (!isEligible(userUrn, requestContext)) {
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
+    if (!isEligible(opContext, requestContext)) {
       return Optional.empty();
     }
 
-    List<RecommendationContent> recommendations = getRecommendations(userUrn, requestContext);
+    List<RecommendationContent> recommendations =
+        getRecommendations(opContext, requestContext, filter);
     if (recommendations.isEmpty()) {
       return Optional.empty();
     }
@@ -67,5 +81,11 @@ public interface RecommendationSource {
             .setModuleId(getModuleId())
             .setRenderType(getRenderType())
             .setContent(new RecommendationContentArray(recommendations)));
+  }
+
+  // retaining this for backward compatibility
+  default Optional<RecommendationModule> getRecommendationModule(
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+    return getRecommendationModule(opContext, requestContext);
   }
 }

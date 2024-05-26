@@ -3,10 +3,12 @@ package com.linkedin.datahub.graphql.types.dataproduct;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -49,7 +51,9 @@ public class DataProductType
           GLOBAL_TAGS_ASPECT_NAME,
           GLOSSARY_TERMS_ASPECT_NAME,
           DOMAINS_ASPECT_NAME,
-          INSTITUTIONAL_MEMORY_ASPECT_NAME);
+          INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override
@@ -76,12 +80,12 @@ public class DataProductType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               DATA_PRODUCT_ENTITY_NAME,
               new HashSet<>(dataProductUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : dataProductUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -91,7 +95,7 @@ public class DataProductType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataProduct>newResult()
-                          .data(DataProductMapper.map(gmsResult))
+                          .data(DataProductMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -109,8 +113,8 @@ public class DataProductType
       throws Exception {
     final AutoCompleteResult result =
         _entityClient.autoComplete(
-            DATA_PRODUCT_ENTITY_NAME, query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+            context.getOperationContext(), DATA_PRODUCT_ENTITY_NAME, query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override

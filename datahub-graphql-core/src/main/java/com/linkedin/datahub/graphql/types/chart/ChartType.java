@@ -39,7 +39,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -81,7 +80,9 @@ public class ChartType
           EMBED_ASPECT_NAME,
           DATA_PRODUCTS_ASPECT_NAME,
           BROWSE_PATHS_V2_ASPECT_NAME,
-          SUB_TYPES_ASPECT_NAME);
+          SUB_TYPES_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS =
       ImmutableSet.of("access", "queryType", "tool", "type");
 
@@ -116,14 +117,15 @@ public class ChartType
       @Nonnull List<String> urnStrs, @Nonnull QueryContext context) throws Exception {
     final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
+
       final Map<Urn, EntityResponse> chartMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               CHART_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
         gmsResults.add(chartMap.getOrDefault(urn, null));
       }
@@ -133,7 +135,7 @@ public class ChartType
                   gmsChart == null
                       ? null
                       : DataFetcherResult.<Chart>newResult()
-                          .data(ChartMapper.map(gmsChart))
+                          .data(ChartMapper.map(context, gmsChart))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -152,14 +154,13 @@ public class ChartType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "chart",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -171,8 +172,8 @@ public class ChartType
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("chart", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+        _entityClient.autoComplete(context.getOperationContext(), "chart", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -188,16 +189,21 @@ public class ChartType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "chart", pathStr, facetFilters, start, count, context.getAuthentication());
-    return BrowseResultMapper.map(result);
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "chart",
+            pathStr,
+            facetFilters,
+            start,
+            count);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context)
       throws Exception {
     final StringArray result =
-        _entityClient.getBrowsePaths(getChartUrn(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+        _entityClient.getBrowsePaths(context.getOperationContext(), getChartUrn(urn));
+    return BrowsePathsMapper.map(context, result);
   }
 
   private ChartUrn getChartUrn(String urnStr) {
@@ -214,13 +220,13 @@ public class ChartType
       @Nonnull String urn, @Nonnull ChartUpdateInput input, @Nonnull QueryContext context)
       throws Exception {
     if (isAuthorized(urn, input, context)) {
-      final CorpuserUrn actor =
-          CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-      final Collection<MetadataChangeProposal> proposals = ChartUpdateInputMapper.map(input, actor);
+      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
+      final Collection<MetadataChangeProposal> proposals =
+          ChartUpdateInputMapper.map(context, input, actor);
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
       try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+        _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
       } catch (RemoteInvocationException e) {
         throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
       }
@@ -237,7 +243,7 @@ public class ChartType
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context.getActorUrn(),
         PoliciesConfig.CHART_PRIVILEGES.getResourceType(),
         urn,
         orPrivilegeGroups);

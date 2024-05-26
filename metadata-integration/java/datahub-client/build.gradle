@@ -1,13 +1,13 @@
 plugins {
   id("com.palantir.git-version") apply false
+  id 'java'
+  id 'com.github.johnrengelman.shadow'
+  id 'jacoco'
+  id 'signing'
+  id 'io.codearte.nexus-staging'
+  id 'maven-publish'
 }
-apply plugin: 'java'
-apply plugin: 'com.github.johnrengelman.shadow'
-apply plugin: 'jacoco'
-apply plugin: 'signing'
-apply plugin: 'io.codearte.nexus-staging'
-apply plugin: 'maven-publish'
-apply plugin: 'org.hidetake.swagger.generator'
+
 apply from: "../versioning.gradle"
 import org.apache.tools.ant.filters.ReplaceTokens
 
@@ -15,8 +15,8 @@ import org.apache.tools.ant.filters.ReplaceTokens
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
 dependencies {
-  implementation project(':metadata-models')
-  implementation project(path: ':metadata-models', configuration: "dataTemplate")
+  implementation project(':entity-registry')
+  implementation project(':metadata-integration:java:datahub-event')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
@@ -27,12 +27,9 @@ dependencies {
     }
   }
 
-  compileOnly externalDependency.httpAsyncClient
+  compileOnly externalDependency.httpClient
   implementation externalDependency.jacksonDataBind
-  implementation externalDependency.javaxValidation
   runtimeOnly externalDependency.jna
-  implementation externalDependency.springContext
-  implementation externalDependency.swaggerAnnotations
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
@@ -44,10 +41,8 @@ dependencies {
   testImplementation externalDependency.mockServer
   testImplementation externalDependency.mockServerClient
   testImplementation externalDependency.testContainers
-  testImplementation externalDependency.httpAsyncClient
+  testImplementation externalDependency.httpClient
   testRuntimeOnly externalDependency.logbackClassic
-
-  swaggerCodegen externalDependency.swaggerCli
 }
 
 task copyAvroSchemas {
@@ -81,13 +76,13 @@ shadowJar {
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
   exclude('module-info.class', 'META-INF/versions/**',
-      '**/LICENSE', '**/LICENSE.txt', '**/NOTICE', '**/NOTICE.txt')
+      '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
   relocate 'org.springframework', 'datahub.shaded.org.springframework'
   relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
-  relocate 'org.yaml', 'io.acryl.shaded.org.yaml' // Required for shading snakeyaml
+  relocate 'org.yaml', 'datahub.shaded.org.yaml' // Required for shading snakeyaml
   relocate 'net.jcip.annotations', 'datahub.shaded.annotations'
   relocate 'javassist', 'datahub.shaded.javassist'
   relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
@@ -95,6 +90,7 @@ shadowJar {
   relocate 'antlr', 'datahub.shaded.antlr'
   relocate 'com.google.common', 'datahub.shaded.com.google.common'
   relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
+  relocate 'org.apache.maven', 'datahub.shaded.org.apache.maven'
   relocate 'org.reflections', 'datahub.shaded.org.reflections'
   relocate 'st4hidden', 'datahub.shaded.st4hidden'
   relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
@@ -104,7 +100,6 @@ shadowJar {
   relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
-  relocate 'com.sun.jna', 'datahub.shaded.com.sun.jna'
   // Below jars added for kafka emitter only
   relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
@@ -121,6 +116,10 @@ shadowJar {
   relocate 'common.message', 'datahub.shaded.common.message'
   relocate 'org.glassfish', 'datahub.shaded.org.glassfish'
   relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
+  relocate 'io.github.classgraph', 'datahub.shaded.io.github.classgraph'
+  relocate 'nonapi.io.github.classgraph', 'datahub.shaded.nonapi.io.github.classgraph'
+  relocate 'org.eclipse.parsson', 'datahub.shaded.parsson'
+  relocate 'jakarta.json', 'datahub.shaded.json'
 
   finalizedBy checkShadowJar
 }
@@ -207,28 +206,4 @@ nexusStaging {
   //required only for projects registered in Sonatype after 2021-02-24
   username = System.getenv("NEXUS_USERNAME")
   password = System.getenv("NEXUS_PASSWORD")
-}
-
-tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
-  it.setInputFile(file("${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api.yaml"))
-  it.setOutputDir(file("$projectDir/generated"))
-  it.setLanguage("spring")
-  it.setComponents(['models'])
-  it.setTemplateDir(file("$projectDir/src/main/resources/JavaSpring"))
-  it.setAdditionalProperties(["group-id"           : "io.datahubproject",
-                              "dateLibrary"        : "java8",
-                              "java8"              : "true",
-                              "modelPropertyNaming": "original",
-                              "modelPackage"       : "io.datahubproject.openapi.generated"] as Map<String, String>)
-
-  dependsOn ':metadata-models:generateJsonSchema'
-}
-
-compileJava.dependsOn generateOpenApiPojos
-processResources.dependsOn generateOpenApiPojos
-sourceSets.main.java.srcDir "${generateOpenApiPojos.outputDir}/src/main/java"
-sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
-
-clean {
-  project.delete("$projectDir/generated")
 }

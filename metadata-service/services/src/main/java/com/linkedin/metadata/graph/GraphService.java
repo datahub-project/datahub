@@ -1,7 +1,10 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -17,7 +20,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.collections.CollectionUtils;
 
-public interface GraphService {
+public interface GraphService extends GraphRetriever {
   /** Return lineage registry to construct graph index */
   LineageRegistry getLineageRegistry();
 
@@ -139,20 +142,18 @@ public interface GraphService {
       int offset,
       int count,
       int maxHops,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable LineageFlags lineageFlags) {
     return getLineage(
         entityUrn,
         direction,
         new GraphFilters(
-            new ArrayList(
+            new ArrayList<>(
                 getLineageRegistry()
                     .getEntitiesWithLineageToEntityType(entityUrn.getEntityType()))),
         offset,
         count,
         maxHops,
-        startTimeMillis,
-        endTimeMillis);
+        lineageFlags);
   }
 
   /**
@@ -164,6 +165,7 @@ public interface GraphService {
    * them
    */
   @Nonnull
+  @Deprecated
   default EntityLineageResult getLineage(
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
@@ -171,7 +173,7 @@ public interface GraphService {
       int offset,
       int count,
       int maxHops) {
-    return getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null, null);
+    return getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null);
   }
 
   /**
@@ -190,8 +192,7 @@ public interface GraphService {
       int offset,
       int count,
       int maxHops,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable LineageFlags lineageFlags) {
     if (maxHops > 1) {
       maxHops = 1;
     }

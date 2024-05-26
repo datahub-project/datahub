@@ -35,6 +35,9 @@ outputs:
   elasticsearch-setup-change:
     description: "Elasticsearch setup docker change"
     value: ${{ steps.filter.outputs.elasticsearch-setup == 'true' }}
+  smoke-test-change:
+    description: "Smoke test change"
+    value: ${{ steps.filter.outputs.smoke-test == 'true' }}
 runs:
   using: "composite"
   steps:
@@ -52,10 +55,11 @@ runs:
             - "metadata-ingestion/**"
             - "metadata-models/**"
             - "smoke-test/**"
-            - "docker/datahub-ingestion-**"
+            - "docker/datahub-ingestion**"
           docker:
             - "docker/**"
           backend:
+            - ".github/**"
             - "metadata-models/**"
             - "datahub-upgrade/**"
             - "entity-registry/**"
@@ -67,6 +71,8 @@ runs:
             - "metadata-jobs/**"
             - "metadata-service/**"
             - "metadata-utils/**"
+            - "metadata-operation-context/**"
+            - "datahub-graphql-core/**"
             - "smoke-test/**"
             - "docker/**"
           kafka-setup:
@@ -77,3 +83,5 @@ runs:
             - "docker/postgres-setup/**"
           elasticsearch-setup:
             - "docker/elasticsearch-setup/**"
+          smoke-test:
+            - "smoke-test/**"

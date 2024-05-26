@@ -14,7 +14,6 @@ import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -63,18 +62,20 @@ public class ListIngestionSourcesResolver
               // First, get all ingestion sources Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       query,
                       buildFilter(filters, Collections.emptyList()),
                       null,
                       start,
-                      count,
-                      context.getAuthentication(),
-                      new SearchFlags().setFulltext(true));
+                      count);
 
               // Then, resolve all ingestion sources
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       new HashSet<>(
                           gmsResult.getEntities().stream()
@@ -82,8 +83,7 @@ public class ListIngestionSourcesResolver
                               .collect(Collectors.toList())),
                       ImmutableSet.of(
                           Constants.INGESTION_INFO_ASPECT_NAME,
-                          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME),
-                      context.getAuthentication());
+                          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME));
 
               final Collection<EntityResponse> sortedEntities =
                   entities.values().stream()

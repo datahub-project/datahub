@@ -9,9 +9,13 @@ import click
 import datahub as datahub_package
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
+    fixup_gms_url,
+    generate_access_token,
+    make_shim_command,
+)
+from datahub.cli.config_utils import (
     DATAHUB_CONFIG_PATH,
     get_boolean_env_variable,
-    make_shim_command,
     write_gms_config,
 )
 from datahub.cli.delete_cli import delete
@@ -23,13 +27,17 @@ from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
+from datahub.cli.specific.dataset_cli import dataset
+from datahub.cli.specific.forms_cli import forms
 from datahub.cli.specific.group_cli import group
+from datahub.cli.specific.structuredproperties_cli import properties
 from datahub.cli.specific.user_cli import user
 from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
 from datahub.telemetry import telemetry
+from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
 
@@ -59,13 +67,6 @@ MAX_CONTENT_WIDTH = 120
     default=None,
     help="Enable debug logging.",
 )
-@click.option(
-    "--debug-vars/--no-debug-vars",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Show variable values in stack traces. Implies --debug. While we try to avoid printing sensitive information like passwords, this may still happen.",
-)
 @click.version_option(
     version=datahub_package.nice_version_name(),
     prog_name=datahub_package.__package_name__,
@@ -73,13 +74,7 @@ MAX_CONTENT_WIDTH = 120
 def datahub(
     debug: bool,
     log_file: Optional[str],
-    debug_vars: bool,
 ) -> None:
-    if debug_vars:
-        # debug_vars implies debug. This option isn't actually used here, but instead
-        # read directly from the command line arguments in the main entrypoint.
-        debug = True
-
     debug = debug or get_boolean_env_variable("DATAHUB_DEBUG", False)
 
     # Note that we're purposely leaking the context manager here.
@@ -105,26 +100,47 @@ def version() -> None:
     """Print version number and exit."""
 
     click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
+    click.echo(f"Models: {model_version_name()}")
     click.echo(f"Python version: {sys.version}")
 
 
 @datahub.command()
+@click.option(
+    "--use-password",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If passed then uses password to initialise token.",
+)
 @telemetry.with_telemetry()
-def init() -> None:
+def init(use_password: bool = False) -> None:
     """Configure which datahub instance to connect to"""
 
     if os.path.isfile(DATAHUB_CONFIG_PATH):
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
-    click.echo("Configure which datahub instance to connect to")
+    click.echo(
+        "Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for Acryl hosted users)"
+    )
     host = click.prompt(
         "Enter your DataHub host", type=str, default="http://localhost:8080"
     )
-    token = click.prompt(
-        "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
-        type=str,
-        default="",
-    )
+    host = fixup_gms_url(host)
+    if use_password:
+        username = click.prompt("Enter your DataHub username", type=str)
+        password = click.prompt(
+            "Enter your DataHub password",
+            type=str,
+        )
+        _, token = generate_access_token(
+            username=username, password=password, gms_url=host
+        )
+    else:
+        token = click.prompt(
+            "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
+            type=str,
+            default="",
+        )
     write_gms_config(host, token)
 
     click.echo(f"Written to {DATAHUB_CONFIG_PATH}")
@@ -144,6 +160,9 @@ datahub.add_command(timeline)
 datahub.add_command(user)
 datahub.add_command(group)
 datahub.add_command(dataproduct)
+datahub.add_command(dataset)
+datahub.add_command(properties)
+datahub.add_command(forms)
 datahub.add_command(datacontract)
 
 try:

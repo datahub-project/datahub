@@ -45,6 +45,7 @@ class PathSpec(ConfigModel):
     )
 
     default_extension: Optional[str] = Field(
+        default=None,
         description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
     )
 
@@ -61,6 +62,11 @@ class PathSpec(ConfigModel):
     sample_files: bool = Field(
         default=True,
         description="Not listing all the files but only taking a handful amount of sample file to infer the schema. File count and file size calculation will be disabled. This can affect performance significantly if enabled",
+    )
+
+    allow_double_stars: bool = Field(
+        default=False,
+        description="Allow double stars in the include path. This can affect performance significantly if enabled",
     )
 
     def allowed(self, path: str) -> bool:
@@ -126,11 +132,18 @@ class PathSpec(ConfigModel):
     def get_named_vars(self, path: str) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_include.parse(path)
 
-    @pydantic.validator("include")
-    def validate_no_double_stars(cls, v: str) -> str:
-        if "**" in v:
+    @pydantic.root_validator()
+    def validate_no_double_stars(cls, values: Dict) -> Dict:
+        if "include" not in values:
+            return values
+
+        if (
+            values.get("include")
+            and "**" in values["include"]
+            and not values.get("allow_double_stars")
+        ):
             raise ValueError("path_spec.include cannot contain '**'")
-        return v
+        return values
 
     @pydantic.validator("file_types", always=True)
     def validate_file_types(cls, v: Optional[List[str]]) -> List[str]:

@@ -63,12 +63,12 @@ public class DataJobRunsResolver
             final SortCriterion sortCriterion = buildTaskRunsSortCriterion();
             final SearchResult gmsResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
                     filter,
                     sortCriterion,
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
             final List<Urn> dataProcessInstanceUrns =
                 gmsResult.getEntities().stream()
                     .map(SearchEntity::getEntity)
@@ -77,10 +77,10 @@ public class DataJobRunsResolver
             // Step 2: Hydrate the incident entities
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
                     new HashSet<>(dataProcessInstanceUrns),
-                    null,
-                    context.getAuthentication());
+                    null);
 
             // Step 3: Map GMS incident model to GraphQL model
             final List<EntityResponse> gmsResults = new ArrayList<>();
@@ -90,7 +90,7 @@ public class DataJobRunsResolver
             final List<DataProcessInstance> dataProcessInstances =
                 gmsResults.stream()
                     .filter(Objects::nonNull)
-                    .map(DataProcessInstanceMapper::map)
+                    .map(p -> DataProcessInstanceMapper.map(context, p))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result

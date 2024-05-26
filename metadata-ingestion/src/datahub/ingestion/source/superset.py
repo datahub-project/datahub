@@ -170,7 +170,6 @@ class SupersetSource(StatefulIngestionSourceBase):
     config: SupersetConfig
     report: StaleEntityRemovalSourceReport
     platform = "superset"
-    stale_entity_removal_handler: StaleEntityRemovalHandler
 
     def __hash__(self):
         return id(self)
@@ -226,8 +225,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         ).json()
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
         if sqlalchemy_uri is None:
-            return database_response.get("result", {}).get("backend", "external")
-        return get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
+            platform_name = database_response.get("result", {}).get(
+                "backend", "external"
+            )
+        else:
+            platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
+        if platform_name == "awsathena":
+            return "athena"
+        return platform_name
 
     @lru_cache(maxsize=None)
     def get_datasource_urn_from_id(self, datasource_id):

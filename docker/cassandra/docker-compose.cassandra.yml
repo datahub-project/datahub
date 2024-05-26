@@ -3,7 +3,6 @@
 version: '3.8'
 services:
   cassandra:
-    container_name: cassandra
     hostname: cassandra
     image: cassandra:3.11
     ports:
@@ -16,7 +15,6 @@ services:
     volumes:
       - cassandradata:/var/lib/cassandra
   cassandra-load-keyspace:
-    container_name: cassandra-setup
     image: cassandra:3.11
     depends_on:
       cassandra:

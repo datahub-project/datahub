@@ -17,6 +17,7 @@ from typing import (
 )
 
 import humanfriendly
+import sqlglot
 from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
@@ -37,7 +38,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigQuerySchemaApi,
+    BigqueryTableSnapshot,
+)
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
 from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
@@ -55,15 +59,11 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 from datahub.utilities import memory_footprint
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlglot_lineage import (
-    SchemaResolver,
-    SqlParsingResult,
-    sqlglot_lineage,
-)
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -198,6 +198,28 @@ def make_lineage_edges_from_parsing_result(
     return list(table_edges.values())
 
 
+def make_lineage_edge_for_snapshot(
+    snapshot: BigqueryTableSnapshot,
+) -> Optional[LineageEdge]:
+    if snapshot.base_table_identifier:
+        base_table_name = str(
+            BigQueryTableRef.from_bigquery_table(snapshot.base_table_identifier)
+        )
+        return LineageEdge(
+            table=base_table_name,
+            column_mapping=frozenset(
+                LineageEdgeColumnMapping(
+                    out_column=column.field_path,
+                    in_columns=frozenset([column.field_path]),
+                )
+                for column in snapshot.columns
+            ),
+            auditStamp=datetime.now(timezone.utc),
+            type=DatasetLineageTypeClass.TRANSFORMED,
+        )
+    return None
+
+
 class BigqueryLineageExtractor:
     def __init__(
         self,
@@ -230,8 +252,9 @@ class BigqueryLineageExtractor:
             return self.config.start_time, self.config.end_time
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.error(f"{key} => {reason}")
+        # TODO: Remove this method.
+        # Note that this downgrades the error to a warning.
+        self.report.warning(key, reason)
 
     def _should_ingest_lineage(self) -> bool:
         if (
@@ -256,27 +279,35 @@ class BigqueryLineageExtractor:
         sql_parser_schema_resolver: SchemaResolver,
         view_refs_by_project: Dict[str, Set[str]],
         view_definitions: FileBackedDict[str],
+        snapshot_refs_by_project: Dict[str, Set[str]],
+        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
-        views_skip_audit_log_lineage: Set[str] = set()
-        if self.config.lineage_parse_view_ddl:
-            view_lineage: Dict[str, Set[LineageEdge]] = {}
-            for project in projects:
+        datasets_skip_audit_log_lineage: Set[str] = set()
+        dataset_lineage: Dict[str, Set[LineageEdge]] = {}
+        for project in projects:
+            self.populate_snapshot_lineage(
+                dataset_lineage,
+                snapshot_refs_by_project[project],
+                snapshots_by_ref,
+            )
+
+            if self.config.lineage_parse_view_ddl:
                 self.populate_view_lineage_with_sql_parsing(
-                    view_lineage,
+                    dataset_lineage,
                     view_refs_by_project[project],
                     view_definitions,
                     sql_parser_schema_resolver,
                     project,
                 )
 
-                views_skip_audit_log_lineage.update(view_lineage.keys())
-                for lineage_key in view_lineage.keys():
-                    yield from self.gen_lineage_workunits_for_table(
-                        view_lineage, BigQueryTableRef.from_string_name(lineage_key)
-                    )
+            datasets_skip_audit_log_lineage.update(dataset_lineage.keys())
+            for lineage_key in dataset_lineage.keys():
+                yield from self.gen_lineage_workunits_for_table(
+                    dataset_lineage, BigQueryTableRef.from_string_name(lineage_key)
+                )
 
         if self.config.use_exported_bigquery_audit_metadata:
             projects = ["*"]  # project_id not used when using exported metadata
@@ -286,7 +317,7 @@ class BigqueryLineageExtractor:
             yield from self.generate_lineage(
                 project,
                 sql_parser_schema_resolver,
-                views_skip_audit_log_lineage,
+                datasets_skip_audit_log_lineage,
                 table_refs,
             )
 
@@ -300,7 +331,7 @@ class BigqueryLineageExtractor:
         self,
         project_id: str,
         sql_parser_schema_resolver: SchemaResolver,
-        views_skip_audit_log_lineage: Set[str],
+        datasets_skip_audit_log_lineage: Set[str],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
@@ -338,7 +369,7 @@ class BigqueryLineageExtractor:
             # as they may contain indirectly referenced tables.
             if (
                 lineage_key not in table_refs
-                or lineage_key in views_skip_audit_log_lineage
+                or lineage_key in datasets_skip_audit_log_lineage
             ):
                 continue
 
@@ -387,6 +418,17 @@ class BigqueryLineageExtractor:
                 )
             )
 
+    def populate_snapshot_lineage(
+        self,
+        snapshot_lineage: Dict[str, Set[LineageEdge]],
+        snapshot_refs: Set[str],
+        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
+    ) -> None:
+        for snapshot in snapshot_refs:
+            lineage_edge = make_lineage_edge_for_snapshot(snapshots_by_ref[snapshot])
+            if lineage_edge:
+                snapshot_lineage[snapshot] = {lineage_edge}
+
     def gen_lineage_workunits_for_table(
         self, lineage: Dict[str, Set[LineageEdge]], table_ref: BigQueryTableRef
     ) -> Iterable[MetadataWorkUnit]:
@@ -409,29 +451,15 @@ class BigqueryLineageExtractor:
             return
 
         if upstream_lineage is not None:
-            if self.config.incremental_lineage:
-                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                    urn=dataset_urn
-                )
-                for upstream in upstream_lineage.upstreams:
-                    patch_builder.add_upstream_lineage(upstream)
+            if not self.config.extract_column_lineage:
+                upstream_lineage.fineGrainedLineages = None
 
-                yield from [
-                    MetadataWorkUnit(
-                        id=f"upstreamLineage-for-{dataset_urn}",
-                        mcp_raw=mcp,
-                    )
-                    for mcp in patch_builder.build()
-                ]
-            else:
-                if not self.config.extract_column_lineage:
-                    upstream_lineage.fineGrainedLineages = None
-
-                yield from [
-                    MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=upstream_lineage
-                    ).as_workunit()
-                ]
+            # Incremental lineage is handled by the auto_incremental_lineage helper.
+            yield from [
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=upstream_lineage
+                ).as_workunit()
+            ]
 
     def lineage_via_catalog_lineage_api(
         self, project_id: str
@@ -475,19 +503,23 @@ class BigqueryLineageExtractor:
                     ]
                 )
 
-            # Convert project tables to <project_id>.<dataset_id>.<table_id> format
-            project_table_names = list(
-                map(
-                    lambda table: "{}.{}.{}".format(
-                        table.project, table.dataset_id, table.table_id
-                    ),
-                    project_tables,
-                )
-            )
-
             lineage_map: Dict[str, Set[LineageEdge]] = {}
             curr_date = datetime.now()
-            for table in project_table_names:
+            for project_table in project_tables:
+                # Convert project table to <project_id>.<dataset_id>.<table_id> format
+                table = f"{project_table.project}.{project_table.dataset_id}.{project_table.table_id}"
+
+                if not is_schema_allowed(
+                    self.config.dataset_pattern,
+                    schema_name=project_table.dataset_id,
+                    db_name=project_table.project,
+                    match_fully_qualified_schema_name=self.config.match_fully_qualified_names,
+                ) or not self.config.table_pattern.allowed(table):
+                    self.report.num_skipped_lineage_entries_not_allowed[
+                        project_table.project
+                    ] += 1
+                    continue
+
                 logger.info("Creating lineage map for table %s", table)
                 upstreams = set()
                 downstream_table = lineage_v1.EntityReference()
@@ -517,23 +549,22 @@ class BigqueryLineageExtractor:
                 )
 
                 # Only builds lineage map when the table has upstreams
+                logger.debug("Found %d upstreams for table %s", len(upstreams), table)
                 if upstreams:
-                    lineage_map[destination_table_str] = set(
-                        [
-                            LineageEdge(
-                                table=str(
-                                    BigQueryTableRef(
-                                        table_identifier=BigqueryTableIdentifier.from_string_name(
-                                            source_table
-                                        )
+                    lineage_map[destination_table_str] = {
+                        LineageEdge(
+                            table=str(
+                                BigQueryTableRef(
+                                    table_identifier=BigqueryTableIdentifier.from_string_name(
+                                        source_table
                                     )
-                                ),
-                                column_mapping=frozenset(),
-                                auditStamp=curr_date,
-                            )
-                            for source_table in upstreams
-                        ]
-                    )
+                                )
+                            ),
+                            column_mapping=frozenset(),
+                            auditStamp=curr_date,
+                        )
+                        for source_table in upstreams
+                    }
             return lineage_map
         except Exception as e:
             self.error(
@@ -705,10 +736,36 @@ class BigqueryLineageExtractor:
 
             # Try the sql parser first.
             if self.config.lineage_use_sql_parser:
+                logger.debug(
+                    f"Using sql parser for lineage extraction for destination table: {destination_table.table_identifier.get_table_name()}, queryType: {e.statementType}, query: {e.query}"
+                )
+                if e.statementType == "SELECT":
+                    # We wrap select statements in a CTE to make them parseable as insert statement.
+                    # This is a workaround for the sql parser to support the case where the user runs a query and inserts the result into a table..
+                    try:
+                        parsed_queries = sqlglot.parse(e.query, "bigquery")
+                        if parsed_queries[-1]:
+                            query = f"""create table `{destination_table.get_sanitized_table_ref().table_identifier.get_table_name()}` AS
+                            (
+                                {parsed_queries[-1].sql(dialect='bigquery')}
+                            )"""
+                        else:
+                            query = e.query
+                    except Exception:
+                        logger.debug(
+                            f"Failed to parse select-based lineage query {e.query} for table {destination_table}."
+                            "Sql parsing will likely fail for this query, which will result in a fallback to audit log."
+                        )
+                        query = e.query
+                else:
+                    query = e.query
                 raw_lineage = sqlglot_lineage(
-                    e.query,
+                    query,
                     schema_resolver=sql_parser_schema_resolver,
                     default_db=e.project_id,
+                )
+                logger.debug(
+                    f"Input tables: {raw_lineage.in_tables}, Output tables: {raw_lineage.out_tables}"
                 )
                 if raw_lineage.debug_info.table_error:
                     logger.debug(

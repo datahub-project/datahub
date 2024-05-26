@@ -55,7 +55,12 @@ fragment lineageNodeProperties on EntityWithRelationships {
                     urn
                     path
                 }
+                query
+                transformOperation
             }
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on DataFlow {
@@ -88,6 +93,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         ...entityDataProduct
         status {
             removed
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on Dashboard {
@@ -144,6 +152,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on Chart {
         tool
@@ -173,6 +184,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         subTypes {
             typeNames
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on Dataset {
@@ -211,10 +225,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             }
         }
         health {
-            type
-            status
-            message
-            causes
+            ...entityHealth
         }
     }
     ... on MLModelGroup {
@@ -257,6 +268,30 @@ fragment lineageNodeProperties on EntityWithRelationships {
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
+    }
+    ... on ERModelRelationship {
+        urn
+        type
+        id
+        properties {
+            ...ermodelrelationPropertiesFields
+        }
+        editableProperties {
+            ...ermodelrelationEditablePropertiesFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on Restricted {
+        urn
+        type
     }
 }
 

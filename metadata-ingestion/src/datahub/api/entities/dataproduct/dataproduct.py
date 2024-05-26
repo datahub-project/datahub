@@ -69,23 +69,9 @@ class Ownership(ConfigModel):
     type: str
 
     @pydantic.validator("type")
-    def ownership_type_must_be_mappable(cls, v: str) -> str:
-        _ownership_types = [
-            OwnershipTypeClass.BUSINESS_OWNER,
-            OwnershipTypeClass.CONSUMER,
-            OwnershipTypeClass.DATA_STEWARD,
-            OwnershipTypeClass.DATAOWNER,
-            OwnershipTypeClass.DELEGATE,
-            OwnershipTypeClass.DEVELOPER,
-            OwnershipTypeClass.NONE,
-            OwnershipTypeClass.PRODUCER,
-            OwnershipTypeClass.STAKEHOLDER,
-            OwnershipTypeClass.TECHNICAL_OWNER,
-        ]
-        if v.upper() not in _ownership_types:
-            raise ValueError(f"Ownership type {v} not in {_ownership_types}")
-
-        return v.upper()
+    def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
+        _, _ = builder.validate_ownership_type(v)
+        return v
 
 
 class DataProduct(ConfigModel):
@@ -155,9 +141,13 @@ class DataProduct(ConfigModel):
             )
         else:
             assert isinstance(owner, Ownership)
+            ownership_type, ownership_type_urn = builder.validate_ownership_type(
+                owner.type
+            )
             return OwnerClass(
                 owner=builder.make_user_urn(owner.id),
-                type=owner.type,
+                type=ownership_type,
+                typeUrn=ownership_type_urn,
             )
 
     def _generate_properties_mcp(
@@ -286,7 +276,7 @@ class DataProduct(ConfigModel):
         cls,
         file: Path,
         graph: DataHubGraph,
-    ) -> "DataProduct":
+    ) -> DataProduct:
         with open(file) as fp:
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             orig_dictionary = yaml.load(fp)
@@ -301,7 +291,7 @@ class DataProduct(ConfigModel):
             return parsed_data_product
 
     @classmethod
-    def from_datahub(cls, graph: DataHubGraph, id: str) -> "DataProduct":
+    def from_datahub(cls, graph: DataHubGraph, id: str) -> DataProduct:
         data_product_properties: Optional[
             DataProductPropertiesClass
         ] = graph.get_aspect(id, DataProductPropertiesClass)
@@ -314,6 +304,8 @@ class DataProduct(ConfigModel):
             for o in owners.owners:
                 if o.type == OwnershipTypeClass.TECHNICAL_OWNER:
                     yaml_owners.append(o.owner)
+                elif o.type == OwnershipTypeClass.CUSTOM:
+                    yaml_owners.append(Ownership(id=o.owner, type=str(o.typeUrn)))
                 else:
                     yaml_owners.append(Ownership(id=o.owner, type=str(o.type)))
         glossary_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
@@ -355,7 +347,7 @@ class DataProduct(ConfigModel):
             if isinstance(new_owner, Ownership):
                 new_owner_type_map[new_owner.id] = new_owner.type
             else:
-                new_owner_type_map[new_owner] = "TECHNICAL_OWNER"
+                new_owner_type_map[new_owner] = OwnershipTypeClass.TECHNICAL_OWNER
         owners_matched = set()
         patches_add: list = []
         patches_drop: dict = {}
@@ -385,14 +377,14 @@ class DataProduct(ConfigModel):
                         owners_matched.add(owner_urn)
                         if new_owner_type_map[owner_urn] != o.type:
                             patches_replace[i] = {
-                                "id": o,
+                                "id": o.id,
                                 "type": new_owner_type_map[owner_urn],
                             }
                     else:
                         patches_drop[i] = o
 
         # Figure out what if any are new owners to add
-        new_owners_to_add = set(o for o in new_owner_type_map) - set(owners_matched)
+        new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)
         if new_owners_to_add:
             for new_owner in new_owners_to_add:
                 new_owner_type = new_owner_type_map[new_owner]

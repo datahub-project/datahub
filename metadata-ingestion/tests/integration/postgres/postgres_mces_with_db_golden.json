@@ -258,6 +258,17 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=500)",
                                 "recursive": false,
+                                "glossaryTerms": {
+                                    "terms": [
+                                        {
+                                            "urn": "urn:li:glossaryTerm:URN"
+                                        }
+                                    ],
+                                    "auditStamp": {
+                                        "time": 1646575200000,
+                                        "actor": "urn:li:corpuser:datahub"
+                                    }
+                                },
                                 "isPartOfKey": true
                             },
                             {
@@ -330,6 +341,17 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=255)",
                                 "recursive": false,
+                                "glossaryTerms": {
+                                    "terms": [
+                                        {
+                                            "urn": "urn:li:glossaryTerm:URN"
+                                        }
+                                    ],
+                                    "auditStamp": {
+                                        "time": 1646575200000,
+                                        "actor": "urn:li:corpuser:datahub"
+                                    }
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -628,6 +650,22 @@
                     "confidenceScore": 1.0
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:URN",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "URN"
         }
     },
     "systemMetadata": {

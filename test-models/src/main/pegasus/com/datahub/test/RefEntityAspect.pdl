@@ -1,0 +1,7 @@
+namespace com.datahub.test
+
+
+/**
+ * A union of all supported metadata aspects for a RefEntity
+ */
+typeref RefEntityAspect = union[RefEntityKey, RefProperties]

@@ -54,6 +54,7 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
             DomainProperties properties =
                 (DomainProperties)
                     EntityUtils.getAspectFromEntity(
+                        context.getOperationContext(),
                         resourceUrn.toString(),
                         Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
                         _entityService,
@@ -67,7 +68,7 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
               if (!newParentDomainUrn.getEntityType().equals(Constants.DOMAIN_ENTITY_NAME)) {
                 throw new IllegalArgumentException("Parent entity is not a domain.");
               }
-              if (!_entityService.exists(newParentDomainUrn, true)) {
+              if (!_entityService.exists(context.getOperationContext(), newParentDomainUrn, true)) {
                 throw new IllegalArgumentException("Parent entity does not exist.");
               }
             }
@@ -84,6 +85,7 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
             properties.setParentDomain(newParentDomainUrn, SetMode.REMOVE_IF_NULL);
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             MutationUtils.persistAspect(
+                context.getOperationContext(),
                 resourceUrn,
                 Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
                 properties,

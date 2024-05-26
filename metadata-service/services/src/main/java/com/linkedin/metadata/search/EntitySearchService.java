@@ -4,27 +4,34 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.opensearch.action.explain.ExplainResponse;
 
 public interface EntitySearchService {
 
   void configure();
 
   /** Clear all data within the service */
-  void clear();
+  void clear(@Nonnull OperationContext opContext);
 
   /**
    * Get the number of documents corresponding to the entity
    *
    * @param entityName name of the entity
+   * @param filter optional filter
    */
-  long docCount(@Nonnull String entityName);
+  long docCount(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter);
+
+  default long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
+    return docCount(opContext, entityName, null);
+  }
 
   /**
    * Updates or inserts the given search document.
@@ -33,7 +40,11 @@ public interface EntitySearchService {
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
-  void upsertDocument(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId);
+  void upsertDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String document,
+      @Nonnull String docId);
 
   /**
    * Deletes the document with the given document ID from the index.
@@ -41,7 +52,8 @@ public interface EntitySearchService {
    * @param entityName name of the entity
    * @param docId the ID of the document to delete
    */
-  void deleteDocument(@Nonnull String entityName, @Nonnull String docId);
+  void deleteDocument(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId);
 
   /**
    * Appends a run id to the list for a certain document
@@ -50,7 +62,11 @@ public interface EntitySearchService {
    * @param urn the urn of the user
    * @param runId the ID of the run
    */
-  void appendRunId(@Nonnull String entityName, @Nonnull Urn urn, @Nullable String runId);
+  void appendRunId(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull Urn urn,
+      @Nullable String runId);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -67,19 +83,18 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags flags controlling search options
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
   @Nonnull
   SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
-      int size,
-      @Nullable SearchFlags searchFlags);
+      int size);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -96,20 +111,19 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param searchFlags flags controlling search options
    * @param facets list of facets we want aggregations for
    * @return a {@link SearchResult} that contains a list of matched documents and related search
    *     result metadata
    */
   @Nonnull
   SearchResult search(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       int from,
       int size,
-      @Nullable SearchFlags searchFlags,
       @Nullable List<String> facets);
 
   /**
@@ -126,6 +140,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   SearchResult filter(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion,
@@ -147,6 +162,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   AutoCompleteResult autoComplete(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String query,
       @Nullable String field,
@@ -161,10 +177,11 @@ public interface EntitySearchService {
    * @param field the field name for aggregate
    * @param requestParams filters to apply before aggregating
    * @param limit the number of aggregations to return
-   * @return
+   * @return a map of the value to the count of documents having the value
    */
   @Nonnull
   Map<String, Long> aggregateByValue(
+      @Nonnull OperationContext opContext,
       @Nullable List<String> entityNames,
       @Nonnull String field,
       @Nullable Filter requestParams,
@@ -182,6 +199,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   BrowseResult browse(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter requestParams,
@@ -199,7 +217,8 @@ public interface EntitySearchService {
    * @param count max number of results requested
    */
   @Nonnull
-  public BrowseResultV2 browseV2(
+  BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String path,
       @Nullable Filter filter,
@@ -218,7 +237,8 @@ public interface EntitySearchService {
    * @param count max number of results requested
    */
   @Nonnull
-  public BrowseResultV2 browseV2(
+  BrowseResultV2 browseV2(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String path,
       @Nullable Filter filter,
@@ -234,7 +254,8 @@ public interface EntitySearchService {
    * @return all paths related to a given urn
    */
   @Nonnull
-  List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn);
+  List<String> getBrowsePaths(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -247,20 +268,19 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
-   * @param searchFlags flags controlling search options
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
   @Nonnull
   ScrollResult fullTextScroll(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
-      @Nullable SearchFlags searchFlags);
+      int size);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -273,21 +293,32 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
-   * @param searchFlags flags controlling search options
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
   @Nonnull
   ScrollResult structuredScroll(
+      @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
-      @Nullable SearchFlags searchFlags);
+      int size);
 
   /** Max result size returned by the underlying search backend */
   int maxResultSize();
+
+  ExplainResponse explain(
+      @Nonnull OperationContext opContext,
+      @Nonnull String query,
+      @Nonnull String documentId,
+      @Nonnull String entityName,
+      @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets);
 }

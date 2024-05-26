@@ -43,6 +43,7 @@ public enum DataHubUsageEventType {
   CREATE_RESET_CREDENTIALS_LINK_EVENT("CreateResetCredentialsLinkEvent"),
   DELETE_ENTITY_EVENT("DeleteEntityEvent"),
   SELECT_USER_ROLE_EVENT("SelectUserRoleEvent"),
+  SELECT_GROUP_ROLE_EVENT("SelectGroupRoleEvent"),
   BATCH_SELECT_USER_ROLE_EVENT("BatchSelectUserRoleEvent"),
   CREATE_POLICY_EVENT("CreatePolicyEvent"),
   UPDATE_POLICY_EVENT("UpdatePolicyEvent"),
@@ -76,7 +77,8 @@ public enum DataHubUsageEventType {
   DESELECT_QUICK_FILTER_EVENT("DeselectQuickFilterEvent"),
   EMBED_PROFILE_VIEW_EVENT("EmbedProfileViewEvent"),
   EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent"),
-  EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent");
+  EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent"),
+  CREATE_BUSINESS_ATTRIBUTE("CreateBusinessAttributeEvent");
 
   private final String type;
 

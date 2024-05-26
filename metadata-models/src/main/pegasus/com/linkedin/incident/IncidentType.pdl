@@ -1,0 +1,16 @@
+namespace com.linkedin.incident
+
+/**
+ * A type of asset incident
+ */
+enum IncidentType {
+  /**
+  * A misc. operational incident, e.g. failure to materialize a dataset.
+  */
+  OPERATIONAL
+
+  /**
+  * A custom type of incident
+  */
+  CUSTOM
+}

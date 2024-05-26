@@ -21,7 +21,13 @@ record GlossaryTermAssociation {
   urn: GlossaryTermUrn
 
   /**
+   * The user URN which will be credited for adding associating this term to the entity
+   */
+  actor: optional Urn
+
+  /**
    * Additional context about the association
    */
   context: optional string
+
 }

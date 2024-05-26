@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import collections
 import concurrent.futures
+import logging
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from threading import BoundedSemaphore
@@ -20,6 +21,7 @@ from typing import (
 
 from datahub.ingestion.api.closeable import Closeable
 
+logger = logging.getLogger(__name__)
 _R = TypeVar("_R")
 _PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL = 0.05
 
@@ -30,7 +32,7 @@ class PartitionExecutor(Closeable):
 
         It works similarly to a ThreadPoolExecutor, with the following changes:
         - At most one request per partition key will be executing at a time.
-        - If the number of pending requests exceeds the threshold, the submit call
+        - If the number of pending requests exceeds the threshold, the submit() call
           will block until the number of pending requests drops below the threshold.
 
         Due to the interaction between max_workers and max_pending, it is possible
@@ -102,7 +104,19 @@ class PartitionExecutor(Closeable):
                 fn, args, kwargs, user_done_callback = self._pending_by_key[
                     key
                 ].popleft()
-                self._submit_nowait(key, fn, args, kwargs, user_done_callback)
+
+                try:
+                    self._submit_nowait(key, fn, args, kwargs, user_done_callback)
+                except RuntimeError as e:
+                    if self._executor._shutdown:
+                        # If we're in shutdown mode, then we can't submit any more requests.
+                        # That means we'll need to drop requests on the floor, which is to
+                        # be expected in shutdown mode.
+                        # The only reason we'd normally be in shutdown here is during
+                        # Python exit (e.g. KeyboardInterrupt), so this is reasonable.
+                        logger.debug("Dropping request due to shutdown")
+                    else:
+                        raise e
 
             else:
                 # If there are no pending requests for this key, mark the key

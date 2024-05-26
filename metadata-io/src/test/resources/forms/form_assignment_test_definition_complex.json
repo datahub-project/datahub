@@ -1,0 +1,145 @@
+{
+  "on": {
+    "types": ["dataset", "container", "dataJob", "dataFlow", "chart", "dashboard"],
+    "conditions": {
+      "or": [
+        {
+          "or": [
+            {
+              "property": "forms.incompleteForms.urn",
+              "operator": "equals",
+              "values": ["urn:li:form:test"]
+            },
+            {
+              "property": "forms.completedForms.urn",
+              "operator": "equals",
+              "values": ["urn:li:form:test"]
+            }
+          ]
+        },
+        {
+          "or": [
+            {
+              "and": [
+                {
+                  "property": "dataPlatformInstance.platform",
+                  "operator": "equals",
+                  "values": ["urn:li:dataPlatform:hive"]
+                },
+                {
+                  "property": "container.container",
+                  "operator": "equals",
+                  "values": ["urn:li:container:test"]
+                },
+                {
+                  "property": "entityType",
+                  "operator": "equals",
+                  "values": ["dataset"]
+                },
+                {
+                  "property": "domains.domains",
+                  "operator": "equals",
+                  "values": ["urn:li:domain:test"]
+                }
+              ]
+            },
+            {
+              "and": [
+                {
+                  "property": "dataPlatformInstance.platform",
+                  "operator": "equals",
+                  "values": ["urn:li:dataPlatform:snowflake"]
+                },
+                {
+                  "property": "container.container",
+                  "operator": "equals",
+                  "values": ["urn:li:container:test-2"]
+                },
+                {
+                  "property": "entityType",
+                  "operator": "equals",
+                  "values": ["dashboard"]
+                },
+                {
+                  "property": "domains.domains",
+                  "operator": "equals",
+                  "values": ["urn:li:domain:test-2"]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "rules": {
+    "or": [
+      {
+        "and": [
+          {
+            "property": "dataPlatformInstance.platform",
+            "operator": "equals",
+            "values": ["urn:li:dataPlatform:hive"]
+          },
+          {
+            "property": "container.container",
+            "operator": "equals",
+            "values": ["urn:li:container:test"]
+          },
+          {
+            "property": "entityType",
+            "operator": "equals",
+            "values": ["dataset"]
+          },
+          {
+            "property": "domains.domains",
+            "operator": "equals",
+            "values": ["urn:li:domain:test"]
+          }
+        ]
+      },
+      {
+        "and": [
+          {
+            "property": "dataPlatformInstance.platform",
+            "operator": "equals",
+            "values": ["urn:li:dataPlatform:snowflake"]
+          },
+          {
+            "property": "container.container",
+            "operator": "equals",
+            "values": ["urn:li:container:test-2"]
+          },
+          {
+            "property": "entityType",
+            "operator": "equals",
+            "values": ["dashboard"]
+          },
+          {
+            "property": "domains.domains",
+            "operator": "equals",
+            "values": ["urn:li:domain:test-2"]
+          }
+        ]
+      }
+    ]
+  },
+  "actions": {
+    "passing": [
+      {
+        "type": "ASSIGN_FORM",
+        "params": {
+          "formUrn": "urn:li:form:test"
+        }
+      }
+    ],
+    "failing": [
+      {
+        "type": "UNASSIGN_FORM",
+        "params": {
+          "formUrn": "urn:li:form:test"
+        }
+      }
+    ]
+  }
+}

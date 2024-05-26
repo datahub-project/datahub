@@ -263,12 +263,14 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
+        os.environ.setdefault("SPARK_VERSION", "3.3")
+        spark_version = os.environ["SPARK_VERSION"]
+
         # Importing here to avoid Deequ dependency for non profiling use cases
         # Deequ fails if Spark is not available which is not needed for non profiling use cases
         import pydeequ
 
         conf = SparkConf()
-        spark_version = os.getenv("SPARK_VERSION", "3.3")
         conf.set(
             "spark.jars.packages",
             ",".join(
@@ -377,7 +379,7 @@ class S3Source(StatefulIngestionSourceBase):
                 ignoreLeadingWhiteSpace=True,
                 ignoreTrailingWhiteSpace=True,
             )
-        elif ext.endswith(".json"):
+        elif ext.endswith(".json") or ext.endswith(".jsonl"):
             df = self.spark.read.json(file)
         elif ext.endswith(".avro"):
             try:
@@ -441,6 +443,10 @@ class S3Source(StatefulIngestionSourceBase):
                 fields = csv_tsv.TsvInferrer(
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
+            elif extension == ".jsonl":
+                fields = json.JsonInferrer(
+                    max_rows=self.source_config.max_rows, format="jsonl"
+                ).infer_schema(file)
             elif extension == ".json":
                 fields = json.JsonInferrer().infer_schema(file)
             elif extension == ".avro":
@@ -458,7 +464,8 @@ class S3Source(StatefulIngestionSourceBase):
             )
             file.close()
         logger.debug(f"Extracted fields in schema: {fields}")
-        fields = sorted(fields, key=lambda f: f.fieldPath)
+        if self.source_config.sort_schema_fields:
+            fields = sorted(fields, key=lambda f: f.fieldPath)
 
         if self.source_config.add_partition_columns_to_schema:
             self.add_partition_columns_to_schema(

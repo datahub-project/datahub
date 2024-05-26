@@ -4,12 +4,14 @@ import { ANTD_GRAY } from '../../constants';
 
 type Props = {
     stats: Array<React.ReactNode>;
+    shouldWrap?: boolean;
 };
 
-const StatsContainer = styled.div`
+const StatsContainer = styled.div<{ shouldWrap?: boolean }>`
     margin-top: 8px;
     display: flex;
     align-items: center;
+    ${(props) => props.shouldWrap && `flex-wrap: wrap;`}
 `;
 
 const StatDivider = styled.div`
@@ -19,11 +21,11 @@ const StatDivider = styled.div`
     height: 21px;
 `;
 
-export const StatsSummary = ({ stats }: Props) => {
+export const StatsSummary = ({ stats, shouldWrap }: Props) => {
     return (
         <>
             {stats && stats.length > 0 && (
-                <StatsContainer>
+                <StatsContainer shouldWrap={shouldWrap}>
                     {stats.map((statView, index) => (
                         <>
                             {statView}

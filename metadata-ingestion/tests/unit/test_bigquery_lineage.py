@@ -14,7 +14,7 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
     LineageEdge,
 )
-from datahub.utilities.sqlglot_lineage import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def lineage_entries() -> List[QueryEvent]:
                 SELECT first.a, second.b FROM `my_project.my_dataset.my_source_table1` first
                 LEFT JOIN `my_project.my_dataset.my_source_table2` second ON first.id = second.id
             """,
-            statementType="SELECT",
+            statementType="INSERT",
             project_id="proj_12344",
             end_time=None,
             referencedTables=[

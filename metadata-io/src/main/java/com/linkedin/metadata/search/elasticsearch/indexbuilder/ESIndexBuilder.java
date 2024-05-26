@@ -1,5 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.PROPERTIES;
+
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -22,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -125,12 +129,20 @@ public class ESIndexBuilder {
   public ReindexConfig buildReindexState(
       String indexName, Map<String, Object> mappings, Map<String, Object> settings)
       throws IOException {
+    return buildReindexState(indexName, mappings, settings, false);
+  }
+
+  public ReindexConfig buildReindexState(
+      String indexName,
+      Map<String, Object> mappings,
+      Map<String, Object> settings,
+      boolean copyStructuredPropertyMappings)
+      throws IOException {
     ReindexConfig.ReindexConfigBuilder builder =
         ReindexConfig.builder()
             .name(indexName)
             .enableIndexSettingsReindex(enableIndexSettingsReindex)
             .enableIndexMappingsReindex(enableIndexMappingsReindex)
-            .targetMappings(mappings)
             .version(gitVersion.getVersion());
 
     Map<String, Object> baseSettings = new HashMap<>(settings);
@@ -148,6 +160,7 @@ public class ESIndexBuilder {
 
     // If index doesn't exist, no reindex
     if (!exists) {
+      builder.targetMappings(mappings);
       return builder.build();
     }
 
@@ -173,6 +186,35 @@ public class ESIndexBuilder {
             .getSourceAsMap();
     builder.currentMappings(currentMappings);
 
+    if (copyStructuredPropertyMappings) {
+      Map<String, Object> currentStructuredProperties =
+          (Map<String, Object>)
+              ((Map<String, Object>)
+                      ((Map<String, Object>)
+                              currentMappings.getOrDefault(PROPERTIES, new TreeMap()))
+                          .getOrDefault(STRUCTURED_PROPERTY_MAPPING_FIELD, new TreeMap()))
+                  .getOrDefault(PROPERTIES, new TreeMap());
+
+      if (!currentStructuredProperties.isEmpty()) {
+        HashMap<String, Map<String, Object>> props =
+            (HashMap<String, Map<String, Object>>)
+                ((Map<String, Object>) mappings.get(PROPERTIES))
+                    .computeIfAbsent(
+                        STRUCTURED_PROPERTY_MAPPING_FIELD,
+                        (key) -> new HashMap<>(Map.of(PROPERTIES, new HashMap<>())));
+
+        props.merge(
+            PROPERTIES,
+            currentStructuredProperties,
+            (targetValue, currentValue) -> {
+              HashMap<String, Object> merged = new HashMap<>(currentValue);
+              merged.putAll(targetValue);
+              return merged.isEmpty() ? null : merged;
+            });
+      }
+    }
+
+    builder.targetMappings(mappings);
     return builder.build();
   }
 
@@ -251,7 +293,7 @@ public class ESIndexBuilder {
    * @throws IOException communication issues with ES
    */
   public void applyMappings(ReindexConfig indexState, boolean suppressError) throws IOException {
-    if (indexState.isPureMappingsAddition()) {
+    if (indexState.isPureMappingsAddition() || indexState.isPureStructuredProperty()) {
       log.info("Updating index {} mappings in place.", indexState.name());
       PutMappingRequest request =
           new PutMappingRequest(indexState.name()).source(indexState.targetMappings());

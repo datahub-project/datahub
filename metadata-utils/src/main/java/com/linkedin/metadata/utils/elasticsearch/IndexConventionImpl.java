@@ -12,6 +12,8 @@ import org.apache.commons.lang3.StringUtils;
 
 // Default implementation of search index naming convention
 public class IndexConventionImpl implements IndexConvention {
+  public static final IndexConvention NO_PREFIX = new IndexConventionImpl(null);
+
   // Map from Entity name -> Index name
   private final Map<String, String> indexNameMapping = new ConcurrentHashMap<>();
   private final Optional<String> _prefix;

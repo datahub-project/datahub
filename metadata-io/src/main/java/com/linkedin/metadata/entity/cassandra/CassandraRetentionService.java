@@ -17,12 +17,12 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -30,6 +30,7 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -45,27 +46,25 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class CassandraRetentionService extends RetentionService<MCPUpsertBatchItem> {
-  private final EntityService<MCPUpsertBatchItem> _entityService;
+public class CassandraRetentionService<U extends ChangeMCP> extends RetentionService<U> {
+  private final EntityService<U> _entityService;
   private final CqlSession _cqlSession;
   private final int _batchSize;
 
   private final Clock _clock = Clock.systemUTC();
 
   @Override
-  public EntityService<MCPUpsertBatchItem> getEntityService() {
+  public EntityService<U> getEntityService() {
     return _entityService;
   }
 
   @Override
   protected AspectsBatch buildAspectsBatch(
-      List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp) {
+      @Nonnull OperationContext opContext,
+      List<MetadataChangeProposal> mcps,
+      @Nonnull AuditStamp auditStamp) {
     return AspectsBatchImpl.builder()
-        .mcps(
-            mcps,
-            auditStamp,
-            _entityService.getEntityRegistry(),
-            _entityService.getSystemEntityClient())
+        .mcps(mcps, auditStamp, opContext.getRetrieverContext().get())
         .build();
   }
 
@@ -201,7 +200,7 @@ public class CassandraRetentionService extends RetentionService<MCPUpsertBatchIt
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       @Nonnull final TimeBasedRetention retention) {
-    Timestamp threshold = new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000);
+    Timestamp threshold = new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000L);
     SimpleStatement ss =
         deleteFrom(CassandraAspect.TABLE_NAME)
             .whereColumn(CassandraAspect.URN_COLUMN)

@@ -1,11 +1,15 @@
+@media (min-width: 997px) and (max-width: 1465px) {
+  .feature {
+    min-height: 20rem !important;
+    max-height: 30rem !important;
+  }
+}
 .feature {
   flex-direction: row;
-  padding: 1.75rem;
   color: var(--ifm-hero-text-color);
   margin: 0rem 2rem 1rem 0rem;
-  min-height: 14rem;
-  max-height: 15rem; 
-  overflow: hidden;
+  min-height: 15rem;
+  max-height: 15rem;
   text-decoration: none !important;
 
   img {
@@ -36,3 +40,4 @@
     border-color: var(--ifm-color-primary);
   }
 }
+

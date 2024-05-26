@@ -12,9 +12,12 @@ import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfo;
 import io.github.classgraph.MethodInfo;
 import io.github.classgraph.ScanResult;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -29,54 +32,146 @@ public class PluginFactory {
 
   public static PluginFactory withCustomClasspath(
       @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<ClassLoader> classLoaders) {
-    return new PluginFactory(pluginConfiguration, classLoaders);
+    return new PluginFactory(pluginConfiguration, classLoaders).loadPlugins();
   }
 
   public static PluginFactory withConfig(@Nullable PluginConfiguration pluginConfiguration) {
-    return PluginFactory.withCustomClasspath(pluginConfiguration, List.of());
+    return PluginFactory.withCustomClasspath(pluginConfiguration, Collections.emptyList());
   }
 
   public static PluginFactory empty() {
     return PluginFactory.withConfig(PluginConfiguration.EMPTY);
   }
 
-  public static PluginFactory merge(PluginFactory a, PluginFactory b) {
-    return PluginFactory.withCustomClasspath(
-        PluginConfiguration.merge(a.getPluginConfiguration(), b.getPluginConfiguration()),
+  public static PluginFactory merge(
+      PluginFactory a,
+      PluginFactory b,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
+    PluginConfiguration mergedPluginConfig =
+        PluginConfiguration.merge(a.pluginConfiguration, b.pluginConfiguration);
+    List<ClassLoader> mergedClassLoaders =
         Stream.concat(a.getClassLoaders().stream(), b.getClassLoaders().stream())
-            .collect(Collectors.toList()));
+            .collect(Collectors.toList());
+
+    if (pluginFactoryProvider != null) {
+      return pluginFactoryProvider.apply(mergedPluginConfig, mergedClassLoaders);
+    } else {
+      return PluginFactory.withCustomClasspath(mergedPluginConfig, mergedClassLoaders);
+    }
   }
 
   @Getter private final PluginConfiguration pluginConfiguration;
   @Nonnull @Getter private final List<ClassLoader> classLoaders;
-  @Getter private final List<AspectPayloadValidator> aspectPayloadValidators;
-  @Getter private final List<MutationHook> mutationHooks;
-  @Getter private final List<MCLSideEffect> mclSideEffects;
-  @Getter private final List<MCPSideEffect> mcpSideEffects;
+  @Getter private List<AspectPayloadValidator> aspectPayloadValidators;
+  @Getter private List<MutationHook> mutationHooks;
+  @Getter private List<MCLSideEffect> mclSideEffects;
+  @Getter private List<MCPSideEffect> mcpSideEffects;
 
-  private final ClassGraph classGraph;
+  private static final Map<Long, List<PluginSpec>> pluginCache = new ConcurrentHashMap<>();
 
   public PluginFactory(
       @Nullable PluginConfiguration pluginConfiguration, @Nonnull List<ClassLoader> classLoaders) {
-    this.classGraph =
-        new ClassGraph()
-            .enableRemoteJarScanning()
-            .enableExternalClasses()
-            .enableClassInfo()
-            .enableMethodInfo();
-
     this.classLoaders = classLoaders;
-
-    if (!this.classLoaders.isEmpty()) {
-      classLoaders.forEach(this.classGraph::addClassLoader);
-    }
-
     this.pluginConfiguration =
         pluginConfiguration == null ? PluginConfiguration.EMPTY : pluginConfiguration;
+  }
+
+  public PluginFactory loadPlugins() {
     this.aspectPayloadValidators = buildAspectPayloadValidators(this.pluginConfiguration);
     this.mutationHooks = buildMutationHooks(this.pluginConfiguration);
     this.mclSideEffects = buildMCLSideEffects(this.pluginConfiguration);
     this.mcpSideEffects = buildMCPSideEffects(this.pluginConfiguration);
+    return this;
+  }
+
+  /**
+   * Memory intensive operation because of the size of the jars. Limit packages, classes scanned,
+   * cache results
+   *
+   * @param configs plugin configurations
+   * @return auto-closeable scan result
+   */
+  protected static <T extends PluginSpec> List<T> initPlugins(
+      @Nonnull List<ClassLoader> classLoaders,
+      @Nonnull Class<?> baseClazz,
+      @Nonnull List<String> packageNames,
+      @Nonnull List<AspectPluginConfig> configs) {
+
+    List<String> classNames =
+        configs.stream().map(AspectPluginConfig::getClassName).collect(Collectors.toList());
+
+    if (classNames.isEmpty()) {
+      return Collections.emptyList();
+    } else {
+      long key =
+          IntStream.concat(
+                  classLoaders.stream().mapToInt(Object::hashCode),
+                  IntStream.concat(
+                      IntStream.of(baseClazz.getName().hashCode()),
+                      configs.stream().mapToInt(AspectPluginConfig::hashCode)))
+              .sum();
+
+      return (List<T>)
+          pluginCache.computeIfAbsent(
+              key,
+              k -> {
+                try {
+                  ClassGraph classGraph =
+                      new ClassGraph()
+                          .acceptPackages(packageNames.stream().distinct().toArray(String[]::new))
+                          .acceptClasses(classNames.stream().distinct().toArray(String[]::new))
+                          .enableRemoteJarScanning()
+                          .enableExternalClasses()
+                          .enableClassInfo()
+                          .enableMethodInfo();
+                  if (!classLoaders.isEmpty()) {
+                    classLoaders.forEach(classGraph::addClassLoader);
+                  }
+
+                  try (ScanResult scanResult = classGraph.scan()) {
+                    Map<String, ClassInfo> classMap =
+                        scanResult.getSubclasses(baseClazz).stream()
+                            .collect(Collectors.toMap(ClassInfo::getName, Function.identity()));
+
+                    return configs.stream()
+                        .map(
+                            config -> {
+                              try {
+                                ClassInfo classInfo = classMap.get(config.getClassName());
+                                if (classInfo == null) {
+                                  throw new IllegalStateException(
+                                      String.format(
+                                          "The following class cannot be loaded: %s",
+                                          config.getClassName()));
+                                }
+                                MethodInfo constructorMethod =
+                                    classInfo.getConstructorInfo().get(0);
+                                return ((T)
+                                        constructorMethod
+                                            .loadClassAndGetConstructor()
+                                            .newInstance())
+                                    .setConfig(config);
+                              } catch (Exception e) {
+                                log.error(
+                                    "Error constructing entity registry plugin class: {}",
+                                    config.getClassName(),
+                                    e);
+                                return (T) null;
+                              }
+                            })
+                        .filter(Objects::nonNull)
+                        .filter(PluginSpec::enabled)
+                        .collect(Collectors.toList());
+                  }
+                } catch (Exception e) {
+                  throw new IllegalArgumentException(
+                      String.format(
+                          "Failed to load entity registry plugins: %s.", baseClazz.getName()),
+                      e);
+                }
+              });
+    }
   }
 
   /**
@@ -173,76 +268,71 @@ public class PluginFactory {
   private List<AspectPayloadValidator> buildAspectPayloadValidators(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
-        ? List.of()
+        ? Collections.emptyList()
         : applyDisable(
             build(
                 AspectPayloadValidator.class,
-                pluginConfiguration.getAspectPayloadValidators(),
-                "com.linkedin.metadata.aspect.plugins.validation"));
+                pluginConfiguration.validatorPackages(),
+                pluginConfiguration.getAspectPayloadValidators()));
   }
 
   private List<MutationHook> buildMutationHooks(@Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
-        ? List.of()
+        ? Collections.emptyList()
         : applyDisable(
             build(
                 MutationHook.class,
-                pluginConfiguration.getMutationHooks(),
-                "com.linkedin.metadata.aspect.plugins.hooks"));
+                pluginConfiguration.mutationPackages(),
+                pluginConfiguration.getMutationHooks()));
   }
 
   private List<MCLSideEffect> buildMCLSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
-        ? List.of()
+        ? Collections.emptyList()
         : applyDisable(
             build(
                 MCLSideEffect.class,
-                pluginConfiguration.getMclSideEffects(),
-                "com.linkedin.metadata.aspect.plugins.hooks"));
+                pluginConfiguration.mclSideEffectPackages(),
+                pluginConfiguration.getMclSideEffects()));
   }
 
   private List<MCPSideEffect> buildMCPSideEffects(
       @Nullable PluginConfiguration pluginConfiguration) {
     return pluginConfiguration == null
-        ? List.of()
+        ? Collections.emptyList()
         : applyDisable(
             build(
                 MCPSideEffect.class,
-                pluginConfiguration.getMcpSideEffects(),
-                "com.linkedin.metadata.aspect.plugins.hooks"));
+                pluginConfiguration.mcpSideEffectPackages(),
+                pluginConfiguration.getMcpSideEffects()));
   }
 
-  private <T> List<T> build(
-      Class<?> baseClazz, List<AspectPluginConfig> configs, String... packageNames) {
-    try (ScanResult scanResult = classGraph.acceptPackages(packageNames).scan()) {
+  /**
+   * Load plugins given the base class (i.e. a validator) and the name of the implementing class
+   * found in the configuration objects.
+   *
+   * <p>For performance reasons, scan the packages found in packageNames
+   *
+   * <p>Designed to avoid any Spring dependency, see alternative implementation for Spring
+   *
+   * @param baseClazz base class for the plugin
+   * @param configs configuration with implementing class information
+   * @param packageNames package names to scan
+   * @return list of plugin instances
+   * @param <T> the plugin class
+   */
+  protected <T extends PluginSpec> List<T> build(
+      Class<?> baseClazz, List<String> packageNames, List<AspectPluginConfig> configs) {
+    List<AspectPluginConfig> nonSpringConfigs =
+        configs.stream()
+            .filter(
+                config ->
+                    config.getSpring() == null
+                        || Boolean.FALSE.equals(config.getSpring().isEnabled()))
+            .collect(Collectors.toList());
 
-      Map<String, ClassInfo> classMap =
-          scanResult.getSubclasses(baseClazz).stream()
-              .collect(Collectors.toMap(ClassInfo::getName, Function.identity()));
-
-      return configs.stream()
-          .flatMap(
-              config -> {
-                try {
-                  ClassInfo classInfo = classMap.get(config.getClassName());
-                  MethodInfo constructorMethod = classInfo.getConstructorInfo().get(0);
-                  return Stream.of(
-                      (T) constructorMethod.loadClassAndGetConstructor().newInstance(config));
-                } catch (Exception e) {
-                  log.error(
-                      "Error constructing entity registry plugin class: {}",
-                      config.getClassName(),
-                      e);
-                  return Stream.empty();
-                }
-              })
-          .collect(Collectors.toList());
-
-    } catch (Exception e) {
-      throw new IllegalArgumentException(
-          String.format("Failed to load entity registry plugins: %s.", baseClazz.getName()), e);
-    }
+    return initPlugins(classLoaders, baseClazz, packageNames, nonSpringConfigs);
   }
 
   @Nonnull

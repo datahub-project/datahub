@@ -36,7 +36,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: acryldata/sane-checkout-action@v3
       - name: Compute Tag
         id: tag
         run: |
@@ -48,7 +48,7 @@ jobs:
     needs: ["check-secret", "setup"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
-      - uses: hsheth2/sane-checkout-action@v1
+      - uses: acryldata/sane-checkout-action@v3
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
@@ -62,7 +62,7 @@ jobs:
       - name: checkout upstream repo
         run: |
           git remote add upstream https://github.com/datahub-project/datahub.git
-          git fetch upstream --tags --force
+          git fetch upstream --tags --force --filter=tree:0
       - name: publish datahub-client jar snapshot
         if: ${{ github.event_name != 'release' }}
         env:

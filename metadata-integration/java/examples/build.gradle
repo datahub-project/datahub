@@ -4,7 +4,6 @@ plugins {
 }
 
 dependencies {
-
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
@@ -12,8 +11,6 @@ dependencies {
   implementation externalDependency.typesafeConfig
   implementation externalDependency.opentracingJdbc
 
-  implementation project(path: ':li-utils')
-  implementation project(path: ':metadata-models')
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
   implementation externalDependency.httpAsyncClient
 

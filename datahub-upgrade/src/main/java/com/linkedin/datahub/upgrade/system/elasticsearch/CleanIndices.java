@@ -1,7 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch;
 
-import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.CleanIndicesStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class CleanIndices implements Upgrade {
+public class CleanIndices implements NonBlockingSystemUpgrade {
   private final List<UpgradeStep> _steps;
 
   public CleanIndices(

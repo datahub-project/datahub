@@ -28,6 +28,7 @@ entities:
       - testResults
       - siblings
       - embed
+      - incidentsSummary
       - datasetProperties
       - editableDatasetProperties
       - datasetDeprecation
@@ -42,6 +43,8 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - access
+      - structuredProperties
+      - forms
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -67,7 +70,10 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
       - subTypes
+      - incidentsSummary
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -85,6 +91,10 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - incidentsSummary
+      - forms
+      - subTypes
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -122,6 +132,9 @@ entities:
       - glossaryTerms
       - browsePathsV2
       - subTypes
+      - structuredProperties
+      - incidentsSummary
+      - forms
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -142,6 +155,9 @@ entities:
       - institutionalMemory
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - incidentsSummary
+      - forms
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -174,6 +190,8 @@ entities:
       - corpUserSettings
       - origin
       - roleMembership
+      - structuredProperties
+      - forms
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -185,6 +203,8 @@ entities:
       - status
       - origin
       - roleMembership
+      - structuredProperties
+      - forms
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -193,6 +213,8 @@ entities:
       - domainProperties
       - institutionalMemory
       - ownership
+      - structuredProperties
+      - forms
   - name: container
     doc: A container of related data assets.
     category: core
@@ -211,6 +233,8 @@ entities:
       - status
       - domains
       - browsePathsV2
+      - structuredProperties
+      - forms
   - name: tag
     category: core
     keyAspect: tagKey
@@ -232,6 +256,8 @@ entities:
       - domains
       - status
       - browsePaths
+      - structuredProperties
+      - forms
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -240,6 +266,8 @@ entities:
       - institutionalMemory
       - ownership
       - status
+      - structuredProperties
+      - forms
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -267,6 +295,7 @@ entities:
       - assertionRunEvent
       - assertionActions
       - status
+      - globalTags
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
@@ -308,6 +337,8 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -323,6 +354,8 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -349,6 +382,8 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -365,6 +400,8 @@ entities:
       - globalTags
       - dataPlatformInstance
       - browsePathsV2
+      - structuredProperties
+      - forms
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -379,6 +416,8 @@ entities:
       - deprecation
       - globalTags
       - dataPlatformInstance
+      - structuredProperties
+      - forms
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -409,13 +448,24 @@ entities:
   - name: schemaField
     category: core
     keyAspect: schemaFieldKey
-    aspects: []
+    aspects:
+      - schemafieldInfo
+      - structuredProperties
+      - forms
+      - businessAttributes
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: incident
+    doc: An incident for an asset.
+    category: core
+    keyAspect: incidentKey
+    aspects:
+      - incidentInfo
+      - globalTags
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -436,6 +486,17 @@ entities:
     keyAspect: dataHubViewKey
     aspects:
       - dataHubViewInfo
+  - name: erModelRelationship
+    doc: ER Model Relationship of  Dataset Fields
+    keyAspect: erModelRelationshipKey
+    aspects:
+      - erModelRelationshipProperties
+      - editableERModelRelationshipProperties
+      - institutionalMemory
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
   - name: query
     category: core
     keyAspect: queryKey
@@ -443,6 +504,8 @@ entities:
       - queryProperties
       - querySubjects
       - status
+      - dataPlatformInstance
+      - subTypes
   - name: dataProduct
     category: core
     keyAspect: dataProductKey
@@ -454,6 +517,8 @@ entities:
       - dataProductProperties
       - institutionalMemory
       - status
+      - structuredProperties
+      - forms
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
@@ -461,6 +526,14 @@ entities:
     aspects:
       - ownershipTypeInfo
       - status
+  - name: businessAttribute
+    category: core
+    keyAspect: businessAttributeKey
+    aspects:
+      - businessAttributeInfo
+      - status
+      - ownership
+      - institutionalMemory
   - name: dataContract
     category: core
     keyAspect: dataContractKey
@@ -468,5 +541,76 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
-
+  - name: entityType
+    doc: A type of entity in the DataHub Metadata Model.
+    category: core
+    keyAspect: entityTypeKey
+    aspects:
+      - entityTypeInfo
+      - institutionalMemory
+      - status
+  - name: dataType
+    doc: A type of data element stored within DataHub.
+    category: core
+    keyAspect: dataTypeKey
+    aspects:
+      - dataTypeInfo
+      - institutionalMemory
+      - status
+  - name: structuredProperty
+    doc: Structured Property represents a property meant for extending the core model of a logical entity
+    category: core
+    keyAspect: structuredPropertyKey
+    aspects:
+      - propertyDefinition
+      - institutionalMemory
+      - status
+  - name: form
+    category: core
+    keyAspect: formKey
+    aspects:
+      - formInfo
+      - dynamicFormAssignment
+      - ownership
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
 events:
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.validation.PropertyDefinitionValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: structuredProperty
+          aspectName: propertyDefinition
+        - entityName: structuredProperty
+          aspectName: structuredPropertyKey
+    - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - UPSERT
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: '*'
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.hooks.StructuredPropertiesSoftDelete'
+      enabled: true
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: structuredProperties
