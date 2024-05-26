@@ -209,7 +209,7 @@ class SupersetConfig(
 
     extract_datasets: bool = Field(
         False,
-        description="When enabled, extracts column-level lineage from Tableau Datasources",
+        description="When enabled, extracts Superset datasets",
     )
     use_superset_platform: bool = Field(
         default=False,
