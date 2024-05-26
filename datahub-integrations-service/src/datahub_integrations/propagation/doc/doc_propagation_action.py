@@ -15,7 +15,7 @@
 import json
 import logging
 import time
-from typing import Any, List, Optional
+from typing import Any, Callable, List, Optional
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -26,7 +26,7 @@ from datahub.metadata.schema_classes import (
     EditableSchemaMetadataClass,
 )
 from datahub.metadata.schema_classes import EntityChangeEventClass as EntityChangeEvent
-from datahub.metadata.schema_classes import GenericAspectClass
+from datahub.metadata.schema_classes import GenericAspectClass, ParametersClass
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.action.action import Action
 from datahub_actions.api.action_graph import AcrylDataHubGraph
@@ -35,6 +35,7 @@ from datahub_actions.pipeline.pipeline_context import PipelineContext
 from pydantic import BaseModel, Field, validator
 from ratelimit import limits, sleep_and_retry
 
+from datahub_integrations.actions.action_extended import ExtendedAction
 from datahub_integrations.propagation.doc.mcl_utils import MCLProcessor
 
 logger = logging.getLogger(__name__)
@@ -195,7 +196,6 @@ ECE_EVENT_TYPE = "EntityChangeEvent_v1"
 
 # TODO - move to utils class
 # Define a factory function to create a rate-limited version of the function
-from typing import Callable
 
 
 def create_rate_limited_function(
@@ -203,13 +203,13 @@ def create_rate_limited_function(
 ) -> Callable:
     @sleep_and_retry
     @limits(calls=rate_limit, period=time_period)
-    def rate_limited_func(*args, **kwargs):
+    def rate_limited_func(*args, **kwargs):  # type: ignore
         return func(*args, **kwargs)
 
     return rate_limited_func
 
 
-class DocPropagationAction(Action):
+class DocPropagationAction(ExtendedAction):
     def __init__(self, config: DocPropagationConfig, ctx: PipelineContext):
         self.config = config
         self.ctx = ctx
@@ -356,16 +356,34 @@ class DocPropagationAction(Action):
         for field_path, field_dict in field_doc_map.items():
             schema_field_urn = make_schema_field_urn(dataset_urn, field_path)
             # make a fake ECE event
+            params = ParametersClass()
+            params.__dict__ = {"description": field_dict["description"]}
             event = EntityChangeEvent(
                 entityType="schemaField",
                 entityUrn=schema_field_urn,
                 category="DOCUMENTATION",
                 operation="ADD",  # ADD RESTATE later
                 auditStamp=field_dict["auditStamp"],
-                parameters={"description": field_dict["description"]},
+                parameters=params,
                 version=1,
             )
             self.act(EventEnvelope(event_type=ECE_EVENT_TYPE, event=event, meta={}))
+
+    def rollback(self) -> None:
+        assets_with_my_edits = self.ctx.graph.graph.get_urns_by_filter(
+            entity_types=["schemaField"],
+            extra_or_filters=[
+                {
+                    "field": "documentationAttributionSources.keyword",
+                    "condition": "IN",
+                    "values": [self.action_urn],
+                    "negated": "false",
+                }
+            ],
+        )
+        for asset_urn in assets_with_my_edits:
+            print(f"Rolling back documentation for {asset_urn}")
+        pass
 
     def process_schema_field_documentation(
         self,
@@ -575,12 +593,22 @@ class DocPropagationAction(Action):
 
         if mutation_needed:
             assert documentations.validate()
+            logger.info(
+                f"Will emit documentation change proposal for {schema_field_urn} with {field_doc}"
+            )
             graph.graph.emit(
                 MetadataChangeProposalWrapper(
                     entityUrn=schema_field_urn,
                     aspect=documentations,
                 )
             )
+            # validate the aspect
+            read_documentation = graph.graph.get_aspect(
+                schema_field_urn, DocumentationClass
+            )
+            assert read_documentation is not None
+            logger.info(f"{documentations}")
+            assert read_documentation == documentations
 
     def act(self, event: EventEnvelope) -> None:
         """This method responds to changes to documentation and propagates them to downstream entities"""

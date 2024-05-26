@@ -1,4 +1,4 @@
-name: harshal_hello_world_action
+name: hello_world_action
 source:
   type: kafka
   config:
@@ -14,12 +14,9 @@ datahub:
 #   config:
 #     filename: ./test_recording.json
 action:
-  type: datahub_integrations.propagation.doc.doc_propagation_action.DocPropagationAction
-  config:
-    bootstrap: True
+  type: hello_world
+  config: {}
 # action:
 #   type: datahub_integrations.actions.recording_action.RecordingAction
 #   config:
 #     filename: ./test_recording.json
-
-# pipeline_name: "urn:li:action:doc_propagation_action"

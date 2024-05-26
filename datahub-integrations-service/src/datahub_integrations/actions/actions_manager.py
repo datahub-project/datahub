@@ -6,6 +6,8 @@ import pathlib
 import random
 import traceback
 from datetime import datetime, timezone
+from enum import Enum
+from typing import Optional
 
 import anyio
 import anyio.abc
@@ -30,6 +32,13 @@ _RECIPE_TEMP_DIR = pathlib.Path("/tmp/datahub/recipes")
 _RECIPE_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
 
+class ActionStatus(Enum):
+    INIT = "init"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
 @dataclasses.dataclass
 class ActionRun:
     urn: str
@@ -41,6 +50,7 @@ class ActionRun:
         default_factory=lambda: datetime.now(tz=timezone.utc)
     )
     ended_at: datetime | None = None
+    status: ActionStatus = ActionStatus.INIT
 
     @property
     def action_run(self) -> "ActionRun":
@@ -70,6 +80,10 @@ class LiveActionSpec:
 class ActionsManager(contextlib.AbstractAsyncContextManager):
     pipelines: dict[str, LiveActionSpec] = dataclasses.field(default_factory=dict)
     dead_pipelines: dict[str, ActionRun] = dataclasses.field(default_factory=dict)
+    rollback_pipelines: dict[str, LiveActionSpec] = dataclasses.field(
+        default_factory=dict
+    )
+    rolledback_pipelines: dict[str, ActionRun] = dataclasses.field(default_factory=dict)
 
     context_stack: contextlib.AsyncExitStack = dataclasses.field(
         default_factory=contextlib.AsyncExitStack
@@ -176,6 +190,9 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
     def is_running(self, urn: str) -> bool:
         return urn in self.pipelines
 
+    def is_rolling_back(self, urn: str) -> bool:
+        return urn in self.rollback_pipelines
+
     async def stop_pipeline(self, urn: str) -> None:
         if urn not in self.pipelines:
             raise Exception(f"No pipeline with urn {urn} found.")
@@ -186,6 +203,105 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         # events or channels instead. But this is good enough for now.
         while urn in self.pipelines:
             await anyio.sleep(0.1)
+
+    async def rollback_pipeline(self, urn: str, config: Optional[dict] = None) -> None:
+        if urn in self.pipelines:
+            if config is None:
+                config = self.pipelines[urn].action_run.unresolved_config
+            await self.stop_pipeline(urn)
+
+        if urn in self.rollback_pipelines:
+            raise Exception(f"Pipeline {urn} is already rolling back.")
+
+        if config is None:
+            raise Exception(f"Cannot rollback stopped pipeline {urn} without a config.")
+
+        # TODO: Also write the logs to a file.
+        logs = LogHolder(echo_to_stdout_prefix=f"{urn}: ")
+        action_run = ActionRun(
+            urn=urn,
+            unresolved_config=config,
+            logs=logs,
+        )
+
+        runner = SubprocessRunner(logs)
+
+        venv = await setup_venv(
+            venv_config=VenvConfig(version=VENV_VERSION_NATIVE),
+            runner=runner,
+            tmp_dir=_VENV_TEMP_DIR,
+        )
+        port = random.randint(10000, 20000)
+
+        action_spec = LiveActionSpec(
+            action_run=action_run,
+            runner=runner,
+            venv=venv,
+            port=port,
+        )
+
+        await self._main_tg.start(self._rollback_pipeline, action_spec)
+        self.rollback_pipelines[urn] = action_spec
+
+    async def _rollback_pipeline(
+        self,
+        action_spec: LiveActionSpec,
+        *,
+        task_status: anyio.abc.TaskStatus[None] = anyio.TASK_STATUS_IGNORED,
+    ) -> None:
+        # Because this task runs within the main task group, if it raises an exception, all other running actions
+        # will automatically get cancelled. It's also shielded, which means that it will only be cancelled when
+        # the overall pipeline manager exits.
+        async with anyio.CancelScope(shield=True) as cs:
+            action_spec._action_scope = cs
+
+            try:
+                _config_file = _RECIPE_TEMP_DIR / f"{action_spec.urn}.json"
+                _config_file.write_text(
+                    json.dumps(action_spec.action_run.unresolved_config, indent=2)
+                )
+
+                # TODO: Only mark the task as started once the server is reachable.
+                task_status.started()
+
+                # TODO: Add a watchdog service that restarts the pipeline if it
+                # dies?
+                action_spec.action_run.status = ActionStatus.RUNNING
+                await action_spec.runner.execute(
+                    [
+                        action_spec.venv.command("python"),
+                        str(ACTION_RUNNER_SCRIPT),
+                        str(_config_file),
+                        "--port",
+                        str(action_spec.port),
+                        "--rollback",
+                    ],
+                    env={
+                        **os.environ,
+                        **action_spec.venv.extra_envs(),
+                    },
+                )
+                action_spec.action_run.status = ActionStatus.SUCCEEDED
+
+            except Exception as e:
+                # This also suppresses any exceptions generated by the task, which prevents
+                # them from propagating out to the main task group.
+                logger.info(f"Pipeline {action_spec.urn} rollback has failed.")
+                action_spec.action_run.logs.append(
+                    "".join(traceback.format_exception(e))
+                )
+                action_spec.action_run.status = ActionStatus.FAILED
+
+            finally:
+                # TODO: Capture exit code?
+                logger.info(f"Pipeline {action_spec.urn} rollback has finished.")
+                action_spec.action_run.ended_at = datetime.now(tz=timezone.utc)
+                self.rolledback_pipelines[action_spec.urn] = (
+                    self.rollback_pipelines.pop(action_spec.urn)
+                ).action_run
+                logger.info(f"Rolledback Pipelines: {self.rolledback_pipelines}")
+
+        logger.debug(f"Pipeline {action_spec.urn} has exited _rollback_pipeline.")
 
     async def stop_all(self) -> None:
         async with anyio.create_task_group() as tg:
