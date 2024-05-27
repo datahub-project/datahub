@@ -177,6 +177,20 @@ public class ViewService extends BaseService {
     try {
       this.entityClient.deleteEntity(
           opContext, Objects.requireNonNull(viewUrn, "viewUrn must not be null"));
+      
+      // Asynchronously delete all references to the entity (to return quickly)
+      CompletableFuture.runAsync(
+          () -> {
+            try {
+              this.entityClient.deleteEntityReferences(opContext, viewUrn);
+            } catch (RemoteInvocationException e) {
+              log.error(
+                  String.format(
+                      "Caught exception while attempting to clear all entity references for view with urn %s",
+                      viewUrn),
+                  e);
+            }
+          });
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to delete View with urn %s", viewUrn), e);
     }
