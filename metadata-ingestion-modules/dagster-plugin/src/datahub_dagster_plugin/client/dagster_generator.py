@@ -4,8 +4,14 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Se
 from urllib.parse import urlsplit
 
 import pydantic
-from dagster import DagsterRunStatus, PathMetadataValue, RunStatusSensorContext, TableSchemaMetadataValue, \
-    MultiAssetSensorEvaluationContext, AssetKey
+from dagster import (
+    AssetKey,
+    DagsterRunStatus,
+    MultiAssetSensorEvaluationContext,
+    PathMetadataValue,
+    RunStatusSensorContext,
+    TableSchemaMetadataValue,
+)
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
 from dagster._core.snap import JobSnapshot
 from dagster._core.snap.node import OpDefSnap
@@ -15,30 +21,53 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.api.entities.dataset.dataset import Dataset, SchemaSpecification, SchemaFieldSpecification
+from datahub.api.entities.dataset.dataset import (
+    Dataset,
+    SchemaFieldSpecification,
+    SchemaSpecification,
+)
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
-    make_dataplatform_instance_urn, make_schema_field_urn, make_tag_urn,
+    make_dataplatform_instance_urn,
+    make_schema_field_urn,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata._schema_classes import BrowsePathsV2Class, BrowsePathEntryClass, GlobalTagsClass, \
-    TagAssociationClass
-from datahub.metadata.com.linkedin.pegasus2avro.schema import DateType, NumberType, BytesType, BooleanType, NullType, \
-    TimeType, StringType, RecordType, ArrayType, SchemaMetadata, SchemaField, MySqlDDL, SchemaFieldDataType
+from datahub.metadata._schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    GlobalTagsClass,
+    TagAssociationClass,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
+    BooleanType,
+    BytesType,
+    DateType,
+    MySqlDDL,
+    NullType,
+    NumberType,
+    RecordType,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+    StringType,
+    TimeType,
+)
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
+    DatasetKeyClass,
+    DatasetLineageTypeClass,
     SubTypesClass,
     UpstreamClass,
-    DatasetLineageTypeClass,
-    DatasetKeyClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns._urn_base import Urn
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.specific.dataset import DatasetPatchBuilder
 
 ASSET_SUBTYPE = "Asset"
 
@@ -123,6 +152,7 @@ class Constant:
         "GEOGRAPHY": NullType,
     }
 
+
 class DatasetLineage(NamedTuple):
     inputs: Set[str]
     outputs: Set[str]
@@ -177,6 +207,7 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         description="Custom asset key to urn converter function. See details at [https://datahubproject.io/docs/lineage/dagster/#define-your-custom-logic-to-capture-asset-lineage-information]",
     )
 
+
 def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
     return [DatasetUrn.create_from_string(urn) for urn in urns]
 
@@ -203,7 +234,7 @@ def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment)
 
 
 class DagsterGenerator:
-    asset_group_name_cache:Dict[str, str] = {}
+    asset_group_name_cache: Dict[str, str] = {}
 
     def __init__(
         self,
@@ -221,10 +252,14 @@ class DagsterGenerator:
         """
         return DatasetUrn(
             #  A key/name can only contains letters, numbers, and _ in Dagster
-            platform="dagster", env=self.config.env, name=".".join(asset_key)
+            platform="dagster",
+            env=self.config.env,
+            name=".".join(asset_key),
         )
 
-    def asset_keys_to_dataset_urn_converter(self, asset_key: Sequence[str]) -> Optional[DatasetUrn]:
+    def asset_keys_to_dataset_urn_converter(
+        self, asset_key: Sequence[str]
+    ) -> Optional[DatasetUrn]:
         """
         Convert asset key to dataset urn
 
@@ -243,7 +278,9 @@ class DagsterGenerator:
         else:
             return None
 
-    def update_asset_group_name_cache(self, asset_context: MultiAssetSensorEvaluationContext) -> None:
+    def update_asset_group_name_cache(
+        self, asset_context: MultiAssetSensorEvaluationContext
+    ) -> None:
         """
         Update asset group name cache
         """
@@ -251,9 +288,15 @@ class DagsterGenerator:
             if asset_def:
                 for key, group_name in asset_def.group_names_by_key.items():
                     asset_urn = self.dataset_urn_from_asset(key.path)
-                    DagsterGenerator.asset_group_name_cache[asset_urn.urn()] = group_name
-                    self.logger.info(f"Asset group name cache updated: {asset_urn.urn()} -> {group_name}")
-        self.logger.info(f"Asset group name cache: {DagsterGenerator.asset_group_name_cache}")
+                    DagsterGenerator.asset_group_name_cache[
+                        asset_urn.urn()
+                    ] = group_name
+                    self.logger.info(
+                        f"Asset group name cache updated: {asset_urn.urn()} -> {group_name}"
+                    )
+        self.logger.info(
+            f"Asset group name cache: {DagsterGenerator.asset_group_name_cache}"
+        )
 
     def path_metadata_resolver(self, value: PathMetadataValue) -> Optional[DatasetUrn]:
         """
@@ -569,7 +612,9 @@ class DagsterGenerator:
                 result_type=Constant.ORCHESTRATOR,
             )
 
-    def convert_table_schema_to_schema_metadata(self, table_schema: TableSchemaMetadataValue, parent_urn: DatasetUrn) -> MetadataChangeProposalWrapper:
+    def convert_table_schema_to_schema_metadata(
+        self, table_schema: TableSchemaMetadataValue, parent_urn: DatasetUrn
+    ) -> MetadataChangeProposalWrapper:
         """
         Convert TableSchemaMetadataValue to SchemaSpecification
         """
@@ -581,7 +626,9 @@ class DagsterGenerator:
                     fieldPath=column.name,
                     nativeDataType=column.type,
                     type=SchemaFieldDataType(
-                        Constant.SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(column.type.upper(), NullType)()
+                        Constant.SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(
+                            column.type.upper(), NullType
+                        )()
                     ),
                     nullable=column.constraints.nullable,
                     description=column.description,
@@ -600,10 +647,14 @@ class DagsterGenerator:
             entityUrn=parent_urn.urn(), aspect=schema_metadata
         )
 
-    def generate_asset_group_tag(self, graph:DataHubGraph,  asset_urn: DatasetUrn, target_urn: Optional[Urn]) -> Optional[MetadataChangeProposalWrapper]:
+    def generate_asset_group_tag(
+        self, graph: DataHubGraph, asset_urn: DatasetUrn, target_urn: Optional[Urn]
+    ) -> Optional[MetadataChangeProposalWrapper]:
         if not target_urn:
             target_urn = asset_urn
-        self.logger.info(f"Getting {asset_urn.urn()} from Asset Cache: {DagsterGenerator.asset_group_name_cache}")
+        self.logger.info(
+            f"Getting {asset_urn.urn()} from Asset Cache: {DagsterGenerator.asset_group_name_cache}"
+        )
         group_name = DagsterGenerator.asset_group_name_cache.get(asset_urn.urn())
         if group_name:
             current_tags: Optional[GlobalTagsClass] = graph.get_aspect(
@@ -611,8 +662,10 @@ class DagsterGenerator:
                 aspect_type=GlobalTagsClass,
             )
 
-            tag_to_add= make_tag_urn(f"asset_group:{group_name}")
-            tag_association_to_add = TagAssociationClass(tag=make_tag_urn(f"asset_group:{group_name}"))
+            tag_to_add = make_tag_urn(f"asset_group:{group_name}")
+            tag_association_to_add = TagAssociationClass(
+                tag=make_tag_urn(f"asset_group:{group_name}")
+            )
             need_write = False
             if current_tags:
                 if tag_to_add not in [x.tag for x in current_tags.tags]:
@@ -624,8 +677,7 @@ class DagsterGenerator:
 
             if need_write:
                 mcp = MetadataChangeProposalWrapper(
-                    entityUrn=target_urn.urn(),
-                    aspect = current_tags
+                    entityUrn=target_urn.urn(), aspect=current_tags
                 )
                 self.logger.info(f"tag_mcp: {mcp}")
                 return mcp
@@ -664,7 +716,9 @@ class DagsterGenerator:
             graph.emit_mcp(mcp)
 
         if schema:
-            mcp = self.convert_table_schema_to_schema_metadata(table_schema=schema, parent_urn=dataset_urn)
+            mcp = self.convert_table_schema_to_schema_metadata(
+                table_schema=schema, parent_urn=dataset_urn
+            )
             graph.emit_mcp(mcp)
 
         mcp = MetadataChangeProposalWrapper(
@@ -686,7 +740,9 @@ class DagsterGenerator:
             )
             graph.emit_mcp(mcp)
 
-        tag_mcp = self.generate_asset_group_tag(graph, asset_urn=dataset_urn, target_urn=dataset_urn)
+        tag_mcp = self.generate_asset_group_tag(
+            graph, asset_urn=dataset_urn, target_urn=dataset_urn
+        )
         if tag_mcp:
             print(f"tag_mcp: {tag_mcp}")
             graph.emit_mcp(tag_mcp)
@@ -748,8 +804,10 @@ class DagsterGenerator:
         """
         Generate browse path from asset key
         """
-        asset_group_name = DagsterGenerator.asset_group_name_cache.get(self.dataset_urn_from_asset(asset_key).urn())
-        browsePaths:List[BrowsePathEntryClass] = []
+        asset_group_name = DagsterGenerator.asset_group_name_cache.get(
+            self.dataset_urn_from_asset(asset_key).urn()
+        )
+        browsePaths: List[BrowsePathEntryClass] = []
         if asset_group_name:
             browsePaths.append(BrowsePathEntryClass(asset_group_name))
 
