@@ -1,23 +1,24 @@
 import React from 'react';
 import styled from 'styled-components';
 import Icon from '@ant-design/icons/lib/components/Icon';
-import { extractChartValuesFromFieldProfiles } from '../../../Stats/historical/HistoricalStats';
 import StatChart, { ChartCard } from '../../../Stats/historical/charts/StatChart';
-import { TimeWindowSize, getFixedLookbackWindow } from '../../../../../../../shared/time/timeUtils';
+import { getFixedLookbackWindow } from '../../../../../../../shared/time/timeUtils';
 import { LookbackWindow } from '../../../Stats/lookbackWindows';
-import { DatasetFieldProfile, DateInterval, SchemaField } from '../../../../../../../../types.generated';
+import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
 import NoStatsAvailble from '../../../../../../../../images/no-stats-available.svg?react';
+import { REDESIGN_COLORS } from '../../../../../constants';
+import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '../../../../../utils';
 
 const CHART_WIDTH = 210;
 const CHART_HEIGHT = 170;
-const DEFAULT_LINE_COLOR = '#8D76E9';
+const DEFAULT_LINE_COLOR = REDESIGN_COLORS.BACKGROUND_PURPLE;
 
 const StatSection = styled.div`
     padding: 0px 16px;
     margin-top: 12px;
     // Temporary solution for chart circle color, as V1 theme colors are in place.
     circle {
-        fill: #533fd1;
+        fill: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_1};
     }
 `;
 
@@ -44,7 +45,7 @@ const NoDataContainer = styled.div`
 `;
 
 const Section = styled.div`
-    color: #56668e;
+    color: ${REDESIGN_COLORS.DARK_GREY};
     font-weight: 700;
     font-size: 12px;
     line-height: 24px;
@@ -53,7 +54,7 @@ const Section = styled.div`
 const StyledIcon = styled(Icon)`
     font-size: 80px;
     margin-bottom: 6px;
-    color: #fff;
+    color: ${REDESIGN_COLORS.WHITE};
 `;
 
 interface Props {
@@ -64,21 +65,6 @@ interface Props {
     };
     lookbackWindow: LookbackWindow;
 }
-
-const computeChartTickInterval = (windowSize: TimeWindowSize): DateInterval => {
-    switch (windowSize.interval) {
-        case DateInterval.Day:
-            return DateInterval.Hour;
-        case DateInterval.Week:
-            return DateInterval.Day;
-        case DateInterval.Month:
-            return DateInterval.Week;
-        case DateInterval.Year:
-            return DateInterval.Month;
-        default:
-            throw new Error(`Unrecognized DateInterval provided ${windowSize.interval}`);
-    }
-};
 
 const getLookbackWindowSize = (window: LookbackWindow) => {
     return window.windowSize;
