@@ -16,11 +16,11 @@ from dagster import (
     RunStatusSensorContext,
     SensorDefinition,
     SkipReason,
+    TextMetadataValue,
     load_assets_from_modules,
     multi_asset_sensor,
     run_status_sensor,
     sensor,
-    TextMetadataValue,
 )
 from dagster._core.definitions.asset_selection import CoercibleToAssetSelection
 from dagster._core.definitions.multi_asset_sensor_definition import (
