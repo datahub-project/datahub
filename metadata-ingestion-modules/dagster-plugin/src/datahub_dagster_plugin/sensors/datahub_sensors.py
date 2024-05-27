@@ -23,7 +23,6 @@ from dagster import (
 )
 from dagster._core.definitions.asset_selection import CoercibleToAssetSelection
 from dagster._core.definitions.multi_asset_sensor_definition import (
-    MultiAssetMaterializationFunction,
     AssetMaterializationFunctionReturn,
 )
 from dagster._core.definitions.sensor_definition import (
