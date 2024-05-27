@@ -34,7 +34,7 @@ base_requirements = {
     # Ignoring the dependency below because it causes issues with the vercel built wheel install
     #f"acryl-datahub[datahub-rest]{_self_pin}",
     "acryl-datahub[datahub-rest]",
-    sqlglot_lib,
+    *sqlglot_lib,
 }
 
 mypy_stubs = {
