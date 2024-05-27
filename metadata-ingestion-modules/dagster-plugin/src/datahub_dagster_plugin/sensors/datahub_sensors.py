@@ -22,6 +22,10 @@ from dagster import (
     sensor,
 )
 from dagster._core.definitions.asset_selection import CoercibleToAssetSelection
+from dagster._core.definitions.multi_asset_sensor_definition import (
+    MultiAssetMaterializationFunction,
+    AssetMaterializationFunctionReturn,
+)
 from dagster._core.definitions.sensor_definition import (
     DefaultSensorStatus,
     RawSensorEvaluationFunctionReturn,
@@ -336,10 +340,12 @@ class DatahubSensors:
                         materialization
                         and materialization.metadata
                         and materialization.metadata.get("Query")
+                        and materialization.metadata.get("Query").text
                     ):
+                        query_metadata = materialization.metadata.get("Query")
                         lineage = self.parse_sql(
                             context=context,
-                            sql_query=materialization.metadata.get("Query").text,
+                            sql_query=str(query_metadata.text),
                             env=asset_downstream_urn.env,
                             platform=asset_downstream_urn.platform.replace(
                                 "urn:li:dataPlatform:", ""
@@ -501,7 +507,7 @@ class DatahubSensors:
 
     def _emit_asset_metadata(
         self, context: MultiAssetSensorEvaluationContext
-    ) -> RawSensorEvaluationFunctionReturn:
+    ) -> AssetMaterializationFunctionReturn:
         dagster_environment = self.get_dagster_environment()
         context.log.debug(f"dagster enivronment: {dagster_environment}")
         if not dagster_environment:
