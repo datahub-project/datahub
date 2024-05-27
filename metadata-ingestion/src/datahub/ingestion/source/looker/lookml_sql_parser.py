@@ -1,7 +1,6 @@
 import logging
 import re
-from functools import partial
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.looker.looker_common import ViewField, ViewFieldType
@@ -118,12 +117,6 @@ class ViewFieldBuilder:
     def __init__(self, fields: Optional[List[ViewField]]):
         self.fields = fields
 
-    def _determine_syntax(self):
-        if self.fields:
-            return "syntax1"
-        else:
-            return "syntax2"
-
     def create_or_update_fields(
         self,
         sql_query: SqlQuery,
@@ -212,11 +205,8 @@ class ViewFieldBuilder:
             graph=ctx.graph,
         )
 
-        syntax_func_map: Dict[str, Callable] = {
-            "syntax1": partial(_update_fields, self.fields, spr),
-            "syntax2": partial(_create_fields, spr),
-        }
+        if self.fields:  # It is syntax1
+            return _update_fields(self.fields, spr), []
 
-        syntax: str = self._determine_syntax()
-
-        return syntax_func_map[syntax](), []  # TODO: determine second return argument
+        # It is syntax2
+        return _create_fields(spr), []  # TODO: determine second return argument
