@@ -123,7 +123,6 @@ class Constant:
         "GEOGRAPHY": NullType,
     }
 
-
 class DatasetLineage(NamedTuple):
     inputs: Set[str]
     outputs: Set[str]
@@ -153,7 +152,6 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         default=False,
         description="Whether to connect ops to ops based on the order of execution",
     )
-
     asset_lineage_extractor: Optional[
         Callable[
             [RunStatusSensorContext, "DagsterGenerator", DataHubGraph],
@@ -344,7 +342,6 @@ class DagsterGenerator:
         :return: DataJob - Data generated datajob
         """
         self.logger.info(f"Generating datajob for Op Def Snap: {op_def_snap}")
-
         if self.dagster_environment.is_cloud:
             flow_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{job_snapshot.name}"
             job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{op_def_snap.name}"
@@ -649,7 +646,6 @@ class DagsterGenerator:
         """
         Emit asset to datahub
         """
-
         dataset_urn = self.dataset_urn_from_asset(asset_key)
         dataset = Dataset(
             id=None,

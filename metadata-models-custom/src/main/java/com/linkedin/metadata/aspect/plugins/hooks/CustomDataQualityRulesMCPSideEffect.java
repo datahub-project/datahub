@@ -2,7 +2,7 @@ package com.linkedin.metadata.aspect.plugins.hooks;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
@@ -12,13 +12,11 @@ import javax.annotation.Nonnull;
 
 public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
 
-  public CustomDataQualityRulesMCPSideEffect(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  private AspectPluginConfig config;
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
-      Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+      Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     // Mirror aspects to another URN in SQL & Search
     return changeMCPS.stream()
         .map(
@@ -31,7 +29,19 @@ public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
                   .recordTemplate(changeMCP.getRecordTemplate())
                   .auditStamp(changeMCP.getAuditStamp())
                   .systemMetadata(changeMCP.getSystemMetadata())
-                  .build(aspectRetriever);
+                  .build(retrieverContext.getAspectRetriever());
             });
+  }
+
+  @Nonnull
+  @Override
+  public AspectPluginConfig getConfig() {
+    return config;
+  }
+
+  @Override
+  public CustomDataQualityRulesMCPSideEffect setConfig(@Nonnull AspectPluginConfig config) {
+    this.config = config;
+    return this;
   }
 }

@@ -17,9 +17,7 @@ from datahub.ingestion.source.nifi import (
 
 @typing.no_type_check
 def test_nifi_s3_provenance_event():
-    config_dict = {
-        "site_url": "http://localhost:8080",
-    }
+    config_dict = {"site_url": "http://localhost:8080", "incremental_lineage": False}
     nifi_config = NifiSourceConfig.parse_obj(config_dict)
     ctx = PipelineContext(run_id="test")
 
@@ -79,15 +77,16 @@ def test_nifi_s3_provenance_event():
 
         # one aspect for dataflow and two aspects for datajob
         # and two aspects for dataset
-        assert len(workunits) == 5
+        assert len(workunits) == 6
         assert workunits[0].metadata.entityType == "dataFlow"
 
         assert workunits[1].metadata.entityType == "dataset"
         assert workunits[2].metadata.entityType == "dataset"
         assert workunits[3].metadata.entityType == "dataJob"
         assert workunits[4].metadata.entityType == "dataJob"
+        assert workunits[5].metadata.entityType == "dataJob"
 
-        ioAspect = workunits[4].metadata.aspect
+        ioAspect = workunits[5].metadata.aspect
         assert ioAspect.outputDatasets == [
             "urn:li:dataset:(urn:li:dataPlatform:s3,foo-nifi/tropical_data,PROD)"
         ]
@@ -149,15 +148,16 @@ def test_nifi_s3_provenance_event():
 
         # one aspect for dataflow and two aspects for datajob
         # and two aspects for dataset
-        assert len(workunits) == 5
+        assert len(workunits) == 6
         assert workunits[0].metadata.entityType == "dataFlow"
 
         assert workunits[1].metadata.entityType == "dataset"
         assert workunits[2].metadata.entityType == "dataset"
         assert workunits[3].metadata.entityType == "dataJob"
         assert workunits[4].metadata.entityType == "dataJob"
+        assert workunits[5].metadata.entityType == "dataJob"
 
-        ioAspect = workunits[4].metadata.aspect
+        ioAspect = workunits[5].metadata.aspect
         assert ioAspect.outputDatasets == []
         assert ioAspect.inputDatasets == [
             "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)"

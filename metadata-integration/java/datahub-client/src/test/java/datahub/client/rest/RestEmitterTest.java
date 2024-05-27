@@ -11,8 +11,8 @@ import datahub.client.MetadataWriteResponse;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.server.TestDataHubServer;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.SocketTimeoutException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -32,117 +32,148 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLHandshakeException;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.concurrent.FutureCallback;
-import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
+import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
+import org.apache.hc.core5.http.Method;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.mockserver.matchers.Times;
+import org.mockserver.model.HttpError;
 import org.mockserver.model.HttpRequest;
+import org.mockserver.model.HttpResponse;
+import org.mockserver.model.HttpStatusCode;
 import org.mockserver.model.RequestDefinition;
+import org.mockserver.verify.VerificationTimes;
 
 @RunWith(MockitoJUnitRunner.class)
 public class RestEmitterTest {
 
-  @Mock HttpAsyncClientBuilder mockHttpClientFactory;
-
-  @Mock CloseableHttpAsyncClient mockClient;
-
-  @Captor ArgumentCaptor<HttpPost> postArgumentCaptor;
-
-  @Captor ArgumentCaptor<FutureCallback> callbackCaptor;
-
-  @Before
-  public void setupMocks() {
-    Mockito.when(mockHttpClientFactory.build()).thenReturn(mockClient);
-  }
-
   @Test
-  public void testPost() throws URISyntaxException, IOException {
+  public void testPost()
+      throws URISyntaxException, IOException, ExecutionException, InterruptedException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
 
-    RestEmitter emitter = RestEmitter.create(b -> b.asyncHttpClientBuilder(mockHttpClientFactory));
     MetadataChangeProposalWrapper mcp =
         getMetadataChangeProposalWrapper(
             "Test Dataset", "urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)");
-    emitter.emit(mcp, null);
-    Mockito.verify(mockClient).execute(postArgumentCaptor.capture(), callbackCaptor.capture());
-    FutureCallback callback = callbackCaptor.getValue();
-    Assert.assertNotNull(callback);
-    HttpPost testPost = postArgumentCaptor.getValue();
-    Assert.assertEquals("2.0.0", testPost.getFirstHeader("X-RestLi-Protocol-Version").getValue());
-    InputStream is = testPost.getEntity().getContent();
-    byte[] contentBytes = new byte[(int) testPost.getEntity().getContentLength()];
-    is.read(contentBytes);
-    String contentString = new String(contentBytes, StandardCharsets.UTF_8);
+    Future<MetadataWriteResponse> future = emitter.emit(mcp, null);
+    MetadataWriteResponse response = future.get();
     String expectedContent =
         "{\"proposal\":{\"aspectName\":\"datasetProperties\","
             + "\"entityUrn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)\","
             + "\"entityType\":\"dataset\",\"changeType\":\"UPSERT\",\"aspect\":{\"contentType\":\"application/json\""
             + ",\"value\":\"{\\\"description\\\":\\\"Test Dataset\\\"}\"}}}";
-    Assert.assertEquals(expectedContent, contentString);
+    testDataHubServer
+        .getMockServer()
+        .verify(
+            request().withHeader("X-RestLi-Protocol-Version", "2.0.0").withBody(expectedContent));
+  }
+
+  @Test
+  public void testPostWithRetry()
+      throws URISyntaxException, IOException, ExecutionException, InterruptedException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    RestEmitterConfig config =
+        RestEmitterConfig.builder()
+            .server("http://localhost:" + port)
+            .maxRetries(3)
+            .retryIntervalSec(1)
+            .build();
+    RestEmitter emitter = new RestEmitter(config);
+
+    MetadataChangeProposalWrapper mcp =
+        getMetadataChangeProposalWrapper(
+            "Test Dataset", "urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)");
+    Future<MetadataWriteResponse> future = emitter.emit(mcp, null);
+    MetadataWriteResponse response = future.get();
+    String expectedContent =
+        "{\"proposal\":{\"aspectName\":\"datasetProperties\","
+            + "\"entityUrn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)\","
+            + "\"entityType\":\"dataset\",\"changeType\":\"UPSERT\",\"aspect\":{\"contentType\":\"application/json\""
+            + ",\"value\":\"{\\\"description\\\":\\\"Test Dataset\\\"}\"}}}";
+    testDataHubServer
+        .getMockServer()
+        .verify(
+            request().withHeader("X-RestLi-Protocol-Version", "2.0.0").withBody(expectedContent),
+            VerificationTimes.exactly(1))
+        .when(
+            request()
+                .withPath("/aspect")
+                .withHeader("X-RestLi-Protocol-Version", "2.0.0")
+                .withBody(expectedContent),
+            Times.exactly(4))
+        .respond(HttpResponse.response().withStatusCode(500).withBody("exception"));
   }
 
   @Test
   public void testExceptions()
       throws URISyntaxException, IOException, ExecutionException, InterruptedException {
-
-    RestEmitter emitter = RestEmitter.create($ -> $.asyncHttpClientBuilder(mockHttpClientFactory));
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
+    RestEmitter emitter =
+        RestEmitter.create(
+            b ->
+                b.server("http://localhost:" + port)
+                    .extraHeaders(Collections.singletonMap("Test-Header", "Test-Value")));
 
     MetadataChangeProposalWrapper mcp =
-        MetadataChangeProposalWrapper.create(
-            b ->
-                b.entityType("dataset")
-                    .entityUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)")
-                    .upsert()
-                    .aspect(new DatasetProperties().setDescription("Test Dataset")));
+        getMetadataChangeProposalWrapper(
+            "Test Dataset", "urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)");
+    Future<MetadataWriteResponse> future = emitter.emit(mcp, null);
+    MetadataWriteResponse response = future.get();
+    String expectedContent =
+        "{\"proposal\":{\"aspectName\":\"datasetProperties\","
+            + "\"entityUrn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)\","
+            + "\"entityType\":\"dataset\",\"changeType\":\"UPSERT\",\"aspect\":{\"contentType\":\"application/json\""
+            + ",\"value\":\"{\\\"description\\\":\\\"Test Dataset\\\"}\"}}}";
+    testDataHubServer
+        .getMockServer()
+        .when(request(), Times.once())
+        .error(HttpError.error().withDropConnection(true));
 
-    Future<HttpResponse> mockFuture = Mockito.mock(Future.class);
-    Mockito.when(mockClient.execute(Mockito.any(), Mockito.any())).thenReturn(mockFuture);
-    Mockito.when(mockFuture.get())
-        .thenThrow(new ExecutionException("Test execution exception", null));
     try {
       emitter.emit(mcp, null).get();
       Assert.fail("should not be here");
     } catch (ExecutionException e) {
-      Assert.assertEquals(e.getMessage(), "Test execution exception");
+      Assert.assertEquals(
+          e.getMessage(),
+          "org.apache.hc.core5.http.ConnectionClosedException: Connection closed by peer");
     }
   }
 
   @Test
-  public void testExtraHeaders() throws Exception {
+  public void testExtraHeaders()
+      throws URISyntaxException, IOException, ExecutionException, InterruptedException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    Integer port = testDataHubServer.getMockServer().getPort();
     RestEmitter emitter =
         RestEmitter.create(
             b ->
-                b.asyncHttpClientBuilder(mockHttpClientFactory)
+                b.server("http://localhost:" + port)
                     .extraHeaders(Collections.singletonMap("Test-Header", "Test-Value")));
-    MetadataChangeProposalWrapper mcpw =
-        MetadataChangeProposalWrapper.create(
-            b ->
-                b.entityType("dataset")
-                    .entityUrn("urn:li:dataset:foo")
-                    .upsert()
-                    .aspect(new DatasetProperties()));
-    Future<HttpResponse> mockFuture = Mockito.mock(Future.class);
-    Mockito.when(mockClient.execute(Mockito.any(), Mockito.any())).thenReturn(mockFuture);
-    emitter.emit(mcpw, null);
-    Mockito.verify(mockClient).execute(postArgumentCaptor.capture(), callbackCaptor.capture());
-    FutureCallback callback = callbackCaptor.getValue();
-    Assert.assertNotNull(callback);
-    HttpPost testPost = postArgumentCaptor.getValue();
-    // old headers are not modified
-    Assert.assertEquals("2.0.0", testPost.getFirstHeader("X-RestLi-Protocol-Version").getValue());
-    // new headers are added
-    Assert.assertEquals("Test-Value", testPost.getFirstHeader("Test-Header").getValue());
+
+    MetadataChangeProposalWrapper mcp =
+        getMetadataChangeProposalWrapper(
+            "Test Dataset", "urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)");
+    Future<MetadataWriteResponse> future = emitter.emit(mcp, null);
+    MetadataWriteResponse response = future.get();
+    String expectedContent =
+        "{\"proposal\":{\"aspectName\":\"datasetProperties\","
+            + "\"entityUrn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar,PROD)\","
+            + "\"entityType\":\"dataset\",\"changeType\":\"UPSERT\",\"aspect\":{\"contentType\":\"application/json\""
+            + ",\"value\":\"{\\\"description\\\":\\\"Test Dataset\\\"}\"}}}";
+    testDataHubServer
+        .getMockServer()
+        .verify(
+            request()
+                .withHeader("Test-Header", "Test-Value")
+                .withHeader("X-RestLi-Protocol-Version", "2.0.0")
+                .withBody(expectedContent));
   }
 
   @Test
@@ -168,7 +199,7 @@ public class RestEmitterTest {
                 .withQueryStringParameter("action", "ingestProposal")
                 .withHeader("Content-type", "application/json"),
             Times.unlimited())
-        .respond(org.mockserver.model.HttpResponse.response().withStatusCode(200));
+        .respond(HttpResponse.response().withStatusCode(200));
     ExecutorService executor = Executors.newFixedThreadPool(10);
     ArrayList<Future> results = new ArrayList();
     Random random = new Random();
@@ -476,26 +507,27 @@ public class RestEmitterTest {
 
   @Test
   public void testDisableSslVerification()
-      throws IOException, InterruptedException, ExecutionException {
+      throws IOException, InterruptedException, ExecutionException, URISyntaxException {
     RestEmitter restEmitter =
         new RestEmitter(RestEmitterConfig.builder().disableSslVerification(true).build());
     final String hostWithSsl = "https://self-signed.badssl.com";
-    final HttpGet request = new HttpGet(hostWithSsl);
+    final SimpleHttpRequest request = SimpleHttpRequest.create(Method.GET, new URI(hostWithSsl));
 
-    final HttpResponse response = restEmitter.getHttpClient().execute(request, null).get();
+    final SimpleHttpResponse response = restEmitter.getHttpClient().execute(request, null).get();
     restEmitter.close();
-    Assert.assertEquals(200, response.getStatusLine().getStatusCode());
+    Assert.assertEquals(HttpStatusCode.OK_200.code(), response.getCode());
   }
 
   @Test
   public void testSslVerificationException()
-      throws IOException, InterruptedException, ExecutionException {
+      throws IOException, InterruptedException, ExecutionException, URISyntaxException {
     RestEmitter restEmitter =
         new RestEmitter(RestEmitterConfig.builder().disableSslVerification(false).build());
     final String hostWithSsl = "https://self-signed.badssl.com";
-    final HttpGet request = new HttpGet(hostWithSsl);
+    final SimpleHttpRequest request = SimpleHttpRequest.create(Method.GET, new URI(hostWithSsl));
+
     try {
-      HttpResponse response = restEmitter.getHttpClient().execute(request, null).get();
+      SimpleHttpResponse response = restEmitter.getHttpClient().execute(request, null).get();
       Assert.fail();
     } catch (Exception e) {
       Assert.assertTrue(e instanceof ExecutionException);

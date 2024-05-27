@@ -20,8 +20,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -30,6 +30,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -56,6 +57,7 @@ public class DefaultAspectsUtil {
   }
 
   public static AspectsBatch withAdditionalChanges(
+      @Nonnull OperationContext opContext,
       @Nonnull final AspectsBatch inputBatch,
       @Nonnull EntityService<?> entityService,
       boolean enableBrowseV2) {
@@ -76,14 +78,15 @@ public class DefaultAspectsUtil {
     // Key aspect restored if needed
     result.addAll(
         DefaultAspectsUtil.getAdditionalChanges(
-            inputBatch.getMCPItems(), entityService, enableBrowseV2));
+            opContext, inputBatch.getMCPItems(), entityService, enableBrowseV2));
     return AspectsBatchImpl.builder()
-        .aspectRetriever(inputBatch.getAspectRetriever())
+        .retrieverContext(inputBatch.getRetrieverContext())
         .items(result)
         .build();
   }
 
   public static List<MCPItem> getAdditionalChanges(
+      @Nonnull OperationContext opContext,
       @Nonnull Collection<MCPItem> batch,
       @Nonnull EntityService<?> entityService,
       boolean browsePathV2) {
@@ -93,7 +96,7 @@ public class DefaultAspectsUtil {
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
             .collect(Collectors.groupingBy(BatchItem::getUrn));
 
-    Set<Urn> urnsWithExistingKeyAspects = entityService.exists(itemsByUrn.keySet());
+    Set<Urn> urnsWithExistingKeyAspects = entityService.exists(opContext, itemsByUrn.keySet());
 
     // create default aspects when key aspect is missing
     return itemsByUrn.entrySet().stream()
@@ -109,7 +112,11 @@ public class DefaultAspectsUtil {
               // Generate key aspect and defaults
               List<Pair<String, RecordTemplate>> defaultAspects =
                   generateDefaultAspects(
-                      entityService, aspectsEntry.getKey(), currentBatchAspectNames, browsePathV2);
+                      opContext,
+                      entityService,
+                      aspectsEntry.getKey(),
+                      currentBatchAspectNames,
+                      browsePathV2);
 
               // First is the key aspect
               RecordTemplate entityKeyAspect = defaultAspects.get(0).getSecond();
@@ -125,7 +132,7 @@ public class DefaultAspectsUtil {
                               getProposalFromAspectForDefault(
                                   entry.getKey(), entry.getValue(), entityKeyAspect, templateItem),
                               templateItem.getAuditStamp(),
-                              entityService))
+                              opContext.getRetrieverContext().get().getAspectRetriever()))
                   .filter(Objects::nonNull);
             })
         .collect(Collectors.toList());
@@ -139,6 +146,7 @@ public class DefaultAspectsUtil {
    * @return a list of aspect name/aspect pairs to be written
    */
   private static List<Pair<String, RecordTemplate>> generateDefaultAspects(
+      @Nonnull OperationContext opContext,
       @Nonnull EntityService<?> entityService,
       @Nonnull final Urn urn,
       @Nonnull Set<String> currentBatchAspectNames,
@@ -147,13 +155,14 @@ public class DefaultAspectsUtil {
     final List<Pair<String, RecordTemplate>> defaultAspects = new LinkedList<>();
 
     // Key Aspect
-    final String keyAspectName = entityService.getKeyAspectName(urn);
+    final String keyAspectName = opContext.getKeyAspectName(urn);
     defaultAspects.add(
-        Pair.of(keyAspectName, EntityUtils.buildKeyAspect(entityService.getEntityRegistry(), urn)));
+        Pair.of(keyAspectName, EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), urn)));
 
     // Other Aspects
     defaultAspects.addAll(
         generateDefaultAspectsIfMissing(
+            opContext,
             entityService,
             urn,
             defaultAspects.get(0).getSecond(),
@@ -175,12 +184,13 @@ public class DefaultAspectsUtil {
    * @return additional aspects to be written
    */
   private static List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(
+      @Nonnull OperationContext opContext,
       @Nonnull EntityService<?> entityService,
       @Nonnull final Urn urn,
       RecordTemplate entityKeyAspect,
       @Nonnull Set<String> currentAspectNames,
       boolean browsePathV2) {
-    EntityRegistry entityRegistry = entityService.getEntityRegistry();
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
 
     Set<String> fetchAspects =
         Stream.of(
@@ -202,7 +212,8 @@ public class DefaultAspectsUtil {
 
     if (!fetchAspects.isEmpty()) {
 
-      Set<String> latestAspects = entityService.getLatestAspectsForUrn(urn, fetchAspects).keySet();
+      Set<String> latestAspects =
+          entityService.getLatestAspectsForUrn(opContext, urn, fetchAspects).keySet();
 
       return fetchAspects.stream()
           .filter(aspectName -> !latestAspects.contains(aspectName))
@@ -212,11 +223,12 @@ public class DefaultAspectsUtil {
                   case BROWSE_PATHS_ASPECT_NAME:
                     return Pair.of(
                         BROWSE_PATHS_ASPECT_NAME,
-                        (RecordTemplate) buildDefaultBrowsePath(urn, entityService));
+                        (RecordTemplate) buildDefaultBrowsePath(opContext, urn, entityService));
                   case BROWSE_PATHS_V2_ASPECT_NAME:
                     return Pair.of(
                         BROWSE_PATHS_V2_ASPECT_NAME,
-                        (RecordTemplate) buildDefaultBrowsePathV2(urn, false, entityService));
+                        (RecordTemplate)
+                            buildDefaultBrowsePathV2(opContext, urn, false, entityService));
                   case DATA_PLATFORM_INSTANCE_ASPECT_NAME:
                     return DataPlatformInstanceUtils.buildDataPlatformInstance(
                             urn.getEntityType(), entityKeyAspect)
@@ -244,10 +256,10 @@ public class DefaultAspectsUtil {
    */
   @Nonnull
   public static BrowsePaths buildDefaultBrowsePath(
-      final @Nonnull Urn urn, EntityService<?> entityService) {
-    Character dataPlatformDelimiter = getDataPlatformDelimiter(urn, entityService);
+      @Nonnull OperationContext opContext, final @Nonnull Urn urn, EntityService<?> entityService) {
+    Character dataPlatformDelimiter = getDataPlatformDelimiter(opContext, urn, entityService);
     String defaultBrowsePath =
-        getDefaultBrowsePath(urn, entityService.getEntityRegistry(), dataPlatformDelimiter);
+        getDefaultBrowsePath(urn, opContext.getEntityRegistry(), dataPlatformDelimiter);
     StringArray browsePaths = new StringArray();
     browsePaths.add(defaultBrowsePath);
     BrowsePaths browsePathAspect = new BrowsePaths();
@@ -263,23 +275,29 @@ public class DefaultAspectsUtil {
    */
   @Nonnull
   public static BrowsePathsV2 buildDefaultBrowsePathV2(
-      final @Nonnull Urn urn, boolean useContainerPaths, EntityService<?> entityService) {
-    Character dataPlatformDelimiter = getDataPlatformDelimiter(urn, entityService);
+      @Nonnull OperationContext opContext,
+      final @Nonnull Urn urn,
+      boolean useContainerPaths,
+      EntityService<?> entityService) {
+    Character dataPlatformDelimiter = getDataPlatformDelimiter(opContext, urn, entityService);
     return getDefaultBrowsePathV2(
+        opContext,
         urn,
-        entityService.getEntityRegistry(),
+        opContext.getEntityRegistry(),
         dataPlatformDelimiter,
         entityService,
         useContainerPaths);
   }
 
   /** Returns a delimiter on which the name of an asset may be split. */
-  private static Character getDataPlatformDelimiter(Urn urn, EntityService<?> entityService) {
+  private static Character getDataPlatformDelimiter(
+      @Nonnull OperationContext opContext, Urn urn, EntityService<?> entityService) {
     // Attempt to construct the appropriate Data Platform URN
-    Urn dataPlatformUrn = buildDataPlatformUrn(urn, entityService.getEntityRegistry());
+    Urn dataPlatformUrn = buildDataPlatformUrn(urn, opContext.getEntityRegistry());
     if (dataPlatformUrn != null) {
       // Attempt to resolve the delimiter from Data Platform Info
-      DataPlatformInfo dataPlatformInfo = getDataPlatformInfo(dataPlatformUrn, entityService);
+      DataPlatformInfo dataPlatformInfo =
+          getDataPlatformInfo(opContext, dataPlatformUrn, entityService);
       if (dataPlatformInfo != null && dataPlatformInfo.hasDatasetNameDelimiter()) {
         return dataPlatformInfo.getDatasetNameDelimiter().charAt(0);
       }
@@ -289,10 +307,12 @@ public class DefaultAspectsUtil {
   }
 
   @Nullable
-  private static DataPlatformInfo getDataPlatformInfo(Urn urn, EntityService<?> entityService) {
+  private static DataPlatformInfo getDataPlatformInfo(
+      @Nonnull OperationContext opContext, Urn urn, EntityService<?> entityService) {
     try {
       final EntityResponse entityResponse =
           entityService.getEntityV2(
+              opContext,
               Constants.DATA_PLATFORM_ENTITY_NAME,
               urn,
               ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME));
@@ -312,7 +332,7 @@ public class DefaultAspectsUtil {
     return null;
   }
 
-  private static MetadataChangeProposal getProposalFromAspectForDefault(
+  public static MetadataChangeProposal getProposalFromAspectForDefault(
       String aspectName,
       RecordTemplate aspect,
       RecordTemplate entityKeyAspect,

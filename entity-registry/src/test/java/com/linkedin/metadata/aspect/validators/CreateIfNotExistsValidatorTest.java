@@ -9,6 +9,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -26,7 +28,7 @@ import org.testng.annotations.Test;
 
 public class CreateIfNotExistsValidatorTest {
   private EntityRegistry entityRegistry;
-  private AspectRetriever mockAspectRetriever;
+  private RetrieverContext mockRetrieverContext;
 
   private static final AspectPluginConfig validatorConfig =
       AspectPluginConfig.builder()
@@ -39,13 +41,17 @@ public class CreateIfNotExistsValidatorTest {
   @BeforeTest
   public void init() {
     entityRegistry = new TestEntityRegistry();
-    mockAspectRetriever = mock(AspectRetriever.class);
+    AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    mockRetrieverContext = mock(RetrieverContext.class);
+    when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
+    when(mockRetrieverContext.getGraphRetriever()).thenReturn(mockGraphRetriever);
   }
 
   @Test
   public void testCreateIfEntityNotExistsSuccess() {
-    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator(validatorConfig);
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     Set<AspectValidationException> exceptions =
@@ -73,7 +79,7 @@ public class CreateIfNotExistsValidatorTest {
                                 .getKeyAspectSpec())
                         .recordTemplate(new ChartKey().setChartId("looker,baz1"))
                         .build()),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .collect(Collectors.toSet());
 
     assertEquals(Set.of(), exceptions);
@@ -81,7 +87,7 @@ public class CreateIfNotExistsValidatorTest {
 
   @Test
   public void testCreateIfEntityNotExistsFail() {
-    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator(validatorConfig);
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     ChangeMCP testItem =
@@ -96,7 +102,7 @@ public class CreateIfNotExistsValidatorTest {
 
     // missing key aspect
     Set<AspectValidationException> exceptions =
-        test.validatePreCommit(List.of(testItem), mockAspectRetriever).collect(Collectors.toSet());
+        test.validatePreCommit(List.of(testItem), mockRetrieverContext).collect(Collectors.toSet());
 
     assertEquals(
         exceptions,
@@ -108,7 +114,7 @@ public class CreateIfNotExistsValidatorTest {
 
   @Test
   public void testCreateIfNotExistsSuccess() {
-    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator(validatorConfig);
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     Set<AspectValidationException> exceptions =
@@ -124,7 +130,7 @@ public class CreateIfNotExistsValidatorTest {
                                 .getAspectSpec("status"))
                         .recordTemplate(new Status().setRemoved(false))
                         .build()),
-                mockAspectRetriever)
+                mockRetrieverContext)
             .collect(Collectors.toSet());
 
     assertEquals(Set.of(), exceptions);
@@ -132,7 +138,7 @@ public class CreateIfNotExistsValidatorTest {
 
   @Test
   public void testCreateIfNotExistsFail() {
-    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator(validatorConfig);
+    CreateIfNotExistsValidator test = new CreateIfNotExistsValidator().setConfig(validatorConfig);
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     SystemAspect mockSystemAspect = mock(SystemAspect.class);
@@ -150,7 +156,7 @@ public class CreateIfNotExistsValidatorTest {
             .build();
 
     Set<AspectValidationException> exceptions =
-        test.validatePreCommit(List.of(testItem), mockAspectRetriever).collect(Collectors.toSet());
+        test.validatePreCommit(List.of(testItem), mockRetrieverContext).collect(Collectors.toSet());
 
     assertEquals(
         exceptions,

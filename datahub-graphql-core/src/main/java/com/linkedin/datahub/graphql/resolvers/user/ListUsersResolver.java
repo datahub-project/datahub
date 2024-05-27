@@ -69,13 +69,13 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
               // Then, get hydrate all users.
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       CORP_USER_ENTITY_NAME,
                       new HashSet<>(
                           gmsResult.getEntities().stream()
                               .map(SearchEntity::getEntity)
                               .collect(Collectors.toList())),
-                      null,
-                      context.getAuthentication());
+                      null);
 
               // Now that we have entities we can bind this to a result.
               final ListUsersResult result = new ListUsersResult();

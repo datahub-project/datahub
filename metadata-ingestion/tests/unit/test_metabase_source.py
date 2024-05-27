@@ -1,12 +1,15 @@
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.metabase import MetabaseConfig, MetabaseSource
+from datahub.ingestion.source.metabase import (
+    MetabaseConfig,
+    MetabaseReport,
+    MetabaseSource,
+)
 
 
 class TestMetabaseSource(MetabaseSource):
     def __init__(self, ctx: PipelineContext, config: MetabaseConfig):
         self.config = config
-        self.report = SourceReport()
+        self.report = MetabaseReport()
 
 
 def test_get_platform_instance():

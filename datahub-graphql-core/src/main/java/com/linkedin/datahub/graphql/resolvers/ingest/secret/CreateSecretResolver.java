@@ -52,8 +52,8 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
               key.setId(input.getName());
 
               if (_entityClient.exists(
-                  EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME),
-                  context.getAuthentication())) {
+                  context.getOperationContext(),
+                  EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Secret already exists!");
               }
 
@@ -71,7 +71,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithKey(
                       key, SECRETS_ENTITY_NAME, SECRET_VALUE_ASPECT_NAME, value);
-              return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to create new secret with name %s", input.getName()), e);

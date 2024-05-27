@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.businessattribute.BusinessAttributeInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -28,6 +29,7 @@ import com.linkedin.notebook.EditableNotebookProperties;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.tag.TagProperties;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,6 +42,7 @@ public class DescriptionUtils {
   private DescriptionUtils() {}
 
   public static void updateFieldDescription(
+      @Nonnull OperationContext opContext,
       String newDescription,
       Urn resourceUrn,
       String fieldPath,
@@ -48,6 +51,7 @@ public class DescriptionUtils {
     EditableSchemaMetadata editableSchemaMetadata =
         (EditableSchemaMetadata)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
                 entityService,
@@ -58,6 +62,7 @@ public class DescriptionUtils {
     editableFieldInfo.setDescription(newDescription);
 
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
         editableSchemaMetadata,
@@ -66,16 +71,22 @@ public class DescriptionUtils {
   }
 
   public static void updateContainerDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     EditableContainerProperties containerProperties =
         (EditableContainerProperties)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
                 entityService,
                 new EditableContainerProperties());
     containerProperties.setDescription(newDescription);
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
         containerProperties,
@@ -84,10 +95,15 @@ public class DescriptionUtils {
   }
 
   public static void updateDomainDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     DomainProperties domainProperties =
         (DomainProperties)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
                 entityService,
@@ -99,6 +115,7 @@ public class DescriptionUtils {
     }
     domainProperties.setDescription(newDescription);
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.DOMAIN_PROPERTIES_ASPECT_NAME,
         domainProperties,
@@ -107,11 +124,19 @@ public class DescriptionUtils {
   }
 
   public static void updateTagDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     TagProperties tagProperties =
         (TagProperties)
             EntityUtils.getAspectFromEntity(
-                resourceUrn.toString(), Constants.TAG_PROPERTIES_ASPECT_NAME, entityService, null);
+                opContext,
+                resourceUrn.toString(),
+                Constants.TAG_PROPERTIES_ASPECT_NAME,
+                entityService,
+                null);
     if (tagProperties == null) {
       // If there are no properties for the tag already, then we should throw since the properties
       // model also requires a name.
@@ -119,14 +144,24 @@ public class DescriptionUtils {
     }
     tagProperties.setDescription(newDescription);
     persistAspect(
-        resourceUrn, Constants.TAG_PROPERTIES_ASPECT_NAME, tagProperties, actor, entityService);
+        opContext,
+        resourceUrn,
+        Constants.TAG_PROPERTIES_ASPECT_NAME,
+        tagProperties,
+        actor,
+        entityService);
   }
 
   public static void updateCorpGroupDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     CorpGroupEditableInfo corpGroupEditableInfo =
         (CorpGroupEditableInfo)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME,
                 entityService,
@@ -135,6 +170,7 @@ public class DescriptionUtils {
       corpGroupEditableInfo.setDescription(newDescription);
     }
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME,
         corpGroupEditableInfo,
@@ -143,10 +179,15 @@ public class DescriptionUtils {
   }
 
   public static void updateGlossaryTermDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     GlossaryTermInfo glossaryTermInfo =
         (GlossaryTermInfo)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
                 entityService,
@@ -160,6 +201,7 @@ public class DescriptionUtils {
         newDescription); // We call description 'definition' for glossary terms. Not great, we know.
     // :(
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
         glossaryTermInfo,
@@ -168,10 +210,15 @@ public class DescriptionUtils {
   }
 
   public static void updateGlossaryNodeDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     GlossaryNodeInfo glossaryNodeInfo =
         (GlossaryNodeInfo)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
                 entityService,
@@ -181,6 +228,7 @@ public class DescriptionUtils {
     }
     glossaryNodeInfo.setDefinition(newDescription);
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
         glossaryNodeInfo,
@@ -189,10 +237,15 @@ public class DescriptionUtils {
   }
 
   public static void updateNotebookDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     EditableNotebookProperties notebookProperties =
         (EditableNotebookProperties)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME,
                 entityService,
@@ -201,6 +254,7 @@ public class DescriptionUtils {
       notebookProperties.setDescription(newDescription);
     }
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME,
         notebookProperties,
@@ -209,31 +263,24 @@ public class DescriptionUtils {
   }
 
   public static Boolean validateFieldDescriptionInput(
+      @Nonnull OperationContext opContext,
       Urn resourceUrn,
       String subResource,
       SubResourceType subResourceType,
       EntityService<?> entityService) {
-    if (!entityService.exists(resourceUrn, true)) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
     }
 
-    validateSubresourceExists(resourceUrn, subResource, subResourceType, entityService);
+    validateSubresourceExists(opContext, resourceUrn, subResource, subResourceType, entityService);
 
     return true;
   }
 
-  public static Boolean validateDomainInput(Urn resourceUrn, EntityService<?> entityService) {
-    if (!entityService.exists(resourceUrn, true)) {
-      throw new IllegalArgumentException(
-          String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
-    }
-
-    return true;
-  }
-
-  public static Boolean validateContainerInput(Urn resourceUrn, EntityService<?> entityService) {
-    if (!entityService.exists(resourceUrn, true)) {
+  public static Boolean validateDomainInput(
+      @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
     }
@@ -241,24 +288,37 @@ public class DescriptionUtils {
     return true;
   }
 
-  public static Boolean validateLabelInput(Urn resourceUrn, EntityService<?> entityService) {
-    if (!entityService.exists(resourceUrn, true)) {
+  public static Boolean validateContainerInput(
+      @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
+      throw new IllegalArgumentException(
+          String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
+    }
+
+    return true;
+  }
+
+  public static Boolean validateLabelInput(
+      @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", resourceUrn, resourceUrn));
     }
     return true;
   }
 
-  public static Boolean validateCorpGroupInput(Urn corpUserUrn, EntityService<?> entityService) {
-    if (!entityService.exists(corpUserUrn, true)) {
+  public static Boolean validateCorpGroupInput(
+      @Nonnull OperationContext opContext, Urn corpUserUrn, EntityService<?> entityService) {
+    if (!entityService.exists(opContext, corpUserUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", corpUserUrn, corpUserUrn));
     }
     return true;
   }
 
-  public static Boolean validateNotebookInput(Urn notebookUrn, EntityService<?> entityService) {
-    if (!entityService.exists(notebookUrn, true)) {
+  public static Boolean validateNotebookInput(
+      @Nonnull OperationContext opContext, Urn notebookUrn, EntityService<?> entityService) {
+    if (!entityService.exists(opContext, notebookUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to update %s. %s does not exist.", notebookUrn, notebookUrn));
     }
@@ -335,10 +395,15 @@ public class DescriptionUtils {
   }
 
   public static void updateMlModelDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     EditableMLModelProperties editableProperties =
         (EditableMLModelProperties)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME,
                 entityService,
@@ -347,6 +412,7 @@ public class DescriptionUtils {
       editableProperties.setDescription(newDescription);
     }
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME,
         editableProperties,
@@ -355,10 +421,15 @@ public class DescriptionUtils {
   }
 
   public static void updateMlModelGroupDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     EditableMLModelGroupProperties editableProperties =
         (EditableMLModelGroupProperties)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
                 entityService,
@@ -367,6 +438,7 @@ public class DescriptionUtils {
       editableProperties.setDescription(newDescription);
     }
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
         editableProperties,
@@ -375,10 +447,15 @@ public class DescriptionUtils {
   }
 
   public static void updateMlFeatureDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     EditableMLFeatureProperties editableProperties =
         (EditableMLFeatureProperties)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME,
                 entityService,
@@ -387,6 +464,7 @@ public class DescriptionUtils {
       editableProperties.setDescription(newDescription);
     }
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME,
         editableProperties,
@@ -395,10 +473,15 @@ public class DescriptionUtils {
   }
 
   public static void updateMlFeatureTableDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     EditableMLFeatureTableProperties editableProperties =
         (EditableMLFeatureTableProperties)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME,
                 entityService,
@@ -407,6 +490,7 @@ public class DescriptionUtils {
       editableProperties.setDescription(newDescription);
     }
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME,
         editableProperties,
@@ -415,10 +499,15 @@ public class DescriptionUtils {
   }
 
   public static void updateMlPrimaryKeyDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     EditableMLPrimaryKeyProperties editableProperties =
         (EditableMLPrimaryKeyProperties)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME,
                 entityService,
@@ -427,6 +516,7 @@ public class DescriptionUtils {
       editableProperties.setDescription(newDescription);
     }
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME,
         editableProperties,
@@ -435,10 +525,15 @@ public class DescriptionUtils {
   }
 
   public static void updateDataProductDescription(
-      String newDescription, Urn resourceUrn, Urn actor, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
     DataProductProperties properties =
         (DataProductProperties)
             EntityUtils.getAspectFromEntity(
+                opContext,
                 resourceUrn.toString(),
                 Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
                 entityService,
@@ -447,9 +542,36 @@ public class DescriptionUtils {
       properties.setDescription(newDescription);
     }
     persistAspect(
+        opContext,
         resourceUrn,
         Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
         properties,
+        actor,
+        entityService);
+  }
+
+  public static void updateBusinessAttributeDescription(
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
+    BusinessAttributeInfo businessAttributeInfo =
+        (BusinessAttributeInfo)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resourceUrn.toString(),
+                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                entityService,
+                new BusinessAttributeInfo());
+    if (businessAttributeInfo != null) {
+      businessAttributeInfo.setDescription(newDescription);
+    }
+    persistAspect(
+        opContext,
+        resourceUrn,
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo,
         actor,
         entityService);
   }

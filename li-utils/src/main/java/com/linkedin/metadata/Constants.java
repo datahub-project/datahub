@@ -2,6 +2,8 @@ package com.linkedin.metadata;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import java.util.Arrays;
+import java.util.List;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -88,6 +90,7 @@ public class Constants {
   public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
   public static final String FORM_ENTITY_NAME = "form";
   public static final String RESTRICTED_ENTITY_NAME = "restricted";
+  public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
 
   /** Aspects */
   // Common
@@ -122,6 +125,7 @@ public class Constants {
   public static final String ROLE_MEMBERSHIP_ASPECT_NAME = "roleMembership";
 
   public static final String CORP_USER_SETTINGS_ASPECT_NAME = "corpUserSettings";
+  public static final String CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME = "statusLastModifiedAt";
 
   // Group
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
@@ -354,6 +358,10 @@ public class Constants {
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
 
+  // Connection
+  public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
+  public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
+
   // Relationships
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
@@ -378,6 +386,14 @@ public class Constants {
       "dataProcessInstanceRunEvent";
   public static final String DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME =
       "dataProcessInstanceRelationships";
+
+  // Business Attribute
+  public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";
+  public static final String BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME = "businessAttributeInfo";
+  public static final String BUSINESS_ATTRIBUTE_ASSOCIATION = "businessAttributeAssociation";
+  public static final String BUSINESS_ATTRIBUTE_ASPECT = "businessAttributes";
+  public static final List<String> SKIP_REFERENCE_ASPECT =
+      Arrays.asList("ownership", "status", "institutionalMemory");
 
   // Posts
   public static final String POST_INFO_ASPECT_NAME = "postInfo";

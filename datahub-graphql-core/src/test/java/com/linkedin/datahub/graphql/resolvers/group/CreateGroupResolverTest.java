@@ -46,7 +46,7 @@ public class CreateGroupResolverTest {
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(_input);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_groupService.groupExists(any())).thenReturn(false);
+    when(_groupService.groupExists(any(), any())).thenReturn(false);
 
     _resolver.get(_dataFetchingEnvironment).join();
   }

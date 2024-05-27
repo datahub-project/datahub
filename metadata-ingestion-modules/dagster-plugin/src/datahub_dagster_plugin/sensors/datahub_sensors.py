@@ -41,7 +41,6 @@ class Lineage(NamedTuple):
     upstreams: List[str]
     downstreams: List[str]
 
-
 def make_datahub_sensor(
     config: DatahubDagsterSourceConfig,
     name: Optional[str] = None,

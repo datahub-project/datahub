@@ -44,15 +44,15 @@ public class VerifyFormResolver implements DataFetcher<CompletableFuture<Boolean
         () -> {
           try {
             final List<Urn> groupsForUser =
-                _groupService.getGroupsForUser(actorUrn, authentication);
+                _groupService.getGroupsForUser(context.getOperationContext(), actorUrn);
             if (!_formService.isFormAssignedToUser(
-                formUrn, entityUrn, actorUrn, groupsForUser, authentication)) {
+                context.getOperationContext(), formUrn, entityUrn, actorUrn, groupsForUser)) {
               throw new AuthorizationException(
                   String.format(
                       "Failed to authorize form on entity as form with urn %s is not assigned to user",
                       formUrn));
             }
-            _formService.verifyFormForEntity(formUrn, entityUrn, authentication);
+            _formService.verifyFormForEntity(context.getOperationContext(), formUrn, entityUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

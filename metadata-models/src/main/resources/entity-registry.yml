@@ -295,6 +295,7 @@ entities:
       - assertionRunEvent
       - assertionActions
       - status
+      - globalTags
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
@@ -448,8 +449,10 @@ entities:
     category: core
     keyAspect: schemaFieldKey
     aspects:
+      - schemafieldInfo
       - structuredProperties
       - forms
+      - businessAttributes
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -462,6 +465,7 @@ entities:
     keyAspect: incidentKey
     aspects:
       - incidentInfo
+      - globalTags
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -522,6 +526,14 @@ entities:
     aspects:
       - ownershipTypeInfo
       - status
+  - name: businessAttribute
+    category: core
+    keyAspect: businessAttributeKey
+    aspects:
+      - businessAttributeInfo
+      - status
+      - ownership
+      - institutionalMemory
   - name: dataContract
     category: core
     keyAspect: dataContractKey
@@ -560,6 +572,12 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
 events:
 plugins:
   aspectPayloadValidators:
@@ -578,6 +596,7 @@ plugins:
       supportedOperations:
         - CREATE
         - UPSERT
+        - DELETE
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties

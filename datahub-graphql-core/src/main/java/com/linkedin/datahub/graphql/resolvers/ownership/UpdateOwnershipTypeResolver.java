@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.ownership;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -45,13 +44,13 @@ public class UpdateOwnershipTypeResolver
         () -> {
           try {
             _ownershipTypeService.updateOwnershipType(
+                context.getOperationContext(),
                 urn,
                 input.getName(),
                 input.getDescription(),
-                context.getAuthentication(),
                 System.currentTimeMillis());
             log.info(String.format("Successfully updated Ownership Type %s with urn", urn));
-            return getOwnershipType(context, urn, context.getAuthentication());
+            return getOwnershipType(context, urn);
           } catch (AuthorizationException e) {
             throw e;
           } catch (Exception e) {
@@ -62,11 +61,9 @@ public class UpdateOwnershipTypeResolver
   }
 
   private OwnershipTypeEntity getOwnershipType(
-      @Nullable QueryContext context,
-      @Nonnull final Urn urn,
-      @Nonnull final Authentication authentication) {
+      @Nullable QueryContext context, @Nonnull final Urn urn) {
     final EntityResponse maybeResponse =
-        _ownershipTypeService.getOwnershipTypeEntityResponse(urn, authentication);
+        _ownershipTypeService.getOwnershipTypeEntityResponse(context.getOperationContext(), urn);
     // If there is no response, there is a problem.
     if (maybeResponse == null) {
       throw new RuntimeException(

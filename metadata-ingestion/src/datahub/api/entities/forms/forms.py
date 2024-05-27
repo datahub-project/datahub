@@ -46,13 +46,13 @@ class PromptType(Enum):
 
 
 class Prompt(ConfigModel):
-    id: Optional[str]
+    id: Optional[str] = None
     title: str
-    description: Optional[str]
+    description: Optional[str] = None
     type: str
-    structured_property_id: Optional[str]
-    structured_property_urn: Optional[str]
-    required: Optional[bool]
+    structured_property_id: Optional[str] = None
+    structured_property_urn: Optional[str] = None
+    required: Optional[bool] = None
 
     @validator("structured_property_urn", pre=True, always=True)
     def structured_property_urn_must_be_present(cls, v, values):
@@ -71,28 +71,28 @@ class FormType(Enum):
 
 
 class Filters(ConfigModel):
-    types: Optional[List[str]]
-    platforms: Optional[List[str]]
-    domains: Optional[List[str]]
-    containers: Optional[List[str]]
+    types: Optional[List[str]] = None
+    platforms: Optional[List[str]] = None
+    domains: Optional[List[str]] = None
+    containers: Optional[List[str]] = None
 
 
 class Entities(ConfigModel):
-    urns: Optional[List[str]]
-    filters: Optional[Filters]
+    urns: Optional[List[str]] = None
+    filters: Optional[Filters] = None
 
 
 class Forms(ConfigModel):
-    id: Optional[str]
-    urn: Optional[str]
+    id: Optional[str] = None
+    urn: Optional[str] = None
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
     prompts: List[Prompt] = []
-    type: Optional[str]
-    version: Optional[Literal[1]]
-    entities: Optional[Entities]
-    owners: Optional[List[str]]  # can be user IDs or urns
-    group_owners: Optional[List[str]]  # can be group IDs or urns
+    type: Optional[str] = None
+    version: Optional[Literal[1]] = None
+    entities: Optional[Entities] = None
+    owners: Optional[List[str]] = None  # can be user IDs or urns
+    group_owners: Optional[List[str]] = None  # can be group IDs or urns
 
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
@@ -106,7 +106,7 @@ class Forms(ConfigModel):
         emitter: DataHubGraph
 
         with get_default_graph() as emitter:
-            with open(file, "r") as fp:
+            with open(file) as fp:
                 forms: List[dict] = yaml.safe_load(fp)
                 for form_raw in forms:
                     form = Forms.parse_obj(form_raw)
@@ -204,7 +204,7 @@ class Forms(ConfigModel):
     def upload_entities_for_form(self, emitter: DataHubGraph) -> Union[None, Exception]:
         if self.entities and self.entities.urns:
             formatted_entity_urns = ", ".join(
-                ['"{}"'.format(value) for value in self.entities.urns]
+                [f'"{value}"' for value in self.entities.urns]
             )
             query = UPLOAD_ENTITIES_FOR_FORMS.format(
                 form_urn=self.urn, entity_urns=formatted_entity_urns
@@ -281,7 +281,7 @@ class Forms(ConfigModel):
 
     @staticmethod
     def format_form_filter(field: str, urns: List[str]) -> str:
-        formatted_urns = ", ".join(['"{}"'.format(urn) for urn in urns])
+        formatted_urns = ", ".join([f'"{urn}"' for urn in urns])
         return FIELD_FILTER_TEMPLATE.format(field=field, values=formatted_urns)
 
     @staticmethod

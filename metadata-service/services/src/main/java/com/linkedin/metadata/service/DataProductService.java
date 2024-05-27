@@ -2,7 +2,6 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -25,6 +24,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -61,10 +61,10 @@ public class DataProductService {
    * @return the urn of the newly created DataProduct
    */
   public Urn createDataProduct(
+      @Nonnull OperationContext opContext,
       @Nullable String id,
       @Nullable String name,
-      @Nullable String description,
-      @Nonnull Authentication authentication) {
+      @Nullable String description) {
 
     // 1. Generate a unique id for the new DataProduct.
     final DataProductKey key = new DataProductKey();
@@ -75,7 +75,7 @@ public class DataProductService {
     }
     try {
       if (_entityClient.exists(
-          EntityKeyUtils.convertEntityKeyToUrn(key, DATA_PRODUCT_ENTITY_NAME), authentication)) {
+          opContext, EntityKeyUtils.convertEntityKeyToUrn(key, DATA_PRODUCT_ENTITY_NAME))) {
         throw new IllegalArgumentException("This Data product already exists!");
       }
     } catch (RemoteInvocationException e) {
@@ -93,9 +93,9 @@ public class DataProductService {
           EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATA_PRODUCT_ENTITY_NAME);
       return UrnUtils.getUrn(
           _entityClient.ingestProposal(
+              opContext,
               AspectUtils.buildMetadataChangeProposal(
                   entityUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, properties),
-              authentication,
               false));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create DataProduct", e);
@@ -114,15 +114,15 @@ public class DataProductService {
    * @param authentication the current authentication
    */
   public Urn updateDataProduct(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nullable String name,
-      @Nullable String description,
-      @Nonnull Authentication authentication) {
+      @Nullable String description) {
     Objects.requireNonNull(urn, "urn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
     // 1. Check whether the DataProduct exists
-    DataProductProperties properties = getDataProductProperties(urn, authentication);
+    DataProductProperties properties = getDataProductProperties(opContext, urn);
 
     if (properties == null) {
       throw new IllegalArgumentException(
@@ -142,9 +142,9 @@ public class DataProductService {
     try {
       return UrnUtils.getUrn(
           _entityClient.ingestProposal(
+              opContext,
               AspectUtils.buildMetadataChangeProposal(
                   urn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, properties),
-              authentication,
               false));
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", urn), e);
@@ -159,10 +159,10 @@ public class DataProductService {
    */
   @Nullable
   public DataProductProperties getDataProductProperties(
-      @Nonnull final Urn dataProductUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn dataProductUrn) {
     Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
-    final EntityResponse response = getDataProductEntityResponse(dataProductUrn, authentication);
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
+    final EntityResponse response = getDataProductEntityResponse(opContext, dataProductUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME)) {
       return new DataProductProperties(
@@ -184,16 +184,16 @@ public class DataProductService {
    */
   @Nullable
   public Domains getDataProductDomains(
-      @Nonnull final Urn dataProductUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn dataProductUrn) {
     Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       final EntityResponse response =
           _entityClient.getV2(
+              opContext,
               Constants.DATA_PRODUCT_ENTITY_NAME,
               dataProductUrn,
-              ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME));
       if (response != null && response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
         return new Domains(
             response.getAspects().get(Constants.DOMAINS_ASPECT_NAME).getValue().data());
@@ -216,15 +216,15 @@ public class DataProductService {
    */
   @Nullable
   public EntityResponse getDataProductEntityResponse(
-      @Nonnull final Urn dataProductUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn dataProductUrn) {
     Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       return _entityClient.getV2(
+          opContext,
           Constants.DATA_PRODUCT_ENTITY_NAME,
           dataProductUrn,
-          ImmutableSet.of(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME),
-          authentication);
+          ImmutableSet.of(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve DataProduct with urn %s", dataProductUrn), e);
@@ -233,18 +233,18 @@ public class DataProductService {
 
   /** Sets a given domain on a given Data Product. */
   public void setDomain(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn dataProductUrn,
-      @Nonnull final Urn domainUrn,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final Urn domainUrn) {
     try {
       Domains domains = new Domains();
 
       EntityResponse entityResponse =
           _entityClient.getV2(
+              opContext,
               Constants.DATA_PRODUCT_ENTITY_NAME,
               dataProductUrn,
-              ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME),
-              authentication);
+              ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
@@ -257,9 +257,9 @@ public class DataProductService {
       newDomains.add(domainUrn);
       domains.setDomains(newDomains);
       _entityClient.ingestProposal(
+          opContext,
           AspectUtils.buildMetadataChangeProposal(
               dataProductUrn, Constants.DOMAINS_ASPECT_NAME, domains),
-          authentication,
           false);
     } catch (Exception e) {
       throw new RuntimeException(
@@ -278,18 +278,16 @@ public class DataProductService {
    * @param dataProductUrn the urn of the DataProduct
    * @param authentication the current authentication
    */
-  public void deleteDataProduct(
-      @Nonnull Urn dataProductUrn, @Nonnull Authentication authentication) {
+  public void deleteDataProduct(@Nonnull OperationContext opContext, @Nonnull Urn dataProductUrn) {
     try {
       _entityClient.deleteEntity(
-          Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null"),
-          Objects.requireNonNull(authentication, "authentication must not be null"));
+          opContext, Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null"));
 
       // Asynchronously Delete all references to the entity (to return quickly)
       CompletableFuture.runAsync(
           () -> {
             try {
-              _entityClient.deleteEntityReferences(dataProductUrn, authentication);
+              _entityClient.deleteEntityReferences(opContext, dataProductUrn);
             } catch (Exception e) {
               log.error(
                   String.format(
@@ -316,13 +314,13 @@ public class DataProductService {
    * @param authentication the current authentication
    */
   public void batchSetDataProduct(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn dataProductUrn,
       @Nonnull List<Urn> resourceUrns,
-      @Nonnull Authentication authentication,
       @Nonnull Urn actorUrn) {
     try {
       DataProductProperties dataProductProperties =
-          getDataProductProperties(dataProductUrn, authentication);
+          getDataProductProperties(opContext, dataProductUrn);
       if (dataProductProperties == null) {
         throw new RuntimeException(
             "Failed to batch set data product as data product does not exist");
@@ -345,7 +343,7 @@ public class DataProductService {
       // unset existing data product on resources first as we only allow one data product on an
       // entity at a time
       for (Urn resourceUrn : resourceUrns) {
-        unsetDataProduct(resourceUrn, authentication, actorUrn);
+        unsetDataProduct(opContext, resourceUrn, actorUrn);
       }
 
       AuditStamp nowAuditStamp =
@@ -360,9 +358,9 @@ public class DataProductService {
 
       dataProductProperties.setAssets(dataProductAssociations);
       _entityClient.ingestProposal(
+          opContext,
           AspectUtils.buildMetadataChangeProposal(
               dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties),
-          authentication,
           false);
     } catch (Exception e) {
       throw new RuntimeException(
@@ -380,7 +378,7 @@ public class DataProductService {
    * @param authentication the current authentication
    */
   public void unsetDataProduct(
-      @Nonnull Urn resourceUrn, @Nonnull Authentication authentication, @Nonnull Urn actorUrn) {
+      @Nonnull OperationContext opContext, @Nonnull Urn resourceUrn, @Nonnull Urn actorUrn) {
     try {
       List<String> relationshipTypes = ImmutableList.of("DataProductContains");
       EntityRelationships relationships =
@@ -398,7 +396,7 @@ public class DataProductService {
             .forEach(
                 relationship -> {
                   Urn dataProductUrn = relationship.getEntity();
-                  removeEntityFromDataProduct(dataProductUrn, resourceUrn, authentication);
+                  removeEntityFromDataProduct(opContext, dataProductUrn, resourceUrn);
                 });
       }
     } catch (Exception e) {
@@ -408,12 +406,10 @@ public class DataProductService {
   }
 
   private void removeEntityFromDataProduct(
-      @Nonnull Urn dataProductUrn,
-      @Nonnull Urn resourceUrn,
-      @Nonnull Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull Urn dataProductUrn, @Nonnull Urn resourceUrn) {
     try {
       DataProductProperties dataProductProperties =
-          getDataProductProperties(dataProductUrn, authentication);
+          getDataProductProperties(opContext, dataProductUrn);
       if (dataProductProperties == null) {
         throw new RuntimeException("Failed to unset data product as data product does not exist");
       }
@@ -433,9 +429,9 @@ public class DataProductService {
 
       dataProductProperties.setAssets(finalAssociations);
       _entityClient.ingestProposal(
+          opContext,
           AspectUtils.buildMetadataChangeProposal(
               dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties),
-          authentication,
           false);
     } catch (Exception e) {
       throw new RuntimeException(
@@ -443,10 +439,9 @@ public class DataProductService {
     }
   }
 
-  public boolean verifyEntityExists(
-      @Nonnull Urn entityUrn, @Nonnull Authentication authentication) {
+  public boolean verifyEntityExists(@Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
     try {
-      return _entityClient.exists(entityUrn, authentication);
+      return _entityClient.exists(opContext, entityUrn);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to determine if entity with urn %s exists", entityUrn), e);

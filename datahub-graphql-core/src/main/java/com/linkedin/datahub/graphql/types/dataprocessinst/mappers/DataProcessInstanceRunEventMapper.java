@@ -42,6 +42,9 @@ public class DataProcessInstanceRunEventMapper
     if (runEvent.hasResult()) {
       result.setResult(DataProcessInstanceRunResultMapper.map(context, runEvent.getResult()));
     }
+    if (runEvent.hasDurationMillis()) {
+      result.setDurationMillis(runEvent.getDurationMillis());
+    }
 
     return result;
   }

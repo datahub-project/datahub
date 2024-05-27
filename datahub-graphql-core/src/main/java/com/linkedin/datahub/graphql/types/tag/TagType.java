@@ -86,7 +86,7 @@ public class TagType
     try {
       final Map<Urn, EntityResponse> tagMap =
           _entityClient.batchGetV2(
-              TAG_ENTITY_NAME, new HashSet<>(tagUrns), null, context.getAuthentication());
+              context.getOperationContext(), TAG_ENTITY_NAME, new HashSet<>(tagUrns), null);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : tagUrns) {
@@ -149,7 +149,7 @@ public class TagType
           TagUpdateInputMapper.map(context, input, actor);
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
       try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+        _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
       } catch (RemoteInvocationException e) {
         throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
       }

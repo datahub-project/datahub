@@ -13,6 +13,8 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.EntityRegistryContext;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Set;
 import org.jetbrains.annotations.NotNull;
@@ -28,15 +30,19 @@ public class IngestDataTypesStepTest {
   public void testExecuteValidDataTypesNoExistingDataTypes() throws Exception {
     EntityRegistry testEntityRegistry = getTestEntityRegistry();
     final EntityService<?> entityService = mock(EntityService.class);
-    when(entityService.getEntityRegistry()).thenReturn(testEntityRegistry);
-    when(entityService.getKeyAspectSpec(anyString()))
+
+    final OperationContext mockContext = mock(OperationContext.class);
+    final EntityRegistryContext entityRegistryContext = mock(EntityRegistryContext.class);
+    when(mockContext.getEntityRegistryContext()).thenReturn(entityRegistryContext);
+    when(mockContext.getEntityRegistry()).thenReturn(testEntityRegistry);
+    when(entityRegistryContext.getKeyAspectSpec(anyString()))
         .thenAnswer(
             args -> testEntityRegistry.getEntitySpec(args.getArgument(0)).getKeyAspectSpec());
 
     final IngestDataTypesStep step =
         new IngestDataTypesStep(entityService, "./boot/test_data_types_valid.json");
 
-    step.execute();
+    step.execute(mockContext);
 
     DataTypeInfo expectedResult = new DataTypeInfo();
     expectedResult.setDescription("Test Description");
@@ -45,6 +51,7 @@ public class IngestDataTypesStepTest {
 
     Mockito.verify(entityService, times(1))
         .ingestProposal(
+            any(OperationContext.class),
             Mockito.eq(buildUpdateDataTypeProposal(expectedResult)),
             Mockito.any(AuditStamp.class),
             Mockito.eq(false));
@@ -53,14 +60,18 @@ public class IngestDataTypesStepTest {
   @Test
   public void testExecuteInvalidJson() throws Exception {
     final EntityService<?> entityService = mock(EntityService.class);
-    when(entityService.exists(any(Collection.class))).thenAnswer(args -> Set.of());
+    final OperationContext mockContext = mock(OperationContext.class);
+    when(mockContext.getEntityRegistry()).thenReturn(mock(EntityRegistry.class));
+
+    when(entityService.exists(any(OperationContext.class), any(Collection.class)))
+        .thenAnswer(args -> Set.of());
 
     final IngestDataTypesStep step =
         new IngestDataTypesStep(entityService, "./boot/test_data_types_invalid.json");
 
-    Assert.assertThrows(RuntimeException.class, step::execute);
+    Assert.assertThrows(RuntimeException.class, () -> step.execute(mockContext));
 
-    verify(entityService, times(1)).exists(any());
+    verify(entityService, times(1)).exists(any(OperationContext.class), any(Collection.class));
 
     // Verify no additional interactions
     verifyNoMoreInteractions(entityService);

@@ -2,8 +2,8 @@ package com.linkedin.metadata.aspect.validation;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.ReadItem;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -16,17 +16,21 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /** Common implementation of checking for create if not exists semantics. */
+@Setter
+@Getter
+@Accessors(chain = true)
 public class CreateIfNotExistsValidator extends AspectPayloadValidator {
 
-  public CreateIfNotExistsValidator(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
+  @Nonnull private AspectPluginConfig config;
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
@@ -69,7 +73,8 @@ public class CreateIfNotExistsValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
-      @Nonnull Collection<? extends BatchItem> mcpItems, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<? extends BatchItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 }

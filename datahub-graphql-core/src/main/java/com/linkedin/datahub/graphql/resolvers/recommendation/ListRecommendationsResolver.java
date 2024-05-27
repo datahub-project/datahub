@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.recommendation.EntityRequestContext;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.SearchRequestContext;
+import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -44,6 +45,7 @@ public class ListRecommendationsResolver
       new ListRecommendationsResult(Collections.emptyList());
 
   private final RecommendationsService _recommendationsService;
+  private final ViewService _viewService;
 
   @WithSpan
   @Override
@@ -60,6 +62,7 @@ public class ListRecommendationsResolver
                 _recommendationsService.listRecommendations(
                     context.getOperationContext(),
                     mapRequestContext(input.getRequestContext()),
+                    viewFilter(context.getOperationContext(), _viewService, input.getViewUrn()),
                     input.getLimit());
             return ListRecommendationsResult.builder()
                 .setModules(

@@ -128,7 +128,16 @@ public class OperationsController {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(String.format(actorUrnStr + " is not authorized to get timeseries index sizes"));
     }
-    List<TimeseriesIndexSizeResult> indexSizeResults = timeseriesAspectService.getIndexSizes();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("getIndexSizes", List.of()),
+            authorizerChain,
+            authentication,
+            true);
+
+    List<TimeseriesIndexSizeResult> indexSizeResults =
+        timeseriesAspectService.getIndexSizes(opContext);
     JSONObject j = new JSONObject();
     j.put(
         "sizes",
@@ -250,32 +259,46 @@ public class OperationsController {
   @Tag(name = "RestoreIndices")
   @GetMapping(path = "/restoreIndices", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Restore ElasticSearch indices from primary storage based on URNs.")
-  public ResponseEntity<RestoreIndicesResult> restoreIndices(
+  public ResponseEntity<List<RestoreIndicesResult>> restoreIndices(
       @RequestParam(required = false, name = "aspectName") @Nullable String aspectName,
       @RequestParam(required = false, name = "urn") @Nullable String urn,
       @RequestParam(required = false, name = "urnLike") @Nullable String urnLike,
-      @RequestParam(required = false, name = "batchSize", defaultValue = "100") @Nullable
+      @RequestParam(required = false, name = "batchSize", defaultValue = "500") @Nullable
           Integer batchSize,
-      @RequestParam(required = false, name = "start", defaultValue = "0") @Nullable Integer start) {
+      @RequestParam(required = false, name = "start", defaultValue = "0") @Nullable Integer start,
+      @RequestParam(required = false, name = "limit", defaultValue = "0") @Nullable Integer limit,
+      @RequestParam(required = false, name = "gePitEpochMs", defaultValue = "0") @Nullable
+          Long gePitEpochMs,
+      @RequestParam(required = false, name = "lePitEpochMs") @Nullable Long lePitEpochMs) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorized(
         authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            authorizerChain,
+            authentication,
+            true);
 
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()
-            .setAspectName(aspectName)
-            .setUrnLike(urnLike)
-            .setUrn(
+            .aspectName(aspectName)
+            .urnLike(urnLike)
+            .urn(
                 Optional.ofNullable(urn)
                     .map(urnStr -> UrnUtils.getUrn(urnStr).toString())
                     .orElse(null))
-            .setStart(start)
-            .setBatchSize(batchSize);
+            .start(start)
+            .batchSize(batchSize)
+            .limit(limit)
+            .gePitEpochMs(gePitEpochMs)
+            .lePitEpochMs(lePitEpochMs);
 
-    return ResponseEntity.of(Optional.of(entityService.restoreIndices(args, log::info)));
+    return ResponseEntity.of(Optional.of(entityService.restoreIndices(opContext, args, log::info)));
   }
 
   @Tag(name = "RestoreIndices")
@@ -293,10 +316,18 @@ public class OperationsController {
         authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            authorizerChain,
+            authentication,
+            true);
 
     return ResponseEntity.of(
         Optional.of(
             entityService.restoreIndices(
+                opContext,
                 urns.stream().map(UrnUtils::getUrn).collect(Collectors.toSet()),
                 aspectNames,
                 batchSize)));

@@ -91,7 +91,9 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     generateGraphQLSchema, generateJsonSchema,
     ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
     ':metadata-ingestion:buildWheel',
-    airflowPluginBuild, dagsterPluginBuild] ) {
+    ':metadata-ingestion-modules:airflow-plugin:buildWheel',
+    ':metadata-ingestion-modules:dagster-plugin:buildWheel',
+    ]) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']

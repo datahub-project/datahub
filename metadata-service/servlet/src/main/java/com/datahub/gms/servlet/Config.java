@@ -97,7 +97,7 @@ public class Config extends HttpServlet {
 
     GitVersion version = getGitVersion(ctx);
     Map<String, Object> versionConfig = new HashMap<>();
-    versionConfig.put("linkedin/datahub", version.toConfig());
+    versionConfig.put("acryldata/datahub", version.toConfig());
     config.put("versions", versionConfig);
 
     ConfigurationProvider configProvider = getConfigProvider(ctx);

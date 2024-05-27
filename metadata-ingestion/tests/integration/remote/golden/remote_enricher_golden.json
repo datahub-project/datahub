@@ -19,7 +19,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-1"
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -38,7 +39,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-1"
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -58,6 +60,7 @@
                     "type": "TECHNICAL_OWNER"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 1629795600000,
                 "actor": "urn:li:corpuser:ingestion"
@@ -66,7 +69,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-1"
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -83,7 +87,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-1"
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -106,7 +111,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-1"
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -156,7 +162,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-1"
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -171,7 +178,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-1"
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:AccountBalance",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "AccountBalance"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:CustomerAccount",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "CustomerAccount"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -186,7 +226,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-1"
+        "runId": "remote-1",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]
