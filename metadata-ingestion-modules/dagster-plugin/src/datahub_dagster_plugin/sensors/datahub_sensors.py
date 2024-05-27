@@ -1,19 +1,25 @@
 import os
 import traceback
 from types import ModuleType
-from typing import Dict, List, Optional, Sequence, Set, Tuple, Union, NamedTuple
+from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
 
 from dagster import (
+    AssetSelection,
+    CodeLocationSelector,
     DagsterRunStatus,
     EventLogEntry,
+    GraphDefinition,
+    JobDefinition,
+    JobSelector,
+    MultiAssetSensorEvaluationContext,
+    RepositorySelector,
     RunStatusSensorContext,
     SensorDefinition,
     SkipReason,
+    load_assets_from_modules,
+    multi_asset_sensor,
     run_status_sensor,
     sensor,
-    JobDefinition,
-    GraphDefinition, load_assets_from_modules, multi_asset_sensor, AssetSelection, MultiAssetSensorEvaluationContext,
-    RepositorySelector, JobSelector, CodeLocationSelector,
 )
 from dagster._core.definitions.asset_selection import CoercibleToAssetSelection
 from dagster._core.definitions.sensor_definition import (
@@ -29,13 +35,17 @@ from dagster._core.execution.stats import RunStepKeyStatsSnapshot
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SubTypesClass
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, create_lineage_sql_parsed_result
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+)
 
 from datahub_dagster_plugin.client.dagster_generator import (
     DagsterEnvironment,
     DagsterGenerator,
     DatahubDagsterSourceConfig,
 )
+
 
 class Lineage(NamedTuple):
     upstreams: List[str]
@@ -116,7 +126,13 @@ def make_datahub_sensor(
         """
         Sensor which instigate all run status sensors and trigger them based upon run status
         """
-        for each in DatahubSensors(config, minimum_interval_seconds=minimum_interval_seconds, monitored_jobs=monitored_jobs, job_selection=job_selection, monitor_all_code_locations=monitor_all_code_locations).sensors:
+        for each in DatahubSensors(
+            config,
+            minimum_interval_seconds=minimum_interval_seconds,
+            monitored_jobs=monitored_jobs,
+            job_selection=job_selection,
+            monitor_all_code_locations=monitor_all_code_locations,
+        ).sensors:
             each.evaluate_tick(context)
         return SkipReason("Trigger run status sensors if any new runs present...")
 
@@ -124,7 +140,6 @@ def make_datahub_sensor(
 
 
 class DatahubSensors:
-
     def __init__(
         self,
         config: Optional[DatahubDagsterSourceConfig] = None,
@@ -212,8 +227,8 @@ class DatahubSensors:
     def get_dagster_environment(
         self, context: Optional[RunStatusSensorContext] = None
     ) -> Optional[DagsterEnvironment]:
-        module:Optional[str] = None
-        repository:Optional[str] = None
+        module: Optional[str] = None
+        repository: Optional[str] = None
         if (
             context
             and context.dagster_run.job_code_origin
@@ -238,8 +253,7 @@ class DatahubSensors:
                 return None
 
         dagster_environment = DagsterEnvironment(
-            is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None)
-                     is not None,
+            is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None) is not None,
             is_branch_deployment=(
                 True
                 if os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", False) == 1
@@ -251,7 +265,15 @@ class DatahubSensors:
         )
         return dagster_environment
 
-    def parse_sql(self, context: RunStatusSensorContext ,sql_query: str, env:str, platform: str, default_db: Optional[str] = None, platform_instance:Optional[str] = None) -> Optional[Lineage]:
+    def parse_sql(
+        self,
+        context: RunStatusSensorContext,
+        sql_query: str,
+        env: str,
+        platform: str,
+        default_db: Optional[str] = None,
+        platform_instance: Optional[str] = None,
+    ) -> Optional[Lineage]:
         """
         Parse SQL to get table name and columns
         """
@@ -266,9 +288,14 @@ class DatahubSensors:
 
         if not sql_parsing_result.debug_info.table_error:
             context.log.info(f"SQL Parsing Result: {sql_parsing_result}")
-            return Lineage(upstreams=sql_parsing_result.in_tables, downstreams=sql_parsing_result.out_tables)
+            return Lineage(
+                upstreams=sql_parsing_result.in_tables,
+                downstreams=sql_parsing_result.out_tables,
+            )
         else:
-            context.log.error(f"Error in parsing sql: {sql_parsing_result.debug_info.table_error}")
+            context.log.error(
+                f"Error in parsing sql: {sql_parsing_result.debug_info.table_error}"
+            )
         return None
 
     def process_asset_logs(
@@ -295,31 +322,54 @@ class DatahubSensors:
                 key: str(value) for (key, value) in materialization.metadata.items()
             }
             asset_key = materialization.asset_key.path
-            asset_downstream_urn = dagster_generator.asset_keys_to_dataset_urn_converter(asset_key)
+            asset_downstream_urn = (
+                dagster_generator.asset_keys_to_dataset_urn_converter(asset_key)
+            )
             if asset_downstream_urn:
                 context.log.info(f"asset_downstream_urn: {asset_downstream_urn}")
 
                 downstreams = {asset_downstream_urn.urn()}
                 context.log.info(f"downstreams: {downstreams}")
-                upstreams:Set[str] = set()
+                upstreams: Set[str] = set()
                 try:
-                    if materialization and materialization.metadata and materialization.metadata.get("Query"):
-                        lineage = self.parse_sql(context=context, sql_query=materialization.metadata.get("Query").text,  env=asset_downstream_urn.env, platform=asset_downstream_urn.platform.replace("urn:li:dataPlatform:", ""))
+                    if (
+                        materialization
+                        and materialization.metadata
+                        and materialization.metadata.get("Query")
+                    ):
+                        lineage = self.parse_sql(
+                            context=context,
+                            sql_query=materialization.metadata.get("Query").text,
+                            env=asset_downstream_urn.env,
+                            platform=asset_downstream_urn.platform.replace(
+                                "urn:li:dataPlatform:", ""
+                            ),
+                        )
                         if lineage:
                             downstreams = downstreams.union(set(lineage.downstreams))
                             upstreams = upstreams.union(set(lineage.upstreams))
-                            context.log.info (f"Upstreams: {upstreams} Downstreams: {downstreams}")
+                            context.log.info(
+                                f"Upstreams: {upstreams} Downstreams: {downstreams}"
+                            )
                         else:
-                            context.log.info(f"Lineage not found for {materialization.metadata.get('Query').text}")
+                            context.log.info(
+                                f"Lineage not found for {materialization.metadata.get('Query').text}"
+                            )
                     else:
                         context.log.info(f"Query not found in metadata")
                     dataset_urn = dagster_generator.emit_asset(
-                        self.graph, asset_key, materialization.description, properties, downstreams=downstreams, upstreams=upstreams,  materialize_dependencies= True
+                        self.graph,
+                        asset_key,
+                        materialization.description,
+                        properties,
+                        downstreams=downstreams,
+                        upstreams=upstreams,
+                        materialize_dependencies=True,
                     )
 
                     dataset_outputs[log.step_key].add(dataset_urn)
                 except Exception as e:
-                    context.log.info (f"Error in processing asset logs: {e}")
+                    context.log.info(f"Error in processing asset logs: {e}")
 
         elif log.dagster_event.event_type == DagsterEventType.ASSET_OBSERVATION:
             if log.step_key not in dataset_inputs:
@@ -449,13 +499,13 @@ class DatahubSensors:
                 dict1[key] = value
         return dict1
 
-    def _emit_asset_metadata(self, context: MultiAssetSensorEvaluationContext) -> RawSensorEvaluationFunctionReturn:
+    def _emit_asset_metadata(
+        self, context: MultiAssetSensorEvaluationContext
+    ) -> RawSensorEvaluationFunctionReturn:
         dagster_environment = self.get_dagster_environment()
         context.log.debug(f"dagster enivronment: {dagster_environment}")
         if not dagster_environment:
-            return SkipReason(
-                "Unable to get Dagster Environment from DataHub Sensor"
-            )
+            return SkipReason("Unable to get Dagster Environment from DataHub Sensor")
 
         dagster_generator = DagsterGenerator(
             logger=context.log,
