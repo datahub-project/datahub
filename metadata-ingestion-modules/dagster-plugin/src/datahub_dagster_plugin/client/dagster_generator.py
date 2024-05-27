@@ -5,7 +5,6 @@ from urllib.parse import urlsplit
 
 import pydantic
 from dagster import (
-    AssetKey,
     DagsterRunStatus,
     MultiAssetSensorEvaluationContext,
     PathMetadataValue,
@@ -21,16 +20,11 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.api.entities.dataset.dataset import (
-    Dataset,
-    SchemaFieldSpecification,
-    SchemaSpecification,
-)
+from datahub.api.entities.dataset.dataset import Dataset
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
-    make_schema_field_urn,
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper

@@ -356,7 +356,7 @@ class DatahubSensors:
                                 f"Lineage not found for {materialization.metadata.get('Query').text}"
                             )
                     else:
-                        context.log.info(f"Query not found in metadata")
+                        context.log.info("Query not found in metadata")
                     dataset_urn = dagster_generator.emit_asset(
                         self.graph,
                         asset_key,
