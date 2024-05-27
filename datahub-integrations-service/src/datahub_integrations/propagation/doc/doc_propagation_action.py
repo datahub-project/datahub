@@ -370,20 +370,22 @@ class DocPropagationAction(ExtendedAction):
             self.act(EventEnvelope(event_type=ECE_EVENT_TYPE, event=event, meta={}))
 
     def rollback(self) -> None:
-        assets_with_my_edits = self.ctx.graph.graph.get_urns_by_filter(
-            entity_types=["schemaField"],
-            extra_or_filters=[
-                {
-                    "field": "documentationAttributionSources.keyword",
-                    "condition": "IN",
-                    "values": [self.action_urn],
-                    "negated": "false",
-                }
-            ],
-        )
-        for asset_urn in assets_with_my_edits:
-            print(f"Rolling back documentation for {asset_urn}")
-        pass
+        try:
+            assets_with_my_edits = self.ctx.graph.graph.get_urns_by_filter(
+                entity_types=["schemaField"],
+                extra_or_filters=[
+                    {
+                        "field": "documentationAttributionSources.keyword",
+                        "condition": "IN",
+                        "values": [self.action_urn],
+                        "negated": "false",
+                    }
+                ],
+            )
+            for asset_urn in assets_with_my_edits:
+                print(f"Rolling back documentation for {asset_urn}")
+        except Exception as e:
+            logger.error(f"Error rolling back documentation: {e}")
 
     def process_schema_field_documentation(
         self,

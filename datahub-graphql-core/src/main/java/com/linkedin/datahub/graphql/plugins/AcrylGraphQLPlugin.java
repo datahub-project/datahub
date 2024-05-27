@@ -37,6 +37,7 @@ import com.linkedin.datahub.graphql.generated.SystemMonitor;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.resolvers.action.execution.ListActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.UpsertActionPipelineResolver;
+import com.linkedin.datahub.graphql.resolvers.action.execution.RollbackActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ai.SuggestDescriptionResolver;
@@ -407,7 +408,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher("updateHelpLink", new UpdateHelpLinkResolver(this.settingsService))
                 .dataFetcher(
                     "updateIncident",
-                    new UpdateIncidentResolver(this.entityClient, this.entityService)));
+                    new UpdateIncidentResolver(this.entityClient, this.entityService))
+                .dataFetcher(
+                    "rollbackActionPipeline",
+                    new RollbackActionPipelineResolver(this.entityClient, this.integrationsService))
+        );
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {

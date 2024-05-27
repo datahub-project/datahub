@@ -3698,7 +3698,8 @@
                           "Searchable" : {
                             "boostScore" : 0.1,
                             "fieldName" : "fieldDescriptions",
-                            "fieldType" : "TEXT"
+                            "fieldType" : "TEXT",
+                            "hasValuesFieldName" : "hasFieldDescriptions"
                           }
                         }, {
                           "name" : "label",

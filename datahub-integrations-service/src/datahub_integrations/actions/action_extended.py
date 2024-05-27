@@ -13,3 +13,8 @@ class ExtendedAction(Action, ABC):
     def rollback(self) -> None:
         """Rollback the action."""
         pass
+
+    @abstractmethod
+    def bootstrap(self) -> None:
+        """Bootstrap the action."""
+        pass

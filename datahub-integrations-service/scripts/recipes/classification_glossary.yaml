@@ -1,0 +1,103 @@
+version: 1
+source: DataHub
+owners:
+  users:
+    - admin
+url: "https://github.com/datahub-project/datahub/"
+nodes:
+  - name: DataClassification
+    description: A set of terms related to Data Classification
+    knowledge_links:
+      - label: Wiki link for classification
+        url: "https://en.wikipedia.org/wiki/Data_classification_(business)"
+    custom_properties:
+      is_confidential: true
+    terms:
+      - name: Public
+        description: Public Data
+        custom_properties:
+          is_confidential: false
+      - name: Internal
+        description: Internal Data
+        custom_properties:
+          is_confidential: true
+      - name: Confidential
+        description: Confidential Data
+        custom_properties:
+          is_confidential: true
+      - name: HighlyConfidential
+        description: Highly Confidential Data
+        custom_properties:
+          is_confidential: true
+  - name: PersonalInformation
+    description: All terms related to personal information
+    owners:
+      users:
+        - admin
+    terms:
+      - name: Email
+        description: An individual's email address
+        inherits:
+          - DataClassification.Confidential
+        owners:
+          groups:
+            - Trust and Safety
+      - name: Address
+        description: A physical address
+        inherits:
+          - DataClassification.Confidential
+      - name: PhoneNumber
+        description: An individual's phone number
+        inherits:
+          - DataClassification.Confidential
+      - name: SocialSecurityNumber
+        description: An individual's Social Security Number
+        inherits:
+          - DataClassification.HighlyConfidential
+      - name: DateOfBirth
+        description: An individual's date of birth
+        inherits:
+          - DataClassification.Confidential
+  - name: ProtectedHealthInformation
+    description: Terms related to Protected Health Information (PHI)
+    owners:
+      users:
+        - admin
+    terms:
+      - name: MedicalRecordNumber
+        description: An individual's medical record number
+        inherits:
+          - DataClassification.HighlyConfidential
+      - name: HealthInsuranceNumber
+        description: An individual's health insurance number
+        inherits:
+          - DataClassification.HighlyConfidential
+      - name: DiagnosisInformation
+        description: Information regarding an individual's diagnosis
+        inherits:
+          - DataClassification.HighlyConfidential
+      - name: TreatmentInformation
+        description: Information regarding an individual's treatment
+        inherits:
+          - DataClassification.HighlyConfidential
+  - name: ComplianceTracking
+    description: Provides terms related to compliance tracking
+    owners:
+      users:
+        - admin
+    terms:
+      - name: ComplianceStatus
+        description: Status of compliance for a specific data set
+        custom_properties:
+          is_used_for_compliance_tracking: true
+      - name: DataRetentionPeriod
+        description: The period for which data is retained
+        custom_properties:
+          is_used_for_compliance_tracking: true
+      - name: DataAccessControl
+        description: Controls in place for accessing data
+        custom_properties:
+          is_used_for_compliance_tracking: true
+    knowledge_links:
+      - label: Wiki link for compliance
+        url: "https://en.wikipedia.org/wiki/Compliance_(regulation)"
