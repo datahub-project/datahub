@@ -1,5 +1,4 @@
 import logging
-import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -23,6 +22,7 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryTableType,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -152,26 +152,17 @@ class BigQuerySchemaApi:
         with self.report.list_projects:
             try:
                 projects: List[BigqueryProject] = []
-                page_token: Optional[str] = None
                 # Bigquery API has limit in calling project.list request i.e. 2 request per second.
                 # Also project.list returns max 50 projects per page.
                 # Assuming list_projects method internally not adding any limit in requests call,
                 # externally we are adding limit in requests call per second.
-                while True:
-                    projects_iterator = self.bq_client.list_projects(
-                        max_results=50, page_token=page_token
-                    )
-                    projects.extend(
-                        [
+                rate_limiter = RateLimiter(max_calls=2, period=1)
+                projects_iterator = self.bq_client.list_projects()
+                for p in projects_iterator:
+                    with rate_limiter:
+                        projects.append(
                             BigqueryProject(id=p.project_id, name=p.friendly_name)
-                            for p in projects_iterator
-                        ]
-                    )
-                    page_token = projects_iterator.next_page_token
-                    if page_token is None:
-                        break
-                    # Sleep of 30 sec to make limit of two requests per second
-                    time.sleep(30)
+                        )
 
                 return projects
             except Exception as e:
