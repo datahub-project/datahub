@@ -20,6 +20,7 @@ from dagster import (
     multi_asset_sensor,
     run_status_sensor,
     sensor,
+    TextMetadataValue,
 )
 from dagster._core.definitions.asset_selection import CoercibleToAssetSelection
 from dagster._core.definitions.multi_asset_sensor_definition import (
@@ -339,7 +340,9 @@ class DatahubSensors:
                         materialization
                         and materialization.metadata
                         and materialization.metadata.get("Query")
-                        and materialization.metadata.get("Query").text
+                        and isinstance(
+                            materialization.metadata.get("Query"), TextMetadataValue
+                        )
                     ):
                         query_metadata = materialization.metadata.get("Query")
                         lineage = self.parse_sql(
