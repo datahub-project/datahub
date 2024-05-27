@@ -15,6 +15,12 @@ def get_long_description():
 
 rest_common = {"requests", "requests_file"}
 
+sqlglot_lib = {
+    # Using an Acryl fork of sqlglot.
+    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
+    "acryl-sqlglot[rs]==24.0.1.dev7",
+}
+
 _version: str = package_metadata["__version__"]
 _self_pin = (
     f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
@@ -28,6 +34,7 @@ base_requirements = {
     # Ignoring the dependency below because it causes issues with the vercel built wheel install
     #f"acryl-datahub[datahub-rest]{_self_pin}",
     "acryl-datahub[datahub-rest]",
+    sqlglot_lib,
 }
 
 mypy_stubs = {
