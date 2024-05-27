@@ -344,8 +344,8 @@ class DatahubSensors:
                             materialization.metadata.get("Query"), TextMetadataValue
                         )
                     ):
-                        assert materialization.metadata.get("Query")
                         query_metadata = materialization.metadata.get("Query")
+                        assert query_metadata
                         lineage = self.parse_sql(
                             context=context,
                             sql_query=str(query_metadata.text),
@@ -362,7 +362,7 @@ class DatahubSensors:
                             )
                         else:
                             context.log.info(
-                                f"Lineage not found for {materialization.metadata.get('Query').text}"
+                                f"Lineage not found for {query_metadata.text}"
                             )
                     else:
                         context.log.info("Query not found in metadata")
