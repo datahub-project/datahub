@@ -181,7 +181,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         default={},
         description="A mapping of destination dataset to platform instance. Use destination id as key.",
     )
-    extract_sync_history_for_interval: int = pydantic.Field(
+    history_sync_lookback_period: int = pydantic.Field(
         7,
-        description="Interval in days to extract connector's sync history from current date.",
+        description="The number of days to look back when extracting connectors' sync history.",
     )
