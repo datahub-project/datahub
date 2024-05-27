@@ -343,6 +343,7 @@ class DatahubSensors:
                         and isinstance(
                             materialization.metadata.get("Query"), TextMetadataValue
                         )
+                        and materialization.metadata.get("Query").text
                     ):
                         query_metadata = materialization.metadata.get("Query")
                         lineage = self.parse_sql(
