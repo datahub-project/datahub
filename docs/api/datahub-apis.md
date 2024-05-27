@@ -1,6 +1,6 @@
 # DataHub APIs
 
-DataHub supplys several APIs to manipulate metadata on the platform. Here's the list of APIs and their pros and cons to help you choose the right one for your use case.
+DataHub has several APIs to manipulate metadata on the platform. Here's the list of APIs and their pros and cons to help you choose the right one for your use case.
 
 | API                                                                            | Definition                         | Pros                                     | Cons                                                        |
 |--------------------------------------------------------------------------------|------------------------------------|------------------------------------------|-------------------------------------------------------------| 
