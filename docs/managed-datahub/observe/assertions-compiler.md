@@ -1,6 +1,6 @@
-# DataHub Open Assertions Compiler
+# DataHub Open Assertion Specification
 
-DataHub is developing an open-source Assertion Compiler that will allow you to declare Data Quality checks using in a simple, universal
+DataHub is developing an open-source Assertion Specification & Compiler that will allow you to declare Data Quality checks using in a simple, universal
 YAML-based format, and then compile them to be executed by different 3rd party Data Quality tool like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro), dbt tests, or Great Expectation checks.
 
 Ultimately, the goal is to provide provide a tool-agnostic, portable format for defining Data Quality checks, making it seamless to swap out the underlying
@@ -8,7 +8,7 @@ assertion engine without service disruption for end consumers of the results of 
 
 ## Integrations
 
-Currently, the DataHub Assertion Compiler supports the following integrations:
+Currently, the DataHub Open Assertion Specification supports the following integrations:
 
 - Snowflake via [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro)
 
@@ -19,14 +19,18 @@ And is looking for contributions to build out support for the following integrat
 
 Below, we'll look at how to define assertions in YAML, and then provide an usage overview for each support integration.
 
-## Declaring Assertions in YAML
+## The Specification: Declaring Data Quality Assertions in YAML
 
-The following assertion types are currently supported by the DataHub YAML Assertion specification:
+The following assertion types are currently supported by the DataHub YAML Assertion spec:
 
-- [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) (SLAs)
+- [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) 
 - [Volume](/docs/managed-datahub/observe/volume-assertions.md)
 - [Column](/docs/managed-datahub/observe/column-assertions.md)
 - [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
+- [Schema](/docs/managed-datahub/observe/schema-assertions.md)
+
+Each assertion type aims to validate a different aspect of a warehouse or table table, from
+structure to size to column integrity to custom metrics. 
 
 In this section, we'll go over examples of defining each. 
 
@@ -35,29 +39,35 @@ In this section, we'll go over examples of defining each.
 Freshness Assertions allow you to verify that your data was updated within the expected timeframe.
 Below you'll find examples of defining different types of freshness assertions via YAML. 
 
-<TODO>
+<TODO Mayuri Help> 
 
 ### Volume Assertions
 
 Volume Assertions allow you to verify that the number of records in your dataset meets your expectations.
 Below you'll find examples of defining different types of volume assertions via YAML.
 
-<TODO>
+<TODO Mayuri Help> 
 
 ### Column Assertions
 
 Column Assertions allow you to verify that the values in a column meet your expectations.
 Below you'll find examples of defining different types of column assertions via YAML.
 
-<TODO>
+<TODO Mayuri Help> 
 
 ### Custom SQL Assertions
 
 Custom SQL Assertions allow you to define custom SQL queries to verify your data meets your expectations.
 Below you'll find examples of defining different types of custom SQL assertions via YAML.
 
-<TODO>
+<TODO Mayuri Help> 
 
+### Schema Assertions
+
+Schema Assertions allow you to define custom SQL queries to verify your data meets your expectations.
+Below you'll find examples of defining different types of custom SQL assertions via YAML.
+
+<TODO Mayuri Help> 
 
 ## Snowflake
 
@@ -73,6 +83,17 @@ of the table with which they are associated.
 - You must have the necessary permissions to query the DMF results in your Snowflake environment.
 
 To learn more about Snowflake DMFs, see the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/data-quality-intro).
+
+### Supported Assertion Types
+
+The following assertion types are currently supported by the DataHub Snowflake DMF Assertion Compiler:
+
+- [Freshness](/docs/managed-datahub/observe/freshness-assertions.md)
+- [Volume](/docs/managed-datahub/observe/volume-assertions.md)
+- [Column](/docs/managed-datahub/observe/column-assertions.md)
+- [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
+
+Note that Schema Assertions are not currently supported. 
 
 ### Creating Snowflake DMF Assertions
 
