@@ -172,9 +172,15 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         default=False,
         description="Whether to capture and try to parse input and output from HANDLED_OUTPUT, LOADED_INPUT event. (currently only filepathvalue metadata supported",
     )
+
     connect_ops_to_ops: bool = pydantic.Field(
         default=False,
         description="Whether to connect ops to ops based on the order of execution",
+    )
+
+    enable_asset_query_metadata_parsing: bool = pydantic.Field(
+        default=True,
+        description="Whether to enable parsing query from asset metadata",
     )
 
     asset_lineage_extractor: Optional[
@@ -200,6 +206,11 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
     ] = pydantic.Field(
         default=None,
         description="Custom asset key to urn converter function. See details at [https://datahubproject.io/docs/lineage/dagster/#define-your-custom-logic-to-capture-asset-lineage-information]",
+    )
+
+    materialize_dependencies: Optional[bool] = pydantic.Field(
+        default=False,
+        description="Whether to materialize asset dependency in DataHub. It emits a datasetKey for each dependencies. Default is False.",
     )
 
 
@@ -286,7 +297,7 @@ class DagsterGenerator:
                     DagsterGenerator.asset_group_name_cache[
                         asset_urn.urn()
                     ] = group_name
-                    self.logger.info(
+                    self.logger.debug(
                         f"Asset group name cache updated: {asset_urn.urn()} -> {group_name}"
                     )
         self.logger.info(
@@ -380,7 +391,6 @@ class DagsterGenerator:
         :return: DataJob - Data generated datajob
         """
         self.logger.info(f"Generating datajob for Op Def Snap: {op_def_snap}")
-
         if self.dagster_environment.is_cloud:
             flow_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{job_snapshot.name}"
             job_id = f"{self.dagster_environment.branch}/{self.dagster_environment.module}/{op_def_snap.name}"
@@ -694,7 +704,6 @@ class DagsterGenerator:
         """
         Emit asset to datahub
         """
-
         dataset_urn = self.dataset_urn_from_asset(asset_key)
         dataset = Dataset(
             id=None,
