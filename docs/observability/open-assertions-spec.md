@@ -151,7 +151,8 @@ source:
     # ...
 ```
 
-This will query the DMF results store in Snowflake, convert them into DataHub Assertion Results, and report the results back into DataHub:
+This will query the DMF results store in Snowflake, convert them into DataHub Assertion Results, and report the results back into DataHub during your ingestion process
+either via CLI or the UI.
 
 `datahub ingest -c snowflake.yml`
 
