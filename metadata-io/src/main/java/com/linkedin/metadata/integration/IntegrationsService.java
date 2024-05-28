@@ -554,5 +554,4 @@ public class IntegrationsService {
       return null;
     }
   }
-
 }
