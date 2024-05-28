@@ -60,7 +60,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   public void invoke(@Nonnull final MetadataChangeLog event) {
     if (event.getSystemMetadata() != null) {
       if (event.getSystemMetadata().getProperties() != null) {
-        if (UI_SOURCE.equals(event.getSystemMetadata().getProperties().get(APP_SOURCE))
+        if (!Boolean.parseBoolean(event.getSystemMetadata().getProperties().get(FORCE_INDEXING_KEY))
+            && UI_SOURCE.equals(event.getSystemMetadata().getProperties().get(APP_SOURCE))
             && !reprocessUIEvents) {
           // If coming from the UI, we pre-process the Update Indices hook as a fast path to avoid
           // Kafka lag
