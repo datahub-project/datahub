@@ -138,6 +138,10 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | Edit User Profile                  | :heavy_check_mark: | :x:                | :x:                | The ability to change the user's profile including display name, bio, title, profile image, etc. |
 | Edit Contact Information           | :heavy_check_mark: | :x:                | :x:                | The ability to change the contact information such as email & chat handles.                      |
 | Delete                             | :heavy_check_mark: | :x:                | :x:                | The ability to delete this entity.                                                               |
+| Search API                         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to access search APIs.                                                               |
+| Get Aspect/Entity Count APIs       | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to use the GET Aspect/Entity Count APIs.                                             |
+| Get Timeseries Aspect API          | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to use the GET Timeseries Aspect API.                                                |
+| Get Entity + Relationships API     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to use the GET Entity and Relationships API.                                         |
 | Get Timeline API                   | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to use the GET Timeline API.                                                         |
 | Explain ElasticSearch Query API    | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | The ability to use the Operations API explain endpoint.                                          |
 | Produce Platform Event API         | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to produce Platform Events using the API.                                            |
