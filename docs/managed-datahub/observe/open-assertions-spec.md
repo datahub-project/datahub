@@ -1,6 +1,6 @@
-# DataHub Open Assertion Specification
+# DataHub Open Data Quality Assertions Specification
 
-DataHub is developing an open-source Assertion Specification & Compiler that will allow you to declare Data Quality checks using in a simple, universal
+DataHub is developing an open-source Data Quality Assertions Specification & Compiler that will allow you to declare data quality checks / expectations / assertions using in a simple, universal
 YAML-based format, and then compile them to into artifacts that can be registered or directly executed by 3rd party Data Quality tools like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro), 
 dbt tests, or Great Expectations. 
 
@@ -9,7 +9,7 @@ assertion engine without service disruption for end consumers of the results of 
 
 ## Integrations
 
-Currently, the DataHub Open Assertion Specification supports the following integrations:
+Currently, the DataHub Open Assertions Specification supports the following integrations:
 
 - Snowflake via [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro)
 
