@@ -174,20 +174,16 @@ def get_entity_urns(events_file: str) -> Set[str]:
 def _get_entity_urns(events_list: List[Dict]) -> Set[str]:
     entity_type = "dataset"
     # mce urns
-    mce_urns = set(
-        [
-            _get_element(x, _get_mce_urn_path_spec(entity_type))
-            for x in events_list
-            if _get_filter(mce=True, entity_type=entity_type)(x)
-        ]
-    )
-    mcp_urns = set(
-        [
-            _get_element(x, _get_mcp_urn_path_spec())
-            for x in events_list
-            if _get_filter(mcp=True, entity_type=entity_type)(x)
-        ]
-    )
+    mce_urns = {
+        _get_element(x, _get_mce_urn_path_spec(entity_type))
+        for x in events_list
+        if _get_filter(mce=True, entity_type=entity_type)(x)
+    }
+    mcp_urns = {
+        _get_element(x, _get_mcp_urn_path_spec())
+        for x in events_list
+        if _get_filter(mcp=True, entity_type=entity_type)(x)
+    }
     all_urns = mce_urns.union(mcp_urns)
     return all_urns
 
@@ -268,20 +264,16 @@ def assert_for_each_entity(
     test_output = load_json_file(file)
     assert isinstance(test_output, list)
     # mce urns
-    mce_urns = set(
-        [
-            _get_element(x, _get_mce_urn_path_spec(entity_type))
-            for x in test_output
-            if _get_filter(mce=True, entity_type=entity_type)(x)
-        ]
-    )
-    mcp_urns = set(
-        [
-            _get_element(x, _get_mcp_urn_path_spec())
-            for x in test_output
-            if _get_filter(mcp=True, entity_type=entity_type)(x)
-        ]
-    )
+    mce_urns = {
+        _get_element(x, _get_mce_urn_path_spec(entity_type))
+        for x in test_output
+        if _get_filter(mce=True, entity_type=entity_type)(x)
+    }
+    mcp_urns = {
+        _get_element(x, _get_mcp_urn_path_spec())
+        for x in test_output
+        if _get_filter(mcp=True, entity_type=entity_type)(x)
+    }
     all_urns = mce_urns.union(mcp_urns)
     # there should not be any None urns
     assert None not in all_urns
@@ -378,20 +370,16 @@ def assert_entity_urn_not_like(entity_type: str, regex_pattern: str, file: str) 
     test_output = load_json_file(file)
     assert isinstance(test_output, list)
     # mce urns
-    mce_urns = set(
-        [
-            _get_element(x, _get_mce_urn_path_spec(entity_type))
-            for x in test_output
-            if _get_filter(mce=True, entity_type=entity_type)(x)
-        ]
-    )
-    mcp_urns = set(
-        [
-            _get_element(x, _get_mcp_urn_path_spec())
-            for x in test_output
-            if _get_filter(mcp=True, entity_type=entity_type)(x)
-        ]
-    )
+    mce_urns = {
+        _get_element(x, _get_mce_urn_path_spec(entity_type))
+        for x in test_output
+        if _get_filter(mce=True, entity_type=entity_type)(x)
+    }
+    mcp_urns = {
+        _get_element(x, _get_mcp_urn_path_spec())
+        for x in test_output
+        if _get_filter(mcp=True, entity_type=entity_type)(x)
+    }
     all_urns = mce_urns.union(mcp_urns)
     print(all_urns)
     matched_urns = [u for u in all_urns if re.match(regex_pattern, u)]
@@ -406,20 +394,16 @@ def assert_entity_urn_like(entity_type: str, regex_pattern: str, file: str) -> i
     test_output = load_json_file(file)
     assert isinstance(test_output, list)
     # mce urns
-    mce_urns = set(
-        [
-            _get_element(x, _get_mce_urn_path_spec(entity_type))
-            for x in test_output
-            if _get_filter(mce=True, entity_type=entity_type)(x)
-        ]
-    )
-    mcp_urns = set(
-        [
-            _get_element(x, _get_mcp_urn_path_spec())
-            for x in test_output
-            if _get_filter(mcp=True, entity_type=entity_type)(x)
-        ]
-    )
+    mce_urns = {
+        _get_element(x, _get_mce_urn_path_spec(entity_type))
+        for x in test_output
+        if _get_filter(mce=True, entity_type=entity_type)(x)
+    }
+    mcp_urns = {
+        _get_element(x, _get_mcp_urn_path_spec())
+        for x in test_output
+        if _get_filter(mcp=True, entity_type=entity_type)(x)
+    }
     all_urns = mce_urns.union(mcp_urns)
     print(all_urns)
     matched_urns = [u for u in all_urns if re.match(regex_pattern, u)]
