@@ -1,8 +1,8 @@
 import pandas as pd
 from dagster import MaterializeResult, MetadataValue, SourceAsset, asset, op
+from dagster_aws.redshift import RedshiftClientResource
 from dagster_snowflake import SnowflakeResource
 from dagster_snowflake_pandas import SnowflakePandasIOManager
-from dagster_aws.redshift import RedshiftClientResource
 
 
 @asset(
