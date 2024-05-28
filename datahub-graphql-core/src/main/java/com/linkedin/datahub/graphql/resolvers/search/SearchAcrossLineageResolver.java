@@ -191,6 +191,8 @@ public class SearchAcrossLineageResolver
           } finally {
             log.debug("Returning from search across lineage resolver");
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

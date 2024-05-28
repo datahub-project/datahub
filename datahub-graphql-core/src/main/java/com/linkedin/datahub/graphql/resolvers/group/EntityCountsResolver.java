@@ -68,6 +68,8 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
           } catch (Exception e) {
             throw new RuntimeException("Failed to get entity counts", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

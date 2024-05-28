@@ -81,7 +81,9 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
           } catch (Exception e) {
             throw new RuntimeException("Failed to list roles", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static List<DataHubRole> mapEntitiesToRoles(

@@ -104,7 +104,9 @@ public class EntityIncidentsResolver
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve incidents from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildIncidentsEntityFilter(

@@ -57,6 +57,8 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
                     "Failed to remove link from resource with input  %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

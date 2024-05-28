@@ -112,6 +112,8 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                     }
                   });
           return results;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -52,7 +52,9 @@ public class BatchRemoveTermsResolver implements DataFetcher<CompletableFuture<B
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateInputResources(

@@ -58,7 +58,9 @@ public class UpdateOwnershipTypeResolver
             throw new RuntimeException(
                 String.format("Failed to perform update against View with urn %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private OwnershipTypeEntity getOwnershipType(

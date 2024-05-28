@@ -86,7 +86,9 @@ public class DashboardStatsSummaryResolver
                 e);
             return null; // Do not throw when loading usage summary fails.
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private int getDashboardViewCount(@Nullable QueryContext context, final Urn resourceUrn) {

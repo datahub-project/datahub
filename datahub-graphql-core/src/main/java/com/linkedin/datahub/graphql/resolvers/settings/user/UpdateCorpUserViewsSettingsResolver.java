@@ -66,7 +66,9 @@ public class UpdateCorpUserViewsSettingsResolver
                     input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static void updateCorpUserSettings(

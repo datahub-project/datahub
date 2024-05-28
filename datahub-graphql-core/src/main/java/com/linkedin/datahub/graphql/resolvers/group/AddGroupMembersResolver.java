@@ -86,6 +86,8 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
             throw new RuntimeException(
                 String.format("Failed to add group members to group %s", groupUrnStr));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

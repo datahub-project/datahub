@@ -61,7 +61,9 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               addCommonPrivileges(commonPrivileges, urn, context);
               return commonPrivileges;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private EntityPrivileges getGlossaryTermPrivileges(Urn termUrn, QueryContext context) {

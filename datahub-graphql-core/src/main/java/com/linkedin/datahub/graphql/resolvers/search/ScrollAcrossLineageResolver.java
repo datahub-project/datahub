@@ -157,6 +157,8 @@ public class ScrollAcrossLineageResolver
                         count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

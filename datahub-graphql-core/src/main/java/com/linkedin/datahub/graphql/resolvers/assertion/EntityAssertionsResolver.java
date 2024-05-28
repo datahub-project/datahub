@@ -103,7 +103,9 @@ public class EntityAssertionsResolver
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean assertionExists(

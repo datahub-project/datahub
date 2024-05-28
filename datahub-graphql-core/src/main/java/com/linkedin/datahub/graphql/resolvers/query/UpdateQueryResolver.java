@@ -104,6 +104,8 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
             throw new RuntimeException(
                 String.format("Failed to update Query from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

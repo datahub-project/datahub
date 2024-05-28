@@ -103,7 +103,9 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public Boolean validateRelatedTermsInput(

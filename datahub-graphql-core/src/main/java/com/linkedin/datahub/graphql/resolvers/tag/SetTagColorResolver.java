@@ -87,7 +87,9 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
             throw new RuntimeException(
                 String.format("Failed to set color for Tag with urn %s", tagUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static boolean isAuthorizedToSetTagColor(@Nonnull QueryContext context, Urn entityUrn) {

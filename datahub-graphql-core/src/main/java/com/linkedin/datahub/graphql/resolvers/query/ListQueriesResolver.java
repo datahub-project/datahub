@@ -90,7 +90,9 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
           } catch (Exception e) {
             throw new RuntimeException("Failed to list Queries", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial Query objects which will be

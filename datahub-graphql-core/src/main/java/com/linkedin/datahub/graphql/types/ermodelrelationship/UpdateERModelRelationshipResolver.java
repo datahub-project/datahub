@@ -62,6 +62,8 @@ public class UpdateERModelRelationshipResolver implements DataFetcher<Completabl
                     "Failed to update erModelRelationship to resource with input %s", input),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

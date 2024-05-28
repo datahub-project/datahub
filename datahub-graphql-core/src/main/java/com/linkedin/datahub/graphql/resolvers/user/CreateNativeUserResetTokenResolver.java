@@ -53,6 +53,8 @@ public class CreateNativeUserResetTokenResolver
                 String.format(
                     "Failed to generate password reset token for user: %s", userUrnString));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

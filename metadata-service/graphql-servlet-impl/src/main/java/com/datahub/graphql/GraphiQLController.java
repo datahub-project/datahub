@@ -35,6 +35,7 @@ public class GraphiQLController {
   @GetMapping(value = "/graphiql", produces = MediaType.TEXT_HTML_VALUE)
   @ResponseBody
   CompletableFuture<String> graphiQL() {
-    return GraphQLConcurrencyUtils.supplyAsync(() -> this.graphiqlHtml);
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> this.graphiqlHtml, this.getClass().getSimpleName(), "graphiQL");
   }
 }

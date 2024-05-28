@@ -107,7 +107,9 @@ public class EntityLineageResultResolver
             throw new RuntimeException(
                 String.format("Failed to fetch lineage for %s", finalUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private EntityLineageResult mapEntityRelationships(

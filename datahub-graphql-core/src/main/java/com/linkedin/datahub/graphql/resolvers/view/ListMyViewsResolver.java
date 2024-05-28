@@ -92,7 +92,9 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
           } catch (Exception e) {
             throw new RuntimeException("Failed to list Views", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial View objects which will be

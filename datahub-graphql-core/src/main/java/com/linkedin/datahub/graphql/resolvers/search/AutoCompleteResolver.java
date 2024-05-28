@@ -90,6 +90,8 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
                         input.getLimit()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

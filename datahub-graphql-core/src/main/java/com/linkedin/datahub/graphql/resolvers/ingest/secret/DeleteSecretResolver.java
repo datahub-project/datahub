@@ -35,7 +35,9 @@ public class DeleteSecretResolver implements DataFetcher<CompletableFuture<Strin
                   String.format("Failed to perform delete against secret with urn %s", secretUrn),
                   e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

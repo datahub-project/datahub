@@ -96,7 +96,9 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
           } catch (Exception e) {
             throw new RuntimeException("Failed to resolve asset's health status.", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

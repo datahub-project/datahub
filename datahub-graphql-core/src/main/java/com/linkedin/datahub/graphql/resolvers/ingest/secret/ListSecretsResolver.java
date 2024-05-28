@@ -106,7 +106,9 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
             } catch (Exception e) {
               throw new RuntimeException("Failed to list secrets", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

@@ -101,6 +101,8 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
                     "Failed to resolve entities associated with container with urn %s", urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -165,7 +165,9 @@ public class GraphQLController {
                 executionResult.toSpecification());
             return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "postGraphQL");
   }
 
   @GetMapping("/graphql")

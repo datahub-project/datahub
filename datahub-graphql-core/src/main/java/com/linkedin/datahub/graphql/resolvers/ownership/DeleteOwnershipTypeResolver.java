@@ -46,6 +46,8 @@ public class DeleteOwnershipTypeResolver implements DataFetcher<CompletableFutur
             throw new RuntimeException(
                 String.format("Failed to delete ownership type with urn %s", ownershipTypeUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

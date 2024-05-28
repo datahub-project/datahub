@@ -76,6 +76,8 @@ public class UpdateDataProductResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to update DataProduct with urn %s", dataProductUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -88,7 +88,9 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
             } catch (Exception e) {
               throw new RuntimeException("Failed to list users", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

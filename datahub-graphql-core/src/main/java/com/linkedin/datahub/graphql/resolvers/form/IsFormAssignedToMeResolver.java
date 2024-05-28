@@ -76,6 +76,8 @@ public class IsFormAssignedToMeResolver implements DataFetcher<CompletableFuture
 
           // Else the user is not directly assigned.
           return false;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

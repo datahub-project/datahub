@@ -88,6 +88,8 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
           } catch (Exception e) {
             throw new RuntimeException("Failed to list posts", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

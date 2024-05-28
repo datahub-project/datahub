@@ -50,6 +50,8 @@ public class MutableTypeBatchResolver<I, B, T> implements DataFetcher<Completabl
           } finally {
             timer.stop();
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

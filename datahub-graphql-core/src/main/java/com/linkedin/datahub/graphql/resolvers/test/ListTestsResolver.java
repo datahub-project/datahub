@@ -79,7 +79,9 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial Test objects which will be

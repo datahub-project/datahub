@@ -2919,7 +2919,9 @@ public class GmsGraphQLEngine {
                         String.format("Failed to retrieve entities of type %s", graphType.name()),
                         e);
                   }
-                }),
+                },
+                graphType.getClass().getSimpleName(),
+                "batchLoad"),
         loaderOptions);
   }
 

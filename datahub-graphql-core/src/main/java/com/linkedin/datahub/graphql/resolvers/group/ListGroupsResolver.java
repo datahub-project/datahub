@@ -95,7 +95,9 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
             } catch (Exception e) {
               throw new RuntimeException("Failed to list groups", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

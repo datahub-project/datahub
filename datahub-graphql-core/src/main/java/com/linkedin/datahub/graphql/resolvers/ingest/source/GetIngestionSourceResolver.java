@@ -59,7 +59,9 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
             } catch (Exception e) {
               throw new RuntimeException("Failed to retrieve ingestion source", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

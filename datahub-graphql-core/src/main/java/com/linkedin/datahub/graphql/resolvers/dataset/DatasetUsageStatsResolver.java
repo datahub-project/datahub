@@ -53,6 +53,8 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
           }
 
           return UsageQueryResultMapper.EMPTY;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

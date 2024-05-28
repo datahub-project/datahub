@@ -73,6 +73,8 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
                     "Failed to perform user settings update against input %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

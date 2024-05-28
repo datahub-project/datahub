@@ -154,7 +154,9 @@ public class CreateIngestionExecutionRequestResolver
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

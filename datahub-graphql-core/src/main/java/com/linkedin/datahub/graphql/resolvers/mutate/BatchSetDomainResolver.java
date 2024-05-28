@@ -54,7 +54,9 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateDomain(

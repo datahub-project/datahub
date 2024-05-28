@@ -46,7 +46,9 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
           ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer();
       List<String> privileges = dataHubAuthorizer.getGrantedPrivileges(actor, resourceSpec);
       return GraphQLConcurrencyUtils.supplyAsync(
-          () -> Privileges.builder().setPrivileges(privileges).build());
+          () -> Privileges.builder().setPrivileges(privileges).build(),
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new UnsupportedOperationException(
         String.format(

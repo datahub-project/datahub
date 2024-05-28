@@ -77,7 +77,9 @@ public class ListBusinessAttributesResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to list Business Attributes", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<BusinessAttribute> mapUnresolvedBusinessAttributes(final List<Urn> entityUrns) {

@@ -69,6 +69,8 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to create a new DataProduct from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

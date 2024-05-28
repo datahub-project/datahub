@@ -69,7 +69,9 @@ public class UpdateGlobalViewsSettingsResolver implements DataFetcher<Completabl
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static void updateViewsSettings(

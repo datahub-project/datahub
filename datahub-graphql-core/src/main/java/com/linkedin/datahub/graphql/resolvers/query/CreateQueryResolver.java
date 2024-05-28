@@ -77,6 +77,8 @@ public class CreateQueryResolver implements DataFetcher<CompletableFuture<QueryE
             throw new RuntimeException(
                 String.format("Failed to create a new Query from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

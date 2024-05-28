@@ -104,6 +104,8 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                 String.format("Failed to resolve entities associated with Domain with urn %s", urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

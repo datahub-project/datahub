@@ -36,6 +36,8 @@ public class IsAssignedToMeResolver implements DataFetcher<CompletableFuture<Boo
             throw new RuntimeException(
                 "Failed to determine if current user is assigned to Role", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

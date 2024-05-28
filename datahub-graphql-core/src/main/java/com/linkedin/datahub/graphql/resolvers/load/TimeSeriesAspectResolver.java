@@ -130,7 +130,9 @@ public class TimeSeriesAspectResolver
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve aspects from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildFilters(@Nullable FilterInput maybeFilters) {

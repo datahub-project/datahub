@@ -70,7 +70,9 @@ public class UpdateBusinessAttributeResolver
                     "Failed to update Business Attribute with urn %s", businessAttributeUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Urn updateBusinessAttribute(

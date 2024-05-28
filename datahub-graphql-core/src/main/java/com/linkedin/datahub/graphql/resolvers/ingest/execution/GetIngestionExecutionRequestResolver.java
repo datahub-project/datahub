@@ -63,7 +63,9 @@ public class GetIngestionExecutionRequestResolver
             } catch (Exception e) {
               throw new RuntimeException("Failed to retrieve execution request", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

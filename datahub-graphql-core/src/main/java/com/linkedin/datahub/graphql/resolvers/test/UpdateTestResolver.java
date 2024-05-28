@@ -56,7 +56,9 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static TestInfo mapUpdateTestInput(final UpdateTestInput input) {

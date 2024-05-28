@@ -42,7 +42,9 @@ public class GlobalViewsSettingsResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to retrieve Global Views Settings", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static GlobalViewsSettings mapGlobalViewsSettings(

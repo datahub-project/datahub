@@ -53,6 +53,8 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete Data Product", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

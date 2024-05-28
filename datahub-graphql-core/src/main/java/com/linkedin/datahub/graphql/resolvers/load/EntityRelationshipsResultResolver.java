@@ -53,7 +53,9 @@ public class EntityRelationshipsResultResolver
                 context,
                 fetchEntityRelationships(
                     urn, relationshipTypes, resolvedDirection, start, count, context.getActorUrn()),
-                resolvedDirection));
+                resolvedDirection),
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private EntityRelationships fetchEntityRelationships(

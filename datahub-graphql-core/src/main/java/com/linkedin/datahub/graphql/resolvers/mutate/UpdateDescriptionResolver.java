@@ -100,7 +100,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateContainerDescription");
   }
 
   private CompletableFuture<Boolean> updateDomainDescription(
@@ -129,7 +131,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateDomainDescription");
   }
 
   // If updating schema field description fails, try again on a sibling until there are no more
@@ -198,7 +202,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
           return attemptUpdateDatasetSchemaFieldDescription(
               targetUrn, input, context, new HashSet<>(), siblingUrns);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateDatasetSchemaFieldDescription");
   }
 
   private CompletableFuture<Boolean> updateTagDescription(
@@ -227,7 +233,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateTagDescription");
   }
 
   private CompletableFuture<Boolean> updateGlossaryTermDescription(
@@ -258,7 +266,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateGlossaryTermDescription");
   }
 
   private CompletableFuture<Boolean> updateGlossaryNodeDescription(
@@ -289,7 +299,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateGlossaryNodeDescription");
   }
 
   private CompletableFuture<Boolean> updateCorpGroupDescription(
@@ -318,7 +330,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateCorpGroupDescription");
   }
 
   private CompletableFuture<Boolean> updateNotebookDescription(
@@ -347,7 +361,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateNotebookDescription");
   }
 
   private CompletableFuture<Boolean> updateMlModelDescription(
@@ -376,7 +392,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateMlModelDescription");
   }
 
   private CompletableFuture<Boolean> updateMlModelGroupDescription(
@@ -405,7 +423,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateMlModelGroupDescription");
   }
 
   private CompletableFuture<Boolean> updateMlFeatureDescription(
@@ -434,7 +454,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateMlFeatureDescription");
   }
 
   private CompletableFuture<Boolean> updateMlPrimaryKeyDescription(
@@ -463,7 +485,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateMlPrimaryKeyDescription");
   }
 
   private CompletableFuture<Boolean> updateMlFeatureTableDescription(
@@ -492,7 +516,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateMlFeatureTableDescription");
   }
 
   private CompletableFuture<Boolean> updateDataProductDescription(
@@ -521,7 +547,9 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateDataProductDescription");
   }
 
   private CompletableFuture<Boolean> updateBusinessAttributeDescription(
@@ -553,6 +581,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "updateBusinessAttributeDescription");
   }
 }

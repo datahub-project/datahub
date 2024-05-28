@@ -77,7 +77,9 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
             log.error("Failed to create incident. {}", e.getMessage());
             throw new RuntimeException("Failed to incident", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private IncidentInfo mapIncidentInfo(final RaiseIncidentInput input, final QueryContext context)

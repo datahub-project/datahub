@@ -67,6 +67,8 @@ public class UpdatePostResolver implements DataFetcher<CompletableFuture<Boolean
           } catch (Exception e) {
             throw new GraphQLException("Failed to update or edit post", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

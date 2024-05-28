@@ -86,7 +86,9 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
           } catch (Exception e) {
             throw new RuntimeException("Failed to list domains", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial Domain objects which will be

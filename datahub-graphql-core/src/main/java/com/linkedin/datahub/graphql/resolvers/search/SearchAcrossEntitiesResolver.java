@@ -113,6 +113,8 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         input.getTypes(), input.getQuery(), input.getOrFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

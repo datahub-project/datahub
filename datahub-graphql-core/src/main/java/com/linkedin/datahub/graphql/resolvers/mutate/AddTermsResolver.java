@@ -72,6 +72,8 @@ public class AddTermsResolver implements DataFetcher<CompletableFuture<Boolean>>
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

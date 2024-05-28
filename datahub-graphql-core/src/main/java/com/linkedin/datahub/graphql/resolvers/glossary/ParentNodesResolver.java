@@ -145,6 +145,8 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
           } catch (DataHubGraphQLException | URISyntaxException e) {
             throw new RuntimeException(("Failed to load parent nodes"));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

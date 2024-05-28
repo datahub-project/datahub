@@ -52,7 +52,9 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
               throw new RuntimeException(
                   String.format("Failed to perform delete against group with urn %s", groupUrn), e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

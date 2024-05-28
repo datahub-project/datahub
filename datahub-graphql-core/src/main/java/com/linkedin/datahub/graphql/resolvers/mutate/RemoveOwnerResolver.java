@@ -58,6 +58,8 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
                     "Failed to remove owner from resource with input  %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

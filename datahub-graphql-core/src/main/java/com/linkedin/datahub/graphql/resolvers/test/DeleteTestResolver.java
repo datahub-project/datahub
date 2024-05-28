@@ -42,6 +42,8 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -75,7 +75,9 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
                   String.format(
                       "Failed to update name. Unsupported resource type %s provided.", targetUrn));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Boolean updateGlossaryTermName(

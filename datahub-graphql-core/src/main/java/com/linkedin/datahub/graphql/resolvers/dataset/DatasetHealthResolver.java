@@ -92,7 +92,9 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
           } catch (Exception e) {
             throw new RuntimeException("Failed to resolve dataset's health status.", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

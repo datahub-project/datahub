@@ -90,7 +90,9 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
           throw new DataHubGraphQLException(
               "Failed to update incident. Incident does not exist.",
               DataHubGraphQLErrorCode.NOT_FOUND);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToUpdateIncident(final Urn resourceUrn, final QueryContext context) {

@@ -103,7 +103,9 @@ public class AssertionRunEventResolver
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable

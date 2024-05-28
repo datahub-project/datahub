@@ -85,7 +85,9 @@ public class BatchGetStepStatesResolver
           final BatchGetStepStatesResult result = new BatchGetStepStatesResult();
           result.setResults(results);
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nonnull

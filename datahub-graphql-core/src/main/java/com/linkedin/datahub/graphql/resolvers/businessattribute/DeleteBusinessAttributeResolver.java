@@ -54,6 +54,8 @@ public class DeleteBusinessAttributeResolver implements DataFetcher<CompletableF
                     "Failed to delete Business Attribute with urn %s", businessAttributeUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

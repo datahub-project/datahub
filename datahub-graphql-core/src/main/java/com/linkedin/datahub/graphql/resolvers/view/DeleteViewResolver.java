@@ -44,6 +44,8 @@ public class DeleteViewResolver implements DataFetcher<CompletableFuture<Boolean
             throw new RuntimeException(
                 String.format("Failed to perform delete against View with urn %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -66,7 +66,9 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
           final String userUrn = environment.getArgument("userUrn");
 
           return populateDebugAccessResult(userUrn, context);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public DebugAccessResult populateDebugAccessResult(String userUrn, QueryContext context) {

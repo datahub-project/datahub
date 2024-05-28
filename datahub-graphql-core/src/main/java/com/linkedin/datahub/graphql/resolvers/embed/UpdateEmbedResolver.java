@@ -75,7 +75,9 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
                     "Failed to update Embed for to resource with entity urn %s", entityUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

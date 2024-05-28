@@ -109,7 +109,9 @@ public class ListIngestionSourcesResolver
             } catch (Exception e) {
               throw new RuntimeException("Failed to list ingestion sources", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

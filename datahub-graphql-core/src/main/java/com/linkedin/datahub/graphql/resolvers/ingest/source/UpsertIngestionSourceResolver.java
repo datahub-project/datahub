@@ -95,7 +95,9 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private DataHubIngestionSourceInfo mapIngestionSourceInfo(

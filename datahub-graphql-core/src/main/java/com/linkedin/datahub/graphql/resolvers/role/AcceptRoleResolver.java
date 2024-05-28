@@ -54,6 +54,8 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
             throw new RuntimeException(
                 String.format("Failed to accept role using invite token %s", inviteTokenStr), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

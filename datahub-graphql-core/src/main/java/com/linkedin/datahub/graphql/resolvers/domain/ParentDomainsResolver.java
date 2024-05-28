@@ -72,6 +72,8 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
             throw new RuntimeException(
                 String.format("Failed to load parent domains for entity %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

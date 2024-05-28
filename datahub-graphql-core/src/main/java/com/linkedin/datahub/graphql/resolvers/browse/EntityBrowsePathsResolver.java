@@ -33,6 +33,8 @@ public class EntityBrowsePathsResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to retrieve browse paths for entity with urn %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

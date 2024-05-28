@@ -64,6 +64,8 @@ public class GetSchemaBlameResolver
             log.error("Failed to list schema blame data", e);
             return null;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

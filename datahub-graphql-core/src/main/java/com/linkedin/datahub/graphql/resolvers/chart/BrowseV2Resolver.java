@@ -92,7 +92,9 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
           } catch (Exception e) {
             throw new RuntimeException("Failed to execute browse V2", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static List<String> getEntityNames(BrowseV2Input input) {

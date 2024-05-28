@@ -116,7 +116,9 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
                     input.getId(), input.getName()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private DomainProperties mapDomainProperties(

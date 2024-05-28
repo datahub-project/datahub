@@ -43,6 +43,8 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
             throw new RuntimeException(
                 String.format("Failed to check whether entity %s exists", entityUrn.toString()));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -85,7 +85,9 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
                     "Failed to create Tag with id: %s, name: %s", input.getId(), input.getName()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private TagProperties mapTagProperties(final CreateTagInput input) {

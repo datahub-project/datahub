@@ -78,7 +78,9 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
                     entityUrn, domainUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static Boolean validateSetDomainInput(

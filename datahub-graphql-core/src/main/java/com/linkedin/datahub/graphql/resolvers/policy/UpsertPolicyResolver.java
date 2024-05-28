@@ -81,7 +81,9 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
               throw new RuntimeException(
                   String.format("Failed to perform update against input %s", input), e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

@@ -54,6 +54,8 @@ public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolea
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete Query", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -65,6 +65,8 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
             throw new RuntimeException(
                 String.format("Failed to add owner to resource with input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

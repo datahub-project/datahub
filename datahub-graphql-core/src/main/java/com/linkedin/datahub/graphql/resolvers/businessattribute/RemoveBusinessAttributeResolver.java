@@ -56,7 +56,9 @@ public class RemoveBusinessAttributeResolver implements DataFetcher<CompletableF
                     businessAttributeUrn, resourceRefInputs),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void removeBusinessAttribute(

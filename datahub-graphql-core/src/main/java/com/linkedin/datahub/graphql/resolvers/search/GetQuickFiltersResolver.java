@@ -74,7 +74,9 @@ public class GetQuickFiltersResolver
 
           result.setQuickFilters(quickFilters);
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

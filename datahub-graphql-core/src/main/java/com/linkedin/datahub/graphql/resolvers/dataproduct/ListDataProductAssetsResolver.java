@@ -179,6 +179,8 @@ public class ListDataProductAssetsResolver
                         input.getTypes(), input.getQuery(), input.getOrFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

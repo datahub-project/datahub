@@ -85,7 +85,9 @@ public class DashboardUsageStatsResolver
                   context, dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, maybeLimit);
           usageQueryResult.setMetrics(dashboardUsageMetrics);
           return usageQueryResult;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<DashboardUsageMetrics> getDashboardUsageMetrics(

@@ -80,6 +80,8 @@ public class ParentContainersResolver
           } catch (DataHubGraphQLException e) {
             throw new RuntimeException("Failed to load all containers", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

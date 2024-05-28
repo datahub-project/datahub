@@ -37,7 +37,9 @@ public class RollbackIngestionResolver implements DataFetcher<CompletableFuture<
 
           rollbackIngestion(runId, context);
           return true;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public CompletableFuture<Boolean> rollbackIngestion(
@@ -51,6 +53,8 @@ public class RollbackIngestionResolver implements DataFetcher<CompletableFuture<
           } catch (Exception e) {
             throw new RuntimeException("Failed to rollback ingestion execution", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "rollbackIngestion");
   }
 }

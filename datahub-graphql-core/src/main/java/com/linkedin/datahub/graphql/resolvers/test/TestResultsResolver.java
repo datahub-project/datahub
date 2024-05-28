@@ -48,7 +48,9 @@ public class TestResultsResolver implements DataFetcher<CompletableFuture<TestRe
           testResults.setPassing(mapTestResults(gmsTestResults.getPassing()));
           testResults.setFailing(mapTestResults(gmsTestResults.getFailing()));
           return testResults;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable

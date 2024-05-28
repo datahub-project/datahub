@@ -58,7 +58,9 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToGenerateToken(

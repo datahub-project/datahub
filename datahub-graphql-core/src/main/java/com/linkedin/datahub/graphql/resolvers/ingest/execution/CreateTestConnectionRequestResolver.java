@@ -98,6 +98,8 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                     "Failed to create new test ingestion connection request %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

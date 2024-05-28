@@ -65,6 +65,8 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
                         input.getType(), input.getPath(), input.getFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

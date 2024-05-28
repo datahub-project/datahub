@@ -52,7 +52,9 @@ public class RemoveUserResolver implements DataFetcher<CompletableFuture<Boolean
               throw new RuntimeException(
                   String.format("Failed to perform delete against user with urn %s", userUrn), e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

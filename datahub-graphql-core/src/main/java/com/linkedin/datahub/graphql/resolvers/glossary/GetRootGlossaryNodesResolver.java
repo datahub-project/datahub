@@ -76,7 +76,9 @@ public class GetRootGlossaryNodesResolver
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve root glossary nodes from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildGlossaryEntitiesFilter() {

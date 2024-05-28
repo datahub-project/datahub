@@ -110,6 +110,8 @@ public class CreateERModelRelationshipResolver
                     "Failed to create erModelRelationship to resource with input %s", input),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

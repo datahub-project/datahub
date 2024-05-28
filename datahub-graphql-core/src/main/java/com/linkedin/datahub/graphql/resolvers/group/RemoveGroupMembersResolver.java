@@ -83,6 +83,8 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

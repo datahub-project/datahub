@@ -53,7 +53,9 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateOwners(@Nonnull OperationContext opContext, List<OwnerInput> owners) {

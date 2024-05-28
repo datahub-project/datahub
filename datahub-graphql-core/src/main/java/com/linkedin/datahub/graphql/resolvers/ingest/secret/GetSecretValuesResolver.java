@@ -93,7 +93,9 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
               throw new RuntimeException(
                   String.format("Failed to perform update against input %s", input.toString()), e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

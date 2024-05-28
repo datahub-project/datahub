@@ -51,6 +51,8 @@ public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>
                 "Failed to fetch aspect " + _aspectName + " for urn " + urnStr + " ", e);
           }
           return subType;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

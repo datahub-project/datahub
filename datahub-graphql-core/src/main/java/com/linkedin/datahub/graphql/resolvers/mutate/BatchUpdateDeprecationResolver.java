@@ -55,7 +55,9 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {

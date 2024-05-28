@@ -61,7 +61,9 @@ public class AddBusinessAttributeResolver implements DataFetcher<CompletableFutu
                     businessAttributeUrn, resourceRefInputs),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateBusinessAttribute(

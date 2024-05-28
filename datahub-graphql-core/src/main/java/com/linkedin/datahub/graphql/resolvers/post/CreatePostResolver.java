@@ -63,6 +63,8 @@ public class CreatePostResolver implements DataFetcher<CompletableFuture<Boolean
           } catch (Exception e) {
             throw new RuntimeException("Failed to create a new post", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -85,7 +85,9 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
                     "Failed to update Deprecation for resource with entity urn %s", entityUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToUpdateDeprecationForEntity(

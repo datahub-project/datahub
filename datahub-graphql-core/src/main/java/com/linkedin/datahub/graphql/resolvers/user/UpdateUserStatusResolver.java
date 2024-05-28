@@ -57,7 +57,9 @@ public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<S
               throw new RuntimeException(
                   String.format("Failed to update user status for urn", userUrn), e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

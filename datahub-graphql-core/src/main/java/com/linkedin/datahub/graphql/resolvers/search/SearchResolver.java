@@ -112,6 +112,8 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         searchFlags),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

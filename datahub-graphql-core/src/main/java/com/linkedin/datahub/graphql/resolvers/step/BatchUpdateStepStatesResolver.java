@@ -63,7 +63,9 @@ public class BatchUpdateStepStatesResolver
           final BatchUpdateStepStatesResult result = new BatchUpdateStepStatesResult();
           result.setResults(results);
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private UpdateStepStateResult buildUpdateStepStateResult(

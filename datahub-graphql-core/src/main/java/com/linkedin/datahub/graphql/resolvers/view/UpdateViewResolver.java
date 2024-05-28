@@ -61,7 +61,9 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
             throw new RuntimeException(
                 String.format("Failed to perform update against View with urn %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private DataHubView getView(

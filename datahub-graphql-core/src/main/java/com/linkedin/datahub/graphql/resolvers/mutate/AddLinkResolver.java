@@ -66,7 +66,9 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
             throw new RuntimeException(
                 String.format("Failed to add link to resource with input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // Returns whether this is a glossary entity and whether you can edit this glossary entity with

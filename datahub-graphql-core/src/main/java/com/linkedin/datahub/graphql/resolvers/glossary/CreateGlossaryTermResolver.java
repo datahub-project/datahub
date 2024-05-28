@@ -106,7 +106,9 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private GlossaryTermInfo mapGlossaryTermInfo(final CreateGlossaryEntityInput input) {

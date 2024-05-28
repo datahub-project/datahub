@@ -59,7 +59,9 @@ public class CreateViewResolver implements DataFetcher<CompletableFuture<DataHub
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private DataHubView createView(@Nonnull final Urn urn, @Nonnull final CreateViewInput input) {

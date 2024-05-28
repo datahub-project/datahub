@@ -40,7 +40,9 @@ public class DeletePolicyResolver implements DataFetcher<CompletableFuture<Strin
                   String.format("Failed to perform delete against policy with urn %s", policyUrn),
                   e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

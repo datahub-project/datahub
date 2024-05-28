@@ -107,7 +107,9 @@ public class AggregateAcrossEntitiesResolver
                         input.getTypes(), input.getQuery(), input.getOrFilters()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   static AggregateResults mapAggregateResults(

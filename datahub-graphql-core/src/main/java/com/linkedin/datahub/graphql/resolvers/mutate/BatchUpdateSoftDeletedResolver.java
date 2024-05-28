@@ -51,7 +51,9 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
                     "Failed to perform batch soft delete against input %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateInputUrns(List<String> urnStrs, QueryContext context) {

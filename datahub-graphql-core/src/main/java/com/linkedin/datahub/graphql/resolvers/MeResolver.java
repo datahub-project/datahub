@@ -100,7 +100,9 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to fetch authenticated user!", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /** Returns true if the authenticated user has privileges to view analytics. */

@@ -55,6 +55,8 @@ public class GetAccessTokenMetadataResolver
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

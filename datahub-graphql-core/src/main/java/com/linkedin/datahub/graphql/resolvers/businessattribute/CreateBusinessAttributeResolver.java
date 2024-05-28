@@ -107,7 +107,9 @@ public class CreateBusinessAttributeResolver
                 String.format("Failed to create Business Attribute with name: %s", input.getName()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private BusinessAttributeInfo mapBusinessAttributeInfo(

@@ -52,7 +52,9 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void verifyResources(List<String> resources, QueryContext context) {

@@ -40,7 +40,9 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
                       ingestionSourceUrn),
                   e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

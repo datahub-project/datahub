@@ -73,7 +73,9 @@ public class AutocompleteUtils {
                             return new AutoCompleteResultForEntity(
                                 entity.type(), Collections.emptyList(), Collections.emptyList());
                           }
-                        }))
+                        },
+                        AutocompleteUtils.class.getSimpleName(),
+                        "batchGetAutocompleteResults"))
             .collect(Collectors.toList());
     return CompletableFuture.allOf(autoCompletesFuture.toArray(new CompletableFuture[0]))
         .thenApplyAsync(

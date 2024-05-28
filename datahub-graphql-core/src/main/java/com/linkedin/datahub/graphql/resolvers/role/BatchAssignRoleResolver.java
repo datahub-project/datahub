@@ -46,6 +46,8 @@ public class BatchAssignRoleResolver implements DataFetcher<CompletableFuture<Bo
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

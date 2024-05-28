@@ -74,7 +74,9 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
                 String.format("Failed to unset Domains for resource with entity urn %s", entityUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static Boolean validateUnsetDomainInput(

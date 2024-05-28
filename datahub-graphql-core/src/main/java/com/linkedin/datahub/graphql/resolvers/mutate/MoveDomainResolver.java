@@ -107,6 +107,8 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
                     input.getResourceUrn(), input.getParentDomain()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

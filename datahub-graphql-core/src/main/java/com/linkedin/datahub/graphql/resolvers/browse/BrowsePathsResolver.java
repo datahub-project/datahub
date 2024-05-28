@@ -61,6 +61,8 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
                     + String.format("entity type %s, urn %s", input.getType(), input.getUrn()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

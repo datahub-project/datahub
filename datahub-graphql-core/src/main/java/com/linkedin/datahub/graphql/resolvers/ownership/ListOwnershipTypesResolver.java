@@ -81,7 +81,9 @@ public class ListOwnershipTypesResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to list custom ownership types", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<OwnershipTypeEntity> mapUnresolvedOwnershipTypes(List<Urn> entityUrns) {

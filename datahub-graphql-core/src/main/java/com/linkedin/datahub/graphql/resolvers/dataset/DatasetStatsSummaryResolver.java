@@ -81,7 +81,9 @@ public class DatasetStatsSummaryResolver
                 e);
             return null; // Do not throw when loading usage summary fails.
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<CorpUser> trimUsers(final List<CorpUser> originalUsers) {

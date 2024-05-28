@@ -77,7 +77,9 @@ public class ListRecommendationsResolver
             log.error("Failed to get recommendations for input {}", input, e);
             return EMPTY_RECOMMENDATIONS;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private com.linkedin.metadata.recommendation.RecommendationRequestContext mapRequestContext(

@@ -89,7 +89,9 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
           } catch (Exception e) {
             throw new RuntimeException("Failed to list global Views", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial View objects which will be

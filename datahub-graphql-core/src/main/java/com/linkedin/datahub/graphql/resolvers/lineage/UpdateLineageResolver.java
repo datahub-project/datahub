@@ -169,7 +169,9 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           }
 
           return true;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<Urn> filterOutDataJobUrns(@Nonnull final List<Urn> urns) {

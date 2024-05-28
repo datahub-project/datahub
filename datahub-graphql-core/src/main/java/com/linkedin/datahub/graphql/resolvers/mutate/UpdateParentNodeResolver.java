@@ -79,7 +79,9 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Boolean updateGlossaryTermParentNode(

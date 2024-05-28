@@ -117,6 +117,8 @@ public class IngestionSourceExecutionRequestsResolver
                     urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -51,6 +51,8 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
           } catch (Exception e) {
             throw new RuntimeException("Failed to create group", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

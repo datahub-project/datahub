@@ -74,7 +74,9 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
             log.error("Failed to report operation. {}", e.getMessage());
             throw new RuntimeException("Failed to report operation", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Operation mapOperation(final ReportOperationInput input, final QueryContext context)
