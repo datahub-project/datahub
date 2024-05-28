@@ -1,4 +1,4 @@
-from datahub.emitter.mce_builder import make_dataset_urn, make_data_job_urn
+from datahub.emitter.mce_builder import make_data_job_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata._urns.urn_defs import DatasetUrn
@@ -30,7 +30,7 @@ def lineage_mcp(urn: str, upstreams: List[str]) -> MetadataChangeProposalWrapper
 
 
 def datajob_lineage_mcp(
-        urn: str, upstreams: List[str], downstreams: List[str]
+    urn: str, upstreams: List[str], downstreams: List[str]
 ) -> MetadataChangeProposalWrapper:
     yield MetadataChangeProposalWrapper(
         entityUrn=urn,
