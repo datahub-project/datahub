@@ -1,20 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.action.execution;
 
-import com.linkedin.action.DataHubActionConfig;
-import com.linkedin.action.DataHubActionInfo;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
-import com.linkedin.datahub.graphql.generated.UpdateActionPipelineInput;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.integration.IntegrationsService;
-import com.linkedin.metadata.key.DataHubActionKey;
-import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
@@ -23,10 +19,6 @@ import java.util.concurrent.CompletableFuture;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
-
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-
 
 @AllArgsConstructor
 @Slf4j
@@ -56,7 +48,8 @@ public class RollbackActionPipelineResolver implements DataFetcher<CompletableFu
                     DataHubGraphQLErrorCode.BAD_REQUEST);
               }
             } else {
-              throw new DataHubGraphQLException("Action pipeline urn is required for rollback.",
+              throw new DataHubGraphQLException(
+                  "Action pipeline urn is required for rollback.",
                   DataHubGraphQLErrorCode.BAD_REQUEST);
             }
             log.info("Action pipeline = {}", actionPipelineUrn);
@@ -72,7 +65,9 @@ public class RollbackActionPipelineResolver implements DataFetcher<CompletableFu
             } catch (Exception e) {
               log.error("Failed to rollback action pipeline", e);
               throw new RuntimeException(
-                  String.format("Failed to rollback action pipeline %s", actionPipelineUrn.toString()), e);
+                  String.format(
+                      "Failed to rollback action pipeline %s", actionPipelineUrn.toString()),
+                  e);
             }
           }
           throw new AuthorizationException(

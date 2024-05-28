@@ -186,6 +186,7 @@ async def stop_action(action_urn: str) -> str:
     """
 
     _get_action_spec(action_urn)
+    logger.info(f"Stopping action {action_urn}.")
 
     try:
         await pipeline_manager.stop_pipeline(action_urn)

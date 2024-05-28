@@ -636,16 +636,13 @@ class TermPropagationAction(ExtendedAction):
                                             )
                                             mutation_needed = True
         if mutation_needed:
-            try:
-                assert editableSchemaMetadata.validate()
-                graph.graph.emit(
-                    MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn,
-                        aspect=editableSchemaMetadata,
-                    )
+            assert editableSchemaMetadata.validate()
+            graph.graph.emit(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=editableSchemaMetadata,
                 )
-            except Exception:
-                breakpoint()
+            )
 
     def act(self, event: EventEnvelope) -> None:
         """This method responds to changes to glossary terms and propagates them to downstream entities"""

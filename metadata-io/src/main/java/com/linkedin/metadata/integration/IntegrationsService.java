@@ -509,8 +509,49 @@ public class IntegrationsService {
       return true;
     } catch (Exception e) {
       log.error(
-          "Failed to reload action! Exceptions encountered when trying to access integrations service", e);
+          "Failed to reload action! Exceptions encountered when trying to access integrations service",
+          e);
       return false;
+    }
+  }
+
+  public boolean stopAction(String actionPipelineUrn) {
+
+    log.info("Stopping action pipeline = {}", actionPipelineUrn);
+    ApiResponse<Object> response = null;
+    try {
+      Object apiResponse = this.actionsApi.stopActionWithHttpInfo(actionPipelineUrn);
+      response = (ApiResponse<Object>) apiResponse;
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error("Failed to stop action! Integrations service returned non-200 error code!");
+        log.error(String.valueOf(response.getData().toString()));
+        return false;
+      }
+      return true;
+    } catch (Exception e) {
+      log.error(
+          "Failed to stop action! Exceptions encountered when trying to access integrations service",
+          e);
+      return false;
+    }
+  }
+
+  public String actionStatus(String actionPipelineUrn) {
+    ApiResponse<Object> response = null;
+    try {
+      Object apiResponse = this.actionsApi.actionStatsWithHttpInfo(actionPipelineUrn);
+      response = (ApiResponse<Object>) apiResponse;
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error("Failed to get action status! Integrations service returned non-200 error code!");
+        log.error(String.valueOf(response.getData().toString()));
+        return null;
+      }
+      return response.getData().toString();
+    } catch (Exception e) {
+      log.error(
+          "Failed to get action status! Exceptions encountered when trying to access integrations service",
+          e);
+      return null;
     }
   }
 
