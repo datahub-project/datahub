@@ -52,7 +52,7 @@ export const SchemaBuilder = ({ selected, onChange, disabled, options }: Props) 
             <SchemaBuilderTable selected={selected} onChange={onChange} disabled={disabled} options={options} />
             <Tip>
                 <StyledInfoCircleOutlined />
-                <TipText><b>Pro Tip:</b> Struct and array columns can be validated by providing the path to the field using dot (.) notation.</TipText>
+                <TipText>The schema collected during ingestion syncs will be used to evaluate this assertion. Be sure to run ingestion syncs on a regular basis to keep your schemas up to date.</TipText>
             </Tip>
         </>
     );
