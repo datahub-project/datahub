@@ -1,11 +1,15 @@
 import pandas as pd
-from dagster import (MaterializeResult, MetadataValue, SourceAsset, asset, op)
+from dagster import MaterializeResult, MetadataValue, SourceAsset, asset, op
 from dagster_snowflake import SnowflakeResource
 from dagster_snowflake_pandas import SnowflakePandasIOManager
 from dagster_aws.redshift import RedshiftClientResource
 
+
 @asset(
-    metadata={"schema": "public"}, key_prefix=["prod", "snowflake", "test_db", "public"], group_name="iris", io_manager_key="snowflake_io_manager"
+    metadata={"schema": "public"},
+    key_prefix=["prod", "snowflake", "test_db", "public"],
+    group_name="iris",
+    io_manager_key="snowflake_io_manager",
 )
 def iris_dataset() -> pd.DataFrame:
     return pd.read_csv(
@@ -21,7 +25,10 @@ def iris_dataset() -> pd.DataFrame:
 
 
 @asset(
-    metadata={"schema": "public"}, key_prefix=["prod", "snowflake", "test_db", "public"], group_name="iris", io_manager_key="snowflake_io_manager"
+    metadata={"schema": "public"},
+    key_prefix=["prod", "snowflake", "test_db", "public"],
+    group_name="iris",
+    io_manager_key="snowflake_io_manager",
 )
 def iris_cleaned(iris_dataset: pd.DataFrame) -> pd.DataFrame:
     return iris_dataset.dropna().drop_duplicates()
@@ -29,7 +36,7 @@ def iris_cleaned(iris_dataset: pd.DataFrame) -> pd.DataFrame:
 
 @asset(
     metadata={"schema": "public"},
-    key_prefix=["prod", "snowflake","test_db","public"],
+    key_prefix=["prod", "snowflake", "test_db", "public"],
     group_name="iris",
     deps=[iris_dataset],
 )
@@ -52,8 +59,14 @@ def iris_setosa(snowflake: SnowflakeResource) -> MaterializeResult:
         }
     )
 
+
 @asset(
-    key_prefix=["prod", "snowflake", "db_name", "schema_name"], # the fqdn asset name to be able identify platform and make sure asset is unique
+    key_prefix=[
+        "prod",
+        "snowflake",
+        "db_name",
+        "schema_name",
+    ],  # the fqdn asset name to be able identify platform and make sure asset is unique
     group_name="iris",
     deps=[iris_dataset],
 )
@@ -69,7 +82,7 @@ def my_asset_table_a(snowflake: SnowflakeResource) -> MaterializeResult:
         with connection.cursor() as cursor:
             cursor.execute(query)
 
-    return MaterializeResult( # Adding query to metadata to use it getting lineage from it with sql parser
+    return MaterializeResult(  # Adding query to metadata to use it getting lineage from it with sql parser
         metadata={
             "Query": MetadataValue.text(query),
         }
@@ -77,7 +90,13 @@ def my_asset_table_a(snowflake: SnowflakeResource) -> MaterializeResult:
 
 
 @asset(
-    key_prefix=["prod", "redshift", "dev", "public", "blood_storage_count"], # the fqdn asset name to be able identify platform and make sure asset is unique
+    key_prefix=[
+        "prod",
+        "redshift",
+        "dev",
+        "public",
+        "blood_storage_count",
+    ],  # the fqdn asset name to be able identify platform and make sure asset is unique
     group_name="blood_storage",
 )
 def blood_storage_cleaned(redshift: RedshiftClientResource) -> MaterializeResult:
@@ -87,7 +106,7 @@ def blood_storage_cleaned(redshift: RedshiftClientResource) -> MaterializeResult
     client = redshift.get_client()
     client.execute_query(query)
 
-    return MaterializeResult( # Adding query to metadata to use it getting lineage from it with sql parser
+    return MaterializeResult(  # Adding query to metadata to use it getting lineage from it with sql parser
         metadata={
             "Query": MetadataValue.text(query),
         }
