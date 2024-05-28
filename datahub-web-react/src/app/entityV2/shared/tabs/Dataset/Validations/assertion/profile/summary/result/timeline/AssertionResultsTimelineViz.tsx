@@ -6,7 +6,6 @@ import {
     Assertion,
     AssertionRunEventsResult,
     AssertionRunStatus,
-    AssertionType,
 } from '../../../../../../../../../../../types.generated';
 import { ValuesOverTimeAssertionResultChart } from './charts/ValuesOverTimeAssertionResultChart';
 import { AssertionChartType, AssertionResultChartData, TimeRange } from './charts/types';
@@ -17,8 +16,6 @@ import { ANTD_GRAY } from '../../../../../../../../constants';
 import { getTimeRangeDisplay } from './utils';
 import { FreshnessResultChart } from './charts/FreshnessResultChart';
 
-const VIZ_CONTAINER_HEIGHT = 240;
-const FRESHNESS_VIZ_CONTAINER_HEIGHT = 180;
 const VIZ_CONTAINER_TITLE_HEIGHT = 36;
 
 const getVisualizationContainer = (height: number) => styled.div`
@@ -50,11 +47,11 @@ type Props = {
     timeRange: TimeRange;
     results?: AssertionRunEventsResult | null;
     isInitializing: boolean
-    parentDimensions: { width: number }
+    parentDimensions: { width: number, height: number }
 };
 
 export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, parentDimensions, isInitializing }: Props) => {
-    const vizHeight = assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT
+
 
     // Run event data
     const completedRuns =
@@ -67,7 +64,7 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
 
     // render
     const chartDimensions = {
-        height: vizHeight - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
+        height: parentDimensions.height - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
         width: parentDimensions.width - 8, // margin on the sides (we have align-items=center)
     }
 
@@ -101,7 +98,7 @@ export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, par
         }
     }
 
-    const VisualizationContainer = getVisualizationContainer(vizHeight)
+    const VisualizationContainer = getVisualizationContainer(parentDimensions.height)
     return <VisualizationContainer style={{ opacity: isInitializing ? 0 : 1 }}>
         {renderChart()}
     </VisualizationContainer>

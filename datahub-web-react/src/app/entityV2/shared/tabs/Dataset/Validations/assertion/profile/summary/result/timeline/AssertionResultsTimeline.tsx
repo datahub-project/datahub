@@ -7,11 +7,14 @@ import { getFixedLookbackWindow } from '../../../../../../../../../../shared/tim
 import { LOOKBACK_WINDOWS } from '../../../../../../Stats/lookbackWindows';
 import { TimeSelect } from './TimeSelect';
 import { AssertionResultsTimelineViz } from './AssertionResultsTimelineViz';
-import { Assertion, Monitor } from '../../../../../../../../../../../types.generated';
+import { Assertion, AssertionType, Monitor } from '../../../../../../../../../../../types.generated';
 import { calculateInitialLookbackWindowFromRunEvents } from './utils';
 import { AssertionTimelineSkeleton } from './AssertionTimelineSkeleton';
 
 const RESULT_CHART_WIDTH_PX = 560;
+const VIZ_CONTAINER_HEIGHT = 240;
+const FRESHNESS_VIZ_CONTAINER_HEIGHT = 180;
+
 const Container = styled.div`
     width: ${RESULT_CHART_WIDTH_PX}px;
 `;
@@ -77,14 +80,20 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
     };
     const results = data?.assertion?.runEvents;
     const isInitializing = !hasInitializedLookbackWindow;
+
+    const vizHeight = assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT;
     return (
         <Container>
-            {loading ? (
-                <AssertionTimelineSkeleton />
+            {loading || isInitializing ? (
+                <AssertionTimelineSkeleton parentDimensions={{
+                    width: RESULT_CHART_WIDTH_PX,
+                    height: vizHeight,
+                }} />
             ) : (
                 <AssertionResultsTimelineViz
                     parentDimensions={{
                         width: RESULT_CHART_WIDTH_PX,
+                        height: vizHeight,
                     }}
                     assertion={assertion}
                     timeRange={selectedWindowTimeRange}

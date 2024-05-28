@@ -1,40 +1,35 @@
 import React from 'react';
-import { Col, Row, Skeleton } from 'antd';
+import { Col, Row, Typography } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../../../../../../constants';
 
+const SKELETON_MARGIN_BOTTOM_PX = 12;
 const Body = styled.div`
-    margin-bottom: 10px;
+    padding-bottom: ${SKELETON_MARGIN_BOTTOM_PX}px;
 `;
 
 const GridContainer = styled.div`
     display: flex;
 `;
 
-const CustomRow = styled(({ direction: _direction, ...rest }) => <Row {...rest} />)`
-    margin-bottom: ${({ direction }) => (direction === 'vertical' ? '16px' : '0')};
-    margin-right: ${({ direction }) => (direction === 'horizontal' ? '16px' : '0')};
-`;
-
 const Container = styled.div`
     padding: 0;
-    width: 400px;
+    width: 100%;
+    height: 100%;
+    position: relative;
 `;
 
 const StyledCol = styled(Col)`
+    height: 100%;
     padding: 0;
     margin: 0;
     display: flex;
     justify-content: center;
 `;
 
-const StyledRow = styled(Row)`
-    margin-left: 80px;
-`;
-
 const Box = styled.div`
     width: 100%;
-    height: 60px;
+    height: 100%;
     background-color: ${ANTD_GRAY[3]};
     border: 1px solid ${ANTD_GRAY[4]};
     display: flex;
@@ -43,53 +38,59 @@ const Box = styled.div`
     margin: -1px 0 0 -1px;
 `;
 
-const ButtonContainer = styled.div`
-    margin-right: 16px;
+
+const GridSkeletonContainer = styled.div`
+    width: 100%;
+    height: 100%;
 `;
 
-const GridSkeletonContainer = styled.div``;
+const LoadingTextContainer = styled.div`
+    display: flex;
+    position: absolute;
+    z-index: 10;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+`;
+const LoadingText = styled(Typography.Text)`
+    font-size: 14px;
+    color: ${ANTD_GRAY[6]}
+`
 
-const renderSkeletonButtons = (count, direction) => {
-    return Array.from({ length: count }, (_, index) => (
-        <CustomRow key={index} direction={direction}>
-            <Col span={24}>
-                <Skeleton.Button active />
-            </Col>
-        </CustomRow>
-    ));
-};
 
-const renderGridSkeleton = () => {
-    const boxes = Array.from({ length: 12 }, (_, index) => (
-        <StyledCol key={index} span={6}>
-            <Box />
+const NUM_GRID_BOXES = 12
+const ANT_COL_6_SPAN = 6
+const ANT_COL_6_ITEM_WIDTH_RATIO = 1 / 4
+const NUM_GRID_ROWS = NUM_GRID_BOXES * ANT_COL_6_ITEM_WIDTH_RATIO
+const renderGridSkeleton = (height: number) => {
+    const boxes = Array.from({ length: NUM_GRID_BOXES }, (_, index) => (
+        <StyledCol key={index} span={ANT_COL_6_SPAN}>
+            <Box style={{ height: height / NUM_GRID_ROWS }} />
         </StyledCol>
     ));
 
     return (
         <Container>
+            <LoadingTextContainer>
+                <LoadingText>Loading...</LoadingText>
+            </LoadingTextContainer>
             <Row gutter={0}>{boxes}</Row>
         </Container>
     );
 };
 
-export const AssertionTimelineSkeleton = () => {
-    const gridSize = 4;
+type Props = {
+    parentDimensions: { width: number, height: number }
+}
 
+export const AssertionTimelineSkeleton = (props: Props) => {
+    const skeletonHeight = props.parentDimensions.height - SKELETON_MARGIN_BOTTOM_PX
     return (
-        <Body>
-            <GridContainer>
-                <ButtonContainer>{renderSkeletonButtons(gridSize, 'vertical')}</ButtonContainer>
-                <GridSkeletonContainer>{renderGridSkeleton()}</GridSkeletonContainer>
+        <Body style={props.parentDimensions}>
+            <GridContainer style={{ height: skeletonHeight }}>
+                <GridSkeletonContainer>{renderGridSkeleton(skeletonHeight)}</GridSkeletonContainer>
             </GridContainer>
-
-            <StyledRow>
-                {Array.from({ length: 5 }, (_, index) => (
-                    <Col span={4} key={index}>
-                        <Skeleton.Button active />
-                    </Col>
-                ))}
-            </StyledRow>
         </Body>
     );
 };
