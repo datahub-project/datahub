@@ -27,6 +27,8 @@ This is over and above updating-datahub.md file
 
 ### Potential Downtime
 
+- Metadata Test entities will not be displayed in the Metadata Test UI until it has executed at least once with the new version of DataHub.
+
 ### Deprecations
 
 ### Other Notable Changes
@@ -64,6 +66,14 @@ Can be disabled if search ranking using usage percentiles is not desired. Other 
 - SYSTEM_UPDATE_USAGE_STORAGE_PERCENTILE_BATCH_SIZE (default: 500)
 - SYSTEM_UPDATE_USAGE_STORAGE_PERCENTILE_DELAY_MS (default: 1000)
 - SYSTEM_UPDATE_USAGE_STORAGE_PERCENTILE_LIMIT (default: 0)
+
+Entity Client: Limit Batch Sizes
+
+Most important setting is the Rest.li client which prevents Metadata Tests from executing actions which exceed URI length limits. If extremely long
+URNs cause 414 error codes from Rest.li batch calls, decrease the Rest.li batch size.
+
+- ENTITY_CLIENT_JAVA_GET_BATCH_SIZE (default: 375)
+- ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE (default: 100)
 
 User Tracking: Hotjar
 
