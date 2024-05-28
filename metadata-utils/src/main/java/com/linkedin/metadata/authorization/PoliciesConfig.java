@@ -147,7 +147,9 @@ public class PoliciesConfig {
 
   public static final Privilege MANAGE_CONNECTIONS_PRIVILEGE =
       Privilege.of(
-          "MANAGE_CONNECTIONS", "Manage Connections", "Manage connections to external DataHub platforms.");
+          "MANAGE_CONNECTIONS",
+          "Manage Connections",
+          "Manage connections to external DataHub platforms.");
 
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
