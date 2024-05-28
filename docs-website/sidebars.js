@@ -31,7 +31,9 @@ module.exports = {
           label: "Demo",
           href: "https://demo.datahubproject.io/",
         },
+        "docs/what-is-datahub/customer-stories",
         "docs/what-is-datahub/datahub-concepts",
+
       ],
     },
     {
