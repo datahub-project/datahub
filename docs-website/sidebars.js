@@ -33,7 +33,6 @@ module.exports = {
         },
         "docs/what-is-datahub/customer-stories",
         "docs/what-is-datahub/datahub-concepts",
-
       ],
     },
     {
