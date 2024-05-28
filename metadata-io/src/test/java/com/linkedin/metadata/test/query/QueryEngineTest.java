@@ -2,8 +2,8 @@ package com.linkedin.metadata.test.query;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
@@ -11,6 +11,8 @@ import com.linkedin.common.FabricType;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.Siblings;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -68,6 +70,9 @@ public class QueryEngineTest {
 
   static final DatasetUrn DATASET_URN =
       new DatasetUrn(new DataPlatformUrn("bigquery"), "test_dataset", FabricType.DEV);
+
+  static final DatasetUrn SIBLING_URN =
+      new DatasetUrn(new DataPlatformUrn("dbt"), "test_dataset", FabricType.DEV);
   static final GlossaryTermUrn GLOSSARY_TERM_WITH_PARENT = new GlossaryTermUrn("term_with_parent");
   static final GlossaryTermUrn GLOSSARY_TERM_WITHOUT_PARENT =
       new GlossaryTermUrn("term_without_parent");
@@ -302,7 +307,7 @@ public class QueryEngineTest {
   @SneakyThrows
   @Test
   public void testSystemAspectQueries() {
-    TestQuery testQuery = new TestQuery("__firstSynchronized");
+
     Mockito.when(
             _entityService.getEntitiesV2(
                 any(OperationContext.class),
@@ -310,12 +315,15 @@ public class QueryEngineTest {
                 eq(ImmutableSet.of(DATASET_URN)),
                 any()))
         .thenReturn(ImmutableMap.of());
+
+    TestQuery testQuery = new TestQuery("__firstSynchronized");
     assertEquals(
         _queryEngine.batchEvaluateQueries(
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         Collections.emptyMap());
 
     final EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(DATASET_URN);
     final DatasetKey datasetKey = new DatasetKey().setName(DATASET_URN.toString());
     final DatasetProperties datasetProperties =
         new DatasetProperties().setDescription("test description");
@@ -324,8 +332,8 @@ public class QueryEngineTest {
         new EnvelopedAspect()
             .setName(Constants.DATASET_KEY_ASPECT_NAME)
             .setValue(new Aspect(datasetKey.data()))
-            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-1").setLastObserved(0))
-            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(0));
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-1").setLastObserved(2))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(2));
 
     final EnvelopedAspect propertiesAspect =
         new EnvelopedAspect()
@@ -362,7 +370,7 @@ public class QueryEngineTest {
         _queryEngine.batchEvaluateQueries(
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
-            DATASET_URN, ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("0")))));
+            DATASET_URN, ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("2")))));
 
     testQuery = new TestQuery("__lastSynchronized");
     assertEquals(
@@ -372,14 +380,231 @@ public class QueryEngineTest {
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("10")))));
 
-    testQuery = new TestQuery("__created");
+    testQuery = new TestQuery("__lastObserved");
     assertEquals(
         _queryEngine.batchEvaluateQueries(
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("11")))));
+
+    // Check system aspects when siblings exist
+
+    final Siblings siblings = new Siblings().setSiblings(new UrnArray(List.of(SIBLING_URN)));
+    final EnvelopedAspect siblingAspect =
+        new EnvelopedAspect()
+            .setName(SIBLINGS_ASPECT_NAME)
+            .setValue(new Aspect(siblings.data()))
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-3").setLastObserved(12))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(11));
+
+    entityResponse.getAspects().put(SIBLINGS_ASPECT_NAME, siblingAspect);
+
+    Mockito.when(
+            _entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(DATASET_URN)),
+                any()))
+        .thenReturn(ImmutableMap.of(DATASET_URN, entityResponse));
+
+    // But sibling is empty, i.e: We have a sibling reference to something that doesn't exist.
+    Mockito.when(
+            _entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(SIBLING_URN)),
+                any()))
+        .thenReturn(ImmutableMap.of());
+
+    // Validate system query with null sibling are the same when no sibling information appears.
+    testQuery = new TestQuery("__firstSynchronized");
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN, ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("2")))));
+
+    testQuery = new TestQuery("__lastSynchronized");
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
+
+    testQuery = new TestQuery("__lastObserved");
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
+
+    // Validate system query with sibling that have content and appeared *before* main entity
+
+    final EntityResponse siblingEntityResponse = new EntityResponse();
+    entityResponse.setUrn(SIBLING_URN);
+    final DatasetKey siblingDatasetKey = new DatasetKey().setName(SIBLING_URN.toString());
+    final DatasetProperties siblingDatasetProperties =
+        new DatasetProperties().setDescription("test description");
+
+    EnvelopedAspect siblingKeyAspect =
+        new EnvelopedAspect()
+            .setName(Constants.DATASET_KEY_ASPECT_NAME)
+            .setValue(new Aspect(siblingDatasetKey.data()))
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-3").setLastObserved(1))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(1));
+
+    EnvelopedAspect siblingPropertiesAspect =
+        new EnvelopedAspect()
+            .setName(Constants.DATASET_PROPERTIES_ASPECT_NAME)
+            .setValue(new Aspect(siblingDatasetProperties.data()))
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-3").setLastObserved(1))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(1));
+
+    EnvelopedAspect siblingGlossaryTermInfoAspect =
+        createGlossaryTermInfo(GLOSSARY_TERM_WITHOUT_PARENT)
+            .getAspects()
+            .get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)
+            .setSystemMetadata(
+                new SystemMetadata().setRunId(Constants.DEFAULT_RUN_ID).setLastObserved(1))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(1));
+
+    EnvelopedAspect siblingSiblingAspect =
+        new EnvelopedAspect()
+            .setName(SIBLINGS_ASPECT_NAME)
+            .setValue(
+                new Aspect(new Siblings().setSiblings(new UrnArray(List.of(DATASET_URN))).data()))
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-2").setLastObserved(1))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(1));
+
+    siblingEntityResponse.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                Constants.DATASET_PROPERTIES_ASPECT_NAME,
+                siblingPropertiesAspect,
+                Constants.DATASET_KEY_ASPECT_NAME,
+                siblingKeyAspect,
+                Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
+                siblingGlossaryTermInfoAspect,
+                SIBLINGS_ASPECT_NAME,
+                siblingSiblingAspect)));
+
+    Mockito.when(
+            _entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(SIBLING_URN)),
+                any()))
+        .thenReturn(ImmutableMap.of(SIBLING_URN, siblingEntityResponse));
+
+    testQuery = new TestQuery("__firstSynchronized");
+    // first synced from sibling (1) should surface before main entity (2)
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN, ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("1")))));
+
+    testQuery = new TestQuery("__lastSynchronized");
+    // last synched from main entity (10) should surface instead of sibling (2)
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
+
+    testQuery = new TestQuery("__lastObserved");
+    // last observed from main entity (10) should surface instead of sibling (2)
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
+
+    // Validate system query with sibling that have content and appeared *after* main entity
+    siblingKeyAspect =
+        new EnvelopedAspect()
+            .setName(Constants.DATASET_KEY_ASPECT_NAME)
+            .setValue(new Aspect(siblingDatasetKey.data()))
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-3").setLastObserved(21))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(21));
+
+    siblingPropertiesAspect =
+        new EnvelopedAspect()
+            .setName(Constants.DATASET_PROPERTIES_ASPECT_NAME)
+            .setValue(new Aspect(siblingDatasetProperties.data()))
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-3").setLastObserved(21))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(21));
+
+    siblingGlossaryTermInfoAspect =
+        createGlossaryTermInfo(GLOSSARY_TERM_WITHOUT_PARENT)
+            .getAspects()
+            .get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-3").setLastObserved(22))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(22));
+
+    siblingSiblingAspect =
+        new EnvelopedAspect()
+            .setName(SIBLINGS_ASPECT_NAME)
+            .setValue(
+                new Aspect(new Siblings().setSiblings(new UrnArray(List.of(DATASET_URN))).data()))
+            .setSystemMetadata(new SystemMetadata().setRunId("ingestion-3").setLastObserved(21))
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(21));
+
+    siblingEntityResponse.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                Constants.DATASET_PROPERTIES_ASPECT_NAME,
+                siblingPropertiesAspect,
+                Constants.DATASET_KEY_ASPECT_NAME,
+                siblingKeyAspect,
+                Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
+                siblingGlossaryTermInfoAspect,
+                SIBLINGS_ASPECT_NAME,
+                siblingSiblingAspect)));
+
+    Mockito.when(
+            _entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(SIBLING_URN)),
+                any()))
+        .thenReturn(ImmutableMap.of(SIBLING_URN, siblingEntityResponse));
+
+    testQuery = new TestQuery("__firstSynchronized");
+    // first synced from sibling (1) should surface before main entity (2)
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN, ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("2")))));
+
+    testQuery = new TestQuery("__lastSynchronized");
+    // last synched from main entity (10) should surface instead of sibling (2)
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("22")))));
+
+    testQuery = new TestQuery("__lastObserved");
+    // last synched from main entity (10) should surface instead of sibling (2)
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("22")))));
   }
+
+  @SneakyThrows
+  @Test
+  public void testSystemAspectQueriesWithSiblings() {}
 
   @SneakyThrows
   @Test

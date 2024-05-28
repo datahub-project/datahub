@@ -33,7 +33,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -44,6 +43,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLModelKey;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.ml.metadata.CaveatsAndRecommendations;
 import com.linkedin.ml.metadata.EditableMLModelProperties;
 import com.linkedin.ml.metadata.EthicalConsiderations;
@@ -79,7 +79,7 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.MLMODEL);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<MLModel> mappingHelper = new MappingHelper<>(aspectMap, result);

@@ -7,13 +7,13 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -40,7 +40,7 @@ public class DataPlatformMapper implements ModelMapper<EntityResponse, DataPlatf
     result.setName(dataPlatformKey.getPlatformName());
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<DataPlatform> mappingHelper = new MappingHelper<>(aspectMap, result);

@@ -22,7 +22,6 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.*;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -33,6 +32,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nullable;
 
@@ -44,7 +44,7 @@ public class ContainerMapper {
     final Container result = new Container();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspects);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspects);
     result.setLastIngested(lastIngested);
 
     result.setUrn(entityUrn.toString());

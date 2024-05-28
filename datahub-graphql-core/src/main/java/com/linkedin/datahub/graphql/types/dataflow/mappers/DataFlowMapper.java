@@ -32,7 +32,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -46,6 +45,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataFlowKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,7 +68,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
     Urn entityUrn = entityResponse.getUrn();
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<DataFlow> mappingHelper = new MappingHelper<>(aspectMap, result);

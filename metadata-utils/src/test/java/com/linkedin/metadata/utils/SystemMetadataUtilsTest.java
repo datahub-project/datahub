@@ -1,10 +1,8 @@
-package com.linkedin.datahub.graphql.utils;
+package com.linkedin.metadata.utils;
 
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.*;
 
-import com.linkedin.datahub.graphql.types.common.mappers.util.RunInfo;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.mxe.SystemMetadata;
@@ -36,7 +34,7 @@ public class SystemMetadataUtilsTest {
             .setSystemMetadata(
                 new SystemMetadata().setRunId("real-id-2").setLastObserved(distantLastObserved)));
 
-    Long lastObserved = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastObserved = SystemMetadataUtils.lastIngestedTime(aspectMap);
     assertEquals(lastObserved, mediumLastObserved);
   }
 
@@ -110,7 +108,7 @@ public class SystemMetadataUtilsTest {
                     .setRunId(DEFAULT_RUN_ID)
                     .setLastObserved(distantLastObserved)));
 
-    Long lastObserved = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastObserved = SystemMetadataUtils.lastIngestedTime(aspectMap);
     assertNull(lastObserved, null);
   }
 
@@ -118,7 +116,7 @@ public class SystemMetadataUtilsTest {
   public void testGetLastIngestedNoAspects() {
     EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
 
-    Long lastObserved = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastObserved = SystemMetadataUtils.lastIngestedTime(aspectMap);
     assertNull(lastObserved, null);
   }
 }
