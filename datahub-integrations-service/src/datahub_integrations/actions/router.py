@@ -126,14 +126,7 @@ async def start_or_restart_action(
         await pipeline_manager.stop_pipeline(action_urn)
 
     try:
-        action_details_recipe = json.loads(action_details["config"]["recipe"])
-        # TODO respect version and other details
-
-        recipe = {
-            **base_action_config,
-            "name": action_urn,
-            **action_details_recipe,
-        }
+        recipe = get_config_from_details(action_urn, action_details)
 
         logger.debug(f"Starting action {action_urn} with recipe: {recipe}")
         await pipeline_manager.start_pipeline(action_urn, recipe)
@@ -143,6 +136,19 @@ async def start_or_restart_action(
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
         else:
             pipeline_manager.report_dead_pipeline(action_urn, action_details, e)
+
+
+def get_config_from_details(action_urn: str, action_details: dict) -> dict:
+    action_details_recipe = json.loads(action_details["config"]["recipe"])
+    # TODO respect version and other details
+
+    recipe = {
+        **base_action_config,
+        "name": action_urn,
+        **action_details_recipe,
+    }
+
+    return recipe
 
 
 @actions_router.post("/{action_urn}/reload")
@@ -180,12 +186,66 @@ async def stop_action(action_urn: str) -> str:
     """
 
     _get_action_spec(action_urn)
+    logger.info(f"Stopping action {action_urn}.")
 
     try:
         await pipeline_manager.stop_pipeline(action_urn)
         return "OK"
     except Exception as e:
         logger.error(f"Failed to stop action {action_urn}: {e}")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
+
+
+@actions_router.post("/{action_urn}/rollback")
+async def rollback_action(action_urn: str) -> str:
+    """
+    Rollback (and stop) an action.
+
+    """
+    try:
+        action_spec = _get_action_spec(action_urn)
+        config = action_spec.action_run.unresolved_config
+    except HTTPException:
+        updated_details = graph.execute_graphql(
+            actions_gql, operation_name="getAction", variables={"urn": action_urn}
+        )["actionPipeline"]["details"]
+        config = get_config_from_details(action_urn, updated_details)
+
+    try:
+        await pipeline_manager.rollback_pipeline(action_urn, config=config)
+        return "OK"
+    except Exception as e:
+        logger.error(f"Failed to stop action {action_urn}: {e}")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
+
+
+@actions_router.get("/{action_urn}/rollbackstats")
+async def rollback_stats(action_urn: str) -> dict:
+    """
+    Last rollback stats for an action.
+
+    """
+    try:
+        rollback_results = pipeline_manager.rolledback_pipelines.get(action_urn)
+        if not rollback_results:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No rollback stats found.")
+        else:
+            rollback_stats = {
+                "action_urn": action_urn,
+                "status": rollback_results.status,
+                "started_at": datetime.strftime(
+                    rollback_results.started_at, "%Y-%m-%d %H:%M:%S"
+                ),
+                "logs": rollback_results.action_run.logs.get_logs(),
+                "ended_at": (
+                    datetime.strftime(rollback_results.ended_at, "%Y-%m-%d %H:%M:%S")
+                    if rollback_results.ended_at
+                    else None
+                ),
+            }
+            return rollback_stats
+    except Exception as e:
+        logger.error(f"Failed to get rollback stats for action {action_urn}: {e}")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e)) from e
 
 

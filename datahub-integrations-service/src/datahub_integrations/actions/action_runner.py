@@ -72,6 +72,9 @@ def main() -> None:
     )
     parser.add_argument("config_file", type=str, help="Path to the config file.")
     parser.add_argument("--port", type=int, help="Port to run the webserver on.")
+    parser.add_argument(
+        "--rollback", action="store_true", default=False, help="Rollback the pipeline."
+    )
 
     # Parse the CLI arguments.
     args = parser.parse_args()
@@ -106,14 +109,23 @@ def main() -> None:
     signal.signal(signal.SIGINT, stop_handler)
     signal.signal(signal.SIGTERM, stop_handler)
 
-    # Run the pipeline.
-    logger.info("Running pipeline")
-    try:
-        pipeline.run()
-    except Exception as e:
-        logger.exception(f"Caught exception while running pipeline: {e}")
-        pipeline.stop()
-        sys.exit(1)
+    if args.rollback:
+        if hasattr(pipeline.action, "rollback"):
+            logger.info("Rolling back pipeline")
+            pipeline.action.rollback()
+            sys.exit(0)
+        else:
+            logger.error("Action does not support rollback")
+            sys.exit(1)
+    else:
+        # Run the pipeline.
+        logger.info("Running pipeline")
+        try:
+            pipeline.run()
+        except Exception as e:
+            logger.exception(f"Caught exception while running pipeline: {e}")
+            pipeline.stop()
+            sys.exit(1)
 
     logger.info("Pipeline has stopped unexpectedly, without raising an exception.")
     sys.exit(2)

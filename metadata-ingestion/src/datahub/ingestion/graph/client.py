@@ -724,6 +724,7 @@ class DataHubGraph(DatahubRestEmitter):
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[SearchFilterRule]] = None,
+        extra_or_filters: Optional[List[Dict[str, List[SearchFilterRule]]]] = None,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -753,7 +754,13 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Env filter.
         orFilters = generate_filter(
-            platform, platform_instance, env, container, status, extraFilters
+            platform,
+            platform_instance,
+            env,
+            container,
+            status,
+            extraFilters,
+            extra_or_filters=extra_or_filters,
         )
 
         graphql_query = textwrap.dedent(
