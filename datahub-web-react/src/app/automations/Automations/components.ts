@@ -99,8 +99,8 @@ export const AutomationsContentTab = styled.div<{ isActive: boolean }>`
     margin-bottom: -1px;
 
     ${({ isActive }) =>
-        isActive &&
-        `
+		isActive &&
+		`
 		color: ${sharedStyles.activeColor};
 		border-color: ${sharedStyles.activeColor};
 	`}
@@ -240,8 +240,8 @@ export const PremadeAutomationCard = styled.div<{ isDisabled: boolean }>`
     }
 
     ${({ isDisabled }) =>
-        isDisabled &&
-        `
+		isDisabled &&
+		`
 		opacity: 0.5;
 		pointer-events: none;
 		cursor: not-allowed;

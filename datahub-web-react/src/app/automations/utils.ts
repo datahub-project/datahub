@@ -3,10 +3,10 @@ import { jsonToYaml } from "../ingest/source/utils";
 // Utils for Automations Center 
 
 export enum AutomationStatus {
-    ACTIVE = 'active',
-    RUNNING = 'running',
-    FAILED = 'failed',
-    STOPPED = 'stopped',
+	ACTIVE = 'active',
+	RUNNING = 'running',
+	FAILED = 'failed',
+	STOPPED = 'stopped',
 }
 
 export const titleCase = (input) => {
@@ -24,11 +24,12 @@ export const simplifyDataForListView = (data: any) => {
 	return data.map((item: any) => {
 		return {
 			key: item.urn || titleCase(item.details?.name),
+			urn: item.urn,
 			name: item.name || titleCase(item.details?.name),
 			description: item.description,
 			category: item.category || 'Propagation',
 			type: item.__typename,
-			status: 'ACTIVE',
+			status: data.status || 'ACTIVE',
 			updated: new Date(),
 			created: new Date(),
 		};

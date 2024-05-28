@@ -31,46 +31,38 @@ const ButtonsContainer = styled.div`
 `;
 
 interface Props {
-    showUndoConfirmation: boolean;
-    setShowUndoConfirmation: React.Dispatch<React.SetStateAction<boolean>>;
+	showUndoConfirmation: boolean;
+	handleUndo: () => void;
+	handleClose: () => void;
 }
 
-const UndoConfirmationModal = ({ showUndoConfirmation, setShowUndoConfirmation }: Props) => {
-    const handleUndo = () => {
-        setShowUndoConfirmation(false);
-    };
+export const UndoConfirmationModal = ({ showUndoConfirmation, handleClose, handleUndo }: Props) => {
 
-    const handleClose = () => {
-        setShowUndoConfirmation(false);
-    };
-
-    return (
-        <StyledModal
-            open={showUndoConfirmation}
-            onCancel={handleClose}
-            footer={null}
-            closeIcon={<CloseOutlinedIcon />}
-            title={<ModalTitle>Are you sure?</ModalTitle>}
-        >
-            <Container>
-                <Header>Undoing the Automation</Header>
-                <Content>Are you sure you want to undo the automation?</Content>
-                <ButtonsContainer>
-                    <StyledShareButton $color={REDESIGN_COLORS.TITLE_PURPLE} onClick={handleUndo}>
-                        Yes
-                    </StyledShareButton>
-                    <StyledShareButton
-                        $type="filled"
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
-                        $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
-                        onClick={handleClose}
-                    >
-                        No
-                    </StyledShareButton>
-                </ButtonsContainer>
-            </Container>
-        </StyledModal>
-    );
+	return (
+		<StyledModal
+			open={showUndoConfirmation}
+			onCancel={handleClose}
+			footer={null}
+			closeIcon={<CloseOutlinedIcon />}
+			title={<ModalTitle>Are you sure?</ModalTitle>}
+		>
+			<Container>
+				<Header>Undoing the Automation</Header>
+				<Content>Are you sure you want to undo the automation?</Content>
+				<ButtonsContainer>
+					<StyledShareButton $color={REDESIGN_COLORS.TITLE_PURPLE} onClick={handleUndo}>
+						Yes
+					</StyledShareButton>
+					<StyledShareButton
+						$type="filled"
+						$color={REDESIGN_COLORS.TITLE_PURPLE}
+						$hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
+						onClick={handleClose}
+					>
+						No
+					</StyledShareButton>
+				</ButtonsContainer>
+			</Container>
+		</StyledModal>
+	);
 };
-
-export default UndoConfirmationModal;
