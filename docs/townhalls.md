@@ -11,10 +11,9 @@ Check out the DataHub Community Calendar to RSVP to upcoming events!
 <p align="center">
   <iframe
     src="https://lu.ma/embed/calendar/cal-lom9HnTVnZkKsNh/events"
-    width="600"
+    width="80%"
     height="450"
     frameborder="0"
-    style="border: 1px solid #bfcbda88; border-radius: 4px;"
     allowfullscreen=""
     aria-hidden="false"
     tabindex="0"
