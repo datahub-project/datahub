@@ -6,30 +6,32 @@ import { CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../entity/shared/tabs/Incident/incidentUtils';
 
 export const sharedStyles = {
-	gap: '8px',
-	borderRadius: '8px',
-	boxShadow: '0px 0px 14px 0px rgba(0, 0, 0, 0.10)',
+    gap: '8px',
+    borderRadius: '8px',
+    boxShadow: '0px 0px 14px 0px rgba(0, 0, 0, 0.10)',
 
-	fontFamily: 'Mulish',
-	headingColor: '#374066',
-	subHeadingColor: '#323A5D',
-	contentColor: '#81879F',
+    fontFamily: 'Mulish',
+    headingColor: '#374066',
+    subHeadingColor: '#323A5D',
+    contentColor: '#81879F',
+    greyDisabled: '#A3A7B9',
 
-	activeColor: '#533FD1',
-	buttonBorderColor: '#533FD1',
+    activeColor: '#533FD1',
+    buttonBorderColor: '#533FD1',
 
-	borderColor: '#EBECF0',
-	darkBorderColor: '#D9DBE9',
+    borderColor: '#EBECF0',
+    darkBorderColor: '#D9DBE9',
+    dividerColor: '#C1C4D0',
 
-	statusActiveColor: '#deeed5',
-	statusActiveFontColor: '#8fc470',
-	statusInactiveColor: '#FFE4BD',
-	statusInactiveFontColor: '#845B10',
+    statusActiveColor: '#deeed5',
+    statusActiveFontColor: '#8fc470',
+    statusInactiveColor: '#FFE4BD',
+    statusInactiveFontColor: '#845B10',
 };
 
 /*
-* Icons 
-*/
+ * Icons
+ */
 
 export const FailureIcon = styled(CloseCircleFilled)`
     color: ${FAILURE_COLOR_HEX};

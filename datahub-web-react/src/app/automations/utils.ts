@@ -2,6 +2,13 @@ import { jsonToYaml } from "../ingest/source/utils";
 
 // Utils for Automations Center 
 
+export enum AutomationStatus {
+    ACTIVE = 'active',
+    RUNNING = 'running',
+    FAILED = 'failed',
+    STOPPED = 'stopped',
+}
+
 export const titleCase = (input) => {
 	return input.split('_')
 		.map(word => word.charAt(0).toUpperCase() + word.slice(1))
