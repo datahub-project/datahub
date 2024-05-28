@@ -68,7 +68,8 @@ All edits on the UI are covered by a privilege, to make sure we have the ability
 
 We currently support the following:
 
-**Platform-level** privileges for DataHub operators to access & manage the administrative functionality of the system.
+##### Platform-level privileges
+These privileges are for DataHub operators to access & manage the administrative functionality of the system.
 
 | Platform Privileges                           | Description                                                                                                                                                                               |
 |-----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -106,7 +107,8 @@ We currently support the following:
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
 [^2]: Managed DataHub only
 
-**Common metadata privileges** to view & modify any entity within DataHub.
+##### Common metadata privileges
+These privileges are to view & modify any entity within DataHub.
 
 | Common Privileges                   | Description                                                                                |
 |-------------------------------------|--------------------------------------------------------------------------------------------|
@@ -146,7 +148,8 @@ We currently support the following:
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED is true
 [^2]: Managed DataHub only
 
-**Specific entity-level privileges** that are not generalizable.
+##### Specific entity-level privileges
+These privileges are not generalizable.
 
 | Entity       | Privilege                                 | Description                                                                                                                                                                       |
 |--------------|-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
