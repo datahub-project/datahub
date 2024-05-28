@@ -18,6 +18,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
 )
 
 import lkml
@@ -29,7 +30,6 @@ from pydantic import root_validator, validator
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import EnvConfigMixin
@@ -57,6 +57,7 @@ from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_common import (
     CORPUSER_DATAHUB,
     LookerCommonConfig,
+    LookerConnectionDefinition,
     LookerExplore,
     LookerUtil,
     LookerViewId,
@@ -101,6 +102,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     SubTypesClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import ColumnRef
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.sql_parser import SQLParser
 
@@ -139,82 +141,6 @@ def deduplicate_fields(fields: List[ViewField]) -> List[ViewField]:
         new_fields.append(field)
 
     return new_fields
-
-
-def _get_bigquery_definition(
-    looker_connection: DBConnection,
-) -> Tuple[str, Optional[str], Optional[str]]:
-    platform = "bigquery"
-    # bigquery project ids are returned in the host field
-    db = looker_connection.host
-    schema = looker_connection.database
-    return (platform, db, schema)
-
-
-def _get_generic_definition(
-    looker_connection: DBConnection, platform: Optional[str] = None
-) -> Tuple[str, Optional[str], Optional[str]]:
-    if platform is None:
-        # We extract the platform from the dialect name
-        dialect_name = looker_connection.dialect_name
-        assert dialect_name is not None
-        # generally the first part of the dialect name before _ is the name of the platform
-        # versions are encoded as numbers and can be removed
-        # e.g. spark1 or hive2 or druid_18
-        platform = re.sub(r"[0-9]+", "", dialect_name.split("_")[0])
-
-    assert (
-        platform is not None
-    ), f"Failed to extract a valid platform from connection {looker_connection}"
-    db = looker_connection.database
-    schema = looker_connection.schema  # ok for this to be None
-    return (platform, db, schema)
-
-
-class LookerConnectionDefinition(ConfigModel):
-    platform: str
-    default_db: str
-    default_schema: Optional[str]  # Optional since some sources are two-level only
-    platform_instance: Optional[str] = None
-    platform_env: Optional[str] = Field(
-        default=None,
-        description="The environment that the platform is located in. Leaving this empty will inherit defaults from "
-        "the top level Looker configuration",
-    )
-
-    @validator("platform_env")
-    def platform_env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return EnvConfigMixin.env_must_be_one_of(v)
-        return v
-
-    @validator("platform", "default_db", "default_schema")
-    def lower_everything(cls, v):
-        """We lower case all strings passed in to avoid casing issues later"""
-        if v is not None:
-            return v.lower()
-
-    @classmethod
-    def from_looker_connection(
-        cls, looker_connection: DBConnection
-    ) -> "LookerConnectionDefinition":
-        """Dialect definitions are here: https://docs.looker.com/setup-and-management/database-config"""
-        extractors: Dict[str, Any] = {
-            "^bigquery": _get_bigquery_definition,
-            ".*": _get_generic_definition,
-        }
-
-        if looker_connection.dialect_name is None:
-            raise ConfigurationError(
-                f"Unable to fetch a fully filled out connection for {looker_connection.name}. Please check your API permissions."
-            )
-        for extractor_pattern, extracting_function in extractors.items():
-            if re.match(extractor_pattern, looker_connection.dialect_name):
-                (platform, db, schema) = extracting_function(looker_connection)
-                return cls(platform=platform, default_db=db, default_schema=schema)
-        raise ConfigurationError(
-            f"Could not find an appropriate platform for looker_connection: {looker_connection.name} with dialect: {looker_connection.dialect_name}"
-        )
 
 
 class LookMLSourceConfig(
@@ -1201,10 +1127,7 @@ class LookerView:
 
                 # Parse SQL to extract dependencies.
                 if parse_table_names_from_sql:
-                    (
-                        fields,
-                        sql_table_names,
-                    ) = cls._extract_metadata_from_derived_table_sql(
+                    fields = cls._extract_metadata_from_derived_table_sql(
                         reporter,
                         connection,
                         config.env,
@@ -1289,22 +1212,21 @@ class LookerView:
         sql_table_name: Optional[str],
         sql_query: str,
         fields: List[ViewField],
-    ) -> Tuple[List[ViewField], List[str]]:
-
-        sql_table_names: List[str] = []
+    ) -> List[ViewField]:
 
         logger.debug(f"Parsing sql from derived table section of view: {view_name}")
         reporter.query_parse_attempts += 1
 
-        # Skip queries that contain liquid variables. We currently don't parse them correctly.
-        # Docs: https://cloud.google.com/looker/docs/liquid-variable-reference.
         # TODO: also support ${EXTENDS} and ${TABLE}
         try:
             view_field_builder: ViewFieldBuilder = ViewFieldBuilder(fields)
 
-            fields, sql_table_names = view_field_builder.create_or_update_fields(
+            fields = view_field_builder.create_or_update_fields(
                 sql_query=SqlQuery(
                     lookml_sql_query=sql_query,
+                    liquid_context={},  # liquid_context is variable and their value as dictionary, However we don't
+                    # need to resolve variable to its value as we only need valid sql to generate CLL, SqlQuery by
+                    # default setting them to NULL to make valid SQL query.
                     view_name=sql_table_name
                     if sql_table_name is not None
                     else view_name,
@@ -1321,7 +1243,7 @@ class LookerView:
                 f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
             )
 
-        return fields, sql_table_names
+        return fields
 
     @classmethod
     def _extract_metadata_from_derived_table_explore(
@@ -1673,7 +1595,30 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 make_schema_field_urn(
                                     upstream_dataset_urn, upstream_field
                                 )
-                                for upstream_field in field.upstream_fields
+                                for upstream_field in cast(
+                                    List[str], field.upstream_fields
+                                )
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=[
+                                make_schema_field_urn(
+                                    looker_view.id.get_urn(self.source_config),
+                                    field.name,
+                                )
+                            ],
+                        )
+                        fine_grained_lineages.append(fine_grained_lineage)
+            else:
+                # View is defined as SQL
+                for field in looker_view.fields:
+                    if field.upstream_fields:
+                        fine_grained_lineage = FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                make_schema_field_urn(cll_ref.table, cll_ref.column)
+                                for cll_ref in cast(
+                                    List[ColumnRef], field.upstream_fields
+                                )
                             ],
                             downstreamType=FineGrainedLineageDownstreamType.FIELD,
                             downstreams=[
@@ -1685,7 +1630,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                         )
                         fine_grained_lineages.append(fine_grained_lineage)
 
-        if upstreams != []:
+        if upstreams:
             return UpstreamLineage(
                 upstreams=upstreams, fineGrainedLineages=fine_grained_lineages or None
             )

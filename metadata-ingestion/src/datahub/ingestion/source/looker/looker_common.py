@@ -9,6 +9,7 @@ from enum import Enum
 from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
+    Any,
     Dict,
     Iterable,
     Iterator,
@@ -23,14 +24,18 @@ from typing import (
 
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import (
+    DBConnection,
     LookmlModelExplore,
     LookmlModelExploreField,
     User,
     WriteQuery,
 )
+from pydantic import Field
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
@@ -93,6 +98,7 @@ from datahub.metadata.schema_classes import (
     TagSnapshotClass,
 )
 from datahub.metadata.urns import TagUrn
+from datahub.sql_parsing.sqlglot_lineage import ColumnRef
 from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
 
@@ -243,7 +249,10 @@ class ViewField:
     project_name: Optional[str] = None
     view_name: Optional[str] = None
     is_primary_key: bool = False
-    upstream_fields: List[str] = dataclasses_field(default_factory=list)
+    # It is the list of ColumnRef for derived view defined using SQL otherwise simple column name
+    upstream_fields: Union[List[str], List[ColumnRef]] = cast(
+        List[str], dataclasses_field(default_factory=list)
+    )
 
 
 @dataclass
@@ -1054,7 +1063,8 @@ class LookerExplore:
             observed_lineage_ts = datetime.datetime.now(tz=datetime.timezone.utc)
             for view_ref in sorted(self.upstream_views):
                 # set file_path to ViewFieldType.UNKNOWN if file_path is not available to keep backward compatibility
-                # if we raise error on file_path equal to None then existing test-cases will fail as mock data doesn't have required attributes.
+                # if we raise error on file_path equal to None then existing test-cases will fail as mock data
+                # doesn't have required attributes.
                 file_path: str = (
                     cast(str, self.upstream_views_file_path[view_ref.include])
                     if self.upstream_views_file_path[view_ref.include] is not None
@@ -1086,7 +1096,7 @@ class LookerExplore:
             fine_grained_lineages = []
             if config.extract_column_level_lineage:
                 for field in self.fields or []:
-                    for upstream_field in field.upstream_fields:
+                    for upstream_field in cast(List[str], field.upstream_fields):
                         if len(upstream_field.split(".")) >= 2:
                             (view_name, field_path) = upstream_field.split(".")[
                                 0
@@ -1473,3 +1483,79 @@ class LookerUserRegistry:
 
         looker_user = LookerUser.create_looker_user(raw_user)
         return looker_user
+
+
+def _get_bigquery_definition(
+    looker_connection: DBConnection,
+) -> Tuple[str, Optional[str], Optional[str]]:
+    platform = "bigquery"
+    # bigquery project ids are returned in the host field
+    db = looker_connection.host
+    schema = looker_connection.database
+    return (platform, db, schema)
+
+
+def _get_generic_definition(
+    looker_connection: DBConnection, platform: Optional[str] = None
+) -> Tuple[str, Optional[str], Optional[str]]:
+    if platform is None:
+        # We extract the platform from the dialect name
+        dialect_name = looker_connection.dialect_name
+        assert dialect_name is not None
+        # generally the first part of the dialect name before _ is the name of the platform
+        # versions are encoded as numbers and can be removed
+        # e.g. spark1 or hive2 or druid_18
+        platform = re.sub(r"[0-9]+", "", dialect_name.split("_")[0])
+
+    assert (
+        platform is not None
+    ), f"Failed to extract a valid platform from connection {looker_connection}"
+    db = looker_connection.database
+    schema = looker_connection.schema  # ok for this to be None
+    return (platform, db, schema)
+
+
+class LookerConnectionDefinition(ConfigModel):
+    platform: str
+    default_db: str
+    default_schema: Optional[str]  # Optional since some sources are two-level only
+    platform_instance: Optional[str] = None
+    platform_env: Optional[str] = Field(
+        default=None,
+        description="The environment that the platform is located in. Leaving this empty will inherit defaults from "
+        "the top level Looker configuration",
+    )
+
+    @validator("platform_env")
+    def platform_env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return EnvConfigMixin.env_must_be_one_of(v)
+        return v
+
+    @validator("platform", "default_db", "default_schema")
+    def lower_everything(cls, v):
+        """We lower case all strings passed in to avoid casing issues later"""
+        if v is not None:
+            return v.lower()
+
+    @classmethod
+    def from_looker_connection(
+        cls, looker_connection: DBConnection
+    ) -> "LookerConnectionDefinition":
+        """Dialect definitions are here: https://docs.looker.com/setup-and-management/database-config"""
+        extractors: Dict[str, Any] = {
+            "^bigquery": _get_bigquery_definition,
+            ".*": _get_generic_definition,
+        }
+
+        if looker_connection.dialect_name is None:
+            raise ConfigurationError(
+                f"Unable to fetch a fully filled out connection for {looker_connection.name}. Please check your API permissions."
+            )
+        for extractor_pattern, extracting_function in extractors.items():
+            if re.match(extractor_pattern, looker_connection.dialect_name):
+                (platform, db, schema) = extracting_function(looker_connection)
+                return cls(platform=platform, default_db=db, default_schema=schema)
+        raise ConfigurationError(
+            f"Could not find an appropriate platform for looker_connection: {looker_connection.name} with dialect: {looker_connection.dialect_name}"
+        )

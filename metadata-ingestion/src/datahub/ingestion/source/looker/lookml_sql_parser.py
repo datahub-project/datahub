@@ -1,10 +1,15 @@
 import logging
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
+
+from liquid import Template, Undefined
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.looker.looker_common import ViewField, ViewFieldType
-from datahub.ingestion.source.looker.lookml_source import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_common import (
+    LookerConnectionDefinition,
+    ViewField,
+    ViewFieldType,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -23,10 +28,6 @@ def _create_fields(spr: SqlParsingResult) -> List[ViewField]:
     )
 
     for cll in column_lineages:
-        upstream_fields = [
-            (LookerFieldName(column_ref)).name() for column_ref in cll.upstreams
-        ]
-
         fields.append(
             ViewField(
                 name=cll.downstream.column,
@@ -36,7 +37,7 @@ def _create_fields(spr: SqlParsingResult) -> List[ViewField]:
                 else "unknown",
                 description="",
                 field_type=ViewFieldType.UNKNOWN,
-                upstream_fields=upstream_fields,
+                upstream_fields=cll.upstreams,
             )
         )
 
@@ -53,10 +54,6 @@ def _update_fields(fields: List[ViewField], spr: SqlParsingResult) -> List[ViewF
         view_field_map[field.name] = field
 
     for cll in column_lineages:
-        upstream_fields = [
-            (LookerFieldName(column_ref)).name() for column_ref in cll.upstreams
-        ]
-
         if view_field_map.get(cll.downstream.column) is None:
             logger.debug(
                 f"column {cll.downstream.column} is not present in view defined using sql"
@@ -64,9 +61,25 @@ def _update_fields(fields: List[ViewField], spr: SqlParsingResult) -> List[ViewF
             )
             continue
 
-        view_field_map[cll.downstream.column].upstream_fields = upstream_fields
+        view_field_map[cll.downstream.column].upstream_fields = cll.upstreams
 
     return fields
+
+
+def get_qt_name(urn: str) -> str:
+    return urn.split(",")[-2]
+
+
+def get_qt_names_from_spr(spr: SqlParsingResult) -> List[str]:
+    qualified_table_names: List[str] = []
+
+    for in_table in spr.in_tables:
+        qualified_table_names.append(get_qt_name(in_table))
+
+    for out_table in spr.out_tables:
+        qualified_table_names.append(get_qt_name(out_table))
+
+    return qualified_table_names
 
 
 class LookerFieldName:
@@ -76,7 +89,7 @@ class LookerFieldName:
         self.column_ref = column_ref
 
     def name(self):
-        qualified_table_name: str = self.column_ref.table.split(",")[-2]
+        qualified_table_name: str = get_qt_name(self.column_ref.table)
 
         view_name: str = qualified_table_name.split(".")[-1]
 
@@ -86,14 +99,18 @@ class LookerFieldName:
 class SqlQuery:
     lookml_sql_query: str
     view_name: str
+    liquid_context: Dict[Any, Any]
 
-    def __init__(self, lookml_sql_query: str, view_name: str):
+    def __init__(
+        self, lookml_sql_query: str, view_name: str, liquid_context: Dict[Any, Any]
+    ):
         """
         lookml_sql_query: This is not pure sql query,
         It might contains liquid variable and might not have `from` clause.
         """
         self.lookml_sql_query = lookml_sql_query
         self.view_name = view_name
+        self.liquid_context = liquid_context
 
     def sql_query(self):
         # Looker supports sql fragments that omit the SELECT and FROM parts of the query
@@ -108,7 +125,11 @@ class SqlQuery:
             sql_query = f"{sql_query} FROM {self.view_name}"
             # Get the list of tables in the query
 
-        return sql_query
+        # set liquid variables value to NULL
+        Undefined.__str__ = lambda instance: "NULL"  # type: ignore
+
+        # Resolve liquid template
+        return Template(sql_query).render(self.liquid_context)
 
 
 class ViewFieldBuilder:
@@ -123,7 +144,7 @@ class ViewFieldBuilder:
         connection: LookerConnectionDefinition,
         env: str,
         ctx: PipelineContext,
-    ) -> Tuple[List[ViewField], List[str]]:
+    ) -> List[ViewField]:
         """
         There are two syntax to define lookml view using sql.
 
@@ -206,7 +227,7 @@ class ViewFieldBuilder:
         )
 
         if self.fields:  # It is syntax1
-            return _update_fields(self.fields, spr), []
+            return _update_fields(self.fields, spr)
 
         # It is syntax2
-        return _create_fields(spr), []  # TODO: determine second return argument
+        return _create_fields(spr)

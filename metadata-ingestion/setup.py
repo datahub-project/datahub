@@ -162,6 +162,7 @@ looker_common = {
     "sql-metadata==2.2.2",
     *sqllineage_lib,
     "GitPython>2",
+    "python-liquid",
 }
 
 bigquery_common = {
