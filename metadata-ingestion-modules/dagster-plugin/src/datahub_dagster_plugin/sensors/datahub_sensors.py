@@ -313,7 +313,8 @@ class DatahubSensors:
         dataset_inputs: Dict[str, set],
         dataset_outputs: Dict[str, set],
     ) -> None:
-        if log.dagster_event.event_type == DagsterEventType.ASSET_MATERIALIZATION:
+        if log.dagster_event and log.dagster_event.event_type == DagsterEventType.ASSET_MATERIALIZATION:
+            assert log.step_key
 
             materialization = log.asset_materialization
             if not materialization:
@@ -393,6 +394,8 @@ class DatahubSensors:
         asset_observation = log.asset_observation
         if not asset_observation:
             return
+
+        assert log.step_key
 
         properties = {
             key: str(value)
