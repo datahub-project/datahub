@@ -22,6 +22,7 @@ import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductProper
 import com.linkedin.metadata.aspect.patch.template.dataset.DatasetPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.EditableSchemaMetadataTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.UpstreamLineageTemplate;
+import com.linkedin.metadata.aspect.patch.template.form.FormInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.monitor.MonitorInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.tests.TestResultsTemplate;
 import com.linkedin.metadata.models.AspectSpec;
@@ -92,6 +93,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());
     aspectSpecTemplateMap.put(
         STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertiesTemplate());
+    aspectSpecTemplateMap.put(FORM_INFO_ASPECT_NAME, new FormInfoTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 
