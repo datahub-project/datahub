@@ -17,7 +17,7 @@ const customerCardContent = [
           taxonomy, and — very importantly — solid community support.</b>"
         <br />
         <br />
-        — Ajoy Majumdar, Software Architect at Netflix.
+        — Ajoy Majumdar, Software Architect at Netflix
         </i>
         <br />
       </>
