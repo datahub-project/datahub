@@ -116,7 +116,7 @@ list_auto_ml_jobs_response = {
 describe_auto_ml_job_response = {
     "AutoMLJobName": auto_ml_job_name,
     "AutoMLJobArn": auto_ml_job_arn,
-    "InputDataConfig": [
+    "AutoMLJobInputDataConfig": [
         {
             "DataSource": {
                 "S3DataSource": {
@@ -125,7 +125,6 @@ describe_auto_ml_job_response = {
                 }
             },
             "CompressionType": "None",  # 'None'|'Gzip'
-            "TargetAttributeName": "some-name",
         },
     ],
     "OutputDataConfig": {
@@ -133,27 +132,31 @@ describe_auto_ml_job_response = {
         "S3OutputPath": "s3://auto-ml-job-output-bucket/file.txt",
     },
     "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-    "AutoMLJobObjective": {
-        "MetricName": "Accuracy",  # 'Accuracy'|'MSE'|'F1'|'F1macro'|'AUC'
-    },
-    "ProblemType": "BinaryClassification",  # 'BinaryClassification'|'MulticlassClassification'|'Regression'
-    "AutoMLJobConfig": {
+    "ResolvedAttributes": {
+        "AutoMLJobObjective": {
+            "MetricName": "Accuracy",  # 'Accuracy'|'MSE'|'F1'|'F1macro'|'AUC'
+        },
         "CompletionCriteria": {
             "MaxCandidates": 123,
             "MaxRuntimePerTrainingJobInSeconds": 123,
             "MaxAutoMLJobRuntimeInSeconds": 123,
         },
-        "SecurityConfig": {
-            "VolumeKmsKeyId": "string",
-            "EnableInterContainerTrafficEncryption": True,  # True|False
-            "VpcConfig": {
-                "SecurityGroupIds": [
-                    "string",
-                ],
-                "Subnets": [
-                    "string",
-                ],
-            },
+        "AutoMLProblemTypeResolvedAttributes": {
+            "TabularResolvedAttributes": {
+                "ProblemType": "BinaryClassification",  # 'BinaryClassification'|'MulticlassClassification'|'Regression'
+            }
+        },
+    },
+    "SecurityConfig": {
+        "VolumeKmsKeyId": "string",
+        "EnableInterContainerTrafficEncryption": True,  # True|False
+        "VpcConfig": {
+            "SecurityGroupIds": [
+                "string",
+            ],
+            "Subnets": [
+                "string",
+            ],
         },
     },
     "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
@@ -219,24 +222,36 @@ describe_auto_ml_job_response = {
     # | "ExplainabilityError"
     # | "DeployingModel"
     # | "ModelDeploymentError"
-    "GenerateCandidateDefinitionsOnly": True,  # True | False
+    "AutoMLProblemTypeConfig": {
+        "TabularJobConfig": {
+            "CandidateGenerationConfig": {
+                "AlgorithmsConfig": [
+                    {
+                        "AutoMLAlgorithms": [
+                            "xgboost",  # 'xgboost'|'linear-learner'|'mlp'|'lightgbm'|'catboost'|'randomforest'|'extra-trees'|'nn-torch'|'fastai'
+                        ]
+                    },
+                ]
+            },
+            "CompletionCriteria": {
+                "MaxCandidates": 123,
+                "MaxRuntimePerTrainingJobInSeconds": 123,
+                "MaxAutoMLJobRuntimeInSeconds": 123,
+            },
+            "FeatureSpecificationS3Uri": "string",
+            "Mode": "AUTO",  # "AUTO" | "ENSEMBLING" | "HYPERPARAMETER_TUNING",
+            "GenerateCandidateDefinitionsOnly": True,  # True | False,
+            "ProblemType": "BinaryClassification",
+            # "BinaryClassification"
+            # | "MulticlassClassification"
+            # | "Regression",
+            "TargetAttributeName": "ChannelType",  # ChannelType, ContentType, CompressionType, DataSource
+            "SampleWeightAttributeName": "string",
+        }
+    },
     "AutoMLJobArtifacts": {
         "CandidateDefinitionNotebookLocation": "string",
         "DataExplorationNotebookLocation": "string",
-    },
-    "ResolvedAttributes": {
-        "AutoMLJobObjective": {
-            "MetricName": "Accuracy",  # "Accuracy" | "MSE" | "F1" | "F1macro" | "AUC"
-        },
-        "ProblemType": "BinaryClassification",
-        # "BinaryClassification"
-        # | "MulticlassClassification"
-        # | "Regression",
-        "CompletionCriteria": {
-            "MaxCandidates": 123,
-            "MaxRuntimePerTrainingJobInSeconds": 123,
-            "MaxAutoMLJobRuntimeInSeconds": 123,
-        },
     },
     "ModelDeployConfig": {
         "AutoGenerateEndpointName": True,  # True | False
@@ -309,51 +324,6 @@ describe_compilation_job_response = {
     },
 }
 
-edge_packaging_job_name = "an-edge-packaging-job"
-edge_packaging_job_arn = (
-    "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job"
-)
-list_edge_packaging_jobs_response = {
-    "EdgePackagingJobSummaries": [
-        {
-            "EdgePackagingJobName": edge_packaging_job_name,
-            "EdgePackagingJobArn": edge_packaging_job_arn,
-            "EdgePackagingJobStatus": "STARTING",
-            "CompilationJobName": "string",
-            "ModelName": "string",
-            "ModelVersion": "string",
-            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
-            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
-        },
-    ],
-}
-describe_edge_packaging_job_response = {
-    "EdgePackagingJobArn": edge_packaging_job_arn,
-    "EdgePackagingJobName": edge_packaging_job_name,
-    "CompilationJobName": compilation_job_name,
-    "ModelName": "the-second-model",
-    "ModelVersion": "string",
-    "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-    "OutputConfig": {
-        "S3OutputLocation": "s3://edge-packaging-bucket/output-config.tar.gz",
-        "KmsKeyId": "string",
-        "PresetDeploymentType": "GreengrassV2Component",
-        "PresetDeploymentConfig": "string",
-    },
-    "ResourceKey": "string",
-    "EdgePackagingJobStatus": "STARTING",  # 'STARTING'|'INPROGRESS'|'COMPLETED'|'FAILED'|'STOPPING'|'STOPPED'
-    "EdgePackagingJobStatusMessage": "string",
-    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
-    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
-    "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
-    "ModelSignature": "string",
-    "PresetDeploymentOutput": {
-        "Type": "GreengrassV2Component",
-        "Artifact": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact",
-        "Status": "COMPLETED",  # 'COMPLETED'|'FAILED'
-        "StatusMessage": "string",
-    },
-}
 
 hyper_parameter_tuning_job_name = "a-hyper-parameter-tuning-job"
 hyper_parameter_tuning_job_arn = "arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job"
@@ -1191,11 +1161,6 @@ job_stubs: Mapping[str, Mapping[str, Any]] = {
         "list": list_compilation_jobs_response,
         "describe": describe_compilation_job_response,
         "describe_name": compilation_job_name,
-    },
-    "edge_packaging": {
-        "list": list_edge_packaging_jobs_response,
-        "describe": describe_edge_packaging_job_response,
-        "describe_name": edge_packaging_job_name,
     },
     "hyper_parameter_tuning": {
         "list": list_hyper_parameter_tuning_jobs_response,
