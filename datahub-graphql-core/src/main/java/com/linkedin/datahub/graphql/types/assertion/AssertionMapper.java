@@ -1,7 +1,10 @@
 package com.linkedin.datahub.graphql.types.assertion;
 
+import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -20,6 +23,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -60,6 +64,13 @@ public class AssertionMapper {
     final EnvelopedAspect envelopedStatus = aspects.get(Constants.STATUS_ASPECT_NAME);
     if (envelopedStatus != null) {
       result.setStatus(mapStatus(new Status(envelopedStatus.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedTags = aspects.get(GLOBAL_TAGS_ASPECT_NAME);
+    if (envelopedTags != null) {
+      result.setTags(
+          GlobalTagsMapper.map(
+              context, new GlobalTags(envelopedTags.getValue().data()), entityUrn));
     }
 
     return result;
