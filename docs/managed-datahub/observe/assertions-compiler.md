@@ -1,9 +1,10 @@
 # DataHub Open Assertion Specification
 
 DataHub is developing an open-source Assertion Specification & Compiler that will allow you to declare Data Quality checks using in a simple, universal
-YAML-based format, and then compile them to be executed by different 3rd party Data Quality tool like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro), dbt tests, or Great Expectation checks.
+YAML-based format, and then compile them to into artifacts that can be registered or directly executed by 3rd party Data Quality tools like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro), 
+dbt tests, or Great Expectations. 
 
-Ultimately, the goal is to provide provide a tool-agnostic, portable format for defining Data Quality checks, making it seamless to swap out the underlying
+Ultimately, our goal is to provide an framework-agnostic, highly-portable format for defining Data Quality checks, making it seamless to swap out the underlying
 assertion engine without service disruption for end consumers of the results of these data quality checks in catalogging tools like DataHub. 
 
 ## Integrations
@@ -71,7 +72,7 @@ Below you'll find examples of defining different types of custom SQL assertions 
 
 ## Snowflake
 
-The DataHub Assertion Compiler allows you to define your Data Quality assertions in a simple YAML format, and then compile them to be executed by Snowflake Data Metric Functions.
+The DataHub Open Assertion Compiler allows you to define your Data Quality assertions in a simple YAML format, and then compile them to be executed by Snowflake Data Metric Functions.
 Once compiled, you'll be able to register the compiled DMFs in your Snowflake environment, and extract their results them as part of your normal ingestion process for DataHub.
 Results of Snowflake DMF assertions will be reported as normal Assertion Results, viewable on a historical timeline in the context
 of the table with which they are associated.
@@ -100,9 +101,11 @@ Note that Schema Assertions are not currently supported.
 The process for declaring and running assertions backend by Snowflake DMFs consists of a few steps, which will be outlined
 in the following sections.
 
+
 #### Step 1. Define your Data Quality assertions using Assertion YAML files
 
 See the section **Declaring Assertions in YAML** below for examples of how to define assertions in YAML.
+
 
 #### Step 2. Register your assertions with DataHub
 
@@ -111,6 +114,7 @@ Use the DataHub CLI to register your assertions with DataHub, so they become vis
 ```bash
 datahub assertions upsert -f examples/library/assertions_configuration.yml
 ```
+
 
 #### Step 3. Compile the assertions into Snowflake DMFs using the DataHub CLI
 
@@ -123,13 +127,18 @@ datahub assertions compile -f examples/library/assertions_configuration.yml -p s
 
 This will generate <MAYURI TODO>.
 
-#### Step 3. Register the compiled DMFs in your Snowflake environment
+
+#### Step 4. Register the compiled DMFs in your Snowflake environment
 
 <TODO - Mayuri what should this step look like?>
 
-#### Step 4. Run ingestion to report the results back into DataHub
 
-To report assertion results back into DataHub, you'll need to run the DataHub ingestion process with a special configuration
+#### Step 5. Run ingestion to report the results back into DataHub
+
+Once you've registered the DMFs, they will be automatically executed, either when the target table is updated or on a fixed 
+schedule.
+
+To report the results of the generated Data Quality assertions back into DataHub, you'll need to run the DataHub ingestion process with a special configuration
 flag: `include_assertion_results: true`:
 
 ```yaml
@@ -148,8 +157,12 @@ This will query the DMF results store in Snowflake, convert them into DataHub As
 
 ## dbt test
 
-Looking for contribution!
+Seeking contributions!
 
 ## Great Expectations
 
-Looking for contribution!
+Seeking contributions!
+
+## Soda SQL 
+
+Seeking contributions!
