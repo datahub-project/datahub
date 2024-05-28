@@ -47,17 +47,28 @@ def create_test_data(graph_client: DataHubGraph) -> Generator[Any, Any, Any]:
     dataset_urns = [make_dataset_urn("snowflake", f"table_foo_{i}") for i in range(2)]
     for i, dataset_urn in enumerate(dataset_urns):
         dataset = Dataset(
+            id=f"table_foo_{i}",
+            platform="snowflake",
+            name=f"table_foo_{i}",
+            description=f"this is table foo {i}",
+            subtype=None,
+            subtypes=None,
+            downstreams=None,
+            properties=None,
             urn=dataset_urn,
             schema=SchemaSpecification(
+                file=None,
                 fields=[
                     SchemaFieldSpecification(
                         id="column_1",
                         type="string",
                         description="this is column 1" if i == 0 else None,
+                        urn=make_schema_field_urn(dataset_urn, "column_1"),
                     ),
                     SchemaFieldSpecification(
                         id="column_2",
                         type="string",
+                        urn=make_schema_field_urn(dataset_urn, "column_2"),
                         description="this is column 2" if i == 0 else None,
                     ),
                 ],
