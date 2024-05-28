@@ -108,6 +108,11 @@ type Incident implements Entity {
   created: AuditStamp!
 
   """
+  The standard tags for the Incident
+  """
+  tags: GlobalTags
+
+  """
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
