@@ -51,14 +51,11 @@ const customerCardContent = [
         Europe’s #1 consumer electronics retailer implemented DataHub for three reasons:
         <br />
         <br />
-        1. DataHub provides an extremely flexible and customizable metadata
-        platform at scale
+        1. DataHub provides an extremely <b>flexible and customizable metadata platform at scale </b>
         <br />
-        2. Open-source means lower cost to implement and removes the headache of
-        license management
+        2. Open-source means lower cost to implement and removes the headache of license management
         <br />
-        3. Community-driven project which continually evolves with industry
-        trends and best practices
+        3. Community-driven project which continually evolves with industry trends and best practices
         <br />
         <br />
         Hear about their adoption journey and get a demo of their full-featured,
@@ -76,9 +73,8 @@ const customerCardContent = [
       <>
         Airtel is a leading global telecommunication provider. DataHub is the
         bedrock of Data Mesh at Airtel by providing the requisite governance and
-        metadata management functionality to ensure their Data Products should
-        are discoverable, addressable, trustworthy, self-describing, and secure.
-
+        metadata management functionality to <b>ensure their Data Products should
+        are discoverable, addressable, trustworthy, self-describing, and secure.</b>
         <br />
         <br />
         Get a closer look at how the Airtel team has successfully integrated
