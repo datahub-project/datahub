@@ -2,13 +2,24 @@ import re
 import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
-from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar, Union
+from typing import (
+    IO,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    runtime_checkable,
+)
 
 import pydantic
 from cached_property import cached_property
 from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
-from typing_extensions import Protocol, runtime_checkable
+from typing_extensions import Protocol
 
 from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
@@ -141,6 +152,10 @@ class TransformerSemanticsConfigModel(ConfigModel):
 
 
 class DynamicTypedConfig(ConfigModel):
+    # Once support for discriminated unions gets merged into Pydantic, we can
+    # simplify this configuration and validation.
+    # See https://github.com/samuelcolvin/pydantic/pull/2336.
+
     type: str = Field(
         description="The type of the dynamic object",
     )

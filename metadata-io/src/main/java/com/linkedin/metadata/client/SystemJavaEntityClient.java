@@ -42,7 +42,8 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
       TimeseriesAspectService timeseriesAspectService,
       RollbackService rollbackService,
       EventProducer eventProducer,
-      EntityClientCacheConfig cacheConfig) {
+      EntityClientCacheConfig cacheConfig,
+      int batchGetV2Size) {
     super(
         entityService,
         deleteEntityService,
@@ -52,7 +53,8 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
         lineageSearchService,
         timeseriesAspectService,
         rollbackService,
-        eventProducer);
+        eventProducer,
+        batchGetV2Size);
     this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
     this.entityClientCache = buildEntityClientCache(SystemJavaEntityClient.class, cacheConfig);
   }

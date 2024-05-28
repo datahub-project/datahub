@@ -75,6 +75,7 @@ class StructuredProperties(ConfigModel):
     cardinality: Optional[str] = None
     allowed_values: Optional[List[AllowedValue]] = None
     type_qualifier: Optional[TypeQualifierAllowedTypes] = None
+    immutable: Optional[bool] = False
 
     @property
     def fqn(self) -> str:
@@ -97,7 +98,7 @@ class StructuredProperties(ConfigModel):
         emitter: DataHubGraph
 
         with get_default_graph() as emitter:
-            with open(file, "r") as fp:
+            with open(file) as fp:
                 structuredproperties: List[dict] = yaml.safe_load(fp)
                 for structuredproperty_raw in structuredproperties:
                     structuredproperty = StructuredProperties.parse_obj(
@@ -124,6 +125,7 @@ class StructuredProperties(ConfigModel):
                                 for entity_type in structuredproperty.entity_types or []
                             ],
                             cardinality=structuredproperty.cardinality,
+                            immutable=structuredproperty.immutable,
                             allowedValues=[
                                 PropertyValueClass(
                                     value=v.value, description=v.description

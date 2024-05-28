@@ -29,7 +29,8 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
       @Value("${entityClient.retryInterval:2}") int retryInterval,
-      @Value("${entityClient.numRetries:3}") int numRetries) {
+      @Value("${entityClient.numRetries:3}") int numRetries,
+      final @Value("${entityClient.restli.get.batchSize:150}") int batchGetV2Size) {
     final Client restClient;
     if (gmsUri != null) {
       restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
@@ -37,7 +38,8 @@ public class RestliEntityClientFactory {
       restClient =
           DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     }
-    return new RestliEntityClient(restClient, new ExponentialBackoff(retryInterval), numRetries);
+    return new RestliEntityClient(
+        restClient, new ExponentialBackoff(retryInterval), numRetries, batchGetV2Size);
   }
 
   @Bean("systemEntityClient")
@@ -50,7 +52,8 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
       @Value("${entityClient.retryInterval:2}") int retryInterval,
       @Value("${entityClient.numRetries:3}") int numRetries,
-      final EntityClientCacheConfig entityClientCacheConfig) {
+      final EntityClientCacheConfig entityClientCacheConfig,
+      final @Value("${entityClient.restli.get.batchSize:150}") int batchGetV2Size) {
 
     final Client restClient;
     if (gmsUri != null) {
@@ -60,6 +63,10 @@ public class RestliEntityClientFactory {
           DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     }
     return new SystemRestliEntityClient(
-        restClient, new ExponentialBackoff(retryInterval), numRetries, entityClientCacheConfig);
+        restClient,
+        new ExponentialBackoff(retryInterval),
+        numRetries,
+        entityClientCacheConfig,
+        batchGetV2Size);
   }
 }

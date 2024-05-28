@@ -1,0 +1,14 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "8ec1beb7974bddae4c16b256055853bcbf08e46d4a401fd3a114c39c63479e61",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:sqlite,my_table,PROD)"
+    ],
+    "column_lineage": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO my_table (id, month, total_cost, area) VALUES (?), (?), (?)"
+    }
+}

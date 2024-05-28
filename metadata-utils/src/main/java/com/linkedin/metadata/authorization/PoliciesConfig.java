@@ -90,6 +90,9 @@ public class PoliciesConfig {
           "Manage Home Page Posts",
           "Create and delete home page posts");
 
+  public static final Privilege VIEW_TESTS_PRIVILEGE =
+      Privilege.of("VIEW_TESTS", "View Tests", "View Asset Tests.");
+
   public static final Privilege MANAGE_TESTS_PRIVILEGE =
       Privilege.of("MANAGE_TESTS", "Manage Tests", "Create and remove Asset Tests.");
 
@@ -142,6 +145,10 @@ public class PoliciesConfig {
           "Manage Business Attribute",
           "Create, update, delete Business Attribute");
 
+  public static final Privilege MANAGE_CONNECTIONS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_CONNECTIONS", "Manage Connections", "Manage connections to external platforms.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -154,6 +161,7 @@ public class PoliciesConfig {
           MANAGE_SECRETS_PRIVILEGE,
           GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
           MANAGE_ACCESS_TOKENS,
+          VIEW_TESTS_PRIVILEGE,
           MANAGE_TESTS_PRIVILEGE,
           MANAGE_GLOSSARIES_PRIVILEGE,
           MANAGE_USER_CREDENTIALS_PRIVILEGE,
@@ -164,7 +172,8 @@ public class PoliciesConfig {
           MANAGE_GLOBAL_VIEWS,
           MANAGE_GLOBAL_OWNERSHIP_TYPES,
           CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
-          MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE);
+          MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
+          MANAGE_CONNECTIONS_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -653,6 +662,19 @@ public class PoliciesConfig {
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
+  // Properties Privileges
+  public static final ResourcePrivileges STRUCTURED_PROPERTIES_PRIVILEGES =
+      ResourcePrivileges.of(
+          "structuredProperty",
+          "Structured Properties",
+          "Structured Properties",
+          ImmutableList.of(
+              CREATE_ENTITY_PRIVILEGE,
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE));
+
   // ERModelRelationship Privileges
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
@@ -689,7 +711,8 @@ public class PoliciesConfig {
           NOTEBOOK_PRIVILEGES,
           DATA_PRODUCT_PRIVILEGES,
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
-          BUSINESS_ATTRIBUTE_PRIVILEGES);
+          BUSINESS_ATTRIBUTE_PRIVILEGES,
+          STRUCTURED_PROPERTIES_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

@@ -247,10 +247,11 @@ class DataHubListener:
                 SQL_PARSING_RESULT_KEY, None
             )
         if sql_parsing_result:
-            if sql_parsing_result.debug_info.error:
-                datajob.properties["datahub_sql_parser_error"] = str(
-                    sql_parsing_result.debug_info.error
-                )
+            if error := sql_parsing_result.debug_info.error:
+                logger.info(f"SQL parsing error: {error}", exc_info=error)
+                datajob.properties[
+                    "datahub_sql_parser_error"
+                ] = f"{type(error).__name__}: {error}"
             if not sql_parsing_result.debug_info.table_error:
                 input_urns.extend(sql_parsing_result.in_tables)
                 output_urns.extend(sql_parsing_result.out_tables)
@@ -360,6 +361,7 @@ class DataHubListener:
         # The type ignore is to placate mypy on Airflow 2.1.x.
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
         task = task_instance.task
+        assert task is not None
         dag: "DAG" = task.dag  # type: ignore[assignment]
 
         self._task_holder.set_task(task_instance)
@@ -433,12 +435,21 @@ class DataHubListener:
 
                 self.emitter.emit(operation_mcp)
                 logger.debug(f"Emitted Dataset Operation: {outlet}")
+        else:
+            if self.graph:
+                for outlet in datajob.outlets:
+                    if not self.graph.exists(str(outlet)):
+                        logger.warning(f"Dataset {str(outlet)} not materialized")
+                for inlet in datajob.inlets:
+                    if not self.graph.exists(str(inlet)):
+                        logger.warning(f"Dataset {str(inlet)} not materialized")
 
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
         task = self._task_holder.get_task(task_instance) or task_instance.task
+        assert task is not None
         dag: "DAG" = task.dag  # type: ignore[assignment]
 
         datajob = AirflowGenerator.generate_datajob(
