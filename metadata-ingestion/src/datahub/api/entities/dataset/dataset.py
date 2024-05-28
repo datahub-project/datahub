@@ -39,7 +39,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
-    SchemaFieldDataTypeClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -49,12 +48,12 @@ logger = logging.getLogger(__name__)
 
 
 class SchemaFieldSpecification(BaseModel):
-    id: Optional[str] = None
-    urn: Optional[str] = None
+    id: Optional[str]
+    urn: Optional[str]
     structured_properties: Optional[
         Dict[str, Union[str, float, List[Union[str, float]]]]
     ] = None
-    type: Optional[str] = None
+    type: Optional[str]
     nativeDataType: Optional[str] = None
     jsonPath: Union[None, str] = None
     nullable: Optional[bool] = None
@@ -95,24 +94,20 @@ class SchemaFieldSpecification(BaseModel):
             description=schema_field.description,
             label=schema_field.label,
             created=schema_field.created.__dict__ if schema_field.created else None,
-            lastModified=(
-                schema_field.lastModified.__dict__
-                if schema_field.lastModified
-                else None
-            ),
+            lastModified=schema_field.lastModified.__dict__
+            if schema_field.lastModified
+            else None,
             recursive=schema_field.recursive,
-            globalTags=(
-                schema_field.globalTags.__dict__ if schema_field.globalTags else None
-            ),
-            glossaryTerms=(
-                schema_field.glossaryTerms.__dict__
-                if schema_field.glossaryTerms
-                else None
-            ),
+            globalTags=schema_field.globalTags.__dict__
+            if schema_field.globalTags
+            else None,
+            glossaryTerms=schema_field.glossaryTerms.__dict__
+            if schema_field.glossaryTerms
+            else None,
             isPartitioningKey=schema_field.isPartitioningKey,
-            jsonProps=(
-                json.loads(schema_field.jsonProps) if schema_field.jsonProps else None
-            ),
+            jsonProps=json.loads(schema_field.jsonProps)
+            if schema_field.jsonProps
+            else None,
         )
 
     @validator("urn", pre=True, always=True)
@@ -123,8 +118,8 @@ class SchemaFieldSpecification(BaseModel):
 
 
 class SchemaSpecification(BaseModel):
-    file: Optional[str] = None
-    fields: Optional[List[SchemaFieldSpecification]] = None
+    file: Optional[str]
+    fields: Optional[List[SchemaFieldSpecification]]
 
     @validator("file")
     def file_must_be_avsc(cls, v):
@@ -145,22 +140,22 @@ class Ownership(ConfigModel):
 
 class StructuredPropertyValue(ConfigModel):
     value: Union[str, float, List[str], List[float]]
-    created: Optional[str] = None
-    lastModified: Optional[str] = None
+    created: Optional[str]
+    lastModified: Optional[str]
 
 
 class Dataset(BaseModel):
-    id: Optional[str] = None
-    platform: Optional[str] = None
+    id: Optional[str]
+    platform: Optional[str]
     env: str = "PROD"
-    urn: Optional[str] = None
-    description: Optional[str] = None
-    name: Optional[str] = None
+    urn: Optional[str]
+    description: Optional[str]
+    name: Optional[str]
     schema_metadata: Optional[SchemaSpecification] = Field(alias="schema")
-    downstreams: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
-    subtype: Optional[str] = None
-    subtypes: Optional[List[str]] = None
+    downstreams: Optional[List[str]]
+    properties: Optional[Dict[str, str]]
+    subtype: Optional[str]
+    subtypes: Optional[List[str]]
     tags: Optional[List[str]] = None
     glossary_terms: Optional[List[str]] = None
     owners: Optional[List[Union[str, Ownership]]] = None
@@ -231,35 +226,6 @@ class Dataset(BaseModel):
             for dataset_raw in datasets:
                 dataset = Dataset.parse_obj(dataset_raw)
                 yield dataset
-
-    @staticmethod
-    def _get_type_from_typestring(typestring: str) -> SchemaFieldDataTypeClass:
-        from datahub.metadata.schema_classes import (
-            StringTypeClass,
-            BooleanTypeClass,
-            NumberTypeClass,
-            NullTypeClass,
-            BytesTypeClass,
-        )
-
-        if typestring.lower() in ["string", "varchar", "char", "str", "text"]:
-            return SchemaFieldDataTypeClass(type=StringTypeClass())
-        elif typestring.lower() in [
-            "int",
-            "int32",
-            "int64",
-            "integer",
-            "float",
-            "double",
-            "long",
-        ]:
-            return SchemaFieldClass(type=NumberTypeClass())
-        elif typestring in ["bytes"]:
-            return SchemaFieldDataTypeClass(type=BytesTypeClass())
-        elif typestring.lower() in ["bool", "boolean"]:
-            return SchemaFieldDataTypeClass(type=BooleanTypeClass())
-        else:
-            raise ValueError(f"Unknown type: {typestring}")
 
     def generate_mcp(
         self,
@@ -332,54 +298,15 @@ class Dataset(BaseModel):
                                     properties=[
                                         StructuredPropertyValueAssignmentClass(
                                             propertyUrn=f"urn:li:structuredProperty:{prop_key}",
-                                            values=(
-                                                prop_value
-                                                if isinstance(prop_value, list)
-                                                else [prop_value]
-                                            ),
+                                            values=prop_value
+                                            if isinstance(prop_value, list)
+                                            else [prop_value],
                                         )
                                         for prop_key, prop_value in field.structured_properties.items()
                                     ]
                                 ),
                             )
                             yield mcp
-            else:
-                import yaml
-
-                # generate yaml from schema metadata
-                yaml_string = yaml.dump(self.schema_metadata.dict(exclude_none=True))
-                schema_metadata = SchemaMetadataClass(
-                    schemaName=self.name or self.id or self.urn or "",
-                    platformSchema=OtherSchemaClass(rawSchema=yaml_string),
-                    platform=self.platform_urn,
-                    version=0,
-                    hash="",
-                    fields=[
-                        SchemaFieldClass(
-                            fieldPath=field.id,
-                            type=Dataset._get_type_from_typestring(field.type),
-                            nativeDataType=field.nativeDataType or field.type,
-                            nullable=field.nullable,
-                            description=field.description,
-                            label=field.label,
-                            created=field.created,
-                            lastModified=field.lastModified,
-                            recursive=field.recursive,
-                            globalTags=field.globalTags,
-                            glossaryTerms=field.glossaryTerms,
-                            isPartitioningKey=field.isPartitioningKey,
-                            jsonProps=(
-                                json.dumps(field.jsonProps) if field.jsonProps else None
-                            ),
-                        )
-                        for field in self.schema_metadata.fields
-                    ],
-                )
-                assert schema_metadata.validate()
-                mcp = MetadataChangeProposalWrapper(
-                    entityUrn=self.urn, aspect=schema_metadata
-                )
-                yield mcp
 
         if self.subtype or self.subtypes:
             mcp = MetadataChangeProposalWrapper(
@@ -430,11 +357,9 @@ class Dataset(BaseModel):
                     properties=[
                         StructuredPropertyValueAssignmentClass(
                             propertyUrn=f"urn:li:structuredProperty:{prop_key}",
-                            values=(
-                                prop_value
-                                if isinstance(prop_value, list)
-                                else [prop_value]
-                            ),
+                            values=prop_value
+                            if isinstance(prop_value, list)
+                            else [prop_value],
                         )
                         for prop_key, prop_value in self.structured_properties.items()
                     ]
@@ -575,29 +500,25 @@ class Dataset(BaseModel):
 
         return Dataset(  # type: ignore[call-arg]
             urn=urn,
-            description=(
-                dataset_properties.description
-                if dataset_properties and dataset_properties.description
-                else None
-            ),
-            name=(
-                dataset_properties.name
-                if dataset_properties and dataset_properties.name
-                else None
-            ),
+            description=dataset_properties.description
+            if dataset_properties and dataset_properties.description
+            else None,
+            name=dataset_properties.name
+            if dataset_properties and dataset_properties.name
+            else None,
             schema=Dataset._schema_from_schema_metadata(graph, urn),
             tags=[tag.tag for tag in tags.tags] if tags else None,
-            glossary_terms=(
-                [term.urn for term in glossary_terms.terms] if glossary_terms else None
-            ),
+            glossary_terms=[term.urn for term in glossary_terms.terms]
+            if glossary_terms
+            else None,
             owners=yaml_owners,
-            properties=(
-                dataset_properties.customProperties if dataset_properties else None
-            ),
+            properties=dataset_properties.customProperties
+            if dataset_properties
+            else None,
             subtypes=[subtype for subtype in subtypes.typeNames] if subtypes else None,
-            structured_properties=(
-                structured_properties_map if structured_properties else None
-            ),
+            structured_properties=structured_properties_map
+            if structured_properties
+            else None,
         )
 
     def to_yaml(
