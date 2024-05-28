@@ -1,35 +1,27 @@
-.customer {
-  flex-direction: row;
+.card {
   color: var(--ifm-hero-text-color);
-  margin: 0rem 2rem 1rem 0rem;
-  min-height: 15rem;
+  padding: 0;
+  margin-bottom: 2rem;
+  min-height: 5rem;
   text-decoration: none !important;
 
+  .card_button {
+        padding: 1rem;
+        text-align: right;
+  }
 
+  .card_img {
+    justify-content: center;
+    display: flex;
+    height: 300px;
+    margin: 0;
+  }
+
+  .card_body {
+    padding: 2rem 3rem 2rem 3rem;
+  }
   img {
-    margin-right: 0.75rem;
+    object-fit: cover;
   }
 
-  svg {
-    width: 1.5rem;
-    height: 1.5rem;
-    margin-right: 0.75rem;
-  }
-  strong,
-  span {
-    display: block;
-    margin-bottom: 0.75rem;
-  }
-  strong {
-    font-weight: 600;
-    font-size: 1.1rem;
-  }
-
-  span {
-    font-size: 1rem;
-    line-height: 1.25em;
-  }
-  &:hover {
-    border-color: var(--ifm-color-primary);
-  }
 }

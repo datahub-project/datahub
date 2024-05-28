@@ -1,26 +1,24 @@
 import React from "react";
 import clsx from "clsx";
 import styles from "./customercard.module.scss";
-import useBaseUrl from "@docusaurus/useBaseUrl";
+import Link from "@docusaurus/Link";
 
-const CustomerCard = ({ customer, title, description, to }) => {
+const CustomerCard = ({ customer, title, imgUrl, description, to,}) => {
   return (
-    <div className="row g-0">
-      <div className={clsx("card", styles.customer)}>
-        <div className="col-md-4">
-          <img src="..." className="img-fluid rounded-start" alt="IMG" />
+      <div className={clsx("card", styles.card)}>
+      <div className={styles.card_img}>
+        <img src={imgUrl} className="card-img-top" alt={customer} />
+      </div>
+      <div className={styles.card_body}>
+        <h3 class="card-title">{customer} : {title}</h3>
+        <p class="card-text">{description}</p>
+        <div className={styles.card_button}>
+            <Link className="button button--secondary button--md" href={to} target="_blank">
+              Learn More About {customer}'s Story
+            </Link>
         </div>
-        <div className="col-md-8">
-          <div className="card-body">
-            <h3 className="card-title">{customer} : {title}</h3>
-            <p className="card-text">{description}</p>
-            <p className="card-text">
-              <a href={to} class="btn btn-primary">Learn More</a>
-            </p>
-          </div>
         </div>
       </div>
-    </div>
   );
 };
 

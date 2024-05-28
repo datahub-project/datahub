@@ -2,6 +2,7 @@ import CustomerCardSection from '@site/src/pages/docs/_components/CustomerCardSe
 
 # Customer Stories
 
+
 Meet the DataHub users who have shared their stories with us.
 
 <CustomerCardSection />
