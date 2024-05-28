@@ -1,8 +1,11 @@
-package com.linkedin.metadata.aspect.validators;
+package com.linkedin.metadata.aspect.hooks;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
+import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
@@ -13,9 +16,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
-import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
-import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
@@ -27,32 +29,22 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-public class FieldPathValidatorTest {
+public class FieldPathMutatorTest {
 
-  private static final AspectPluginConfig validatorConfig =
-      AspectPluginConfig.builder()
-          .supportedOperations(
-              Arrays.stream(ChangeType.values())
-                  .map(Objects::toString)
-                  .collect(Collectors.toList()))
-          .className(CreateIfNotExistsValidator.class.getName())
-          .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
-          .enabled(true)
-          .build();
   private EntityRegistry entityRegistry;
   private RetrieverContext mockRetrieverContext;
   private DatasetUrn testDatasetUrn;
-  private final FieldPathValidator test = new FieldPathValidator().setConfig(validatorConfig);
+  private final FieldPathMutator test =
+      new FieldPathMutator().setConfig(mock(AspectPluginConfig.class));
 
   @BeforeTest
   public void init() throws URISyntaxException {
@@ -75,7 +67,7 @@ public class FieldPathValidatorTest {
         new Domains()
             .setDomains(new UrnArray(ImmutableList.of(UrnUtils.getUrn("urn:li:domain:123"))));
     assertEquals(
-        test.validateProposed(
+        test.writeMutation(
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -88,6 +80,7 @@ public class FieldPathValidatorTest {
                         .recordTemplate(domains)
                         .build()),
                 mockRetrieverContext)
+            .filter(Pair::getSecond)
             .count(),
         0);
   }
@@ -96,7 +89,7 @@ public class FieldPathValidatorTest {
   public void testValidateNonDuplicatedSchemaFieldPath() {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(false);
     assertEquals(
-        test.validateProposed(
+        test.writeMutation(
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -109,6 +102,7 @@ public class FieldPathValidatorTest {
                         .recordTemplate(schema)
                         .build()),
                 mockRetrieverContext)
+            .filter(Pair::getSecond)
             .count(),
         0);
   }
@@ -117,8 +111,8 @@ public class FieldPathValidatorTest {
   public void testValidateDuplicatedSchemaFieldPath() {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(true);
 
-    assertEquals(
-        test.validateProposed(
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -131,8 +125,10 @@ public class FieldPathValidatorTest {
                         .recordTemplate(schema)
                         .build()),
                 mockRetrieverContext)
-            .count(),
-        1);
+            .collect(Collectors.toList());
+
+    assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
+    assertEquals(result.get(0).getFirst().getAspect(SchemaMetadata.class).getFields().size(), 1);
   }
 
   @Test
@@ -140,7 +136,7 @@ public class FieldPathValidatorTest {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(true);
 
     assertEquals(
-        test.validateProposed(
+        test.writeMutation(
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -153,6 +149,7 @@ public class FieldPathValidatorTest {
                         .recordTemplate(schema)
                         .build()),
                 mockRetrieverContext)
+            .filter(Pair::getSecond)
             .count(),
         0);
   }
@@ -161,7 +158,7 @@ public class FieldPathValidatorTest {
   public void testValidateNonDuplicatedEditableSchemaFieldPath() {
     final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(false);
     assertEquals(
-        test.validateProposed(
+        test.writeMutation(
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -174,6 +171,7 @@ public class FieldPathValidatorTest {
                         .recordTemplate(schema)
                         .build()),
                 mockRetrieverContext)
+            .filter(Pair::getSecond)
             .count(),
         0);
   }
@@ -182,8 +180,8 @@ public class FieldPathValidatorTest {
   public void testValidateDuplicatedEditableSchemaFieldPath() {
     final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(true);
 
-    assertEquals(
-        test.validateProposed(
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -196,7 +194,16 @@ public class FieldPathValidatorTest {
                         .recordTemplate(schema)
                         .build()),
                 mockRetrieverContext)
-            .count(),
+            .collect(Collectors.toList());
+
+    assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
+    assertEquals(
+        result
+            .get(0)
+            .getFirst()
+            .getAspect(EditableSchemaMetadata.class)
+            .getEditableSchemaFieldInfo()
+            .size(),
         1);
   }
 
