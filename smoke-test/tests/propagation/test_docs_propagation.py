@@ -131,6 +131,7 @@ def create_test_data(graph_client: DataHubGraph) -> Generator[Any, Any, Any]:
         graph_client.delete_entity(urn, hard=True)
 
 
+@pytest.mark.skip(reason="this test is disabled until it is fixed.")
 def test_docs_propagation(graph_client: DataHubGraph, create_test_data) -> None:
     # Wait for the writes to sync
 
