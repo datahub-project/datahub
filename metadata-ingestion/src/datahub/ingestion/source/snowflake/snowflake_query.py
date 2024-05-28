@@ -1016,3 +1016,25 @@ class SnowflakeQuery:
             ORDER BY
                 h.downstream_table_name
         """
+
+    @staticmethod
+    def dmf_assertion_results(start_time_millis: int, end_time_millis: int) -> str:
+        pattern = r"datahub\\_\\_%"
+        escape_pattern = r"\\"
+        return f"""
+            SELECT
+                MEASUREMENT_TIME AS "MEASUREMENT_TIME",
+                METRIC_NAME AS "METRIC_NAME",
+                TABLE_NAME AS "TABLE_NAME",
+                TABLE_SCHEMA AS "TABLE_SCHEMA",
+                TABLE_DATABASE AS "TABLE_DATABASE",
+                VALUE::INT AS "VALUE"
+            FROM
+                SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS
+            WHERE
+                MEASUREMENT_TIME >= to_timestamp_ltz({start_time_millis}, 3)
+                AND MEASUREMENT_TIME < to_timestamp_ltz({end_time_millis}, 3)
+                AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'
+                ORDER BY MEASUREMENT_TIME ASC;
+
+"""

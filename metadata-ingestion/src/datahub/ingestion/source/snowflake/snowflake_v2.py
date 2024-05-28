@@ -50,6 +50,9 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeEdition,
     SnowflakeObjectDomain,
 )
+from datahub.ingestion.source.snowflake.snowflake_assertion import (
+    SnowflakeAssertionsHandler,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
@@ -103,6 +106,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
@@ -328,7 +332,7 @@ class SnowflakeV2Source(
         test_report = TestConnectionReport()
 
         try:
-            connection_conf = SnowflakeV2Config.parse_obj_allow_extras(config_dict)
+            connection_conf = BaseSnowflakeConfig.parse_obj_allow_extras(config_dict)
 
             connection: SnowflakeConnection = connection_conf.get_connection()
             assert connection
@@ -354,7 +358,7 @@ class SnowflakeV2Source(
 
     @staticmethod
     def check_capabilities(
-        conn: SnowflakeConnection, connection_conf: SnowflakeV2Config
+        conn: SnowflakeConnection, connection_conf: BaseSnowflakeConfig
     ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
         # Currently only overall capabilities are reported.
         # Resource level variations in capabilities are not considered.
@@ -602,6 +606,11 @@ class SnowflakeV2Source(
             self.config.include_usage_stats or self.config.include_operational_stats
         ) and self.usage_extractor:
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
+
+        if self.config.include_assertion_results:
+            yield from SnowflakeAssertionsHandler(
+                self.config, self.report, self.gen_dataset_urn
+            ).get_assertion_workunits(discovered_datasets)
 
     def report_cache_info(self) -> None:
         lru_cache_functions: List[Callable] = [

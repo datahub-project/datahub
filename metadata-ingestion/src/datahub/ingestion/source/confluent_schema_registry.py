@@ -76,7 +76,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     ) -> "ConfluentSchemaRegistry":
         return cls(source_config, report)
 
-    def _get_subject_for_topic(self, topic: str, is_key_schema: bool) -> Optional[str]:
+    def _get_subject_for_topic(
+        self, dataset_subtype: str, is_key_schema: bool
+    ) -> Optional[str]:
+        topic: str = dataset_subtype
         subject_key_suffix: str = "-key" if is_key_schema else "-value"
         # For details on schema registry subject name strategy,
         # see: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work
@@ -231,16 +234,24 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return all_schemas
 
     def _get_schema_and_fields(
-        self, topic: str, is_key_schema: bool
+        self, dataset_subtype: str, is_key_schema: bool, is_subject: bool
     ) -> Tuple[Optional[Schema], List[SchemaField]]:
         schema: Optional[Schema] = None
-        schema_type_str: str = "key" if is_key_schema else "value"
-        topic_subject: Optional[str] = self._get_subject_for_topic(
-            topic=topic, is_key_schema=is_key_schema
-        )
+
+        # if provided schema as dataset_subtype, assuming it as value subject
+        schema_type_str: Optional[str] = "value"
+        topic_subject: Optional[str] = None
+        if not is_subject:
+            schema_type_str = "key" if is_key_schema else "value"
+            topic_subject = self._get_subject_for_topic(
+                dataset_subtype=dataset_subtype, is_key_schema=is_key_schema
+            )
+        else:
+            topic_subject = dataset_subtype
+
         if topic_subject is not None:
             logger.debug(
-                f"The {schema_type_str} schema subject:'{topic_subject}' is found for topic:'{topic}'."
+                f"The {schema_type_str} schema subject:'{topic_subject}' is found for dataset_subtype:'{dataset_subtype}'."
             )
             try:
                 registered_schema = self.schema_registry_client.get_latest_version(
@@ -249,29 +260,31 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 schema = registered_schema.schema
             except Exception as e:
                 logger.warning(
-                    f"For topic: {topic}, failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}."
+                    f"For dataset_subtype: {dataset_subtype}, failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}."
                 )
                 self.report.report_warning(
-                    topic,
+                    dataset_subtype,
                     f"failed to get {schema_type_str} schema from schema registry using subject:'{topic_subject}': {e}.",
                 )
         else:
             logger.debug(
-                f"For topic: {topic}, the schema registry subject for the {schema_type_str} schema is not found."
+                f"For dataset_subtype: {dataset_subtype}, the schema registry subject for the {schema_type_str} schema is not found."
             )
             if not is_key_schema:
                 # Value schema is always expected. Report a warning.
                 self.report.report_warning(
-                    topic,
+                    dataset_subtype,
                     f"The schema registry subject for the {schema_type_str} schema is not found."
-                    f" The topic is either schema-less, or no messages have been written to the topic yet.",
+                    f" The dataset_subtype is either schema-less, or no messages have been written to the dataset_subtype yet.",
                 )
 
-        # Obtain the schema fields from schema for the topic.
+        # Obtain the schema fields from schema for the dataset_subtype.
         fields: List[SchemaField] = []
         if schema is not None:
             fields = self._get_schema_fields(
-                topic=topic, schema=schema, is_key_schema=is_key_schema
+                dataset_subtype=dataset_subtype,
+                schema=schema,
+                is_key_schema=is_key_schema,
             )
         return (schema, fields)
 
@@ -295,7 +308,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return jsonref_schema
 
     def _get_schema_fields(
-        self, topic: str, schema: Schema, is_key_schema: bool
+        self, dataset_subtype: str, schema: Schema, is_key_schema: bool
     ) -> List[SchemaField]:
         # Parse the schema and convert it to SchemaFields.
         fields: List[SchemaField] = []
@@ -318,7 +331,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             imported_schemas: List[
                 ProtobufSchema
             ] = self.get_schemas_from_confluent_ref_protobuf(schema)
-            base_name: str = topic.replace(".", "_")
+            base_name: str = dataset_subtype.replace(".", "_")
             fields = protobuf_util.protobuf_schema_to_mce_fields(
                 ProtobufSchema(
                     f"{base_name}-key.proto"
@@ -330,14 +343,16 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 is_key_schema=is_key_schema,
             )
         elif schema.schema_type == "JSON":
-            base_name = topic.replace(".", "_")
+            base_name = dataset_subtype.replace(".", "_")
             canonical_name = (
                 f"{base_name}-key" if is_key_schema else f"{base_name}-value"
             )
             jsonref_schema = self._load_json_schema_with_resolved_references(
                 schema=schema,
                 name=canonical_name,
-                subject=f"{topic}-key" if is_key_schema else f"{topic}-value",
+                subject=f"{dataset_subtype}-key"
+                if is_key_schema
+                else f"{dataset_subtype}-value",
             )
             fields = list(
                 JsonSchemaTranslator.get_fields_from_schema(
@@ -346,22 +361,27 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         elif not self.source_config.ignore_warnings_on_schema_type:
             self.report.report_warning(
-                topic,
+                dataset_subtype,
                 f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
             )
         return fields
 
     def _get_schema_metadata(
-        self, topic: str, platform_urn: str
+        self, dataset_subtype: str, platform_urn: str, is_subject: bool
     ) -> Optional[SchemaMetadata]:
+
         # Process the value schema
         schema, fields = self._get_schema_and_fields(
-            topic=topic, is_key_schema=False
+            dataset_subtype=dataset_subtype,
+            is_key_schema=False,
+            is_subject=is_subject,
         )  # type: Tuple[Optional[Schema], List[SchemaField]]
 
         # Process the key schema
         key_schema, key_fields = self._get_schema_and_fields(
-            topic=topic, is_key_schema=True
+            dataset_subtype=dataset_subtype,
+            is_key_schema=True,
+            is_subject=is_subject,
         )  # type:Tuple[Optional[Schema], List[SchemaField]]
 
         # Create the schemaMetadata aspect.
@@ -373,7 +393,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             md5_hash: str = md5(schema_as_string.encode()).hexdigest()
 
             return SchemaMetadata(
-                schemaName=topic,
+                schemaName=dataset_subtype,
                 version=0,
                 hash=md5_hash,
                 platform=platform_urn,
@@ -388,17 +408,22 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return None
 
     def get_schema_metadata(
-        self, topic: str, platform_urn: str
+        self, dataset_subtype: str, platform_urn: str, is_subject: bool
     ) -> Optional[SchemaMetadata]:
-        logger.debug(f"Inside _get_schema_metadata {topic} {platform_urn}")
+        logger.debug(f"Inside get_schema_metadata {dataset_subtype} {platform_urn}")
+
         # Process the value schema
         schema, fields = self._get_schema_and_fields(
-            topic=topic, is_key_schema=False
+            dataset_subtype=dataset_subtype,
+            is_key_schema=False,
+            is_subject=is_subject,
         )  # type: Tuple[Optional[Schema], List[SchemaField]]
 
         # Process the key schema
         key_schema, key_fields = self._get_schema_and_fields(
-            topic=topic, is_key_schema=True
+            dataset_subtype=dataset_subtype,
+            is_key_schema=True,
+            is_subject=is_subject,
         )  # type:Tuple[Optional[Schema], List[SchemaField]]
 
         # Create the schemaMetadata aspect.
@@ -410,7 +435,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             md5_hash = md5(schema_as_string.encode()).hexdigest()
 
             return SchemaMetadata(
-                schemaName=topic,
+                schemaName=dataset_subtype,
                 version=0,
                 hash=md5_hash,
                 platform=platform_urn,
@@ -423,3 +448,6 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 fields=key_fields + fields,
             )
         return None
+
+    def get_subjects(self) -> List[str]:
+        return self.known_schema_registry_subjects

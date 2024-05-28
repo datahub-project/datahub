@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageSta
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DashboardUsageMetrics;
@@ -42,7 +43,7 @@ public class DashboardStatsSummaryResolver
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -85,7 +86,9 @@ public class DashboardStatsSummaryResolver
                 e);
             return null; // Do not throw when loading usage summary fails.
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private int getDashboardViewCount(@Nullable QueryContext context, final Urn resourceUrn) {
