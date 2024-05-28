@@ -1,13 +1,34 @@
 ---
-title: "Configuring MS Entra with DataHub"
+title: "SCIM Integration: MS Entra and DataHub"
 hide_title: true
 ---
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Entity Events API
+## SCIM Integration: MS Entra and DataHub
 <FeatureAvailability saasOnly />
 
-# Configuring User/Group/Roles provisioning from MS Entra to DataHub
+## Overview
+On completion of this setup the MS Entra will automatically manage the groups/users/roles from MS Entra to DataHub.
+
+Consider following configuration in MS Entra 
+- A group `governance-team` group 
+- And it has two memeber `john` and `sid`
+- And the group has role `Reader`
+
+If you configure the `governance-team` for auto provisioning, MS Entra will creates the `governance-team` group and it's member automatically on DataHub and set the `Reader` roles on users.
+
+If you remove `john` from group `governance-team` then MS Entra will automatically removes the `john` from DataHub's `governance-team` group.
+
+If you permanently deletes a user or group from MS Entra then MS Entra will automatically deletes the user or group from the DataHub.
+
+> MS Entra doesn't send the user's password on user creation and hence DataHub Admin need to reset their password to be able to login into the DataHub.
+
+
+> Only Admin, Editor and Reader roles are supported in DataHub. These roles are preconfigured/created on DataHub
+
+
+
+## Configuring User/Group/Roles provisioning from MS Entra to DataHub
 
 1. **Generate Personal Access Token**: 
     Generate a personal access token from [DataHub](../../docs/authentication/personal-access-tokens.md#creating-personal-access-tokens).
@@ -34,21 +55,31 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
     c. Fill detail as shown in below image
 
+    Fill listed fields 
+    
+    - Set `Mapping type` to `Expression`
+    - Set `Expression` to `SingleAppRoleAssignment([appRoleAssignments])`
+    - Set `Target attribute` to `roles[primary eq "True"].value`
+    - Set `Match objects using this attribute` to `No`
+    - Set `Apply this mapping` to `Always`
+
     <p>
     <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/edit-mapping-form.png"/>
     </p>
 
-    d. **Create Role**: Go to `Provisioning` section and click on `application registration.` to create the role 
+    d. **Create Role**: Go back to the app created in Step #1 and go to the Provisioning section and click on application registration. to create the role 
 
     <p>
     <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/application-registration.png"/>
     </p>
 
-    Create three roles having `Display Name` and `Value` as mentioned below 
+    Create three roles having `Display Name` and `Value` as mentioned below
 
     - Admin
     - Editor
     - Reader 
+
+    Only these three roles are supported in DataHub.
 
     e. While creating the App Role set `Allowed member types` to `Users/Groups`
 

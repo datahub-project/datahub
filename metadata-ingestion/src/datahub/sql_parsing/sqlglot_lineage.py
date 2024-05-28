@@ -1,3 +1,4 @@
+import dataclasses
 import functools
 import itertools
 import logging
@@ -28,6 +29,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
+from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
@@ -40,7 +42,6 @@ from datahub.sql_parsing.sql_parsing_common import (
     QueryTypeProps,
 )
 from datahub.sql_parsing.sqlglot_utils import (
-    DialectOrStr,
     get_dialect,
     get_query_fingerprint_debug,
     is_dialect_instance,
@@ -80,65 +81,6 @@ RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
 )
 # Quick check that the rules were loaded correctly.
 assert 0 < len(RULES_BEFORE_TYPE_ANNOTATION) < len(sqlglot.optimizer.optimizer.RULES)
-
-
-def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
-    identifier: sqlglot.exp.Identifier = table.this
-
-    return identifier.args.get("temporary") or (
-        is_dialect_instance(dialect, "redshift") and identifier.name.startswith("#")
-    )
-
-
-def _get_create_type_from_kind(kind: Optional[str]) -> QueryType:
-    if kind and "TABLE" in kind:
-        return QueryType.CREATE_TABLE_AS_SELECT
-    elif kind and "VIEW" in kind:
-        return QueryType.CREATE_VIEW
-    else:
-        return QueryType.CREATE_OTHER
-
-
-def get_query_type_of_sql(
-    expression: sqlglot.exp.Expression, dialect: DialectOrStr
-) -> Tuple[QueryType, QueryTypeProps]:
-    dialect = get_dialect(dialect)
-    query_type_props: QueryTypeProps = {}
-
-    # For creates, we need to look at the inner expression.
-    if isinstance(expression, sqlglot.exp.Create):
-        if _is_create_table_ddl(expression):
-            return QueryType.CREATE_DDL, query_type_props
-
-        kind = expression.args.get("kind")
-        if kind:
-            kind = kind.upper()
-            query_type_props["kind"] = kind
-
-        target = expression.this
-        if any(
-            isinstance(prop, sqlglot.exp.TemporaryProperty)
-            for prop in (expression.args.get("properties") or [])
-        ) or _is_temp_table(target, dialect=dialect):
-            query_type_props["temporary"] = True
-
-        query_type = _get_create_type_from_kind(kind)
-        return query_type, query_type_props
-
-    # UPGRADE: Once we use Python 3.10, replace this with a match expression.
-    mapping = {
-        sqlglot.exp.Select: QueryType.SELECT,
-        sqlglot.exp.Insert: QueryType.INSERT,
-        sqlglot.exp.Update: QueryType.UPDATE,
-        sqlglot.exp.Delete: QueryType.DELETE,
-        sqlglot.exp.Merge: QueryType.MERGE,
-        sqlglot.exp.Query: QueryType.SELECT,  # unions, etc. are also selects
-    }
-
-    for cls, query_type in mapping.items():
-        if isinstance(expression, cls):
-            return query_type, query_type_props
-    return QueryType.UNKNOWN, {}
 
 
 class _ColumnRef(_FrozenModel):
@@ -314,16 +256,34 @@ class SqlUnderstandingError(Exception):
     pass
 
 
-# TODO: Break this up into smaller functions.
-def _column_level_lineage(  # noqa: C901
+@dataclasses.dataclass
+class _ColumnResolver:
+    sqlglot_db_schema: sqlglot.MappingSchema
+    table_schema_normalized_mapping: Dict[_TableName, Dict[str, str]]
+    use_case_insensitive_cols: bool
+
+    def schema_aware_fuzzy_column_resolve(
+        self, table: Optional[_TableName], sqlglot_column: str
+    ) -> str:
+        default_col_name = (
+            sqlglot_column.lower() if self.use_case_insensitive_cols else sqlglot_column
+        )
+        if table:
+            return self.table_schema_normalized_mapping[table].get(
+                sqlglot_column, default_col_name
+            )
+        else:
+            return default_col_name
+
+
+def _prepare_query_columns(
     statement: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
     table_schemas: Dict[_TableName, SchemaInfo],
-    output_table: Optional[_TableName],
     default_db: Optional[str],
     default_schema: Optional[str],
-) -> List[_ColumnLineageInfo]:
-    is_create_ddl = _is_create_table_ddl(statement)
+) -> Tuple[sqlglot.exp.Expression, "_ColumnResolver"]:
+    is_create_ddl = is_create_table_ddl(statement)
     if (
         not isinstance(
             statement,
@@ -334,8 +294,6 @@ def _column_level_lineage(  # noqa: C901
         raise UnsupportedStatementTypeError(
             f"Can only generate column-level lineage for select-like inner statements, not {type(statement)}"
         )
-
-    column_lineage: List[_ColumnLineageInfo] = []
 
     use_case_insensitive_cols = is_dialect_instance(
         dialect, DIALECTS_WITH_CASE_INSENSITIVE_COLS
@@ -365,7 +323,7 @@ def _column_level_lineage(  # noqa: C901
                 col_normalized = col
 
             table_schema_normalized_mapping[table][col_normalized] = col
-            normalized_table_schema[col_normalized] = col_type
+            normalized_table_schema[col_normalized] = col_type or "UNKNOWN"
 
         sqlglot_db_schema.add_table(
             table.as_sqlglot_table(),
@@ -392,110 +350,116 @@ def _column_level_lineage(  # noqa: C901
         #     statement.sql(pretty=True, dialect=dialect),
         # )
 
-    def _schema_aware_fuzzy_column_resolve(
-        table: Optional[_TableName], sqlglot_column: str
-    ) -> str:
-        default_col_name = (
-            sqlglot_column.lower() if use_case_insensitive_cols else sqlglot_column
-        )
-        if table:
-            return table_schema_normalized_mapping[table].get(
-                sqlglot_column, default_col_name
+    if not is_create_ddl:
+        # Optimize the statement + qualify column references.
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Prior to column qualification sql %s",
+                statement.sql(pretty=True, dialect=dialect),
             )
-        else:
-            return default_col_name
+        try:
+            # Second time running qualify, this time with:
+            # - the select instead of the full outer statement
+            # - schema info
+            # - column qualification enabled
+            # - running the full pre-type annotation optimizer
 
-    # Optimize the statement + qualify column references.
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug(
-            "Prior to column qualification sql %s",
-            statement.sql(pretty=True, dialect=dialect),
-        )
-    try:
-        # Second time running qualify, this time with:
-        # - the select instead of the full outer statement
-        # - schema info
-        # - column qualification enabled
-        # - running the full pre-type annotation optimizer
-
-        # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
-        statement = sqlglot.optimizer.optimizer.optimize(
-            statement,
-            dialect=dialect,
-            schema=sqlglot_db_schema,
-            qualify_columns=True,
-            validate_qualify_columns=False,
-            identify=True,
-            # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
-            catalog=default_db,
-            db=default_schema,
-            rules=RULES_BEFORE_TYPE_ANNOTATION,
-        )
-    except (sqlglot.errors.OptimizeError, ValueError) as e:
-        raise SqlUnderstandingError(
-            f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
-        ) from e
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
-
-    # Handle the create DDL case.
-    if is_create_ddl:
-        assert (
-            output_table is not None
-        ), "output_table must be set for create DDL statements"
-
-        create_schema: sqlglot.exp.Schema = statement.this
-        sqlglot_columns = create_schema.expressions
-
-        for column_def in sqlglot_columns:
-            if not isinstance(column_def, sqlglot.exp.ColumnDef):
-                # Ignore things like constraints.
-                continue
-
-            output_col = _schema_aware_fuzzy_column_resolve(
-                output_table, column_def.name
+            # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
+            statement = sqlglot.optimizer.optimizer.optimize(
+                statement,
+                dialect=dialect,
+                schema=sqlglot_db_schema,
+                qualify_columns=True,
+                validate_qualify_columns=False,
+                identify=True,
+                # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
+                catalog=default_db,
+                db=default_schema,
+                rules=RULES_BEFORE_TYPE_ANNOTATION,
             )
-            output_col_type = column_def.args.get("kind")
-
-            column_lineage.append(
-                _ColumnLineageInfo(
-                    downstream=_DownstreamColumnRef(
-                        table=output_table,
-                        column=output_col,
-                        column_type=output_col_type,
-                    ),
-                    upstreams=[],
-                )
+        except (sqlglot.errors.OptimizeError, ValueError) as e:
+            raise SqlUnderstandingError(
+                f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
+            ) from e
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Qualified sql %s", statement.sql(pretty=True, dialect=dialect)
             )
 
-        return column_lineage
+        # Try to figure out the types of the output columns.
+        try:
+            statement = sqlglot.optimizer.annotate_types.annotate_types(
+                statement, schema=sqlglot_db_schema
+            )
+        except (sqlglot.errors.OptimizeError, sqlglot.errors.ParseError) as e:
+            # This is not a fatal error, so we can continue.
+            logger.debug("sqlglot failed to annotate or parse types: %s", e)
 
-    # Try to figure out the types of the output columns.
-    try:
-        statement = sqlglot.optimizer.annotate_types.annotate_types(
-            statement, schema=sqlglot_db_schema
+    return statement, _ColumnResolver(
+        sqlglot_db_schema=sqlglot_db_schema,
+        table_schema_normalized_mapping=table_schema_normalized_mapping,
+        use_case_insensitive_cols=use_case_insensitive_cols,
+    )
+
+
+def _create_table_ddl_cll(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    column_resolver: _ColumnResolver,
+    output_table: Optional[_TableName],
+) -> List[_ColumnLineageInfo]:
+    column_lineage: List[_ColumnLineageInfo] = []
+
+    assert (
+        output_table is not None
+    ), "output_table must be set for create DDL statements"
+
+    create_schema: sqlglot.exp.Schema = statement.this
+    sqlglot_columns = create_schema.expressions
+
+    for column_def in sqlglot_columns:
+        if not isinstance(column_def, sqlglot.exp.ColumnDef):
+            # Ignore things like constraints.
+            continue
+
+        output_col = column_resolver.schema_aware_fuzzy_column_resolve(
+            output_table, column_def.name
         )
-    except (sqlglot.errors.OptimizeError, sqlglot.errors.ParseError) as e:
-        # This is not a fatal error, so we can continue.
-        logger.debug("sqlglot failed to annotate or parse types: %s", e)
+        output_col_type = column_def.args.get("kind")
+
+        column_lineage.append(
+            _ColumnLineageInfo(
+                downstream=_DownstreamColumnRef(
+                    table=output_table,
+                    column=output_col,
+                    column_type=output_col_type,
+                ),
+                upstreams=[],
+            )
+        )
+
+    return column_lineage
+
+
+def _select_statement_cll(  # noqa: C901
+    statement: _SupportedColumnLineageTypes,
+    dialect: sqlglot.Dialect,
+    root_scope: sqlglot.optimizer.Scope,
+    column_resolver: _ColumnResolver,
+    output_table: Optional[_TableName],
+) -> List[_ColumnLineageInfo]:
+    column_lineage: List[_ColumnLineageInfo] = []
 
     try:
-        assert isinstance(statement, _SupportedColumnLineageTypesTuple)
-
-        cached_scope = sqlglot.optimizer.build_scope(statement)
-
         # List output columns.
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
         for output_col, original_col_expression in output_columns:
-            if output_col == "*":
+            if not output_col or output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
-                continue
-
-            if output_col == "":
                 continue
 
             if is_dialect_instance(dialect, "bigquery") and output_col.lower() in {
@@ -512,54 +476,31 @@ def _column_level_lineage(  # noqa: C901
                 output_col,
                 statement,
                 dialect=dialect,
-                schema=sqlglot_db_schema,
-                scope=cached_scope,
+                scope=root_scope,
                 trim_selects=False,
+                # We don't need to pass the schema in here, since we've already qualified the columns.
             )
+            # import pathlib
             # pathlib.Path("sqlglot.html").write_text(
             #     str(lineage_node.to_html(dialect=dialect))
             # )
 
             # Generate SELECT lineage.
-            # Using a set here to deduplicate upstreams.
-            direct_raw_col_upstreams: Set[_ColumnRef] = set()
-            for node in lineage_node.walk():
-                if node.downstream:
-                    # We only want the leaf nodes.
-                    pass
-
-                elif isinstance(node.expression, sqlglot.exp.Table):
-                    table_ref = _TableName.from_sqlglot_table(node.expression)
-
-                    if node.name == "*":
-                        # This will happen if we couldn't expand the * to actual columns e.g. if
-                        # we don't have schema info for the table. In this case, we can't generate
-                        # column-level lineage, so we skip it.
-                        continue
-
-                    # Parse the column name out of the node name.
-                    # Sqlglot calls .sql(), so we have to do the inverse.
-                    normalized_col = sqlglot.parse_one(node.name).this.name
-                    if node.subfield:
-                        normalized_col = f"{normalized_col}.{node.subfield}"
-
-                    direct_raw_col_upstreams.add(
-                        _ColumnRef(table=table_ref, column=normalized_col)
-                    )
-                else:
-                    # This branch doesn't matter. For example, a count(*) column would go here, and
-                    # we don't get any column-level lineage for that.
-                    pass
+            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(lineage_node)
 
             # column_logic = lineage_node.source
 
+            # Fuzzy resolve the output column.
+            original_col_expression = lineage_node.expression
             if output_col.startswith("_col_"):
                 # This is the format sqlglot uses for unnamed columns e.g. 'count(id)' -> 'count(id) AS _col_0'
                 # This is a bit jank since we're relying on sqlglot internals, but it seems to be
                 # the best way to do it.
                 output_col = original_col_expression.this.sql(dialect=dialect)
 
-            output_col = _schema_aware_fuzzy_column_resolve(output_table, output_col)
+            output_col = column_resolver.schema_aware_fuzzy_column_resolve(
+                output_table, output_col
+            )
 
             # Guess the output column type.
             output_col_type = None
@@ -570,7 +511,9 @@ def _column_level_lineage(  # noqa: C901
             direct_resolved_col_upstreams = {
                 _ColumnRef(
                     table=edge.table,
-                    column=_schema_aware_fuzzy_column_resolve(edge.table, edge.column),
+                    column=column_resolver.schema_aware_fuzzy_column_resolve(
+                        edge.table, edge.column
+                    ),
                 )
                 for edge in direct_raw_col_upstreams
             }
@@ -596,6 +539,121 @@ def _column_level_lineage(  # noqa: C901
         ) from e
 
     return column_lineage
+
+
+class _ColumnLineageWithDebugInfo(_ParserBaseModel):
+    column_lineage: List[_ColumnLineageInfo]
+
+    select_statement: Optional[sqlglot.exp.Expression] = None
+    # TODO: Add column exceptions here.
+
+
+def _column_level_lineage(
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    downstream_table: Optional[_TableName],
+    table_name_schema_mapping: Dict[_TableName, SchemaInfo],
+    default_db: Optional[str],
+    default_schema: Optional[str],
+) -> _ColumnLineageWithDebugInfo:
+    # Simplify the input statement for column-level lineage generation.
+    try:
+        select_statement = _try_extract_select(statement)
+    except Exception as e:
+        raise SqlUnderstandingError(
+            f"Failed to extract select from statement: {e}"
+        ) from e
+
+    try:
+        assert select_statement is not None
+        (select_statement, column_resolver) = _prepare_query_columns(
+            select_statement,
+            dialect=dialect,
+            table_schemas=table_name_schema_mapping,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+    except UnsupportedStatementTypeError as e:
+        # Inject details about the outer statement type too.
+        e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
+        logger.debug(e)
+        raise e
+
+    # Handle the create table DDL case separately.
+    if is_create_table_ddl(select_statement):
+        column_lineage = _create_table_ddl_cll(
+            select_statement,
+            dialect=dialect,
+            column_resolver=column_resolver,
+            output_table=downstream_table,
+        )
+        return _ColumnLineageWithDebugInfo(
+            column_lineage=column_lineage,
+            select_statement=select_statement,
+        )
+
+    assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
+    try:
+        root_scope = sqlglot.optimizer.build_scope(select_statement)
+        if root_scope is None:
+            raise SqlUnderstandingError(
+                f"Failed to build scope for statement - scope was empty: {statement}"
+            )
+    except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
+        raise SqlUnderstandingError(
+            f"sqlglot failed to preprocess statement: {e}"
+        ) from e
+
+    # Generate column-level lineage.
+    column_lineage = _select_statement_cll(
+        select_statement,
+        dialect=dialect,
+        root_scope=root_scope,
+        column_resolver=column_resolver,
+        output_table=downstream_table,
+    )
+
+    return _ColumnLineageWithDebugInfo(
+        column_lineage=column_lineage,
+        select_statement=select_statement,
+    )
+
+
+def _get_direct_raw_col_upstreams(
+    lineage_node: sqlglot.lineage.Node,
+) -> Set[_ColumnRef]:
+    # Using a set here to deduplicate upstreams.
+    direct_raw_col_upstreams: Set[_ColumnRef] = set()
+
+    for node in lineage_node.walk():
+        if node.downstream:
+            # We only want the leaf nodes.
+            pass
+
+        elif isinstance(node.expression, sqlglot.exp.Table):
+            table_ref = _TableName.from_sqlglot_table(node.expression)
+
+            if node.name == "*":
+                # This will happen if we couldn't expand the * to actual columns e.g. if
+                # we don't have schema info for the table. In this case, we can't generate
+                # column-level lineage, so we skip it.
+                continue
+
+            # Parse the column name out of the node name.
+            # Sqlglot calls .sql(), so we have to do the inverse.
+            normalized_col = sqlglot.parse_one(node.name).this.name
+            if node.subfield:
+                normalized_col = f"{normalized_col}.{node.subfield}"
+
+            direct_raw_col_upstreams.add(
+                _ColumnRef(table=table_ref, column=normalized_col)
+            )
+        else:
+            # This branch doesn't matter. For example, a count(*) column would go here, and
+            # we don't get any column-level lineage for that.
+            pass
+
+    return direct_raw_col_upstreams
 
 
 def _extract_select_from_create(
@@ -641,7 +699,7 @@ def _extract_select_from_update(
             new_expressions.append(expr)
 
     # Special translation for the `from` clause.
-    extra_args = {}
+    extra_args: dict = {}
     original_from = statement.args.get("from")
     if original_from and isinstance(original_from.this, sqlglot.exp.Table):
         # Move joins, laterals, and pivots from the Update->From->Table->field
@@ -650,7 +708,8 @@ def _extract_select_from_update(
         for k in _UPDATE_FROM_TABLE_ARGS_TO_MOVE:
             if k in original_from.this.args:
                 # Mutate the from table clause in-place.
-                extra_args[k] = original_from.this.args.pop(k)
+                extra_args[k] = original_from.this.args.get(k)
+                original_from.this.set(k, None)
 
     select_statement = sqlglot.exp.Select(
         **{
@@ -674,12 +733,6 @@ def _extract_select_from_update(
         select_statement = select_statement.from_(statement.this)
 
     return select_statement
-
-
-def _is_create_table_ddl(statement: sqlglot.exp.Expression) -> bool:
-    return isinstance(statement, sqlglot.exp.Create) and isinstance(
-        statement.this, sqlglot.exp.Schema
-    )
 
 
 def _try_extract_select(
@@ -878,38 +931,27 @@ def _sqlglot_lineage_inner(
         f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas"
     )
 
-    # Simplify the input statement for column-level lineage generation.
-    try:
-        select_statement = _try_extract_select(statement)
-    except Exception as e:
-        logger.debug(f"Failed to extract select from statement: {e}", exc_info=True)
-        debug_info.column_error = e
-        select_statement = None
-
-    # Generate column-level lineage.
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
-        if select_statement is not None:
-            with cooperative_timeout(
-                timeout=(
-                    SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
-                )
-            ):
-                column_lineage = _column_level_lineage(
-                    select_statement,
-                    dialect=dialect,
-                    table_schemas=table_name_schema_mapping,
-                    output_table=downstream_table,
-                    default_db=default_db,
-                    default_schema=default_schema,
-                )
-    except UnsupportedStatementTypeError as e:
-        # Inject details about the outer statement type too.
-        e.args = (f"{e.args[0]} (outer statement type: {type(statement)})",)
-        debug_info.column_error = e
-        logger.debug(debug_info.column_error)
+        with cooperative_timeout(
+            timeout=(
+                SQL_LINEAGE_TIMEOUT_SECONDS if SQL_LINEAGE_TIMEOUT_ENABLED else None
+            )
+        ):
+            column_lineage_debug_info = _column_level_lineage(
+                statement,
+                dialect=dialect,
+                downstream_table=downstream_table,
+                table_name_schema_mapping=table_name_schema_mapping,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+            column_lineage = column_lineage_debug_info.column_lineage
     except CooperativeTimeoutError as e:
         logger.debug(f"Timed out while generating column-level lineage: {e}")
+        debug_info.column_error = e
+    except UnsupportedStatementTypeError as e:
+        # For this known exception type, we assume the error is logged at the point of failure.
         debug_info.column_error = e
     except Exception as e:
         logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
@@ -923,12 +965,20 @@ def _sqlglot_lineage_inner(
     out_urns = sorted({table_name_urn_mapping[table] for table in modified})
     column_lineage_urns = None
     if column_lineage:
-        column_lineage_urns = [
-            _translate_internal_column_lineage(
-                table_name_urn_mapping, internal_col_lineage, dialect=dialect
+        try:
+            column_lineage_urns = [
+                _translate_internal_column_lineage(
+                    table_name_urn_mapping, internal_col_lineage, dialect=dialect
+                )
+                for internal_col_lineage in column_lineage
+            ]
+        except KeyError as e:
+            # When this happens, it's usually because of things like PIVOT where we can't
+            # really go up the scope chain.
+            logger.debug(
+                f"Failed to translate column lineage to urns: {e}", exc_info=True
             )
-            for internal_col_lineage in column_lineage
-        ]
+            debug_info.column_error = e
 
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect

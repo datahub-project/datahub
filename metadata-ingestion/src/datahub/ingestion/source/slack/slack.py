@@ -38,6 +38,8 @@ class CorpUser:
     title: Optional[str] = None
     image_url: Optional[str] = None
     phone: Optional[str] = None
+    real_name: Optional[str] = None
+    slack_display_name: Optional[str] = None
 
 
 class SlackSourceConfig(ConfigModel):
@@ -144,6 +146,12 @@ class SlackSource(Source):
                 corpuser_editable_info.pictureLink = user_obj.image_url
             if user_obj.phone:
                 corpuser_editable_info.phone = user_obj.phone
+            if (
+                not corpuser_editable_info.displayName
+                or corpuser_editable_info.displayName == corpuser_editable_info.email
+            ):
+                # let's fill out a real name
+                corpuser_editable_info.displayName = user_obj.real_name
             yield MetadataWorkUnit(
                 id=f"{user_obj.urn}",
                 mcp=MetadataChangeProposalWrapper(
@@ -259,6 +267,9 @@ class SlackSource(Source):
             user_obj.title = user_profile.get("title")
             user_obj.image_url = user_profile.get("image_192")
             user_obj.phone = user_profile.get("phone")
+            user_obj.real_name = user_profile.get("real_name")
+            user_obj.slack_display_name = user_profile.get("display_name")
+
         except Exception as e:
             if "missing_scope" in str(e):
                 if self._use_users_info:
