@@ -297,6 +297,11 @@ You can use the following APIs to trigger the assertions you've created to run o
 particularly useful for running assertions on a custom schedule, for example from your production
 data pipelines.
 
+> **Long-Running Assertions**: The timeout for synchronously running an assertion is currently limited to a maximum of 30 seconds. 
+> Each of the following APIs support an `async` parameter, which can be set to `true` to run the assertion asynchronously.
+> When set to `true`, the API will kick off the assertion run and return null immediately. To view the result of the assertion,
+> simply fetching the runEvents field of the `assertion(urn: String!)` GraphQL query. 
+
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
 
