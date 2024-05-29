@@ -1,5 +1,7 @@
 package com.linkedin.metadata.aspect.patch.template.form;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.data.template.RecordTemplate;
@@ -46,13 +48,16 @@ public class FormInfoTemplate extends CompoundKeyTemplate<FormInfo> {
             baseNode, PROMPTS_FIELD_NAME, Collections.singletonList(PROMPT_ID_FIELD_NAME));
 
     JsonNode actors = transformedNode.get(ACTORS_FIELD_NAME);
+    if (actors == null) {
+      actors = instance.objectNode();
+    }
 
     JsonNode transformedActorsNode =
         arrayFieldToMap(actors, USERS_FIELD_NAME, Collections.emptyList());
     transformedActorsNode =
         arrayFieldToMap(transformedActorsNode, GROUPS_FIELD_NAME, Collections.emptyList());
-
     ((ObjectNode) transformedNode).set(ACTORS_FIELD_NAME, transformedActorsNode);
+
     return transformedNode;
   }
 
@@ -64,13 +69,16 @@ public class FormInfoTemplate extends CompoundKeyTemplate<FormInfo> {
             patched, PROMPTS_FIELD_NAME, Collections.singletonList(PROMPT_ID_FIELD_NAME));
 
     JsonNode actors = transformedNode.get(ACTORS_FIELD_NAME);
+    if (actors == null) {
+      actors = instance.objectNode();
+    }
 
     JsonNode transformedActorsNode =
         transformedMapToArray(actors, USERS_FIELD_NAME, Collections.emptyList());
     transformedActorsNode =
         transformedMapToArray(transformedActorsNode, GROUPS_FIELD_NAME, Collections.emptyList());
-
     ((ObjectNode) transformedNode).set(ACTORS_FIELD_NAME, transformedActorsNode);
+
     return transformedNode;
   }
 }
