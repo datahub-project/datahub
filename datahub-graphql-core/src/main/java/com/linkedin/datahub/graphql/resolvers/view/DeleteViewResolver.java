@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.view;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetcher;
@@ -27,7 +28,7 @@ public class DeleteViewResolver implements DataFetcher<CompletableFuture<Boolean
     final QueryContext context = environment.getContext();
     final String urnStr = environment.getArgument("urn");
     final Urn urn = Urn.createFromString(urnStr);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (ViewUtils.canUpdateView(_viewService, urn, context)) {
@@ -43,6 +44,8 @@ public class DeleteViewResolver implements DataFetcher<CompletableFuture<Boolean
             throw new RuntimeException(
                 String.format("Failed to perform delete against View with urn %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

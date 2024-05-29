@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -26,7 +27,7 @@ public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>
   @Override
   @Nullable
   public CompletableFuture<SubTypes> get(DataFetchingEnvironment environment) throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           SubTypes subType = null;
@@ -50,6 +51,8 @@ public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>
                 "Failed to fetch aspect " + _aspectName + " for urn " + urnStr + " ", e);
           }
           return subType;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

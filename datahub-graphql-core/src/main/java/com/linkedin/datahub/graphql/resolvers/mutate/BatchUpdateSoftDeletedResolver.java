@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchUpdateSoftDeletedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DeleteUtils;
@@ -30,7 +31,7 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
     final List<String> urns = input.getUrns();
     final boolean deleted = input.getDeleted();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the entities exist
@@ -50,7 +51,9 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
                     "Failed to perform batch soft delete against input %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateInputUrns(List<String> urnStrs, QueryContext context) {

@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateQueryInput;
 import com.linkedin.datahub.graphql.generated.CreateQuerySubjectInput;
@@ -39,7 +40,7 @@ public class CreateQueryResolver implements DataFetcher<CompletableFuture<QueryE
         bindArgument(environment.getArgument("input"), CreateQueryInput.class);
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canCreateQuery(
               input.getSubjects().stream()
@@ -76,6 +77,8 @@ public class CreateQueryResolver implements DataFetcher<CompletableFuture<QueryE
             throw new RuntimeException(
                 String.format("Failed to create a new Query from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

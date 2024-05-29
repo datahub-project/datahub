@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -38,7 +39,7 @@ public class GetIngestionExecutionRequestResolver
 
     if (IngestionAuthUtils.canManageIngestion(context)) {
       final String urnStr = environment.getArgument("urn");
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // Fetch specific execution request
@@ -62,7 +63,9 @@ public class GetIngestionExecutionRequestResolver
             } catch (Exception e) {
               throw new RuntimeException("Failed to retrieve execution request", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");
