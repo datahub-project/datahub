@@ -11,12 +11,12 @@ from click_default_group import DefaultGroup
 
 from datahub.cli.config_utils import (
     DATAHUB_ROOT_FOLDER,
-    DatahubConfig,
     get_client_config,
     persist_datahub_config,
 )
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
+from datahub.ingestion.graph.client import DatahubConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.lite.duckdb_lite_config import DuckDBLiteConfig
@@ -45,7 +45,7 @@ class LiteCliConfig(DatahubConfig):
 
 
 def get_lite_config() -> LiteLocalConfig:
-    client_config_dict = get_client_config(as_dict=True)
+    client_config_dict = get_client_config()
     lite_config = LiteCliConfig.parse_obj(client_config_dict)
     return lite_config.lite
 
@@ -309,7 +309,7 @@ def search(
 
 
 def write_lite_config(lite_config: LiteLocalConfig) -> None:
-    cli_config = get_client_config(as_dict=True)
+    cli_config = get_client_config()
     assert isinstance(cli_config, dict)
     cli_config["lite"] = lite_config.dict()
     persist_datahub_config(cli_config)

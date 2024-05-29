@@ -39,6 +39,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Deprecations
 
 ### Other Notable Change
+- #10466 - Extends configuration in `~/.datahubenv` to match `DatahubClientConfig` object definition. See full configuration in https://datahubproject.io/docs/python-sdk/clients/. The CLI should now respect the updated configurations specified in `~/.datahubenv` across its functions and utilities. This means that for systems where ssl certification is disabled, setting `disable_ssl_verification: true` in `~./datahubenv` will apply to all CLI calls.
 
 ## 0.13.1
 
