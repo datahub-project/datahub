@@ -351,6 +351,35 @@ def mock_hive_sql(query):
                 "",
             ),
         ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`external_metastore`":
+        return [
+            ("betStatusId", "bigint", None),
+            ("channelId", "bigint", None),
+            (
+                "combination",
+                "struct<combinationRef:bigint,currentOdds:double,eachWay:boolean,liveBetting:boolean,odds:double,outcomes:array<struct<betOfferTypeId:bigint,criterionId:bigint,criterionName:string,currentOdds:double,eventGroupId:bigint,eventGroupPath:array<struct<id:bigint,name:string>>,eventId:bigint,eventName:string,eventStartDate:string,live:boolean,odds:double,outcomeIds:array<bigint>,outcomeLabel:string,sportId:string,status:string,voidReason:string>>,payout:double,rewardExtraPayout:double,stake:double>",
+                None,
+            ),
+            ("", "", ""),
+            ("# Detailed Table Information", "", ""),
+            ("Catalog", "hive_metastore", ""),
+            ("Database", "bronze_kambi", ""),
+            ("Table", "external_metastore", ""),
+            ("Created Time", "Wed Jun 22 05:14:56 UTC 2022", ""),
+            ("Last Access", "UNKNOWN", ""),
+            ("Created By", "Spark 3.2.1", ""),
+            ("Statistics", "1024 bytes, 3 rows", ""),
+            ("Type", "EXTERNAL", ""),
+            ("Location", "s3://external_metastore/", ""),
+            ("Provider", "delta", ""),
+            ("Owner", "root", ""),
+            ("Is_managed_location", "true", ""),
+            (
+                "Table Properties",
+                "[delta.autoOptimize.autoCompact=true,delta.autoOptimize.optimizeWrite=true,delta.minReaderVersion=1,delta.minWriterVersion=2]",
+                "",
+            ),
+        ]
     elif query == "DESCRIBE EXTENDED `bronze_kambi`.`view1`":
         return [
             ("betStatusId", "bigint", None),
@@ -384,6 +413,7 @@ def mock_hive_sql(query):
     elif query == "SHOW TABLES FROM `bronze_kambi`":
         return [
             TableEntry("bronze_kambi", "bet", False),
+            TableEntry("bronze_kambi", "external_metastore", False),
             TableEntry("bronze_kambi", "delta_error_table", False),
             TableEntry("bronze_kambi", "view1", False),
         ]
