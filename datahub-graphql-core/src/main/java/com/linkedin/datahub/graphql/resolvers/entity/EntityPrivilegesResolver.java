@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
@@ -37,7 +38,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final String urnString = ((Entity) environment.getSource()).getUrn();
     final Urn urn = UrnUtils.getUrn(urnString);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           switch (urn.getEntityType()) {
             case Constants.GLOSSARY_TERM_ENTITY_NAME:
@@ -60,7 +61,9 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               addCommonPrivileges(commonPrivileges, urn, context);
               return commonPrivileges;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private EntityPrivileges getGlossaryTermPrivileges(Urn termUrn, QueryContext context) {
