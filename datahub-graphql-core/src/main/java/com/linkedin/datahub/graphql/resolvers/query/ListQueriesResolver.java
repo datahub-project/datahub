@@ -1,9 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapSortCriterion;
-import static com.linkedin.metadata.Constants.*;
-
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -31,6 +27,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -60,10 +60,10 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            SortCriterion sortCriterion =
-                input.getSortInput() != null
-                    ? mapSortCriterion(input.getSortInput().getSortCriterion())
-                    : new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
+            List<SortCriterion> sortCriteria =
+                    input.getSortInput() != null
+                            ? Collections.singletonList(mapSortCriterion(input.getSortInput().getSortCriterion()))
+                            : Collections.singletonList(new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING));
 
             // First, get all Query Urns.
             final SearchResult gmsResult =
@@ -75,7 +75,8 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                     QUERY_ENTITY_NAME,
                     query,
                     buildFilters(input),
-                    sortCriterion,
+                    finalFilter,
+                    sortCriteria,
                     start,
                     count);
 

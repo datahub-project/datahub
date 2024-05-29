@@ -153,10 +153,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size) {
-    return search(opContext, entityNames, input, postFilters, sortCriterion, from, size, null);
+    return search(opContext, entityNames, input, postFilters, sortCriteria, from, size, null);
   }
 
   @Nonnull
@@ -165,14 +165,14 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
     log.debug(
         String.format(
-            "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
-            entityNames, input, postFilters, sortCriterion, from, size));
+            "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
+            entityNames, input, postFilters, sortCriteria, from, size));
 
     return esSearchDAO.search(
         opContext.withSearchFlags(
@@ -180,7 +180,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         entityNames,
         input,
         postFilters,
-        sortCriterion,
+        sortCriteria,
         from,
         size,
         facets);
@@ -192,20 +192,20 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size) {
     log.debug(
         String.format(
-            "Filtering Search documents entityName: %s, filters: %s, sortCriterion: %s, from: %s, size: %s",
-            entityName, filters, sortCriterion, from, size));
+            "Filtering Search documents entityName: %s, filters: %s, sortCriteria: %s, from: %s, size: %s",
+            entityName, filters, sortCriteria, from, size));
 
     return esSearchDAO.filter(
         opContext.withSearchFlags(
             flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
         entityName,
         filters,
-        sortCriterion,
+        sortCriteria,
         from,
         size);
   }
@@ -216,23 +216,23 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int size,
       @Nullable String scrollId,
       @Nonnull String keepAliveDuration,
       @Nullable SearchDocFieldFetchConfig fetchConfig) {
     log.debug(
-        "Filtering Search documents entityName: {}, filters: {}, sortCriterion: {}, size: {}, scrollId: {}",
+        "Filtering Search documents entityName: {}, filters: {}, sortCriteria: {}, size: {}, scrollId: {}",
         entities,
         filters,
-        sortCriterion,
+        sortCriteria,
         size,
         scrollId);
     return esSearchDAO.scroll(
         opContext,
         entities,
         filters,
-        sortCriterion,
+        sortCriteria,
         size,
         scrollId,
         keepAliveDuration,
@@ -370,14 +370,14 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size) {
     log.debug(
         String.format(
-            "Scrolling Full Text Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
-            entities, input, postFilters, sortCriterion, scrollId, size));
+            "Scrolling Full Text Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
+            entities, input, postFilters, sortCriteria, scrollId, size));
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(
@@ -387,7 +387,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         entities,
         input,
         postFilters,
-        sortCriterion,
+        sortCriteria,
         scrollId,
         keepAlive,
         size);
@@ -400,14 +400,14 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull List<String> entities,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size) {
     log.debug(
         String.format(
-            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
-            entities, input, postFilters, sortCriterion, scrollId, size));
+            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
+            entities, input, postFilters, sortCriteria, scrollId, size));
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(
@@ -417,7 +417,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         entities,
         input,
         postFilters,
-        sortCriterion,
+        sortCriteria,
         scrollId,
         keepAlive,
         size);
@@ -440,7 +440,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull String documentId,
       @Nonnull String entityName,
       @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
@@ -453,7 +453,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         documentId,
         entityName,
         postFilters,
-        sortCriterion,
+        sortCriteria,
         scrollId,
         keepAlive,
         size,

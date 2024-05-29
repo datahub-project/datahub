@@ -2671,7 +2671,7 @@
               "type" : "com.linkedin.dataset.SchemaFieldPath",
               "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
               "Searchable" : {
-                "boostScore" : 5.0,
+                "boostScore" : 1.0,
                 "fieldName" : "fieldPaths",
                 "fieldType" : "TEXT",
                 "queryByDefault" : "true"

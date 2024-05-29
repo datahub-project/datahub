@@ -25,6 +25,7 @@ import graphql.com.google.common.collect.ImmutableList;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -69,9 +70,9 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                       Constants.TEST_ENTITY_NAME,
                       query,
                       buildTestsFilter(),
-                      new SortCriterion()
+                      Collections.singletonList(new SortCriterion()
                           .setField(TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME)
-                          .setOrder(SortOrder.DESCENDING),
+                          .setOrder(SortOrder.DESCENDING)),
                       start,
                       count);
 

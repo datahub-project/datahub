@@ -117,15 +117,15 @@ public class ListActionRequestsResolver
                     startTimestampMillis,
                     endTimestampMillis);
 
-            final SortCriterion sortCriterion =
-                new SortCriterion().setField(CREATED_FIELD_NAME).setOrder(SortOrder.DESCENDING);
+            final List<SortCriterion> sortCriteria =
+                Collections.singletonList(new SortCriterion().setField(CREATED_FIELD_NAME).setOrder(SortOrder.DESCENDING));
 
             final SearchResult searchResult =
                 _entityClient.filter(
                     context.getOperationContext(),
                     ACTION_REQUEST_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
 

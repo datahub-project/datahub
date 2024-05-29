@@ -1,9 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import static com.linkedin.metadata.search.api.SearchDocFieldFetchConfig.*;
-import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
-import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -71,6 +67,9 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightField;
 import org.opensearch.search.suggest.term.TermSuggestion;
+
+import static com.linkedin.metadata.search.api.SearchDocFieldFetchConfig.*;
+import static com.linkedin.metadata.search.utils.ESUtils.*;
 
 @Slf4j
 public class SearchRequestHandler {
@@ -217,7 +216,7 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull String input,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
@@ -254,7 +253,7 @@ public class SearchRequestHandler {
       final SearchFlags searchFlags,
       final QueryBuilder filterQuery,
       final List<String> facets,
-      final SortCriterion sortCriterion) {
+      final List<SortCriterion> sortCriteria) {
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
             .must(getQuery(opContext, input, Boolean.TRUE.equals(searchFlags.isFulltext())))
@@ -267,7 +266,7 @@ public class SearchRequestHandler {
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       searchSourceBuilder.highlighter(highlights);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
 
     if (Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
@@ -296,7 +295,7 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull String input,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable Object[] sort,
       @Nullable String pitId,
       @Nullable String keepAlive,
@@ -326,7 +325,7 @@ public class SearchRequestHandler {
             searchFlags,
             filterQuery,
             facets,
-            sortCriterion)
+            sortCriteria)
         .indicesOptions(null);
   }
 
@@ -335,7 +334,7 @@ public class SearchRequestHandler {
    * to be applied to search results.
    *
    * @param filters {@link Filter} list of conditions with fields and values
-   * @param sortCriterion {@link SortCriterion} to be applied to the search results
+   * @param sortCriteria {@link SortCriterion} to be applied to the search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return {@link SearchRequest} that contains the filtered query
@@ -344,7 +343,7 @@ public class SearchRequestHandler {
   public SearchRequest getFilterRequest(
       @Nonnull OperationContext opContext,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size) {
     SearchRequest searchRequest = new SearchRequest();
@@ -353,7 +352,7 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -365,7 +364,7 @@ public class SearchRequestHandler {
    * legacy scroll
    *
    * @param filters {@link Filter} list of conditions with fields and values
-   * @param sortCriterion {@link SortCriterion} to be applied to the search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to the search results
    * @param size the number of search hits to return
    * @param keepAliveDuration duration the search context should be kept alive i.e. 10s, 1m
    * @return {@link SearchRequest} that contains the filtered query
@@ -374,7 +373,7 @@ public class SearchRequestHandler {
   public SearchRequest getSearchAfterRequest(
       @Nonnull OperationContext opContext,
       @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int size,
       String keepAliveDuration,
       @Nullable String pitId,
@@ -390,7 +389,7 @@ public class SearchRequestHandler {
       fieldFetchConfig = new SearchDocFieldFetchConfig();
     }
     searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAliveDuration);
 

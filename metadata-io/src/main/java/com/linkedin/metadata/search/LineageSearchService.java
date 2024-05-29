@@ -118,7 +118,7 @@ public class LineageSearchService {
    * @param maxHops the maximum number of hops away to search for. If null, defaults to 1000
    * @param inputFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return a {@link LineageSearchResult} that contains a list of matched documents and related
@@ -134,7 +134,7 @@ public class LineageSearchService {
       @Nullable String input,
       @Nullable Integer maxHops,
       @Nullable Filter inputFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size) {
 
@@ -255,7 +255,7 @@ public class LineageSearchService {
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
 
-      if (canDoLightning(lineageRelationships, finalInput, reducedFilters, sortCriterion)) {
+      if (canDoLightning(lineageRelationships, finalInput, reducedFilters, sortCriteria)) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
         LineageSearchResult lineageSearchResult =
@@ -276,7 +276,7 @@ public class LineageSearchService {
                 lineageRelationships,
                 finalInput,
                 reducedFilters,
-                sortCriterion,
+                sortCriteria,
                 from,
                 size);
         if (!lineageSearchResult.getEntities().isEmpty()) {
@@ -303,7 +303,7 @@ public class LineageSearchService {
       List<LineageRelationship> lineageRelationships,
       String input,
       Filter inputFilters,
-      SortCriterion sortCriterion) {
+      List<SortCriterion> sortCriteria) {
     boolean simpleFilters =
         inputFilters == null
             || inputFilters.getOr() == null
@@ -318,7 +318,7 @@ public class LineageSearchService {
     return (lineageRelationships.size() > cacheConfiguration.getLightningThreshold())
         && input.equals("*")
         && simpleFilters
-        && sortCriterion == null;
+        && CollectionUtils.isEmpty(sortCriteria);
   }
 
   @VisibleForTesting
@@ -533,7 +533,7 @@ public class LineageSearchService {
       List<LineageRelationship> lineageRelationships,
       @Nonnull String input,
       @Nullable Filter inputFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int from,
       int size) {
 
@@ -566,7 +566,7 @@ public class LineageSearchService {
                   entitiesToQuery,
                   input,
                   finalFilter,
-                  sortCriterion,
+                  sortCriteria,
                   queryFrom,
                   querySize),
               urnToRelationship);
@@ -761,7 +761,7 @@ public class LineageSearchService {
    * @param maxHops the maximum number of hops away to search for. If null, defaults to 1000
    * @param inputFilters the request map with fields and values as filters to be applied to search
    *     hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param scrollId opaque scroll identifier to pass to search service
    * @param size the number of search hits to return
    * @return a {@link LineageSearchResult} that contains a list of matched documents and related
@@ -777,7 +777,7 @@ public class LineageSearchService {
       @Nullable String input,
       @Nullable Integer maxHops,
       @Nullable Filter inputFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       int size) {
@@ -831,7 +831,7 @@ public class LineageSearchService {
         lineageRelationships,
         input != null ? input : "*",
         reducedFilters,
-        sortCriterion,
+        sortCriteria,
         scrollId,
         keepAlive,
         size);
@@ -843,7 +843,7 @@ public class LineageSearchService {
       List<LineageRelationship> lineageRelationships,
       @Nonnull String input,
       @Nullable Filter inputFilters,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       int size) {
@@ -878,7 +878,7 @@ public class LineageSearchService {
                   entitiesToQuery,
                   input,
                   finalFilter,
-                  sortCriterion,
+                  sortCriteria,
                   scrollId,
                   keepAlive,
                   querySize),

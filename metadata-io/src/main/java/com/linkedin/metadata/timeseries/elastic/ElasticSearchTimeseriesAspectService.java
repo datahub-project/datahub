@@ -1,7 +1,5 @@
 package com.linkedin.metadata.timeseries.elastic;
 
-import static com.linkedin.metadata.Constants.*;
-
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ESQueryException;
@@ -77,6 +75,8 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortBuilders;
 import org.opensearch.search.sort.SortOrder;
+
+import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class ElasticSearchTimeseriesAspectService
@@ -562,7 +562,7 @@ public class ElasticSearchTimeseriesAspectService
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nullable Filter filter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count,
       @Nullable Long startTimeMillis,
@@ -604,7 +604,7 @@ public class ElasticSearchTimeseriesAspectService
             entityName,
             aspectName,
             filterQueryBuilder,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             count);
     int totalCount = (int) response.getHits().getTotalHits().value;
@@ -627,7 +627,7 @@ public class ElasticSearchTimeseriesAspectService
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final QueryBuilder query,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       final int count) {
 
@@ -643,7 +643,7 @@ public class ElasticSearchTimeseriesAspectService
 
     searchSourceBuilder.size(count);
     searchSourceBuilder.query(query);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, List.of(), false);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, List.of(), false);
     searchRequest.source(searchSourceBuilder);
     ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
 

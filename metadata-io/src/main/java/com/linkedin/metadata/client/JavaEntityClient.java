@@ -414,7 +414,7 @@ public class JavaEntityClient implements EntityClient {
    *
    * @param input search query
    * @param filter search filters
-   * @param sortCriterion sort criterion
+   * @param sortCriteria sort criteria
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
@@ -426,14 +426,14 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String entity,
       @Nonnull String input,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
         opContext,
         entitySearchService.search(
-            opContext, List.of(entity), input, filter, sortCriterion, start, count),
+            opContext, List.of(entity), input, filter, sortCriteria, start, count),
         entityService);
   }
 
@@ -446,10 +446,10 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion)
+      @Nullable List<SortCriterion> sortCriteria)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriterion, null);
+        opContext, entities, input, filter, start, count, sortCriteria, null);
   }
 
   /**
@@ -461,7 +461,7 @@ public class JavaEntityClient implements EntityClient {
    * @param start start offset for search results
    * @param count max number of search results requested
    * @param facets list of facets we want aggregations for
-   * @param sortCriterion sorting criterion
+   * @param sortCriteria sorting criteria
    * @return Snapshot key
    * @throws RemoteInvocationException when unable to execute request
    */
@@ -473,7 +473,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
 
@@ -484,7 +484,7 @@ public class JavaEntityClient implements EntityClient {
             entities,
             input,
             filter,
-            sortCriterion,
+            sortCriteria,
             start,
             count,
             facets),
@@ -526,7 +526,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
@@ -540,7 +540,7 @@ public class JavaEntityClient implements EntityClient {
             input,
             maxHops,
             filter,
-            sortCriterion,
+            sortCriteria,
             start,
             count),
         entityService);
@@ -556,7 +556,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String input,
       @Nullable Integer maxHops,
       @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       int count)
@@ -574,7 +574,7 @@ public class JavaEntityClient implements EntityClient {
             input,
             maxHops,
             filter,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             keepAlive,
             count),
@@ -642,7 +642,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull Filter filter,
-      @Nullable SortCriterion sortCriterion,
+      List<SortCriterion> sortCriteria,
       int start,
       int count)
       throws RemoteInvocationException {
@@ -652,7 +652,7 @@ public class JavaEntityClient implements EntityClient {
             opContext.withSearchFlags(flags -> flags.setFulltext(true)),
             entity,
             filter,
-            sortCriterion,
+            sortCriteria,
             start,
             count),
         entityService);
