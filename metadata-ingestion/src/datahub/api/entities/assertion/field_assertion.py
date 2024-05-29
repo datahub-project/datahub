@@ -51,7 +51,6 @@ class FieldTransform(Enum):
 
 class FieldValuesAssertion(BaseEntityAssertion):
     type: Literal["field"]
-    operand: Literal["field_values"]
     field: str
     field_transform: Optional[FieldTransform] = v1_Field(default=None)
     operator: Operators = v1_Field(discriminator="type")
@@ -102,7 +101,6 @@ class FieldValuesAssertion(BaseEntityAssertion):
 
 class FieldMetricAssertion(BaseEntityAssertion):
     type: Literal["field"]
-    operand: Literal["field_metric"]
     field: str
     operator: Operators = v1_Field(discriminator="type")
     metric: FieldMetric
@@ -142,9 +140,7 @@ class FieldMetricAssertion(BaseEntityAssertion):
 
 
 class FieldAssertion(BaseAssertionProtocol):
-    __root__: Union[FieldValuesAssertion, FieldMetricAssertion] = v1_Field(
-        discriminator="operand"
-    )
+    __root__: Union[FieldMetricAssertion, FieldValuesAssertion]
 
     @property
     def assertion(self):

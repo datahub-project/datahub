@@ -22,7 +22,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 class SqlMetricAssertion(BaseEntityAssertion):
     type: Literal["custom_sql"]
     sql: str
-    operand: Literal["metric"]
     operator: Operators = v1_Field(discriminator="type")
 
     def get_assertion_info(
@@ -44,7 +43,6 @@ class SqlMetricAssertion(BaseEntityAssertion):
 class SqlMetricChangeAssertion(BaseEntityAssertion):
     type: Literal["custom_sql"]
     sql: str
-    operand: Literal["metric_change"]
     change_type: Literal["absolute", "percentage"]
     operator: Operators = v1_Field(discriminator="type")
 
@@ -70,9 +68,7 @@ class SqlMetricChangeAssertion(BaseEntityAssertion):
 
 
 class SQLAssertion(BaseAssertionProtocol):
-    __root__: Union[SqlMetricAssertion, SqlMetricChangeAssertion] = v1_Field(
-        discriminator="operand"
-    )
+    __root__: Union[SqlMetricAssertion, SqlMetricChangeAssertion] = v1_Field()
 
     @property
     def assertion(self):

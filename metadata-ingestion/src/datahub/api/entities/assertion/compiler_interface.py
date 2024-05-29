@@ -2,7 +2,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Literal
 
 from datahub.api.entities.assertion.assertion_config_spec import AssertionsConfigSpec
 from datahub.ingestion.api.report import Report
@@ -22,19 +22,20 @@ class CompileResultArtifactType(StrEnum):
 class CompileResultArtifact(Report):
     name: str
     type: CompileResultArtifactType
-    description: str
     path: Path
+    description: str
 
 
 @dataclass
 class AssertionCompilationReport(Report):
+    """Additional details to debug compilation"""
+
     num_processed: int = 0
     num_compile_succeeded: int = 0
     num_compile_failed: int = 0  # Likely due to assertion not supported in platform
+
     warnings: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
     failures: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
-
-    generated_artifacts: List[CompileResultArtifact] = field(default_factory=list)
 
     def report_warning(self, key: str, reason: str) -> None:
         warnings = self.warnings.get(key, LossyList())
@@ -46,8 +47,22 @@ class AssertionCompilationReport(Report):
         failures.append(reason)
         self.failures[key] = failures
 
-    def report_artifact(self, artifact: CompileResultArtifact) -> None:
-        self.generated_artifacts.append(artifact)
+
+@dataclass
+class AssertionCompilationResult:
+    """Results of compilation step , along with detailed report object"""
+
+    platform: str
+    status: Literal["success", "failure"]
+
+    report: AssertionCompilationReport = field(
+        default_factory=AssertionCompilationReport
+    )
+
+    artifacts: List[CompileResultArtifact] = field(default_factory=list)
+
+    def add_artifact(self, artifact: CompileResultArtifact) -> None:
+        self.artifacts.append(artifact)
 
 
 class AssertionCompiler:
@@ -57,7 +72,7 @@ class AssertionCompiler:
         pass
 
     @abstractmethod
-    def process(
+    def compile(
         self, assertion_config_spec: AssertionsConfigSpec
-    ) -> AssertionCompilationReport:
+    ) -> AssertionCompilationResult:
         pass

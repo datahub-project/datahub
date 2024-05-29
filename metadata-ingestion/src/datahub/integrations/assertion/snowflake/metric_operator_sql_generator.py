@@ -19,7 +19,7 @@ class SnowflakeMetricEvalOperatorSQLGenerator:
 
     @operator_sql.register
     def _(self, operators: EqualToOperator, metric_sql: str) -> str:
-        return f"select case when metric=={operators.value} then 1 else 0 from ({metric_sql})"
+        return f"select case when metric={operators.value} then 1 else 0 end from ({metric_sql})"
 
     @operator_sql.register
     def _(self, operators: BetweenOperator, metric_sql: str) -> str:

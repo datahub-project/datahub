@@ -37,7 +37,7 @@ class SnowflakeFieldValuesMetricSQLGenerator:
         transformed_field: str,
         where_clause: str,
     ) -> str:
-        return f"""select case when {transformed_field}=={operators.value} then 0 else 1
+        return f"""select case when {transformed_field}={operators.value} then 0 else 1
         from {entity_name} {where_clause}"""
 
     @values_metric_sql.register

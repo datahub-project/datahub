@@ -24,7 +24,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 
 class RowCountTotalVolumeAssertion(BaseEntityAssertion):
     type: Literal["volume"]
-    volume_metric: Literal["row_count_total"]
     operator: Operators = v1_Field(discriminator="type")
     filter: Optional[DatasetFilter] = v1_Field(default=None)
 
@@ -47,7 +46,6 @@ class RowCountTotalVolumeAssertion(BaseEntityAssertion):
 
 class RowCountChangeVolumeAssertion(BaseEntityAssertion):
     type: Literal["volume"]
-    volume_metric: Literal["row_count_change"]
     change_type: Literal["absolute", "percentage"]
     operator: Operators = v1_Field(discriminator="type")
     filter: Optional[DatasetFilter] = v1_Field(default=None)
@@ -75,9 +73,7 @@ class RowCountChangeVolumeAssertion(BaseEntityAssertion):
 
 
 class VolumeAssertion(BaseAssertionProtocol):
-    __root__: Union[
-        RowCountTotalVolumeAssertion, RowCountChangeVolumeAssertion
-    ] = v1_Field(discriminator="volume_metric")
+    __root__: Union[RowCountTotalVolumeAssertion, RowCountChangeVolumeAssertion]
 
     @property
     def assertion(self):

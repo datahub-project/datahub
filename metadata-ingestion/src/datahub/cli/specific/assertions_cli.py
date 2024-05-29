@@ -8,6 +8,7 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.assertion.assertion_config_spec import AssertionsConfigSpec
 from datahub.api.entities.assertion.compiler_interface import (
+    AssertionCompilationResult,
     CompileResultArtifact,
     CompileResultArtifactType,
 )
@@ -99,12 +100,12 @@ def compile(
         compiler = ASSERTION_PLATFORMS[platform].create(
             output_dir=output_to, extras=extras_list_to_dict(extras)
         )
-        report = compiler.process(assertions_spec)
+        result = compiler.compile(assertions_spec)
 
-        write_report_file(output_to, report)
+        write_report_file(output_to, result)
         click.secho("Compile report:", bold=True)
-        click.echo(report.as_string())
-        if report.failures:
+        click.echo(result.report.as_string())
+        if result.status == "failure":
             click.secho("Failure", fg="yellow", bold=True)
         else:
             click.secho("Success", fg="green", bold=True)
@@ -116,10 +117,10 @@ def compile(
         )
 
 
-def write_report_file(output_to, report):
+def write_report_file(output_to: str, result: AssertionCompilationResult) -> None:
     report_path = Path(output_to) / REPORT_FILE_NAME
     with (report_path).open("w") as f:
-        report.report_artifact(
+        result.add_artifact(
             CompileResultArtifact(
                 name=REPORT_FILE_NAME,
                 path=report_path,
@@ -127,7 +128,7 @@ def write_report_file(output_to, report):
                 description="Detailed report about compile status",
             )
         )
-        f.write(report.as_json())
+        f.write(result.report.as_json())
 
 
 def extras_list_to_dict(extras: List[str]) -> Dict[str, str]:
