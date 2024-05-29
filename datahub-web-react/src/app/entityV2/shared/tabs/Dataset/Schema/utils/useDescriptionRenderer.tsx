@@ -10,6 +10,7 @@ import { useSchemaRefetch } from '../SchemaContext';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../graphql/proposals.generated';
 import { REDESIGN_COLORS } from '../../../../constants';
 import { sanitizeRichText } from '../../../Documentation/components/editor/utils';
+import { getFieldDescriptionDetails } from './getFieldDescriptionDetails';
 
 const CompactDescription = styled.div`
     overflow: hidden;
@@ -37,10 +38,15 @@ export default function useDescriptionRenderer(
     };
 
     return (description: string | undefined, record: SchemaField, index: number): JSX.Element => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
-            (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
+        const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
+            pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-        const displayedDescription = relevantEditableFieldInfo?.description || description || '';
+        const { schemaFieldEntity } = record;
+        const { displayedDescription, isPropagated, sourceDetail } = getFieldDescriptionDetails({
+            schemaFieldEntity,
+            editableFieldInfo,
+            defaultDescription: description,
+        });
         const sanitizedDescription = sanitizeRichText(displayedDescription);
         const original = record.description ? sanitizeRichText(record.description) : undefined;
 
@@ -56,7 +62,7 @@ export default function useDescriptionRenderer(
                 expanded={!!expandedRows[index]}
                 description={sanitizedDescription}
                 original={original}
-                isEdited={!!relevantEditableFieldInfo?.description}
+                isEdited={!!editableFieldInfo?.description}
                 onUpdate={(updatedDescription) =>
                     updateDescription({
                         variables: {
@@ -82,6 +88,8 @@ export default function useDescriptionRenderer(
                     }).then(refresh)
                 }
                 isReadOnly
+                isPropagated={isPropagated}
+                sourceDetail={sourceDetail}
             />
         );
     };

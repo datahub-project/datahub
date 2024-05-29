@@ -3417,6 +3417,11 @@ type SchemaFieldEntity implements Entity {
     Business Attribute associated with the field
     """
     businessAttributes: BusinessAttributes
+
+    """
+    Documentation aspect for this schema field
+    """
+    documentation: Documentation
 }
 
 """

@@ -12,6 +12,8 @@ import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { Editor } from '../../../../shared/tabs/Documentation/components/editor/Editor';
 import { REDESIGN_COLORS } from '../../../../shared/constants';
+import { StringMapEntry } from '../../../../../../types.generated';
+import PropagationDetails from '../../../../../sharedV2/propagation/PropagationDetails';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -89,6 +91,11 @@ const StyledViewer = styled(Editor)`
     }
 `;
 
+const DescriptionWrapper = styled.span`
+    display: inline-flex;
+    align-items: center;
+`;
+
 type Props = {
     onExpanded: (expanded: boolean) => void;
     expanded: boolean;
@@ -100,6 +107,8 @@ type Props = {
     onPropose?: (description: string) => void;
     isEdited?: boolean;
     isReadOnly?: boolean;
+    isPropagated?: boolean;
+    sourceDetail?: StringMapEntry[] | null;
 };
 
 // const ABBREVIATED_LIMIT = 35;
@@ -113,6 +122,8 @@ export default function DescriptionField({
     isEdited = false,
     original,
     isReadOnly,
+    isPropagated,
+    sourceDetail,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
     const overLimit = removeMarkdown(description).length > 40;
@@ -205,7 +216,11 @@ export default function DescriptionField({
                         suffix={EditButton}
                         shouldWrap
                     > */}
-                    {description}
+                    <DescriptionWrapper>
+                        {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
+                        &nbsp;
+                        {description}
+                    </DescriptionWrapper>
                     {/* </StripMarkdownText> */}
                 </>
             )}

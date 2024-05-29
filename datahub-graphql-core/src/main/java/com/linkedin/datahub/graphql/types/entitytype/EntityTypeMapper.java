@@ -20,6 +20,7 @@ public class EntityTypeMapper {
           .put(EntityType.INCIDENT, Constants.INCIDENT_ENTITY_NAME)
           .put(EntityType.ANOMALY, Constants.ANOMALY_ENTITY_NAME)
           .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME)
+          .put(EntityType.ACTIONS_PIPELINE, Constants.ACTIONS_PIPELINE_ENTITY_NAME)
           .build();
 
   static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =
