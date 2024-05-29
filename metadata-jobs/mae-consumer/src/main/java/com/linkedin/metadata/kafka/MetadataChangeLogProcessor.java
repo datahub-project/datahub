@@ -17,6 +17,7 @@ import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.notification.settings.DefaultNotificationSettingsHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
 import com.linkedin.metadata.kafka.hook.subscription.OwnerSubscriptionHook;
+import com.linkedin.metadata.kafka.hook.subscription.SubscriptionSubResourceDeletionHook;
 import com.linkedin.metadata.kafka.hook.test.MetadataTestHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -51,6 +52,7 @@ import org.springframework.stereotype.Component;
   SiblingAssociationHook.class,
   MetadataTestHook.class,
   AssertionsSummaryHook.class,
+  SubscriptionSubResourceDeletionHook.class,
   IncidentsSummaryHook.class,
   AssertionActionsHook.class,
   OwnerSubscriptionHook.class,

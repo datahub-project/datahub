@@ -73,6 +73,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [],
@@ -124,6 +125,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [],
@@ -175,6 +177,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [NotificationSinkType.Slack, NotificationSinkType.Email],
@@ -224,6 +227,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [NotificationSinkType.Slack, NotificationSinkType.Email],
@@ -282,6 +286,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [],
@@ -340,6 +345,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [],
@@ -398,6 +404,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [NotificationSinkType.Slack, NotificationSinkType.Email],
@@ -441,6 +448,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [NotificationSinkType.Slack, NotificationSinkType.Email],
@@ -497,6 +505,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [NotificationSinkType.Slack, NotificationSinkType.Email],
@@ -540,6 +549,7 @@ describe('reducer', () => {
                 notificationTypes: {
                     checkedKeys: [],
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 settings: {
                     sinkTypes: [NotificationSinkType.Slack, NotificationSinkType.Email],

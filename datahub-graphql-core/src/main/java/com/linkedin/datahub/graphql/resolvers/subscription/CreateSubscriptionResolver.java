@@ -43,7 +43,7 @@ public class CreateSubscriptionResolver
             final SubscriptionTypeArray subscriptionTypes =
                 mapSubscriptionTypes(input.getSubscriptionTypes());
             final EntityChangeDetailsArray entityChangeTypes =
-                mapEntityChangeTypes(input.getEntityChangeTypes());
+                mapEntityChangeDetails(input.getEntityChangeTypes());
             final SubscriptionNotificationConfig notificationConfig =
                 input.getNotificationConfig() == null
                     ? null

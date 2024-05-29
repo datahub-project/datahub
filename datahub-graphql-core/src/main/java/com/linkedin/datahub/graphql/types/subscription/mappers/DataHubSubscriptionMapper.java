@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityChangeDetails;
+import com.linkedin.datahub.graphql.generated.EntityChangeDetailsFilter;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
@@ -55,7 +56,7 @@ public class DataHubSubscriptionMapper
 
     final List<EntityChangeDetails> entityChangeTypes =
         subscriptionInfo.hasEntityChangeTypes()
-            ? mapEntityChangeTypes(subscriptionInfo.getEntityChangeTypes())
+            ? mapEntityChangeDetails(subscriptionInfo.getEntityChangeTypes())
             : Collections.emptyList();
     result.setEntityChangeTypes(entityChangeTypes);
 
@@ -82,16 +83,32 @@ public class DataHubSubscriptionMapper
     return result;
   }
 
-  private List<EntityChangeDetails> mapEntityChangeTypes(
+  private List<EntityChangeDetails> mapEntityChangeDetails(
       @Nonnull final EntityChangeDetailsArray changeDetails) {
     final List<EntityChangeDetails> result = new ArrayList<>();
     for (com.linkedin.subscription.EntityChangeDetails changeDetail : changeDetails) {
       EntityChangeDetails entityChangeDetails = new EntityChangeDetails();
       entityChangeDetails.setEntityChangeType(
           EntityChangeType.valueOf(changeDetail.getEntityChangeType().toString()));
+      if (changeDetail.getFilter() != null) {
+        entityChangeDetails.setFilter(mapEntityChangeDetailsFilter(changeDetail.getFilter()));
+      }
       result.add(entityChangeDetails);
     }
 
+    return result;
+  }
+
+  private EntityChangeDetailsFilter mapEntityChangeDetailsFilter(
+      @Nonnull final com.linkedin.subscription.EntityChangeDetailsFilter changeDetailsFilter) {
+    EntityChangeDetailsFilter result = new EntityChangeDetailsFilter();
+    if (changeDetailsFilter.getIncludeAssertions() == null) {
+      return result;
+    }
+    result.setIncludeAssertions(
+        changeDetailsFilter.getIncludeAssertions().stream()
+            .map(Urn::toString)
+            .collect(Collectors.toList()));
     return result;
   }
 }

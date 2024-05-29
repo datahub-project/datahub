@@ -29,6 +29,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
+import com.linkedin.metadata.kafka.hook.notification.NotificationRecipientsGeneratorExtraContext;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.AssertionService;
@@ -43,7 +44,9 @@ import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorR
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.subscription.EntityChangeDetails;
 import com.linkedin.subscription.EntityChangeType;
+import com.linkedin.subscription.SubscriptionInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -83,6 +86,12 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
 
   private static final String DEPRECATED = "DEPRECATED";
   private static final String UNDEPRECATED = "ACTIVE";
+
+  private static final List<EntityChangeType> ASSERTION_ENTITY_CHANGE_TYPES =
+      List.of(
+          EntityChangeType.ASSERTION_PASSED,
+          EntityChangeType.ASSERTION_FAILED,
+          EntityChangeType.ASSERTION_ERROR);
 
   /** The list of aspects that are supported for generating semantic change events. */
   private static final Set<String> SUPPORTED_ASPECT_NAMES =
@@ -845,7 +854,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
                 systemOpContext,
                 NotificationScenarioType.ASSERTION_STATUS_CHANGE,
                 entityUrn,
-                entityChangeType));
+                entityChangeType,
+                null,
+                new NotificationRecipientsGeneratorExtraContext().setModifierUrn(assertionUrn)));
 
     if (recipients.isEmpty()) {
       return;
@@ -904,6 +915,58 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
             "Broadcasting entity change notification request for entity %s, notification type %s",
             entityUrn, NotificationScenarioType.ASSERTION_STATUS_CHANGE));
     sendNotificationRequest(notificationRequest);
+  }
+
+  @Override
+  @Nonnull
+  protected Map<Urn, SubscriptionInfo> applySubscriptionFiltersToSubscriptionMap(
+      @Nonnull Map<Urn, SubscriptionInfo> subscriptionInfoMap,
+      @Nullable EntityChangeType changeType,
+      @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
+    if (changeType == null || extraContext == null) return subscriptionInfoMap;
+    if (!ASSERTION_ENTITY_CHANGE_TYPES.contains(changeType)) return subscriptionInfoMap;
+    final Urn triggeredByAssertionUrn = extraContext.getModifierUrn();
+    if (triggeredByAssertionUrn == null) {
+      throw new RuntimeException(
+          String.format(
+              "Assertion urn missing from extra context, but it is required for change type: %s",
+              changeType));
+    }
+
+    return subscriptionInfoMap.entrySet().stream()
+        .filter(
+            subscriptionEntry ->
+                checkSubscriptionQualifiesForNotification(
+                    subscriptionEntry.getValue(), changeType, triggeredByAssertionUrn))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  private boolean checkSubscriptionQualifiesForNotification(
+      final SubscriptionInfo subscriptionInfo,
+      final EntityChangeType changeType,
+      final Urn triggeredByAssertionUrn) {
+    // Subscription qualifies for notification if...
+    // a) this subscription is not tied to any entity change types
+    if (!subscriptionInfo.hasEntityChangeTypes()) return true;
+
+    final Set<EntityChangeDetails> assertionChangeDetails =
+        subscriptionInfo.getEntityChangeTypes().stream()
+            .filter(details -> details.getEntityChangeType().equals(changeType))
+            .collect(Collectors.toSet());
+    // We should never have subscription passed in here that is not related to the changeType
+    // For now letting it pass through to prevent breaking prev functionality - TODO throw an error?
+    if (assertionChangeDetails.isEmpty()) return true;
+
+    // b) this subscription has an assertion subscription with no filters,
+    //    or a filter that includes this assertion urn
+    return assertionChangeDetails.stream()
+        .anyMatch(
+            details -> {
+              // has no assertion filters
+              if (!details.hasFilter() || !details.getFilter().hasIncludeAssertions()) return true;
+              // has filters that include this assertion urn
+              return details.getFilter().getIncludeAssertions().contains(triggeredByAssertionUrn);
+            });
   }
 
   private <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(

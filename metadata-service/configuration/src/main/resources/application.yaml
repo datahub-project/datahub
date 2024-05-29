@@ -582,6 +582,8 @@ monitorService:
 subscriptions:
   ownerSubscriptionHook:
     enabled: ${OWNER_SUBSCRIPTION_HOOK_ENABLED:false}
+  subResourceDeletionHook:
+    enabled: ${SUBSCRIPTION_SUBRESOURCE_DELETION_HOOK_ENABLED:true}
 
 executors:
   executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}

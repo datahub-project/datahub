@@ -1,20 +1,14 @@
 package com.linkedin.metadata.kafka.hook.assertion;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.common.AssertionUtils.extractAssertionEntities;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
-import com.linkedin.assertion.DatasetAssertionInfo;
-import com.linkedin.assertion.FieldAssertionInfo;
-import com.linkedin.assertion.FreshnessAssertionInfo;
-import com.linkedin.assertion.SchemaAssertionInfo;
-import com.linkedin.assertion.SqlAssertionInfo;
-import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.AssertionSummaryDetails;
 import com.linkedin.common.AssertionSummaryDetailsArray;
 import com.linkedin.common.AssertionsSummary;
@@ -479,47 +473,6 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
   private MonitorInfo extractMonitorInfo(@Nonnull final MetadataChangeLog event) {
     return GenericRecordUtils.deserializeAspect(
         event.getAspect().getValue(), event.getAspect().getContentType(), MonitorInfo.class);
-  }
-
-  @Nonnull
-  private List<Urn> extractAssertionEntities(@Nonnull final AssertionInfo assertionInfo) {
-    if (assertionInfo.hasDatasetAssertion()) {
-      DatasetAssertionInfo datasetAssertion = assertionInfo.getDatasetAssertion();
-      if (datasetAssertion.hasDataset()) {
-        return ImmutableList.of(datasetAssertion.getDataset());
-      }
-    }
-    if (assertionInfo.hasFreshnessAssertion()) {
-      FreshnessAssertionInfo freshnessAssertion = assertionInfo.getFreshnessAssertion();
-      if (freshnessAssertion.hasEntity()) {
-        return ImmutableList.of(freshnessAssertion.getEntity());
-      }
-    }
-    if (assertionInfo.hasVolumeAssertion()) {
-      VolumeAssertionInfo volumeAssertion = assertionInfo.getVolumeAssertion();
-      if (volumeAssertion.hasEntity()) {
-        return ImmutableList.of(volumeAssertion.getEntity());
-      }
-    }
-    if (assertionInfo.hasSqlAssertion()) {
-      SqlAssertionInfo sqlAssertion = assertionInfo.getSqlAssertion();
-      if (sqlAssertion.hasEntity()) {
-        return ImmutableList.of(sqlAssertion.getEntity());
-      }
-    }
-    if (assertionInfo.hasFieldAssertion()) {
-      FieldAssertionInfo fieldAssertion = assertionInfo.getFieldAssertion();
-      if (fieldAssertion.hasEntity()) {
-        return ImmutableList.of(fieldAssertion.getEntity());
-      }
-    }
-    if (assertionInfo.hasSchemaAssertion()) {
-      SchemaAssertionInfo schemaAssertion = assertionInfo.getSchemaAssertion();
-      if (schemaAssertion.hasEntity()) {
-        return ImmutableList.of(schemaAssertion.getEntity());
-      }
-    }
-    return Collections.emptyList();
   }
 
   private AssertionsSummaryPatchBuilder buildRemoveAssertionFromSummaryPatch(

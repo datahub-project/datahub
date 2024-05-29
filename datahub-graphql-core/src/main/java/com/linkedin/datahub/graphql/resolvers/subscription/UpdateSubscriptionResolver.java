@@ -45,7 +45,7 @@ public class UpdateSubscriptionResolver
             final EntityChangeDetailsArray entityChangeTypes =
                 input.getEntityChangeTypes() == null
                     ? null
-                    : mapEntityChangeTypes(input.getEntityChangeTypes());
+                    : mapEntityChangeDetails(input.getEntityChangeTypes());
             final SubscriptionNotificationConfig notificationConfig =
                 input.getNotificationConfig() == null
                     ? null

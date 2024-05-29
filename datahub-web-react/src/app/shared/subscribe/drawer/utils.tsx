@@ -1,12 +1,14 @@
 import React, { Key } from 'react';
-import difference from 'lodash/difference';
+import _ from 'lodash';
 import { Tooltip, Typography, message, notification } from 'antd';
 import { DataNode } from 'antd/lib/tree';
 import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import {
+    Assertion,
     DataHubSubscription,
     EmailNotificationSettings,
+    EntityChangeDetails,
     EntityChangeType,
     EntityType,
     NotificationSettingsInput,
@@ -30,6 +32,11 @@ const NotificationTypeText = styled(Typography.Text)`
     line-height: 20px;
     font-weight: 500;
     margin-right: 8px;
+`;
+
+const NotificationTypeDetailsText = styled(NotificationTypeText)`
+    font-size: 12px;
+    color: #999;
 `;
 
 const TooltipIcon = styled(QuestionCircleOutlined)`
@@ -58,23 +65,75 @@ export const getEntityChangeTypesFromCheckedKeys = (checkedKeys: Key[]): EntityC
     return checkedKeys.filter((key) => !NESTED_NODE_KEY_PARENTS.has(key as string)) as EntityChangeType[];
 };
 
-const assertionsNode: DataNode = {
-    key: ASSERTION_NODE_KEY,
-    title: <NotificationTypeText>Assertion status</NotificationTypeText>,
-    children: [
-        {
-            key: EntityChangeType.AssertionFailed,
-            title: <NotificationTypeText>An assertion fails</NotificationTypeText>,
-        },
-        {
-            key: EntityChangeType.AssertionPassed,
-            title: <NotificationTypeText>An assertion passes</NotificationTypeText>,
-        },
-        {
-            key: EntityChangeType.AssertionError,
-            title: <NotificationTypeText>An assertion errors</NotificationTypeText>,
-        },
-    ],
+export const ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES = [
+    EntityChangeType.AssertionFailed,
+    EntityChangeType.AssertionPassed,
+    EntityChangeType.AssertionError,
+];
+
+const getDetailsLabelForAssertionTypeChange = (
+    assertionChangeType: EntityChangeType.AssertionPassed | EntityChangeType.AssertionFailed | EntityChangeType.AssertionError,
+    subscription?: DataHubSubscription,
+    keysWithFilteringCleared?: Key[],
+    isForAssertionSubscription?: boolean,
+): string => {
+    const maybeAssertionSubscription = subscription?.entityChangeTypes.find(details => details.entityChangeType === assertionChangeType)
+    const maybeAssertionFilters = maybeAssertionSubscription?.filter?.includeAssertions
+    const assertionFiltersCount = maybeAssertionFilters?.length;
+    const hasDisabledAssertionFiltering = keysWithFilteringCleared?.includes(assertionChangeType.valueOf())
+
+    let label = '';
+    if (!isForAssertionSubscription && assertionFiltersCount && !hasDisabledAssertionFiltering) {
+        label = `(subscribed to ${assertionFiltersCount} individual assertions)`
+    } else if (isForAssertionSubscription && maybeAssertionSubscription && !maybeAssertionFilters) {
+        label = 'All assertions on asset selected'
+    }
+    return label;
+}
+
+const getAssertionsNode = (maybeContext?: NodeRenderingContext): DataNode => {
+    const { subscription, forSubResource, keysWithFilteringCleared } = maybeContext ?? {};
+
+    const isForAssertionSubscription = !!forSubResource?.assertion;
+    const assertionFailedDetailsLabel = getDetailsLabelForAssertionTypeChange(
+        EntityChangeType.AssertionFailed,
+        subscription,
+        keysWithFilteringCleared,
+        isForAssertionSubscription
+    );
+
+    const assertionPassedDetailsLabel = getDetailsLabelForAssertionTypeChange(
+        EntityChangeType.AssertionPassed,
+        subscription,
+        keysWithFilteringCleared,
+        isForAssertionSubscription
+    );
+
+    const assertionErrorDetailsLabel = getDetailsLabelForAssertionTypeChange(
+        EntityChangeType.AssertionError,
+        subscription,
+        keysWithFilteringCleared,
+        isForAssertionSubscription
+    );
+
+    return {
+        key: ASSERTION_NODE_KEY,
+        title: <NotificationTypeText>Assertion status</NotificationTypeText>,
+        children: [
+            {
+                key: EntityChangeType.AssertionFailed,
+                title: <NotificationTypeText>{isForAssertionSubscription ? 'This' : 'Any'} assertion fails <NotificationTypeDetailsText>{assertionFailedDetailsLabel}</NotificationTypeDetailsText></NotificationTypeText>,
+            },
+            {
+                key: EntityChangeType.AssertionPassed,
+                title: <NotificationTypeText>{isForAssertionSubscription ? 'This' : 'Any'} assertion passes <NotificationTypeDetailsText>{assertionPassedDetailsLabel}</NotificationTypeDetailsText></NotificationTypeText>,
+            },
+            {
+                key: EntityChangeType.AssertionError,
+                title: <NotificationTypeText>{isForAssertionSubscription ? 'This' : 'Any'} assertion errors  <NotificationTypeDetailsText>{assertionErrorDetailsLabel}</NotificationTypeDetailsText></NotificationTypeText>,
+            },
+        ],
+    }
 };
 
 const incidentsNode: DataNode = {
@@ -216,12 +275,21 @@ const tagChangeNode: DataNode = {
     ],
 };
 
-export const getTreeDataForEntity = (entityType: string): DataNode[] => {
+type NodeRenderingContext = {
+    subscription?: DataHubSubscription,
+    forSubResource?: { assertion?: Assertion }
+    keysWithFilteringCleared: Array<Key>
+}
+
+export const getTreeDataForEntity = (entityType: string, maybeContext?: NodeRenderingContext): DataNode[] => {
     switch (entityType) {
         case EntityType.Dataset:
+            if (maybeContext?.forSubResource?.assertion) {
+                return [getAssertionsNode(maybeContext)]
+            }
             return [
                 deprecationNode,
-                assertionsNode,
+                getAssertionsNode(maybeContext),
                 incidentsNode,
                 schemaNode,
                 ownershipChangeNode,
@@ -312,22 +380,24 @@ export const createSubscriptionFunction = ({
     groupUrn: string | undefined;
     entityUrn: string;
     subscriptionTypes: Array<SubscriptionType>;
-    entityChangeTypes: Array<EntityChangeType>;
+    entityChangeTypes: Array<EntityChangeDetails>;
     notificationSettings: NotificationSettingsInput;
     onSuccess?: () => void;
     onRefetch?: () => void;
 }) => {
+    const input = {
+        groupUrn,
+        entityUrn,
+        subscriptionTypes,
+        entityChangeTypes,
+        notificationConfig: {
+            notificationSettings,
+        },
+    };
+
     createSubscription({
         variables: {
-            input: {
-                groupUrn,
-                entityUrn,
-                subscriptionTypes,
-                entityChangeTypes: entityChangeTypes.map((entityChangeType) => ({ entityChangeType })),
-                notificationConfig: {
-                    notificationSettings,
-                },
-            },
+            input,
         },
         fetchPolicy: 'no-cache',
     })
@@ -338,7 +408,7 @@ export const createSubscriptionFunction = ({
                 subscriptionUrn: result.data?.createSubscription.subscriptionUrn ?? '',
                 entityUrn,
                 entityType,
-                entityChangeTypes,
+                entityChangeTypes: entityChangeTypes.map(details => details.entityChangeType),
                 sinkTypes: notificationSettings?.sinkTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
@@ -359,7 +429,7 @@ export const createSubscriptionFunction = ({
                 type: EventType.SubscriptionCreateErrorEvent,
                 entityUrn,
                 entityType,
-                entityChangeTypes,
+                entityChangeTypes: entityChangeTypes.map(details => details.entityChangeType),
                 sinkTypes: notificationSettings.sinkTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
@@ -369,6 +439,31 @@ export const createSubscriptionFunction = ({
             }
         });
 };
+
+/**
+ * Remove the GraphQL __typename fields from any object
+ * @param obj 
+ * @returns {T}
+ */
+export function removeNestedTypeNames<T>(obj: T): T {
+    // Check if the argument is an object and not null
+    if (typeof obj !== 'object' || obj === null) return obj;
+    // Shallow clone object so we're not modifying it directly
+    // NOTE: the recursive call below will effectively do a deep clone where necessary
+    const clonedObj = _.clone(obj as object);
+
+    // Iterate over object properties
+    Object.keys(clonedObj).forEach(prop => {
+        if (prop === '__typename') {
+            // Remove __typename property
+            delete clonedObj[prop];
+        } else if (typeof clonedObj[prop] === 'object' && clonedObj[prop] !== null) {
+            // Recurse for nested objects and arrays
+            clonedObj[prop] = removeNestedTypeNames(clonedObj[prop]);
+        }
+    })
+    return clonedObj as T;
+}
 
 export const updateSubscriptionFunction = ({
     updateSubscription,
@@ -385,39 +480,41 @@ export const updateSubscriptionFunction = ({
     entityType: EntityType;
     subscription: DataHubSubscription | undefined;
     subscriptionTypes: Array<SubscriptionType>;
-    entityChangeTypes: Array<EntityChangeType>;
+    entityChangeTypes: Array<EntityChangeDetails>;
     notificationSettings: NotificationSettingsInput;
     onRefetch?: () => void;
 }) => {
-    const entityChangeTypesAdded = difference(
-        entityChangeTypes,
-        subscription?.entityChangeTypes.map((changeType) => changeType.entityChangeType) ?? [],
+    const entityChangeTypesAdded = _.difference(
+        entityChangeTypes.map(details => details.entityChangeType),
+        subscription?.entityChangeTypes.map((details) => details.entityChangeType) ?? [],
     );
-    const entityChangeTypesRemoved = difference(
+    const entityChangeTypesRemoved = _.difference(
         subscription?.entityChangeTypes.map((changeType) => changeType.entityChangeType) ?? [],
-        entityChangeTypes,
+        entityChangeTypes.map(details => details.entityChangeType),
     );
 
-    const sinkTypesAdded = difference(
+    const sinkTypesAdded = _.difference(
         notificationSettings.sinkTypes,
         subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [],
     );
-    const sinkTypesRemoved = difference(
+    const sinkTypesRemoved = _.difference(
         subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [],
         notificationSettings.sinkTypes,
     );
 
     if (subscription && subscription.subscriptionUrn) {
+        const input = {
+            subscriptionUrn: subscription?.subscriptionUrn,
+            subscriptionTypes,
+            entityChangeTypes,
+            notificationConfig: {
+                notificationSettings,
+            },
+        };
+
         updateSubscription({
             variables: {
-                input: {
-                    subscriptionUrn: subscription?.subscriptionUrn,
-                    subscriptionTypes,
-                    entityChangeTypes: entityChangeTypes.map((entityChangeType) => ({ entityChangeType })),
-                    notificationConfig: {
-                        notificationSettings,
-                    },
-                },
+                input,
             },
             fetchPolicy: 'no-cache',
         })
@@ -427,7 +524,7 @@ export const updateSubscriptionFunction = ({
                     subscriptionUrn: subscription.subscriptionUrn,
                     entityUrn: subscription.entity.urn,
                     entityType,
-                    entityChangeTypes,
+                    entityChangeTypes: entityChangeTypes.map(details => details.entityChangeType),
                     entityChangeTypesAdded,
                     entityChangeTypesRemoved,
                     sinkTypes: notificationSettings.sinkTypes,
@@ -453,7 +550,7 @@ export const updateSubscriptionFunction = ({
                     subscriptionUrn: subscription.subscriptionUrn,
                     entityUrn: subscription.entity.urn,
                     entityType,
-                    entityChangeTypes,
+                    entityChangeTypes: entityChangeTypes.map(details => details.entityChangeType),
                     sinkTypes: notificationSettings.sinkTypes,
                     actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 });
@@ -487,10 +584,10 @@ export const getSlackSettingsChannel = (isPersonal: boolean, settings?: SlackNot
     return isPersonal ? settingsUserHandle : settingsGroupChannel;
 };
 
-export const getEmailSubscriptionChannel = (_: boolean, subscription?: DataHubSubscription) => {
+export const getEmailSubscriptionChannel = (__: boolean, subscription?: DataHubSubscription) => {
     return subscription?.notificationConfig?.notificationSettings?.emailSettings?.email;
 };
 
-export const getEmailSettingsChannel = (_: boolean, settings?: EmailNotificationSettings) => {
+export const getEmailSettingsChannel = (__: boolean, settings?: EmailNotificationSettings) => {
     return settings?.email;
 };

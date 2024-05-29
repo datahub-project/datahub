@@ -46,6 +46,9 @@ const useDrawerActions = () => {
             setExpandedNotificationTypes: (payload: Array<Key>) => {
                 dispatch({ type: ActionTypes.SET_EXPANDED_NOTIFICATION_TYPES, payload });
             },
+            setNotificationTypesWithFiltersCleared: (payload: Array<Key>) => {
+                dispatch({ type: ActionTypes.SET_NOTIFICATION_TYPES_WITH_FILTERS_CLEARED, payload });
+            },
         }),
         [dispatch],
     );
