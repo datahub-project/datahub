@@ -81,7 +81,7 @@ export default function LineageDisplay({ urn, type, loaded }: Props) {
                 cllHighlightedNodes,
                 highlightedColumns,
                 highlightedEdges,
-                fineGrainedLineage: fineGrainedLineage.direct,
+                fineGrainedLineage: fineGrainedLineage.indirect,
                 fineGrainedOperations: fineGrainedLineage.fineGrainedOperations,
                 numNodes: flowNodes.length,
                 refetchUrn,

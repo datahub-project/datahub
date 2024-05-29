@@ -119,7 +119,6 @@ interface AuditStamp {
 
 export interface LineageEdge {
     isDisplayed: boolean;
-    hideFineGrained?: boolean;
     isManual: boolean;
     created?: AuditStamp;
     updated?: AuditStamp;

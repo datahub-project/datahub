@@ -6,7 +6,7 @@ import EntitySidebarContext, { FineGrainedOperation } from '../sharedV2/EntitySi
 import CompactContext from '../shared/CompactContext';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { LineageDisplayContext, LineageEntity, LineageNodesContext, isQuery } from './common';
+import { LineageDisplayContext, LineageEntity, LineageNodesContext } from './common';
 
 const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     position: absolute;
@@ -89,7 +89,7 @@ function useQueryDetails(selectedNode: LineageEntity | null): FineGrainedOperati
     const { nodes } = useContext(LineageNodesContext);
     const { cllHighlightedNodes, fineGrainedOperations } = useContext(LineageDisplayContext);
 
-    if (selectedNode && isQuery(selectedNode)) {
+    if (selectedNode) {
         return Array.from(cllHighlightedNodes.get(selectedNode.urn) || []).map((ref) => {
             const data = fineGrainedOperations.get(ref);
             return {

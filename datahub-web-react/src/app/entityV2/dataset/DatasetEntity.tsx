@@ -21,6 +21,7 @@ import { matchedFieldPathsRenderer } from '../../searchV2/matches/matchedFieldPa
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { useAppConfig } from '../../useAppConfig';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -237,36 +238,17 @@ export class DatasetEntity implements Entity<Dataset> {
     );
 
     getSidebarSections = () => [
-        {
-            component: SidebarEntityHeader,
-        },
-        {
-            component: SidebarDatasetHeaderSection,
-        },
-        {
-            component: SyncedAssetSection,
-        },
-        {
-            component: SharingAssetSection,
-        },
-        {
-            component: SidebarNotesSection,
-        },
-        {
-            component: SidebarDomainSection,
-        },
-        {
-            component: DataProductSection,
-        },
-        {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarDatasetViewDefinitionSection,
-        },
-        {
-            component: SidebarLineageSection,
-        },
+        { component: SidebarEntityHeader },
+        { component: SidebarDatasetHeaderSection },
+        { component: SyncedAssetSection },
+        { component: SharingAssetSection },
+        { component: SidebarQueryOperationsSection },
+        { component: SidebarNotesSection },
+        { component: SidebarDomainSection },
+        { component: DataProductSection },
+        { component: SidebarAboutSection },
+        { component: SidebarDatasetViewDefinitionSection },
+        { component: SidebarLineageSection },
         {
             component: SidebarOwnerSection,
             properties: {
@@ -279,12 +261,8 @@ export class DatasetEntity implements Entity<Dataset> {
                 visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
             },
         },
-        {
-            component: SidebarTagsSection,
-        },
-        {
-            component: SidebarGlossaryTermsSection,
-        },
+        { component: SidebarTagsSection },
+        { component: SidebarGlossaryTermsSection },
         {
             component: SidebarCompactSchemaSection,
             display: {
