@@ -21,7 +21,7 @@ import { LargeButtonPrimary } from '../sharedComponents';
 import { simplifyDataForListView } from '../utils';
 
 import { AutomationsListCard } from './ListCard';
-import { AutomationCreateModal } from './CreateModal';
+import { AutomationModal } from './Modal';
 
 export const Automations = () => {
 	// Create Modal State
@@ -67,13 +67,16 @@ export const Automations = () => {
 			key: 'all',
 			label: 'All',
 			data: allAutomations,
+			count: allAutomations.length,
 		},
 	];
+
 	categories.forEach((category: string) => {
 		tabs.push({
 			key: category,
 			label: category,
 			data: allAutomations.filter((automation: any) => automation.category === category),
+			count: allAutomations.filter((automation: any) => automation.category === category).length,
 		});
 	});
 
@@ -99,8 +102,8 @@ export const Automations = () => {
 				<AutomationsContent>
 					<AutomationsContentHeader>
 						<div>
-							<h1>All Automations</h1>
-							<p>Description</p>
+							<h1>Automations</h1>
+							<p>Monitor policies and automate actions across data assets.</p>
 						</div>
 						<div>
 							<LargeButtonPrimary onClick={() => setIsOpen(!isOpen)}>
@@ -117,6 +120,7 @@ export const Automations = () => {
 									onClick={() => setActiveTab(tab.key)}
 								>
 									{tab.label}
+									<span>{tab.count}</span>
 								</AutomationsContentTab>
 							))}
 						</AutomationsContentTabs>
@@ -126,7 +130,7 @@ export const Automations = () => {
 					</AutomationsContentBody>
 				</AutomationsContent>
 			</AutomationsPageContainer>
-			<AutomationCreateModal isOpen={isOpen} setIsOpen={setIsOpen} />
+			<AutomationModal isOpen={isOpen} setIsOpen={setIsOpen} />
 		</>
 	);
 };

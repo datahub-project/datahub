@@ -32,7 +32,7 @@ const ButtonsContainer = styled.div`
 
 interface Props {
 	showUndoConfirmation: boolean;
-	handleUndo: () => void;
+	handleUndo: (e: any) => void;
 	handleClose: () => void;
 }
 

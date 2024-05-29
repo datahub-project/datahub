@@ -4,17 +4,22 @@ import dayjs from 'dayjs';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
+import { Skeleton } from 'antd';
 
 import UndoIcon from '../../../images/undo-icon.svg?react';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
-import { CustomAvatar } from '../../shared/avatar';
-import { AutomationStatus, truncateString } from '../utils';
+// import { CustomAvatar } from '../../shared/avatar';
+import { formatNumberWithoutAbbreviation } from '../../shared/formatNumber';
+import { toRelativeTimeString } from '../../shared/time/timeUtils';
 
 import {
 	useStopActionPipelineMutation,
 	useStartActionPipelineMutation,
 	useRollbackActionPipelineMutation
 } from '../../../graphql/actionPipeline.generated';
+import { useGetTestResultsSummaryQuery } from '../../../graphql/test.generated';
+
+import { AutomationStatus, truncateString } from '../utils';
 
 import {
 	ListCard,
@@ -27,20 +32,68 @@ import {
 	Category,
 	ContentTitle,
 	Details,
+	ResultContainer,
 } from './components';
 
+import { AutomationModal } from './Modal';
 import { UndoConfirmationModal } from './UndoConfirmationModal';
-
 import { openSuccessNotification } from './Notifications';
 
 dayjs.extend(localizedFormat);
 
 const PropagationDetails = () => {
-	return <>[propgation details]</>;
+	return <>Status summary coming soon.</>;
 };
 
-const MetadataTestDetails = () => {
-	return <>[metadata test details]</>;
+const MetadataTestDetails = ({ urn }: any) => {
+	const { data: results, loading } = useGetTestResultsSummaryQuery({
+		skip: !urn,
+		variables: {
+			urn,
+		},
+	});
+
+	const passingCount =
+		results?.test?.results?.passingCount !== undefined
+			? formatNumberWithoutAbbreviation(results?.test?.results?.passingCount)
+			: '-';
+
+	const failingCount =
+		results?.test?.results?.failingCount !== undefined
+			? formatNumberWithoutAbbreviation(results?.test?.results?.failingCount)
+			: '-';
+
+	const totalCount = formatNumberWithoutAbbreviation(
+		Number(results?.test?.results?.passingCount || 0) + Number(results?.test?.results?.failingCount || 0)
+	);
+
+	const lastComputed = results?.test?.results?.lastRunTimestampMillis !== undefined
+		? toRelativeTimeString(results?.test?.results?.lastRunTimestampMillis || 0)
+		: 'unknown';
+
+	if (loading) {
+		<ResultContainer>
+			<div>
+				<Skeleton />
+			</div>
+			<div style={{ textAlign: 'right' }}>
+				<Skeleton />
+			</div>
+		</ResultContainer>
+	}
+
+	return (
+		<ResultContainer>
+			<div>
+				Passing: {passingCount} <br />
+				Failing: {failingCount} <br />
+			</div>
+			<div style={{ textAlign: 'right' }}>
+				Last Computed: {lastComputed} <br />
+				Total Assets: {totalCount} <br />
+			</div>
+		</ResultContainer>
+	);
 };
 
 export const AutomationsListCard = ({ automation }: any) => {
@@ -48,6 +101,7 @@ export const AutomationsListCard = ({ automation }: any) => {
 
 	const [showUndoConfirmation, setShowUndoConfirmation] = useState(false);
 	const [currentStatus, setCurrentStatus] = useState<AutomationStatus>(AutomationStatus.STOPPED);
+	const [isOpen, setIsOpen] = useState(false);
 
 	const [stopActionPipeline] = useStopActionPipelineMutation();
 	const [startActionPipeline] = useStartActionPipelineMutation();
@@ -56,25 +110,34 @@ export const AutomationsListCard = ({ automation }: any) => {
 	const contentTitle = type === 'Test' ? 'Results' : 'Details';
 
 	// Stop an Action
-	const stopAction = () => {
+	const stopAction = (e) => {
+		e.stopPropagation();
 		stopActionPipeline({ variables: { urn: automation.urn } });
 		openSuccessNotification(automation.name, 'Automation stopped successfully');
 		return setCurrentStatus(AutomationStatus.STOPPED);
 	};
 
 	// Start an Action
-	const runAction = () => {
+	const runAction = (e) => {
+		e.stopPropagation();
 		startActionPipeline({ variables: { urn: automation.urn } });
 		openSuccessNotification(automation.name, 'Automation started successfully');
 		return setCurrentStatus(AutomationStatus.RUNNING);
 	};
 
 	// Undo an Action
-	const undoAction = () => {
+	const undoAction = (e) => {
+		e.stopPropagation();
 		rollbackActionPipeline({ variables: { urn: automation.urn } });
 		openSuccessNotification(automation.name, 'Undo started successfully');
 		return setShowUndoConfirmation(false);
 	}
+
+	// Open Edit Modal
+	const openEditModal = (e) => {
+		e.stopPropagation();
+		setIsOpen(true);
+	};
 
 	// Status States
 	const isRunning = currentStatus === AutomationStatus.RUNNING;
@@ -83,7 +146,7 @@ export const AutomationsListCard = ({ automation }: any) => {
 
 	return (
 		<>
-			<ListCard>
+			<ListCard onClick={openEditModal}>
 				<ListCardHeader>
 					<div className="categoryAndDeployed">
 						<Category>{automation.category.toString().toUpperCase()}</Category>
@@ -107,7 +170,10 @@ export const AutomationsListCard = ({ automation }: any) => {
 									</IconContainer>
 								)}
 								{isStopped && (
-									<UndoButton onClick={() => setShowUndoConfirmation(true)}>
+									<UndoButton onClick={(e) => {
+										e.stopPropagation();
+										setShowUndoConfirmation(true)
+									}}>
 										<UndoIcon />
 									</UndoButton>
 								)}
@@ -117,11 +183,11 @@ export const AutomationsListCard = ({ automation }: any) => {
 				</ListCardHeader>
 				<StyledDivider />
 				<ListCardBody>
-					<div className="createdBy">
+					{/* <div className="createdBy">
 						Created by
 						<CustomAvatar name="John Doe" />
 						xyz
-					</div>
+					</div> */}
 					{automation.description && (
 						<div className="description">
 							<p>{truncateString(automation.description, 125)}</p>
@@ -131,7 +197,7 @@ export const AutomationsListCard = ({ automation }: any) => {
 						<ContentTitle>{contentTitle}</ContentTitle>
 						<Details>
 							{type === 'ActionPipeline' && <PropagationDetails />}
-							{type === 'Test' && <MetadataTestDetails />}
+							{type === 'Test' && <MetadataTestDetails urn={automation.urn} />}
 						</Details>
 					</div>
 				</ListCardBody>
@@ -143,6 +209,12 @@ export const AutomationsListCard = ({ automation }: any) => {
 					handleUndo={undoAction}
 				/>
 			)}
+			<AutomationModal
+				isOpen={isOpen}
+				setIsOpen={setIsOpen}
+				type="EDIT"
+				data={automation}
+			/>
 		</>
 	);
 };

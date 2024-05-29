@@ -35,7 +35,7 @@ const termDataForSelect = (terms: any, nodes: any) => ([
 ]);
 
 // Component
-export const TermSelector = ({ setTermsSelected }: any) => {
+export const TermSelector = ({ termsSelected, setTermsSelected }: any) => {
 	// Get glossary terms
 	const { data: glossaryTermData, loading: termLoading, error: termError } = useGetSearchResultsQuery({
 		variables: {
@@ -70,6 +70,19 @@ export const TermSelector = ({ setTermsSelected }: any) => {
 	const glossaryTerms = cleanData(glossaryTermData);
 	const glossaryNodes = cleanData(glossaryNodeData);
 
+	// Get selected terms 
+	const getSelectedTerms = () => {
+		if (!termsSelected || termsSelected.length === 0) return [];
+
+		const allTerms = [...glossaryTerms, ...glossaryNodes];
+		return allTerms
+			.filter((term: any) => termsSelected.includes(term.properties?.name) || termsSelected.includes(term.urn))
+			.map((term: any) => ({
+				label: <TagTermLabel entity={term.entity} termName={term.properties?.name} />,
+				value: term.urn
+			}));
+	}
+
 	// Formatted terms for select
 	const terms = termDataForSelect(glossaryTerms, glossaryNodes);
 
@@ -79,6 +92,7 @@ export const TermSelector = ({ setTermsSelected }: any) => {
 			options={terms}
 			loading={isLoading}
 			status={isError}
+			value={getSelectedTerms()}
 			onChange={(value) => setTermsSelected(value)}
 			placeholder="Select Terms…"
 			allowClear

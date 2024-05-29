@@ -8,7 +8,7 @@ const sidebarWidth = '250px';
 // Page Container
 
 export const AutomationsPageContainer = styled.div`
-    max-width: 98%;
+    max-width: 99%;
     min-height: 98%;
     overflow: hidden;
     // TODO: Readd for sidebar
@@ -90,6 +90,9 @@ export const AutomationsContentTabs = styled.div`
 `;
 
 export const AutomationsContentTab = styled.div<{ isActive: boolean }>`
+		display: flex;
+		align-items: center;
+		gap: 4px;
     padding: 12px 20px;
     border-bottom: 2px solid transparent;
     color: ${sharedStyles.contentColor};
@@ -105,9 +108,23 @@ export const AutomationsContentTab = styled.div<{ isActive: boolean }>`
 		border-color: ${sharedStyles.activeColor};
 	`}
 
-    &:hover {
-        cursor: pointer;
-    }
+		&:hover {
+				cursor: pointer;
+		}
+
+		& span {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background-color: ${sharedStyles.borderColor};
+			width: 10px;
+			height: 10px;
+			padding: 8px;
+			font-size: 10px;
+			color: ${sharedStyles.contentColor};
+			border-radius: 100%;
+
+		}
 `;
 
 // Automations List Card
@@ -146,7 +163,7 @@ export const ListCardHeader = styled.div`
 
         & h4 {
             color: ${sharedStyles.contentColor};
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 400;
             margin: 0;
         }
@@ -363,4 +380,14 @@ export const Details = styled.div`
     font-size: 12px;
     font-weight: 500;
     color: ${REDESIGN_COLORS.BODY_TEXT};
+`;
+
+/* 
+* Results 
+*/
+
+export const ResultContainer = styled.div`
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 16px;
 `;

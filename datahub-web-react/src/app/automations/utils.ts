@@ -30,6 +30,7 @@ export const simplifyDataForListView = (data: any) => {
 			category: item.category || 'Propagation',
 			type: item.__typename,
 			status: data.status || 'ACTIVE',
+			definition: item.definition || item.details,
 			updated: new Date(),
 			created: new Date(),
 		};
@@ -37,19 +38,22 @@ export const simplifyDataForListView = (data: any) => {
 }
 
 // Fill YAML with form data
-export const getYaml = (automation: any, formData) => {
+export const getYaml = (automation: any) => {
 	if (!automation) return '';
 
-	const automationType = automation?.type;
+	// const automationType = automation?.type;
+
 	const baseRecipe = automation?.baseRecipe;
 
-	if (automationType === 'actionPipeline') {
-		baseRecipe.name = formData.details.name || "";
-		if (baseRecipe.action && baseRecipe.action.config.term_propagation) {
-			baseRecipe.action.config.term_propagation.target_terms = formData.termsSelected || "[]";
-			baseRecipe.action.config.snowflake.password = ""; // redact password
-		}
-	}
+	// if (automationType === 'actionPipeline') {
+	// 	baseRecipe.name = formData.details.name || "";
+	// 	if (baseRecipe.action && baseRecipe.action.config.term_propagation) {
+	// 		baseRecipe.action.config.term_propagation.target_terms = formData.termsSelected || "[]";
+	// 		baseRecipe.action.config.snowflake.password = ""; // redact password
+	// 	}
+	// }
+
 	const json = JSON.stringify(baseRecipe, null, 2);
+
 	return jsonToYaml(json);
 };

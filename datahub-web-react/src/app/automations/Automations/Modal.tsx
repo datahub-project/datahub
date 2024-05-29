@@ -3,7 +3,10 @@ import React, { useState } from 'react';
 import { Modal, Button } from 'antd';
 import { FormOutlined, CodeOutlined } from '@ant-design/icons';
 
-import { useCreateActionPipelineMutation } from '../../../graphql/actionPipeline.generated';
+import {
+	useCreateActionPipelineMutation,
+	useUpsertActionPipelineMutation
+} from '../../../graphql/actionPipeline.generated';
 import { YamlEditor } from '../../ingest/source/builder/YamlEditor';
 
 import {
@@ -39,21 +42,30 @@ const SelectPremadeAutomation = ({ setAutomation }: any) => {
 	);
 }
 
-export const AutomationCreateModal = ({ isOpen, setIsOpen }: any) => {
+type AutomationModalProps = {
+	isOpen: boolean;
+	setIsOpen: (isOpen: boolean) => void;
+	type?: 'CREATE' | 'EDIT';
+	data?: any;
+};
+
+export const AutomationModal = ({ isOpen, setIsOpen, type = 'CREATE', data }: AutomationModalProps) => {
 	const [createActionPipelineMutation] = useCreateActionPipelineMutation();
+	const [upsertActionPipelineMutation] = useUpsertActionPipelineMutation();
+
 	const [automation, setAutomation] = useState();
 	const [formData, setFormData] = useState<any>({});
 	const [showYaml, setShowYaml] = useState(false);
 
 	// Get the automation info
-	const automationData = automation ? getAutomationData(automation) : {} as any;
-	const automationType = automation ? automationData?.type : undefined;
+	const automationData = getAutomationData(automation, data?.definition?.type) || {} as any;
+	const automationType = automationData ? automationData?.type : undefined;
 
 	// Transform the recipe
-	const baseRecipe = automation ? automationData?.baseRecipe as any : {} as any;
+	const baseRecipe = automationData ? automationData?.baseRecipe as any : {} as any;
 
 	// Check if the form is disabled
-	const isDisabled = !formData?.details?.name || formData?.termsSelected?.length === 0;
+	const isDisabled = false;
 
 	// Close the modal util
 	const closeModal = () => {
@@ -70,15 +82,15 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: any) => {
 		setShowYaml(false);
 	};
 
-	// Handle form submission
-	const handleSubmit = () => {
+	// Handle form create submission
+	const handleCreate = () => {
 		if (!isDisabled) {
+
+			// Create action pipeline
 			if (automationType === 'actionPipeline') {
 				// Update recipe with terms selected
 				// This is a temporary solution until we have a better way to handle this
 				baseRecipe.action.config.term_propagation.target_terms = formData.termsSelected || "[]";
-
-				// Run the mutation
 				createActionPipelineMutation({
 					variables: {
 						input: {
@@ -100,9 +112,62 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: any) => {
 		}
 	}
 
+	// Handle form update submission
+	const handleUpdate = () => {
+		if (!isDisabled) {
+
+			// Update action pipeline
+			if (automationType === 'actionPipeline') {
+				upsertActionPipelineMutation({
+					variables: {
+						urn: data.urn,
+						input: {
+							name: formData.details.name,
+							description: formData.details.description,
+							type: data.type, // TODO: make this mutable?
+							config: data.definition, // TODO: make this mutable
+						},
+					},
+				});
+			}
+
+			closeModal();
+		}
+	}
+
 	const onYamlChange = (yaml: string) => {
 		console.log(yaml);
 	}
+
+	const mergeDataIfEdit = () => {
+		if (!data) return {};
+
+		const { name, description, definition } = data;
+		const recipe = definition?.config?.recipe ? JSON.parse(definition.config.recipe) : {};
+
+		return {
+			...automationData,
+			steps: automationData.steps || [], // failsafe
+			name,
+			description,
+			baseRecipe: recipe,
+		}
+	}
+
+	const isCreate = type === 'CREATE';
+	const configureInfo = isCreate && automation ? automationData : mergeDataIfEdit();
+
+	// Conditional form details
+	const formInfo = {
+		modalTitle: isCreate ? 'Create an Automation' : 'Edit Automation',
+		modalDescription: isCreate ? 'Select an automation type to begin creating a new automation.' : configureInfo?.name,
+		submitContent: isCreate ? 'Save and Run' : 'Save',
+		submitFn: isCreate ? handleCreate : handleUpdate,
+	}
+
+	// Form states
+	const showPreselect = isCreate && !automation;
+	const showForm = isCreate ? automation && !showYaml : configureInfo && !showYaml;
 
 	return (
 		<Modal
@@ -117,15 +182,15 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: any) => {
 			) : (
 				<AutomationsModalHeader>
 					<div>
-						<h2>Create an Automation</h2>
-						<p>Select an automation type to begin creating a new automation.</p>
+						<h2>{formInfo.modalTitle}</h2>
+						<p>{formInfo.modalDescription}</p>
 					</div>
 				</AutomationsModalHeader>
 			)}
 			footer={(
 				<AutomationModalFooter>
 					<div>
-						{automation && (
+						{showForm && (
 							<YamlButtonsContainer>
 								<TextButton type="text" isActive={!showYaml} onClick={() => setShowYaml(false)}>
 									<FormOutlined /> Form
@@ -137,9 +202,11 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: any) => {
 						)}
 					</div>
 					<div>
-						{automation && (<Button onClick={goBack}>Back</Button>)}
-						{!automation && (<Button onClick={closeModal}>Cancel</Button>)}
-						<Button type="primary" onClick={handleSubmit} disabled={isDisabled}>Save and Run</Button>
+						{isCreate && showForm && (<Button onClick={goBack}>Back</Button>)}
+						{!showForm && (<Button onClick={closeModal}>Cancel</Button>)}
+						<Button type="primary" onClick={formInfo.submitFn} disabled={isDisabled}>
+							{formInfo.submitContent}
+						</Button>
 					</div>
 				</AutomationModalFooter>
 			)}
@@ -147,13 +214,25 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: any) => {
 			open={isOpen}
 			width={800}
 		>
-			{!automation && <SelectPremadeAutomation setAutomation={setAutomation} />}
-			{automation && !showYaml && <Configure automation={automation} formData={formData} setFormData={setFormData} />}
-			{automation && showYaml && (
+			{showPreselect && (
+				<SelectPremadeAutomation
+					setAutomation={setAutomation}
+				/>
+			)}
+			{showForm && (
+				<Configure
+					initData={data}
+					automation={configureInfo}
+					formData={formData}
+					setFormData={setFormData}
+				/>
+			)}
+			{showYaml && (
 				<YamlEditor
-					initialText={getYaml(automationData, formData) || ''}
+					initialText={getYaml(configureInfo) || ''}
 					height="450px"
 					onChange={onYamlChange}
+					isDisabled
 				/>
 			)}
 		</Modal>

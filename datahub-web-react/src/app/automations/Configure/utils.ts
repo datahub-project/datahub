@@ -37,7 +37,7 @@ const steps = {
 		previewTitle: 'Preview Source Set',
 		fields: [
 			{
-				type: 'assetSelector',
+				type: 'dataAssetSelector',
 				label: 'Select Source Assets',
 				isRequired: true,
 			},
@@ -144,7 +144,7 @@ export const selectableAutomations = [
 			{ ...steps.select_destination },
 			{ ...steps.details },
 		],
-		baseRecipe: snowflakeTagPropagation,
+		baseRecipe: snowflakeTagPropagation as any,
 		isDisabled: false,
 	},
 	{
@@ -159,7 +159,7 @@ export const selectableAutomations = [
 			{ ...steps.select_traversal },
 			{ ...steps.details },
 		],
-		baseRecipe: termPropagation,
+		baseRecipe: termPropagation as any,
 		isDisabled: false,
 	},
 	{
@@ -174,7 +174,7 @@ export const selectableAutomations = [
 			{ ...steps.select_conditions },
 			{ ...steps.details },
 		],
-		baseRecipe: documentationPropagation,
+		baseRecipe: documentationPropagation as any,
 		isDisabled: false,
 	},
 	{
@@ -189,7 +189,7 @@ export const selectableAutomations = [
 			{ ...steps.select_custom_actions },
 			{ ...steps.details },
 		],
-		baseRecipe: custom,
+		baseRecipe: custom as any,
 		isDisabled: false,
 	},
 ];
@@ -201,8 +201,10 @@ export const getSteps = (key) =>
 		.filter((step) => !step.isHidden) || undefined;
 
 // Get the data of the automation type
-export const getAutomationData = (key) =>
-	selectableAutomations.filter((automation) => automation.key === key)[0] || undefined;
+export const getAutomationData = (key, type) => {
+	const automation = selectableAutomations.filter((auto) => auto.key === key || auto.baseRecipe?.action?.type === type);
+	return automation ? automation[0] : undefined;
+}
 
 // Returns true if the category name is "well-supported" (e.g. a built in), false otherwise.
 export const isSupportedCategory = (categoryName) => {

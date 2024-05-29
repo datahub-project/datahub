@@ -3,7 +3,6 @@ import React from 'react';
 import { Select, Input, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { isSupportedCategory } from '../../utils';
 import { TestCategory, TEST_CATEGORIES } from '../../constants';
 
 const OptionDescription = styled(Typography.Paragraph)`
@@ -19,30 +18,26 @@ const OptionDescription = styled(Typography.Paragraph)`
 	}
 `;
 
-export const CategorySelector = ({ categorySelected, setCategorySelected }: any) => {
-	const selectedCategoryName = isSupportedCategory(categorySelected) ? categorySelected : TestCategory.CUSTOM;
-
-	return (
-		<>
-			<Select
-				value={!categorySelected ? selectedCategoryName : undefined}
-				onChange={(value) => setCategorySelected(value)}
-			>
-				{TEST_CATEGORIES.map((category) => (
-					<Select.Option key={category.name} value={category.name}>
-						<Typography.Text><strong>{category.name}</strong></Typography.Text>
-						<OptionDescription>{category.description}</OptionDescription>
-					</Select.Option>
-				))}
-			</Select>
-			{!!categorySelected && selectedCategoryName === TestCategory.CUSTOM && (
-				<Input
-					type="text"
-					onChange={(e) => setCategorySelected(e.target.value)}
-					placeholder="Enter a custom category…"
-					style={{ marginTop: '8px' }}
-				/>
-			)}
-		</>
-	);
-}
+export const CategorySelector = ({ categorySelected, setCategorySelected }: any) => (
+	<>
+		<Select
+			value={categorySelected}
+			onChange={(value) => setCategorySelected(value)}
+		>
+			{TEST_CATEGORIES.map((category) => (
+				<Select.Option key={category.name} value={category.name}>
+					<Typography.Text><strong>{category.name}</strong></Typography.Text>
+					<OptionDescription>{category.description}</OptionDescription>
+				</Select.Option>
+			))}
+		</Select>
+		{categorySelected === TestCategory.CUSTOM && (
+			<Input
+				type="text"
+				onChange={(e) => setCategorySelected(e.target.value)}
+				placeholder="Enter a custom category…"
+				style={{ marginTop: '8px' }}
+			/>
+		)}
+	</>
+);

@@ -316,7 +316,7 @@ export const ConditionSelector = ({ selectedAssetTypes }: any) => {
 	const preparedConditions = prepareConditions(conditions);
 
 	// TODO: Send preparedConditions to parent component
-	console.log(preparedConditions);
+	console.log('preparedConditions', preparedConditions);
 
 	if (conditions.length === 0) {
 		return (
