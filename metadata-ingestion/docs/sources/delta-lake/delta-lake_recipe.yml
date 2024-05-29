@@ -4,6 +4,11 @@ source:
     env: "PROD"
     platform_instance: "my-delta-lake"
     base_path: "/path/to/data/folder"
-
+    # path_spec: 
+    #   include: "s3://my_bucket/my_folder/dt=20240501/my_delta.parquet"
+    # s3:
+    #   aws_config:
+    #     aws_access_key_id: <<Access key>>
+    #     aws_secret_access_key: <<secret key>>
 sink:
   # sink configs

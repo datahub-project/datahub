@@ -4,8 +4,10 @@ import subprocess
 import boto3
 import freezegun
 import pytest
+from pydantic import ValidationError
 
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.source.delta_lake.source import DeltaLakeSource
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -112,3 +114,71 @@ def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir):
         output_path=tmp_path / "delta_lake_minio_mces.json",
         golden_path=test_resources_dir / "delta_lake_minio_mces_golden.json",
     )
+
+
+def test_delta_lake_ingest_from_path_spec(pytestconfig, tmp_path, test_resources_dir):
+    # Run the metadata ingestion pipeline.
+    pipeline = Pipeline.create(
+        {
+            "run_id": "delta-lake-test",
+            "source": {
+                "type": "delta-lake",
+                "config": {
+                    "env": "DEV",
+                    "path_spec": {
+                        "include": "s3://my-test-bucket/delta_tables/sales/*.*"
+                    },
+                    "s3": {
+                        "aws_config": {
+                            "aws_access_key_id": "miniouser",
+                            "aws_secret_access_key": "miniopassword",
+                            "aws_endpoint_url": f"http://localhost:{MINIO_PORT}",
+                            "aws_region": "us-east-1",
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/delta_lake_minio_mces_path_spec.json",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "delta_lake_minio_mces_path_spec.json",
+        golden_path=test_resources_dir / "delta_lake_minio_mces_path_spec_golden.json",
+    )
+
+
+def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
+    ctx = PipelineContext(run_id="test-delta-lake")
+
+    # Case 1 : named variable in table name is not present in include
+    source = {"path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table1}"}}
+    with pytest.raises(ValidationError, match="table_name"):
+        DeltaLakeSource.create(source, ctx)
+
+    # Case 2 : unsupported file type not allowed
+    source = {
+        "path_spec": {
+            "include": "a/b/c/d/{table}/*.hd5",
+        }
+    }
+    with pytest.raises(ValidationError, match="file type"):
+        DeltaLakeSource.create(source, ctx)
+
+    # Case 3 : ** in include not allowed
+    source = {
+        "path_spec": {
+            "include": "a/b/c/d/**/*.*",
+        },
+    }
+    with pytest.raises(ValidationError, match=r"\*\*"):
+        DeltaLakeSource.create(source, ctx)

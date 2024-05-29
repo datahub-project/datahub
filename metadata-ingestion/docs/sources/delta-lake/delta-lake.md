@@ -119,7 +119,10 @@ Create a datahub ingestion yaml file (delta.s3.dhub.yaml) to ingest metadata fro
 source:
   type: "delta-lake"
   config:
-    base_path:  "s3://my-bucket/my-folder/sales-table"
+    base_path:  "s3://my-bucket/my-folder/sales-table" 
+    or
+    path_spec:
+      include: "s3://my-bucket/my-folder/sales-table/part-00000-821c9c6c-4b0a-4386-8df7-b9dac7d1f9ee-c000.snappy.parquet"
     s3:
       aws_config:
         aws_access_key_id: <<Access key>>

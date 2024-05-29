@@ -1,0 +1,1793 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/._SUCCESS.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/delta_tables/sales/._SUCCESS.crc",
+                "number_of_files": "1",
+                "size_in_bytes": "8"
+            },
+            "name": "delta_tables",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024776,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/._SUCCESS.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "delta_tables",
+            "platform": "urn:li:dataPlatform:delta-lake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024777,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/._SUCCESS.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1716899024775,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1716898992404
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024778,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "delta-lake",
+                "env": "DEV",
+                "folder_abs_path": "s3:"
+            },
+            "name": "s3:"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024779,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024779,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:delta-lake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024780,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024780,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024781,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "delta-lake",
+                "env": "DEV",
+                "folder_abs_path": "s3:/"
+            },
+            "name": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024782,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024782,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:delta-lake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024783,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024783,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024784,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024784,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "delta-lake",
+                "env": "DEV",
+                "folder_abs_path": "s3://my-test-bucket"
+            },
+            "name": "my-test-bucket"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024785,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024786,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:delta-lake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024787,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024787,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024788,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024788,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "delta-lake",
+                "env": "DEV",
+                "folder_abs_path": "s3://my-test-bucket/delta_tables"
+            },
+            "name": "delta_tables"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024790,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024791,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:delta-lake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024791,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024792,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024793,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                },
+                {
+                    "id": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+                    "urn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024794,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "delta-lake",
+                "env": "DEV",
+                "folder_abs_path": "s3://my-test-bucket/delta_tables/sales"
+            },
+            "name": "sales"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024795,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024796,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:delta-lake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024797,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024799,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:852605b6e05e937d61d3bc2886b739bc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024799,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                },
+                {
+                    "id": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+                    "urn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+                },
+                {
+                    "id": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+                    "urn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024801,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/._SUCCESS.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024893,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/._SUCCESS.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                },
+                {
+                    "id": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+                    "urn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+                },
+                {
+                    "id": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+                    "urn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc"
+                },
+                {
+                    "id": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+                    "urn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024894,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/delta_tables/sales/.part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet.crc",
+                "number_of_files": "1",
+                "size_in_bytes": "2504"
+            },
+            "name": "delta_tables",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024980,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "delta_tables",
+            "platform": "urn:li:dataPlatform:delta-lake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024981,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1716899024893,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1716898992461
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024982,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024983,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                },
+                {
+                    "id": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+                    "urn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+                },
+                {
+                    "id": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+                    "urn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc"
+                },
+                {
+                    "id": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+                    "urn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899024983,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/delta_tables/sales/.part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet.crc",
+                "number_of_files": "1",
+                "size_in_bytes": "2500"
+            },
+            "name": "delta_tables",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025160,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "delta_tables",
+            "platform": "urn:li:dataPlatform:delta-lake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025161,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1716899024980,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1716898992434
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025162,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025162,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                },
+                {
+                    "id": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+                    "urn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+                },
+                {
+                    "id": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+                    "urn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc"
+                },
+                {
+                    "id": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+                    "urn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025163,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/delta_tables/sales/.part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet.crc",
+                "number_of_files": "1",
+                "size_in_bytes": "2500"
+            },
+            "name": "delta_tables",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025287,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "delta_tables",
+            "platform": "urn:li:dataPlatform:delta-lake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025288,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1716899025160,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1716898992470
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025288,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025289,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                },
+                {
+                    "id": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+                    "urn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+                },
+                {
+                    "id": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+                    "urn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc"
+                },
+                {
+                    "id": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+                    "urn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025290,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/delta_tables/sales/part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet",
+                "number_of_files": "1",
+                "size_in_bytes": "319296"
+            },
+            "name": "delta_tables",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025393,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "delta_tables",
+            "platform": "urn:li:dataPlatform:delta-lake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "year",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "month",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "day",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "sale_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_cost",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025393,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1716899025286,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1716898992415
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025396,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025397,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                },
+                {
+                    "id": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+                    "urn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+                },
+                {
+                    "id": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+                    "urn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc"
+                },
+                {
+                    "id": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+                    "urn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025397,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/delta_tables/sales/part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet",
+                "number_of_files": "1",
+                "size_in_bytes": "318646"
+            },
+            "name": "delta_tables",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025502,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "delta_tables",
+            "platform": "urn:li:dataPlatform:delta-lake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "year",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "month",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "day",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "sale_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_cost",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025502,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1716899025392,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1716898992444
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025505,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025506,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                },
+                {
+                    "id": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+                    "urn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+                },
+                {
+                    "id": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+                    "urn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc"
+                },
+                {
+                    "id": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+                    "urn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025506,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/delta_tables/sales/part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet",
+                "number_of_files": "1",
+                "size_in_bytes": "318922"
+            },
+            "name": "delta_tables",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025507,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "delta_tables",
+            "platform": "urn:li:dataPlatform:delta-lake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "year",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "month",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "day",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "sale_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_cost",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025508,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1716899025501,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1716898992388
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025511,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025511,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8",
+                    "urn": "urn:li:container:b92a722b55b9fa49f4ed132ce1838ea8"
+                },
+                {
+                    "id": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019",
+                    "urn": "urn:li:container:2e96eb446d109f3ff8bf340f686e2019"
+                },
+                {
+                    "id": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936",
+                    "urn": "urn:li:container:23e91f578aa6fe5f0e87c93b3744a936"
+                },
+                {
+                    "id": "urn:li:container:852605b6e05e937d61d3bc2886b739bc",
+                    "urn": "urn:li:container:852605b6e05e937d61d3bc2886b739bc"
+                },
+                {
+                    "id": "urn:li:container:2f15130f0582771b563eb6af8dcfad11",
+                    "urn": "urn:li:container:2f15130f0582771b563eb6af8dcfad11"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025512,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/._SUCCESS.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025512,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025513,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025513,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/.part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet.crc,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025514,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-64c688b3-46cc-44c9-86a4-d1f07a3570c1-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025515,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-71b51e51-8746-425f-8e20-41dc771a1b47-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025515,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales/part-00000-c4f4550a-83d5-4c35-bdb6-9f8bd1a9d154-c000.snappy.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1716899025516,
+        "runId": "delta-lake-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
