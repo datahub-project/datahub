@@ -32,6 +32,8 @@ public class SearchableRefAnnotation {
   String fieldName;
   // Type of the field. Defines how the field is indexed and matched
   SearchableAnnotation.FieldType fieldType;
+  // Whether we should match the field for the default search query
+  boolean queryByDefault;
   // Boost multiplier to the match score. Matches on fields with higher boost score ranks higher
   double boostScore;
   // defines what depth should be explored of reference object
@@ -72,18 +74,33 @@ public class SearchableRefAnnotation {
                   + "Mandatory input field refType defining the Entity Type is not provided",
               ANNOTATION_NAME, context));
     }
+    final Optional<Boolean> queryByDefault =
+        AnnotationUtils.getField(map, "queryByDefault", Boolean.class);
     final Optional<Integer> depth = AnnotationUtils.getField(map, "depth", Integer.class);
     final Optional<Double> boostScore = AnnotationUtils.getField(map, "boostScore", Double.class);
     final List<String> fieldNameAliases = getFieldNameAliases(map);
     final SearchableAnnotation.FieldType resolvedFieldType =
         getFieldType(fieldType, schemaDataType);
+
     return new SearchableRefAnnotation(
         fieldName.orElse(schemaFieldName),
         resolvedFieldType,
+        getQueryByDefault(queryByDefault, resolvedFieldType),
         boostScore.orElse(1.0),
         depth.orElse(2),
         refType.get(),
         fieldNameAliases);
+  }
+
+  private static Boolean getQueryByDefault(
+      Optional<Boolean> maybeQueryByDefault, SearchableAnnotation.FieldType fieldType) {
+    if (!maybeQueryByDefault.isPresent()) {
+      if (DEFAULT_QUERY_FIELD_TYPES.contains(fieldType)) {
+        return Boolean.TRUE;
+      }
+      return Boolean.FALSE;
+    }
+    return maybeQueryByDefault.get();
   }
 
   private static SearchableAnnotation.FieldType getFieldType(
