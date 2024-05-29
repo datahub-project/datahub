@@ -331,7 +331,7 @@ module.exports = {
     {
       type: "doc",
       label: "Overview",
-      id: "metadata-ingestion/source_overview"
+      id: "metadata-ingestion/source_overview",
     },
     {
       type: "category",
