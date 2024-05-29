@@ -434,6 +434,7 @@ module.exports = {
       type: "category",
       label: "Orchestrator",
       items: [
+        //"docker/airflow/local_airflow",
         {
           type: "doc",
           label: "Airflow",
@@ -975,6 +976,7 @@ module.exports = {
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
+    //"metadata-ingestion/source-docs-template",
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",
     // "docs/what/aspect",
