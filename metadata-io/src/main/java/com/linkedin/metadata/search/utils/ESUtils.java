@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.StringUtils;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.common.unit.TimeValue;
@@ -302,11 +303,7 @@ public class ESUtils {
       @Nonnull SearchSourceBuilder searchSourceBuilder,
       List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs) {
-    buildSortOrder(
-        searchSourceBuilder,
-        sortCriteria,
-        entitySpecs,
-        true);
+    buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, true);
   }
 
   /**
@@ -318,12 +315,13 @@ public class ESUtils {
    */
   public static void buildSortOrder(
       @Nonnull SearchSourceBuilder searchSourceBuilder,
-      @Nonnull List<SortCriterion> sortCriteria,
+      @Nullable List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs,
       boolean enableDefaultSort) {
-    if (sortCriteria.isEmpty() && enableDefaultSort) {
+    if (CollectionUtils.isEmpty(sortCriteria) && enableDefaultSort) {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
+      sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
       for (SortCriterion sortCriterion : sortCriteria) {
         Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
         for (EntitySpec entitySpec : entitySpecs) {
@@ -362,7 +360,7 @@ public class ESUtils {
       }
     }
     if (enableDefaultSort
-        && (sortCriteria.isEmpty()
+        && (CollectionUtils.isEmpty(sortCriteria)
             || sortCriteria.stream()
                 .noneMatch(c -> c.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)))) {
       searchSourceBuilder.sort(

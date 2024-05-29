@@ -50,9 +50,11 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            final List<SortCriterion> sortCriteria = Collections.singletonList(new SortCriterion()
-                    .setField(LAST_MODIFIED_FIELD_NAME)
-                    .setOrder(SortOrder.DESCENDING));
+            final List<SortCriterion> sortCriteria =
+                Collections.singletonList(
+                    new SortCriterion()
+                        .setField(LAST_MODIFIED_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING));
 
             // First, get all Post Urns.
             final SearchResult gmsResult =

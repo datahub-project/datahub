@@ -70,9 +70,10 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
                       Constants.TEST_ENTITY_NAME,
                       query,
                       buildTestsFilter(),
-                      Collections.singletonList(new SortCriterion()
-                          .setField(TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME)
-                          .setOrder(SortOrder.DESCENDING)),
+                      Collections.singletonList(
+                          new SortCriterion()
+                              .setField(TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME)
+                              .setOrder(SortOrder.DESCENDING)),
                       start,
                       count);
 

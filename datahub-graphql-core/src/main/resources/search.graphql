@@ -1417,7 +1417,7 @@ input SearchSortInput {
   """
   A criterion to sort search results on
   """
-  sortCriterion: SortCriterion! @deprecated(reason: "Use sortCriteria instead")
+  sortCriterion: SortCriterion @deprecated(reason: "Use sortCriteria instead")
 
   """
   A list of values to sort search results on

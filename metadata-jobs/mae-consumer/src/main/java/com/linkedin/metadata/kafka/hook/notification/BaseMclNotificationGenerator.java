@@ -1,9 +1,5 @@
 package com.linkedin.metadata.kafka.hook.notification;
 
-import static com.linkedin.metadata.AcrylConstants.*;
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
-
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.SettingsProvider;
@@ -59,6 +55,10 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.NotImplementedException;
 
+import static com.linkedin.metadata.AcrylConstants.*;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
+
 /** This serves as a base class for MAE-based notification generators. */
 @Slf4j
 public abstract class BaseMclNotificationGenerator implements MclNotificationGenerator {
@@ -104,7 +104,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
         && globalSettingsInfo.getNotifications().hasSettings()
         && globalSettingsInfo.getNotifications().getSettings().containsKey(type.toString())
         && NotificationSettingValue.ENABLED.equals(
-            globalSettingsInfo.getNotifications().getSettings().get(type.toString()).getValue());
+        globalSettingsInfo.getNotifications().getSettings().get(type.toString()).getValue());
   }
 
   protected boolean isEligibleForOwnerRecipients() {

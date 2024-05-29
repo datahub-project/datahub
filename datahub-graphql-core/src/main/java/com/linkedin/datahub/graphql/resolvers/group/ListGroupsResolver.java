@@ -64,9 +64,10 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
                       CORP_GROUP_ENTITY_NAME,
                       query,
                       null,
-                      Collections.singletonList(new SortCriterion()
-                          .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
-                          .setOrder(SortOrder.DESCENDING)),
+                      Collections.singletonList(
+                          new SortCriterion()
+                              .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
+                              .setOrder(SortOrder.DESCENDING)),
                       start,
                       count);
 

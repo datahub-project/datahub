@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,9 +60,13 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
         () -> {
           try {
             List<SortCriterion> sortCriteria =
-                    input.getSortInput() != null
-                            ? Collections.singletonList(mapSortCriterion(input.getSortInput().getSortCriterion()))
-                            : Collections.singletonList(new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING));
+                input.getSortInput() != null
+                    ? Collections.singletonList(
+                        mapSortCriterion(input.getSortInput().getSortCriterion()))
+                    : Collections.singletonList(
+                        new SortCriterion()
+                            .setField(CREATED_AT_FIELD)
+                            .setOrder(SortOrder.DESCENDING));
 
             // First, get all Query Urns.
             final SearchResult gmsResult =
@@ -75,7 +78,6 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                     QUERY_ENTITY_NAME,
                     query,
                     buildFilters(input),
-                    finalFilter,
                     sortCriteria,
                     start,
                     count);

@@ -76,9 +76,10 @@ public class IngestionSourceExecutionRequestsResolver
                                 new ConjunctiveCriterion()
                                     .setAnd(
                                         new CriterionArray(ImmutableList.of(filterCriterion))))),
-                    Collections.singletonList(new SortCriterion()
-                        .setField(REQUEST_TIME_MS_FIELD_NAME)
-                        .setOrder(SortOrder.DESCENDING)),
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(REQUEST_TIME_MS_FIELD_NAME)
+                            .setOrder(SortOrder.DESCENDING)),
                     start,
                     count);
 

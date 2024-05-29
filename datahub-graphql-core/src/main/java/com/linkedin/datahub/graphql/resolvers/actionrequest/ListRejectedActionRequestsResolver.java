@@ -67,9 +67,11 @@ public class ListRejectedActionRequestsResolver
 
             final Filter filter = createFilter(type, startTimestampMillis, endTimestampMillis);
 
-            final List<SortCriterion> sortCriteria = Collections.singletonList(new SortCriterion()
-                    .setField(LAST_MODIFIED_FIELD_NAME)
-                    .setOrder(SortOrder.DESCENDING));
+            final List<SortCriterion> sortCriteria =
+                Collections.singletonList(
+                    new SortCriterion()
+                        .setField(LAST_MODIFIED_FIELD_NAME)
+                        .setOrder(SortOrder.DESCENDING));
 
             final SearchResult searchResult =
                 _entityClient.filter(

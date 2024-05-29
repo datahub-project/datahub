@@ -1311,7 +1311,7 @@ public class FormService extends BaseService {
             filter,
             0,
             0, // doing an aggregate request here, count = 0
-            null,
+            Collections.emptyList(),
             formFacets);
 
     // get the form urns from the aggregations query we make above

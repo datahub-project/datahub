@@ -24,6 +24,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -114,7 +115,7 @@ public class GetQuickFiltersResolverTest {
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
-                Mockito.eq(null),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(null)))
         .thenThrow(new RemoteInvocationException());
 
@@ -300,7 +301,7 @@ public class GetQuickFiltersResolverTest {
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.eq(null),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(null)))
         .thenReturn(result);
     return client;

@@ -1,8 +1,5 @@
 package com.linkedin.metadata.client;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static com.linkedin.metadata.search.utils.SearchUtils.*;
-
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -60,6 +57,7 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,6 +71,9 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -372,7 +373,13 @@ public class JavaEntityClient implements EntityClient {
     return ValidationUtils.validateSearchResult(
         opContext,
         entitySearchService.search(
-            opContext, List.of(entity), input, newFilter(requestFilters), null, start, count),
+            opContext,
+            List.of(entity),
+            input,
+            newFilter(requestFilters),
+            Collections.emptyList(),
+            start,
+            count),
         entityService);
   }
 
@@ -403,7 +410,7 @@ public class JavaEntityClient implements EntityClient {
                 opContext.withSearchFlags(flags -> flags.setFulltext(false)),
                 entity,
                 newFilter(requestFilters),
-                null,
+                Collections.emptyList(),
                 start,
                 count)),
         entityService);
@@ -473,7 +480,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      List<SortCriterion> sortCriteria,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
 
@@ -510,7 +517,7 @@ public class JavaEntityClient implements EntityClient {
             entities,
             input,
             filter,
-            null,
+            Collections.emptyList(),
             scrollId,
             keepAlive,
             count),

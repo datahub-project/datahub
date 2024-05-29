@@ -165,7 +165,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable List<SortCriterion> sortCriteria,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
@@ -229,14 +229,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         size,
         scrollId);
     return esSearchDAO.scroll(
-        opContext,
-        entities,
-        filters,
-        sortCriteria,
-        size,
-        scrollId,
-        keepAliveDuration,
-        fetchConfig);
+        opContext, entities, filters, sortCriteria, size, scrollId, keepAliveDuration, fetchConfig);
   }
 
   @Nonnull

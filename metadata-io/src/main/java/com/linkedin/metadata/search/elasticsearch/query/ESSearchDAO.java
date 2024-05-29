@@ -318,7 +318,7 @@ public class ESSearchDAO {
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Filter postFilters,
-      @Nullable List<SortCriterion> sortCriteria,
+      List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {

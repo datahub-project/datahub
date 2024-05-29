@@ -611,15 +611,18 @@ public class EntityApiDelegateImpl<I, O, S> {
             authentication,
             true);
 
-    List<SortCriterion> sortCriteria = Optional.ofNullable(sort).orElse(Collections.singletonList("urn"))
-        .stream().map(sortField -> {
-      SortCriterion sortCriterion = new SortCriterion();
-      sortCriterion.setField(sortField);
-          sortCriterion.setOrder(
-              com.linkedin.metadata.query.filter.SortOrder.valueOf(
-                  Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
-      return sortCriterion;
-    }).collect(Collectors.toList());
+    List<SortCriterion> sortCriteria =
+        Optional.ofNullable(sort).orElse(Collections.singletonList("urn")).stream()
+            .map(
+                sortField -> {
+                  SortCriterion sortCriterion = new SortCriterion();
+                  sortCriterion.setField(sortField);
+                  sortCriterion.setOrder(
+                      com.linkedin.metadata.query.filter.SortOrder.valueOf(
+                          Optional.ofNullable(sortOrder).map(Enum::name).orElse("ASCENDING")));
+                  return sortCriterion;
+                })
+            .collect(Collectors.toList());
 
     ScrollResult result =
         _searchService.scrollAcrossEntities(

@@ -291,7 +291,7 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      List<SortCriterion> sortCriteria,
+      @Nonnull List<SortCriterion> sortCriteria,
       List<String> facets)
       throws RemoteInvocationException;
 

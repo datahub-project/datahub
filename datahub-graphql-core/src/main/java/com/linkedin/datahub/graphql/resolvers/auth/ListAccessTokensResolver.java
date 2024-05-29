@@ -59,9 +59,10 @@ public class ListAccessTokensResolver
               || isListingSelfTokens(filters, context)) {
             try {
               final List<SortCriterion> sortCriteria =
-                  Collections.singletonList(new SortCriterion()
-                      .setField(EXPIRES_AT_FIELD_NAME)
-                      .setOrder(SortOrder.DESCENDING));
+                  Collections.singletonList(
+                      new SortCriterion()
+                          .setField(EXPIRES_AT_FIELD_NAME)
+                          .setOrder(SortOrder.DESCENDING));
               final SearchResult searchResult =
                   _entityClient.search(
                       context

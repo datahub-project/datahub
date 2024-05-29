@@ -58,7 +58,8 @@ public class SearchResolverTest {
         mockClient,
         Constants.DATASET_ENTITY_NAME, // Verify that merged entity types were used.
         "",
-        null, Collections.emptyList(),
+        null,
+        Collections.emptyList(),
         0,
         10,
         setConvertSchemaFieldsToDatasets(

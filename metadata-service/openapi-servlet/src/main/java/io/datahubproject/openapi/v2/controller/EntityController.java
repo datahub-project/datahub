@@ -145,9 +145,11 @@ public class EntityController {
     List<SortCriterion> sortCriteria;
     if (!CollectionUtils.isEmpty(sortFields)) {
       sortCriteria = new ArrayList<>();
-      sortFields.forEach(field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
+      sortFields.forEach(
+          field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
     } else {
-      sortCriteria = Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
+      sortCriteria =
+          Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
     }
 
     ScrollResult result =
