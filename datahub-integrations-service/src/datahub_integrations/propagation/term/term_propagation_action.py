@@ -146,7 +146,6 @@ class TermPropagationAction(ExtendedAction):
             logger.info(
                 f"[Config] Will propagate all terms in groups {self.config.term_groups}"
             )
-        self.bootstrap()
 
     def name(self) -> str:
         return "TermPropagator"
@@ -197,7 +196,7 @@ class TermPropagationAction(ExtendedAction):
 
     def _process_asset(
         self, asset_urn: str, terms: List[str], target_entity_type: str, operation: str
-    ) -> None:
+    ) -> Iterable[TermPropagationDirective]:
         if target_entity_type == "schemaField" and asset_urn.startswith(
             "urn:li:dataset"
         ):
@@ -238,7 +237,6 @@ class TermPropagationAction(ExtendedAction):
                     }
                 )
 
-            breakpoint()
             for field_path, field_terms in field_terms_map.items():
                 field_urn = make_schema_field_urn(asset_urn, field_path)
                 for term in field_terms:
@@ -250,7 +248,7 @@ class TermPropagationAction(ExtendedAction):
                         actor=term.actor,
                         origin=asset_urn,
                     )
-                    self.process_directive(term_propagation_directive)
+                    yield term_propagation_directive
         elif target_entity_type in [
             "dataset",
             "chart",
@@ -276,19 +274,29 @@ class TermPropagationAction(ExtendedAction):
                         actor=term.actor,
                         origin=asset_urn,
                     )
-                    self.process_directive(term_propagation_directive)
+                    yield term_propagation_directive
         else:
             logger.error(f"Unsupported target entity type {target_entity_type}")
 
     def bootstrap(self) -> None:
         # First process configuration to understand what are the terms that need
         # to be propagated
-        self.process_all_assets(operation="ADD")
+        for directive in self.process_all_assets(operation="ADD"):
+            self.process_directive(directive)
 
     def rollback(self) -> None:
-        self.process_all_assets(operation="REMOVE")
+        for directive in self.process_all_assets(operation="REMOVE"):
+            self.process_directive(directive)
 
-    def process_all_assets(self, operation: str) -> None:
+    def process_all_assets(
+        self,
+        operation: str,
+        extra_filters: Optional[List[Dict[Any, Any]]] = None,
+    ) -> Iterable[TermPropagationDirective]:
+        """
+        Process all assets in the graph based on term propagation configuration and return term propagation directives
+        Caller can pass in extra filters to narrow down the search
+        """
         all_terms: List[str] = []
         if self.config.target_terms:
             all_terms.extend(self._get_target_terms_expanded())
@@ -342,11 +350,13 @@ class TermPropagationAction(ExtendedAction):
                     )
                 assets = self.ctx.graph.graph.get_urns_by_filter(
                     entity_types=[index],
+                    extraFilters=extra_filters,
                     extra_or_filters=or_filters,
                 )
-                breakpoint()
                 for asset in assets:
-                    self._process_asset(asset, all_terms, entity_type, operation)
+                    yield from self._process_asset(
+                        asset, all_terms, entity_type, operation
+                    )
 
     def should_propagate(
         self, event: EventEnvelope
@@ -510,7 +520,6 @@ class TermPropagationAction(ExtendedAction):
         attribution: MetadataAttributionClass,
         context: str,
     ) -> None:
-        breakpoint()
         if not dataset_urn.startswith("urn:li:dataset"):
             logger.error(
                 f"Invalid dataset urn {dataset_urn}. Must start with urn:li:dataset"
@@ -565,7 +574,6 @@ class TermPropagationAction(ExtendedAction):
                 editableSchemaMetadata.editableSchemaFieldInfo = (
                     editable_schema_field_info_deduped
                 )
-                breakpoint()
 
             for field_path, terms in field_terms.items():
                 if field_path not in [
