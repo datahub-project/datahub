@@ -4,7 +4,6 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.metadata.schema_classes import FabricTypeClass
 
 DEFAULT_ENV = FabricTypeClass.PROD
@@ -34,12 +33,6 @@ class EnvConfigMixin(ConfigModel):
     env: str = Field(
         default=DEFAULT_ENV,
         description="The environment that all assets produced by this connector belong to",
-    )
-
-    _env_deprecation = pydantic_field_deprecated(
-        "env",
-        message="We recommend using platform_instance instead of env. "
-        "While specifying env does still work, we intend to deprecate it in the future.",
     )
 
     @validator("env")

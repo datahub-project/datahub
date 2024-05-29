@@ -19,6 +19,12 @@ import javax.annotation.Nonnull;
 
 public class TestUtils {
 
+  /** Returns true if the authenticated user is able to view tests. */
+  public static boolean canViewTests(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.VIEW_TESTS_PRIVILEGE);
+  }
+
   /** Returns true if the authenticated user is able to manage tests. */
   public static boolean canManageTests(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(

@@ -46,7 +46,7 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (canManageTests(context)) {
+          if (canManageTests(context) || canViewTests(context)) {
             final ListTestsInput input =
                 bindArgument(environment.getArgument("input"), ListTestsInput.class);
             final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();

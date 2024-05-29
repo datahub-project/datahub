@@ -830,10 +830,10 @@ public class GmsGraphQLEngine {
     builder
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
-        .configureRuntimeWiring(this::configureRuntimeWiring)
         .setGraphQLQueryComplexityLimit(graphQLQueryComplexityLimit)
         .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit)
-        .setGraphQLQueryIntrospectionEnabled(graphQLQueryIntrospectionEnabled);
+        .setGraphQLQueryIntrospectionEnabled(graphQLQueryIntrospectionEnabled)
+        .configureRuntimeWiring(this::configureRuntimeWiring);
     return builder;
   }
 
