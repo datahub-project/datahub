@@ -1,4 +1,4 @@
-# DataHub's Open Data Quality Assertions Specification
+# DataHub Open Data Quality Assertions Specification
 
 DataHub is developing an open-source Data Quality Assertions Specification & Compiler that will allow you to declare data quality checks / expectations / assertions using a simple, universal
 YAML-based format, and then compile this into artifacts that can be registered or directly executed by 3rd party Data Quality tools like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro), 
