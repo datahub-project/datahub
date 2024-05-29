@@ -107,16 +107,18 @@ class DataProcessInstance:
         start_timestamp_millis: int,
         attempt: Optional[int] = None,
         emit_template: bool = True,
+        materialize_iolets: bool = True,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """
 
         :rtype: None
         :param emitter: Datahub Emitter to emit the process event
-        :param start_timestamp_millis: (int) the execution start time in milliseconds
+        :param start_timestamp_millis: the execution start time in milliseconds
         :param attempt: the number of attempt of the execution with the same execution id
-        :param emit_template: (bool) If it is set the template of the execution (datajob, dataflow) will be emitted as well.
-        :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
+        :param emit_template: If it is set the template of the execution (datajob, dataflow) will be emitted as well.
+        :param materialize_iolets: If it is set the iolets will be materialized
+        :param callback: the callback method for KafkaEmitter if it is used
         """
         if emit_template and self.template_urn is not None:
             template_object: Union[DataJob, DataFlow]
@@ -157,7 +159,10 @@ class DataProcessInstance:
             for mcp in template_object.generate_mcp():
                 self._emit_mcp(mcp, emitter, callback)
 
-        for mcp in self.generate_mcp(created_ts_millis=start_timestamp_millis):
+        for mcp in self.generate_mcp(
+            created_ts_millis=start_timestamp_millis,
+            materialize_iolets=materialize_iolets,
+        ):
             self._emit_mcp(mcp, emitter, callback)
         for mcp in self.start_event_mcp(start_timestamp_millis, attempt):
             self._emit_mcp(mcp, emitter, callback)
@@ -230,7 +235,7 @@ class DataProcessInstance:
             self._emit_mcp(mcp, emitter, callback)
 
     def generate_mcp(
-        self, created_ts_millis: Optional[int] = None, materialize_iolets: bool = True
+        self, created_ts_millis: Optional[int], materialize_iolets: bool
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Generates mcps from the object"""
 
@@ -280,13 +285,17 @@ class DataProcessInstance:
         self,
         emitter: Emitter,
         callback: Optional[Callable[[Exception, str], None]] = None,
+        created_ts_millis: Optional[int] = None,
     ) -> None:
         """
 
         :param emitter: (Emitter) the datahub emitter to emit generated mcps
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
         """
-        for mcp in self.generate_mcp():
+        for mcp in self.generate_mcp(
+            created_ts_millis=created_ts_millis,
+            materialize_iolets=True,
+        ):
             self._emit_mcp(mcp, emitter, callback)
 
     @staticmethod
