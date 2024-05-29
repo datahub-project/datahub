@@ -45,9 +45,7 @@ Below you'll find examples of defining different types of freshness assertions v
 ```yaml
 version: 1
 assertions:
-  # Freshness Assertion
   - type: freshness
-    # The table being asserted on
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
       lookbackInterval: '6 hours'
@@ -84,9 +82,7 @@ Below you'll find examples of defining different types of volume assertions via 
 ```yaml
 version: 1
 assertions:
-  # Volume Assertion
   - type: volume
-    # The table being asserted on
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
       operator:
@@ -109,9 +105,7 @@ Using the `schedule` field you can specify when the assertion should be run, eit
 ```yaml
 version: 1
 assertions:
-  # Volume Assertion
   - type: volume
-    # The table being asserted on
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
       operator:
@@ -128,9 +122,7 @@ assertions:
 ```yaml
 version: 1
 assertions:
-  # Volume Assertion
   - type: volume
-    # The table being asserted on
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
       operator:
@@ -173,7 +165,6 @@ We'll go over examples of each below.
 ```yaml
 version: 1
 assertions:
-  # Field Value Assertion
   - type: field
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
@@ -204,7 +195,6 @@ The validate a VARCHAR / STRING column that should contain one of a set of value
 ```yaml
 version: 1
 assertions:
-  # Field Value Assertion
   - type: field
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
@@ -229,7 +219,6 @@ The validate a string column contains valid email addresses:
 ```yaml
 version: 1
 assertions:
-  # Field Value Assertion
   - type: field
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
@@ -271,7 +260,6 @@ The full set of supported field value operators include:
 ```yaml
 version: 1
 assertions:
-  # Field Metric Assertion
   - type: field
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
@@ -293,7 +281,6 @@ This assertion ensures that the `col_date` column in the `purchase_events` table
 ```yaml
 version: 1
 assertions:
-  # Field Metric Assertion
   - type: field
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
@@ -316,7 +303,6 @@ has no duplicates, by checking that the unique percentage is 100%.
 ```yaml
 version: 1
 assertions:
-  # Field Metric Assertion
   - type: field
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     definition:
