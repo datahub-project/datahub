@@ -1,7 +1,7 @@
 # DataHub's Open Data Quality Assertions Specification
 
-DataHub is developing an open-source Data Quality Assertions Specification & Compiler that will allow you to declare data quality checks / expectations / assertions using in a simple, universal
-YAML-based format, and then compile them to into artifacts that can be registered or directly executed by 3rd party Data Quality tools like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro), 
+DataHub is developing an open-source Data Quality Assertions Specification & Compiler that will allow you to declare data quality checks / expectations / assertions using a simple, universal
+YAML-based format, and then compile this into artifacts that can be registered or directly executed by 3rd party Data Quality tools like [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro), 
 dbt tests, Great Expectations or Acryl Cloud natively. 
 
 Ultimately, our goal is to provide an framework-agnostic, highly-portable format for defining Data Quality checks, making it seamless to swap out the underlying
@@ -30,7 +30,7 @@ The following assertion types are currently supported by the DataHub YAML Assert
 - [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
 - [Schema](/docs/managed-datahub/observe/schema-assertions.md)
 
-Each assertion type aims to validate a different aspect of a warehouse or table table, from
+Each assertion type aims to validate a different aspect of structured table (e.g. on a data warehouse or data lake), from
 structure to size to column integrity to custom metrics. 
 
 In this section, we'll go over examples of defining each. 
