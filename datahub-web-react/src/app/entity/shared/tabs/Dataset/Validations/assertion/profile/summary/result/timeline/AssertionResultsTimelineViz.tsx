@@ -6,7 +6,6 @@ import {
     Assertion,
     AssertionRunEventsResult,
     AssertionRunStatus,
-    AssertionType,
 } from '../../../../../../../../../../../types.generated';
 import { ValuesOverTimeAssertionResultChart } from './charts/ValuesOverTimeAssertionResultChart';
 import { AssertionChartType, AssertionResultChartData, TimeRange } from './charts/types';
@@ -17,8 +16,6 @@ import { ANTD_GRAY } from '../../../../../../../../constants';
 import { getTimeRangeDisplay } from './utils';
 import { FreshnessResultChart } from './charts/FreshnessResultChart';
 
-const VIZ_CONTAINER_HEIGHT = 240;
-const FRESHNESS_VIZ_CONTAINER_HEIGHT = 180;
 const VIZ_CONTAINER_TITLE_HEIGHT = 36;
 
 const getVisualizationContainer = (height: number) => styled.div`
@@ -49,60 +46,67 @@ type Props = {
     assertion: Assertion;
     timeRange: TimeRange;
     results?: AssertionRunEventsResult | null;
-    isInitializing: boolean
-    parentDimensions: { width: number }
+    isInitializing: boolean;
+    parentDimensions: { width: number; height: number };
 };
 
-export const AssertionResultsTimelineViz = ({ assertion, results, timeRange, parentDimensions, isInitializing }: Props) => {
-    const vizHeight = assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT
-
+export const AssertionResultsTimelineViz = ({
+    assertion,
+    results,
+    timeRange,
+    parentDimensions,
+    isInitializing,
+}: Props) => {
     // Run event data
     const completedRuns =
         results?.runEvents.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
 
-    const assertionResultChartData: AssertionResultChartData = getAssertionResultChartData(
-        assertion,
-        completedRuns,
-    )
+    const assertionResultChartData: AssertionResultChartData = getAssertionResultChartData(assertion, completedRuns);
 
     // render
     const chartDimensions = {
-        height: vizHeight - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
+        height: parentDimensions.height - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
         width: parentDimensions.width - 8, // margin on the sides (we have align-items=center)
-    }
+    };
 
-    const renderChartTitle = (title?: string) => <VizHeader>
-        <VizHeaderTitle strong>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
-    </VizHeader>
+    const renderChartTitle = (title?: string) => (
+        <VizHeader>
+            <VizHeaderTitle strong>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
+        </VizHeader>
+    );
 
     const renderChart = (): JSX.Element | undefined => {
         switch (getBestChartTypeForAssertion(assertion.info)) {
             case AssertionChartType.ValuesOverTime:
-                return <ValuesOverTimeAssertionResultChart
-                    chartDimensions={chartDimensions}
-                    data={assertionResultChartData}
-                    timeRange={timeRange}
-                    renderHeader={renderChartTitle}
-                />;
+                return (
+                    <ValuesOverTimeAssertionResultChart
+                        chartDimensions={chartDimensions}
+                        data={assertionResultChartData}
+                        timeRange={timeRange}
+                        renderHeader={renderChartTitle}
+                    />
+                );
             case AssertionChartType.Freshness:
-                return <FreshnessResultChart
-                    chartDimensions={chartDimensions}
-                    data={assertionResultChartData}
-                    timeRange={timeRange}
-                    renderHeader={renderChartTitle}
-                />;
+                return (
+                    <FreshnessResultChart
+                        chartDimensions={chartDimensions}
+                        data={assertionResultChartData}
+                        timeRange={timeRange}
+                        renderHeader={renderChartTitle}
+                    />
+                );
             default:
-                return <StatusOverTimeAssertionResultChart
-                    chartDimensions={chartDimensions}
-                    data={assertionResultChartData}
-                    timeRange={timeRange}
-                    renderHeader={renderChartTitle}
-                />;
+                return (
+                    <StatusOverTimeAssertionResultChart
+                        chartDimensions={chartDimensions}
+                        data={assertionResultChartData}
+                        timeRange={timeRange}
+                        renderHeader={renderChartTitle}
+                    />
+                );
         }
-    }
+    };
 
-    const VisualizationContainer = getVisualizationContainer(vizHeight)
-    return <VisualizationContainer style={{ opacity: isInitializing ? 0 : 1 }}>
-        {renderChart()}
-    </VisualizationContainer>
+    const VisualizationContainer = getVisualizationContainer(parentDimensions.height);
+    return <VisualizationContainer style={{ opacity: isInitializing ? 0 : 1 }}>{renderChart()}</VisualizationContainer>;
 };
