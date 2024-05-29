@@ -489,9 +489,7 @@ class LookerUtil:
         return None
 
     @staticmethod
-    def _get_field_type(
-        native_type: str, reporter: SourceReport
-    ) -> SchemaFieldDataType:
+    def get_field_type(native_type: str) -> SchemaFieldDataType:
         type_class = LookerUtil.field_type_mapping.get(native_type)
 
         if type_class is None:
@@ -602,7 +600,7 @@ class LookerUtil:
     ) -> SchemaField:
         return SchemaField(
             fieldPath=field.name,
-            type=LookerUtil._get_field_type(field.type, reporter),
+            type=LookerUtil.get_field_type(field.type),
             nativeDataType=field.type,
             label=field.label,
             description=(

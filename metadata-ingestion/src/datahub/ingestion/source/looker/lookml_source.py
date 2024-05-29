@@ -210,6 +210,12 @@ class LookMLSourceConfig(
         description="When enabled, looker refinement will be processed to adapt an existing view.",
     )
 
+    liquid_variable: Dict[Any, Any] = Field(
+        {},
+        description="A dictionary of Liquid variables and their corresponding values used in derived views defined "
+        "with SQL. Defaults to an empty dictionary.",
+    )
+
     @validator("connection_to_platform_map", pre=True)
     def convert_string_to_connection_def(cls, conn_map):
         # Previous version of config supported strings in connection map. This upconverts strings to ConnectionMap
@@ -1118,6 +1124,17 @@ class LookerView:
         sql_table_names: List[str] = []
         upstream_explores: List[str] = []
 
+        file_path = LookerView.determine_view_file_path(
+            base_folder_path, looker_viewfile.absolute_file_path
+        )
+
+        looker_view_id: LookerViewId = LookerViewId(
+            project_name=project_name,
+            model_name=model_name,
+            view_name=view_name,
+            file_path=file_path,
+        )
+
         if derived_table is not None:
             # Derived tables can either be a SQL query or a LookML explore.
             # See https://cloud.google.com/looker/docs/derived-tables.
@@ -1127,15 +1144,20 @@ class LookerView:
 
                 # Parse SQL to extract dependencies.
                 if parse_table_names_from_sql:
-                    fields = cls._extract_metadata_from_derived_table_sql(
-                        reporter,
-                        connection,
-                        config.env,
-                        ctx,
-                        view_name,
-                        sql_table_name,
-                        view_logic,
+                    (
                         fields,
+                        sql_table_names,
+                    ) = cls._extract_metadata_from_derived_table_sql(
+                        reporter=reporter,
+                        connection=connection,
+                        env=config.env,
+                        ctx=ctx,
+                        view_name=view_name,
+                        view_urn=looker_view_id.get_urn(config=config),
+                        sql_table_name=sql_table_name,
+                        sql_query=view_logic,
+                        fields=fields,
+                        liquid_variable=config.liquid_variable,
                     )
 
             elif "explore_source" in derived_table:
@@ -1181,17 +1203,8 @@ class LookerView:
                 viewLanguage=VIEW_LANGUAGE_LOOKML,
             )
 
-        file_path = LookerView.determine_view_file_path(
-            base_folder_path, looker_viewfile.absolute_file_path
-        )
-
         return LookerView(
-            id=LookerViewId(
-                project_name=project_name,
-                model_name=model_name,
-                view_name=view_name,
-                file_path=file_path,
-            ),
+            id=looker_view_id,
             absolute_file_path=looker_viewfile.absolute_file_path,
             connection=connection,
             sql_table_names=sql_table_names,
@@ -1209,28 +1222,29 @@ class LookerView:
         env: str,
         ctx: PipelineContext,
         view_name: str,
+        view_urn: str,
         sql_table_name: Optional[str],
         sql_query: str,
         fields: List[ViewField],
-    ) -> List[ViewField]:
+        liquid_variable: Dict[Any, Any],
+    ) -> Tuple[List[ViewField], List[str]]:
 
         logger.debug(f"Parsing sql from derived table section of view: {view_name}")
         reporter.query_parse_attempts += 1
-
+        sql_table_names: List[str] = []
         # TODO: also support ${EXTENDS} and ${TABLE}
         try:
             view_field_builder: ViewFieldBuilder = ViewFieldBuilder(fields)
 
-            fields = view_field_builder.create_or_update_fields(
+            fields, sql_table_names = view_field_builder.create_or_update_fields(
                 sql_query=SqlQuery(
                     lookml_sql_query=sql_query,
-                    liquid_context={},  # liquid_context is variable and their value as dictionary, However we don't
-                    # need to resolve variable to its value as we only need valid sql to generate CLL, SqlQuery by
-                    # default setting them to NULL to make valid SQL query.
+                    liquid_variable=liquid_variable,
                     view_name=sql_table_name
                     if sql_table_name is not None
                     else view_name,
                 ),
+                view_urn=view_urn,
                 connection=connection,
                 env=env,
                 ctx=ctx,
@@ -1243,7 +1257,7 @@ class LookerView:
                 f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
             )
 
-        return fields
+        return fields, sql_table_names
 
     @classmethod
     def _extract_metadata_from_derived_table_explore(

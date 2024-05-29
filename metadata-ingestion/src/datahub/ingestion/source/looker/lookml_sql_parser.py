@@ -1,12 +1,13 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from liquid import Template, Undefined
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.looker.looker_common import (
     LookerConnectionDefinition,
+    LookerUtil,
     ViewField,
     ViewFieldType,
 )
@@ -44,56 +45,77 @@ def _create_fields(spr: SqlParsingResult) -> List[ViewField]:
     return fields
 
 
-def _update_fields(fields: List[ViewField], spr: SqlParsingResult) -> List[ViewField]:
+def _update_upstream_fields_from_spr(
+    fields: List[ViewField], spr: SqlParsingResult
+) -> List[ViewField]:
     column_lineages: List[ColumnLineageInfo] = (
         spr.column_lineage if spr.column_lineage is not None else []
     )
 
     view_field_map: Dict[str, ViewField] = {}
+    # It is used to filter out fields which haven't updated.
+    view_updated: Dict[str, bool] = {field.name: False for field in fields}
+
     for field in fields:
         view_field_map[field.name] = field
 
     for cll in column_lineages:
         if view_field_map.get(cll.downstream.column) is None:
-            logger.debug(
-                f"column {cll.downstream.column} is not present in view defined using sql"
-                f"measure/dimension/dimension_group"
-            )
             continue
 
         view_field_map[cll.downstream.column].upstream_fields = cll.upstreams
+        view_updated[cll.downstream.column] = True
+
+    # filter field skip in update. It might be because field is derived from measure/dimension of current view.
+    skip_fields: List[ViewField] = [
+        field for field in fields if view_updated[field.name] is False
+    ]
+
+    return skip_fields
+
+
+def _update_fields(
+    view_urn: str, fields: List[ViewField], spr: SqlParsingResult
+) -> List[ViewField]:
+    skip_fields: List[ViewField] = _update_upstream_fields_from_spr(
+        fields=fields, spr=spr
+    )
+
+    columns: List[str] = [field.name for field in fields]
+
+    for skip_field in skip_fields:
+        upstream_fields: List[ColumnRef] = []
+        # Look for column and set ColumnRef for current view
+        for column in skip_field.upstream_fields:
+            if column in columns:
+                upstream_fields.append(
+                    ColumnRef(
+                        table=view_urn,
+                        column=column,
+                        type=LookerUtil.get_field_type(skip_field.type),
+                    )
+                )
+
+        # set the upstream to resolved upstream_fields
+        skip_field.upstream_fields = upstream_fields
 
     return fields
 
 
-def get_qt_name(urn: str) -> str:
+def get_qualified_table_name(urn: str) -> str:
     return urn.split(",")[-2]
 
 
-def get_qt_names_from_spr(spr: SqlParsingResult) -> List[str]:
+def get_qualified_table_names_from_spr(spr: SqlParsingResult) -> List[str]:
     qualified_table_names: List[str] = []
 
     for in_table in spr.in_tables:
-        qualified_table_names.append(get_qt_name(in_table))
+        qualified_table_names.append(get_qualified_table_name(in_table))
 
     for out_table in spr.out_tables:
-        qualified_table_names.append(get_qt_name(out_table))
+        qualified_table_names.append(get_qualified_table_name(out_table))
 
     return qualified_table_names
-
-
-class LookerFieldName:
-    column_ref: ColumnRef
-
-    def __init__(self, column_ref: ColumnRef):
-        self.column_ref = column_ref
-
-    def name(self):
-        qualified_table_name: str = get_qt_name(self.column_ref.table)
-
-        view_name: str = qualified_table_name.split(".")[-1]
-
-        return f"{view_name}.{self.column_ref.column}"
 
 
 class SqlQuery:
@@ -102,7 +124,7 @@ class SqlQuery:
     liquid_context: Dict[Any, Any]
 
     def __init__(
-        self, lookml_sql_query: str, view_name: str, liquid_context: Dict[Any, Any]
+        self, lookml_sql_query: str, view_name: str, liquid_variable: Dict[Any, Any]
     ):
         """
         lookml_sql_query: This is not pure sql query,
@@ -110,7 +132,7 @@ class SqlQuery:
         """
         self.lookml_sql_query = lookml_sql_query
         self.view_name = view_name
-        self.liquid_context = liquid_context
+        self.liquid_variable = liquid_variable
 
     def sql_query(self):
         # Looker supports sql fragments that omit the SELECT and FROM parts of the query
@@ -129,7 +151,7 @@ class SqlQuery:
         Undefined.__str__ = lambda instance: "NULL"  # type: ignore
 
         # Resolve liquid template
-        return Template(sql_query).render(self.liquid_context)
+        return Template(sql_query).render(self.liquid_variable)
 
 
 class ViewFieldBuilder:
@@ -143,8 +165,9 @@ class ViewFieldBuilder:
         sql_query: SqlQuery,
         connection: LookerConnectionDefinition,
         env: str,
+        view_urn: str,
         ctx: PipelineContext,
-    ) -> List[ViewField]:
+    ) -> Tuple[List[ViewField], List[str]]:
         """
         There are two syntax to define lookml view using sql.
 
@@ -226,8 +249,13 @@ class ViewFieldBuilder:
             graph=ctx.graph,
         )
 
+        sql_tables: List[str] = get_qualified_table_names_from_spr(spr)
+
         if self.fields:  # It is syntax1
-            return _update_fields(self.fields, spr)
+            return (
+                _update_fields(view_urn=view_urn, fields=self.fields, spr=spr),
+                sql_tables,
+            )
 
         # It is syntax2
-        return _create_fields(spr)
+        return _create_fields(spr), sql_tables
