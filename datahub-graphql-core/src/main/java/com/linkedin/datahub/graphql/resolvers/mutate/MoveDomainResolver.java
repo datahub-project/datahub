@@ -6,6 +6,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -39,7 +40,7 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
     final Urn newParentDomainUrn =
         input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canManageDomains(context)) {
             throw new AuthorizationException(
@@ -106,6 +107,8 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
                     input.getResourceUrn(), input.getParentDomain()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -39,7 +40,7 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
           String.format("Failed to resolve parents for entity type %s", urn));
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             Entity parentDomain = DomainUtils.getParentDomain(urn, context, _entityClient);
@@ -71,6 +72,8 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
             throw new RuntimeException(
                 String.format("Failed to load parent domains for entity %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

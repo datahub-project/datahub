@@ -7,6 +7,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveV
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AggregateAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.AggregateResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -52,7 +53,7 @@ public class AggregateAcrossEntitiesResolver
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final DataHubViewInfo maybeResolvedView =
               (input.getViewUrn() != null)
@@ -106,7 +107,9 @@ public class AggregateAcrossEntitiesResolver
                         input.getTypes(), input.getQuery(), input.getOrFilters()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   static AggregateResults mapAggregateResults(
