@@ -43,6 +43,7 @@ module.exports = {
         description: "Learn about the features of DataHub.",
       },
       items: [
+        // "docs/how/ui-tabs-guide",
         {
           label: "Admin",
           type: "category",
@@ -197,6 +198,7 @@ module.exports = {
             id: "metadata-ingestion/README",
           },
           items: [
+            "docs/ui-ingestion",
             "metadata-ingestion/cli-ingestion",
             {
               type: "doc",
@@ -327,6 +329,11 @@ module.exports = {
       defaultStyle: true,
     },
     {
+      type: "doc",
+      label: "Overview",
+      id: "metadata-ingestion/source_overview"
+    },
+    {
       type: "category",
       label: "BI Tool",
       items: [
@@ -407,8 +414,9 @@ module.exports = {
       items: [
         "docs/generated/ingestion/sources/glue",
         "metadata-integration/java/datahub-protobuf/README",
-        "docs/generated/ingestion/sources/openapi",
         "docs/generated/ingestion/sources/json-schema",
+        "docs/generated/ingestion/sources/openapi",
+        "docs/lineage/openlineage",
         "docs/generated/ingestion/sources/pulsar",
       ],
     },
@@ -971,7 +979,7 @@ module.exports = {
     //"docs/how/graph-onboarding",
     //"docs/demo/graph-onboarding",
     //"metadata-integration/java/spark-lineage/README",
-    // "metadata-integration/java/spark-lineage-beta/README.md
+    // "metadata-integration/java/spark-lineage-beta/README",
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
