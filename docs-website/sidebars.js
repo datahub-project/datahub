@@ -43,192 +43,221 @@ module.exports = {
         description: "Learn about the features of DataHub.",
       },
       items: [
-        // "docs/how/ui-tabs-guide",
         {
-          label: "Assertions",
+          label: "Admin",
           type: "category",
-          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
           items: [
             {
-              label: "Column Assertions",
+              label: "Policies",
               type: "doc",
-              id: "docs/managed-datahub/observe/column-assertions",
-              className: "saasOnly",
+              id: "docs/authorization/access-policies-guide",
             },
             {
-              label: "Custom SQL Assertions",
+              label: "Posts",
               type: "doc",
-              id: "docs/managed-datahub/observe/custom-sql-assertions",
-              className: "saasOnly",
+              id: "docs/posts",
+            },
+          ],
+        },
+        {
+          label: "Data Discovery",
+          type: "category",
+          items: [
+            {
+              label: "Lineage",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/generated/lineage/lineage-feature-guide",
+              },
+              items: [
+                {
+                  label: "Lineage Impact analysis",
+                  type: "doc",
+                  id: "docs/act-on-metadata/impact-analysis",
+                },
+                {
+                  label: "Managing Lineage via UI",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ui-lineage",
+                },
+              ],
             },
             {
-              label: "Freshness Assertions",
+              label: "Search",
               type: "doc",
-              id: "docs/managed-datahub/observe/freshness-assertions",
-              className: "saasOnly",
+              id: "docs/how/search",
+            },
+          ],
+        },
+        {
+          label: "Data Quality",
+          type: "category",
+          items: [
+            {
+              label: "Assertions",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/managed-datahub/observe/assertions",
+              },
+              items: [
+                {
+                  label: "Column Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/column-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Custom SQL Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/custom-sql-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Freshness Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/freshness-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Schema Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/schema-assertions",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Volume Assertions",
+                  type: "doc",
+                  id: "docs/managed-datahub/observe/volume-assertions",
+                  className: "saasOnly",
+                },
+              ],
             },
             {
-              label: "Schema Assertions",
+              label: "Incidents",
               type: "doc",
-              id: "docs/managed-datahub/observe/schema-assertions",
-              className: "saasOnly",
+              id: "docs/incidents/incidents",
             },
             {
-              label: "Volume Assertions",
+              label: "Metadata Tests",
               type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
+              id: "docs/tests/metadata-tests",
               className: "saasOnly",
             },
           ],
         },
         {
-          label: "Business Attributes",
-          type: "doc",
-          id: "docs/businessattributes",
-        },
-        {
-          label: "Business Glossary",
-          type: "doc",
-          id: "docs/glossary/business-glossary",
-        },
-        {
-          label: "Data Contract",
-          type: "doc",
-          id: "docs/managed-datahub/observe/data-contract",
-        },
-        {
-          label: "Data Products",
-          type: "doc",
-          id: "docs/dataproducts",
-        },
-        {
-          label: "Dataset Usage and Query History",
-          type: "doc",
-          id: "docs/features/dataset-usage-and-query-history",
-        },
-        "docs/features/feature-guides/documentation-forms",
-        {
-          label: "Domains",
-          type: "doc",
-          id: "docs/domains",
-        },
-        {
-          label: "Incidents",
-          type: "doc",
-          id: "docs/incidents/incidents",
+          label: "Business Metadata",
+          type: "category",
+          items: [
+            {
+              label: "Business Attributes",
+              type: "doc",
+              id: "docs/businessattributes",
+            },
+            {
+              label: "Business Glossary",
+              type: "doc",
+              id: "docs/glossary/business-glossary",
+            },
+            {
+              label: "Data Contract",
+              type: "doc",
+              id: "docs/managed-datahub/observe/data-contract",
+            },
+            {
+              label: "Data Products",
+              type: "doc",
+              id: "docs/dataproducts",
+            },
+            "docs/features/feature-guides/documentation-forms",
+            {
+              label: "Domains",
+              type: "doc",
+              id: "docs/domains",
+            },
+            {
+              label: "Ownership",
+              type: "doc",
+              id: "docs/ownership/ownership-types",
+            },
+            {
+              label: "Tags",
+              type: "doc",
+              id: "docs/tags",
+            },
+          ],
         },
         {
           label: "Ingestion",
-          type: "doc",
-          id: "docs/ui-ingestion",
-        },
-        {
-          label: "Lineage",
           type: "category",
           link: {
             type: "doc",
-            id: "docs/generated/lineage/lineage-feature-guide",
+            id: "metadata-ingestion/README",
           },
           items: [
+            "metadata-ingestion/cli-ingestion",
             {
-              label: "Lineage Impact analysis",
               type: "doc",
-              id: "docs/act-on-metadata/impact-analysis",
+              label: "Recipe",
+              id: "metadata-ingestion/recipe_overview",
             },
             {
-              label: "Managing Lineage via UI",
-              type: "doc",
-              id: "docs/features/feature-guides/ui-lineage",
+              type: "category",
+              label: "Sinks",
+              link: { type: "doc", id: "metadata-ingestion/sink_overview" },
+              items: [
+                {
+                  type: "autogenerated",
+                  dirName: "metadata-ingestion/sink_docs",
+                },
+              ],
+            },
+            {
+              type: "category",
+              label: "Transformers",
+              link: {
+                type: "doc",
+                id: "metadata-ingestion/docs/transformer/intro",
+              },
+              items: [
+                "metadata-ingestion/docs/transformer/dataset_transformer",
+              ],
             },
           ],
         },
         {
-          label: "Metadata Tests",
-          type: "doc",
-          id: "docs/tests/metadata-tests",
-          className: "saasOnly",
-        },
-        {
-          label: "Ownership",
-          type: "doc",
-          id: "docs/ownership/ownership-types",
-        },
-        {
-          label: "Policies",
-          type: "doc",
-          id: "docs/authorization/access-policies-guide",
-        },
-        {
-          label: "Posts",
-          type: "doc",
-          id: "docs/posts",
-        },
-        "docs/features/feature-guides/properties",
-        {
-          label: "Schema history",
-          type: "doc",
-          id: "docs/schema-history",
-        },
-        {
-          label: "Search",
-          type: "doc",
-          id: "docs/how/search",
-        },
-        {
-          label: "Sync Status",
-          type: "doc",
-          id: "docs/sync-status",
-        },
-        {
-          label: "Tags",
-          type: "doc",
-          id: "docs/tags",
+          label: "Technical Metadata",
+          type: "category",
+          items: [
+            {
+              label: "Dataset Usage and Query History",
+              type: "doc",
+              id: "docs/features/dataset-usage-and-query-history",
+            },
+            "docs/features/feature-guides/properties",
+            {
+              label: "Schema history",
+              type: "doc",
+              id: "docs/schema-history",
+            },
+            {
+              label: "Sync Status",
+              type: "doc",
+              id: "docs/sync-status",
+            },
+          ],
         },
       ],
     },
     {
       type: "html",
-      value: "<div>Integrations</div>",
+      value: "<div>Guides</div>",
       defaultStyle: true,
     },
     {
-      type: "category",
-      link: {
-        type: "doc",
-        id: "metadata-ingestion/README",
-      },
-      label: "Overview",
-      items: [
-        {
-          type: "doc",
-          label: "Recipe",
-          id: "metadata-ingestion/recipe_overview",
-        },
-        {
-          type: "category",
-          label: "Sinks",
-          link: { type: "doc", id: "metadata-ingestion/sink_overview" },
-          items: [
-            {
-              type: "autogenerated",
-              dirName: "metadata-ingestion/sink_docs",
-            },
-          ],
-        },
-        {
-          type: "category",
-          label: "Transformers",
-          link: {
-            type: "doc",
-            id: "metadata-ingestion/docs/transformer/intro",
-          },
-          items: ["metadata-ingestion/docs/transformer/dataset_transformer"],
-        },
-      ],
-    },
-    {
-      "Quickstart Guides": [
-        "metadata-ingestion/cli-ingestion",
+      "Ingestion Quickstart Guide": [
         {
           BigQuery: [
             "docs/quick-ingestion-guides/bigquery/overview",
@@ -274,47 +303,6 @@ module.exports = {
       ],
     },
     {
-      type: "category",
-      label: "Sources",
-      link: { type: "doc", id: "metadata-ingestion/source_overview" },
-      items: [
-        // collapse these; add push-based at top
-        {
-          type: "doc",
-          id: "docs/lineage/airflow",
-          label: "Airflow",
-        },
-        {
-          type: "doc",
-          id: "docs/lineage/dagster",
-          label: "Dagster",
-        },
-        {
-          type: "doc",
-          id: "docs/lineage/openlineage",
-          label: "OpenLineage",
-        },
-        {
-          type: "doc",
-          id: "metadata-integration/java/spark-lineage/README",
-          label: "Spark (Legacy)",
-        },
-        {
-          type: "doc",
-          id: "metadata-integration/java/spark-lineage-beta/README",
-          label: "Spark",
-        },
-        //"docker/airflow/local_airflow",
-        "metadata-ingestion/integration_docs/great-expectations",
-        "metadata-integration/java/datahub-protobuf/README",
-        //"metadata-ingestion/source-docs-template",
-        {
-          type: "autogenerated",
-          dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
-        },
-      ],
-    },
-    {
       "Advanced Guides": [
         {
           "Scheduling Ingestion": [
@@ -335,21 +323,143 @@ module.exports = {
     },
     {
       type: "html",
+      value: "<div>Sources</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "category",
+      label: "BI Tool",
+      items: [
+        "docs/generated/ingestion/sources/looker",
+        "docs/generated/ingestion/sources/metabase",
+        "docs/generated/ingestion/sources/mode",
+        "docs/generated/ingestion/sources/powerbi",
+        "docs/generated/ingestion/sources/redash",
+        "docs/generated/ingestion/sources/salesforce",
+        "docs/generated/ingestion/sources/superset",
+        "docs/generated/ingestion/sources/tableau",
+        "docs/generated/ingestion/sources/teradata",
+      ],
+    },
+    {
+      type: "category",
+      label: "Datastore",
+      items: [
+        "docs/generated/ingestion/sources/athena",
+        "docs/generated/ingestion/sources/bigquery",
+        "docs/generated/ingestion/sources/clickhouse",
+        "docs/generated/ingestion/sources/delta-lake",
+        "docs/generated/ingestion/sources/druid",
+        "docs/generated/ingestion/sources/elasticsearch",
+        "docs/generated/ingestion/sources/hive",
+        "docs/generated/ingestion/sources/hive-metastore",
+        "docs/generated/ingestion/sources/iceberg",
+        "docs/generated/ingestion/sources/kafka",
+        "docs/generated/ingestion/sources/kafka-connect",
+        "docs/generated/ingestion/sources/mariadb",
+        "docs/generated/ingestion/sources/mssql",
+        "docs/generated/ingestion/sources/mongodb",
+        "docs/generated/ingestion/sources/mysql",
+        "docs/generated/ingestion/sources/oracle",
+        "docs/generated/ingestion/sources/postgres",
+        "docs/generated/ingestion/sources/presto",
+        "docs/generated/ingestion/sources/redshift",
+        "docs/generated/ingestion/sources/s3",
+        "docs/generated/ingestion/sources/hana",
+        "docs/generated/ingestion/sources/snowflake",
+        "docs/generated/ingestion/sources/sqlalchemy",
+        "docs/generated/ingestion/sources/trino",
+        "docs/generated/ingestion/sources/vertica",
+      ],
+    },
+    {
+      type: "category",
+      label: "ETL",
+      items: [
+        "docs/generated/ingestion/sources/databricks",
+        "docs/generated/ingestion/sources/dbt",
+      ],
+    },
+    {
+      type: "category",
+      label: "Identity Provider",
+      items: [
+        "docs/generated/ingestion/sources/azure-ad",
+        "docs/generated/ingestion/sources/ldap",
+        "docs/generated/ingestion/sources/okta",
+      ],
+    },
+    {
+      type: "category",
+      label: "DataHub-Native",
+      items: [
+        "docs/generated/ingestion/sources/business-glossary",
+        "docs/generated/ingestion/sources/csv",
+        "docs/generated/ingestion/sources/datahub",
+        "docs/generated/ingestion/sources/demo-data",
+        "docs/generated/ingestion/sources/file",
+        "docs/generated/ingestion/sources/file-based-lineage",
+      ],
+    },
+    {
+      type: "category",
+      label: "Metadata",
+      items: [
+        "docs/generated/ingestion/sources/glue",
+        "metadata-integration/java/datahub-protobuf/README",
+        "docs/generated/ingestion/sources/openapi",
+        "docs/generated/ingestion/sources/json-schema",
+        "docs/generated/ingestion/sources/pulsar",
+      ],
+    },
+    {
+      type: "category",
+      label: "Messaging",
+      items: ["docs/actions/actions/slack", "docs/actions/actions/teams"],
+    },
+    {
+      type: "category",
+      label: "ML",
+      items: [
+        "docs/generated/ingestion/sources/feast",
+        "docs/generated/ingestion/sources/sagemaker",
+      ],
+    },
+    {
+      type: "category",
+      label: "Observability",
+      items: ["metadata-ingestion/integration_docs/great-expectations"],
+    },
+    {
+      type: "category",
+      label: "Orchestrator",
+      items: [
+        {
+          type: "doc",
+          label: "Airflow",
+          id: "docs/lineage/airflow",
+        },
+        {
+          type: "doc",
+          label: "Dagster",
+          id: "docs/lineage/dagster",
+        },
+        "docs/generated/ingestion/sources/nifi",
+      ],
+    },
+    {
+      type: "html",
       value: "<div>Managed DataHub</div>",
       defaultStyle: true,
     },
     {
       type: "doc",
-      id: "docs/managed-datahub/welcome-acryl",
-      label: "Getting Started",
+      label: "Overview",
+      id: "docs/managed-datahub/managed-datahub-overview",
     },
     {
       type: "category",
       label: "Features",
-      link: {
-        type: "doc",
-        id: "docs/managed-datahub/managed-datahub-overview",
-      },
       items: [
         {
           type: "doc",
@@ -400,12 +510,17 @@ module.exports = {
       items: [
         {
           type: "doc",
+          id: "docs/managed-datahub/welcome-acryl",
+          label: "Getting Started",
+        },
+        {
+          type: "doc",
           id: "docs/managed-datahub/saas-slack-setup",
           className: "saasOnly",
         },
         {
           type: "doc",
-          id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
+          id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
           className: "saasOnly",
         },
         {
@@ -417,6 +532,9 @@ module.exports = {
     },
     {
       "Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_2",
+        "docs/managed-datahub/release-notes/v_0_3_1",
+        "docs/managed-datahub/release-notes/v_0_2_16",
         "docs/managed-datahub/release-notes/v_0_2_15",
         "docs/managed-datahub/release-notes/v_0_2_14",
         "docs/managed-datahub/release-notes/v_0_2_13",
