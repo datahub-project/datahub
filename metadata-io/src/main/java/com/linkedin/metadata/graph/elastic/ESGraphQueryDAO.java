@@ -37,7 +37,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -487,17 +486,7 @@ public class ESGraphQueryDAO {
           intermediateStream = Stream.concat(intermediateStream, ignoreAsHopUrns);
         }
       }
-      // TODO: Change this
-      // We limit after adding all the relationships at the previous level so each hop is fully
-      // returned,
-      // but we only explore a limited number of entities per hop, sort to make the truncation
-      // consistent
-      if (lineageFlags.getEntitiesExploredPerHopLimit() != null) {
-        intermediateStream =
-            intermediateStream
-                .sorted(Comparator.comparing(Urn::toString))
-                .limit(lineageFlags.getEntitiesExploredPerHopLimit());
-      }
+
       if (remainingHops > 0) {
         // If there are hops remaining, we expect to explore everything getting passed back to the
         // loop, barring a timeout
