@@ -781,7 +781,7 @@ class SnowflakeQuery:
             SELECT
                 r.value : "objectName" :: varchar AS upstream_table_name,
                 r.value : "objectDomain" :: varchar AS upstream_table_domain,
-                w.value : "objectName" :: varchar AS downstream_table_name,
+                REPLACE(w.value : "objectName" :: varchar, '__DBT_TMP', '') AS downstream_table_name,
                 w.value : "objectDomain" :: varchar AS downstream_table_domain,
                 wcols.value : "columnName" :: varchar AS downstream_column_name,
                 wcols_directSources.value : "objectName" as upstream_column_table_name,
