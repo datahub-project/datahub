@@ -295,6 +295,7 @@ entities:
       - assertionRunEvent
       - assertionActions
       - status
+      - globalTags
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
@@ -464,6 +465,7 @@ entities:
     keyAspect: incidentKey
     aspects:
       - incidentInfo
+      - globalTags
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -612,3 +614,16 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.hooks.FieldPathMutator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - UPSERT
+        - UPDATE
+        - RESTATE
+        - PATCH
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: 'schemaMetadata'
+        - entityName: '*'
+          aspectName: 'editableSchemaMetadata'
