@@ -10,7 +10,6 @@ import LineageFilterNodeBasic, { LINEAGE_FILTER_NODE_NAME } from './LineageFilte
 import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
 } from './LineageTransformationNode/LineageTransformationNode';
-import TableauWorkbookNode, { LINEAGE_WORKBOOK_NODE_NAME } from './MinorNodes/TableauWorkbookNode';
 import { LineageVisualizationNode } from './NodeBuilder';
 import LineageControls from './controls/LineageControls';
 import ZoomControls from './controls/ZoomControls';
@@ -31,7 +30,6 @@ const nodeTypes: NodeTypes = {
     [LINEAGE_ENTITY_NODE_NAME]: LineageEntityNode,
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
     [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
-    [LINEAGE_WORKBOOK_NODE_NAME]: TableauWorkbookNode,
 };
 
 const edgeTypes: EdgeTypes = {

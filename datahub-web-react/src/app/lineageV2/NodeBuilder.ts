@@ -24,7 +24,6 @@ import {
     LINEAGE_TRANSFORMATION_NODE_NAME,
     TRANSFORMATION_NODE_SIZE,
 } from './LineageTransformationNode/LineageTransformationNode';
-import { LINEAGE_WORKBOOK_NODE_NAME, WORKBOOK_NODE_MAX_WIDTH } from './MinorNodes/TableauWorkbookNode';
 
 const MAIN_X_SEP = 120;
 const MAIN_TO_MINI_X_SEP = 60;
@@ -73,8 +72,6 @@ export default class NodeBuilder {
 
     transformations: LineageEntity[] = [];
 
-    workbooks: LineageEntity[] = [];
-
     filterNodes: LineageFilter[] = [];
 
     layerPositions = new Map<Layer, number>();
@@ -100,7 +97,6 @@ export default class NodeBuilder {
 
     #getNodeList(node: LineageNode): LineageNode[] {
         if (node.type === LINEAGE_FILTER_TYPE) return this.filterNodes;
-        if (node.type === EntityType.Container) return this.workbooks;
         if (isTransformational(node)) return this.transformations;
         return this.entities;
     }
@@ -120,7 +116,6 @@ export default class NodeBuilder {
         const nodes: LineageVisualizationNode[] = [];
         nodes.push(...this.entities.map((n) => this.createNode(n, LINEAGE_ENTITY_NODE_NAME)));
         nodes.push(...this.transformations.map((n) => this.createNode(n, LINEAGE_TRANSFORMATION_NODE_NAME)));
-        nodes.push(...this.workbooks.map((n) => this.createNode(n, LINEAGE_WORKBOOK_NODE_NAME)));
         nodes.push(...this.filterNodes.map((n) => this.createFilterNode(n)));
         return nodes;
     }
@@ -241,10 +236,7 @@ export default class NodeBuilder {
         const getNodeSize = (layer: Layer): number => {
             const { mini } = parseLayer(layer);
             if (mini) {
-                const layerHasContainer = !!Array.from(this.layerNodes.get(layer) || []).find((id) =>
-                    id.startsWith('urn:li:container'),
-                );
-                return layerHasContainer ? WORKBOOK_NODE_MAX_WIDTH : TRANSFORMATION_NODE_SIZE;
+                return TRANSFORMATION_NODE_SIZE;
             }
             if (layer === defaultLayer) {
                 return this.isHomeTransformational ? TRANSFORMATION_NODE_SIZE : LINEAGE_NODE_WIDTH;
