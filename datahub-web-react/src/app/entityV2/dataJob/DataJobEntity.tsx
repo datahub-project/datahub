@@ -8,7 +8,7 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { DataJob, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, SearchResult } from '../../../types.generated';
 import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -151,16 +151,11 @@ export class DataJobEntity implements Entity<DataJob> {
         { component: SyncedAssetSection },
         { component: SharingAssetSection },
         { component: SidebarQueryOperationsSection },
+        { component: SidebarOwnerSection },
         { component: SidebarDomainSection },
         { component: DataProductSection },
         { component: SidebarAboutSection },
         { component: SidebarLineageSection },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
-        },
         { component: SidebarGlossaryTermsSection },
         { component: SidebarTagsSection },
     ];

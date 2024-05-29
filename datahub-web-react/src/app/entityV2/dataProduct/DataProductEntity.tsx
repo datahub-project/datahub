@@ -8,7 +8,7 @@ import {
 import * as React from 'react';
 import { useGetDataProductQuery } from '../../../graphql/dataProduct.generated';
 import { GetDatasetQuery } from '../../../graphql/dataset.generated';
-import { DataProduct, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { DataProduct, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import { EntityProfileTab } from '../shared/constants';
@@ -129,6 +129,9 @@ export class DataProductEntity implements Entity<DataProduct> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarOwnerSection,
+        },
+        {
             component: SidebarDomainSection,
             properties: {
                 updateOnly: true,
@@ -136,12 +139,6 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
         {
             component: SidebarAboutSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
         },
         {
             component: SidebarViewDefinitionSection,

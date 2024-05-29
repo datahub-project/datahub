@@ -1,6 +1,12 @@
 import * as React from 'react';
-import { ConsoleSqlOutlined, FileOutlined, ShareAltOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
-import { DataFlow, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import {
+    ConsoleSqlOutlined,
+    FileOutlined,
+    ShareAltOutlined,
+    UnorderedListOutlined,
+    WarningOutlined,
+} from '@ant-design/icons';
+import { DataFlow, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -121,6 +127,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarOwnerSection,
+        },
+        {
             component: SidebarDomainSection,
         },
         {
@@ -128,12 +137,6 @@ export class DataFlowEntity implements Entity<DataFlow> {
         },
         {
             component: SidebarAboutSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
         },
         {
             component: SidebarGlossaryTermsSection,

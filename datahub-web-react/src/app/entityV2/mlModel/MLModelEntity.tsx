@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { CodeSandboxOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { MlModel, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
+import { MlModel, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
@@ -118,13 +118,10 @@ export class MLModelEntity implements Entity<MlModel> {
             component: SharingAssetSection,
         },
         {
-            component: SidebarAboutSection,
+            component: SidebarOwnerSection,
         },
         {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
+            component: SidebarAboutSection,
         },
         {
             component: SidebarTagsSection,

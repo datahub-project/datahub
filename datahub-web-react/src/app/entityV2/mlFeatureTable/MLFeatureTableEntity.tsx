@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { DotChartOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { MlFeatureTable, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
+import { MlFeatureTable, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
@@ -113,6 +113,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarOwnerSection,
+        },
+        {
             component: SidebarDomainSection,
         },
         {
@@ -120,12 +123,6 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         },
         {
             component: SidebarAboutSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
         },
         {
             component: SidebarGlossaryTermsSection,

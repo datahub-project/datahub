@@ -143,6 +143,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarOwnerSection,
+        },
+        {
             component: SidebarDomainSection,
             properties: {
                 hideOwnerType: true,
@@ -150,9 +153,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         },
         {
             component: SidebarAboutSection,
-        },
-        {
-            component: SidebarOwnerSection,
         },
     ];
 
