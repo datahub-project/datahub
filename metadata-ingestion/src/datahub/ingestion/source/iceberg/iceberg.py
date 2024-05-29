@@ -208,8 +208,8 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield from profiler.profile_table(dataset_name, dataset_urn, table)
 
     def _get_partition_aspect(self, table: Table) -> str:
-        """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?h=spec#partitioning) of the table.
-        Each element of the returned array represents a field in the [partition spec](https://iceberg.apache.org/spec/?h=spec#partitioning) that follows [Appendix-C](https://iceberg.apache.org/spec/?h=spec#partition-specs) of the Iceberg specification.
+        """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.
+        Each element of the returned array represents a field in the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) that follows [Appendix-C](https://iceberg.apache.org/spec/?#appendix-c-json-serialization) of the Iceberg specification.
         Extra information has been added to this spec to make the information more user-friendly.
 
         Since Datahub does not have a place in its model to store this information, it is saved as a JSON string and displayed as a table property.
