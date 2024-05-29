@@ -1,12 +1,12 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Handle, NodeProps, Position } from 'reactflow';
-import { Skeleton, Spin } from 'antd';
+import { Skeleton, Spin, Tooltip } from 'antd';
 import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
 import { EntityType, LineageDirection } from '../../../types.generated';
-import {useEntityRegistryV2} from "../../useEntityRegistry";
+import { useEntityRegistryV2 } from '../../useEntityRegistry';
 import { FetchStatus, LineageDisplayContext, LineageEntity, LineageNodesContext } from '../common';
-import { LINEAGE_COLORS} from '../../entityV2/shared/constants';
+import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { LoadingWrapper } from '../LineageEntityNode/NodeContents';
 
@@ -32,10 +32,10 @@ const HomeNodeBubble = styled.div`
 
 const NodeWrapper = styled.div<{ selected: boolean; opacity: number }>`
     background-color: white;
-    border: ${({selected}) => selected ? 2 : 1}px solid;
-    border-color: ${({selected}) => selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER};
+    border: ${({ selected }) => (selected ? 2 : 1)}px solid;
+    border-color: ${({ selected }) => (selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER)};
     border-radius: 50%;
-    opacity: ${({opacity}) => opacity};
+    opacity: ${({ opacity }) => opacity};
 
     align-items: center;
     display: flex;
@@ -82,35 +82,36 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
 
     // TODO: Combine home node code with LineageEntityNode
     return (
-        <NodeWrapper
-            opacity={opacity}
-            selected={selected}
-            onMouseEnter={() => setHoveredNode(urn)}
-            onMouseLeave={() => setHoveredNode(null)}
-            title={name}
-        >
-            {urn === rootUrn && (
-                <HomeNodeBubble>
-                    <HomeOutlined style={{ marginRight: 4 }} />
-                    Home
-                </HomeNodeBubble>
-            )}
-            {icon && <CustomIcon src={icon} />}
-            {!icon && isQuery && <ConsoleSqlOutlined />}
-            {!icon && !isQuery && <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />}
-            {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
-                <LoadingWrapper className="nodrag" style={{ left: -30 }}>
-                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
-                </LoadingWrapper>
-            )}
-            {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
-                <LoadingWrapper className="nodrag" style={{ right: -30 }}>
-                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
-                </LoadingWrapper>
-            )}
-            <CustomHandle type="target" position={Position.Left} isConnectable={false} $onEdge={!isQuery} />
-            <CustomHandle type="source" position={Position.Right} isConnectable={false} $onEdge={!isQuery} />
-        </NodeWrapper>
+        <Tooltip title={name}>
+            <NodeWrapper
+                opacity={opacity}
+                selected={selected}
+                onMouseEnter={() => setHoveredNode(urn)}
+                onMouseLeave={() => setHoveredNode(null)}
+            >
+                {urn === rootUrn && (
+                    <HomeNodeBubble>
+                        <HomeOutlined style={{ marginRight: 4 }} />
+                        Home
+                    </HomeNodeBubble>
+                )}
+                {icon && <CustomIcon src={icon} />}
+                {!icon && isQuery && <ConsoleSqlOutlined />}
+                {!icon && !isQuery && <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />}
+                {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
+                    <LoadingWrapper className="nodrag" style={{ left: -30 }}>
+                        <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                    </LoadingWrapper>
+                )}
+                {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
+                    <LoadingWrapper className="nodrag" style={{ right: -30 }}>
+                        <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                    </LoadingWrapper>
+                )}
+                <CustomHandle type="target" position={Position.Left} isConnectable={false} $onEdge={!isQuery} />
+                <CustomHandle type="source" position={Position.Right} isConnectable={false} $onEdge={!isQuery} />
+            </NodeWrapper>
+        </Tooltip>
     );
 }
 
