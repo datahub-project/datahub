@@ -4,6 +4,7 @@ import { Button } from 'antd';
 import { CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
 
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../entity/shared/tabs/Incident/incidentUtils';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 export const sharedStyles = {
 	gap: '8px',
@@ -27,6 +28,10 @@ export const sharedStyles = {
 	statusActiveFontColor: '#8fc470',
 	statusInactiveColor: '#FFE4BD',
 	statusInactiveFontColor: '#845B10',
+
+	// Status colors
+	success: REDESIGN_COLORS.GREEN_NORMAL,
+	fail: REDESIGN_COLORS.RED_NORMAL,
 };
 
 /*
@@ -172,6 +177,12 @@ export const TextButton = styled(Button) <{ isActive?: boolean }>`
 	${({ isActive }) => isActive && `
 		background: transparent;
 		color: ${sharedStyles.activeColor};
+	`}
+
+
+	${({ isActive }) => !isActive && `
+		background: transparent;
+		color: ${sharedStyles.contentColor};
 	`}
 `;
 

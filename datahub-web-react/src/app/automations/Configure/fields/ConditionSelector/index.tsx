@@ -11,7 +11,7 @@ import uniqid from 'uniqid';
 
 import { SortableList } from './SortableList';
 
-import { predicateOptions, operatorOptions } from './utils';
+import { predicateOptions, operatorOptions, transformConditions } from './utils';
 
 // import { OPERATORS } from './operators';
 // import { entityProperties } from './properties';
@@ -59,9 +59,10 @@ type ConditionType = {
 
 // Condition Selector 
 const RuleSelector = ({ ...props }: any) => {
-	console.log(props);
+	const hideValueInput = props.predicate !== 'exists';
+
 	return (
-		<RuleSelectorContainer>
+		<RuleSelectorContainer noInput={!hideValueInput}>
 			<SortableList.DragHandle />
 			<div>
 				<Select
@@ -78,13 +79,15 @@ const RuleSelector = ({ ...props }: any) => {
 					onChange={(value: any) => props.updatePredicate(value, props.id, props.groupId)}
 				/>
 			</div>
-			<div>
-				<Input
-					placeholder="Condition string…"
-					value={props.value}
-					onChange={(e) => props.updateValue(e.target.value, props.id, props.groupId)}
-				/>
-			</div>
+			{hideValueInput && (
+				<div>
+					<Input
+						placeholder="Condition string…"
+						value={props.value}
+						onChange={(e) => props.updateValue(e.target.value, props.id, props.groupId)}
+					/>
+				</div>
+			)}
 			<div>
 				<DeleteButton
 					shape="circle"
@@ -149,7 +152,12 @@ const ConditionGroup = ({ ...props }: any) => {
 	);
 }
 
-export const ConditionSelector = ({ selectedAssetTypes }: any) => {
+export const ConditionSelector = ({
+	selectedAssetTypes,
+	initialConditions,
+	// selectedConditions,
+	// setConditionSelection
+}: any) => {
 	// Initial single condition
 	const singleCondition: ConditionType = {
 		// Unique ID for the condition (unrelated to backend id's or urns)
@@ -171,8 +179,17 @@ export const ConditionSelector = ({ selectedAssetTypes }: any) => {
 		}
 	};
 
+	const formatedInitalConditions = transformConditions(initialConditions, selectedAssetTypes);
+
 	// List of conditions
 	const [conditions, setConditions] = React.useState<ConditionType[]>([]);
+
+	// Set initial conditions
+	React.useEffect(() => {
+		if (formatedInitalConditions.length > 0 && conditions.length === 0) {
+			setConditions(formatedInitalConditions);
+		}
+	}, [formatedInitalConditions, conditions]);
 
 	// Util to find the index of a condition
 	const findConditionIndex = (list: ConditionType[], id: number) => list.findIndex((c: any) => c.id === id);

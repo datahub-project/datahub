@@ -20,7 +20,7 @@ const dataForSelect = (items: any) => items.map((item: any) => ({
 }));
 
 // Component
-export const AssetTypeSelect = ({ entityTypes, mode }: any) => {
+export const AssetTypeSelect = ({ entityTypes, mode, selected }: any) => {
 	// Get data
 	const { data, loading, error } = useGetSearchResultsQuery({
 		variables: {
@@ -49,6 +49,7 @@ export const AssetTypeSelect = ({ entityTypes, mode }: any) => {
 			status={isError}
 			onChange={(value) => console.log(value)}
 			placeholder={`Select ${entityTypes}…`}
+			value={selected}
 			allowClear
 			showArrow
 			showSearch

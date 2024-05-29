@@ -14,6 +14,7 @@ import {
 
 import { SecondaryButton } from '../sharedComponents';
 
+import { AutomationTypes } from '../utils';
 import { getSteps } from './utils';
 
 import { TermSelector } from './fields/TermSelector';
@@ -24,13 +25,14 @@ import { CustomActionSelector } from './fields/CustomActionSelector';
 import { DataAssetSelector } from './fields/DataAssetSelector';
 import { ConditionSelector } from './fields/ConditionSelector';
 
-export const Configure = ({ automation, initData, formData, setFormData }: any) => {
+export const Configure = ({ automation, formData, setFormData }: any) => {
 	const steps = automation.steps || getSteps(automation);
 	const prevProps = useRef(formData);
 
 	// Various field states
 	const [actionSelection, setActionSelection] = useState<string[]>([]);
-	const [predicateSelection, setPredicateSelection] = useState<string[]>([]);
+	const [conditionSelection, setConditionSelection] = useState<string[]>([]);
+	const [initialConditions, setInitialConditions] = useState<string[]>([]);
 	const [assetTypesSelected, setAssetTypesSelected] = useState<string[]>([]);
 	const [termsSelected, setTermsSelected] = useState<string[]>([]);
 	const [connectionSelected, setConnectionSelected] = useState<string | undefined>();
@@ -39,33 +41,45 @@ export const Configure = ({ automation, initData, formData, setFormData }: any) 
 
 	// Initialize the form data
 	useEffect(() => {
-		if (initData) {
-			// Handle recipe info
-			if (initData.definition?.config?.recipe) {
-				const recipe = JSON.parse(initData.definition.config.recipe);
-				const terms = recipe?.action?.config?.term_propagation?.target_terms;
-				if (termsSelected.length === 0 && terms?.length > 0)
-					setTermsSelected(recipe.action.config.term_propagation.target_terms);
+		if (automation) {
+			const { definition, category, name, description } = automation;
+
+			// Handle Recipe Info for Metadata Tests
+			if (automation.type === AutomationTypes.TEST) {
+				if (definition?.actions) setActionSelection(definition?.actions);
+				if (definition?.on?.types) setAssetTypesSelected(definition?.on?.types);
+				if (definition?.on?.conditions) setInitialConditions([definition?.on?.conditions]);
+				if (definition?.rules) setInitialConditions([...initialConditions, definition?.rules])
+			}
+
+			// Handle Recipe Info for Action Pipelines
+			if (automation.type === AutomationTypes.ACTION) {
+				const action = definition?.action;
+				if (action) {
+					const terms = action?.config?.term_propagation?.target_terms;
+					if (termsSelected.length === 0 && terms?.length > 0)
+						setTermsSelected(action.config.term_propagation.target_terms);
+				}
 			}
 
 			// Handle Category
-			if (!categorySelected && initData.category) setCategorySelected(initData.category);
+			if (!categorySelected && category) setCategorySelected(category);
 
 			// Handle Details
-			if ((!details.name || !details.description) && (initData.name || initData.description)) {
+			if ((!details.name || !details.description) && (name || description)) {
 				setDetails({
-					name: initData.name,
-					description: initData.description,
+					name,
+					description
 				});
 			}
 		}
-	}, [initData, setCategorySelected, setDetails]);
+	}, [automation, setCategorySelected, setDetails]);
 
 	// Form Data to be submitted
 	const data = {
 		terms: termsSelected,
 		connection: connectionSelected,
-		predicates: predicateSelection,
+		conditions: conditionSelection,
 		actions: actionSelection,
 		category: categorySelected,
 		source: assetTypesSelected,
@@ -97,10 +111,7 @@ export const Configure = ({ automation, initData, formData, setFormData }: any) 
 							<StepField key={index}>
 								{/* Field Label */}
 								{field.label && (
-									<label>
-										{field.label}
-										{field.isRequired && <sup>*</sup>}
-									</label>
+									<label>{field.label}</label>
 								)}
 
 								{/* Term Selector */}
@@ -129,7 +140,10 @@ export const Configure = ({ automation, initData, formData, setFormData }: any) 
 
 								{/* Custom Actions */}
 								{field.type === 'customActionSelector' && (
-									<CustomActionSelector />
+									<CustomActionSelector
+										actionSelection={actionSelection}
+										setActionSelection={setActionSelection}
+									/>
 								)}
 
 								{/* Data Asset Selector */}
@@ -142,7 +156,12 @@ export const Configure = ({ automation, initData, formData, setFormData }: any) 
 
 								{/* Condition Selector */}
 								{field.type === 'conditionSelector' && (
-									<ConditionSelector />
+									<ConditionSelector
+										selectedAssetTypes={assetTypesSelected}
+										initialConditions={initialConditions}
+										conditionSelection={conditionSelection}
+										setConditionSelection={setConditionSelection}
+									/>
 								)}
 
 								{/* Category Selector */}
@@ -177,12 +196,12 @@ export const Configure = ({ automation, initData, formData, setFormData }: any) 
 					})}
 
 					{/* Test / Preview Buttons */}
-					{/* {step.canTest || step.canPreview && (
+					{step.canTest || step.canPreview && (
 						<StepButtons>
 							{step.canTest && <SecondaryButton disabled>{step.testTitle}</SecondaryButton>}
 							{step.canPreview && <SecondaryButton disabled>{step.previewTitle}</SecondaryButton>}
 						</StepButtons>
-					)} */}
+					)}
 				</Step>
 			))}
 		</div>

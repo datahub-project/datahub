@@ -119,8 +119,8 @@ export const AutomationsContentTab = styled.div<{ isActive: boolean }>`
 			background-color: ${sharedStyles.borderColor};
 			width: 10px;
 			height: 10px;
-			padding: 8px;
-			font-size: 10px;
+			padding: 9px;
+			font-size: 9px;
 			color: ${sharedStyles.contentColor};
 			border-radius: 100%;
 
@@ -299,6 +299,10 @@ export const AutomationModalFooter = styled.div`
     align-items: center;
     justify-content: space-between;
     gap: 4px;
+
+		& button {
+			font-family: ${sharedStyles.fontFamily};
+		}
 `;
 
 export const AutomationLogo = styled.img`
@@ -312,7 +316,12 @@ export const YamlButtonsContainer = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 16px;
+    gap: 8px;
+
+		& .ant-btn > .anticon + span, 
+		& .ant-btn > span + .anticon {
+			margin-left: 0;
+		}
 `;
 
 export const ButtonsContainer = styled.div`
@@ -390,4 +399,12 @@ export const ResultContainer = styled.div`
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	gap: 16px;
+
+	& .pass {
+		color: ${sharedStyles.success};
+	}
+
+	& .fail {
+		color: ${sharedStyles.fail};
+	}
 `;

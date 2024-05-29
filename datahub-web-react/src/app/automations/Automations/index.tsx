@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { uniq } from 'lodash';
+import { uniq, orderBy } from 'lodash';
 
 import { useListTestsQuery } from '../../../graphql/test.generated';
 import { useListActionPipelinesQuery } from '../../../graphql/actionPipeline.generated';
@@ -113,7 +113,7 @@ export const Automations = () => {
 					</AutomationsContentHeader>
 					<AutomationsContentBody>
 						<AutomationsContentTabs>
-							{tabs.map((tab) => (
+							{orderBy(tabs, ['count'], ['desc']).map((tab) => (
 								<AutomationsContentTab
 									key={tab.key}
 									isActive={activeTab === tab.key}

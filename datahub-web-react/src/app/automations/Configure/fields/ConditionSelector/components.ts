@@ -39,7 +39,7 @@ export const ConditionsContainer = styled.div`
 	gap: 8px;
 `;
 
-export const RuleSelectorContainer = styled.div`
+export const RuleSelectorContainer = styled.div<{ noInput?: boolean }>`
 	border-radius: ${sharedStyles.borderRadius};
 	border: 1px solid ${sharedStyles.darkBorderColor};
 	background: #F9FAFC;
@@ -52,6 +52,11 @@ export const RuleSelectorContainer = styled.div`
 	grid-column-gap: 8px;
 	grid-row-gap: 0px;
 	align-items: center;
+
+	// No input layout
+	${props => props.noInput && `
+		grid-template-columns: 0.05fr 4fr 1fr 0.1fr;
+	`}
 
 	// Inner div containers
 	& > div {

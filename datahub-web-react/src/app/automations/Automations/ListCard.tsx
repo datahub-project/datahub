@@ -19,7 +19,7 @@ import {
 } from '../../../graphql/actionPipeline.generated';
 import { useGetTestResultsSummaryQuery } from '../../../graphql/test.generated';
 
-import { AutomationStatus, truncateString } from '../utils';
+import { AutomationStatus, AutomationTypes, truncateString } from '../utils';
 
 import {
 	ListCard,
@@ -63,10 +63,6 @@ const MetadataTestDetails = ({ urn }: any) => {
 			? formatNumberWithoutAbbreviation(results?.test?.results?.failingCount)
 			: '-';
 
-	const totalCount = formatNumberWithoutAbbreviation(
-		Number(results?.test?.results?.passingCount || 0) + Number(results?.test?.results?.failingCount || 0)
-	);
-
 	const lastComputed = results?.test?.results?.lastRunTimestampMillis !== undefined
 		? toRelativeTimeString(results?.test?.results?.lastRunTimestampMillis || 0)
 		: 'unknown';
@@ -85,12 +81,12 @@ const MetadataTestDetails = ({ urn }: any) => {
 	return (
 		<ResultContainer>
 			<div>
-				Passing: {passingCount} <br />
-				Failing: {failingCount} <br />
+				<span className="pass">Passing: {passingCount}</span> <br />
+				<span className="fail">Failing: {failingCount}</span> <br />
 			</div>
 			<div style={{ textAlign: 'right' }}>
-				Last Computed: {lastComputed} <br />
-				Total Assets: {totalCount} <br />
+				Last Computed <br />
+				{lastComputed}
 			</div>
 		</ResultContainer>
 	);
@@ -107,7 +103,7 @@ export const AutomationsListCard = ({ automation }: any) => {
 	const [startActionPipeline] = useStartActionPipelineMutation();
 	const [rollbackActionPipeline] = useRollbackActionPipelineMutation();
 
-	const contentTitle = type === 'Test' ? 'Results' : 'Details';
+	const contentTitle = type === AutomationTypes.TEST ? 'Results' : 'Details';
 
 	// Stop an Action
 	const stopAction = (e) => {
@@ -196,8 +192,8 @@ export const AutomationsListCard = ({ automation }: any) => {
 					<div>
 						<ContentTitle>{contentTitle}</ContentTitle>
 						<Details>
-							{type === 'ActionPipeline' && <PropagationDetails />}
-							{type === 'Test' && <MetadataTestDetails urn={automation.urn} />}
+							{type === AutomationTypes.ACTION && <PropagationDetails />}
+							{type === AutomationTypes.TEST && <MetadataTestDetails urn={automation.urn} />}
 						</Details>
 					</div>
 				</ListCardBody>
