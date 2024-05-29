@@ -614,3 +614,16 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.hooks.FieldPathMutator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - UPSERT
+        - UPDATE
+        - RESTATE
+        - PATCH
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: 'schemaMetadata'
+        - entityName: '*'
+          aspectName: 'editableSchemaMetadata'

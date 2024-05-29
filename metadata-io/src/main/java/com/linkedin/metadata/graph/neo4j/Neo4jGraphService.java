@@ -105,45 +105,25 @@ public class Neo4jGraphService implements GraphService {
     // or indirect pattern match
     String endUrn = destinationUrn;
     String startUrn = sourceUrn;
-    String endType = destinationType;
-    String startType = sourceType;
     // Extra relationship typename start with r_ for
     // direct-outgoing-downstream/indirect-incoming-upstream relationships
     String reverseRelationshipType = "r_" + edge.getRelationshipType();
 
+    final String createOrFindSourceNode =
+        String.format("MERGE (source:%s {urn: '%s'})", sourceType, sourceUrn);
+    final String createOrFindDestinationNode =
+        String.format("MERGE (destination:%s {urn: '%s'})", destinationType, destinationUrn);
+    final String createSourceToDestinationRelationShip =
+        String.format("MERGE (source)-[:%s]->(destination)", edge.getRelationshipType());
+    String createReverseRelationShip =
+        String.format("MERGE (source)-[r:%s]->(destination)", reverseRelationshipType);
+
     if (isSourceDestReversed(sourceType, edge.getRelationshipType())) {
       endUrn = sourceUrn;
-      endType = sourceType;
       startUrn = destinationUrn;
-      startType = destinationType;
+      createReverseRelationShip =
+          String.format("MERGE (destination)-[r:%s]->(source)", reverseRelationshipType);
     }
-
-    final List<Statement> statements = new ArrayList<>();
-
-    // Add/Update source & destination node first
-    statements.add(getOrInsertNode(edge.getSource()));
-    statements.add(getOrInsertNode(edge.getDestination()));
-
-    // Add/Update relationship
-    final String mergeRelationshipTemplate =
-        "MATCH (source:%s {urn: '%s'}),(destination:%s {urn: '%s'}) MERGE (source)-[r:%s]->(destination) ";
-    String statement =
-        String.format(
-            mergeRelationshipTemplate,
-            sourceType,
-            sourceUrn,
-            destinationType,
-            destinationUrn,
-            edge.getRelationshipType());
-
-    String statementR =
-        String.format(
-            mergeRelationshipTemplate,
-            startType,
-            startUrn,
-            endType,
-            endUrn,
-            reverseRelationshipType);
 
     // Add/Update relationship properties
     String setCreatedOnTemplate;
@@ -193,12 +173,22 @@ public class Neo4jGraphService implements GraphService {
     final String setStartEndUrnTemplate =
         String.format("r.startUrn = '%s', r.endUrn = '%s'", startUrn, endUrn);
     propertiesTemplateJoiner.add(setStartEndUrnTemplate);
-    if (!StringUtils.isEmpty(propertiesTemplateJoiner.toString())) {
-      statementR = String.format("%s SET %s", statementR, propertiesTemplateJoiner);
-    }
 
-    statements.add(buildStatement(statement, new HashMap<>()));
-    statements.add(buildStatement(statementR, new HashMap<>()));
+    StringBuilder finalStatement = new StringBuilder();
+    finalStatement
+        .append(createOrFindSourceNode)
+        .append(" ")
+        .append(createOrFindDestinationNode)
+        .append(" ")
+        .append(createSourceToDestinationRelationShip)
+        .append(" ")
+        .append(createReverseRelationShip)
+        .append(" ");
+    if (!StringUtils.isEmpty(propertiesTemplateJoiner.toString())) {
+      finalStatement.append("SET ").append(propertiesTemplateJoiner);
+    }
+    final List<Statement> statements = new ArrayList<>();
+    statements.add(buildStatement(finalStatement.toString(), new HashMap<>()));
     executeStatements(statements);
   }
 
@@ -720,33 +710,32 @@ public class Neo4jGraphService implements GraphService {
    *
    * @param statements List of statements with parameters to be executed in order
    */
-  private synchronized ExecutionResult executeStatements(@Nonnull List<Statement> statements) {
-    int retry = 0;
+  private ExecutionResult executeStatements(@Nonnull List<Statement> statements) {
     final StopWatch stopWatch = new StopWatch();
     stopWatch.start();
-    Exception lastException;
+    int retry = 0;
     try (final Session session = _driver.session(_sessionConfig)) {
-      do {
+      for (retry = 0; retry <= MAX_TRANSACTION_RETRY; retry++) {
         try {
-          session.writeTransaction(
+          session.executeWrite(
               tx -> {
                 for (Statement statement : statements) {
                   tx.run(statement.getCommandText(), statement.getParams());
                 }
-                return 0;
+                return null;
               });
-          lastException = null;
           break;
         } catch (Neo4jException e) {
-          lastException = e;
+          log.warn("Failed to execute Neo4j write transaction. Retry count: {}", retry, e);
+          if (retry == MAX_TRANSACTION_RETRY) {
+            throw new RetryLimitReached(
+                "Failed to execute Neo4j write transaction after "
+                    + MAX_TRANSACTION_RETRY
+                    + " retries",
+                e);
+          }
         }
-      } while (++retry <= MAX_TRANSACTION_RETRY);
-    }
-
-    if (lastException != null) {
-      throw new RetryLimitReached(
-          "Failed to execute Neo4j write transaction after " + MAX_TRANSACTION_RETRY + " retries",
-          lastException);
+      }
     }
 
     stopWatch.stop();
