@@ -1,15 +1,16 @@
 import React, { CSSProperties, useState } from 'react';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { FilterField, FilterValueOption, FilterValue } from '../types';
-import { mapFilterOption } from '../mapFilterOption';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import OptionsDropdownMenu from '../OptionsDropdownMenu';
+import { mapFilterOption } from '../mapFilterOption';
+import { FilterField, FilterValue, FilterValueOption } from '../types';
+import { OptionMenu } from './styledComponents';
 import {
     deduplicateOptions,
+    mapFilterCountsToZero,
     useFilterOptionsBySearchQuery,
     useLoadAggregationOptions,
     useLoadSearchOptions,
 } from './utils';
-import { OptionMenu } from './styledComponents';
 
 interface Props {
     field: FilterField;
@@ -41,11 +42,18 @@ export default function EntityValueMenu({
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
     // Here we optionally load the aggregation options, which are the options that are displayed by default.
-    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions(field, true, includeCount);
+    const { options: aggOptionsWithTooHighCounts, loading: aggLoading } = useLoadAggregationOptions(
+        field,
+        true,
+        includeCount,
+    );
     // Here we optionally load the search options, which are the options that are displayed when the user searches.
     const { options: searchOptions, loading: searchLoading } = useLoadSearchOptions(field, searchQuery, !isSearchable);
 
-    const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
+    // agg options are generated from a * query and their counts will be off as a result.
+    const aggOptionsWithEmptyCounts = mapFilterCountsToZero(aggOptionsWithTooHighCounts);
+
+    const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptionsWithEmptyCounts)];
 
     const localSearchOptions = useFilterOptionsBySearchQuery(allOptions, searchQuery);
 
