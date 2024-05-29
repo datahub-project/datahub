@@ -52,14 +52,12 @@ public class AssertionService extends BaseService {
   private final Clock _clock;
 
   public AssertionService(
-      @Nonnull final SystemEntityClient entityClient,
-      @Nonnull final Clock clock) {
+      @Nonnull final SystemEntityClient entityClient, @Nonnull final Clock clock) {
     super(entityClient);
     _clock = clock;
   }
 
-  public AssertionService(
-      @Nonnull final SystemEntityClient entityClient) {
+  public AssertionService(@Nonnull final SystemEntityClient entityClient) {
     super(entityClient);
     _clock = Clock.systemUTC();
   }
@@ -130,7 +128,6 @@ public class AssertionService extends BaseService {
     // No aspect found
     return null;
   }
-
 
   /**
    * Returns an instance of {@link EntityResponse} for the specified View urn, or null if one cannot

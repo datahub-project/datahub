@@ -116,15 +116,8 @@ import com.linkedin.datahub.graphql.generated.TypeQualifier;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.CreateFieldAssertionResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.CreateFreshnessAssertionResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.CreateSqlAssertionResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.CreateVolumeAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionMetadataResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.DebugAccessResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenMetadataResolver;
@@ -1310,21 +1303,7 @@ public class GmsGraphQLEngine {
               .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
               .dataFetcher(
                   "updateIncidentStatus",
-                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
-              .dataFetcher(
-                  "createDatasetAssertion", new CreateDatasetAssertionResolver(assertionService))
-              .dataFetcher(
-                  "createFreshnessAssertion",
-                  new CreateFreshnessAssertionResolver(assertionService))
-              .dataFetcher(
-                  "createVolumeAssertion", new CreateVolumeAssertionResolver(assertionService))
-              .dataFetcher(
-                  "createFieldAssertion", new CreateFieldAssertionResolver(assertionService))
-              .dataFetcher("createSqlAssertion", new CreateSqlAssertionResolver(assertionService))
-              .dataFetcher(
-                  "updateDatasetAssertion", new UpdateDatasetAssertionResolver(assertionService))
-              .dataFetcher(
-                  "updateAssertionMetadata", new UpdateAssertionMetadataResolver(assertionService));
+                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService));
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(
