@@ -263,12 +263,12 @@ class ConfluentJDBCSourceConnector:
     KNOWN_NONTOPICROUTING_TRANSFORMS = (
         KAFKA_NONTOPICROUTING_TRANSFORMS
         + [
-            "org.apache.kafka.connect.transforms.{}".format(t)
+            f"org.apache.kafka.connect.transforms.{t}"
             for t in KAFKA_NONTOPICROUTING_TRANSFORMS
         ]
         + CONFLUENT_NONTOPICROUTING_TRANSFORMS
         + [
-            "io.confluent.connect.transforms.{}".format(t)
+            f"io.confluent.connect.transforms.{t}"
             for t in CONFLUENT_NONTOPICROUTING_TRANSFORMS
         ]
     )
@@ -314,9 +314,9 @@ class ConfluentJDBCSourceConnector:
             transform = {"name": name}
             transforms.append(transform)
             for key in self.connector_manifest.config.keys():
-                if key.startswith("transforms.{}.".format(name)):
+                if key.startswith(f"transforms.{name}."):
                     transform[
-                        key.replace("transforms.{}.".format(name), "")
+                        key.replace(f"transforms.{name}.", "")
                     ] = self.connector_manifest.config[key]
 
         return self.JdbcParser(
@@ -729,7 +729,7 @@ class DebeziumSourceConnector:
             source_platform = parser.source_platform
             server_name = parser.server_name
             database_name = parser.database_name
-            topic_naming_pattern = r"({0})\.(\w+\.\w+)".format(server_name)
+            topic_naming_pattern = rf"({server_name})\.(\w+\.\w+)"
 
             if not self.connector_manifest.topic_names:
                 return lineages
@@ -1089,7 +1089,7 @@ def transform_connector_config(
     for k, v in connector_config.items():
         for key, value in lookupsByProvider.items():
             if key in v:
-                connector_config[k] = v.replace(key, value)
+                connector_config[k] = connector_config[k].replace(key, value)
 
 
 @platform_name("Kafka Connect")

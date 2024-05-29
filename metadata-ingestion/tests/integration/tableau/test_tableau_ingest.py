@@ -16,6 +16,7 @@ from tableauserverclient.models import (
 )
 
 from datahub.configuration.source_common import DEFAULT_ENV
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau import TableauConfig, TableauSource
 from datahub.ingestion.source.tableau_common import (
@@ -24,10 +25,12 @@ from datahub.ingestion.source.tableau_common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
     UpstreamLineage,
 )
 from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -319,6 +322,8 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     new_pipeline_config: Dict[Any, Any] = {
         **config_source_default,
         "extract_lineage_from_unsupported_custom_sql_queries": True,
+        "force_extraction_of_lineage_from_custom_sql_queries": False,
+        "sql_parsing_disable_schema_awareness": False,
         "extract_column_level_lineage": True,
     }
 
@@ -567,6 +572,7 @@ def test_lineage_overrides():
     assert (
         TableauUpstreamReference(
             "presto_catalog",
+            "test-database-id",
             "test-schema",
             "test-table",
             "presto",
@@ -581,6 +587,7 @@ def test_lineage_overrides():
     assert (
         TableauUpstreamReference(
             "presto_catalog",
+            "test-database-id",
             "test-schema",
             "test-table",
             "presto",
@@ -598,6 +605,7 @@ def test_lineage_overrides():
     assert (
         TableauUpstreamReference(
             None,
+            None,
             "test-schema",
             "test-table",
             "hive",
@@ -609,6 +617,40 @@ def test_lineage_overrides():
             ),
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_hostname_to_platform_instance_map():
+    enable_logging()
+    # Simple - snowflake table
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(env=DEFAULT_ENV, platform_instance_map={})
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-database-name.test-schema.test-table,PROD)"
+    )
+
+    # Finding platform instance based off hostname to platform instance mappings
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={},
+            database_hostname_to_platform_instance_map={
+                "test-hostname": "test-platform-instance"
+            },
+            database_server_hostname_map={"test-database-id": "test-hostname"},
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-platform-instance.test-database-name.test-schema.test-table,PROD)"
     )
 
 
@@ -670,7 +712,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
 
-    assert len(difference_dataset_urns) == 34
+    assert len(difference_dataset_urns) == 35
     deleted_dataset_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
@@ -706,6 +748,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_cat_item,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,5449c627-7462-4ef7-b492-bda46be068e3,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
@@ -803,54 +846,90 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-def test_tableau_unsupported_csql(mock_datahub_graph):
+def test_tableau_unsupported_csql():
     context = PipelineContext(run_id="0", pipeline_name="test_tableau")
-    context.graph = mock_datahub_graph
-    config = TableauConfig.parse_obj(config_source_default.copy())
+    config_dict = config_source_default.copy()
+    del config_dict["stateful_ingestion"]
+    config = TableauConfig.parse_obj(config_dict)
     config.extract_lineage_from_unsupported_custom_sql_queries = True
     config.lineage_overrides = TableauLineageOverrides(
         database_override_map={"production database": "prod"}
     )
 
-    with mock.patch(
-        "datahub.ingestion.source.tableau.create_lineage_sql_parsed_result",
-        return_value=SqlParsingResult(
-            in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)"
-            ],
-            out_tables=[],
-            column_lineage=None,
-        ),
+    def test_lineage_metadata(
+        lineage, expected_entity_urn, expected_upstream_table, expected_cll
     ):
-        source = TableauSource(config=config, ctx=context)
-
-        lineage = source._create_lineage_from_unsupported_csql(
-            csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
-            csql={
-                "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
-                "isUnsupportedCustomSql": "true",
-                "database": {
-                    "name": "my-bigquery-project",
-                    "connectionType": "bigquery",
-                },
-            },
-        )
-
         mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
-
         assert mcp.aspect == UpstreamLineage(
             upstreams=[
                 UpstreamClass(
-                    dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)",
+                    dataset=expected_upstream_table,
                     type=DatasetLineageType.TRANSFORMED,
                 )
             ],
-            fineGrainedLineages=[],
+            fineGrainedLineages=[
+                FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        make_schema_field_urn(expected_upstream_table, upstream_column)
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[
+                        make_schema_field_urn(expected_entity_urn, downstream_column)
+                    ],
+                )
+                for upstream_column, downstream_column in expected_cll.items()
+            ],
         )
-        assert (
-            mcp.entityUrn
-            == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
-        )
+        assert mcp.entityUrn == expected_entity_urn
+
+    csql_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
+    expected_upstream_table = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.UserDetail,PROD)"
+    expected_cll = {
+        "user_id": "user_id",
+        "source": "source",
+        "user_source": "user_source",
+    }
+
+    source = TableauSource(config=config, ctx=context)
+
+    lineage = source._create_lineage_from_unsupported_csql(
+        csql_urn=csql_urn,
+        csql={
+            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
+            "isUnsupportedCustomSql": "true",
+            "connectionType": "bigquery",
+            "database": {
+                "name": "my_bigquery_project",
+                "connectionType": "bigquery",
+            },
+        },
+        out_columns=[],
+    )
+    test_lineage_metadata(
+        lineage=lineage,
+        expected_entity_urn=csql_urn,
+        expected_upstream_table=expected_upstream_table,
+        expected_cll=expected_cll,
+    )
+
+    # With database as None
+    lineage = source._create_lineage_from_unsupported_csql(
+        csql_urn=csql_urn,
+        csql={
+            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM my_bigquery_project.invent_dw.UserDetail ) source_user WHERE rank_ = 1",
+            "isUnsupportedCustomSql": "true",
+            "connectionType": "bigquery",
+            "database": None,
+        },
+        out_columns=[],
+    )
+    test_lineage_metadata(
+        lineage=lineage,
+        expected_entity_urn=csql_urn,
+        expected_upstream_table=expected_upstream_table,
+        expected_cll=expected_cll,
+    )
 
 
 @freeze_time(FROZEN_TIME)

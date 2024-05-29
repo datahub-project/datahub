@@ -154,9 +154,7 @@ class CSVEnricherSource(Source):
             # If we want to overwrite or there are no existing terms, create a new GlossaryTerms object
             current_terms = GlossaryTermsClass(term_associations, get_audit_stamp())
         else:
-            current_term_urns: Set[str] = set(
-                [term.urn for term in current_terms.terms]
-            )
+            current_term_urns: Set[str] = {term.urn for term in current_terms.terms}
             term_associations_filtered: List[GlossaryTermAssociationClass] = [
                 association
                 for association in term_associations
@@ -192,7 +190,7 @@ class CSVEnricherSource(Source):
             # If we want to overwrite or there are no existing tags, create a new GlobalTags object
             current_tags = GlobalTagsClass(tag_associations)
         else:
-            current_tag_urns: Set[str] = set([tag.tag for tag in current_tags.tags])
+            current_tag_urns: Set[str] = {tag.tag for tag in current_tags.tags}
             tag_associations_filtered: List[TagAssociationClass] = [
                 association
                 for association in tag_associations
@@ -228,12 +226,19 @@ class CSVEnricherSource(Source):
             # If we want to overwrite or there are no existing tags, create a new GlobalTags object
             current_ownership = OwnershipClass(owners, lastModified=get_audit_stamp())
         else:
-            current_owner_urns: Set[str] = set(
-                [owner.owner for owner in current_ownership.owners]
-            )
-            owners_filtered: List[OwnerClass] = [
-                owner for owner in owners if owner.owner not in current_owner_urns
-            ]
+            owners_filtered: List[OwnerClass] = []
+            for owner in owners:
+                owner_exists = False
+                for current_owner in current_ownership.owners:
+                    if (
+                        owner.owner == current_owner.owner
+                        and owner.type == current_owner.type
+                    ):
+                        owner_exists = True
+                        break
+                if not owner_exists:
+                    owners_filtered.append(owner)
+
             # If there are no new owners to add, we don't need to emit a work unit.
             if len(owners_filtered) <= 0:
                 return None
@@ -446,9 +451,9 @@ class CSVEnricherSource(Source):
                 field_match = True
                 if has_terms:
                     if field_info.glossaryTerms and not self.should_overwrite:
-                        current_term_urns = set(
-                            [term.urn for term in field_info.glossaryTerms.terms]
-                        )
+                        current_term_urns = {
+                            term.urn for term in field_info.glossaryTerms.terms
+                        }
                         term_associations_filtered = [
                             association
                             for association in term_associations
@@ -465,9 +470,9 @@ class CSVEnricherSource(Source):
 
                 if has_tags:
                     if field_info.globalTags and not self.should_overwrite:
-                        current_tag_urns = set(
-                            [tag.tag for tag in field_info.globalTags.tags]
-                        )
+                        current_tag_urns = {
+                            tag.tag for tag in field_info.globalTags.tags
+                        }
                         tag_associations_filtered = [
                             association
                             for association in tag_associations
@@ -624,9 +629,7 @@ class CSVEnricherSource(Source):
                     f"Cannot read remote file {self.config.filename}, error:{e}"
                 )
         else:
-            with open(
-                pathlib.Path(self.config.filename), mode="r", encoding="utf-8-sig"
-            ) as f:
+            with open(pathlib.Path(self.config.filename), encoding="utf-8-sig") as f:
                 rows = list(csv.DictReader(f, delimiter=self.config.delimiter))
 
         for row in rows:

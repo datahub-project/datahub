@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-if [[ ! ${RELEASE_SKIP_TEST:-} ]]; then
+if [[ ! ${RELEASE_SKIP_TEST:-} ]] && [[ ! ${RELEASE_SKIP_INSTALL:-} ]]; then
 	../../gradlew build  # also runs tests
 elif [[ ! ${RELEASE_SKIP_INSTALL:-} ]]; then
 	../../gradlew install
@@ -23,4 +23,4 @@ python -m build
 if [[ ! ${RELEASE_SKIP_UPLOAD:-} ]]; then
     python -m twine upload 'dist/*'
 fi
-git restore src/${MODULE}/__init__.py
+mv src/${MODULE}/__init__.py.bak src/${MODULE}/__init__.py

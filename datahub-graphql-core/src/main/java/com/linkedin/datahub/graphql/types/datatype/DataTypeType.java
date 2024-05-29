@@ -53,10 +53,10 @@ public class DataTypeType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               DATA_TYPE_ENTITY_NAME,
               new HashSet<>(dataTypeUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : dataTypeUrns) {
@@ -68,7 +68,7 @@ public class DataTypeType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataTypeEntity>newResult()
-                          .data(DataTypeEntityMapper.map(gmsResult))
+                          .data(DataTypeEntityMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

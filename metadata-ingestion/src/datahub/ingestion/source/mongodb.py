@@ -4,7 +4,6 @@ from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
 import bson.timestamp
-import pymongo
 import pymongo.collection
 from packaging import version
 from pydantic import PositiveInt, validator
@@ -72,7 +71,7 @@ logger = logging.getLogger(__name__)
 # See https://docs.mongodb.com/manual/reference/local-database/ and
 # https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
-DENY_DATABASE_LIST = set(["admin", "config", "local"])
+DENY_DATABASE_LIST = {"admin", "config", "local"}
 
 
 class HostingEnvironment(Enum):
@@ -282,7 +281,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
             **self.config.options,
         }
 
-        self.mongo_client = pymongo.MongoClient(self.config.connect_uri, **options)  # type: ignore
+        # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
+        self.mongo_client = MongoClient(self.config.connect_uri, datetime_conversion="DATETIME_AUTO", **options)  # type: ignore
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient
@@ -393,6 +393,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     tags=[],
                     customProperties={},
                 )
+
+                schema_metadata: Optional[SchemaMetadata] = None
 
                 if self.config.enableSchemaInference:
                     assert self.config.maxDocumentSize is not None

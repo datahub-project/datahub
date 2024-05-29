@@ -23,7 +23,8 @@ import javax.annotation.Nonnull;
 public class IncidentType
     implements com.linkedin.datahub.graphql.types.EntityType<Incident, String> {
 
-  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME);
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(Constants.INCIDENT_INFO_ASPECT_NAME, Constants.GLOBAL_TAGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   public IncidentType(final EntityClient entityClient) {
@@ -53,10 +54,10 @@ public class IncidentType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.INCIDENT_ENTITY_NAME,
               new HashSet<>(incidentUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : incidentUrns) {
@@ -68,7 +69,7 @@ public class IncidentType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Incident>newResult()
-                          .data(IncidentMapper.map(gmsResult))
+                          .data(IncidentMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

@@ -42,6 +42,7 @@ tasks.register('quickstart') {}
 tasks.register('quickstartSlim') {}
 tasks.register('quickstartDebug') {}
 tasks.register('quickstartPg') {}
+tasks.register('quickstartStorage') {}
 
 tasks.register('quickstartNuke') {
     doFirst {
@@ -124,6 +125,19 @@ dockerCompose {
         composeAdditionalArgs = ['--profile', 'debug']
 
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
+
+        useComposeFiles = ['profiles/docker-compose.yml']
+        projectName = 'datahub'
+        projectNamePrefix = ''
+        buildBeforeUp = false
+        buildBeforePull = false
+        stopContainers = false
+        removeVolumes = false
+    }
+
+    quickstartStorage {
+        isRequiredBy(tasks.named('quickstartStorage'))
+        composeAdditionalArgs = ['--profile', 'quickstart-storage']
 
         useComposeFiles = ['profiles/docker-compose.yml']
         projectName = 'datahub'

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.transformer.SearchDocumentTransformer.withSystemCreated;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -20,12 +21,11 @@ import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
-import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
@@ -34,7 +34,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -50,6 +49,7 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -59,6 +59,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -79,9 +80,6 @@ public class UpdateIndicesService implements SearchIndicesService {
   private final SearchDocumentTransformer _searchDocumentTransformer;
   private final EntityIndexBuilders _entityIndexBuilders;
 
-  private AspectRetriever aspectRetriever;
-  private EntityRegistry _entityRegistry;
-
   @Value("${featureFlags.graphServiceDiffModeEnabled:true}")
   private boolean _graphDiffMode;
 
@@ -95,7 +93,12 @@ public class UpdateIndicesService implements SearchIndicesService {
   private boolean _structuredPropertiesWriteEnabled;
 
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.RESTATE, ChangeType.PATCH);
+      ImmutableSet.of(
+          ChangeType.CREATE,
+          ChangeType.CREATE_ENTITY,
+          ChangeType.UPSERT,
+          ChangeType.RESTATE,
+          ChangeType.PATCH);
 
   @VisibleForTesting
   public void setGraphDiffMode(boolean graphDiffMode) {
@@ -123,20 +126,23 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   @Override
-  public void handleChangeEvent(@Nonnull final MetadataChangeLog event) {
+  public void handleChangeEvent(
+      @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
-      MCLItemImpl batch = MCLItemImpl.builder().build(event, aspectRetriever);
+      MCLItemImpl batch =
+          MCLItemImpl.builder()
+              .build(event, opContext.getRetrieverContext().get().getAspectRetriever());
 
       Stream<MCLItem> sideEffects =
-          AspectsBatch.applyMCLSideEffects(List.of(batch), aspectRetriever);
+          AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext().get());
 
       for (MCLItem mclItem :
           Stream.concat(Stream.of(batch), sideEffects).collect(Collectors.toList())) {
         MetadataChangeLog hookEvent = mclItem.getMetadataChangeLog();
         if (UPDATE_CHANGE_TYPES.contains(hookEvent.getChangeType())) {
-          handleUpdateChangeEvent(mclItem);
+          handleUpdateChangeEvent(opContext, mclItem);
         } else if (hookEvent.getChangeType() == ChangeType.DELETE) {
-          handleDeleteChangeEvent(mclItem);
+          handleDeleteChangeEvent(opContext, mclItem);
         }
       }
     } catch (IOException e) {
@@ -153,7 +159,8 @@ public class UpdateIndicesService implements SearchIndicesService {
    *
    * @param event the change event to be processed.
    */
-  private void handleUpdateChangeEvent(@Nonnull final MCLItem event) throws IOException {
+  private void handleUpdateChangeEvent(
+      @Nonnull OperationContext opContext, @Nonnull final MCLItem event) throws IOException {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final AspectSpec aspectSpec = event.getAspectSpec();
@@ -165,6 +172,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     // Step 0. If the aspect is timeseries, add to its timeseries index.
     if (aspectSpec.isTimeseries()) {
       updateTimeseriesFields(
+          opContext,
           urn.getEntityType(),
           event.getAspectName(),
           urn,
@@ -182,8 +190,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     updateIndexMappings(entitySpec, aspectSpec, aspect, previousAspect);
 
     // Step 2. For all aspects, attempt to update Search
-    updateSearchService(
-        entitySpec.getName(), urn, aspectSpec, aspect, event.getSystemMetadata(), previousAspect);
+    updateSearchService(opContext, event);
 
     // Step 3. For all aspects, attempt to update Graph
     SystemMetadata systemMetadata = event.getSystemMetadata();
@@ -250,7 +257,8 @@ public class UpdateIndicesService implements SearchIndicesService {
    *
    * @param event the change event to be processed.
    */
-  private void handleDeleteChangeEvent(@Nonnull final MCLItem event) {
+  private void handleDeleteChangeEvent(
+      @Nonnull OperationContext opContext, @Nonnull final MCLItem event) {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final Urn urn = event.getUrn();
@@ -269,8 +277,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     if (!aspectSpec.isTimeseries()) {
       deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
       deleteGraphData(urn, aspectSpec, aspect, isDeletingKey, event.getMetadataChangeLog());
-      deleteSearchData(
-          _entitySearchService, urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
+      deleteSearchData(opContext, urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
     }
   }
 
@@ -489,17 +496,18 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   private static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {
-    final Map<Integer, com.linkedin.metadata.graph.Edge> oldEdgesMap =
+    final Map<Integer, com.linkedin.metadata.aspect.models.graph.Edge> oldEdgesMap =
         oldEdgeSet.stream()
             .map(edge -> Pair.of(edge.hashCode(), edge))
             .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
-    final List<com.linkedin.metadata.graph.Edge> mergedEdges = new ArrayList<>();
+    final List<com.linkedin.metadata.aspect.models.graph.Edge> mergedEdges = new ArrayList<>();
     if (!oldEdgesMap.isEmpty()) {
-      for (com.linkedin.metadata.graph.Edge newEdge : newEdgeSet) {
+      for (com.linkedin.metadata.aspect.models.graph.Edge newEdge : newEdgeSet) {
         if (oldEdgesMap.containsKey(newEdge.hashCode())) {
-          final com.linkedin.metadata.graph.Edge oldEdge = oldEdgesMap.get(newEdge.hashCode());
-          final com.linkedin.metadata.graph.Edge mergedEdge =
+          final com.linkedin.metadata.aspect.models.graph.Edge oldEdge =
+              oldEdgesMap.get(newEdge.hashCode());
+          final com.linkedin.metadata.aspect.models.graph.Edge mergedEdge =
               GraphIndexUtils.mergeEdges(oldEdge, newEdge);
           mergedEdges.add(mergedEdge);
         }
@@ -510,17 +518,29 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /** Process snapshot and update search index */
-  private void updateSearchService(
-      String entityName,
-      Urn urn,
-      AspectSpec aspectSpec,
-      RecordTemplate aspect,
-      @Nullable SystemMetadata systemMetadata,
-      @Nullable RecordTemplate previousAspect) {
+  private void updateSearchService(@Nonnull OperationContext opContext, MCLItem event) {
+    Urn urn = event.getUrn();
+    RecordTemplate aspect = event.getRecordTemplate();
+    AspectSpec aspectSpec = event.getAspectSpec();
+    SystemMetadata systemMetadata = event.getSystemMetadata();
+    RecordTemplate previousAspect = event.getPreviousRecordTemplate();
+    String entityName = event.getEntitySpec().getName();
+
     Optional<String> searchDocument;
     Optional<String> previousSearchDocument = Optional.empty();
     try {
-      searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, false);
+      searchDocument =
+          _searchDocumentTransformer
+              .transformAspect(opContext, urn, aspect, aspectSpec, false)
+              .map(
+                  objectNode ->
+                      withSystemCreated(
+                          objectNode,
+                          event.getChangeType(),
+                          event.getEntitySpec(),
+                          aspectSpec,
+                          event.getAuditStamp()))
+              .map(Objects::toString);
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
@@ -545,7 +565,9 @@ public class UpdateIndicesService implements SearchIndicesService {
       if (previousAspect != null) {
         try {
           previousSearchDocument =
-              _searchDocumentTransformer.transformAspect(urn, previousAspect, aspectSpec, false);
+              _searchDocumentTransformer
+                  .transformAspect(opContext, urn, previousAspect, aspectSpec, false)
+                  .map(Objects::toString);
         } catch (Exception e) {
           log.error(
               "Error in getting documents from previous aspect state: {} for aspect {}, continuing without diffing.",
@@ -563,11 +585,12 @@ public class UpdateIndicesService implements SearchIndicesService {
       }
     }
 
-    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId.get());
+    _entitySearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId.get());
   }
 
   /** Process snapshot and update time-series index */
   private void updateTimeseriesFields(
+      @Nonnull OperationContext opContext,
       String entityType,
       String aspectName,
       Urn urn,
@@ -586,7 +609,7 @@ public class UpdateIndicesService implements SearchIndicesService {
         .forEach(
             document -> {
               _timeseriesAspectService.upsertDocument(
-                  entityType, aspectName, document.getKey(), document.getValue());
+                  opContext, entityType, aspectName, document.getKey(), document.getValue());
             });
   }
 
@@ -643,7 +666,7 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   private void deleteSearchData(
-      EntitySearchService entitySearchService,
+      @Nonnull OperationContext opContext,
       Urn urn,
       String entityName,
       AspectSpec aspectSpec,
@@ -658,14 +681,16 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
 
     if (isKeyAspect) {
-      _entitySearchService.deleteDocument(entityName, docId);
+      _entitySearchService.deleteDocument(opContext, entityName, docId);
       return;
     }
 
     Optional<String> searchDocument;
     try {
       searchDocument =
-          _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true); // TODO
+          _searchDocumentTransformer
+              .transformAspect(opContext, urn, aspect, aspectSpec, true)
+              .map(Objects::toString); // TODO
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
@@ -676,29 +701,18 @@ public class UpdateIndicesService implements SearchIndicesService {
       return;
     }
 
-    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
+    _entitySearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
   }
 
-  private EntitySpec getEventEntitySpec(@Nonnull final MetadataChangeLog event) {
+  private EntitySpec getEventEntitySpec(
+      @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
-      return _entityRegistry.getEntitySpec(event.getEntityType());
+      return opContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       throw new RuntimeException(
           String.format(
               "Failed to retrieve Entity Spec for entity with name %s. Cannot update indices for MCL.",
               event.getEntityType()));
     }
-  }
-
-  /**
-   * Solves recursive dependencies between the UpdateIndicesService and EntityService
-   *
-   * @param aspectRetriever aspect Retriever
-   */
-  @Override
-  public void initializeAspectRetriever(@Nonnull AspectRetriever aspectRetriever) {
-    this.aspectRetriever = aspectRetriever;
-    this._entityRegistry = aspectRetriever.getEntityRegistry();
-    this._searchDocumentTransformer.setAspectRetriever(aspectRetriever);
   }
 }

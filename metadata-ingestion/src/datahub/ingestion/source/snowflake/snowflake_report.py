@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, MutableSet, Optional
 
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
@@ -10,6 +11,20 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
+from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
+from datahub.utilities.perf_timer import PerfTimer
+
+
+@dataclass
+class SnowflakeUsageAggregationReport(Report):
+    query_secs: float = -1
+    query_row_count: int = -1
+    result_fetch_timer: PerfTimer = field(default_factory=PerfTimer)
+    result_skip_timer: PerfTimer = field(default_factory=PerfTimer)
+    result_map_timer: PerfTimer = field(default_factory=PerfTimer)
+    users_map_timer: PerfTimer = field(default_factory=PerfTimer)
+    queries_map_timer: PerfTimer = field(default_factory=PerfTimer)
+    fields_map_timer: PerfTimer = field(default_factory=PerfTimer)
 
 
 @dataclass
@@ -29,6 +44,10 @@ class SnowflakeUsageReport:
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
+
+    usage_aggregation: SnowflakeUsageAggregationReport = field(
+        default_factory=SnowflakeUsageAggregationReport
+    )
 
 
 @dataclass
@@ -58,6 +77,9 @@ class SnowflakeReport(ProfilingSqlReport, BaseTimeWindowReport):
     profile_if_updated_since: Optional[datetime] = None
     profile_candidates: Dict[str, List[str]] = field(default_factory=dict)
 
+    # lineage/usage v2
+    sql_aggregator: Optional[SqlAggregatorReport] = None
+
 
 @dataclass
 class SnowflakeV2Report(
@@ -79,12 +101,10 @@ class SnowflakeV2Report(
     include_technical_schema: bool = False
     include_column_lineage: bool = False
 
-    usage_aggregation_query_secs: float = -1
     table_lineage_query_secs: float = -1
-    view_lineage_parse_secs: float = -1
-    view_upstream_lineage_query_secs: float = -1
-    view_downstream_lineage_query_secs: float = -1
     external_lineage_queries_secs: float = -1
+    num_tables_with_known_upstreams: int = 0
+    num_upstream_lineage_edge_parsing_failed: int = 0
 
     # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
     # which occurs when we occur a different database / schema.
@@ -110,14 +130,6 @@ class SnowflakeV2Report(
     _scanned_tags: MutableSet[str] = field(default_factory=set)
 
     edition: Optional[SnowflakeEdition] = None
-
-    num_tables_with_external_upstreams_only: int = 0
-    num_tables_with_upstreams: int = 0
-    num_views_with_upstreams: int = 0
-
-    num_view_definitions_parsed: int = 0
-    num_view_definitions_failed_parsing: int = 0
-    num_view_definitions_failed_column_parsing: int = 0
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

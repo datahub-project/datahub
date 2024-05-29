@@ -20,9 +20,11 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -55,26 +57,33 @@ public class AggregateAcrossEntitiesResolver
           final DataHubViewInfo maybeResolvedView =
               (input.getViewUrn() != null)
                   ? resolveView(
+                      context.getOperationContext(),
                       _viewService,
-                      UrnUtils.getUrn(input.getViewUrn()),
-                      context.getAuthentication())
+                      UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
           final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
 
-          final SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
+          final SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
 
           final List<String> facets =
               input.getFacets() != null && input.getFacets().size() > 0 ? input.getFacets() : null;
 
+          List<String> finalEntities =
+              maybeResolvedView != null
+                  ? SearchUtils.intersectEntityTypes(
+                      entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                  : entityNames;
+          if (finalEntities.size() == 0) {
+            return createEmptyAggregateResults();
+          }
+
           try {
             return mapAggregateResults(
+                context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
-                    maybeResolvedView != null
-                        ? SearchUtils.intersectEntityTypes(
-                            entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-                        : entityNames,
+                    finalEntities,
                     sanitizedQuery,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
@@ -100,13 +109,20 @@ public class AggregateAcrossEntitiesResolver
         });
   }
 
-  AggregateResults mapAggregateResults(SearchResult searchResult) {
+  static AggregateResults mapAggregateResults(
+      @Nullable QueryContext context, SearchResult searchResult) {
     final AggregateResults results = new AggregateResults();
     results.setFacets(
         searchResult.getMetadata().getAggregations().stream()
-            .map(MapperUtils::mapFacet)
+            .map(f -> MapperUtils.mapFacet(context, f))
             .collect(Collectors.toList()));
 
     return results;
+  }
+
+  AggregateResults createEmptyAggregateResults() {
+    final AggregateResults result = new AggregateResults();
+    result.setFacets(new ArrayList<>());
+    return result;
   }
 }

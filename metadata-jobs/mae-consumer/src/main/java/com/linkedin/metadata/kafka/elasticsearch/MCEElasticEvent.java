@@ -27,7 +27,8 @@ public class MCEElasticEvent extends ElasticEvent {
       String jsonString = RecordUtils.toJsonString(this._doc);
       builder = XContentFactory.jsonBuilder().prettyPrint();
       XContentParser parser =
-          XContentFactory.xContent(XContentType.JSON)
+          XContentType.JSON
+              .xContent()
               .createParser(
                   NamedXContentRegistry.EMPTY,
                   DeprecationHandler.THROW_UNSUPPORTED_OPERATION,

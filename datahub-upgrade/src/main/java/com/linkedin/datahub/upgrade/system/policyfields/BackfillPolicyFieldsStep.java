@@ -25,13 +25,16 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -42,7 +45,7 @@ import org.jetbrains.annotations.NotNull;
  */
 @Slf4j
 public class BackfillPolicyFieldsStep implements UpgradeStep {
-  private static final String UPGRADE_ID = "BackfillPolicyFieldsStep";
+  private static final String UPGRADE_ID = "BackfillPolicyFieldsStep_V2";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
   private final OperationContext opContext;
@@ -81,11 +84,11 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       int migratedCount = 0;
       do {
         log.info("Upgrading batch of policies {}-{}", migratedCount, migratedCount + batchSize);
-        scrollId = backfillPolicies(auditStamp, scrollId);
+        scrollId = backfillPolicies(context, auditStamp, scrollId);
         migratedCount += batchSize;
       } while (scrollId != null);
 
-      BootstrapStep.setUpgradeResult(UPGRADE_ID_URN, entityService);
+      BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
 
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
@@ -113,14 +116,15 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
     }
 
     boolean previouslyRun =
-        entityService.exists(UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
+        entityService.exists(
+            context.opContext(), UPGRADE_ID_URN, DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, true);
     if (previouslyRun) {
       log.info("{} was already run. Skipping.", id());
     }
     return previouslyRun;
   }
 
-  private String backfillPolicies(AuditStamp auditStamp, String scrollId) {
+  private String backfillPolicies(UpgradeContext context, AuditStamp auditStamp, String scrollId) {
 
     final Filter filter = backfillPolicyFieldFilter();
     final ScrollResult scrollResult =
@@ -144,9 +148,10 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       return null;
     }
 
+    List<Future<?>> futures = new LinkedList<>();
     for (SearchEntity searchEntity : scrollResult.getEntities()) {
       try {
-        ingestPolicyFields(searchEntity.getEntity(), auditStamp);
+        ingestPolicyFields(context, searchEntity.getEntity(), auditStamp).ifPresent(futures::add);
       } catch (Exception e) {
         // don't stop the whole step because of one bad urn or one bad ingestion
         log.error(
@@ -157,29 +162,49 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       }
     }
 
+    futures.forEach(
+        f -> {
+          try {
+            f.get();
+          } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+          }
+        });
+
     return scrollResult.getScrollId();
   }
 
   private Filter backfillPolicyFieldFilter() {
-    // Condition: Does not have at least 1 of: `privileges`, `editable`, `state` or `type`
+    // Condition: Does not have at least 1 of: `privileges`, `editable`, `state`, `type`, `users`,
+    // `groups`, `allUsers`
+    // `allGroups` or `roles`
     ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
 
     conjunctiveCriterionArray.add(getCriterionForMissingField("privilege"));
     conjunctiveCriterionArray.add(getCriterionForMissingField("editable"));
     conjunctiveCriterionArray.add(getCriterionForMissingField("state"));
     conjunctiveCriterionArray.add(getCriterionForMissingField("type"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("users"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("groups"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("roles"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("allUsers"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("allGroups"));
 
     Filter filter = new Filter();
     filter.setOr(conjunctiveCriterionArray);
     return filter;
   }
 
-  private void ingestPolicyFields(Urn urn, AuditStamp auditStamp) {
+  private Optional<Future<?>> ingestPolicyFields(
+      UpgradeContext context, Urn urn, AuditStamp auditStamp) {
     EntityResponse entityResponse = null;
     try {
       entityResponse =
           entityService.getEntityV2(
-              urn.getEntityType(), urn, Collections.singleton(DATAHUB_POLICY_INFO_ASPECT_NAME));
+              context.opContext(),
+              urn.getEntityType(),
+              urn,
+              Collections.singleton(DATAHUB_POLICY_INFO_ASPECT_NAME));
     } catch (URISyntaxException e) {
       log.error(
           String.format(
@@ -193,19 +218,31 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
       final DataMap dataMap =
           entityResponse.getAspects().get(DATAHUB_POLICY_INFO_ASPECT_NAME).getValue().data();
       final DataHubPolicyInfo infoAspect = new DataHubPolicyInfo(dataMap);
+
       log.debug("Restating policy information for urn {} with value {}", urn, infoAspect);
-      MetadataChangeProposal proposal = new MetadataChangeProposal();
-      proposal.setEntityUrn(urn);
-      proposal.setEntityType(urn.getEntityType());
-      proposal.setAspectName(DATAHUB_POLICY_INFO_ASPECT_NAME);
-      proposal.setChangeType(ChangeType.RESTATE);
-      proposal.setSystemMetadata(
-          new SystemMetadata()
-              .setRunId(DEFAULT_RUN_ID)
-              .setLastObserved(System.currentTimeMillis()));
-      proposal.setAspect(GenericRecordUtils.serializeAspect(infoAspect));
-      entityService.ingestProposal(proposal, auditStamp, true);
+      return Optional.of(
+          entityService
+              .alwaysProduceMCLAsync(
+                  context.opContext(),
+                  urn,
+                  urn.getEntityType(),
+                  DATAHUB_POLICY_INFO_ASPECT_NAME,
+                  opContext
+                      .getEntityRegistry()
+                      .getAspectSpecs()
+                      .get(DATAHUB_POLICY_INFO_ASPECT_NAME),
+                  null,
+                  infoAspect,
+                  null,
+                  new SystemMetadata()
+                      .setRunId(DEFAULT_RUN_ID)
+                      .setLastObserved(System.currentTimeMillis()),
+                  auditStamp,
+                  ChangeType.RESTATE)
+              .getFirst());
     }
+
+    return Optional.empty();
   }
 
   @NotNull

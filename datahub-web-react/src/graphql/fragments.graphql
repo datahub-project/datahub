@@ -731,6 +731,11 @@ fragment schemaFieldFields on SchemaField {
                 ...structuredPropertiesFields
             }
         }
+        businessAttributes {
+            businessAttribute {
+                ...businessAttribute
+            }
+        }
     }
 }
 
@@ -1066,6 +1071,11 @@ fragment browsePathV2Fields on BrowsePathV2 {
                 }
                 instanceId
             }
+            ... on Dataset {
+                properties {
+                    name
+                }
+            }
         }
     }
 }
@@ -1186,6 +1196,47 @@ fragment entityDisplayNameFields on Entity {
     }
 }
 
+fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
+    name
+    source {
+        ...datasetERModelRelationshipFields
+    }
+    destination {
+        ...datasetERModelRelationshipFields
+    }
+    relationshipFieldMappings {
+        ...relationshipFieldMapping
+    }
+    createdTime
+    createdActor {
+        urn
+    }
+}
+
+fragment relationshipFieldMapping on RelationshipFieldMapping {
+    sourceField
+    destinationField
+}
+
+fragment ermodelrelationEditablePropertiesFields on ERModelRelationshipEditableProperties {
+    description
+    name
+}
+
+fragment datasetERModelRelationshipFields on Dataset {
+    urn
+    name
+    properties {
+        name
+        description
+    }
+    editableProperties {
+        description
+    }
+    schemaMetadata {
+        ...schemaMetadataFields
+    }
+}
 fragment structuredPropertyFields on StructuredPropertyEntity {
     urn
     type
@@ -1194,6 +1245,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         qualifiedName
         description
         cardinality
+        immutable
         valueType {
             info {
                 type
@@ -1351,4 +1403,59 @@ fragment formsFields on Forms {
             }
         }
     }
+}
+
+fragment entityPrivileges on EntityPrivileges {
+    canEditLineage
+    canEditQueries
+    canEditEmbed
+    canManageEntity
+    canManageChildren
+    canEditProperties
+}
+
+fragment businessAttribute on BusinessAttributeAssociation {
+    businessAttribute {
+        urn
+        type
+            ownership {
+                ...ownershipFields
+            }
+        properties {
+            name
+            description
+            businessAttributeDataType: type
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+            tags {
+                tags {
+                    tag {
+                        urn
+                        name
+                        properties {
+                            name
+                        }
+                    }
+                    associatedUrn
+                }
+            }
+            glossaryTerms {
+                terms {
+                    term {
+                        urn
+                        type
+                        properties {
+                            name
+                        }
+                    }
+                    associatedUrn
+                }
+            }
+        }
+    }
+    associatedUrn
 }

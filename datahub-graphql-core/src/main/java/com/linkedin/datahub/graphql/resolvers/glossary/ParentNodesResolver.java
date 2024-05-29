@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canViewRelationship;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_INFO_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class ParentNodesResolver implements DataFetcher<CompletableFuture<ParentNodesResult>> {
 
@@ -37,10 +40,10 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
       Urn entityUrn = new Urn(urn);
       EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(GLOSSARY_NODE_INFO_ASPECT_NAME)) {
@@ -51,9 +54,12 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
           Urn parentNodeUrn = nodeInfo.getParentNode();
           EntityResponse response =
               _entityClient.getV2(
-                  parentNodeUrn.getEntityType(), parentNodeUrn, null, context.getAuthentication());
+                  context.getOperationContext(),
+                  parentNodeUrn.getEntityType(),
+                  parentNodeUrn,
+                  null);
           if (response != null) {
-            GlossaryNode mappedNode = GlossaryNodeMapper.map(response);
+            GlossaryNode mappedNode = GlossaryNodeMapper.map(context, response);
             nodes.add(mappedNode);
             aggregateParentNodes(nodes, mappedNode.getUrn(), context);
           }
@@ -69,10 +75,10 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
       Urn entityUrn = new Urn(urn);
       EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               entityUrn.getEntityType(),
               entityUrn,
-              Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(GLOSSARY_TERM_INFO_ASPECT_NAME)) {
@@ -83,9 +89,12 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
           Urn parentNodeUrn = termInfo.getParentNode();
           EntityResponse response =
               _entityClient.getV2(
-                  parentNodeUrn.getEntityType(), parentNodeUrn, null, context.getAuthentication());
+                  context.getOperationContext(),
+                  parentNodeUrn.getEntityType(),
+                  parentNodeUrn,
+                  null);
           if (response != null) {
-            GlossaryNode mappedNode = GlossaryNodeMapper.map(response);
+            GlossaryNode mappedNode = GlossaryNodeMapper.map(context, response);
             return mappedNode;
           }
         }
@@ -117,9 +126,20 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
               aggregateParentNodes(nodes, urn, context);
             }
 
+            List<GlossaryNode> viewable =
+                nodes.stream()
+                    .filter(
+                        e ->
+                            context == null
+                                || canViewRelationship(
+                                    context.getOperationContext(),
+                                    UrnUtils.getUrn(e.getUrn()),
+                                    UrnUtils.getUrn(urn)))
+                    .collect(Collectors.toList());
+
             final ParentNodesResult result = new ParentNodesResult();
-            result.setCount(nodes.size());
-            result.setNodes(nodes);
+            result.setCount(viewable.size());
+            result.setNodes(viewable);
             return result;
           } catch (DataHubGraphQLException | URISyntaxException e) {
             throw new RuntimeException(("Failed to load parent nodes"));

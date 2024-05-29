@@ -48,13 +48,16 @@ export const DEFAULT_APP_CONFIG = {
         showSearchFiltersV2: true,
         showBrowseV2: true,
         showAcrylInfo: false,
+        erModelRelationshipFeatureEnabled: false,
         showAccessManagement: false,
         nestedDomainsEnabled: true,
         platformBrowseV2: false,
+        businessAttributeEntityEnabled: false,
     },
 };
 
 export const AppConfigContext = React.createContext<{
     config: AppConfig;
+    loaded: boolean;
     refreshContext: () => void;
-}>({ config: DEFAULT_APP_CONFIG, refreshContext: () => null });
+}>({ config: DEFAULT_APP_CONFIG, loaded: false, refreshContext: () => null });

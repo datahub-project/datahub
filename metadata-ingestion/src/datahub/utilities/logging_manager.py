@@ -13,6 +13,7 @@ This code path should not be executed if we're being used as a library.
 
 import collections
 import contextlib
+import itertools
 import logging
 import os
 import pathlib
@@ -31,6 +32,7 @@ DATAHUB_PACKAGES = [
     "datahub_provider",
     "datahub_classify",
     "datahub_actions",
+    "acryl_datahub_cloud",
 ]
 IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
 
@@ -48,6 +50,9 @@ def extract_name_from_filename(filename: str, fallback_name: str) -> str:
 
     >>> extract_name_from_filename("/home/user/datahub/metadata-ingestion/src/datahub/telemetry/telemetry.py", "bad")
     'datahub.telemetry.telemetry'
+
+    >>> extract_name_from_filename("/home/user/datahub/metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/datahub_listener.py", "bad")
+    'datahub_airflow_plugin.datahub_listener'
 
     >>> extract_name_from_filename("/this/is/not/a/normal/path.py", "fallback.package")
     'fallback.package'
@@ -75,14 +80,25 @@ def extract_name_from_filename(filename: str, fallback_name: str) -> str:
             # Join the parts from 'site-packages' onwards with '.'
             return ".".join(path_parts[site_packages_index + 1 :])
 
-        # We're probably in a development environment, so take everything after 'metadata-ingestion'
-        metadata_ingestion_index = next(
-            (i for i, part in enumerate(path_parts) if "metadata-ingestion" in part),
-            None,
+        # We're probably in a development environment, so take everything after 'src' as the module.
+        src_dir_index = next(
+            itertools.chain(
+                (
+                    i + 2
+                    for i, part in enumerate(path_parts)
+                    if "metadata-ingestion-modules" in part
+                ),
+                (
+                    i + 1
+                    for i, part in enumerate(path_parts)
+                    if "metadata-ingestion" in part
+                ),
+                [None],
+            )
         )
-        if metadata_ingestion_index is not None:
-            # Join the parts from 'metadata-ingestion/src' onwards with '.'
-            return ".".join(path_parts[metadata_ingestion_index + 2 :])
+        if src_dir_index is not None:
+            # Join the parts after 'src' with '.'
+            return ".".join(path_parts[src_dir_index + 1 :])
 
     return fallback_name
 

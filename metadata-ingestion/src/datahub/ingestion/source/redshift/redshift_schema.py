@@ -5,7 +5,11 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 import redshift_connector
 
-from datahub.ingestion.source.redshift.query import RedshiftQuery
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
@@ -103,8 +107,19 @@ class AlterTableRow:
     start_time: datetime
 
 
+def _stringy(x: Optional[int]) -> Optional[str]:
+    if x is None:
+        return None
+    return str(x)
+
+
 # this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
+    def __init__(self, is_serverless):
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
+        if is_serverless:
+            self.queries = RedshiftServerlessQuery()
+
     @staticmethod
     def get_query_result(
         conn: redshift_connector.Connection, query: str
@@ -119,7 +134,7 @@ class RedshiftDataDictionary:
     def get_databases(conn: redshift_connector.Connection) -> List[str]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftQuery.list_databases,
+            RedshiftCommonQuery.list_databases,
         )
 
         dbs = cursor.fetchall()
@@ -132,7 +147,7 @@ class RedshiftDataDictionary:
     ) -> List[RedshiftSchema]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftQuery.list_schemas.format(database_name=database),
+            RedshiftCommonQuery.list_schemas.format(database_name=database),
         )
 
         schemas = cursor.fetchall()
@@ -150,12 +165,12 @@ class RedshiftDataDictionary:
             for schema in schemas
         ]
 
-    @staticmethod
     def enrich_tables(
+        self,
         conn: redshift_connector.Connection,
     ) -> Dict[str, Dict[str, RedshiftExtraTableMeta]]:
         cur = RedshiftDataDictionary.get_query_result(
-            conn, RedshiftQuery.additional_table_metadata
+            conn, self.queries.additional_table_metadata_query()
         )
         field_names = [i[0] for i in cur.description]
         db_table_metadata = cur.fetchall()
@@ -182,18 +197,22 @@ class RedshiftDataDictionary:
 
         return table_enrich
 
-    @staticmethod
     def get_tables_and_views(
+        self,
         conn: redshift_connector.Connection,
+        skip_external_tables: bool = False,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
 
         # This query needs to run separately as we can't join with the main query because it works with
         # driver only functions.
-        enriched_table = RedshiftDataDictionary.enrich_tables(conn)
+        enriched_table = self.enrich_tables(conn)
 
-        cur = RedshiftDataDictionary.get_query_result(conn, RedshiftQuery.list_tables)
+        cur = RedshiftDataDictionary.get_query_result(
+            conn,
+            RedshiftCommonQuery.list_tables(skip_external_tables=skip_external_tables),
+        )
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()
         logger.info(f"Fetched {len(db_tables)} tables/views from Redshift")
@@ -328,7 +347,7 @@ class RedshiftDataDictionary:
     ) -> Dict[str, List[RedshiftColumn]]:
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftQuery.list_columns.format(schema_name=schema.name),
+            RedshiftCommonQuery.list_columns.format(schema_name=schema.name),
         )
 
         table_columns: Dict[str, List[RedshiftColumn]] = {}
@@ -408,9 +427,8 @@ class RedshiftDataDictionary:
                         else None
                     ),
                     session_id=(
-                        str(row[field_names.index("session_id")])
+                        _stringy(row[field_names.index("session_id")])
                         if "session_id" in field_names
-                        and row[field_names.index("session_id")]
                         else None
                     ),
                 )
@@ -430,9 +448,13 @@ class RedshiftDataDictionary:
         rows = cursor.fetchmany()
         while rows:
             for row in rows:
+                # Skipping roews with no session_id
+                session_id = _stringy(row[field_names.index("session_id")])
+                if session_id is None:
+                    continue
                 yield TempTableRow(
                     transaction_id=row[field_names.index("transaction_id")],
-                    session_id=row[field_names.index("session_id")],
+                    session_id=session_id,
                     # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
                     # for why we need to replace the \n with a newline.
                     query_text=row[field_names.index("query_text")].replace(
@@ -457,9 +479,12 @@ class RedshiftDataDictionary:
         rows = cursor.fetchmany()
         while rows:
             for row in rows:
+                session_id = _stringy(row[field_names.index("session_id")])
+                if session_id is None:
+                    continue
                 yield AlterTableRow(
                     transaction_id=row[field_names.index("transaction_id")],
-                    session_id=row[field_names.index("session_id")],
+                    session_id=session_id,
                     query_text=row[field_names.index("query_text")],
                     start_time=row[field_names.index("start_time")],
                 )

@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Roles
+# Roles
 
 <FeatureAvailability/>
 

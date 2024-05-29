@@ -1,28 +1,37 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class SchemaMetadataMapper {
 
   public static final SchemaMetadataMapper INSTANCE = new SchemaMetadataMapper();
 
   public static com.linkedin.datahub.graphql.generated.SchemaMetadata map(
-      @Nonnull final EnvelopedAspect aspect, @Nonnull final Urn entityUrn) {
-    return INSTANCE.apply(aspect, entityUrn);
+      @Nullable QueryContext context,
+      @Nonnull final EnvelopedAspect aspect,
+      @Nonnull final Urn entityUrn) {
+    return INSTANCE.apply(context, aspect, entityUrn);
   }
 
   public com.linkedin.datahub.graphql.generated.SchemaMetadata apply(
-      @Nonnull final EnvelopedAspect aspect, @Nonnull final Urn entityUrn) {
+      @Nullable QueryContext context,
+      @Nonnull final EnvelopedAspect aspect,
+      @Nonnull final Urn entityUrn) {
     final SchemaMetadata input = new SchemaMetadata(aspect.getValue().data());
-    return apply(input, entityUrn, aspect.getVersion());
+    return apply(context, input, entityUrn, aspect.getVersion());
   }
 
   public com.linkedin.datahub.graphql.generated.SchemaMetadata apply(
-      @Nonnull final SchemaMetadata input, final Urn entityUrn, final long version) {
+      @Nullable QueryContext context,
+      @Nonnull final SchemaMetadata input,
+      final Urn entityUrn,
+      final long version) {
     final com.linkedin.datahub.graphql.generated.SchemaMetadata result =
         new com.linkedin.datahub.graphql.generated.SchemaMetadata();
 
@@ -37,14 +46,16 @@ public class SchemaMetadataMapper {
     result.setPrimaryKeys(input.getPrimaryKeys());
     result.setFields(
         input.getFields().stream()
-            .map(field -> SchemaFieldMapper.map(field, entityUrn))
+            .map(field -> SchemaFieldMapper.map(context, field, entityUrn))
             .collect(Collectors.toList()));
-    result.setPlatformSchema(PlatformSchemaMapper.map(input.getPlatformSchema()));
+    result.setPlatformSchema(PlatformSchemaMapper.map(context, input.getPlatformSchema()));
     result.setAspectVersion(version);
     if (input.hasForeignKeys()) {
       result.setForeignKeys(
           input.getForeignKeys().stream()
-              .map(foreignKeyConstraint -> ForeignKeyConstraintMapper.map(foreignKeyConstraint))
+              .map(
+                  foreignKeyConstraint ->
+                      ForeignKeyConstraintMapper.map(context, foreignKeyConstraint))
               .collect(Collectors.toList()));
     }
     return result;

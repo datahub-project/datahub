@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka;
 import static org.testng.AssertJUnit.*;
 
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.FormService;
 import io.datahubproject.metadata.jobs.common.health.kafka.KafkaHealthIndicator;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,8 @@ public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests
   @Autowired private KafkaHealthIndicator kafkaHealthIndicator;
 
   @Autowired private FormService formService;
+
+  @Autowired private EntitySearchService entitySearchService;
 
   @Test
   public void testMaeConsumerAutoWiring() {

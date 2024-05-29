@@ -81,6 +81,10 @@ export enum EntityCapabilityType {
      * Assigning the entity to a data product
      */
     DATA_PRODUCTS,
+    /**
+     * Assigning Business Attribute to a entity
+     */
+    BUSINESS_ATTRIBUTES,
 }
 
 /**
@@ -199,4 +203,9 @@ export interface Entity<T> {
             urn: string;
         }>
     >;
+
+    /**
+     * Returns the url to be navigated to when clicked on Cards
+     */
+    getCustomCardUrlPath?: () => string | undefined;
 }

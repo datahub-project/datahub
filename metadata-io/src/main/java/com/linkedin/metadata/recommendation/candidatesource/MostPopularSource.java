@@ -1,13 +1,14 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.codahale.metrics.Timer;
-import com.datahub.authorization.config.SearchAuthorizationConfiguration;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -99,7 +101,9 @@ public class MostPopularSource implements EntityRecommendationSource {
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
     SearchRequest searchRequest = buildSearchRequest(opContext);
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getMostPopular").time()) {
       final SearchResponse searchResponse =
@@ -110,7 +114,7 @@ public class MostPopularSource implements EntityRecommendationSource {
           parsedTerms.getBuckets().stream()
               .map(MultiBucketsAggregation.Bucket::getKeyAsString)
               .collect(Collectors.toList());
-      return buildContent(bucketUrns, _entityService)
+      return buildContent(opContext, bucketUrns, _entityService)
           .limit(MAX_CONTENT)
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -154,8 +158,8 @@ public class MostPopularSource implements EntityRecommendationSource {
 
   // If search access controls enabled, restrict user activity to peers
   private static Optional<QueryBuilder> restrictPeers(@Nonnull OperationContext opContext) {
-    SearchAuthorizationConfiguration config =
-        opContext.getOperationContextConfig().getSearchAuthorizationConfiguration();
+    ViewAuthorizationConfiguration config =
+        opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
 
     if (config.isEnabled()
         && config.getRecommendations().isPeerGroupEnabled()

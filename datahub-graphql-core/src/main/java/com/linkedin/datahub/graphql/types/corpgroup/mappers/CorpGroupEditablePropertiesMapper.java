@@ -2,9 +2,11 @@ package com.linkedin.datahub.graphql.types.corpgroup.mappers;
 
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroupEditableProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,12 +26,14 @@ public class CorpGroupEditablePropertiesMapper
       new CorpGroupEditablePropertiesMapper();
 
   public static CorpGroupEditableProperties map(
+      @Nullable QueryContext context,
       @Nonnull final com.linkedin.identity.CorpGroupEditableInfo corpGroupEditableInfo) {
-    return INSTANCE.apply(corpGroupEditableInfo);
+    return INSTANCE.apply(context, corpGroupEditableInfo);
   }
 
   @Override
   public CorpGroupEditableProperties apply(
+      @Nullable QueryContext context,
       @Nonnull final com.linkedin.identity.CorpGroupEditableInfo corpGroupEditableInfo) {
     final CorpGroupEditableProperties result = new CorpGroupEditableProperties();
     result.setDescription(corpGroupEditableInfo.getDescription(GetMode.DEFAULT));

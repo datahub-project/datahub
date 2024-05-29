@@ -16,6 +16,17 @@ plugins:
       supportedEntityAspectNames:
         - entityName: 'dataset'
           aspectName: customDataQualityRules
+    - className: 'com.linkedin.metadata.aspect.plugins.spring.validation.CustomDataQualityRulesValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+      spring:
+        enabled: true
+        packageScan:
+          - com.linkedin.metadata.aspect.plugins.spring.validation
   mutationHooks:
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMutator'
       enabled: true

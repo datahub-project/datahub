@@ -1,9 +1,10 @@
 import contextlib
-import threading
+import contextvars
 import time
 from typing import Iterator, Optional
 
-_cooperation = threading.local()
+# The deadline is an int from time.perf_counter_ns().
+_cooperation_deadline = contextvars.ContextVar[int]("cooperation_deadline")
 
 
 class CooperativeTimeoutError(TimeoutError):
@@ -13,7 +14,7 @@ class CooperativeTimeoutError(TimeoutError):
 def cooperate() -> None:
     """Method to be called periodically to cooperate with the timeout mechanism."""
 
-    deadline = getattr(_cooperation, "deadline", None)
+    deadline = _cooperation_deadline.get(None)
     if deadline is not None and deadline < time.perf_counter_ns():
         raise CooperativeTimeoutError("CooperativeTimeout deadline exceeded")
 
@@ -50,15 +51,18 @@ def cooperative_timeout(timeout: Optional[float] = None) -> Iterator[None]:
     #     (unless you're willing to use some hacks https://stackoverflow.com/a/61528202).
     #     Attempting to forcibly terminate a thread can deadlock on the GIL.
 
-    if hasattr(_cooperation, "deadline"):
+    deadline = _cooperation_deadline.get(None)
+    if deadline is not None:
         raise RuntimeError("cooperative timeout already active")
 
     if timeout is not None:
-        _cooperation.deadline = time.perf_counter_ns() + timeout * 1_000_000_000
+        token = _cooperation_deadline.set(
+            time.perf_counter_ns() + int(timeout * 1_000_000_000)
+        )
         try:
             yield
         finally:
-            del _cooperation.deadline
+            _cooperation_deadline.reset(token)
 
     else:
         # No-op.

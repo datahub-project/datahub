@@ -19,6 +19,12 @@ global.matchMedia =
 
 window.location = { ...window.location, replace: () => {} };
 
+// Suppress `Error: Not implemented: window.computedStyle(elt, pseudoElt)`.
+// From https://github.com/vitest-dev/vitest/issues/2061
+// and https://github.com/NickColley/jest-axe/issues/147#issuecomment-758804533
+const { getComputedStyle } = window;
+window.getComputedStyle = (elt) => getComputedStyle(elt);
+
 vi.mock('js-cookie', () => ({
     default: {
         get: () => 'urn:li:corpuser:2',

@@ -42,7 +42,7 @@ describe('constructTree', () => {
             icon: undefined,
             platform: kafkaPlatform,
             schemaMetadata: dataset3.schemaMetadata,
-            canEditLineage: false,
+            canEditLineage: true,
         });
     });
 
@@ -399,7 +399,7 @@ describe('constructTree', () => {
             platform: kafkaPlatform,
             subtype: undefined,
             schemaMetadata: updatedDataset6WithLineage.schemaMetadata,
-            canEditLineage: false,
+            canEditLineage: true,
             children: [
                 {
                     name: 'DataJobInfoName',
@@ -413,7 +413,7 @@ describe('constructTree', () => {
                     status: null,
                     platform: airflowPlatform,
                     subtype: undefined,
-                    canEditLineage: false,
+                    canEditLineage: true,
                 },
             ],
         });

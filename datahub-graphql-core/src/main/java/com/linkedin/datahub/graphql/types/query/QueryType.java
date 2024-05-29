@@ -55,12 +55,12 @@ public class QueryType
       log.debug("Fetching query entities: {}", viewUrns);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               QUERY_ENTITY_NAME,
               new HashSet<>(viewUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : viewUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -70,7 +70,7 @@ public class QueryType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<QueryEntity>newResult()
-                          .data(QueryMapper.map(gmsResult))
+                          .data(QueryMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

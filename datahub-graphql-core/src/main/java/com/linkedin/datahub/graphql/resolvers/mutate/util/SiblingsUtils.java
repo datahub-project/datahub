@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.SIBLINGS_ASPECT_NAME;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -17,9 +18,11 @@ public class SiblingsUtils {
   private SiblingsUtils() {}
 
   public static List<Urn> getSiblingUrns(
-      @Nonnull final Urn entityUrn, @Nonnull final EntityService entityService) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final EntityService entityService) {
     final Siblings siblingAspectOfEntity =
-        (Siblings) entityService.getLatestAspect(entityUrn, SIBLINGS_ASPECT_NAME);
+        (Siblings) entityService.getLatestAspect(opContext, entityUrn, SIBLINGS_ASPECT_NAME);
     if (siblingAspectOfEntity != null && siblingAspectOfEntity.hasSiblings()) {
       return siblingAspectOfEntity.getSiblings();
     }

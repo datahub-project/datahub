@@ -80,12 +80,12 @@ public class DataProductType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               DATA_PRODUCT_ENTITY_NAME,
               new HashSet<>(dataProductUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : dataProductUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -95,7 +95,7 @@ public class DataProductType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataProduct>newResult()
-                          .data(DataProductMapper.map(gmsResult))
+                          .data(DataProductMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -114,7 +114,7 @@ public class DataProductType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), DATA_PRODUCT_ENTITY_NAME, query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override

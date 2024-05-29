@@ -27,7 +27,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
-@Builder
+@Builder(toBuilder = true)
 @Getter
 public class TestMCP implements ChangeMCP {
   private static final String TEST_DATASET_URN =

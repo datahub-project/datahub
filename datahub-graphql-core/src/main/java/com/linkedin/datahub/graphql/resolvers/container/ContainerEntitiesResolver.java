@@ -78,6 +78,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
                     .setValue(urn);
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext(),
                     CONTAINABLE_ENTITY_NAMES,

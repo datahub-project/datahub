@@ -263,12 +263,14 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
+        os.environ.setdefault("SPARK_VERSION", "3.3")
+        spark_version = os.environ["SPARK_VERSION"]
+
         # Importing here to avoid Deequ dependency for non profiling use cases
         # Deequ fails if Spark is not available which is not needed for non profiling use cases
         import pydeequ
 
         conf = SparkConf()
-        spark_version = os.getenv("SPARK_VERSION", "3.3")
         conf.set(
             "spark.jars.packages",
             ",".join(

@@ -62,7 +62,6 @@ public class JavaEntityClientTest {
 
   private JavaEntityClient getJavaEntityClient() {
     return new JavaEntityClient(
-        opContext,
         _entityService,
         _deleteEntityService,
         _entitySearchService,
@@ -71,7 +70,8 @@ public class JavaEntityClientTest {
         _lineageSearchService,
         _timeseriesAspectService,
         rollbackService,
-        _eventProducer);
+        _eventProducer,
+        1);
   }
 
   @Test

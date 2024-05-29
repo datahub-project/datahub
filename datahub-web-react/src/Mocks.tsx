@@ -29,6 +29,8 @@ import {
     PlatformPrivileges,
     FilterOperator,
     AppConfig,
+    EntityPrivileges,
+    BusinessAttribute,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -42,6 +44,16 @@ import { DEFAULT_APP_CONFIG } from './appConfigContext';
 import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
 import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
 import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+
+export const entityPrivileges: EntityPrivileges = {
+    canEditLineage: true,
+    canManageEntity: true,
+    canManageChildren: true,
+    canEditEmbed: true,
+    canEditQueries: true,
+    canEditProperties: true,
+    __typename: 'EntityPrivileges',
+};
 
 export const user1 = {
     __typename: 'CorpUser',
@@ -211,9 +223,7 @@ export const dataset1 = {
     tags: ['Private', 'PII'],
     uri: 'www.google.com',
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     properties: {
         name: 'The Great Test Dataset',
@@ -318,9 +328,7 @@ export const dataset2 = {
         type: EntityType.DataPlatform,
     },
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     lastIngested: null,
     exists: true,
@@ -422,10 +430,7 @@ export const dataset3 = {
         properties: null,
     },
     privileges: {
-        __typename: 'EntityPrivileges',
-        canEditLineage: false,
-        canEditEmbed: false,
-        canEditQueries: false,
+        ...entityPrivileges,
     },
     exists: true,
     lastIngested: null,
@@ -621,8 +626,7 @@ export const dataset3 = {
     health: [],
     assertions: null,
     status: null,
-    readRuns: null,
-    writeRuns: null,
+    runs: null,
     testResults: null,
     siblings: null,
     statsSummary: null,
@@ -1384,8 +1388,7 @@ export const dataJob1 = {
         },
     },
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     properties: {
         name: 'DataJobInfoName',
@@ -1442,6 +1445,102 @@ export const dataJob1 = {
     health: [],
 } as DataJob;
 
+export const businessAttribute = {
+    urn: 'urn:li:businessAttribute:ba1',
+    type: EntityType.BusinessAttribute,
+    __typename: 'BusinessAttribute',
+    properties: {
+        name: 'TestBusinessAtt-2',
+        description: 'lorem upsum updated 12',
+        created: {
+            time: 1705857132786
+        },
+        lastModified: {
+            time: 1705857132786
+        },
+        glossaryTerms: {
+            terms: [
+                {
+                    term: {
+                        urn: 'urn:li:glossaryTerm:1',
+                        type: EntityType.GlossaryTerm,
+                        hierarchicalName: 'SampleHierarchicalName',
+                        name: 'SampleName', 
+                    },
+                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                }
+            ],
+            __typename: 'GlossaryTerms',
+        },
+        tags: {
+            __typename: 'GlobalTags',
+            tags: [
+                {
+                    tag: {
+                        urn: 'urn:li:tag:abc-sample-tag',
+                        __typename: 'Tag',
+                        type: EntityType.Tag,
+                        name: 'abc-sample-tag',
+                    },
+                    __typename: 'TagAssociation',
+                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                },
+                {
+                    tag: {
+                        urn: 'urn:li:tag:TestTag',
+                        __typename: 'Tag',
+                        type: EntityType.Tag,
+                        name: 'TestTag',
+                    },
+                    __typename: 'TagAssociation',
+                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                }
+            ]
+        },
+        customProperties: [
+            {
+                key: 'prop2',
+                value: 'val2',
+                associatedUrn: 'urn:li:businessAttribute:ba1',
+                __typename: 'CustomPropertiesEntry'
+            },
+            {
+                key: 'prop1',
+                value: 'val1',
+                associatedUrn: 'urn:li:businessAttribute:ba1',
+                __typename: 'CustomPropertiesEntry'
+            },
+            {
+                key: 'prop3',
+                value: 'val3',
+                associatedUrn: 'urn:li:businessAttribute:ba1',
+                __typename: 'CustomPropertiesEntry'
+            }
+        ]
+    },
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:businessAttribute:ba',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                associatedUrn: 'urn:li:businessAttribute:ba',
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+} as BusinessAttribute;
+
 export const dataJob2 = {
     __typename: 'DataJob',
     urn: 'urn:li:dataJob:2',
@@ -1449,8 +1548,7 @@ export const dataJob2 = {
     dataFlow: dataFlow1,
     jobId: 'jobId2',
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     ownership: {
         __typename: 'Ownership',
@@ -1523,8 +1621,7 @@ export const dataJob3 = {
     lastIngested: null,
     exists: true,
     privileges: {
-        canEditLineage: false,
-        canEditEmbed: false,
+        ...entityPrivileges,
     },
     ownership: {
         __typename: 'Ownership',
@@ -3520,6 +3617,7 @@ export const mocks = [
                         createTags: true,
                         manageUserCredentials: true,
                         manageGlossaries: true,
+                        viewTests: false,
                         manageTests: true,
                         manageTokens: true,
                         manageSecrets: true,
@@ -3528,6 +3626,8 @@ export const mocks = [
                         manageGlobalViews: true,
                         manageOwnershipTypes: true,
                         manageGlobalAnnouncements: true,
+                        createBusinessAttributes: true,
+                        manageBusinessAttributes: true,
                     },
                 },
             },
@@ -3793,6 +3893,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageIngestion: true,
     manageSecrets: true,
     manageTokens: true,
+    viewTests: false,
     manageTests: true,
     manageGlossaries: true,
     manageUserCredentials: true,
@@ -3802,4 +3903,6 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlobalViews: true,
     manageOwnershipTypes: true,
     manageGlobalAnnouncements: true,
+    createBusinessAttributes: true,
+    manageBusinessAttributes: true,
 };

@@ -65,7 +65,8 @@ public class ViewUtils {
     Objects.requireNonNull(context, "context must not be null");
 
     // Retrieve the view, determine it's type, and then go from there.
-    final DataHubViewInfo viewInfo = viewService.getViewInfo(viewUrn, context.getAuthentication());
+    final DataHubViewInfo viewInfo =
+        viewService.getViewInfo(context.getOperationContext(), viewUrn);
 
     if (viewInfo == null) {
       throw new IllegalArgumentException(
@@ -80,9 +81,7 @@ public class ViewUtils {
     }
 
     // If the View is Personal, then the current actor must be the owner.
-    return isViewOwner(
-        viewInfo.getCreated().getActor(),
-        UrnUtils.getUrn(context.getAuthentication().getActor().toUrnStr()));
+    return isViewOwner(viewInfo.getCreated().getActor(), UrnUtils.getUrn(context.getActorUrn()));
   }
 
   /**

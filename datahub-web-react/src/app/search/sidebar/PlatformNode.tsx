@@ -20,6 +20,7 @@ import {
 } from './BrowseContext';
 import useSidebarAnalytics from './useSidebarAnalytics';
 import { useHasFilterField } from './SidebarContext';
+import { SortBy, useSort } from './useSort';
 
 const PlatformIconContainer = styled.div`
     width: 16px;
@@ -33,7 +34,11 @@ const Count = styled(Typography.Text)`
     padding-right: 8px;
 `;
 
-const PlatformNode = () => {
+interface EntityNodeProps {
+    sortBy: string;
+}
+
+const PlatformNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
     const isPlatformSelected = useIsPlatformSelected();
     const hasBrowseFilter = useHasFilterField(BROWSE_PATH_V2_FILTER_NAME);
     const isPlatformAndPathSelected = isPlatformSelected && hasBrowseFilter;
@@ -74,6 +79,9 @@ const PlatformNode = () => {
 
     const color = '#000';
 
+    const sortedGroups = useSort(groups, sortBy as SortBy);
+    console.log({ groups, sortedGroups });
+
     return (
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
@@ -101,7 +109,7 @@ const PlatformNode = () => {
             }
             body={
                 <ExpandableNode.Body>
-                    {groups.map((group) => (
+                    {sortedGroups.map((group) => (
                         <BrowseProvider
                             key={group.name}
                             entityAggregation={entityAggregation}
@@ -110,7 +118,7 @@ const PlatformNode = () => {
                             browseResultGroup={group}
                             parentPath={path}
                         >
-                            <BrowseNode />
+                            <BrowseNode sortBy={sortBy} />
                         </BrowseProvider>
                     ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}

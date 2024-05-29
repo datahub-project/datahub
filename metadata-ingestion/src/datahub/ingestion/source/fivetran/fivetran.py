@@ -66,7 +66,7 @@ class FivetranSource(StatefulIngestionSourceBase):
     platform: str = "fivetran"
 
     def __init__(self, config: FivetranSourceConfig, ctx: PipelineContext):
-        super(FivetranSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = FivetranSourceReport()
 
@@ -177,7 +177,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             id=connector.connector_id,
             flow_urn=dataflow_urn,
             name=connector.connector_name,
-            owners={connector.user_name} if connector.user_name else set(),
+            owners={connector.user_email} if connector.user_email else set(),
         )
 
         job_property_bag: Dict[str, str] = {}

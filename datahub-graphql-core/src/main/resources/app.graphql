@@ -92,6 +92,11 @@ type PlatformPrivileges {
   manageTokens: Boolean!
 
   """
+  Whether the user is able to view Tests
+  """
+  viewTests: Boolean!
+
+  """
   Whether the user is able to manage Tests
   """
   manageTests: Boolean!
@@ -130,6 +135,17 @@ type PlatformPrivileges {
   Whether the user can create and delete posts pinned to the home page.
   """
   manageGlobalAnnouncements: Boolean!
+
+  """
+  Whether the user can create Business Attributes.
+  """
+  createBusinessAttributes: Boolean!
+
+  """
+  Whether the user can manage Business Attributes.
+  """
+  manageBusinessAttributes: Boolean!
+
 }
 
 """
@@ -456,6 +472,10 @@ type FeatureFlagsConfig {
   Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
   """
   showAcrylInfo: Boolean!
+  """
+  Whether ERModelRelationship Tables Feature should be shown.
+  """
+  erModelRelationshipFeatureEnabled: Boolean!
 
   """
   Whether we should show AccessManagement tab in the datahub UI.
@@ -467,6 +487,11 @@ type FeatureFlagsConfig {
   If this is off, Domains appear "flat" again.
   """
   nestedDomainsEnabled: Boolean!
+
+  """
+  Whether business attribute entity should be shown
+  """
+  businessAttributeEntityEnabled: Boolean!
 }
 
 """

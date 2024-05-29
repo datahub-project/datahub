@@ -18,16 +18,15 @@ import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.IncidentService;
 import com.linkedin.metadata.service.IncidentsSummaryUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,7 +43,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Singleton
 @Import({
   EntityRegistryFactory.class,
   IncidentServiceFactory.class,
@@ -53,11 +51,12 @@ import org.springframework.stereotype.Component;
 public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
+      ImmutableSet.of(
+          ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.RESTATE);
   private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
       ImmutableSet.of(INCIDENT_INFO_ASPECT_NAME, STATUS_ASPECT_NAME);
 
-  private final EntityRegistry _entityRegistry;
+  private OperationContext systemOperationContext;
   private final IncidentService _incidentService;
   private final boolean _isEnabled;
 
@@ -66,18 +65,19 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
   @Autowired
   public IncidentsSummaryHook(
-      @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final IncidentService incidentService,
       @Nonnull @Value("${incidents.hook.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${incidents.hook.maxIncidentHistory:100}") Integer maxIncidentHistory) {
-    _entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry is required");
     _incidentService = Objects.requireNonNull(incidentService, "incidentService is required");
     _isEnabled = isEnabled;
     _maxIncidentHistory = maxIncidentHistory;
   }
 
   @Override
-  public void init() {}
+  public IncidentsSummaryHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+    return this;
+  }
 
   @Override
   public boolean isEnabled() {
@@ -88,7 +88,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   public void invoke(@Nonnull final MetadataChangeLog event) {
     if (_isEnabled && isEligibleForProcessing(event)) {
       log.debug("Urn {} received by Incident Summary Hook.", event.getEntityUrn());
-      final Urn urn = HookUtils.getUrnFromEvent(event, _entityRegistry);
+      final Urn urn = HookUtils.getUrnFromEvent(event, systemOperationContext.getEntityRegistry());
       // Handle the deletion case.
       if (isIncidentSoftDeleted(event)) {
         handleIncidentSoftDeleted(urn);
@@ -103,7 +103,8 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
    */
   private void handleIncidentSoftDeleted(@Nonnull final Urn incidentUrn) {
     // 1. Fetch incident info.
-    IncidentInfo incidentInfo = _incidentService.getIncidentInfo(incidentUrn);
+    IncidentInfo incidentInfo =
+        _incidentService.getIncidentInfo(systemOperationContext, incidentUrn);
 
     // 2. Retrieve associated urns.
     if (incidentInfo != null) {
@@ -125,7 +126,8 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   /** Handle an incident update by adding to either resolved or active incidents for an entity. */
   private void handleIncidentUpdated(@Nonnull final Urn incidentUrn) {
     // 1. Fetch incident info + status
-    IncidentInfo incidentInfo = _incidentService.getIncidentInfo(incidentUrn);
+    IncidentInfo incidentInfo =
+        _incidentService.getIncidentInfo(systemOperationContext, incidentUrn);
 
     // 2. Retrieve associated urns.
     if (incidentInfo != null) {
@@ -193,7 +195,8 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
 
   @Nonnull
   private IncidentsSummary getIncidentsSummary(@Nonnull final Urn entityUrn) {
-    IncidentsSummary maybeIncidentsSummary = _incidentService.getIncidentsSummary(entityUrn);
+    IncidentsSummary maybeIncidentsSummary =
+        _incidentService.getIncidentsSummary(systemOperationContext, entityUrn);
     return maybeIncidentsSummary == null
         ? new IncidentsSummary()
             .setResolvedIncidentDetails(new IncidentSummaryDetailsArray())
@@ -257,7 +260,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   private void updateIncidentSummary(
       @Nonnull final Urn entityUrn, @Nonnull final IncidentsSummary newSummary) {
     try {
-      _incidentService.updateIncidentsSummary(entityUrn, newSummary);
+      _incidentService.updateIncidentsSummary(systemOperationContext, entityUrn, newSummary);
     } catch (Exception e) {
       log.error(
           String.format(

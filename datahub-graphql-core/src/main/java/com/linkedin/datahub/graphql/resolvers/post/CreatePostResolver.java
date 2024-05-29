@@ -57,7 +57,8 @@ public class CreatePostResolver implements DataFetcher<CompletableFuture<Boolean
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            return _postService.createPost(type.toString(), postContent, authentication);
+            return _postService.createPost(
+                context.getOperationContext(), type.toString(), postContent);
           } catch (Exception e) {
             throw new RuntimeException("Failed to create a new post", e);
           }

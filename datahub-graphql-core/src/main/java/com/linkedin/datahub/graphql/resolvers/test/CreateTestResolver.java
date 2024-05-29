@@ -52,7 +52,8 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
               key.setId(uuidStr);
 
               if (_entityClient.exists(
-                  EntityKeyUtils.convertEntityKeyToUrn(key, TEST_ENTITY_NAME), authentication)) {
+                  context.getOperationContext(),
+                  EntityKeyUtils.convertEntityKeyToUrn(key, TEST_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Test already exists!");
               }
 
@@ -62,7 +63,7 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithKey(
                       key, TEST_ENTITY_NAME, TEST_INFO_ASPECT_NAME, info);
-              return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to perform update against Test with urn %s", input), e);

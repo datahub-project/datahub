@@ -25,7 +25,7 @@ def test_gms_config_accessible() -> None:
     assert gms_config is not None
 
     if DATAHUB_VERSION is not None:
-        assert gms_config["versions"]["linkedin/datahub"]["version"] == DATAHUB_VERSION
+        assert gms_config["versions"]["acryldata/datahub"]["version"] == DATAHUB_VERSION
     else:
         print("[WARN] TEST_DATAHUB_VERSION is not set")
 

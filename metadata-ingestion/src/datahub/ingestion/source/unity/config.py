@@ -60,6 +60,13 @@ class UnityCatalogProfilerConfig(ConfigModel):
     )
 
 
+class DeltaLakeDetails(ConfigModel):
+    platform_instance_name: Optional[str] = Field(
+        default=None, description="Delta-lake paltform instance name"
+    )
+    env: str = Field(default="PROD", description="Delta-lake environment")
+
+
 class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
     method: Literal["analyze"] = "analyze"
 
@@ -251,6 +258,16 @@ class UnityCatalogSourceConfig(
         default=UnityCatalogGEProfilerConfig(),
         description="Data profiling configuration",
         discriminator="method",
+    )
+
+    emit_siblings: bool = pydantic.Field(
+        default=True,
+        description="Whether to emit siblings relation with corresponding delta-lake platform's table. If enabled, this will also ingest the corresponding delta-lake table.",
+    )
+
+    delta_lake_options: DeltaLakeDetails = Field(
+        default=DeltaLakeDetails(),
+        description="Details about the delta lake, incase to emit siblings",
     )
 
     scheme: str = DATABRICKS

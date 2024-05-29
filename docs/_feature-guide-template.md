@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub [Feature Name]
+# [Feature Name]
 
 <!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
 
@@ -76,7 +76,7 @@ Response in plain text
 
 -->
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 
 ### Related Features
 

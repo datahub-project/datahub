@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.container;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CONTAINER_PROPERTIES_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -19,6 +20,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +33,8 @@ public class ParentContainersResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -65,18 +69,18 @@ public class ParentContainersResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(datasetUrn.getEntityType()),
                 Mockito.eq(datasetUrn),
-                Mockito.eq(Collections.singleton(CONTAINER_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(datasetAspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentContainer1.getContainer().getEntityType()),
                 Mockito.eq(parentContainer1.getContainer()),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(CONTAINER_ENTITY_NAME)
@@ -85,19 +89,19 @@ public class ParentContainersResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentContainer1.getContainer().getEntityType()),
                 Mockito.eq(parentContainer1.getContainer()),
-                Mockito.eq(Collections.singleton(CONTAINER_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse().setAspects(new EnvelopedAspectMap(parentContainer1Aspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentContainer2.getContainer().getEntityType()),
                 Mockito.eq(parentContainer2.getContainer()),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(CONTAINER_ENTITY_NAME)
@@ -106,10 +110,10 @@ public class ParentContainersResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentContainer2.getContainer().getEntityType()),
                 Mockito.eq(parentContainer2.getContainer()),
-                Mockito.eq(Collections.singleton(CONTAINER_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse().setAspects(new EnvelopedAspectMap(parentContainer2Aspects)));
 

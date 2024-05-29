@@ -295,6 +295,7 @@ entities:
       - assertionRunEvent
       - assertionActions
       - status
+      - globalTags
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
@@ -448,8 +449,10 @@ entities:
     category: core
     keyAspect: schemaFieldKey
     aspects:
+      - schemafieldInfo
       - structuredProperties
       - forms
+      - businessAttributes
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -462,6 +465,7 @@ entities:
     keyAspect: incidentKey
     aspects:
       - incidentInfo
+      - globalTags
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -482,6 +486,17 @@ entities:
     keyAspect: dataHubViewKey
     aspects:
       - dataHubViewInfo
+  - name: erModelRelationship
+    doc: ER Model Relationship of  Dataset Fields
+    keyAspect: erModelRelationshipKey
+    aspects:
+      - erModelRelationshipProperties
+      - editableERModelRelationshipProperties
+      - institutionalMemory
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
   - name: query
     category: core
     keyAspect: queryKey
@@ -511,6 +526,14 @@ entities:
     aspects:
       - ownershipTypeInfo
       - status
+  - name: businessAttribute
+    category: core
+    keyAspect: businessAttributeKey
+    aspects:
+      - businessAttributeInfo
+      - status
+      - ownership
+      - institutionalMemory
   - name: dataContract
     category: core
     keyAspect: dataContractKey
@@ -549,6 +572,12 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
 events:
 plugins:
   aspectPayloadValidators:
@@ -565,22 +594,36 @@ plugins:
     - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
       enabled: true
       supportedOperations:
+        - CREATE
         - UPSERT
+        - DELETE
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
+    - className: 'com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: '*'
   mutationHooks:
     - className: 'com.linkedin.metadata.aspect.hooks.StructuredPropertiesSoftDelete'
       enabled: true
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.hooks.OwnerTypeMap'
+    - className: 'com.linkedin.metadata.aspect.hooks.FieldPathMutator'
       enabled: true
       supportedOperations:
-        - UPSERT
         - CREATE
+        - UPSERT
+        - UPDATE
         - RESTATE
+        - PATCH
       supportedEntityAspectNames:
         - entityName: '*'
-          aspectName: ownership
+          aspectName: 'schemaMetadata'
+        - entityName: '*'
+          aspectName: 'editableSchemaMetadata'

@@ -4,8 +4,10 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.SystemAspect;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * A proposal to write data to the primary datastore which includes system metadata and other
@@ -46,5 +48,25 @@ public interface ChangeMCP extends MCPItem {
       }
     }
     return null;
+  }
+
+  default String toAbbreviatedString() {
+    return "ChangeMCP{"
+        + "changeType="
+        + getChangeType()
+        + ", urn="
+        + getUrn()
+        + ", aspectName='"
+        + getAspectName()
+        + '\''
+        + ", recordTemplate="
+        + Optional.ofNullable(getRecordTemplate())
+            .map(template -> StringUtils.abbreviate(template.toString(), 256))
+            .orElse("")
+        + ", systemMetadata="
+        + Optional.ofNullable(getSystemMetadata())
+            .map(systemMetadata -> StringUtils.abbreviate(systemMetadata.toString(), 128))
+            .orElse("")
+        + '}';
   }
 }

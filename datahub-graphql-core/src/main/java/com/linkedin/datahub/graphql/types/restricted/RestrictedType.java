@@ -9,8 +9,8 @@ import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.service.RestrictedService;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.services.RestrictedService;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -62,10 +62,10 @@ public class RestrictedType implements EntityType<Restricted, String> {
                 try {
                   entities.putAll(
                       _entityClient.batchGetV2(
+                          context.getOperationContext(),
                           entityType,
                           new HashSet<>(entityTypeToUrns.get(entityType)),
-                          ASPECTS_TO_FETCH,
-                          context.getAuthentication()));
+                          ASPECTS_TO_FETCH));
                 } catch (Exception e) {
                   throw new RuntimeException("Failed to fetch restricted entities", e);
                 }
