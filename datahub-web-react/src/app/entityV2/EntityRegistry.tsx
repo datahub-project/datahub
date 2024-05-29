@@ -12,6 +12,7 @@ import {
 import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
+import translateFieldPath from './dataset/profile/schema/utils/translateFieldPath';
 import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from './Entity';
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
 import PreviewContext from './shared/PreviewContext';
@@ -252,6 +253,7 @@ export default class EntityRegistry {
     }
 
     getLineageAssets(type: EntityType, data: EntityLineageV2Fragment): LineageAsset[] | undefined {
+        // TODO: Fold into entity registry?
         if (data?.__typename === 'Domain') {
             return data?.dataProducts?.searchResults.reduce<LineageAsset[]>((lst, r) => {
                 if (r.entity.__typename === 'DataProduct') {
@@ -268,7 +270,7 @@ export default class EntityRegistry {
         const fields = entity?.schemaMetadata?.fields || convertInputFieldsToSchemaFields(entity?.inputFields);
         if (fields) {
             return fields.map((field) => ({
-                name: field.fieldPath,
+                name: translateFieldPath(field.fieldPath),
                 type: LineageAssetType.Column,
                 dataType: field.type,
                 nativeDataType: field.nativeDataType,
