@@ -1,12 +1,11 @@
 .card {
   color: var(--ifm-hero-text-color);
   padding: 0;
-  margin-bottom: 2rem;
-  min-height: 5rem;
+  margin: 0rem 3rem 2rem 0rem;
   text-decoration: none !important;
 
   .card_button {
-     padding: 1rem;
+     padding: 0rem 0rem 0rem 1rem;
      text-align: right;
   }
 
@@ -21,6 +20,10 @@
 
   .card_body {
     padding: 2rem 3rem 2rem 3rem;
+
+    .card_description {
+     min-height: 20rem;
+    }
   }
 
   .card_overlay_text {
@@ -33,12 +36,13 @@
       color: white;
 
     .card_customer {
-       font-size: 3.5rem;
+       font-size: 3.2rem;
        font-weight: 800;
+       line-height: 1.2;
 
     }
     .card_title {
-      font-size: 1.5rem;
+      font-size: 1.2rem;
       font-weight: 600;
     }
 

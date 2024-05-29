@@ -10,9 +10,8 @@ const customerCardContent = [
       <>
         <i>
           "DataHub gave us the extensibility features we needed to define new
-          entity types easily and augment existing ones. During our evaluation,
-          we assessed both functional and nonfunctional aspects, and DataHub
-          performed exceptionally well in managing our traffic load and data
+          entity types easily and augment existing ones.
+          DataHub performed exceptionally well in managing our traffic load and data
           volume. It offers <b> a great developer experience, a well-documented
           taxonomy, and — very importantly — solid community support.</b>"
         <br />
@@ -56,11 +55,6 @@ const customerCardContent = [
         2. Open-source means lower cost to implement and removes the headache of license management
         <br />
         3. Community-driven project which continually evolves with industry trends and best practices
-        <br />
-        <br />
-        Hear about their adoption journey and get a demo of their full-featured,
-        customized workflow to create and manage data access requests within
-        DataHub.
       </>
     ),
     to: "https://www.acryldata.io/blog/data-contracts-in-datahub-combining-verifiability-with-holistic-data-management?utm_source=datahub&utm_medium=referral&utm_content=blog",
@@ -89,9 +83,11 @@ const CustomerCardSection = () => {
   return (
     <div style={{ padding: "2vh 0" }}>
       <div className="container" style={{ padding: "0" }}>
-          {customerCardContent.map((props, idx) => (
-            <CustomerCard key={idx} {...props} />
-          ))}
+        <div className="row row--no-gutters">
+            {customerCardContent.map((props, idx) => (
+                <CustomerCard key={idx} {...props} />
+              ))}
+        </div>
       </div>
     </div>
   );
