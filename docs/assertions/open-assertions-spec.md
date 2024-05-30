@@ -11,7 +11,7 @@ assertion engine without service disruption for end consumers of the results of 
 
 Currently, the DataHub Open Assertions Specification supports the following integrations:
 
-- Snowflake via [Snowflake DMFs](https://docs.snowflake.com/en/user-guide/data-quality-intro)
+- [Snowflake DMF Assertions](snowflake/snowflake_dmfs.md)
 
 And is looking for contributions to build out support for the following integrations:
 
@@ -92,7 +92,7 @@ assertions:
 ```
 
 This assertion checks that the `purchase_events` table in the `test_db.public` schema has between 1000 and 10000 records.
-Using the `operator` field, you can specify the type of comparison to be made, and the `min` and `max` fields to specify the range of values to compare against.
+Using the `condition` field, you can specify the type of comparison to be made, and the `min` and `max` fields to specify the range of values to compare against.
 Using the `filters` field, you can optionally specify a SQL WHERE clause to filter the records being counted.
 Using the `schedule` field you can specify when the assertion should be run, either on a fixed schedule or when new data is added to the table.
 The only metric currently supported is `row_count`. 
@@ -130,9 +130,9 @@ assertions:
 ```
 
 
-#### Supported Operators
+#### Supported Conditions
 
-The full set of supported volume assertion operators include:
+The full set of supported volume assertion conditions include:
 
 - `equal_to`
 - `not_equal_to`
@@ -177,7 +177,7 @@ assertions:
 ```
 
 This assertion checks that all values for the `amount` column in the `purchase_events` table in the `test_db.public` schema have values between 0 and 10.
-Using the `field` field, you can specify the column to be asserted on, and using the `operator` field, you can specify the type of comparison to be made, 
+Using the `field` field, you can specify the column to be asserted on, and using the `condition` field, you can specify the type of comparison to be made, 
 and the `min` and `max` fields to specify the range of values to compare against.
 Using the `schedule` field you can specify when the assertion should be run, either on a fixed schedule or when new data is added to the table.
 Using the `filters` field, you can optionally specify a SQL WHERE clause to filter the records being counted.
@@ -232,9 +232,9 @@ assertions:
       type: on_table_change
 ```
 
-#### Field Values Assertion: Supported Operators
+#### Field Values Assertion: Supported Conditions
 
-The full set of supported field value operators include:
+The full set of supported field value conditions include:
 
 - `in`
 - `not_in`
@@ -314,7 +314,7 @@ This assertion ensures that the `name` column in the `purchase_events` table in 
 
 #### Field Metric Assertion: Supported Metrics
 
-The full set of supported field metric operators include:
+The full set of supported field metrics include:
 
 - `null_count`
 - `null_percentage`
@@ -332,9 +332,9 @@ The full set of supported field metric operators include:
 - `zero_count`
 - `zero_percentage`
 
-### Field Metric Assertion: Supported Operators
+### Field Metric Assertion: Supported Conditions
 
-The full set of supported field metric operators include:
+The full set of supported field metric conditions include:
 
 - `equal_to`
 - `not_equal_to`
@@ -397,9 +397,9 @@ assertions:
 This assertion checks that the number of rows in the `purchase_events` exactly matches the number of rows in an upstream `purchase_events_raw` table 
 by subtracting the row count of the raw table from the row count of the processed table.
 
-#### Supported Operators
+#### Supported Conditions
 
-The full set of supported custom SQL assertion operators include:
+The full set of supported custom SQL assertion conditions include:
 
 - `equal_to`
 - `not_equal_to`
@@ -484,112 +484,3 @@ The following high-level data types are currently supported by the Schema Assert
 - union
 - bytes
 - enum
-
-
-
-## Snowflake
-
-The DataHub Open Assertion Compiler allows you to define your Data Quality assertions in a simple YAML format, and then compile them to be executed by Snowflake Data Metric Functions.
-Once compiled, you'll be able to register the compiled DMFs in your Snowflake environment, and extract their results them as part of your normal ingestion process for DataHub.
-Results of Snowflake DMF assertions will be reported as normal Assertion Results, viewable on a historical timeline in the context
-of the table with which they are associated.
-
-### Prerequisites
-
-- You must have a Snowflake Enterprise account, where the DMFs feature is enabled.
-- You must have the necessary permissions to create and run DMFs in your Snowflake environment.
-- You must have the necessary permissions to query the DMF results in your Snowflake environment.
-
-According to the latest Snowflake docs, here are the permissions the service account performing the 
-DMF registration and ingestion must have:
-
-| Privilege                      | Object           | Notes                                                                                                      |
-|--------------------------------|------------------|------------------------------------------------------------------------------------------------------------|
-| EXECUTE DATA METRIC FUNCTION   | Account          | This privilege enables you to control which roles have access to server-agnostic compute resources to call the system DMF. |
-| USAGE                          | Database, schema | These objects are the database and schema that contain the referenced table in the query.                   |
-
-
-To learn more about Snowflake DMFs, see the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/data-quality-intro).
-
-### Supported Assertion Types
-
-The following assertion types are currently supported by the DataHub Snowflake DMF Assertion Compiler:
-
-- [Freshness](/docs/managed-datahub/observe/freshness-assertions.md)
-- [Volume](/docs/managed-datahub/observe/volume-assertions.md)
-- [Column](/docs/managed-datahub/observe/column-assertions.md)
-- [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
-
-Note that Schema Assertions are not currently supported. 
-
-### Creating Snowflake DMF Assertions
-
-The process for declaring and running assertions backend by Snowflake DMFs consists of a few steps, which will be outlined
-in the following sections.
-
-
-#### Step 1. Define your Data Quality assertions using Assertion YAML files
-
-See the section **Declaring Assertions in YAML** below for examples of how to define assertions in YAML.
-
-
-#### Step 2. Register your assertions with DataHub
-
-Use the DataHub CLI to register your assertions with DataHub, so they become visible in the DataHub UI:
-
-```bash
-datahub assertions upsert -f examples/library/assertions_configuration.yml
-```
-
-
-#### Step 3. Compile the assertions into Snowflake DMFs using the DataHub CLI
-
-Next, we'll use the `assertions compile` command to generate the SQL code for the Snowflake DMFs,
-which can then be registered in Snowflake.
-
-```bash
-datahub assertions compile -f examples/library/assertions_configuration.yml -p snowflake
-```
-
-This will generate <MAYURI TODO>.
-
-
-#### Step 4. Register the compiled DMFs in your Snowflake environment
-
-<TODO - Mayuri what should this step look like?>
-
-
-#### Step 5. Run ingestion to report the results back into DataHub
-
-Once you've registered the DMFs, they will be automatically executed, either when the target table is updated or on a fixed 
-schedule.
-
-To report the results of the generated Data Quality assertions back into DataHub, you'll need to run the DataHub ingestion process with a special configuration
-flag: `include_assertion_results: true`:
-
-```yaml
-# Your DataHub Snowflake Recipe
-source:
-  type: snowflake
-  config:
-    # ...
-    include_assertion_results: True
-    # ...
-```
-
-This will query the DMF results store in Snowflake, convert them into DataHub Assertion Results, and report the results back into DataHub during your ingestion process
-either via CLI or the UI.
-
-`datahub ingest -c snowflake.yml`
-
-## dbt test
-
-Seeking contributions!
-
-## Great Expectations
-
-Seeking contributions!
-
-## Soda SQL 
-
-Seeking contributions!
