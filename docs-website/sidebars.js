@@ -79,6 +79,11 @@ module.exports = {
               id: "docs/managed-datahub/observe/volume-assertions",
               className: "saasOnly",
             },
+            {
+              label: "Open Assertion Specification",
+              type: "doc",
+              id: "docs/assertions/open-assertion-specification",
+            },
           ],
         },
         {
