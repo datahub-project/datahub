@@ -565,6 +565,7 @@ public class DeleteEntityService {
     result.assets = new ArrayList<>();
 
     if (deletedUrn.getEntityType().equals("form")) {
+      // first, get all entities with this form assigned on it
       final CriterionArray incompleteFormsArray = new CriterionArray();
       incompleteFormsArray.add(
           new Criterion()
@@ -577,12 +578,22 @@ public class DeleteEntityService {
               .setField("completedForms")
               .setValue(deletedUrn.toString())
               .setCondition(Condition.EQUAL));
+      // next, get all metadata tests created for this form
+      final CriterionArray metadataTestSourceArray = new CriterionArray();
+      metadataTestSourceArray.add(
+          new Criterion()
+              .setField("sourceEntity")
+              .setValue(deletedUrn.toString())
+              .setCondition(Condition.EQUAL));
+      metadataTestSourceArray.add(
+          new Criterion().setField("sourceType").setValue("FORMS").setCondition(Condition.EQUAL));
       Filter filter =
           new Filter()
               .setOr(
                   new ConjunctiveCriterionArray(
                       new ConjunctiveCriterion().setAnd(incompleteFormsArray),
-                      new ConjunctiveCriterion().setAnd(completedFormsArray)));
+                      new ConjunctiveCriterion().setAnd(completedFormsArray),
+                      new ConjunctiveCriterion().setAnd(metadataTestSourceArray)));
       ScrollResult scrollResult =
           _searchService.scroll(
               opContext,
@@ -604,7 +615,8 @@ public class DeleteEntityService {
                   "mlFeature",
                   "mlPrimaryKey",
                   "schemaField",
-                  "dataProduct"),
+                  "dataProduct",
+                  "test"),
               filter,
               null,
               dryRun ? 1 : BATCH_SIZE, // need to pass in 1 for count otherwise get index error
@@ -630,6 +642,11 @@ public class DeleteEntityService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn assetUrn,
       @Nonnull final Urn deletedUrn) {
+    // delete entities that should be deleted first
+    if (shouldDeleteAssetReferencingUrn(assetUrn, deletedUrn)) {
+      _entityService.deleteUrn(opContext, assetUrn);
+    }
+
     List<MetadataChangeProposal> mcps = new ArrayList<>();
     List<String> aspectsToUpdate = getAspectsToUpdate(deletedUrn);
     aspectsToUpdate.forEach(
@@ -662,6 +679,20 @@ public class DeleteEntityService {
       return ImmutableList.of("forms");
     }
     return new ArrayList<>();
+  }
+
+  /**
+   * Determine whether the asset referencing the deleted urn should be deleted itself.
+   *
+   * <p>TODO: extend this to support other types of deletes and be more dynamic depending on aspects
+   * that the asset has
+   */
+  private boolean shouldDeleteAssetReferencingUrn(
+      @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
+    if (assetUrn.getEntityType().equals("test") && deletedUrn.getEntityType().equals("form")) {
+      return true;
+    }
+    return false;
   }
 
   @Nullable
