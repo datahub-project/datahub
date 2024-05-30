@@ -4,6 +4,7 @@ assertions:
   # Volume Assertion
   - type: volume
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions_all_times,PROD)
+    metric: row_count
     condition:
       type: less_than_or_equal_to
       value: 1000

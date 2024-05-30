@@ -1,8 +1,9 @@
 from datetime import timedelta
 from typing import Union
 
-from typing_extensions import Literal
 import humanfriendly
+from typing_extensions import Literal
+
 from datahub.configuration.pydantic_migration_helpers import (
     v1_ConfigModel,
     v1_Field,

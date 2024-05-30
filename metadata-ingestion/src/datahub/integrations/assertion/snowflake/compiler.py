@@ -107,7 +107,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
                     result.status = "failure"
                     result.report.report_failure(
                         assertion_spec.get_id(),
-                        f"Failed to compile assertion due to {e}",
+                        f"Failed to compile assertion of type {assertion_spec.assertion.type} due to error: {e}",
                     )
                     result.report.num_compile_failed += 1
             if result.report.num_compile_succeeded > 0:
@@ -124,9 +124,6 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
             return result
 
     def process_assertion(self, assertion: DataHubAssertion) -> Tuple[str, str]:
-
-        # TODO: if assertion on same entity requires different schedule than another
-        # assertion on entity - report error
         # TODO: support freshness and schema assertion ?
 
         metric_definition = self.metric_generator.metric_sql(assertion.assertion)
@@ -137,7 +134,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
             assertion_sql = self.metric_evaluator.operator_sql(
                 LessThanOrEqualToOperator(
                     type="less_than_or_equal_to",
-                    value=assertion.assertion.fail_threshold.value,
+                    value=assertion.assertion.failure_threshold.value,
                 ),
                 metric_definition,
             )
@@ -163,9 +160,10 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
             != assertion.assertion.trigger
         ):
             raise ValueError(
-                "Assertions on same entity must have same schedules as of now. Found different schedules"
-                f"{self._entity_schedule_history[assertion.assertion.entity]}"
-                f"{assertion.assertion.trigger}"
+                "Assertions on same entity must have same schedules as of now."
+                f" Found different schedules on entity {assertion.assertion.entity} ->"
+                f" ({self._entity_schedule_history[assertion.assertion.entity].trigger}),"
+                f" ({assertion.assertion.trigger.trigger})"
             )
 
         dmf_schedule = get_dmf_schedule(assertion.assertion.trigger)

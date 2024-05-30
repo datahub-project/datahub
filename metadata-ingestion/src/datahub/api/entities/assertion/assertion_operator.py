@@ -20,9 +20,11 @@ class Operator(Protocol):
 
     operator: str
 
-    def id(self) -> str: ...
+    def id(self) -> str:
+        ...
 
-    def generate_parameters(self) -> AssertionStdParametersClass: ...
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        ...
 
 
 def _generate_assertion_std_parameter(

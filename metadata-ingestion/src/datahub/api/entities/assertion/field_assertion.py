@@ -34,7 +34,7 @@ class FieldValuesFailThreshold(v1_ConfigModel):
     type: Literal["count", "percentage"] = v1_Field(default="count")
     value: int = v1_Field(default=0)
 
-    def to_field_values_fail_threshold(self) -> FieldValuesFailThresholdClass:
+    def to_field_values_failure_threshold(self) -> FieldValuesFailThresholdClass:
         return FieldValuesFailThresholdClass(
             type=(
                 FieldValuesFailThresholdTypeClass.COUNT
@@ -55,7 +55,7 @@ class FieldValuesAssertion(BaseEntityAssertion):
     field_transform: Optional[FieldTransform] = v1_Field(default=None)
     operator: Operators = v1_Field(discriminator="type", alias="condition")
     filter: Optional[DatasetFilter] = v1_Field(default=None)
-    fail_threshold: FieldValuesFailThreshold = v1_Field(
+    failure_threshold: FieldValuesFailThreshold = v1_Field(
         default=FieldValuesFailThreshold()
     )
     exclude_nulls: bool = v1_Field(default=True)
@@ -77,7 +77,7 @@ class FieldValuesAssertion(BaseEntityAssertion):
                     ),
                     operator=self.operator.operator,
                     parameters=self.operator.generate_parameters(),
-                    failThreshold=self.fail_threshold.to_field_values_fail_threshold(),
+                    failThreshold=self.failure_threshold.to_field_values_failure_threshold(),
                     excludeNulls=self.exclude_nulls,
                     transform=(
                         FieldTransformClass(type=FieldTransformTypeClass.LENGTH)

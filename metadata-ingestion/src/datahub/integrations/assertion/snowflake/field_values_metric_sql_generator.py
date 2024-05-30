@@ -151,7 +151,7 @@ class SnowflakeFieldValuesMetricSQLGenerator:
         )
 
         # metric would be number of failing rows OR percentage of failing rows.
-        if assertion.fail_threshold.type == "count":
+        if assertion.failure_threshold.type == "count":
             return f"select sum($1) as metric from ({sql})"
         else:  # percentage
             return f"select sum($1)/count(*) as metric from ({sql})"

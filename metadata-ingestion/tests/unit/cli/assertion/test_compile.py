@@ -1,12 +1,10 @@
 import filecmp
 import os
 
-from datahub.cli.specific.assertions_cli import REPORT_FILE_NAME
 from datahub.integrations.assertion.snowflake.compiler import (
     DMF_ASSOCIATIONS_FILE_NAME,
     DMF_DEFINITIONS_FILE_NAME,
 )
-
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 
