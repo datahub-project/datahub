@@ -113,6 +113,8 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getCollectionName = () => 'Dashboards';
 
+    useEntityQuery = useGetDashboardQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

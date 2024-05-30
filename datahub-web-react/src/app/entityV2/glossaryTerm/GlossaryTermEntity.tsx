@@ -85,6 +85,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getEntityName = () => 'Glossary Term';
 
+    useEntityQuery = useGetGlossaryTermQuery;
+
     renderProfile = (urn) => {
         return (
             <EntityProfile

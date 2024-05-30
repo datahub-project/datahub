@@ -1,4 +1,5 @@
-import { EntityType, SearchResult } from '../../types.generated';
+import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { EntityType, Exact, SearchResult } from '../../types.generated';
 import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { EntitySidebarSection, EntitySidebarTab } from './shared/types';
@@ -217,4 +218,21 @@ export interface Entity<T> {
      * Returns the entity profile sidebar tabs for an entity type.
      */
     getSidebarTabs?: () => EntitySidebarTab[];
+
+    /**
+     * Get the query necessary for refetching data on an entity profile page
+     */
+    useEntityQuery?: (
+        baseOptions: QueryHookOptions<
+            any,
+            Exact<{
+                urn: string;
+            }>
+        >,
+    ) => QueryResult<
+        any,
+        Exact<{
+            urn: string;
+        }>
+    >;
 }

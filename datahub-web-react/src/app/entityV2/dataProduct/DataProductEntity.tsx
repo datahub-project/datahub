@@ -81,6 +81,8 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getCollectionName = () => 'Data Products';
 
+    useEntityQuery = useGetDataProductQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

@@ -1,5 +1,7 @@
 query getMLFeature($urn: String!) {
     mlFeature(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLFeature
         share {
             ...shareFields

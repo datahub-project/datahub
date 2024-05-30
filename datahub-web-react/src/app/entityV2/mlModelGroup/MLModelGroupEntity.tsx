@@ -72,6 +72,8 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         return {};
     };
 
+    useEntityQuery = useGetMlModelGroupQuery;
+    
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

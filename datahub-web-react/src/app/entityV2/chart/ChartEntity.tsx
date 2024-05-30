@@ -110,6 +110,8 @@ export class ChartEntity implements Entity<Chart> {
 
     getCollectionName = () => 'Charts';
 
+    useEntityQuery = useGetChartQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

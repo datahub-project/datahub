@@ -1,5 +1,7 @@
 query getDataPlatform($urn: String!) {
     dataPlatform(urn: $urn) {
+        urn
+        type
         ...platformFields
     }
 }

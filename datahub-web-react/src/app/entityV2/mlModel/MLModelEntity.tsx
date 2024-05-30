@@ -76,6 +76,8 @@ export class MLModelEntity implements Entity<MlModel> {
         };
     };
 
+    useEntityQuery = useGetMlModelQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

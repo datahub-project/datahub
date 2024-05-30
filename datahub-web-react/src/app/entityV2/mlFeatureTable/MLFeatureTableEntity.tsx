@@ -75,6 +75,8 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         return {};
     };
 
+    useEntityQuery = useGetMlFeatureTableQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

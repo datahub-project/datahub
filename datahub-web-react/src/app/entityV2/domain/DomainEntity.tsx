@@ -81,6 +81,8 @@ export class DomainEntity implements Entity<Domain> {
 
     getCollectionName = () => 'Domains';
 
+    useEntityQuery = useGetDomainQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

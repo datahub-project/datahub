@@ -73,6 +73,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         };
     };
 
+    useEntityQuery = useGetMlPrimaryKeyQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

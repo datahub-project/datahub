@@ -320,7 +320,7 @@ export default class EntityRegistry {
         return validatedGet(type, this.entityTypeToEntity).getGraphName();
     }
 
-    getEntityQuery(_type: EntityType):
+    getEntityQuery(type: EntityType):
         | ((
               baseOptions: QueryHookOptions<
                   any,
@@ -335,7 +335,8 @@ export default class EntityRegistry {
               }>
           >)
         | undefined {
-        return undefined;
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.useEntityQuery;
     }
 }
 

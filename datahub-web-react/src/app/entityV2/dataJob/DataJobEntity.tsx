@@ -98,6 +98,8 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getCollectionName = () => 'Tasks';
 
+    useEntityQuery = useGetDataJobQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

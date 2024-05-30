@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
 import { useEntityContext } from '../EntityContext';
-import { useGetDatasetQuery } from '../../../../graphql/dataset.generated';
 import { useEntityFormDataFactory } from './entityFormDataFactory';
 import usePrevious from '../../../shared/usePrevious';
 
@@ -11,6 +10,7 @@ import { EntityAndType, GenericEntityProperties } from '../types';
 
 import { getBulkByQuestionPrompts } from '../containers/profile/sidebar/FormInfo/utils';
 import { SCHEMA_FIELD_PROMPT_TYPES } from './constants';
+import { useEntityRegistry } from '../../../useEntityRegistry';
 
 interface Props {
     children: React.ReactNode;
@@ -20,6 +20,7 @@ interface Props {
 export default function EntityFormContextProvider({ children, formUrn }: Props) {
     // Import external contexts
     const { entityData, refetch: refetchEntityProfile, loading: profileLoading } = useEntityContext();
+    const entityRegistry = useEntityRegistry();
 
     /* 
     * State setup
@@ -86,26 +87,29 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     }
 
     // Grab the datasets data
-    // TODO: Determine if we need this? 
+    const entityQuery = selectedEntity ? entityRegistry.getEntityQuery(selectedEntity.type) : null;
     const {
         data: fetchedData,
-        refetch: datasetRefetch,
-        loading: datasetLoading,
-    } = useGetDatasetQuery({
+        refetch: entityRefetch,
+        loading: entityLoading,
+    } = entityQuery?.({
         variables: { urn: selectedEntity?.urn || '' },
         skip: !selectedEntity,
-    });
+    }) || { data: undefined, refetch: undefined , loading: undefined};
 
     // Entity related utility consts
     const isOnEntityProfilePage = selectedEntity && selectedEntity.urn === entityData?.urn;
-    const selectedEntityData = isOnEntityProfilePage ? entityData : (fetchedData?.dataset as GenericEntityProperties);
+    const selectedEntityGraphName = selectedEntity ? entityRegistry.getGraphNameFromType(selectedEntity.type) : '';
+    const selectedEntityData = isOnEntityProfilePage
+        ? entityData
+        : (fetchedData?.[selectedEntityGraphName || 'dataset'] as GenericEntityProperties);
 
     /* 
     * Loading conslidation
     */
 
     const isProfileLoading = profileLoading || loading;
-    const isDatasetLoading = datasetLoading || loading;
+    const isDatasetLoading = entityLoading || loading;
     const isLoading = isOnEntityProfilePage ? isProfileLoading : isDatasetLoading;
 
     /* 
@@ -114,7 +118,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
 
     const handleRefetch = (): any => {
         if (isOnEntityProfilePage) refetchEntityProfile();
-        else datasetRefetch();
+        else entityRefetch?.();
     }
 
     /* 

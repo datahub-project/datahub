@@ -77,6 +77,8 @@ export class ContainerEntity implements Entity<Container> {
 
     getCollectionName = () => 'Containers';
 
+    useEntityQuery = useGetContainerQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

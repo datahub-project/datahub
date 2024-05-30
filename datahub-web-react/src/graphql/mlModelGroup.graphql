@@ -1,5 +1,7 @@
 query getMLModelGroup($urn: String!) {
     mlModelGroup(urn: $urn) {
+        urn
+        type
         ...nonRecursiveMLModelGroupFields
         incoming: relationships(
             input: {

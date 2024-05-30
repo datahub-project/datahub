@@ -126,6 +126,8 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getCollectionName = () => 'Datasets';
 
+    useEntityQuery = useGetDatasetQuery;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}

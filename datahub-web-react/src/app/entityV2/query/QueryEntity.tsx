@@ -47,6 +47,8 @@ export class QueryEntity implements Entity<Query> {
 
     getCollectionName = () => 'Queries';
 
+    useEntityQuery = useGetQueryQuery;
+
     renderProfile = (urn: string) => {
         return (
             <EntityProfile
