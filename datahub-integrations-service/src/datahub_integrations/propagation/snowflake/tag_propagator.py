@@ -153,8 +153,6 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
                 semantic_event = event.event
                 if not is_snowflake_urn(semantic_event.entityUrn):
                     return
-                entity_to_apply = None
-                tag_to_apply = None
                 propagation_directive: Union[
                     TermPropagationDirective, TagPropagationDirective
                 ] = None
@@ -167,8 +165,9 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
                         event=event
                     )
 
-                if entity_to_apply is not None and tag_to_apply is not None:
+                if propagation_directive is not None:
                     self.process_directive(propagation_directive)
             self.event_processing_stats.end(event, success=True)
-        except Exception:
+        except Exception as e:
+            logger.exception("Error processing event", e)
             self.event_processing_stats.end(event, success=False)
