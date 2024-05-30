@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.IngestionSourceExecutionRequests;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
@@ -54,7 +55,7 @@ public class IngestionSourceExecutionRequestsResolver
     final Integer count =
         environment.getArgument("count") != null ? environment.getArgument("count") : 10;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -116,6 +117,8 @@ public class IngestionSourceExecutionRequestsResolver
                     urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

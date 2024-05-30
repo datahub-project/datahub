@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -111,7 +112,7 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
     final String urn = ((Entity) environment.getSource()).getUrn();
     final List<GlossaryNode> nodes = new ArrayList<>();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final String type = Urn.createFromString(urn).getEntityType();
@@ -144,6 +145,8 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
           } catch (DataHubGraphQLException | URISyntaxException e) {
             throw new RuntimeException(("Failed to load parent nodes"));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }
