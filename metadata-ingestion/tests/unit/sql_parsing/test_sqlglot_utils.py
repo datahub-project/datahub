@@ -52,7 +52,7 @@ def test_query_types():
     ) == (QueryType.CREATE_VIEW, {"kind": "VIEW"})
 
 
-class QueryNormalizationMode(Enum):
+class QueryGeneralizationTestMode(Enum):
     FULL = "full"
     FAST = "fast"
     BOTH = "both"
@@ -66,33 +66,33 @@ class QueryNormalizationMode(Enum):
             "select * from foo",
             "redshift",
             "SELECT * FROM foo",
-            QueryNormalizationMode.FULL,
+            QueryGeneralizationTestMode.FULL,
         ),
         # Comment removal and whitespace normalization.
         (
             "/* query system = foo, id = asdf */\nSELECT /* inline comment */ *\nFROM foo",
             "redshift",
             "SELECT * FROM foo",
-            QueryNormalizationMode.BOTH,
+            QueryGeneralizationTestMode.BOTH,
         ),
         # Parameter normalization.
         (
             "UPDATE  \"books\" SET page_count = page_count + 1, author_count = author_count + 1 WHERE book_title = 'My New Book'",
             "redshift",
             'UPDATE "books" SET page_count = page_count + ?, author_count = author_count + ? WHERE book_title = ?',
-            QueryNormalizationMode.BOTH,
+            QueryGeneralizationTestMode.BOTH,
         ),
         (
             "SELECT * FROM foo WHERE date = '2021-01-01'",
             "redshift",
             "SELECT * FROM foo WHERE date = ?",
-            QueryNormalizationMode.BOTH,
+            QueryGeneralizationTestMode.BOTH,
         ),
         (
             "SELECT * FROM books WHERE category IN ('fiction', 'biography', 'fantasy')",
             "redshift",
             "SELECT * FROM books WHERE category IN (?)",
-            QueryNormalizationMode.BOTH,
+            QueryGeneralizationTestMode.BOTH,
         ),
         (
             textwrap.dedent(
@@ -110,7 +110,7 @@ class QueryNormalizationMode(Enum):
             ),
             "mssql",
             "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?), (?), (?), (?)",
-            QueryNormalizationMode.BOTH,
+            QueryGeneralizationTestMode.BOTH,
         ),
         # Test table name normalization.
         # These are only supported with fast normalization.
@@ -118,28 +118,28 @@ class QueryNormalizationMode(Enum):
             "SELECT * FROM datahub_community.fivetran_interval_unconstitutional_staging.datahub_slack_mess-staging-480fd5a7-58f4-4cc9-b6fb-87358788efe6",
             "bigquery",
             "SELECT * FROM datahub_community.fivetran_interval_unconstitutional_staging.datahub_slack_mess-staging-00000000-0000-0000-0000-000000000000",
-            QueryNormalizationMode.FAST,
+            QueryGeneralizationTestMode.FAST,
         ),
         (
             "SELECT * FROM datahub_community.maggie.commonroom_slack_members_20240315",
             "bigquery",
             "SELECT * FROM datahub_community.maggie.commonroom_slack_members_YYYYMMDD",
-            QueryNormalizationMode.FAST,
+            QueryGeneralizationTestMode.FAST,
         ),
         (
             "SELECT COUNT(*) FROM ge_temp_aa91f1fd",
             "bigquery",
             "SELECT COUNT(*) FROM ge_temp_abcdefgh",
-            QueryNormalizationMode.FAST,
+            QueryGeneralizationTestMode.FAST,
         ),
     ],
 )
 def test_query_generalization(
-    query: str, dialect: str, expected: str, mode: QueryNormalizationMode
+    query: str, dialect: str, expected: str, mode: QueryGeneralizationTestMode
 ) -> None:
-    if mode in {QueryNormalizationMode.FULL, QueryNormalizationMode.BOTH}:
+    if mode in {QueryGeneralizationTestMode.FULL, QueryGeneralizationTestMode.BOTH}:
         assert generalize_query(query, dialect=dialect) == expected
-    if mode in {QueryNormalizationMode.FAST, QueryNormalizationMode.BOTH}:
+    if mode in {QueryGeneralizationTestMode.FAST, QueryGeneralizationTestMode.BOTH}:
         assert (
             generalize_query_fast(query, dialect=dialect, change_table_names=True)
             == expected
