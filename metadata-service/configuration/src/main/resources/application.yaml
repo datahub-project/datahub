@@ -440,9 +440,16 @@ cache:
           dashboardUsageStatistics: 21600 # 6hrs
 
 graphQL:
+  concurrency:
+    separateThreadPool: ${GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL:false} # Enable the separate thread pool, the following configurations only apply if enabled
+    stackSize: ${GRAPHQL_CONCURRENCY_STACK_SIZE:256000} # Default to JVM default of 256 KB
+    corePoolSize: ${GRAPHQL_CONCURRENCY_CORE_POOL_SIZE:-1} # Base thread pool size for GraphQL executor service, default 5 * # of cores
+    maxPoolSize: ${GRAPHQL_CONCURRENCY_MAX_POOL_SIZE:-1} # Maximum thread pool size for GraphQL executor service, default 100 * # of cores
+    keepAlive: ${GRAPHQL_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
   query:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
+    introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
 
 springdoc.api-docs.groups.enabled: true
 

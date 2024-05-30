@@ -332,7 +332,7 @@ class HiveMetastoreProxy(Closeable):
                     properties[col_name] = data_type.strip()
                 else:
                     # col_name == "", data_type is not None
-                    prop_name = "{} {}".format(active_heading, data_type.rstrip())
+                    prop_name = f"{active_heading} {data_type.rstrip()}"
                     properties[prop_name] = value.rstrip()
         except Exception as e:
             self.report.report_warning(

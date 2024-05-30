@@ -103,6 +103,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
@@ -328,7 +329,7 @@ class SnowflakeV2Source(
         test_report = TestConnectionReport()
 
         try:
-            connection_conf = SnowflakeV2Config.parse_obj_allow_extras(config_dict)
+            connection_conf = BaseSnowflakeConfig.parse_obj_allow_extras(config_dict)
 
             connection: SnowflakeConnection = connection_conf.get_connection()
             assert connection
@@ -354,7 +355,7 @@ class SnowflakeV2Source(
 
     @staticmethod
     def check_capabilities(
-        conn: SnowflakeConnection, connection_conf: SnowflakeV2Config
+        conn: SnowflakeConnection, connection_conf: BaseSnowflakeConfig
     ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
         # Currently only overall capabilities are reported.
         # Resource level variations in capabilities are not considered.
@@ -366,7 +367,7 @@ class SnowflakeV2Source(
             object_type: str
 
         def query(query):
-            logger.info("Query : {}".format(query))
+            logger.info(f"Query : {query}")
             resp = conn.cursor().execute(query)
             return resp
 

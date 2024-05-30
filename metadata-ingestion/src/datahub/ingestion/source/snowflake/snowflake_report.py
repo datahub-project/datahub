@@ -45,8 +45,8 @@ class SnowflakeUsageReport:
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
 
-    usage_aggregation: SnowflakeUsageAggregationReport = (
-        SnowflakeUsageAggregationReport()
+    usage_aggregation: SnowflakeUsageAggregationReport = field(
+        default_factory=SnowflakeUsageAggregationReport
     )
 
 

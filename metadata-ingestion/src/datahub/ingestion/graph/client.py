@@ -23,6 +23,7 @@ from typing import (
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
+from pydantic import BaseModel
 from requests.models import HTTPError
 
 from datahub.cli.cli_utils import get_url_and_token
@@ -32,6 +33,10 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.ingestion.graph.connections import (
+    connections_gql,
+    get_id_from_connection_urn,
+)
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
@@ -63,7 +68,10 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
-    from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+    from datahub.ingestion.sink.datahub_rest import (
+        DatahubRestSink,
+        DatahubRestSinkConfig,
+    )
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
@@ -202,13 +210,8 @@ class DataHubGraph(DatahubRestEmitter):
     def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict)
 
-    @contextlib.contextmanager
-    def make_rest_sink(
-        self, run_id: str = _GRAPH_DUMMY_RUN_ID
-    ) -> Iterator["DatahubRestSink"]:
-        from datahub.ingestion.api.common import PipelineContext
+    def _make_rest_sink_config(self) -> "DatahubRestSinkConfig":
         from datahub.ingestion.sink.datahub_rest import (
-            DatahubRestSink,
             DatahubRestSinkConfig,
             SyncOrAsync,
         )
@@ -218,10 +221,16 @@ class DataHubGraph(DatahubRestEmitter):
         # TODO: We should refactor out the multithreading functionality of the sink
         # into a separate class that can be used by both the sink and the graph client
         # e.g. a DatahubBulkRestEmitter that both the sink and the graph client use.
-        sink_config = DatahubRestSinkConfig(
-            **self.config.dict(), mode=SyncOrAsync.ASYNC
-        )
+        return DatahubRestSinkConfig(**self.config.dict(), mode=SyncOrAsync.ASYNC)
 
+    @contextlib.contextmanager
+    def make_rest_sink(
+        self, run_id: str = _GRAPH_DUMMY_RUN_ID
+    ) -> Iterator["DatahubRestSink"]:
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+
+        sink_config = self._make_rest_sink_config()
         with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
             yield sink
         if sink.report.failures:
@@ -324,6 +333,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=SchemaMetadataClass)
 
+    @deprecated(reason="Use get_aspect directly.")
     def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainPropertiesClass)
 
@@ -343,11 +353,9 @@ class DataHubGraph(DatahubRestEmitter):
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
+    @deprecated(reason="Use get_aspect directly.")
     def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
-        return self.get_aspect(
-            entity_urn=entity_urn,
-            aspect_type=BrowsePathsClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=BrowsePathsClass)
 
     def get_usage_aspects_from_urn(
         self, entity_urn: str, start_timestamp: int, end_timestamp: int
@@ -419,26 +427,47 @@ class DataHubGraph(DatahubRestEmitter):
             {"field": k, "value": v, "condition": "EQUAL"}
             for k, v in filter_criteria_map.items()
         ]
+        filter = {"or": [{"and": filter_criteria}]}
+
+        values = self.get_timeseries_values(
+            entity_urn=entity_urn, aspect_type=aspect_type, filter=filter, limit=1
+        )
+        if not values:
+            return None
+
+        assert len(values) == 1, len(values)
+        return values[0]
+
+    def get_timeseries_values(
+        self,
+        entity_urn: str,
+        aspect_type: Type[Aspect],
+        filter: Dict[str, Any],
+        limit: int = 10,
+    ) -> List[Aspect]:
         query_body = {
             "urn": entity_urn,
             "entity": guess_entity_type(entity_urn),
             "aspect": aspect_type.ASPECT_NAME,
-            "limit": 1,
-            "filter": {"or": [{"and": filter_criteria}]},
+            "limit": limit,
+            "filter": filter,
         }
         end_point = f"{self.config.server}/aspects?action=getTimeseriesAspectValues"
         resp: Dict = self._post_generic(end_point, query_body)
-        values: list = resp.get("value", {}).get("values")
-        if values:
-            assert len(values) == 1, len(values)
-            aspect_json: str = values[0].get("aspect", {}).get("value")
+
+        values: Optional[List] = resp.get("value", {}).get("values")
+        aspects: List[Aspect] = []
+        for value in values or []:
+            aspect_json: str = value.get("aspect", {}).get("value")
             if aspect_json:
-                return aspect_type.from_obj(json.loads(aspect_json), tuples=False)
+                aspects.append(
+                    aspect_type.from_obj(json.loads(aspect_json), tuples=False)
+                )
             else:
                 raise GraphError(
                     f"Failed to find {aspect_type} in response {aspect_json}"
                 )
-        return None
+        return aspects
 
     def get_entity_raw(
         self, entity_urn: str, aspects: Optional[List[str]] = None
@@ -574,6 +603,83 @@ class DataHubGraph(DatahubRestEmitter):
             logger.debug(f"yielding {x['entity']}")
             entities.append(x["entity"])
         return entities[0] if entities_yielded else None
+
+    def get_connection_json(self, urn: str) -> Optional[dict]:
+        """Retrieve a connection config.
+
+        This is only supported with Acryl Cloud.
+
+        Args:
+            urn: The urn of the connection.
+
+        Returns:
+            The connection config as a dictionary, or None if the connection was not found.
+        """
+
+        # TODO: This should be capable of resolving secrets.
+
+        res = self.execute_graphql(
+            query=connections_gql,
+            operation_name="GetConnection",
+            variables={"urn": urn},
+        )
+
+        if not res["connection"]:
+            return None
+
+        connection_type = res["connection"]["details"]["type"]
+        if connection_type != "JSON":
+            logger.error(
+                f"Expected connection details type to be 'JSON', but got {connection_type}"
+            )
+            return None
+
+        blob = res["connection"]["details"]["json"]["blob"]
+        obj = json.loads(blob)
+
+        name = res["connection"]["details"].get("name")
+        logger.info(f"Loaded connection {name or urn}")
+
+        return obj
+
+    def set_connection_json(
+        self,
+        urn: str,
+        *,
+        platform_urn: str,
+        config: Union[ConfigModel, BaseModel, dict],
+        name: Optional[str] = None,
+    ) -> None:
+        """Set a connection config.
+
+        This is only supported with Acryl Cloud.
+
+        Args:
+            urn: The urn of the connection.
+            platform_urn: The urn of the platform.
+            config: The connection config as a dictionary or a ConfigModel.
+            name: The name of the connection.
+        """
+
+        if isinstance(config, (ConfigModel, BaseModel)):
+            blob = config.json()
+        else:
+            blob = json.dumps(config)
+
+        id = get_id_from_connection_urn(urn)
+
+        res = self.execute_graphql(
+            query=connections_gql,
+            operation_name="SetConnection",
+            variables={
+                "id": id,
+                "platformUrn": platform_urn,
+                "name": name,
+                "blob": blob,
+            },
+        )
+
+        assert res["upsertConnection"]["urn"] == urn
 
     @deprecated(
         reason='Use get_urns_by_filter(entity_types=["container"], ...) instead'
@@ -876,7 +982,7 @@ class DataHubGraph(DatahubRestEmitter):
             body["operationName"] = operation_name
 
         logger.debug(
-            f"Executing graphql query: {query} with variables: {json.dumps(variables)}"
+            f"Executing {operation_name or ''} graphql query: {query} with variables: {json.dumps(variables)}"
         )
         result = self._post_generic(url, body)
         if result.get("errors"):
@@ -1074,7 +1180,7 @@ class DataHubGraph(DatahubRestEmitter):
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
 
-    @functools.lru_cache()
+    @functools.lru_cache
     def _make_schema_resolver(
         self,
         platform: str,
