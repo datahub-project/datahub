@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field, validator
 from ratelimit import limits, sleep_and_retry
 
 from datahub_integrations.actions.action_extended import ExtendedAction
+from datahub_integrations.actions.stats_util import EventProcessingStats
 from datahub_integrations.propagation.doc.mcl_utils import MCLProcessor
 
 logger = logging.getLogger(__name__)
@@ -211,6 +212,7 @@ def create_rate_limited_function(
 
 class DocPropagationAction(ExtendedAction):
     def __init__(self, config: DocPropagationConfig, ctx: PipelineContext):
+        self.event_processing_stats = EventProcessingStats()
         self.config = config
         self.ctx = ctx
         self.mcl_processor = MCLProcessor()
@@ -231,40 +233,6 @@ class DocPropagationAction(ExtendedAction):
 
         if self.config.bootstrap:
             self.bootstrap()
-
-        # self.term_resolver = GlossaryTermsResolver(graph=self.ctx.graph)
-        # if self.config.target_terms:
-        #     logger.info(
-        #         f"[Config] Will propagate terms that inherit from terms {self.config.target_terms}"
-        #     )
-        #     resolved_terms = []
-        #     for t in self.config.target_terms:
-        #         if t.startswith("urn:li:glossaryTerm"):
-        #             resolved_terms.append(t)
-        #         else:
-        #             resolved_term = self.term_resolver.get_glossary_term_urn(t)
-        #             if not resolved_term:
-        #                 raise Exception(f"Failed to resolve term by name {t}")
-        #             resolved_terms.append(resolved_term)
-        #     self.config.target_terms = resolved_terms
-        #     logger.info(
-        #         f"[Config] Will propagate terms that inherit from terms {self.config.target_terms}"
-        #     )
-
-        # if self.config.term_groups:
-        #     resolved_nodes = []
-        #     for node in self.config.term_groups:
-        #         if node.startswith("urn:li:glossaryNode"):
-        #             resolved_nodes.append(node)
-        #         else:
-        #             resolved_node = self.term_resolver.get_glossary_node_urn(node)
-        #             if not resolved_node:
-        #                 raise Exception(f"Failed to resolve node by name {node}")
-        #             resolved_nodes.append(resolved_node)
-        #     self.config.term_groups = resolved_nodes
-        #     logger.info(
-        #         f"[Config] Will propagate all terms in groups {self.config.term_groups}"
-        #     )
 
     def name(self) -> str:
         return "DocPropagator"
@@ -615,74 +583,79 @@ class DocPropagationAction(ExtendedAction):
     def act(self, event: EventEnvelope) -> None:
         """This method responds to changes to documentation and propagates them to downstream entities"""
 
-        logger.info(f"Received event {event}")
-        doc_propagation_directive = self.should_propagate(event)
-        logger.info(f"Doc propagation directive: {doc_propagation_directive}")
+        self.event_processing_stats.start(event)
+        try:
+            logger.info(f"Received event {event}")
+            doc_propagation_directive = self.should_propagate(event)
+            logger.info(f"Doc propagation directive: {doc_propagation_directive}")
 
-        if (
-            doc_propagation_directive is not None
-            and doc_propagation_directive.propagate is True
-        ):
-            context = SourceDetails(
-                origin=doc_propagation_directive.origin,
-                via=doc_propagation_directive.via,
-                propagated=True,
-                actor=doc_propagation_directive.actor,
-            )
-            assert self.ctx.graph
-            # find downstream lineage
-            downstreams = self.ctx.graph.get_downstreams(
-                entity_urn=doc_propagation_directive.entity
-            )
-            logger.info(
-                f"Downstreams: {downstreams} for {doc_propagation_directive.entity}"
-            )
-            entity_urn = doc_propagation_directive.entity
-            if entity_urn.startswith("urn:li:schemaField"):
-                downstream_fields = [
-                    x for x in downstreams if x.startswith("urn:li:schemaField")
-                ]
-                for field in downstream_fields:
+            if (
+                doc_propagation_directive is not None
+                and doc_propagation_directive.propagate is True
+            ):
+                context = SourceDetails(
+                    origin=doc_propagation_directive.origin,
+                    via=doc_propagation_directive.via,
+                    propagated=True,
+                    actor=doc_propagation_directive.actor,
+                )
+                assert self.ctx.graph
+                # find downstream lineage
+                downstreams = self.ctx.graph.get_downstreams(
+                    entity_urn=doc_propagation_directive.entity
+                )
+                logger.info(
+                    f"Downstreams: {downstreams} for {doc_propagation_directive.entity}"
+                )
+                entity_urn = doc_propagation_directive.entity
+                if entity_urn.startswith("urn:li:schemaField"):
+                    downstream_fields = [
+                        x for x in downstreams if x.startswith("urn:li:schemaField")
+                    ]
+                    for field in downstream_fields:
 
-                    schema_field_urn = Urn.create_from_string(field)
-                    parent_urn = schema_field_urn.get_entity_id()[0]
-                    field_path = schema_field_urn.get_entity_id()[1]
-                    logger.info(
-                        f"Will {doc_propagation_directive.operation} documentation {doc_propagation_directive.doc_string} for {field_path} on {parent_urn}"
-                    )
-                    if parent_urn.startswith("urn:li:dataset"):
-                        self.modify_docs_on_columns(
-                            self.ctx.graph,
-                            doc_propagation_directive.operation,
-                            field,
-                            parent_urn,
-                            field_doc=doc_propagation_directive.doc_string,
+                        schema_field_urn = Urn.create_from_string(field)
+                        parent_urn = schema_field_urn.get_entity_id()[0]
+                        field_path = schema_field_urn.get_entity_id()[1]
+                        logger.info(
+                            f"Will {doc_propagation_directive.operation} documentation {doc_propagation_directive.doc_string} for {field_path} on {parent_urn}"
+                        )
+                        if parent_urn.startswith("urn:li:dataset"):
+                            self.modify_docs_on_columns(
+                                self.ctx.graph,
+                                doc_propagation_directive.operation,
+                                field,
+                                parent_urn,
+                                field_doc=doc_propagation_directive.doc_string,
+                                context=context,
+                            )
+                        elif parent_urn.startswith("urn:li:chart"):
+                            self.modify_docs_on_chart_fields(
+                                self.ctx.graph,
+                                doc_propagation_directive.operation,
+                                field,
+                                parent_urn,
+                                field_doc=doc_propagation_directive.doc_string,
+                                context=context,
+                            )
+                elif entity_urn.startswith("urn:li:dataset"):
+                    downstream_datasets = [
+                        x for x in downstreams if x.startswith("urn:li:dataset")
+                    ]
+                    for dataset in downstream_datasets:
+                        self.ctx.graph.add_docs_to_dataset(
+                            dataset,
+                            [doc_propagation_directive.doc_string],
                             context=context,
                         )
-                    elif parent_urn.startswith("urn:li:chart"):
-                        self.modify_docs_on_chart_fields(
-                            self.ctx.graph,
-                            doc_propagation_directive.operation,
-                            field,
-                            parent_urn,
-                            field_doc=doc_propagation_directive.doc_string,
-                            context=context,
+                        logger.info(
+                            f"Will {doc_propagation_directive.operation} doc {doc_propagation_directive.doc_string} to {dataset}"
                         )
-            elif entity_urn.startswith("urn:li:dataset"):
-                downstream_datasets = [
-                    x for x in downstreams if x.startswith("urn:li:dataset")
-                ]
-                for dataset in downstream_datasets:
-                    self.ctx.graph.add_docs_to_dataset(
-                        dataset,
-                        [doc_propagation_directive.doc_string],
-                        context=context,
-                    )
-                    logger.info(
-                        f"Will {doc_propagation_directive.operation} doc {doc_propagation_directive.doc_string} to {dataset}"
-                    )
-        else:
-            print("No doc propagation directive")
+            else:
+                print("No doc propagation directive")
+            self.event_processing_stats.end(event, success=True)
+        except Exception:
+            self.event_processing_stats.end(event, success=False)
 
     def close(self) -> None:
         return super().close()

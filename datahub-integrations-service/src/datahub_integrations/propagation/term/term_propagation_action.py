@@ -43,6 +43,7 @@ from datahub_actions.plugin.action.utils.term_resolver import GlossaryTermsResol
 from pydantic import Field
 
 from datahub_integrations.actions.action_extended import ExtendedAction
+from datahub_integrations.actions.stats_util import EventProcessingStats
 from datahub_integrations.propagation.propagation_utils import (
     PropagationDirective,
     get_attribution_and_context_from_directive,
@@ -146,6 +147,7 @@ class TermPropagationAction(ExtendedAction):
             logger.info(
                 f"[Config] Will propagate all terms in groups {self.config.term_groups}"
             )
+        self.event_processing_stats = EventProcessingStats()
 
     def name(self) -> str:
         return "TermPropagator"
@@ -655,6 +657,7 @@ class TermPropagationAction(ExtendedAction):
     def act(self, event: EventEnvelope) -> None:
         """This method responds to changes to glossary terms and propagates them to downstream entities"""
 
+        logger.info(f"Received event {event}")
         term_propagation_directive = self.should_propagate(event)
         logger.info(f"Term propagation directive: {term_propagation_directive}")
         if term_propagation_directive:

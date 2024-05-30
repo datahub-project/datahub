@@ -7,7 +7,14 @@ import click
 
 @click.command()
 @click.option("--file", help="The action pipeline file")
-@click.option("--operation", help="The operation to perform", default="create")
+@click.option(
+    "--operation",
+    type=click.Choice(
+        ["create", "stop", "rollback", "start", "status"], case_sensitive=False
+    ),
+    help="The operation to perform",
+    default="create",
+)
 def main(file, operation):
     # first argument is the action pipeline file
     action_pipeline_file = file
@@ -16,7 +23,7 @@ def main(file, operation):
         recipe = yaml.safe_load(f)
 
     # this tells us the name of the action pipeline
-    action_pipeline_name = recipe["name"]
+    action_pipeline_name = recipe.pop("name")
     action_pipeline_type = recipe["action"]["type"]
     action_pipeline_urn = (
         f"urn:li:dataHubAction:{action_pipeline_name}"

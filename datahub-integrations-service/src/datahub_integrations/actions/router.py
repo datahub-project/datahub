@@ -3,7 +3,7 @@ import contextlib
 import json
 import os
 import pathlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Callable
 
 import anyio
@@ -30,7 +30,7 @@ actions_gql = (pathlib.Path(__file__).parent / "actions.gql").read_text()
 
 
 base_action_config = {
-    "name": "hello_world",
+    # "name": "hello_world",
     "source": {
         "type": "kafka",
         "config": {
@@ -66,9 +66,7 @@ base_action_config = {
     "datahub": {
         "server": DATAHUB_SERVER,
     },
-    "filter": {
-        "event_type": "EntityChangeEvent_v1",
-    },
+    "filter": None,
 }
 
 
@@ -276,7 +274,7 @@ async def action_stats(action_urn: str) -> dict:
     spec = _get_action_spec(action_urn)
 
     res = await _httpx_client.get(f"{spec.base_url}/stats")
-
+    logger.info(f"Stats response: {res.json()}")
     return res.json()
 
 
@@ -376,7 +374,9 @@ def ActionInfo(spec: ActionRun | LiveActionSpec) -> reactpy.types.VdomDict:
 def ActionsAdminUi() -> reactpy.types.VdomDict:
     # TODO Add reactpy-router to create multiple pages.
 
-    last_updated, set_last_updated = reactpy.use_state(datetime.now().isoformat())
+    last_updated, set_last_updated = reactpy.use_state(
+        datetime.now(tz=timezone.utc).isoformat()
+    )
     inner_pipeline_manager, set_inner_pipeline_manager = reactpy.use_state(
         pipeline_manager
     )
@@ -384,7 +384,7 @@ def ActionsAdminUi() -> reactpy.types.VdomDict:
     async def pipeline_updater() -> None:
         while True:
             set_inner_pipeline_manager(pipeline_manager)
-            set_last_updated(datetime.now().isoformat())
+            set_last_updated(datetime.now(tz=timezone.utc).isoformat())
             await anyio.sleep(2)
 
     @reactpy.use_effect(dependencies=[])

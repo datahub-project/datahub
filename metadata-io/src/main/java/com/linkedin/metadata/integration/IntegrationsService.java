@@ -72,6 +72,7 @@ public class IntegrationsService {
   private final AiApi aiApi;
   @Getter private final AnalyticsApi analyticsApi;
   private final ShareApi shareApi;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   public IntegrationsService(
       @Nonnull final String integrationsServiceHost,
@@ -546,7 +547,9 @@ public class IntegrationsService {
         log.error(String.valueOf(response.getData().toString()));
         return null;
       }
-      return response.getData().toString();
+      Object apiResponseData = response.getData();
+
+      return this.objectMapper.writeValueAsString(response.getData());
     } catch (Exception e) {
       log.error(
           "Failed to get action status! Exceptions encountered when trying to access integrations service",

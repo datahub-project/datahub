@@ -28,6 +28,7 @@ from datahub_actions.plugin.action.tag.tag_propagation_action import (
 )
 
 from datahub_integrations.actions.action_extended import ExtendedAction
+from datahub_integrations.actions.stats_util import EventProcessingStats
 from datahub_integrations.propagation.snowflake.snowflake_util import (
     SnowflakeTagHelper,
     is_snowflake_urn,
@@ -49,6 +50,7 @@ class SnowflakeTagPropagatorConfig(ConfigModel):
 
 class SnowflakeTagPropagatorAction(ExtendedAction):
     def __init__(self, config: SnowflakeTagPropagatorConfig, ctx: PipelineContext):
+        self.event_processing_stats = EventProcessingStats()
         self.config: SnowflakeTagPropagatorConfig = config
         self.ctx = ctx
         self.snowflake_tag_helper = SnowflakeTagHelper(self.config.snowflake)
@@ -143,25 +145,30 @@ class SnowflakeTagPropagatorAction(ExtendedAction):
                 )
 
     def act(self, event: EventEnvelope) -> None:
-        if event.event_type == "EntityChangeEvent_v1":
-            assert isinstance(event.event, EntityChangeEvent)
-            assert self.ctx.graph is not None
-            semantic_event = event.event
-            if not is_snowflake_urn(semantic_event.entityUrn):
-                return
-            entity_to_apply = None
-            tag_to_apply = None
-            propagation_directive: Union[
-                TermPropagationDirective, TagPropagationDirective
-            ] = None
-            if self.tag_propagator is not None:
-                propagation_directive = self.tag_propagator.should_propagate(
-                    event=event
-                )
-            if self.term_propagator is not None:
-                propagation_directive = self.term_propagator.should_propagate(
-                    event=event
-                )
+        self.event_processing_stats.start(event)
+        try:
+            if event.event_type == "EntityChangeEvent_v1":
+                assert isinstance(event.event, EntityChangeEvent)
+                assert self.ctx.graph is not None
+                semantic_event = event.event
+                if not is_snowflake_urn(semantic_event.entityUrn):
+                    return
+                entity_to_apply = None
+                tag_to_apply = None
+                propagation_directive: Union[
+                    TermPropagationDirective, TagPropagationDirective
+                ] = None
+                if self.tag_propagator is not None:
+                    propagation_directive = self.tag_propagator.should_propagate(
+                        event=event
+                    )
+                if self.term_propagator is not None:
+                    propagation_directive = self.term_propagator.should_propagate(
+                        event=event
+                    )
 
-            if entity_to_apply is not None and tag_to_apply is not None:
-                self.process_directive(propagation_directive)
+                if entity_to_apply is not None and tag_to_apply is not None:
+                    self.process_directive(propagation_directive)
+            self.event_processing_stats.end(event, success=True)
+        except Exception:
+            self.event_processing_stats.end(event, success=False)
