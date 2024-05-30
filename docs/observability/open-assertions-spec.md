@@ -45,13 +45,10 @@ Below you'll find examples of defining different types of freshness assertions v
 ```yaml
 version: 1
 assertions:
-  - type: freshness
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      lookbackInterval: '6 hours'
-    parameters:
-      sourceType: LAST_MODIFIED_FIELD
-      field: updated_at
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: freshness
+    lookback_interval: '6 hours'
+    last_modified_field: updated_at
     schedule:
       type: interval
       interval: '6 hours' # Run every 6 hours
@@ -59,9 +56,9 @@ assertions:
 
 This assertion checks that the `purchase_events` table in the `test_db.public` schema was updated within the last 6 hours 
 by issuing a Query to the table which validates determines whether an update was made using the `updated_at` column in the past 6 hours.
-Using the `LAST_MODIFIED_FIELD` requires you to specify the field that contains the last modified timestamp of a given row.
+To use this check, we must specify the field that contains the last modified timestamp of a given row.
 
-The `lookbackInterval` field is used to specify the "lookback window" for the assertion, whereas the `schedule` field is used to specify how often the assertion should be run.
+The `lookback_interval` field is used to specify the "lookback window" for the assertion, whereas the `schedule` field is used to specify how often the assertion should be run.
 This allows you to schedule the assertion to run at a different frequency than the lookback window, for example
 to detect stale data as soon as it becomes "stale" by inspecting it more frequently.
 
@@ -82,15 +79,14 @@ Below you'll find examples of defining different types of volume assertions via 
 ```yaml
 version: 1
 assertions:
-  - type: volume
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      operator:
-        type: between
-        min: 1000
-        max: 10000
-    parameters:
-      # filters: "event_type = 'purchase'" Optionally add filters. 
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: volume
+    metric: 'row_count'
+    condition:
+      type: between
+      min: 1000
+      max: 10000
+    # filters: "event_type = 'purchase'" Optionally add filters. 
     schedule:
       type: on_table_change # Run when new data is added to the table. 
 ```
@@ -99,20 +95,20 @@ This assertion checks that the `purchase_events` table in the `test_db.public` s
 Using the `operator` field, you can specify the type of comparison to be made, and the `min` and `max` fields to specify the range of values to compare against.
 Using the `filters` field, you can optionally specify a SQL WHERE clause to filter the records being counted.
 Using the `schedule` field you can specify when the assertion should be run, either on a fixed schedule or when new data is added to the table.
- 
+The only metric currently supported is `row_count`. 
+
 #### Validating that Table Row Count is Less Than Value
 
 ```yaml
 version: 1
 assertions:
-  - type: volume
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      operator:
-        type: less_than_or_equal_to
-        value: 1000
-    parameters:
-      # filters: "event_type = 'purchase'" Optionally add filters. 
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: volume
+    metric: 'row_count'
+    condition:
+      type: less_than_or_equal_to
+      value: 1000
+    # filters: "event_type = 'purchase'" Optionally add filters. 
     schedule:
       type: on_table_change # Run when new data is added to the table. 
 ```
@@ -122,14 +118,12 @@ assertions:
 ```yaml
 version: 1
 assertions:
-  - type: volume
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      operator:
-        type: greater_than_or_equal_to
-        value: 1000
-    parameters:
-      # filters: "event_type = 'purchase'" Optionally add filters. 
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: volume
+    condition:
+      type: greater_than_or_equal_to
+      value: 1000
+    # filters: "event_type = 'purchase'" Optionally add filters. 
     schedule:
       type: on_table_change # Run when new data is added to the table. 
 ```
@@ -165,17 +159,14 @@ We'll go over examples of each below.
 ```yaml
 version: 1
 assertions:
-  - type: field
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      field: amount
-      operator:
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: field
+    condition:
         type: between
         min: 0
         max: 10
-      excludeNulls: True
-    parameters:
-      # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
+    excludeNulls: True
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
 ```
@@ -195,19 +186,17 @@ The validate a VARCHAR / STRING column that should contain one of a set of value
 ```yaml
 version: 1
 assertions:
-  - type: field
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      field: product_id
-      operator:
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: field
+    field: product_id
+    condition:
         type: in
         value: 
           - 'product_1'
           - 'product_2'
           - 'product_3'
-      excludeNulls: False
-    parameters:
-      # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
+    excludeNulls: False
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
 ```
@@ -219,16 +208,14 @@ The validate a string column contains valid email addresses:
 ```yaml
 version: 1
 assertions:
-  - type: field
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      field: email_address
-      operator:
-        type: matches_regex
-        value: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
-      excludeNulls: False
-    parameters:
-      # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: field
+    field: email_address
+    condition:
+      type: matches_regex
+      value: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
+    excludeNulls: False
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
 ```
@@ -260,16 +247,14 @@ The full set of supported field value operators include:
 ```yaml
 version: 1
 assertions:
-  - type: field
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      field: col_date
-      metric: null_count
-      operator:
-        type: equal_to
-        value: 0
-    parameters:
-      # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: field
+    field: col_date
+    metric: null_count
+    condition:
+      type: equal_to
+      value: 0
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
 ```
@@ -281,16 +266,14 @@ This assertion ensures that the `col_date` column in the `purchase_events` table
 ```yaml
 version: 1
 assertions:
-  - type: field
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      field: id
-      metric: unique_percentage
-      operator:
-        type: equal_to
-        value: 100
-    parameters:
-      # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: field
+    field: id
+    metric: unique_percentage
+    condition:
+      type: equal_to
+      value: 100
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
 ```
@@ -303,16 +286,14 @@ has no duplicates, by checking that the unique percentage is 100%.
 ```yaml
 version: 1
 assertions:
-  - type: field
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-      field: name
-      metric: empty_percentage
-      operator:
-        type: equal_to
-        value: 0
-    parameters:
-      # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: field
+    field: name
+    metric: empty_percentage
+    condition:
+      type: equal_to
+      value: 0
+    # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
 ```
@@ -365,18 +346,17 @@ and can be used to assert on custom metrics, complex aggregations, cross-table i
 ```yaml
 version: 1
 assertions:
-  - type: sql
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-        statement: |
-          SELECT COUNT(*)
-          FROM test_db.public.purchase_events AS pe
-          LEFT JOIN test_db.public.products AS p
-          ON pe.product_id = p.id
-          WHERE p.id IS NULL
-        operator:
-          type: equal_to
-          value: 0
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: sql
+    statement: |
+      SELECT COUNT(*)
+      FROM test_db.public.purchase_events AS pe
+      LEFT JOIN test_db.public.products AS p
+      ON pe.product_id = p.id
+      WHERE p.id IS NULL
+    condition:
+      type: equal_to
+      value: 0
     schedule:
       type: interval
       interval: '6 hours' # Run every 6 hours
@@ -389,15 +369,14 @@ This assertion checks that the `purchase_events` table in the `test_db.public` s
 ```yaml
 version: 1
 assertions:
-  - type: sql
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-        statement: |
-          SELECT COUNT(*) FROM test_db.public.purchase_events
-          - (SELECT COUNT(*) FROM test_db.public.purchase_events_raw) AS row_count_difference
-        operator:
-          type: equal_to
-          value: 0
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: sql
+    statement: |
+      SELECT COUNT(*) FROM test_db.public.purchase_events
+      - (SELECT COUNT(*) FROM test_db.public.purchase_events_raw) AS row_count_difference
+    condition:
+      type: equal_to
+      value: 0
     schedule:
       type: interval
       interval: '6 hours' # Run every 6 hours
@@ -434,19 +413,19 @@ The specification currently supports 2 types of Schema Assertions:
 ```yaml
 version: 1
 assertions:
-  - type: schema
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-        condition: exact_match 
-        columns:
-            - name: id
-              type: INTEGER
-            - name: product_id
-              type: STRING
-            - name: amount
-              type: DECIMAL
-            - name: updated_at
-              type: TIMESTAMP
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: schema
+    condition: 
+      type: exact_match 
+      columns:
+      - name: id
+        type: INTEGER
+      - name: product_id
+        type: STRING
+      - name: amount
+        type: DECIMAL
+      - name: updated_at
+        type: TIMESTAMP
     schedule:
       type: interval
       interval: '6 hours' # Run every 6 hours
@@ -459,17 +438,17 @@ This assertion checks that the `purchase_events` table in the `test_db.public` s
 ```yaml
 version: 1
 assertions:
-  - type: schema
-    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
-    definition:
-        condition: contains 
-        columns:
-            - name: id
-              type: integer
-            - name: product_id
-              type: string
-            - name: amount
-              type: number
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
+    type: schema
+    condition: 
+      type: contains
+      columns:
+      - name: id
+        type: integer
+      - name: product_id
+        type: string
+      - name: amount
+        type: number
     schedule:
       type: interval
       interval: '6 hours' # Run every 6 hours
