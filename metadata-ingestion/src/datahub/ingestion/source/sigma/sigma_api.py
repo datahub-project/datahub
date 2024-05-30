@@ -208,13 +208,19 @@ class SigmaAPI:
             )
         return workbook
 
-    def get_workspace_id(self, parent_id: str, path: str) -> str:
-        path_list = path.split("/")
-        while len(path_list) != 1:  # means current parent id is folder's id
-            response = self.session.get(f"{self.config.api_url}/files/{parent_id}")
-            parent_id = response.json()[Constant.PARENTID]
-            path_list.pop()
-        return parent_id
+    def get_workspace_id(self, parent_id: str, path: str) -> Optional[str]:
+        try:
+            path_list = path.split("/")
+            while len(path_list) != 1:  # means current parent id is folder's id
+                response = self.session.get(f"{self.config.api_url}/files/{parent_id}")
+                parent_id = response.json()[Constant.PARENTID]
+                path_list.pop()
+            return parent_id
+        except Exception as e:
+            logger.error(
+                f"Unable to find workspace id using document path '{path}'. Exception: {e}"
+            )
+            return None
 
     def get_sigma_entities(self) -> List[Union[Workbook, SigmaDataset]]:
         entities: List[Union[Workbook, SigmaDataset]] = []
@@ -227,6 +233,11 @@ class SigmaAPI:
                 workspace_id = self.get_workspace_id(
                     entity[Constant.PARENTID], entity[Constant.PATH]
                 )
+                if workspace_id is None:
+                    logger.error(
+                        f"Unable to find workspace for entity {entity[Constant.NAME]}"
+                    )
+                    continue
                 if workspace_id not in self.workspaces:
                     workspace = self.get_workspace(workspace_id)
                     if workspace:
