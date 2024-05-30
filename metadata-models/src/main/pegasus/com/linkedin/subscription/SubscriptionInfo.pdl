@@ -68,6 +68,12 @@ record SubscriptionInfo {
             "fieldType": "URN"
         }
     }
+    @Relationship = {
+        "/*/filter/includeAssertions/*": {
+            "name": "SubscribedAssertions",
+            "entityTypes": [ "assertion" ]
+        }
+    }
     entityChangeTypes: optional array[EntityChangeDetails]
 
    /**
