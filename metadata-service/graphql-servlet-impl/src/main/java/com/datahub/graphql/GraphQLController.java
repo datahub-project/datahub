@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.GraphQLEngine;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
@@ -125,7 +126,7 @@ public class GraphQLController {
     log.info("Processing request, operation: {}, actor urn: {}", queryName, context.getActorUrn());
     log.debug("Query: {}, variables: {}", query, variables);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           log.info("Executing operation {} for {}", queryName, threadName);
 
@@ -164,7 +165,9 @@ public class GraphQLController {
                 executionResult.toSpecification());
             return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "postGraphQL");
   }
 
   @GetMapping("/graphql")

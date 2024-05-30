@@ -118,9 +118,13 @@ public class AutocompleteRequestHandler {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(input).orElse(null);
 
+    BoolQueryBuilder baseQuery = QueryBuilders.boolQuery();
+    baseQuery.minimumShouldMatch(1);
+
     // Initial query with input filters
-    BoolQueryBuilder baseQuery =
+    BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever);
+    baseQuery.filter(filterQuery);
 
     // Add autocomplete query
     baseQuery.should(getQuery(opContext.getObjectMapper(), customAutocompleteConfig, input, field));

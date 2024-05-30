@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import graphql.schema.DataFetcher;
@@ -34,7 +35,7 @@ public class DeleteOwnershipTypeResolver implements DataFetcher<CompletableFutur
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _ownershipTypeService.deleteOwnershipType(
@@ -45,6 +46,8 @@ public class DeleteOwnershipTypeResolver implements DataFetcher<CompletableFutur
             throw new RuntimeException(
                 String.format("Failed to delete ownership type with urn %s", ownershipTypeUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

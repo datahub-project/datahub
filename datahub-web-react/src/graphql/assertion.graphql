@@ -48,6 +48,9 @@ fragment assertionDetails on Assertion {
         }
         description
     }
+    tags {
+        ...globalTagsFields
+    }
 }
 
 fragment assertionRunEventDetails on AssertionRunEvent {

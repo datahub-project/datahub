@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchAddOwnersInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -35,7 +36,7 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
     final List<ResourceRefInput> resources = input.getResources();
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the batch
@@ -52,7 +53,9 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateOwners(@Nonnull OperationContext opContext, List<OwnerInput> owners) {
