@@ -10,6 +10,7 @@ import { AssertionResultsTimelineViz } from './AssertionResultsTimelineViz';
 import { Assertion, AssertionType, Monitor } from '../../../../../../../../../../../types.generated';
 import { calculateInitialLookbackWindowFromRunEvents } from './utils';
 import { AssertionTimelineSkeleton } from '../../../../../../../../../../entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionTimelineSkeleton';
+import { Message } from '../../../../../../../../../../shared/Message';
 
 const RESULT_CHART_WIDTH_PX = 560;
 const VIZ_CONTAINER_HEIGHT = 240;
@@ -31,7 +32,7 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
     /**
      * Retrieve a specific assertion's evaluations between a particular start and end time.
      */
-    const [getAssertionRuns, { data, loading }] = useGetAssertionRunsLazyQuery({ fetchPolicy: 'cache-first' });
+    const [getAssertionRuns, { data, loading, error }] = useGetAssertionRunsLazyQuery({ fetchPolicy: 'cache-first' });
 
     /**
      * Set default window for fetching assertion history.
@@ -84,6 +85,7 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
     const vizHeight = assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT;
     return (
         <Container>
+             {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
                  {loading || isInitializing ? (
                 <AssertionTimelineSkeleton parentDimensions={{
                     width: RESULT_CHART_WIDTH_PX,
