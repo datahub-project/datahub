@@ -1158,6 +1158,11 @@ enum EntityType {
     """
     ROLE
 
+    """
+    A data contract
+    """
+    DATA_CONTRACT
+
     """"
     An structured property on entities
     """
