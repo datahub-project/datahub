@@ -162,12 +162,16 @@ version: 1
 assertions:
   - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     type: field
+    field: amount
     condition:
         type: between
         min: 0
         max: 10
     exclude_nulls: True
     # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
+    # failure_threshold:
+    #  type: count
+    #  value: 10
     schedule:
       type: on_table_change
 ```
@@ -179,6 +183,7 @@ Using the `schedule` field you can specify when the assertion should be run, eit
 Using the `filters` field, you can optionally specify a SQL WHERE clause to filter the records being counted.
 Using the `exclude_nulls` field, you can specify whether to exclude NULL values from the assertion, meaning that 
 NULL will simply be ignored if encountered, as opposed to failing the check. 
+Using the `failure_threshold`, we can set a threshold for the number of rows that can fail the assertion before the assertion is considered failed.
 
 #### Field Values Assertion: Validating that All Column Values are In Expected Set
 
@@ -198,6 +203,9 @@ assertions:
           - 'product_3'
     exclude_nulls: False
     # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
+    # failure_threshold:
+    #  type: count
+    #  value: 10
     schedule:
       type: on_table_change
 ```
@@ -217,6 +225,9 @@ assertions:
       value: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
     exclude_nulls: False
     # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
+    # failure_threshold:
+    #  type: count
+    #  value: 10
     schedule:
       type: on_table_change
 ```
