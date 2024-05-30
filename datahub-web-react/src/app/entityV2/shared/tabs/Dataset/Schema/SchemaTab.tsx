@@ -116,7 +116,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
     );
     const selectedVersionStamp: string = selectedSemanticVersionStruct?.versionStamp || '';
     const isVersionLatest = selectedVersion === latestVersion;
-    const showTypeAsIcons = true;
     let editMode = true;
     if (!isVersionLatest) {
         editMode = false;
@@ -250,7 +249,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                     openTimelineDrawer={openTimelineDrawer}
                                     setOpenTimelineDrawer={setOpenTimelineDrawer}
-                                    showTypeAsIcons={showTypeAsIcons}
                                     matches={matches}
                                     refetch={refetch}
                                 />

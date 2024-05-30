@@ -65,6 +65,7 @@ export const REDESIGN_COLORS = {
     DARK_DIVIDER: '#797F98',
     DEPRECATION_RED: '#CD0D24',
     DEPRECATION_RED_LIGHT: '#E37878',
+    GREY_500: '#6b7280',
 };
 
 export const SEARCH_COLORS = {

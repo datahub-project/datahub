@@ -3,12 +3,14 @@ import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 import { SchemaFieldFieldsFragment } from '../../../../../../graphql/fragments.generated';
-import { ForeignKeyConstraint, Post, SchemaMetadata } from '../../../../../../types.generated';
+import { Post, SchemaMetadata } from '../../../../../../types.generated';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
 import { REDESIGN_COLORS } from '../../../../shared/constants';
-import ForeignKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/ForeignKeyLabel';
-import PartitioningKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/PartitioningKeyLabel';
-import PrimaryKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/PrimaryKeyLabel';
+import {
+    ForeignKeyLabel,
+    PartitioningKeyLabel,
+    PrimaryKeyLabel,
+} from '../../../../shared/tabs/Dataset/Schema/components/ConstraintLabels';
 import translateFieldPath from '../utils/translateFieldPath';
 import { ExtendedSchemaFields } from '../utils/types';
 
@@ -22,7 +24,6 @@ const FieldTitleWrapper = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    -webkit-mask: linear-gradient(-270deg, #736ba4 60%, rgba(115, 107, 164, 0) 100%);
 `;
 
 const FieldPathContainer = styled.div`
@@ -46,9 +47,6 @@ const StyledNotesIcon = styled(NotesIcon)`
 
 type InteriorTitleProps = {
     schemaMetadata: SchemaMetadata | undefined | null;
-    setSelectedFkFieldPath: (params: { fieldPath: string; constraint?: ForeignKeyConstraint | null } | null) => void;
-    highlightedConstraint: string | null;
-    setHighlightedConstraint: (constraint: string | null) => void;
     filterText: string;
     fieldPath: string;
     record: ExtendedSchemaFields;
@@ -57,9 +55,6 @@ type InteriorTitleProps = {
 
 export const InteriorTitleContent = ({
     schemaMetadata,
-    setSelectedFkFieldPath,
-    highlightedConstraint,
-    setHighlightedConstraint,
     filterText,
     fieldPath,
     record,
@@ -104,14 +99,7 @@ export const InteriorTitleContent = ({
                         ).length || 0) > 0,
                 )
                 .map((constraint) => (
-                    <ForeignKeyLabel
-                        key={constraint?.name}
-                        fieldPath={fieldPath}
-                        constraint={constraint}
-                        highlight={constraint?.name === highlightedConstraint}
-                        setHighlightedConstraint={setHighlightedConstraint}
-                        onClick={setSelectedFkFieldPath}
-                    />
+                    <ForeignKeyLabel key={constraint?.name} />
                 ))}
         </FieldTitleWrapper>
     );

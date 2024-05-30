@@ -9,11 +9,11 @@ import { useDebounce } from 'react-use';
 
 import {
     EditableSchemaMetadata,
-    ForeignKeyConstraint,
     SchemaField,
     SchemaMetadata,
     UsageQueryResult,
 } from '../../../../../../types.generated';
+import SchemaRow from '../../../../dataset/profile/schema/components/SchemaRow';
 import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
 import useSchemaTypeRenderer from '../../../../dataset/profile/schema/utils/schemaTypeRenderer';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
@@ -22,8 +22,6 @@ import { StyledTable } from '../../../components/styled/StyledTable';
 import { REDESIGN_COLORS } from '../../../constants';
 import ExpandIcon from './components/ExpandIcon';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
-import { SchemaRow } from './components/SchemaRow';
-import { FkContext } from './utils/selectedFkContext';
 import useDescriptionRenderer from './utils/useDescriptionRenderer';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
@@ -97,10 +95,6 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
             stroke: white !important;
         }
 
-        .ant-badge-count {
-            background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
-        }
-
         .ant-tag {
             background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
         }
@@ -153,7 +147,6 @@ export type Props = {
     setExpandedDrawerFieldPath: (path: string | null) => void;
     openTimelineDrawer?: boolean;
     setOpenTimelineDrawer?: any;
-    showTypeAsIcons?: boolean;
     matches?: {
         path: string;
         index: number;
@@ -177,16 +170,10 @@ export default function SchemaTable({
     setExpandedDrawerFieldPath,
     openTimelineDrawer = false,
     setOpenTimelineDrawer,
-    showTypeAsIcons = true,
     matches,
     refetch,
 }: Props): JSX.Element {
     const [tableHeight, setTableHeight] = useState(0);
-    const [overflowHoverFieldPath, setOverflowHoverFieldPath] = useState<string | null>(null);
-    const [selectedFkFieldPath, setSelectedFkFieldPath] = useState<null | {
-        fieldPath: string;
-        constraint?: ForeignKeyConstraint | null;
-    }>(null);
     const [schemaSorter, setSchemaSorter] = useState<SorterResult<any> | undefined>(undefined);
 
     const [isSearchActive, setIsSearchActive] = useState<boolean>(false);
@@ -217,13 +204,8 @@ export default function SchemaTable({
         false,
         true,
     );
-    const schemaTitleRenderer = useSchemaTitleRenderer(
-        schemaMetadata,
-        setSelectedFkFieldPath,
-        filterText,
-        overflowHoverFieldPath,
-    );
-    const schemaTypeRenderer = useSchemaTypeRenderer(showTypeAsIcons);
+    const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, filterText);
+    const schemaTypeRenderer = useSchemaTypeRenderer();
 
     const fieldColumn = {
         fixed: 'left' as FixedType,
@@ -233,25 +215,9 @@ export default function SchemaTable({
         key: 'fieldPath',
         render: schemaTitleRenderer,
         filtered: true,
-        onCell: () => ({
-            style: { whiteSpace: 'pre' },
-            onMouseEnter: (e) => {
-                const element = e.nativeEvent.relatedTarget as any;
-                if (element) {
-                    const hasOverflowingChildren =
-                        element.offsetHeight < element.scrollHeight || element.offsetWidth < element.scrollWidth;
-                    if (hasOverflowingChildren) {
-                        // setOverflowHoverFieldPath(record.fieldPath);
-                    }
-                }
-            },
-            onMouseLeave: () => {
-                setOverflowHoverFieldPath(null);
-            },
-        }),
-        sorter: (sourceA, sourceB) => {
-            return translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath));
-        },
+        onCell: () => ({ style: { whiteSpace: 'pre' } }),
+        sorter: (sourceA, sourceB) =>
+            translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath)),
     };
 
     const typeColumn = {
@@ -260,6 +226,7 @@ export default function SchemaTable({
         dataIndex: 'type',
         key: 'type',
         render: schemaTypeRenderer,
+        sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
     };
     const descriptionColumn = {
         ellipsis: true,
@@ -363,6 +330,8 @@ export default function SchemaTable({
     const [VT, setVT, vtRef] = useVT(() => ({ scroll: { y: tableHeight } }), [tableHeight]);
     const tableRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => setVT({ body: { row: SchemaRow } }), [setVT]);
+
     useDebounce(
         () => {
             if (!expandedDrawerFieldPath) return;
@@ -380,10 +349,8 @@ export default function SchemaTable({
         [expandedDrawerFieldPath, tableRef, filterText, schemaSorter],
     );
 
-    useMemo(() => setVT({ body: { row: SchemaRow } }), [setVT]);
-
     const rowClassName = (record) => {
-        let className = record.fieldPath === selectedFkFieldPath?.fieldPath ? 'open-fk-row' : '';
+        let className = '';
 
         if (expandedDrawerFieldPath === record.fieldPath) {
             className += 'selected-row';
@@ -475,7 +442,7 @@ export default function SchemaTable({
     };
 
     return (
-        <FkContext.Provider value={selectedFkFieldPath}>
+        <>
             <TableContainer
                 ref={tableRef}
                 isSearchActive={isSearchActive}
@@ -537,6 +504,6 @@ export default function SchemaTable({
                     refetch={refetch}
                 />
             )}
-        </FkContext.Provider>
+        </>
     );
 }
