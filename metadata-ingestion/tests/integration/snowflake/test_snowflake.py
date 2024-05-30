@@ -119,6 +119,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         include_table_lineage=True,
                         include_view_lineage=True,
                         include_usage_stats=True,
+                        format_sql_queries=True,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
                         email_as_user_identifier=True,
