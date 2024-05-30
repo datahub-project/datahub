@@ -53,7 +53,7 @@ class FieldValuesAssertion(BaseEntityAssertion):
     type: Literal["field"]
     field: str
     field_transform: Optional[FieldTransform] = v1_Field(default=None)
-    operator: Operators = v1_Field(discriminator="type")
+    operator: Operators = v1_Field(discriminator="type", alias="condition")
     filter: Optional[DatasetFilter] = v1_Field(default=None)
     fail_threshold: FieldValuesFailThreshold = v1_Field(
         default=FieldValuesFailThreshold()
@@ -102,7 +102,7 @@ class FieldValuesAssertion(BaseEntityAssertion):
 class FieldMetricAssertion(BaseEntityAssertion):
     type: Literal["field"]
     field: str
-    operator: Operators = v1_Field(discriminator="type")
+    operator: Operators = v1_Field(discriminator="type", alias="condition")
     metric: FieldMetric
     filter: Optional[DatasetFilter] = v1_Field(default=None)
 

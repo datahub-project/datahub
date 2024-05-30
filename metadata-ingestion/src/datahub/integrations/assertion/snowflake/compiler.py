@@ -38,6 +38,8 @@ from datahub.integrations.assertion.snowflake.metric_sql_generator import (
 logger = logging.Logger(__name__)
 
 BOOTSTRAP_SQL_FILE_NAME = "bootstrap.sql"
+DMF_DEFINITIONS_FILE_NAME = "dmf_definitions.sql"
+DMF_ASSOCIATIONS_FILE_NAME = "dmf_associations.sql"
 DMF_SCHEMA_PROPERTY_KEY = "DMF_SCHEMA"
 
 
@@ -50,6 +52,8 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
         )
         self.metric_evaluator = SnowflakeMetricEvalOperatorSQLGenerator()
         self.dmf_handler = SnowflakeDMFHandler()
+
+        self._entity_schedule_history: Dict[str, AssertionTrigger] = dict()
 
     @classmethod
     def create(
@@ -76,15 +80,28 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
 
         # TODO: Create/Report permissions sql
 
-        bootstrap_sql_path = self.output_dir / BOOTSTRAP_SQL_FILE_NAME
-        with (bootstrap_sql_path).open("w") as f:
+        dmf_definitions_path = self.output_dir / DMF_DEFINITIONS_FILE_NAME
+        dmf_associations_path = self.output_dir / DMF_ASSOCIATIONS_FILE_NAME
+        with (dmf_definitions_path).open("w") as definitions, (
+            dmf_associations_path
+        ).open("w") as associations:
             for assertion_spec in assertion_config_spec.assertions:
                 result.report.num_processed += 1
                 try:
-                    code: str = f"\n-- Start of Assertion {assertion_spec.get_id()}\n"
-                    code += self.process_assertion(assertion_spec)
-                    code += f"\n-- End of Assertion {assertion_spec.get_id()}\n"
-                    f.write(code)
+                    start_line = f"\n-- Start of Assertion {assertion_spec.get_id()}\n"
+                    (dmf_definition, dmf_association) = self.process_assertion(
+                        assertion_spec
+                    )
+                    end_line = f"\n-- End of Assertion {assertion_spec.get_id()}\n"
+
+                    definitions.write(start_line)
+                    definitions.write(dmf_definition)
+                    definitions.write(end_line)
+
+                    associations.write(start_line)
+                    associations.write(dmf_association)
+                    associations.write(end_line)
+
                     result.report.num_compile_succeeded += 1
                 except Exception as e:
                     result.status = "failure"
@@ -97,7 +114,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
                 result.add_artifact(
                     CompileResultArtifact(
                         name=BOOTSTRAP_SQL_FILE_NAME,
-                        path=bootstrap_sql_path,
+                        path=dmf_definitions_path,
                         type=CompileResultArtifactType.SQL_QUERIES,
                         description="SQL file containing DMF create definitions equivalent to Datahub Assertions"
                         "\nand ALTER TABLE queries to associate DMFs to table to run on configured schedule.",
@@ -106,7 +123,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
 
             return result
 
-    def process_assertion(self, assertion: DataHubAssertion) -> str:
+    def process_assertion(self, assertion: DataHubAssertion) -> Tuple[str, str]:
 
         # TODO: if assertion on same entity requires different schedule than another
         # assertion on entity - report error
@@ -136,6 +153,21 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
         args_create_dmf, args_add_dmf = get_dmf_args(assertion)
 
         entity_name = get_entity_name(assertion.assertion)
+
+        self._entity_schedule_history.setdefault(
+            assertion.assertion.entity, assertion.assertion.trigger
+        )
+        if (
+            assertion.assertion.entity in self._entity_schedule_history
+            and self._entity_schedule_history[assertion.assertion.entity]
+            != assertion.assertion.trigger
+        ):
+            raise ValueError(
+                "Assertions on same entity must have same schedules as of now. Found different schedules"
+                f"{self._entity_schedule_history[assertion.assertion.entity]}"
+                f"{assertion.assertion.trigger}"
+            )
+
         dmf_schedule = get_dmf_schedule(assertion.assertion.trigger)
         dmf_definition = self.dmf_handler.create_dmf(
             f"{dmf_schema_name}.{dmf_name}",
@@ -151,7 +183,7 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
             ".".join(entity_name),
         )
 
-        return "\n".join([dmf_definition, dmf_association])
+        return dmf_definition, dmf_association
 
 
 def get_dmf_name(assertion: DataHubAssertion) -> str:

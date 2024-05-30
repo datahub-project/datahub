@@ -1,3 +1,4 @@
+import json
 from typing import Optional, Union
 
 from typing_extensions import Literal, Protocol
@@ -19,15 +20,13 @@ class Operator(Protocol):
 
     operator: str
 
-    def id(self) -> str:
-        ...
+    def id(self) -> str: ...
 
-    def generate_parameters(self) -> AssertionStdParametersClass:
-        ...
+    def generate_parameters(self) -> AssertionStdParametersClass: ...
 
 
 def _generate_assertion_std_parameter(
-    value: Union[str, int, float]
+    value: Union[str, int, float, list]
 ) -> AssertionStdParameterClass:
     if isinstance(value, str):
         return AssertionStdParameterClass(
@@ -37,13 +36,17 @@ def _generate_assertion_std_parameter(
         return AssertionStdParameterClass(
             value=str(value), type=AssertionStdParameterTypeClass.NUMBER
         )
+    elif isinstance(value, list):
+        return AssertionStdParameterClass(
+            value=json.dumps(value), type=AssertionStdParameterTypeClass.LIST
+        )
     else:
         raise ValueError(
             f"Unsupported assertion parameter {value} of type {type(value)}"
         )
 
 
-Param = Union[str, int, float]
+Param = Union[str, int, float, list]
 
 
 def _generate_assertion_std_parameters(
@@ -63,6 +66,19 @@ class EqualToOperator(v1_ConfigModel):
     value: Union[str, int, float]
 
     operator: str = AssertionStdOperatorClass.EQUAL_TO
+
+    def id(self) -> str:
+        return f"{self.type}-{self.value}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters(value=self.value)
+
+
+class NotEqualToOperator(v1_ConfigModel):
+    type: Literal["not_equal_to"]
+    value: Union[str, int, float]
+
+    operator: str = AssertionStdOperatorClass.NOT_EQUAL_TO
 
     def id(self) -> str:
         return f"{self.type}-{self.value}"
@@ -139,8 +155,46 @@ class GreaterThanOrEqualToOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
+class InOperator(v1_ConfigModel):
+    type: Literal["in"]
+    value: list
+
+    operator: str = AssertionStdOperatorClass.IN
+
+    def id(self) -> str:
+        return f"{self.type}-{self.value}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters(value=self.value)
+
+
+class NotInToOperator(v1_ConfigModel):
+    type: Literal["not_in"]
+    value: list
+
+    operator: str = AssertionStdOperatorClass.NOT_IN
+
+    def id(self) -> str:
+        return f"{self.type}-{self.value}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters(value=self.value)
+
+
+class IsNullOperator(v1_ConfigModel):
+    type: Literal["is_null"]
+
+    operator: str = AssertionStdOperatorClass.NULL
+
+    def id(self) -> str:
+        return f"{self.type}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters()
+
+
 class NotNullOperator(v1_ConfigModel):
-    type: Literal["not_null"]
+    type: Literal["is_not_null"]
 
     operator: str = AssertionStdOperatorClass.NOT_NULL
 
@@ -151,12 +205,72 @@ class NotNullOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters()
 
 
+class ContainsOperator(v1_ConfigModel):
+    type: Literal["contains"]
+    value: str
+
+    operator: str = AssertionStdOperatorClass.CONTAIN
+
+    def id(self) -> str:
+        return f"{self.type}-{self.value}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters(value=self.value)
+
+
+class EndsWithOperator(v1_ConfigModel):
+    type: Literal["ends_with"]
+    value: str
+
+    operator: str = AssertionStdOperatorClass.END_WITH
+
+    def id(self) -> str:
+        return f"{self.type}-{self.value}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters(value=self.value)
+
+
+class StartsWithOperator(v1_ConfigModel):
+    type: Literal["starts_with"]
+    value: str
+
+    operator: str = AssertionStdOperatorClass.START_WITH
+
+    def id(self) -> str:
+        return f"{self.type}-{self.value}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters(value=self.value)
+
+
+class MatchesRegexOperator(v1_ConfigModel):
+    type: Literal["matches_regex"]
+    value: str
+
+    operator: str = AssertionStdOperatorClass.REGEX_MATCH
+
+    def id(self) -> str:
+        return f"{self.type}-{self.value}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters(value=self.value)
+
+
 Operators = Union[
+    InOperator,
+    NotInToOperator,
     EqualToOperator,
+    NotEqualToOperator,
     BetweenOperator,
     LessThanOperator,
     LessThanOrEqualToOperator,
     GreaterThanOperator,
     GreaterThanOrEqualToOperator,
+    IsNullOperator,
     NotNullOperator,
+    ContainsOperator,
+    EndsWithOperator,
+    StartsWithOperator,
+    MatchesRegexOperator,
 ]

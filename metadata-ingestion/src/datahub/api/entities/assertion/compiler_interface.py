@@ -37,6 +37,8 @@ class AssertionCompilationReport(Report):
     warnings: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
     failures: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
 
+    artifacts: List[Path] = field(default_factory=list)
+
     def report_warning(self, key: str, reason: str) -> None:
         warnings = self.warnings.get(key, LossyList())
         warnings.append(reason)
@@ -63,6 +65,7 @@ class AssertionCompilationResult:
 
     def add_artifact(self, artifact: CompileResultArtifact) -> None:
         self.artifacts.append(artifact)
+        self.report.artifacts.append(artifact.path)
 
 
 class AssertionCompiler:

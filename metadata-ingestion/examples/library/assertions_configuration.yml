@@ -4,7 +4,7 @@ assertions:
   # Volume Assertion
   - type: volume
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions_all_times,PROD)
-    operator:
+    condition:
       type: less_than_or_equal_to
       value: 1000
     schedule:
@@ -19,7 +19,7 @@ assertions:
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions_all_times,PROD)
     field: col_date
     metric: null_count
-    operator:
+    condition:
       type: equal_to
       value: 0
     schedule:
@@ -33,7 +33,7 @@ assertions:
   - type: field
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions,PROD)
     field: value
-    operator:
+    condition:
       type: between
       min: 0
       max: 10
@@ -45,10 +45,10 @@ assertions:
         - col: value
           native_type: INT
   # Custom SQL Metric Assertion
-  - type: custom_sql
+  - type: sql
     entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions,PROD)
-    sql: select mode(value) from test_db.public.test_assertions
-    operator:
+    statement: select mode(value) from test_db.public.test_assertions
+    condition:
       type: equal_to
       value: 5
     schedule:

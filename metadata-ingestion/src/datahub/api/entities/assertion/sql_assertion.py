@@ -20,9 +20,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 
 
 class SqlMetricAssertion(BaseEntityAssertion):
-    type: Literal["custom_sql"]
-    sql: str
-    operator: Operators = v1_Field(discriminator="type")
+    type: Literal["sql"]
+    statement: str
+    operator: Operators = v1_Field(discriminator="type", alias="condition")
 
     def get_assertion_info(
         self,
@@ -33,7 +33,7 @@ class SqlMetricAssertion(BaseEntityAssertion):
             sqlAssertion=SqlAssertionInfo(
                 type=SqlAssertionType.METRIC,
                 entity=self.entity,
-                statement=self.sql,
+                statement=self.statement,
                 operator=self.operator.operator,
                 parameters=self.operator.generate_parameters(),
             ),
@@ -41,10 +41,10 @@ class SqlMetricAssertion(BaseEntityAssertion):
 
 
 class SqlMetricChangeAssertion(BaseEntityAssertion):
-    type: Literal["custom_sql"]
-    sql: str
+    type: Literal["sql"]
+    statement: str
     change_type: Literal["absolute", "percentage"]
-    operator: Operators = v1_Field(discriminator="type")
+    operator: Operators = v1_Field(discriminator="type", alias="condition")
 
     def get_assertion_info(
         self,
@@ -55,7 +55,7 @@ class SqlMetricChangeAssertion(BaseEntityAssertion):
             sqlAssertion=SqlAssertionInfo(
                 type=SqlAssertionType.METRIC_CHANGE,
                 entity=self.entity,
-                statement=self.sql,
+                statement=self.statement,
                 changeType=(
                     AssertionValueChangeType.ABSOLUTE
                     if self.change_type == Literal["absolute"]

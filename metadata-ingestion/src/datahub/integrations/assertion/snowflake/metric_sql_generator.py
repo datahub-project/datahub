@@ -58,7 +58,7 @@ class SnowflakeMetricSQLGenerator:
 
     @metric_sql.register
     def _(self, assertion: SqlMetricAssertion) -> str:
-        return f"select $1 as metric from ({assertion.sql})"
+        return f"select $1 as metric from ({assertion.statement})"
 
     @metric_sql.register
     def _(self, assertion: FieldMetricAssertion) -> str:

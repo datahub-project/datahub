@@ -2,8 +2,12 @@ from datetime import timedelta
 from typing import Union
 
 from typing_extensions import Literal
-
-from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel, v1_Field
+import humanfriendly
+from datahub.configuration.pydantic_migration_helpers import (
+    v1_ConfigModel,
+    v1_Field,
+    v1_validator,
+)
 
 
 class CronTrigger(v1_ConfigModel):
@@ -20,6 +24,13 @@ class CronTrigger(v1_ConfigModel):
 class IntervalTrigger(v1_ConfigModel):
     type: Literal["interval"]
     interval: timedelta
+
+    @v1_validator("interval", pre=True)
+    def lookback_interval_to_timedelta(cls, v):
+        if isinstance(v, str):
+            seconds = humanfriendly.parse_timespan(v)
+            return timedelta(seconds=seconds)
+        raise ValueError("Invalid value.")
 
 
 class EntityChangeTrigger(v1_ConfigModel):

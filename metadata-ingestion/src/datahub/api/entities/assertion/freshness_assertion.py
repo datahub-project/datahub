@@ -1,6 +1,7 @@
 from datetime import timedelta
+from enum import Enum
 from typing import Optional, Union
-
+import humanfriendly
 from typing_extensions import Literal
 
 from datahub.api.entities.assertion.assertion import (
@@ -9,7 +10,7 @@ from datahub.api.entities.assertion.assertion import (
 )
 from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
 from datahub.api.entities.assertion.filter import DatasetFilter
-from datahub.configuration.pydantic_migration_helpers import v1_Field
+from datahub.configuration.pydantic_migration_helpers import v1_Field, v1_validator
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
@@ -24,9 +25,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import CalendarInterval
 
 
+class FreshnessSourceType(Enum):
+    LAST_MODIFIED_COLUMN = "last_modified_column"
+
+
 class CronFreshnessAssertion(BaseEntityAssertion):
     type: Literal["freshness"]
-    freshness_schedule_type: Literal["cron"]
+    freshness_type: Literal["cron"]
     cron: str = v1_Field(
         description="The cron expression to use. See https://crontab.guru/ for help."
     )
@@ -34,6 +39,10 @@ class CronFreshnessAssertion(BaseEntityAssertion):
         "UTC",
         description="The timezone to use for the cron schedule. Defaults to UTC.",
     )
+    source_type: FreshnessSourceType = v1_Field(
+        default=FreshnessSourceType.LAST_MODIFIED_COLUMN
+    )
+    last_modified_field: str
     filter: Optional[DatasetFilter] = v1_Field(default=None)
 
     def get_assertion_info(
@@ -55,9 +64,20 @@ class CronFreshnessAssertion(BaseEntityAssertion):
 
 class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
     type: Literal["freshness"]
-    freshness_schedule_type: Literal["interval"]
-    interval: timedelta
+    freshness_type: Literal["interval"] = v1_Field(default="interval")
+    lookback_interval: timedelta
     filter: Optional[DatasetFilter] = v1_Field(default=None)
+    source_type: FreshnessSourceType = v1_Field(
+        default=FreshnessSourceType.LAST_MODIFIED_COLUMN
+    )
+    last_modified_field: str
+
+    @v1_validator("lookback_interval", pre=True)
+    def lookback_interval_to_timedelta(cls, v):
+        if isinstance(v, str):
+            seconds = humanfriendly.parse_timespan(v)
+            return timedelta(seconds=seconds)
+        raise ValueError("Invalid value.")
 
     def get_assertion_info(
         self,
@@ -71,7 +91,8 @@ class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
                 schedule=FreshnessAssertionSchedule(
                     type=FreshnessAssertionScheduleType.FIXED_INTERVAL,
                     fixedInterval=FixedIntervalSchedule(
-                        unit=CalendarInterval.SECOND, multiple=self.interval.seconds
+                        unit=CalendarInterval.SECOND,
+                        multiple=self.lookback_interval.seconds,
                     ),
                 ),
             ),
@@ -79,9 +100,7 @@ class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
 
 
 class FreshnessAssertion(BaseAssertionProtocol):
-    __root__: Union[CronFreshnessAssertion, FixedIntervalFreshnessAssertion] = v1_Field(
-        discriminator="freshness_schedule_type"
-    )
+    __root__: Union[FixedIntervalFreshnessAssertion, CronFreshnessAssertion]
 
     @property
     def assertion(self):

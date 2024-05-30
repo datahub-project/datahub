@@ -19,6 +19,7 @@ from datahub.integrations.assertion.common import get_entity_name
 
 
 class SnowflakeFieldValuesMetricSQLGenerator:
+    # TODO: support remaining operators
     @singledispatchmethod
     def values_metric_sql(
         self,
