@@ -10,6 +10,8 @@ import { EMPTY_MESSAGES } from '../../../../constants';
 import SectionActionButton from '../SectionActionButton';
 import EmptySectionText from '../EmptySectionText';
 
+const LINE_LIMIT = 5;
+
 interface Properties {
     hideLinksButton?: boolean;
 }
@@ -38,7 +40,9 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                 title="Documentation"
                 content={
                     <>
-                        {description && <DescriptionSection description={description} isExpandable limit={100} />}
+                        {description && (
+                            <DescriptionSection description={description} isExpandable lineLimit={LINE_LIMIT} />
+                        )}
                         {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
                         {!hasContent && <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />}
                     </>

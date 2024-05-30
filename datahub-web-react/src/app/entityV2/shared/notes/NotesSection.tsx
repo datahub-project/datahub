@@ -10,10 +10,10 @@ import { Post } from '../../../../types.generated';
 import CustomAvatar from '../../../shared/avatar/CustomAvatar';
 import { COLORS } from '../../../sharedV2/colors';
 import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
+import CompactMarkdownViewer from '../tabs/Documentation/components/CompactMarkdownViewer';
 import EmptySectionText from '../containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '../containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
-import { Editor } from '../tabs/Documentation/components/editor/Editor';
 
 const ContentWrapper = styled.div`
     display: flex;
@@ -79,9 +79,14 @@ export default function NotesSection({ urn, subResource, notes, refetch, showEmp
 
 const NoteEditWrapper = styled.div`
     display: none;
+    position: relative;
+`;
+
+const NoteEditIcons = styled.div`
+    display: flex;
     gap: 5px;
 
-    position: relative;
+    position: absolute;
     right: -9px;
 `;
 
@@ -91,7 +96,7 @@ const NoteWrapper = styled.div`
 
     :hover {
         ${NoteEditWrapper} {
-            display: flex;
+            display: inline;
         }
     }
 `;
@@ -167,16 +172,18 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
                 <NoteTitle>{note.content.title}</NoteTitle>
                 {note.content.description && (
                     <NoteDescriptionContainer>
-                        <Editor content={note.content.description} readOnly />
+                        <CompactMarkdownViewer content={note.content.description} />
                     </NoteDescriptionContainer>
                 )}
             </NoteContent>
             <NoteEditWrapper>
-                <SectionActionButton button={<EditOutlinedIcon />} onClick={() => setShowEditModal(true)} />
-                <SectionActionButton
-                    button={<DeleteOutlineOutlinedIcon />}
-                    onClick={() => onDeleteNote(() => deletePost({ variables: { urn: note.urn } }).then(refetch))}
-                />
+                <NoteEditIcons>
+                    <SectionActionButton button={<EditOutlinedIcon />} onClick={() => setShowEditModal(true)} />
+                    <SectionActionButton
+                        button={<DeleteOutlineOutlinedIcon />}
+                        onClick={() => onDeleteNote(() => deletePost({ variables: { urn: note.urn } }).then(refetch))}
+                    />
+                </NoteEditIcons>
             </NoteEditWrapper>
             {showEditModal && (
                 <CreateEntityAnnouncementModal

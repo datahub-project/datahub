@@ -11,7 +11,7 @@ import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/p
 import { EntityType } from '../../../../../../types.generated';
 import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
-import SourceDescription from './SourceDesription';
+import SourceDescription from './SourceDescription';
 import { sanitizeRichText } from './editor/utils';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];

@@ -5,6 +5,8 @@ import { ANTD_GRAY } from '../../../constants';
 import DescriptionSection from '../../../containers/profile/sidebar/AboutSection/DescriptionSection';
 import { getPlatformName } from '../../../utils';
 
+const LINE_LIMIT = 10;
+
 const SourceDescriptionWrapper = styled.div`
     border-top: 1px solid ${ANTD_GRAY[4]};
     padding: 16px 0 16px 32px;
@@ -25,7 +27,7 @@ export default function SourceDescription() {
     return (
         <SourceDescriptionWrapper>
             <Title>{platformName ? <span>{platformName}</span> : <>Source</>} Documentation:</Title>
-            <DescriptionSection description={sourceDescription} limit={200} isExpandable />
+            <DescriptionSection description={sourceDescription} lineLimit={LINE_LIMIT} isExpandable />
         </SourceDescriptionWrapper>
     );
 }

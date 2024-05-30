@@ -1,9 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import MarkdownViewer from '../../../../components/legacy/MarkdownViewer';
+import CompactMarkdownViewer from '../../../../tabs/Documentation/components/CompactMarkdownViewer';
 import { REDESIGN_COLORS } from '../../../../constants';
-
-const ABBREVIATED_LIMIT = 150;
 
 const ContentWrapper = styled.div`
     font-size: 12px;
@@ -16,20 +14,13 @@ const ContentWrapper = styled.div`
 interface Props {
     description: string;
     isExpandable?: boolean;
-    limit?: number;
+    lineLimit?: number;
 }
 
-export default function DescriptionSection({ description, isExpandable, limit }: Props) {
+export default function DescriptionSection({ description, isExpandable, lineLimit }: Props) {
     return (
         <ContentWrapper>
-            <MarkdownViewer
-                limit={limit || ABBREVIATED_LIMIT}
-                source={description}
-                editable={false}
-                ignoreLimit={!isExpandable}
-                isCompact
-                shouldShowScroll={false}
-            />
+            <CompactMarkdownViewer lineLimit={isExpandable ? lineLimit : null} content={description} />
         </ContentWrapper>
     );
 }

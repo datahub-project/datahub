@@ -33,6 +33,10 @@ const StyledTable = styled(Table)`
         line-height: 16px;
         color: ${ANTD_GRAY_V2[12]};
     }
+
+    .ant-table-body {
+        overflow-y: auto !important;
+    }
 `;
 
 type Props = {
@@ -104,7 +108,7 @@ export default function QueriesListSection({
     const recentQueriesColumns = [queryTextColumn('60%'), lastRunColumn];
 
     const showPagination = queries.length > initialPageSize;
-    const pagionationOptions = showPagination
+    const paginationOptions = showPagination
         ? ({ defaultPageSize: initialPageSize, position: ['bottomCenter'] } as TablePaginationConfig)
         : false;
 
@@ -122,7 +126,7 @@ export default function QueriesListSection({
                 <StyledTable
                     dataSource={queries}
                     columns={highlightedQueriesColumns}
-                    pagination={pagionationOptions}
+                    pagination={paginationOptions}
                     scroll={{ y: 400 }}
                     onRow={(row) => {
                         return {
@@ -136,7 +140,7 @@ export default function QueriesListSection({
                 <StyledTable
                     dataSource={queries}
                     columns={popularQueriesColumns}
-                    pagination={pagionationOptions}
+                    pagination={paginationOptions}
                     scroll={{ y: 400 }}
                 />
             )}
@@ -144,7 +148,7 @@ export default function QueriesListSection({
                 <StyledTable
                     dataSource={queries}
                     columns={downstreamQueriesColumns}
-                    pagination={pagionationOptions}
+                    pagination={paginationOptions}
                     scroll={{ y: 400 }}
                 />
             )}
@@ -152,7 +156,7 @@ export default function QueriesListSection({
                 <StyledTable
                     dataSource={queries}
                     columns={recentQueriesColumns}
-                    pagination={pagionationOptions}
+                    pagination={paginationOptions}
                     scroll={{ y: 400 }}
                 />
             )}
