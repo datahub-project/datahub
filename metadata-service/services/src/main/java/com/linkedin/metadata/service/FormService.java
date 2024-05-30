@@ -27,11 +27,13 @@ import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.OwnershipUtils;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.key.FormKey;
 import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.util.FormTestBuilder;
 import com.linkedin.metadata.service.util.SearchBasedFormAssignmentRunner;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.FormUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -1326,5 +1328,27 @@ public class FormService extends BaseService {
     return ownershipFormUrns.stream()
         .filter(formsOnOwnedEntities::contains)
         .collect(Collectors.toList());
+  }
+
+  /** Create a form given the formInfo aspect. */
+  public Urn createForm(
+      @Nonnull OperationContext opContext,
+      @Nonnull final FormInfo formInfo,
+      @Nullable final String id) {
+
+    FormKey formKey = new FormKey();
+    String formId = id != null ? id : UUID.randomUUID().toString();
+    formKey.setId(formId);
+    Urn formUrn = EntityKeyUtils.convertEntityKeyToUrn(formKey, FORM_ENTITY_NAME);
+
+    try {
+      this.entityClient.ingestProposal(
+          opContext,
+          AspectUtils.buildMetadataChangeProposal(formUrn, FORM_INFO_ASPECT_NAME, formInfo),
+          false);
+      return formUrn;
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create form", e);
+    }
   }
 }
