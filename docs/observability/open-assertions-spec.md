@@ -120,6 +120,7 @@ version: 1
 assertions:
   - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_events,PROD)
     type: volume
+    metric: 'row_count'
     condition:
       type: greater_than_or_equal_to
       value: 1000
@@ -165,7 +166,7 @@ assertions:
         type: between
         min: 0
         max: 10
-    excludeNulls: True
+    exclude_nulls: True
     # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
@@ -176,7 +177,7 @@ Using the `field` field, you can specify the column to be asserted on, and using
 and the `min` and `max` fields to specify the range of values to compare against.
 Using the `schedule` field you can specify when the assertion should be run, either on a fixed schedule or when new data is added to the table.
 Using the `filters` field, you can optionally specify a SQL WHERE clause to filter the records being counted.
-Using the `excludeNulls` field, you can specify whether to exclude NULL values from the assertion, meaning that 
+Using the `exclude_nulls` field, you can specify whether to exclude NULL values from the assertion, meaning that 
 NULL will simply be ignored if encountered, as opposed to failing the check. 
 
 #### Field Values Assertion: Validating that All Column Values are In Expected Set
@@ -195,7 +196,7 @@ assertions:
           - 'product_1'
           - 'product_2'
           - 'product_3'
-    excludeNulls: False
+    exclude_nulls: False
     # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
@@ -214,7 +215,7 @@ assertions:
     condition:
       type: matches_regex
       value: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
-    excludeNulls: False
+    exclude_nulls: False
     # filters: "event_type = 'purchase'" Optionally add filters for Column Assertion. 
     schedule:
       type: on_table_change
