@@ -160,6 +160,8 @@ class SqlAggregatorReport(Report):
     # SQL parsing (over all invocations).
     num_sql_parsed: int = 0
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
@@ -381,7 +383,8 @@ class SqlParsingAggregator(Closeable):
 
     def _maybe_format_query(self, query: str) -> str:
         if self.format_queries:
-            return try_format_query(query, self.platform.platform_name)
+            with self.report.sql_formatting_timer:
+                return try_format_query(query, self.platform.platform_name)
         return query
 
     def add_known_query_lineage(
@@ -405,9 +408,12 @@ class SqlParsingAggregator(Closeable):
         self.report.num_known_query_lineage += 1
 
         # Generate a fingerprint for the query.
-        query_fingerprint = get_query_fingerprint(
-            known_query_lineage.query_text, platform=self.platform.platform_name
-        )
+        with self.report.sql_fingerprinting_timer:
+            query_fingerprint = get_query_fingerprint(
+                known_query_lineage.query_text,
+                platform=self.platform.platform_name,
+                fast=True,
+            )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
         # Register the query.
