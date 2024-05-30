@@ -161,7 +161,7 @@ class BigQuerySchemaApi:
                 while True:
                     with rate_limiter:
                         projects_iterator = self.bq_client.list_projects(
-                            max_results=30, page_token=page_token
+                            max_results=49, page_token=page_token, page_size=50
                         )
                         for p in projects_iterator:
                             projects.append(
