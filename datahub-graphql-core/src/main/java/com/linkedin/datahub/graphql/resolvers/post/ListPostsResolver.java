@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ListPostsInput;
 import com.linkedin.datahub.graphql.generated.ListPostsResult;
 import com.linkedin.datahub.graphql.types.post.PostMapper;
@@ -45,7 +46,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final SortCriterion sortCriterion =
@@ -87,6 +88,8 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
           } catch (Exception e) {
             throw new RuntimeException("Failed to list posts", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

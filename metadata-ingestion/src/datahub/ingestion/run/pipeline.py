@@ -22,6 +22,7 @@ from datahub.configuration.common import (
 )
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
+from datahub.ingestion.api.global_context import set_graph_context
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
@@ -121,6 +122,8 @@ def _add_init_error_context(step: str) -> Iterator[None]:
 
     try:
         yield
+    except PipelineInitError:
+        raise
     except Exception as e:
         raise PipelineInitError(f"Failed to {step}: {e}") from e
 
@@ -259,31 +262,33 @@ class Pipeline:
         self.ctx.graph = self.graph
         telemetry.telemetry_instance.update_capture_exception_context(server=self.graph)
 
-        # once a sink is configured, we can configure reporting immediately to get observability
-        with _add_init_error_context("configure reporters"):
-            self._configure_reporting(report_to, no_default_report)
+        with set_graph_context(self.graph):
+            with _add_init_error_context("configure reporters"):
+                self._configure_reporting(report_to, no_default_report)
 
-        with _add_init_error_context(
-            f"find a registered source for type {self.source_type}"
-        ):
-            source_class = source_registry.get(self.source_type)
+            with _add_init_error_context(
+                f"find a registered source for type {self.source_type}"
+            ):
+                source_class = source_registry.get(self.source_type)
 
-        with _add_init_error_context(f"configure the source ({self.source_type})"):
-            self.source = source_class.create(
-                self.config.source.dict().get("config", {}), self.ctx
-            )
-            logger.debug(f"Source type {self.source_type} ({source_class}) configured")
-            logger.info("Source configured successfully.")
+            with _add_init_error_context(f"configure the source ({self.source_type})"):
+                self.source = source_class.create(
+                    self.config.source.dict().get("config", {}), self.ctx
+                )
+                logger.debug(
+                    f"Source type {self.source_type} ({source_class}) configured"
+                )
+                logger.info("Source configured successfully.")
 
-        extractor_type = self.config.source.extractor
-        with _add_init_error_context(f"configure the extractor ({extractor_type})"):
-            extractor_class = extractor_registry.get(extractor_type)
-            self.extractor = extractor_class(
-                self.config.source.extractor_config, self.ctx
-            )
+            extractor_type = self.config.source.extractor
+            with _add_init_error_context(f"configure the extractor ({extractor_type})"):
+                extractor_class = extractor_registry.get(extractor_type)
+                self.extractor = extractor_class(
+                    self.config.source.extractor_config, self.ctx
+                )
 
-        with _add_init_error_context("configure transformers"):
-            self._configure_transforms()
+            with _add_init_error_context("configure transformers"):
+                self._configure_transforms()
 
     @property
     def source_type(self) -> str:
@@ -483,7 +488,6 @@ class Pipeline:
                         # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
                         self.sink.write_record_async(record_envelope, callback)
 
-                self.sink.close()
                 self.process_commits()
                 self.final_status = "completed"
             except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
@@ -497,6 +501,8 @@ class Pipeline:
                     callback.close()  # type: ignore
 
                 self._notify_reporters_on_ingestion_completion()
+
+                self.sink.close()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """

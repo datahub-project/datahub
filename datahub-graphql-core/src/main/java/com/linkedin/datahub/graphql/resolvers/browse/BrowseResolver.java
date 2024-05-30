@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.browse;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BrowseInput;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -38,7 +39,7 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _logger.debug(
@@ -64,6 +65,8 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
                         input.getType(), input.getPath(), input.getFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }
