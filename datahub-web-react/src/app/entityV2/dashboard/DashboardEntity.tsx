@@ -15,7 +15,7 @@ import {
     useGetDashboardQuery,
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
-import { Dashboard, EntityType, LineageDirection, OwnershipType, SearchResult } from '../../../types.generated';
+import { Dashboard, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { LOOKER_URN, MODE_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
@@ -199,13 +199,16 @@ export class DashboardEntity implements Entity<Dashboard> {
             component: SidebarDashboardHeaderSection,
         },
         {
-            component: SidebarDomainSection,
-        },
-        {
             component: SyncedAssetSection,
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
         },
         {
             component: DataProductSection,
@@ -215,12 +218,6 @@ export class DashboardEntity implements Entity<Dashboard> {
         },
         {
             component: SidebarLineageSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
         },
         {
             component: SidebarGlossaryTermsSection,

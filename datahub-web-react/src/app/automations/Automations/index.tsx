@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { uniq } from 'lodash';
+import { uniq, orderBy } from 'lodash';
 
 import { useListTestsQuery } from '../../../graphql/test.generated';
 import { useListActionPipelinesQuery } from '../../../graphql/actionPipeline.generated';
@@ -13,7 +13,7 @@ import {
 	AutomationsContentBody,
 	AutomationsContentTabs,
 	AutomationsContentTab,
-	AutomationsBody
+	AutomationsBody,
 } from './components';
 
 import { LargeButtonPrimary } from '../sharedComponents';
@@ -21,7 +21,7 @@ import { LargeButtonPrimary } from '../sharedComponents';
 import { simplifyDataForListView } from '../utils';
 
 import { AutomationsListCard } from './ListCard';
-import { AutomationCreateModal } from './CreateModal';
+import { AutomationModal } from './Modal';
 
 export const Automations = () => {
 	// Create Modal State
@@ -32,9 +32,9 @@ export const Automations = () => {
 		variables: {
 			input: {
 				start: 0,
-				count: 10
-			}
-		}
+				count: 10,
+			},
+		},
 	});
 
 	// Fetch action pipelines
@@ -42,9 +42,9 @@ export const Automations = () => {
 		variables: {
 			input: {
 				start: 0,
-				count: 10
-			}
-		}
+				count: 10,
+			},
+		},
 	});
 
 	// Raw Data
@@ -58,7 +58,7 @@ export const Automations = () => {
 	// All Automations
 	const allAutomations = [...simplifiedActionPipelines, ...simplifiedMetadataTests];
 
-	// Get Categories 
+	// Get Categories
 	const categories = uniq(allAutomations.map((automation: any) => automation.category));
 
 	// Build tabs
@@ -67,13 +67,16 @@ export const Automations = () => {
 			key: 'all',
 			label: 'All',
 			data: allAutomations,
-		}
+			count: allAutomations.length,
+		},
 	];
+
 	categories.forEach((category: string) => {
 		tabs.push({
 			key: category,
 			label: category,
-			data: allAutomations.filter((automation: any) => automation.category === category)
+			data: allAutomations.filter((automation: any) => automation.category === category),
+			count: allAutomations.filter((automation: any) => automation.category === category).length,
 		});
 	});
 
@@ -85,7 +88,7 @@ export const Automations = () => {
 	// const isError = testsError || actionsError;
 	// const noData = allAutomations.length === 0;
 
-	// POC Variables 
+	// POC Variables
 	const hideSidebar = true;
 
 	return (
@@ -99,8 +102,8 @@ export const Automations = () => {
 				<AutomationsContent>
 					<AutomationsContentHeader>
 						<div>
-							<h1>All Automations</h1>
-							<p>Description</p>
+							<h1>Automations</h1>
+							<p>Monitor policies and automate actions across data assets.</p>
 						</div>
 						<div>
 							<LargeButtonPrimary onClick={() => setIsOpen(!isOpen)}>
@@ -110,31 +113,24 @@ export const Automations = () => {
 					</AutomationsContentHeader>
 					<AutomationsContentBody>
 						<AutomationsContentTabs>
-							{tabs.map((tab) => (
+							{orderBy(tabs, ['count'], ['desc']).map((tab) => (
 								<AutomationsContentTab
 									key={tab.key}
 									isActive={activeTab === tab.key}
 									onClick={() => setActiveTab(tab.key)}
 								>
 									{tab.label}
+									<span>{tab.count}</span>
 								</AutomationsContentTab>
 							))}
 						</AutomationsContentTabs>
 						<AutomationsBody>
-							{data.map((item) =>
-								<AutomationsListCard
-									key={item.key}
-									automation={item}
-								/>
-							)}
+							{data.map((item) => <AutomationsListCard key={item.key} automation={item} />)}
 						</AutomationsBody>
 					</AutomationsContentBody>
 				</AutomationsContent>
 			</AutomationsPageContainer>
-			<AutomationCreateModal
-				isOpen={isOpen}
-				setIsOpen={setIsOpen}
-			/>
+			<AutomationModal isOpen={isOpen} setIsOpen={setIsOpen} />
 		</>
 	);
 };

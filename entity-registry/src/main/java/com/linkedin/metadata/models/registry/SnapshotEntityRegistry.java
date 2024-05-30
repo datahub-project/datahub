@@ -8,6 +8,7 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.patch.template.Template;
 import com.linkedin.metadata.aspect.patch.template.assertion.AssertionInferenceTemplate;
+import com.linkedin.metadata.aspect.patch.template.assertion.AssertionsSummaryTemplate;
 import com.linkedin.metadata.aspect.patch.template.chart.ChartInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlossaryTermsTemplate;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductProper
 import com.linkedin.metadata.aspect.patch.template.dataset.DatasetPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.EditableSchemaMetadataTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.UpstreamLineageTemplate;
+import com.linkedin.metadata.aspect.patch.template.form.FormInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.monitor.MonitorInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.tests.TestResultsTemplate;
 import com.linkedin.metadata.models.AspectSpec;
@@ -91,6 +93,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());
     aspectSpecTemplateMap.put(
         STRUCTURED_PROPERTIES_ASPECT_NAME, new StructuredPropertiesTemplate());
+    aspectSpecTemplateMap.put(FORM_INFO_ASPECT_NAME, new FormInfoTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 
@@ -101,6 +104,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(TEST_RESULTS_ASPECT_NAME, new TestResultsTemplate());
     aspectSpecTemplateMap.put(
         ASSERTION_INFERENCE_DETAILS_ASPECT_NAME, new AssertionInferenceTemplate());
+    aspectSpecTemplateMap.put(ASSERTIONS_SUMMARY_ASPECT_NAME, new AssertionsSummaryTemplate());
   }
 
   @Nonnull

@@ -84,9 +84,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     }, [urn, routeToTab, showModal, localStorageDictionary]);
 
     return isEditing && !showModal ? (
-        <>
-            <DescriptionEditor onComplete={() => routeToTab({ tabName: 'Documentation' })} />
-        </>
+        <DescriptionEditor onComplete={() => routeToTab({ tabName: 'Documentation' })} />
     ) : (
         <>
             {description || links.length ? (

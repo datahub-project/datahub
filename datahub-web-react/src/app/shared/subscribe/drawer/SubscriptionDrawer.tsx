@@ -6,7 +6,7 @@ import UpstreamSection from './section/UpstreamSection';
 import NotificationRecipientSection from './section/NotificationRecipientSection';
 import Footer from './section/Footer';
 import SelectGroupSection from './section/SelectGroupSection';
-import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../types.generated';
+import { Assertion, DataHubSubscription, EntityType, NotificationSinkType } from '../../../../types.generated';
 import {
     getEmailSettingsChannel,
     getEmailSubscriptionChannel,
@@ -72,9 +72,12 @@ interface Props {
     isSubscribed: boolean;
     canManageSubscription?: boolean | null;
     subscription?: DataHubSubscription;
+    forSubResource?: {
+        assertion?: Assertion;
+    };
     onRefetch?: () => void;
     onUpsertSubscription?: () => void;
-    onDeleteSubscription: () => void;
+    onDeleteSubscription?: () => void;
 }
 
 // TODO: Decide whether the abstraction used within this component is really warranted.
@@ -90,6 +93,7 @@ const SubscriptionDrawerContent = ({
     isSubscribed,
     canManageSubscription,
     subscription,
+    forSubResource,
     onRefetch,
     onUpsertSubscription,
     onDeleteSubscription,
@@ -144,6 +148,7 @@ const SubscriptionDrawerContent = ({
         subscription,
         onCreateSuccess: () => onUpsertSubscription?.(),
         onRefetch,
+        forSubResource
     });
 
     const showBottomDrawerSection = isPersonal || (groupUrn && canManageSubscription);
@@ -169,6 +174,7 @@ const SubscriptionDrawerContent = ({
             emailSinkEnabled: emailSinkSupported,
             entityType,
             subscription,
+            forSubResource,
             slackSubscriptionChannel,
             slackSettingsChannel,
             emailSubscriptionChannel,
@@ -187,6 +193,7 @@ const SubscriptionDrawerContent = ({
         emailSinkSupported,
         subscription,
         sinkTypes,
+        forSubResource
     ]);
 
     const onUpdate = () => {
@@ -234,8 +241,8 @@ const SubscriptionDrawerContent = ({
         onClose();
     };
 
-    const onCancelOrUnsubscribe = () => {
-        if (isSubscribed) onDeleteSubscription();
+    const onCancelOrUnsubscribe = (isUnsubscribe: boolean) => {
+        if (isUnsubscribe) onDeleteSubscription?.();
         onClose();
     };
 
@@ -246,6 +253,7 @@ const SubscriptionDrawerContent = ({
                 <Footer
                     canManageSubscription={canManageSubscription}
                     isSubscribed={isSubscribed}
+                    forSubResource={forSubResource}
                     onCancelOrUnsubscribe={onCancelOrUnsubscribe}
                     onUpdate={onUpdate}
                 />
@@ -255,7 +263,8 @@ const SubscriptionDrawerContent = ({
             closable={false}
         >
             <SubscriptionTitleContainer>
-                <SubscriptionTitle>Subscribe to {entityName}</SubscriptionTitle>
+                {/* TODO: enter assertion name here (derrive it from parameters if needed) */}
+                <SubscriptionTitle>Subscribe to {forSubResource?.assertion ? 'assertion...' : entityName}</SubscriptionTitle>
             </SubscriptionTitleContainer>
             {!isPersonal && <SelectGroupSection groupUrn={groupUrn} setGroupUrn={setGroupUrn} />}
             {canManageSubscription === false && (
@@ -267,7 +276,11 @@ const SubscriptionDrawerContent = ({
             )}
             {showBottomDrawerSection && (
                 <>
-                    <NotificationTypesSection />
+                    <NotificationTypesSection
+                        subscription={subscription}
+                        forSubResource={forSubResource}
+                        onClose={onClose}
+                    />
                     {ENABLE_UPSTREAM_NOTIFICATIONS && (
                         <UpstreamSection entityUrn={entityUrn} entityType={entityType} upstreamCount={upstreamCount} />
                     )}
@@ -281,9 +294,17 @@ const SubscriptionDrawerContent = ({
 const SubscriptionDrawer = (props: Props) => {
     const key = useDelayedKey({ condition: !props.isOpen });
 
+    const handleClick = (e) => {
+        e.stopPropagation();
+    };
+    /* eslint-disable jsx-a11y/click-events-have-key-events */
     return (
         <SubscriptionDrawerProvider key={key}>
-            <SubscriptionDrawerContent {...props} />
+            {/* Disabling no-static-element-interactions because we are deliberately using a div with an onClick handler to prevent propagation. */}
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+            <div onClick={handleClick}>
+                <SubscriptionDrawerContent {...props} />
+            </div>
         </SubscriptionDrawerProvider>
     );
 };

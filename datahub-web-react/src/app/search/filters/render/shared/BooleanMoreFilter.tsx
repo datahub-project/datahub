@@ -1,11 +1,11 @@
-import React, { useRef, useState } from 'react';
-import styled from 'styled-components';
 import { RightOutlined } from '@ant-design/icons';
 import { Dropdown } from 'antd';
-import { MoreFilterOptionLabel } from '../../styledComponents';
-import BooleanSearchFilterMenu from './BooleanMoreFilterMenu';
+import React, { useRef, useState } from 'react';
+import styled from 'styled-components';
 import FilterOption from '../../FilterOption';
+import { MoreFilterOptionLabel } from '../../styledComponents';
 import { useElementDimensions } from '../../utils';
+import BooleanSearchFilterMenu from './BooleanMoreFilterMenu';
 
 const IconNameWrapper = styled.span`
     display: flex;
@@ -71,7 +71,7 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 isOpen={isMenuOpen}
                 $isActive={isSelected}
-                data-testid={`more-filter-${title}`}
+                data-testid={`more-filter-${title.replace(/\s/g, '-').toLowerCase()}`}
             >
                 <IconNameWrapper>
                     {icon && <IconWrapper>{icon}</IconWrapper>}

@@ -160,3 +160,11 @@ task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:instal
             "source ${venv_name}/bin/activate && set -x && " +
                     "./cypress-dev.sh"
 }
+
+task lint {
+    dependsOn pythonLint, cypressLint
+}
+
+task lintFix {
+    dependsOn pythonLintFix
+}

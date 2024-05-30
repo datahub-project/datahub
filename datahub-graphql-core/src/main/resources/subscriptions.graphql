@@ -162,6 +162,19 @@ input EntityChangeDetailsInput {
     The change type that will trigger a notification for this subscription
     """
     entityChangeType: EntityChangeType!
+    
+    """
+    (Optional) A filter that can be applied to exclude or include specific entity change events.
+    """
+    filter: EntityChangeDetailsFilterInput
+}
+
+input EntityChangeDetailsFilterInput {
+    """
+    (Optional) A list of assertion urns to inclusively filter when generating notifications.
+    Used for EntityChangeType values of ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR.
+    """
+    includeAssertions: [String!]
 }
 
 input SubscriptionNotificationConfigInput {
@@ -226,6 +239,19 @@ type EntityChangeDetails {
     The change type that will trigger a notification for this subscription
     """
     entityChangeType: EntityChangeType!
+
+    """
+    (Optional) A filter that can be applied to exclude or include specific entity change events.
+    """
+    filter: EntityChangeDetailsFilter
+}
+
+type EntityChangeDetailsFilter {
+    """
+    (Optional) A list of assertion urns to inclusively filter when generating notifications.
+    Used for EntityChangeType values of ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR.
+    """
+    includeAssertions: [String!]
 }
 
 enum SubscriptionType {

@@ -1,9 +1,9 @@
-import { Modal, Popover, Typography, message } from 'antd';
+import { Modal, Popover, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import MarkdownViewer from '../../../components/legacy/MarkdownViewer';
+import CompactMarkdownViewer from '../../Documentation/components/CompactMarkdownViewer';
 import { CorpUser, EntityType } from '../../../../../../types.generated';
 import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
 import ActorAvatar from '../../../ActorAvatar';
@@ -17,51 +17,14 @@ import {
     getQueryPopularityTier,
 } from '../../../containers/profile/sidebar/shared/utils';
 
-/*
- * Description Column
- */
-
-const StyledLink = styled(Typography.Link)`
-    display: block;
-`;
-
-const TruncatedTextWrapper = styled.div`
-    display: inline;
-`;
-
-const MAX_DESCRIPTION_LENGTH = 50;
-
 interface DescriptionProps {
     description?: string;
 }
 
 export const QueryDescription = ({ description }: DescriptionProps) => {
-    const [isTruncated, setIsTruncated] = useState(description && description.length > MAX_DESCRIPTION_LENGTH);
-
     if (!description) return null;
 
-    const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
-
-    return (
-        <div>
-            {isTruncated && (
-                <>
-                    <TruncatedTextWrapper>
-                        <MarkdownViewer source={`${truncatedDescription}...`} />
-                    </TruncatedTextWrapper>
-                    <StyledLink onClick={() => setIsTruncated(false)}>Read more</StyledLink>
-                </>
-            )}
-            {!isTruncated && (
-                <>
-                    <MarkdownViewer source={description} ignoreLimit />
-                    {description.length > MAX_DESCRIPTION_LENGTH && (
-                        <StyledLink onClick={() => setIsTruncated(true)}>Read less</StyledLink>
-                    )}
-                </>
-            )}
-        </div>
-    );
+    return <CompactMarkdownViewer content={description} fixedLineHeight />;
 };
 
 /*

@@ -38,6 +38,21 @@ extend type Mutation {
   """
   # TODO remove this
   createActionExecutionRequest(input: CreateActionExecutionRequestInput!): String
+
+  """
+  Stop an existing action pipeline execution
+  """
+  stopActionPipeline(urn: String!): String
+
+  """
+  Start an existing action pipeline execution
+  """
+  startActionPipeline(urn: String!): String
+
+  """
+  Rollback an existing action pipeline execution
+  """
+  rollbackActionPipeline(urn: String!): String
 }
 
 """
@@ -63,6 +78,13 @@ type ActionPipeline implements Entity {
   Not implemented!
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  The current status of the action pipeline
+  Experimental: This field may change or be removed in the future without notice.
+  """
+  status: String
+
 }
 
 type ActionPipelineDetails {

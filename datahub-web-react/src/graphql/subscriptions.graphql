@@ -191,6 +191,10 @@ fragment subscriptionFields on DataHubSubscription {
     subscriptionTypes
     entityChangeTypes {
         entityChangeType
+        filter {
+            includeAssertions
+        }
+
     }
     createdOn {
         time

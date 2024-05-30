@@ -73,15 +73,17 @@ const PreviewCardFooterRightSection = ({
                             entityType={entityType}
                             urn={urn}
                         />
-                        {!!lastUpdatedMs?.lastUpdatedMs && <StyledDivider type="vertical" />}
                     </>
                 )}
                 {!!lastUpdatedMs?.lastUpdatedMs && (
-                    <Freshness
-                        time={lastUpdatedMs.lastUpdatedMs}
-                        timeProperty={lastUpdatedMs.property}
-                        showDate={false}
-                    />
+                    <>
+                        <StyledDivider type="vertical" />
+                        <Freshness
+                            time={lastUpdatedMs.lastUpdatedMs}
+                            timeProperty={lastUpdatedMs.property}
+                            showDate={false}
+                        />
+                    </>
                 )}
                 {!!(tier !== undefined && status) && (
                     <>

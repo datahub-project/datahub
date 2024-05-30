@@ -134,13 +134,13 @@ export class DomainEntity implements Entity<Domain> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarOwnerSection,
+        },
+        {
             component: SidebarAboutSection,
         },
         {
             component: SidebarEntitiesSection,
-        },
-        {
-            component: SidebarOwnerSection,
         },
     ];
 

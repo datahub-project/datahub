@@ -1,21 +1,14 @@
 package com.linkedin.metadata.kafka.hook.assertion;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.service.AssertionsSummaryUtils.*;
+import static com.linkedin.metadata.kafka.hook.common.AssertionUtils.extractAssertionEntities;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
-import com.linkedin.assertion.DatasetAssertionInfo;
-import com.linkedin.assertion.FieldAssertionInfo;
-import com.linkedin.assertion.FreshnessAssertionInfo;
-import com.linkedin.assertion.SchemaAssertionInfo;
-import com.linkedin.assertion.SqlAssertionInfo;
-import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.AssertionSummaryDetails;
 import com.linkedin.common.AssertionSummaryDetailsArray;
 import com.linkedin.common.AssertionsSummary;
@@ -25,6 +18,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.AssertionService;
@@ -144,8 +138,14 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     log.debug(
         "Attempting to clean up remaining references to assertion with urn {}.",
         event.getEntityUrn());
-    this._assertionService.tryDeleteAssertionReferences(
-        systemOperationContext, event.getEntityUrn());
+    // Step 1: Find all entities that have this assertion in the summary.
+    final List<Urn> entityUrns =
+        _assertionService.listEntitiesWithAssertionInSummary(
+            systemOperationContext, event.getEntityUrn());
+    // Step 2: Remove from each entity.
+    for (Urn entityUrn : entityUrns) {
+      removeAssertionFromSummary(event.getEntityUrn(), entityUrn);
+    }
   }
 
   private void handleAssertionTargetEntityChanged(
@@ -258,18 +258,17 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
     }
   }
 
-  /** Removes an assertion to the AssertionSummary aspect for a related entity. */
+  /**
+   * Removes an assertion to the AssertionSummary aspect for a related entity via PATCH operation.
+   */
   private void removeAssertionFromSummary(
       @Nonnull final Urn assertionUrn, @Nonnull final Urn entityUrn) {
-    // 1. Fetch the latest assertion summary for the entity
-    AssertionsSummary summary = getAssertionsSummary(entityUrn);
+    // 1. Build the patch
+    AssertionsSummaryPatchBuilder patchBuilder =
+        buildRemoveAssertionFromSummaryPatch(assertionUrn, entityUrn);
 
-    // 2. Remove the assertion from failing and passing summary
-    removeAssertionFromFailingSummary(assertionUrn, summary);
-    removeAssertionFromPassingSummary(assertionUrn, summary);
-
-    // 3. Emit the change back!
-    updateAssertionSummary(entityUrn, summary);
+    // 2. Emit the patch back!
+    patchAssertionSummary(entityUrn, patchBuilder);
   }
 
   /**
@@ -292,22 +291,24 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       return;
     }
 
+    // If yes, we patch!
+    AssertionsSummaryPatchBuilder patchBuilder;
+
     // 3. Add the assertion to passing or failing assertions
     if (AssertionResultType.SUCCESS.equals(result.getType())) {
-      // First, ensure this isn't in failing anymore.
-      removeAssertionFromFailingSummary(assertionUrn, summary);
-      // Then, add to passing.
-      addAssertionToPassingSummary(details, summary);
-
+      patchBuilder = buildAssertionSuccessSummaryPatch(assertionUrn, details, entityUrn);
     } else if (AssertionResultType.FAILURE.equals(result.getType())) {
-      // First, ensure this isn't in passing anymore.
-      removeAssertionFromPassingSummary(assertionUrn, summary);
-      // Then, add to failing.
-      addAssertionToFailingSummary(details, summary);
+      patchBuilder = buildAssertionFailureSummaryPatch(assertionUrn, details, entityUrn);
+    } else {
+      log.debug(
+          "Ignoring assertion run event with unknown result type {} for assertion with urn {}",
+          result.getType(),
+          assertionUrn);
+      return;
     }
 
-    // 4. Emit the change back!
-    updateAssertionSummary(entityUrn, summary);
+    // 4. Emit the patch back!
+    patchAssertionSummary(entityUrn, patchBuilder);
   }
 
   private boolean checkShouldIgnoreAddingRunEventToSummary(
@@ -474,56 +475,46 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         event.getAspect().getValue(), event.getAspect().getContentType(), MonitorInfo.class);
   }
 
-  @Nonnull
-  private List<Urn> extractAssertionEntities(@Nonnull final AssertionInfo assertionInfo) {
-    if (assertionInfo.hasDatasetAssertion()) {
-      DatasetAssertionInfo datasetAssertion = assertionInfo.getDatasetAssertion();
-      if (datasetAssertion.hasDataset()) {
-        return ImmutableList.of(datasetAssertion.getDataset());
-      }
-    }
-    if (assertionInfo.hasFreshnessAssertion()) {
-      FreshnessAssertionInfo freshnessAssertion = assertionInfo.getFreshnessAssertion();
-      if (freshnessAssertion.hasEntity()) {
-        return ImmutableList.of(freshnessAssertion.getEntity());
-      }
-    }
-    if (assertionInfo.hasVolumeAssertion()) {
-      VolumeAssertionInfo volumeAssertion = assertionInfo.getVolumeAssertion();
-      if (volumeAssertion.hasEntity()) {
-        return ImmutableList.of(volumeAssertion.getEntity());
-      }
-    }
-    if (assertionInfo.hasSqlAssertion()) {
-      SqlAssertionInfo sqlAssertion = assertionInfo.getSqlAssertion();
-      if (sqlAssertion.hasEntity()) {
-        return ImmutableList.of(sqlAssertion.getEntity());
-      }
-    }
-    if (assertionInfo.hasFieldAssertion()) {
-      FieldAssertionInfo fieldAssertion = assertionInfo.getFieldAssertion();
-      if (fieldAssertion.hasEntity()) {
-        return ImmutableList.of(fieldAssertion.getEntity());
-      }
-    }
-    if (assertionInfo.hasSchemaAssertion()) {
-      SchemaAssertionInfo schemaAssertion = assertionInfo.getSchemaAssertion();
-      if (schemaAssertion.hasEntity()) {
-        return ImmutableList.of(schemaAssertion.getEntity());
-      }
-    }
-    return Collections.emptyList();
+  private AssertionsSummaryPatchBuilder buildRemoveAssertionFromSummaryPatch(
+      @Nonnull final Urn assertionUrn, @Nonnull final Urn entityUrn) {
+    return new AssertionsSummaryPatchBuilder()
+        .urn(entityUrn)
+        .withEntityName(entityUrn.getEntityType())
+        .removeFromFailingAssertionDetails(assertionUrn)
+        .removeFromPassingAssertionDetails(assertionUrn);
   }
 
-  /** Updates the assertions summary for a given entity */
-  private void updateAssertionSummary(
-      @Nonnull final Urn entityUrn, @Nonnull final AssertionsSummary newSummary) {
+  private AssertionsSummaryPatchBuilder buildAssertionSuccessSummaryPatch(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionSummaryDetails details,
+      @Nonnull final Urn entityUrn) {
+    return new AssertionsSummaryPatchBuilder()
+        .urn(entityUrn)
+        .withEntityName(entityUrn.getEntityType())
+        .addPassingAssertionDetails(details)
+        .removeFromFailingAssertionDetails(assertionUrn);
+  }
+
+  private AssertionsSummaryPatchBuilder buildAssertionFailureSummaryPatch(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionSummaryDetails details,
+      @Nonnull final Urn entityUrn) {
+    return new AssertionsSummaryPatchBuilder()
+        .urn(entityUrn)
+        .withEntityName(entityUrn.getEntityType())
+        .addFailingAssertionDetails(details)
+        .removeFromPassingAssertionDetails(assertionUrn);
+  }
+
+  /** Patches the assertions summary for a given entity */
+  private void patchAssertionSummary(
+      @Nonnull final Urn entityUrn, @Nonnull final AssertionsSummaryPatchBuilder patchBuilder) {
     try {
-      _assertionService.updateAssertionsSummary(systemOperationContext, entityUrn, newSummary);
+      _assertionService.patchAssertionsSummary(systemOperationContext, patchBuilder);
     } catch (Exception e) {
       log.error(
           String.format(
-              "Failed to updated assertions summary for entity with urn %s! Skipping updating the summary",
+              "Failed to patch assertions summary for entity with urn %s! Skipping updating the summary",
               entityUrn),
           e);
     }

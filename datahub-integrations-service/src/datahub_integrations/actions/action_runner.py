@@ -11,7 +11,7 @@ import logging
 import signal
 import sys
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 
 import fastapi
 import fastapi.responses
@@ -19,6 +19,7 @@ import uvicorn
 from datahub.configuration.config_loader import load_config_file
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub_actions.pipeline.pipeline import Pipeline
+from pydantic.main import BaseModel
 
 # We force load the telemetry client because it has a side-effect of loading Sentry.
 assert telemetry_instance
@@ -42,11 +43,21 @@ def make_api(pipeline: Pipeline) -> fastapi.FastAPI:
     def stats() -> dict:
         stats_obj = pipeline.stats()
 
+        main_stats_obj = json.loads(stats_obj.as_string()) or {}
+
+        # Opportunistically add last event processed time to the stats.
+        if hasattr(pipeline.action, "event_processing_stats"):
+            event_processing_stats = pipeline.action.event_processing_stats
+            if isinstance(event_processing_stats, BaseModel):
+                main_stats_obj["event_processing_stats"] = event_processing_stats.dict(
+                    exclude_none=True
+                )
+
         # Hacky was to convert stats_obj to a dict.
         # TODO: Change datahub-actions to use reports properly.
         stats = {
-            "stats_generated_at": datetime.now().isoformat(),
-            "main": json.loads(stats_obj.as_string()),
+            "stats_generated_at": datetime.now(tz=timezone.utc).isoformat(),
+            "main": main_stats_obj,
             "transformers": {
                 key: json.loads(transformer_stats.as_string())
                 for key, transformer_stats in stats_obj.transformer_stats.items()
@@ -72,6 +83,15 @@ def main() -> None:
     )
     parser.add_argument("config_file", type=str, help="Path to the config file.")
     parser.add_argument("--port", type=int, help="Port to run the webserver on.")
+    parser.add_argument(
+        "--rollback", action="store_true", default=False, help="Rollback the pipeline."
+    )
+    parser.add_argument(
+        "--bootstrap",
+        action="store_true",
+        default=False,
+        help="Bootstrap the pipeline.",
+    )
 
     # Parse the CLI arguments.
     args = parser.parse_args()
@@ -85,6 +105,7 @@ def main() -> None:
         resolve_env_vars=True,
     )
 
+    logger.info(f"Loaded config: {recipe}")
     # Initialize the pipeline.
     pipeline: Pipeline = Pipeline.create(recipe)
 
@@ -106,14 +127,28 @@ def main() -> None:
     signal.signal(signal.SIGINT, stop_handler)
     signal.signal(signal.SIGTERM, stop_handler)
 
-    # Run the pipeline.
-    logger.info("Running pipeline")
-    try:
-        pipeline.run()
-    except Exception as e:
-        logger.exception(f"Caught exception while running pipeline: {e}")
-        pipeline.stop()
-        sys.exit(1)
+    if args.rollback:
+        if hasattr(pipeline.action, "rollback"):
+            logger.info("Rolling back pipeline")
+            pipeline.action.rollback()
+            sys.exit(0)
+        else:
+            logger.error("Action does not support rollback")
+            sys.exit(1)
+    elif args.bootstrap:
+        logger.info("Bootstrapping pipeline")
+        if hasattr(pipeline.action, "bootstrap"):
+            pipeline.action.bootstrap()
+            sys.exit(0)
+    else:
+        # Run the pipeline.
+        logger.info("Running pipeline")
+        try:
+            pipeline.run()
+        except Exception as e:
+            logger.exception(f"Caught exception while running pipeline: {e}")
+            pipeline.stop()
+            sys.exit(1)
 
     logger.info("Pipeline has stopped unexpectedly, without raising an exception.")
     sys.exit(2)

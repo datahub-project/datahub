@@ -16,7 +16,7 @@ export const DataAssetSelector = ({ dataAssetSelected, setDataAssetSelected }: a
 	// Get selectables entities
 	const entityRegistry = useEntityRegistry();
 	const selectableEntities: EntityType[] = Array.from(
-		entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.TEST),
+		entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.TEST as any),
 	);
 
 	const onSelectEntityType = (entityType: EntityType) => {
@@ -28,20 +28,18 @@ export const DataAssetSelector = ({ dataAssetSelected, setDataAssetSelected }: a
 	}
 
 	return (
-		<>
-			<Select
-				value={dataAssetSelected}
-				mode="multiple"
-				placeholder="Datasets, Dashboards, Charts..."
-				onSelect={onSelectEntityType}
-				onDeselect={onDeselectEntityType}
-			>
-				{Array.from(selectableEntities).map((entityType) => (
-					<Select.Option value={entityType} key={entityType}>
-						{entityRegistry.getCollectionName(entityType)}
-					</Select.Option>
-				))}
-			</Select>
-		</>
+		<Select
+			value={dataAssetSelected || []}
+			mode="multiple"
+			placeholder="Datasets, Dashboards, Charts..."
+			onSelect={onSelectEntityType}
+			onDeselect={onDeselectEntityType}
+		>
+			{Array.from(selectableEntities).map((entityType) => (
+				<Select.Option value={entityType} key={entityType}>
+					{entityRegistry.getCollectionName(entityType)}
+				</Select.Option>
+			))}
+		</Select>
 	);
 }

@@ -117,13 +117,16 @@ export class ContainerEntity implements Entity<Container> {
             component: SidebarEntityHeader,
         },
         {
-            component: SidebarDomainSection,
-        },
-        {
             component: SyncedAssetSection,
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarDomainSection,
         },
         {
             component: DataProductSection,
@@ -133,9 +136,6 @@ export class ContainerEntity implements Entity<Container> {
         },
         {
             component: SidebarContentsSection,
-        },
-        {
-            component: SidebarOwnerSection,
         },
         {
             component: SidebarGlossaryTermsSection,

@@ -13,6 +13,7 @@ export const createInitialState = (): State => ({
     notificationTypes: {
         checkedKeys: [],
         expandedKeys: [],
+        keysWithAllFilteringCleared: [],
     },
     subscribeToUpstream: false,
     notificationSinkTypes: [],
@@ -40,6 +41,7 @@ export const reducer = (state: State, action: Action): State => {
                 slackSinkEnabled,
                 emailSinkEnabled,
                 subscription,
+                forSubResource,
                 slackSubscriptionChannel,
                 slackSettingsChannel,
                 emailSubscriptionChannel,
@@ -47,8 +49,14 @@ export const reducer = (state: State, action: Action): State => {
                 settingsSinkTypes,
             } = action.payload;
 
-            const entityChangeTypes =
-                subscription?.entityChangeTypes.map((changeType) => changeType.entityChangeType) ?? [];
+            const relevantEntityChangeDetails = forSubResource?.assertion ? subscription?.entityChangeTypes.filter(
+                details => !details.filter?.includeAssertions || details.filter.includeAssertions.includes(forSubResource.assertion!.urn)
+            ) : subscription?.entityChangeTypes;
+
+            const entityChangeTypes = relevantEntityChangeDetails
+                // Do not mark it as checked if this is the asset subscription view and there's filters on this type
+                ?.filter(details => (forSubResource?.assertion || !details.filter?.includeAssertions))
+                .map((details) => details.entityChangeType) ?? [];
             const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
 
             if (slackSinkEnabled && !subscription) notificationSinkTypes.push(NotificationSinkType.Slack);
@@ -93,6 +101,7 @@ export const reducer = (state: State, action: Action): State => {
                 notificationTypes: {
                     checkedKeys: entityChangeTypes,
                     expandedKeys: [],
+                    keysWithAllFilteringCleared: [],
                 },
                 subscribeToUpstream: hasUpstreamSubscription,
                 notificationSinkTypes,
@@ -254,6 +263,16 @@ export const reducer = (state: State, action: Action): State => {
                 notificationTypes: {
                     ...state.notificationTypes,
                     checkedKeys: action.payload,
+                },
+            };
+        }
+        case ActionTypes.SET_NOTIFICATION_TYPES_WITH_FILTERS_CLEARED: {
+            return {
+                ...state,
+                edited: true,
+                notificationTypes: {
+                    ...state.notificationTypes,
+                    keysWithAllFilteringCleared: action.payload,
                 },
             };
         }

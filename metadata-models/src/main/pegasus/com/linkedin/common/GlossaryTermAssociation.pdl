@@ -16,7 +16,7 @@ record GlossaryTermAssociation {
     "fieldType": "URN",
     "hasValuesFieldName": "hasGlossaryTerms",
     "addToFilters": true,
-    "filterNameOverride": "Glossary Term"
+    "filterNameOverride": "Glossary Term Applied"
   }
   urn: GlossaryTermUrn
 
@@ -36,15 +36,18 @@ record GlossaryTermAssociation {
   @Searchable = {
     "/time": {
         "fieldName": "termAttributionDates",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false
       },
     "/actor": {
         "fieldName": "termAttributionActors",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false
       },
     "/source": {
         "fieldName": "termAttributionSources",
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "queryByDefault": false
       },
   }
   attribution: optional MetadataAttribution

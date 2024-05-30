@@ -116,6 +116,10 @@ export function selectExpandedKeys(state: State) {
     return selectNotificationTypes(state).expandedKeys;
 }
 
+export function selectKeysWithFilteringCleared(state: State) {
+    return selectNotificationTypes(state).keysWithAllFilteringCleared;
+}
+
 // if the user's slack sink is disabled but they're enabling it for this susbcription, turn it back on for them
 export function selectShouldTurnOnSlackInSettings(state: State) {
     const isSlackEnabled = selectIsSlackEnabled(state);

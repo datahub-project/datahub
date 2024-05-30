@@ -116,13 +116,13 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarOwnerSection,
+        },
+        {
             component: SidebarAboutSection,
             properties: {
                 hideLinksButton: true,
             },
-        },
-        {
-            component: SidebarOwnerSection,
         },
     ];
 

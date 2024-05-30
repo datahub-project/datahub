@@ -72,6 +72,7 @@ public class IntegrationsService {
   private final AiApi aiApi;
   @Getter private final AnalyticsApi analyticsApi;
   private final ShareApi shareApi;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   public IntegrationsService(
       @Nonnull final String integrationsServiceHost,
@@ -490,6 +491,69 @@ public class IntegrationsService {
       return response.getData();
     } catch (ApiException e) {
       log.error("Failed to unshare entity with urn: " + entityUrn, e);
+      return null;
+    }
+  }
+
+  public boolean rollbackAction(String actionPipelineUrn) {
+
+    ApiResponse<Object> response = null;
+    try {
+      Object apiResponse = this.actionsApi.rollbackActionWithHttpInfo(actionPipelineUrn);
+      response = (ApiResponse<Object>) apiResponse;
+
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error("Failed to reload action! Integrations service returned non-200 error code!");
+        log.error(String.valueOf(response.getData().toString()));
+        return false;
+      }
+      return true;
+    } catch (Exception e) {
+      log.error(
+          "Failed to reload action! Exceptions encountered when trying to access integrations service",
+          e);
+      return false;
+    }
+  }
+
+  public boolean stopAction(String actionPipelineUrn) {
+
+    log.info("Stopping action pipeline = {}", actionPipelineUrn);
+    ApiResponse<Object> response = null;
+    try {
+      Object apiResponse = this.actionsApi.stopActionWithHttpInfo(actionPipelineUrn);
+      response = (ApiResponse<Object>) apiResponse;
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error("Failed to stop action! Integrations service returned non-200 error code!");
+        log.error(String.valueOf(response.getData().toString()));
+        return false;
+      }
+      return true;
+    } catch (Exception e) {
+      log.error(
+          "Failed to stop action! Exceptions encountered when trying to access integrations service",
+          e);
+      return false;
+    }
+  }
+
+  public String actionStatus(String actionPipelineUrn) {
+    ApiResponse<Object> response = null;
+    try {
+      Object apiResponse = this.actionsApi.actionStatsWithHttpInfo(actionPipelineUrn);
+      response = (ApiResponse<Object>) apiResponse;
+      if (response.getStatusCode() != HttpStatus.SC_OK) {
+        log.error("Failed to get action status! Integrations service returned non-200 error code!");
+        log.error(String.valueOf(response.getData().toString()));
+        return null;
+      }
+      Object apiResponseData = response.getData();
+
+      return this.objectMapper.writeValueAsString(response.getData());
+    } catch (Exception e) {
+      log.error(
+          "Failed to get action status! Exceptions encountered when trying to access integrations service",
+          e);
       return null;
     }
   }

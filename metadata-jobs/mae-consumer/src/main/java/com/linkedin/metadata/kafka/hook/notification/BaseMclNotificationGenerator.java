@@ -124,7 +124,8 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       @Nonnull final NotificationScenarioType notificationScenarioType,
       @Nonnull final Urn entityUrn,
       @Nullable EntityChangeType entityChangeType) {
-    return buildRecipients(opContext, notificationScenarioType, entityUrn, entityChangeType, null);
+    return buildRecipients(
+        opContext, notificationScenarioType, entityUrn, entityChangeType, null, null);
   }
 
   protected List<NotificationRecipient> buildRecipients(
@@ -133,6 +134,17 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       @Nonnull final Urn entityUrn,
       @Nullable EntityChangeType entityChangeType,
       @Nullable final Urn actorUrn) {
+    return buildRecipients(
+        opContext, notificationScenarioType, entityUrn, entityChangeType, actorUrn, null);
+  }
+
+  protected List<NotificationRecipient> buildRecipients(
+      @Nonnull OperationContext opContext,
+      @Nonnull final NotificationScenarioType notificationScenarioType,
+      @Nonnull final Urn entityUrn,
+      @Nullable EntityChangeType entityChangeType,
+      @Nullable final Urn actorUrn,
+      @Nullable final NotificationRecipientsGeneratorExtraContext extraContext) {
     final List<NotificationRecipient> recipients = new ArrayList<>();
 
     // If we should globally broadcast, build the broadcast recipient.
@@ -152,7 +164,8 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
 
     if (entityChangeType != null && isEligibleForSubscriberRecipients()) {
       recipients.addAll(
-          buildSubscriberRecipients(opContext, entityUrn, entityChangeType, actorUrn));
+          buildSubscriberRecipients(
+              opContext, entityUrn, entityChangeType, actorUrn, extraContext));
     }
 
     return recipients;
@@ -181,15 +194,21 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final EntityChangeType changeType,
-      @Nullable Urn actorUrn) {
+      @Nullable Urn actorUrn,
+      @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
     final Set<Urn> downstreamEntityUrns = new HashSet<>();
 
     if (ENABLE_DOWNSTREAM_ENTITIES) {
       downstreamEntityUrns.addAll(getDownstreamEntities(entityUrn));
     }
 
-    final Map<Urn, SubscriptionInfo> subscriptionInfoMap =
+    final Map<Urn, SubscriptionInfo> subscriptionInfoMapUnfiltered =
         getSubscriptionInfoMap(entityUrn, downstreamEntityUrns, changeType);
+
+    // Filter out subscriptions as necessary
+    final Map<Urn, SubscriptionInfo> subscriptionInfoMap =
+        applySubscriptionFiltersToSubscriptionMap(
+            subscriptionInfoMapUnfiltered, changeType, extraContext);
 
     // We split up the subscriptions by sink type.
     final Map<NotificationSinkType, Set<Urn>> sinkTypeToSubscriptionUrns =
@@ -211,6 +230,13 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     }
 
     return getUniqueHydratedSubscriberRecipients(opContext, recipients, _entityNameProvider);
+  }
+
+  protected Map<Urn, SubscriptionInfo> applySubscriptionFiltersToSubscriptionMap(
+      @Nonnull Map<Urn, SubscriptionInfo> subscriptionInfoMap,
+      @Nullable EntityChangeType entityChangeType,
+      @Nullable NotificationRecipientsGeneratorExtraContext extraContext) {
+    return subscriptionInfoMap;
   }
 
   @Nonnull

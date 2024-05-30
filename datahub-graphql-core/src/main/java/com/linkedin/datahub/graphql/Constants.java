@@ -20,6 +20,7 @@ public class Constants {
   public static final String LINEAGE_SCHEMA_FILE = "lineage.graphql";
   public static final String PROPERTIES_SCHEMA_FILE = "properties.graphql";
   public static final String FORMS_SCHEMA_FILE = "forms.graphql";
+  public static final String COMMON_SCHEMA_FILE = "common.graphql";
   public static final String INCIDENTS_SCHEMA_FILE = "incident.graphql";
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";

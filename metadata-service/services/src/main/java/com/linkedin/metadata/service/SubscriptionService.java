@@ -222,6 +222,29 @@ public class SubscriptionService extends BaseService {
   }
 
   @Nonnull
+  public Map.Entry<Urn, SubscriptionInfo> updateSubscriptionInfo(
+      @Nonnull OperationContext systemOpContext,
+      @Nonnull final Urn subscriptionUrn,
+      @Nonnull final SubscriptionInfo subscriptionInfo) {
+    try {
+      if (!this.entityClient.exists(systemOpContext, subscriptionUrn)) {
+        throw new RuntimeException(
+            String.format("Subscription %s does not exist", subscriptionUrn));
+      }
+
+      final MetadataChangeProposal proposal =
+          buildMetadataChangeProposal(
+              subscriptionUrn, SUBSCRIPTION_INFO_ASPECT_NAME, subscriptionInfo);
+      this.entityClient.ingestProposal(systemOpContext, proposal, false);
+
+      return Map.entry(subscriptionUrn, subscriptionInfo);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update subscription %s", subscriptionUrn), e);
+    }
+  }
+
+  @Nonnull
   public Map.Entry<Urn, SubscriptionInfo> updateSubscription(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn actorUrn,
@@ -307,6 +330,76 @@ public class SubscriptionService extends BaseService {
       return subscriptionInfoMap.entrySet().stream()
           .collect(
               Collectors.toMap(Map.Entry::getKey, entry -> new SubscriptionInfo(entry.getValue())));
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to list subscriptions", e);
+    }
+  }
+
+  @Nonnull
+  public Map<Urn, SubscriptionInfo> listEntityAssertionSubscriptions(
+      @Nonnull OperationContext systemOpContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Integer numMaxSubscriptions) {
+    try {
+      if (!this.entityClient.exists(systemOpContext, entityUrn, false)) {
+        throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
+      }
+
+      final Filter filter = buildGetSubscriptionsForAssertionFilter(entityUrn, assertionUrn);
+
+      final SearchResult searchResult =
+          this.entityClient.filter(
+              systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions);
+      final Set<Urn> subscriptionUrns =
+          searchResult.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toSet());
+
+      final Map<Urn, EntityResponse> entityResponseMap =
+          this.entityClient.batchGetV2(
+              systemOpContext, SUBSCRIPTION_ENTITY_NAME, subscriptionUrns, SUBSCRIPTION_ASPECTS);
+
+      final Map<Urn, DataMap> subscriptionInfoMap =
+          AspectUtils.getDataMapsFromEntityResponseMap(
+              entityResponseMap, SUBSCRIPTION_INFO_ASPECT_NAME);
+
+      return subscriptionInfoMap.entrySet().stream()
+          .collect(Collectors.toMap(Map.Entry::getKey, e -> new SubscriptionInfo(e.getValue())));
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to list subscriptions", e);
+    }
+  }
+
+  /**
+   * Note, this is more expensive, used for assertion key deletes where we don't know the entityUrn
+   */
+  @Nonnull
+  public Map<Urn, SubscriptionInfo> listAssertionSubscriptionsWithoutEntityUrn(
+      @Nonnull OperationContext systemOpContext,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final Integer numMaxSubscriptions) {
+    try {
+      final Filter filter = buildGetSubscriptionsForAssertionWithoutEntityUrnFilter(assertionUrn);
+
+      final SearchResult searchResult =
+          this.entityClient.filter(
+              systemOpContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numMaxSubscriptions);
+      final Set<Urn> subscriptionUrns =
+          searchResult.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toSet());
+
+      final Map<Urn, EntityResponse> entityResponseMap =
+          this.entityClient.batchGetV2(
+              systemOpContext, SUBSCRIPTION_ENTITY_NAME, subscriptionUrns, SUBSCRIPTION_ASPECTS);
+
+      final Map<Urn, DataMap> subscriptionInfoMap =
+          AspectUtils.getDataMapsFromEntityResponseMap(
+              entityResponseMap, SUBSCRIPTION_INFO_ASPECT_NAME);
+
+      return subscriptionInfoMap.entrySet().stream()
+          .collect(Collectors.toMap(Map.Entry::getKey, e -> new SubscriptionInfo(e.getValue())));
     } catch (Exception e) {
       throw new RuntimeException("Failed to list subscriptions", e);
     }
@@ -450,6 +543,41 @@ public class SubscriptionService extends BaseService {
   }
 
   @Nonnull
+  private Filter buildGetSubscriptionsForAssertionFilter(
+      @Nonnull Urn entityUrn, @Nonnull Urn assertionUrn) {
+    final Filter filter = new Filter();
+    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
+    final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+    final CriterionArray andCriterion = new CriterionArray();
+
+    andCriterion.add(buildEntityCriterion(entityUrn));
+    andCriterion.add(buildAssertionCriterion(assertionUrn));
+
+    conjunction.setAnd(andCriterion);
+    disjunction.add(conjunction);
+    filter.setOr(disjunction);
+
+    return filter;
+  }
+
+  @Nonnull
+  private Filter buildGetSubscriptionsForAssertionWithoutEntityUrnFilter(
+      @Nonnull Urn assertionUrn) {
+    final Filter filter = new Filter();
+    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
+    final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+    final CriterionArray andCriterion = new CriterionArray();
+
+    andCriterion.add(buildAssertionCriterion(assertionUrn));
+
+    conjunction.setAnd(andCriterion);
+    disjunction.add(conjunction);
+    filter.setOr(disjunction);
+
+    return filter;
+  }
+
+  @Nonnull
   private Filter buildGetActorSubscriptionsForEntityFilter(
       @Nonnull final Urn entityUrn, @Nonnull final String actorType) {
     final Filter filter = new Filter();
@@ -474,6 +602,15 @@ public class SubscriptionService extends BaseService {
     entityCriterion.setValue(entityUrn.toString());
     entityCriterion.setCondition(Condition.EQUAL);
     return entityCriterion;
+  }
+
+  @Nonnull
+  private Criterion buildAssertionCriterion(@Nonnull final Urn assertionUrn) {
+    final Criterion criterion = new Criterion();
+    criterion.setField(ENTITY_CHANGE_TYPES_FILTER_INCLUDE_ASSERTIONS_FIELD_NAME);
+    criterion.setValue(assertionUrn.toString());
+    criterion.setCondition(Condition.EQUAL);
+    return criterion;
   }
 
   @Nonnull

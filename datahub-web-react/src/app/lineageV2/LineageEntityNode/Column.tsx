@@ -1,7 +1,6 @@
 import React, { useContext, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
-import translateFieldPath from '../../entityV2/dataset/profile/schema/utils/translateFieldPath';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { createColumnRef, LineageDisplayContext, onClickPreventSelect } from '../common';
 import { CompactFieldIconWithTooltip } from '../../sharedV2/icons/CompactFieldIcon';
@@ -61,6 +60,13 @@ export default function Column({ urn, fieldPath, highlighted, type, nativeDataTy
     const id = useMemo(() => createColumnRef(urn, fieldPath), [urn, fieldPath]);
     const hasLineage = fineGrainedLineage.downstream.has(id) || fineGrainedLineage.upstream.has(id);
 
+    let columnName = fieldPath;
+    try {
+        columnName = decodeURI(columnName);
+    } catch (e) {
+        console.error(`Failed to decode URI for fieldPath: ${fieldPath}`);
+    }
+
     // TODO: Add hover text if overflowed
     return (
         <ColumnWrapper
@@ -84,7 +90,7 @@ export default function Column({ urn, fieldPath, highlighted, type, nativeDataTy
                     <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
                 </TypeWrapper>
             )}
-            <OverflowTitle title={decodeURI(translateFieldPath(fieldPath))} />
+            <OverflowTitle title={columnName} />
             <CustomHandle id={id} type="source" position={Position.Right} isConnectable={false} />
         </ColumnWrapper>
     );

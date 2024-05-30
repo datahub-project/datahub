@@ -35,7 +35,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
     implements DataFetcher<CompletableFuture<Assertion>> {
 
   // hourly run
-  private final String HOURLY_CRON_SCHEDULE = "0 12 * * *";
+  private final String HOURLY_CRON_SCHEDULE = "0 */6 * * *";
   private final CronSchedule DEFAULT_CRON_SCHEDULE =
       new CronSchedule().setCron(HOURLY_CRON_SCHEDULE).setTimezone("UTC");
 

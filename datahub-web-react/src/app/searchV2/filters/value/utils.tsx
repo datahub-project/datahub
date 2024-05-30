@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
-import { FieldType, FilterField, FilterOperatorType, FilterValueOption } from '../types';
+import { EntityRegistry } from '../../../../entityRegistryContext';
 import {
     AggregateAcrossEntitiesQuery,
     GetSearchResultsForMultipleQuery,
     useAggregateAcrossEntitiesLazyQuery,
     useGetSearchResultsForMultipleLazyQuery,
 } from '../../../../graphql/search.generated';
-import { filterOptionsWithSearch } from '../utils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityRegistry } from '../../../../entityRegistryContext';
-import { FILTER_DELIMITER } from '../../utils/constants';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { EntityType } from '../../../../types.generated';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { FILTER_DELIMITER } from '../../utils/constants';
+import { FieldType, FilterField, FilterOperatorType, FilterValueOption } from '../types';
+import { filterOptionsWithSearch } from '../utils';
 
 const MAX_AGGREGATION_COUNT = 40;
 
@@ -59,6 +59,15 @@ const mapAggregateAcrossEntitiesOptions = (
 export const deduplicateOptions = (baseOptions: FilterValueOption[], moreOptions: FilterValueOption[]) => {
     const baseValues = baseOptions.map((op) => op.value);
     return moreOptions.filter((op) => !baseValues.includes(op.value));
+};
+
+export const mapFilterCountsToZero = (options: FilterValueOption[]) => {
+    return options.map((option) => {
+        return {
+            ...option,
+            count: 0,
+        };
+    });
 };
 
 /**

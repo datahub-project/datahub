@@ -34,6 +34,7 @@ import {
 } from '../../../../../../../ingest/source/builder/constants';
 import { ASSERTION_TYPES, HIGH_WATERMARK_FIELD_TYPES, LAST_MODIFIED_FIELD_TYPES } from './constants';
 import { AssertionActionsFormState, AssertionMonitorBuilderState } from './types';
+import { removeNestedTypeNames } from '../../../../../../../shared/subscribe/drawer/utils';
 
 /** Configuration object used to display each source option */
 export type SourceOption = {
@@ -359,33 +360,11 @@ const getSourceOptionKey = (type: DatasetFreshnessSourceType, kind?: Maybe<Fresh
     return `${type}.${kind || ''}`;
 };
 
-/* eslint-disable no-param-reassign */
-/** Remove the GraphQL __typename fields from any object */
-function removeTypenameFields(obj) {
-    // Check if the argument is an object and not null
-    if (typeof obj === 'object' && obj !== null) {
-        // Iterate over object properties
-        Object.keys(obj).forEach((key) => {
-            if (key === '__typename') {
-                // Remove __typename property
-                delete obj[key];
-            } else if (typeof obj[key] === 'object') {
-                // Recurse for nested objects and arrays
-                removeTypenameFields(obj[key]);
-            }
-        });
-    } else if (Array.isArray(obj)) {
-        // Handle arrays, as typeof will return 'object' for arrays
-        obj.forEach((item) => removeTypenameFields(item));
-    }
-    return obj;
-}
-
 /** Map of all source options to allow constant lookup by Source Type and Field Kind */
 const sourceOptionsByKey = keyBy(allSourceOptions, ({ type, field }) => getSourceOptionKey(type, field?.kind));
 
 export const builderStateToSharedFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         description: builderState.assertion?.description,
         schedule: {
             type: builderState.assertion?.freshnessAssertion?.schedule?.type as FreshnessAssertionScheduleType,
@@ -395,27 +374,27 @@ export const builderStateToSharedFreshnessAssertionVariables = (builderState: As
                     : undefined,
             fixedInterval:
                 builderState.assertion?.freshnessAssertion?.schedule?.type ===
-                FreshnessAssertionScheduleType.FixedInterval
+                    FreshnessAssertionScheduleType.FixedInterval
                     ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
                     : undefined,
         },
         filter: builderState.assertion?.freshnessAssertion?.filter
             ? {
-                  type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
-                  sql: builderState.assertion?.freshnessAssertion?.filter.sql,
-              }
+                type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
+                sql: builderState.assertion?.freshnessAssertion?.filter.sql,
+            }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                  onFailure: builderState.assertion?.actions?.onFailure || [],
-              }
+                onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                onFailure: builderState.assertion?.actions?.onFailure || [],
+            }
             : undefined,
     });
 };
 
 export const builderStateToUpsertFreshnessAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedFreshnessAssertionVariables(builderState),
@@ -474,27 +453,27 @@ export const builderStateToVolumeTypeAssertionVariables = (builderState: Asserti
 
 export const builderStateToSharedVolumeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     const volumeTypeVariables = builderStateToVolumeTypeAssertionVariables(builderState);
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         type: builderState.assertion?.volumeAssertion?.type as VolumeAssertionType,
         description: builderState.assertion?.description,
         filter: builderState.assertion?.volumeAssertion?.filter
             ? {
-                  type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
-                  sql: builderState.assertion?.volumeAssertion?.filter.sql,
-              }
+                type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
+                sql: builderState.assertion?.volumeAssertion?.filter.sql,
+            }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                  onFailure: builderState.assertion?.actions?.onFailure || [],
-              }
+                onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                onFailure: builderState.assertion?.actions?.onFailure || [],
+            }
             : undefined,
         ...volumeTypeVariables,
     });
 };
 
 export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedVolumeAssertionVariables(builderState),
@@ -508,7 +487,7 @@ export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState
 };
 
 export const builderStateToSharedSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         type: builderState.assertion?.sqlAssertion?.type as SqlAssertionType,
         description: builderState.assertion?.description,
         statement: builderState.assertion?.sqlAssertion?.statement,
@@ -517,32 +496,32 @@ export const builderStateToSharedSqlAssertionVariables = (builderState: Assertio
         parameters:
             builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
                 ? {
-                      minValue: {
-                          type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
-                          value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
-                      },
-                      maxValue: {
-                          type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
-                          value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
-                      },
-                  }
+                    minValue: {
+                        type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
+                        value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
+                    },
+                    maxValue: {
+                        type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
+                        value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
+                    },
+                }
                 : {
-                      value: {
-                          type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
-                          value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
-                      },
-                  },
+                    value: {
+                        type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
+                        value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
+                    },
+                },
         actions: builderState.assertion?.actions
             ? {
-                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                  onFailure: builderState.assertion?.actions?.onFailure || [],
-              }
+                onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                onFailure: builderState.assertion?.actions?.onFailure || [],
+            }
             : undefined,
     });
 };
 
 export const builderStateToUpsertSqlAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedSqlAssertionVariables(builderState),
@@ -555,7 +534,7 @@ export const builderStateToUpsertSqlAssertionMonitorVariables = (builderState: A
 };
 
 export const builderStateToSharedFieldAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         type: builderState.assertion?.fieldAssertion?.type as FieldAssertionType,
         description: builderState.assertion?.description,
         fieldValuesAssertion:
@@ -568,21 +547,21 @@ export const builderStateToSharedFieldAssertionVariables = (builderState: Assert
                 : undefined,
         filter: builderState.assertion?.fieldAssertion?.filter
             ? {
-                  type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
-                  sql: builderState.assertion?.fieldAssertion?.filter.sql,
-              }
+                type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
+                sql: builderState.assertion?.fieldAssertion?.filter.sql,
+            }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                  onFailure: builderState.assertion?.actions?.onFailure || [],
-              }
+                onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                onFailure: builderState.assertion?.actions?.onFailure || [],
+            }
             : undefined,
     });
 };
 
 export const builderStateToUpsertFieldAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedFieldAssertionVariables(builderState),
@@ -596,7 +575,7 @@ export const builderStateToUpsertFieldAssertionMonitorVariables = (builderState:
 };
 
 export const builderStateToUpsertSchemaAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
-    return removeTypenameFields({
+    return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             assertion: {
@@ -607,11 +586,11 @@ export const builderStateToUpsertSchemaAssertionMonitorVariables = (builderState
             mode: MonitorMode.Active,
             entityUrn: builderState.entityUrn,
             actions: builderState.assertion?.actions
-            ? {
-                onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                onFailure: builderState.assertion?.actions?.onFailure || [],
-            }
-            : undefined,
+                ? {
+                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                    onFailure: builderState.assertion?.actions?.onFailure || [],
+                }
+                : undefined,
         },
     });
 };
@@ -750,15 +729,15 @@ export const builderStateToUpdateAssertionMetadataVariables = (
 ): UpdateAssertionMetadataMutationVariables | undefined => {
     return builderState.assertion?.actions && builderState.assertion?.urn
         ? {
-              urn: builderState.assertion.urn,
-              input: {
-                  description: builderState.assertion.description,
-                  actions: {
-                      onSuccess: builderState.assertion.actions.onSuccess || [],
-                      onFailure: builderState.assertion.actions.onFailure || [],
-                  },
-              },
-          }
+            urn: builderState.assertion.urn,
+            input: {
+                description: builderState.assertion.description,
+                actions: {
+                    onSuccess: builderState.assertion.actions.onSuccess || [],
+                    onFailure: builderState.assertion.actions.onFailure || [],
+                },
+            },
+        }
         : undefined;
 };
 

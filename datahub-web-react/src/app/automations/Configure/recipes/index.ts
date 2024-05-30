@@ -19,7 +19,7 @@ export const snowflakeTagPropagation = {
 		event_type: 'EntityChangeEvent_v1'
 	},
 	action: {
-		type: 'datahub_integrations.propagation.snowflake.tag_propagator: SnowflakeTagPropagatorAction',
+		type: 'datahub_integrations.propagation.snowflake.tag_propagator:SnowflakeTagPropagatorAction',
 		config: {
 			term_propagation: {
 				target_terms: [] // to be filled by form data

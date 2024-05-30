@@ -6,12 +6,11 @@ import {
 	custom
 } from './recipes';
 
+import { AutomationTypes } from '../utils';
+
 // Images 
 import SnowflakeLogo from '../../../images/snowflakelogo.png';
 import AcrylLogo from '../../../images/acryl-logo.svg';
-
-// Automation Types Available 
-export type AutomationType = 'actionPipeline' | 'ingestionSource' | 'test';
 
 // Define some steps that automations can include
 const steps = {
@@ -37,8 +36,7 @@ const steps = {
 		previewTitle: 'Preview Source Set',
 		fields: [
 			{
-				type: 'assetSelector',
-				label: 'Select Source Assets',
+				type: 'dataAssetSelector',
 				isRequired: true,
 			},
 		],
@@ -134,7 +132,7 @@ const steps = {
 export const selectableAutomations = [
 	{
 		key: 'snowflake_tag_propagation',
-		type: 'actionPipeline',
+		type: AutomationTypes.ACTION,
 		name: 'Snowflake Tag Propagation',
 		description: 'This automation allows you to propagate tags from one Snowflake table to another.',
 		logo: SnowflakeLogo,
@@ -144,12 +142,12 @@ export const selectableAutomations = [
 			{ ...steps.select_destination },
 			{ ...steps.details },
 		],
-		baseRecipe: snowflakeTagPropagation,
+		baseRecipe: snowflakeTagPropagation as any,
 		isDisabled: false,
 	},
 	{
 		key: 'term_propagation',
-		type: 'actionPipeline',
+		type: AutomationTypes.ACTION,
 		name: 'Term Propagation',
 		description: 'This automation allows you to propagate terms via lineage.',
 		logo: AcrylLogo,
@@ -159,12 +157,12 @@ export const selectableAutomations = [
 			{ ...steps.select_traversal },
 			{ ...steps.details },
 		],
-		baseRecipe: termPropagation,
+		baseRecipe: termPropagation as any,
 		isDisabled: false,
 	},
 	{
 		key: 'documentation_propagation',
-		type: 'actionPipeline',
+		type: AutomationTypes.ACTION,
 		name: 'Documentation Propagation',
 		description: 'This automation propgation column level documentation.',
 		logo: AcrylLogo,
@@ -174,12 +172,12 @@ export const selectableAutomations = [
 			{ ...steps.select_conditions },
 			{ ...steps.details },
 		],
-		baseRecipe: documentationPropagation,
+		baseRecipe: documentationPropagation as any,
 		isDisabled: false,
 	},
 	{
 		key: 'custom',
-		type: 'test',
+		type: AutomationTypes.TEST,
 		name: 'Custom Automation',
 		description: 'This automation allows you create a metdata test.',
 		logo: AcrylLogo,
@@ -189,7 +187,7 @@ export const selectableAutomations = [
 			{ ...steps.select_custom_actions },
 			{ ...steps.details },
 		],
-		baseRecipe: custom,
+		baseRecipe: custom as any,
 		isDisabled: false,
 	},
 ];
@@ -201,8 +199,12 @@ export const getSteps = (key) =>
 		.filter((step) => !step.isHidden) || undefined;
 
 // Get the data of the automation type
-export const getAutomationData = (key) =>
-	selectableAutomations.filter((automation) => automation.key === key)[0] || undefined;
+export const getAutomationData = (key, type) => {
+	const automation = selectableAutomations.filter((auto) => {
+		return auto.key === key || auto.baseRecipe?.action?.type === type
+	});
+	return automation ? automation[0] : undefined;
+}
 
 // Returns true if the category name is "well-supported" (e.g. a built in), false otherwise.
 export const isSupportedCategory = (categoryName) => {

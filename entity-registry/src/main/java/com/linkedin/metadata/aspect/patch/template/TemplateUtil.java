@@ -85,12 +85,18 @@ public class TemplateUtil {
       // Skip first as it will always be blank due to path starting with /
       for (int i = 1; i < endIdx; i++) {
         if (parent.get(keys[i]) == null) {
-          ((ObjectNode) parent).set(keys[i], instance.objectNode());
+          String decodedKey = decodeValue(keys[i]);
+          ((ObjectNode) parent).set(decodedKey, instance.objectNode());
         }
         parent = parent.get(keys[i]);
       }
     }
 
     return transformedNodeClone;
+  }
+
+  /** Simply decode a JSON-patch encoded value * */
+  private static String decodeValue(String value) {
+    return value.replace("~1", "/").replace("~0", "~");
   }
 }

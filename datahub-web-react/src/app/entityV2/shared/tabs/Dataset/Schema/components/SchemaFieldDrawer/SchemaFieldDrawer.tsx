@@ -78,7 +78,6 @@ interface Props {
     setOpenTimelineDrawer: any;
     selectPreviousField: () => void;
     selectNextField: () => void;
-    showTypeAsIcons?: boolean;
     usageStats?: UsageQueryResult | null;
     displayedRows: ExtendedSchemaFields[];
     refetch?: () => void;
@@ -93,7 +92,6 @@ export default function SchemaFieldDrawer({
     setOpenTimelineDrawer,
     selectPreviousField,
     selectNextField,
-    showTypeAsIcons = true,
     usageStats,
     displayedRows,
     refetch,
@@ -216,7 +214,6 @@ export default function SchemaFieldDrawer({
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}
-                                showTypeAsIcons={showTypeAsIcons}
                             />
                             <Body>
                                 {selectedTab && (

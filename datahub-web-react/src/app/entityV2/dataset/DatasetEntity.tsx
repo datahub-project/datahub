@@ -14,13 +14,14 @@ import {
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { Dataset, DatasetProperties, EntityType, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '../../searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { useAppConfig } from '../../useAppConfig';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -237,54 +238,26 @@ export class DatasetEntity implements Entity<Dataset> {
     );
 
     getSidebarSections = () => [
-        {
-            component: SidebarEntityHeader,
-        },
-        {
-            component: SidebarDatasetHeaderSection,
-        },
-        {
-            component: SyncedAssetSection,
-        },
-        {
-            component: SharingAssetSection,
-        },
-        {
-            component: SidebarNotesSection,
-        },
-        {
-            component: SidebarDomainSection,
-        },
-        {
-            component: DataProductSection,
-        },
-        {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarDatasetViewDefinitionSection,
-        },
-        {
-            component: SidebarLineageSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
-        },
+        { component: SidebarEntityHeader },
+        { component: SidebarDatasetHeaderSection },
+        { component: SyncedAssetSection },
+        { component: SharingAssetSection },
+        { component: SidebarQueryOperationsSection },
+        { component: SidebarNotesSection },
+        { component: SidebarOwnerSection },
+        { component: SidebarDomainSection },
+        { component: DataProductSection },
+        { component: SidebarAboutSection },
+        { component: SidebarDatasetViewDefinitionSection },
+        { component: SidebarLineageSection },
         {
             component: SidebarSiblingsSection,
             display: {
                 visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
             },
         },
-        {
-            component: SidebarTagsSection,
-        },
-        {
-            component: SidebarGlossaryTermsSection,
-        },
+        { component: SidebarTagsSection },
+        { component: SidebarGlossaryTermsSection },
         {
             component: SidebarCompactSchemaSection,
             display: {

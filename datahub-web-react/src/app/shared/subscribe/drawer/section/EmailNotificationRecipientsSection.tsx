@@ -90,7 +90,7 @@ const StyledAlert = styled(Alert)`
 `;
 
 export default function EmailNotificationRecipientSection() {
-    const { config } = useAppConfig(); 
+    const { config } = useAppConfig();
     const [form] = useForm();
     const actions = useDrawerActions();
 
@@ -134,8 +134,6 @@ export default function EmailNotificationRecipientSection() {
     const onChangeSaveAsDefaultCheckbox = ({ target: { checked } }: CheckboxChangeEvent) => {
         actions.setEmailSaveAsDefault(checked);
     };
-
-    console.log(email.enabled);
 
     return (
         <NotificationSwitchContainer>

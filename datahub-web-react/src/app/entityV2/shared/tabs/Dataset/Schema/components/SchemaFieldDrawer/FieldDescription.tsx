@@ -17,6 +17,8 @@ import { SidebarSection } from '../../../../../containers/profile/sidebar/Sideba
 import { useSchemaRefetch } from '../../SchemaContext';
 import { StyledDivider } from './components';
 import { sanitizeRichText } from '../../../../Documentation/components/editor/utils';
+import { getFieldDescriptionDetails } from '../../utils/getFieldDescriptionDetails';
+import PropagationDetails from '../../../../../../../sharedV2/propagation/PropagationDetails';
 
 const AddNewDescription = styled.div`
     margin: 0px;
@@ -43,6 +45,13 @@ const AddDescriptionText = styled.span`
         color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
     }
 `;
+
+const DescriptionWrapper = styled.div`
+    display: flex;
+    gap: 4px;
+    align-items: center;
+`;
+
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
@@ -97,7 +106,12 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
         };
     };
 
-    const displayedDescription = editableFieldInfo?.description || expandedField.description;
+    const { schemaFieldEntity, description } = expandedField;
+    const { displayedDescription, isPropagated, sourceDetail, propagatedDescription } = getFieldDescriptionDetails({
+        schemaFieldEntity,
+        editableFieldInfo,
+        defaultDescription: description,
+    });
 
     return (
         <>
@@ -125,9 +139,12 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                 <AddDescriptionText>Add Description</AddDescriptionText>
                             </AddNewDescription>
                         )}
-                        {!!displayedDescription && (
-                            <DescriptionSection description={displayedDescription} isExpandable />
-                        )}
+                        <DescriptionWrapper>
+                            {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
+                            {!!displayedDescription && (
+                                <DescriptionSection description={displayedDescription} isExpandable />
+                            )}
+                        </DescriptionWrapper>
                     </>
                 }
             />
@@ -136,6 +153,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                     title={displayedDescription ? 'Update description' : 'Add description'}
                     description={displayedDescription || ''}
                     original={expandedField.description || ''}
+                    propagatedDescription={propagatedDescription || ''}
                     onClose={() => setIsModalVisible(false)}
                     onSubmit={(updatedDescription: string) => {
                         message.loading({ content: 'Updating...' });

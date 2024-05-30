@@ -7,9 +7,8 @@ import { REDESIGN_COLORS } from '../../../../../constants';
 
 const FieldPathWrapper = styled.div`
     display: flex;
-    align-self: flex-end;
+    align-self: center;
     stroke: ${REDESIGN_COLORS.WHITE};
-    margin-bottom: 5px;
 `;
 
 const PopoverContentWrapper = styled.span`

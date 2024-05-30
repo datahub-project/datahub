@@ -207,6 +207,9 @@ export class ChartEntity implements Entity<Chart> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarOwnerSection,
+        },
+        {
             component: SidebarDomainSection,
         },
         {
@@ -217,9 +220,6 @@ export class ChartEntity implements Entity<Chart> {
         },
         {
             component: SidebarLineageSection,
-        },
-        {
-            component: SidebarOwnerSection,
         },
         {
             component: SidebarGlossaryTermsSection,

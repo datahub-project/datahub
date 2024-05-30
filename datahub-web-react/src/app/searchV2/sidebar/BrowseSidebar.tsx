@@ -81,7 +81,6 @@ const ThinDivider = styled(Divider)`
 
 const SidebarBody = styled.div`
     height: calc(100% - 47px);
-    overflow: auto;
     white-space: nowrap;
 `;
 

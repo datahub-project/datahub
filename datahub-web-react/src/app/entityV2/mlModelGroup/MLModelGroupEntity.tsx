@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModelGroup, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
+import { MlModelGroup, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
@@ -105,6 +105,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarOwnerSection,
+        },
+        {
             component: SidebarDomainSection,
         },
         {
@@ -112,12 +115,6 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         },
         {
             component: SidebarAboutSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
         },
         {
             component: SidebarGlossaryTermsSection,

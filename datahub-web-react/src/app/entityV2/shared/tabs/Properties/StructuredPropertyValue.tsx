@@ -7,9 +7,8 @@ import { ValueColumnData } from './types';
 import { ANTD_GRAY } from '../../constants';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import ExternalLink from '../../../../../images/link-out.svg?react';
-import MarkdownViewer, { MarkdownView } from '../../components/legacy/MarkdownViewer';
+import CompactMarkdownViewer from '../Documentation/components/CompactMarkdownViewer';
 import EntityIcon from '../../../../entity/shared/components/styled/EntityIcon';
-// import EntityIcon from '../../components/styled/EntityIcon';
 
 const ValueText = styled(Typography.Text)`
     font-family: 'Manrope';
@@ -18,7 +17,7 @@ const ValueText = styled(Typography.Text)`
     color: ${ANTD_GRAY[9]};
     display: block;
 
-    ${MarkdownView} {
+    .remirror-editor.ProseMirror {
         font-size: 12px;
     }
 `;
@@ -29,6 +28,11 @@ const StyledIcon = styled(Icon)`
 
 const IconWrapper = styled.span`
     margin-right: 4px;
+`;
+
+const StyledHighlight = styled(Highlight)`
+    line-height: 1.5;
+    text-wrap: wrap;
 `;
 
 interface Props {
@@ -59,11 +63,11 @@ export default function StructuredPropertyValue({ value, isRichText, filterText 
             ) : (
                 <>
                     {isRichText ? (
-                        <MarkdownViewer source={value.value as string} />
+                        <CompactMarkdownViewer content={value.value?.toString() ?? ''} />
                     ) : (
-                        <Highlight search={filterText}>
+                        <StyledHighlight search={filterText}>
                             {value.value?.toString() || <div style={{ minHeight: 22 }} />}
-                        </Highlight>
+                        </StyledHighlight>
                     )}
                 </>
             )}

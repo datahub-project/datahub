@@ -55,6 +55,8 @@ public class SubscriptionServiceTest {
 
   private static final String SUBSCRIPTION_URN_1_STRING = "urn:li:subscription:1";
   private static final Urn SUBSCRIPTION_URN_1 = UrnUtils.getUrn(SUBSCRIPTION_URN_1_STRING);
+  private static final String ASSERTION_URN_1_STRING = "urn:li:assertion:1";
+  private static final Urn ASSERTION_URN_1 = UrnUtils.getUrn(ASSERTION_URN_1_STRING);
   private static final NotificationSinkTypeArray NOTIFICATION_SINK_TYPES =
       new NotificationSinkTypeArray(NotificationSinkType.SLACK);
   private static final NotificationSettings NOTIFICATION_SETTINGS =
@@ -315,6 +317,21 @@ public class SubscriptionServiceTest {
   }
 
   @Test
+  public void testUpdateSubscriptionInfo() throws Exception {
+    when(_entityClient.exists(any(OperationContext.class), eq(SUBSCRIPTION_URN_1)))
+        .thenReturn(true);
+
+    final Map.Entry<Urn, SubscriptionInfo> subscription =
+        _subscriptionService.updateSubscriptionInfo(
+            opContext, SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1);
+
+    verify(_entityClient, times(1))
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
+    assertEquals(subscription, Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
+  }
+
+  @Test
   public void testgetSubscriptionSearchResultMissingActor() throws Exception {
     when(_entityClient.exists(any(OperationContext.class), eq(USER_URN), any())).thenReturn(false);
 
@@ -359,8 +376,13 @@ public class SubscriptionServiceTest {
             eq(SUBSCRIPTION_ASPECTS)))
         .thenReturn(
             ImmutableMap.of(
-                SUBSCRIPTION_URN_1, ENTITY_RESPONSE_1,
-                SUBSCRIPTION_URN_2, ENTITY_RESPONSE_2));
+                SUBSCRIPTION_URN_1,
+                ENTITY_RESPONSE_1,
+                SUBSCRIPTION_URN_2,
+                AspectUtils.createEntityResponseFromAspects(
+                    ImmutableMap.of(
+                        SUBSCRIPTION_INFO_ASPECT_NAME,
+                        SUBSCRIPTION_INFO_2.setEntityUrn(ENTITY_URN_1)))));
 
     final SearchResult searchResult =
         _subscriptionService.getSubscriptionsSearchResult(opContext, USER_URN, 0, 10);
@@ -370,6 +392,84 @@ public class SubscriptionServiceTest {
         ImmutableMap.of(
             SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1,
             SUBSCRIPTION_URN_2, SUBSCRIPTION_INFO_2);
+    assertEquals(subscriptions, expectedSubscriptions);
+  }
+
+  @Test
+  public void testListEntityAssertionSubscriptions() throws Exception {
+    final Integer maxQuery = 1000;
+    when(_entityClient.exists(any(OperationContext.class), eq(ENTITY_URN_1), any()))
+        .thenReturn(true);
+    when(_entityClient.filter(
+            any(OperationContext.class),
+            eq(SUBSCRIPTION_ENTITY_NAME),
+            any(),
+            any(),
+            anyInt(),
+            eq(maxQuery)))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(
+                    new SearchEntityArray(
+                        new SearchEntity().setEntity(SUBSCRIPTION_URN_1),
+                        new SearchEntity().setEntity(SUBSCRIPTION_URN_2))));
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(SUBSCRIPTION_ENTITY_NAME),
+            eq(SUBSCRIPTION_URNS),
+            eq(SUBSCRIPTION_ASPECTS)))
+        .thenReturn(
+            ImmutableMap.of(
+                SUBSCRIPTION_URN_1, ENTITY_RESPONSE_1,
+                SUBSCRIPTION_URN_2, ENTITY_RESPONSE_2));
+
+    final Map<Urn, SubscriptionInfo> subscriptions =
+        _subscriptionService.listEntityAssertionSubscriptions(
+            opContext, ENTITY_URN_1, ASSERTION_URN_1, maxQuery);
+    final Map<Urn, SubscriptionInfo> expectedSubscriptions =
+        ImmutableMap.of(
+            SUBSCRIPTION_URN_1,
+            SUBSCRIPTION_INFO_1,
+            SUBSCRIPTION_URN_2,
+            SUBSCRIPTION_INFO_2.setEntityUrn(ENTITY_URN_1));
+    assertEquals(subscriptions, expectedSubscriptions);
+  }
+
+  @Test
+  public void testListEntityAssertionSubscriptionsWithoutEntityUrn() throws Exception {
+    final Integer maxQuery = 1000;
+    when(_entityClient.filter(
+            any(OperationContext.class),
+            eq(SUBSCRIPTION_ENTITY_NAME),
+            any(),
+            any(),
+            anyInt(),
+            eq(maxQuery)))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(
+                    new SearchEntityArray(
+                        new SearchEntity().setEntity(SUBSCRIPTION_URN_1),
+                        new SearchEntity().setEntity(SUBSCRIPTION_URN_2))));
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(SUBSCRIPTION_ENTITY_NAME),
+            eq(SUBSCRIPTION_URNS),
+            eq(SUBSCRIPTION_ASPECTS)))
+        .thenReturn(
+            ImmutableMap.of(
+                SUBSCRIPTION_URN_1, ENTITY_RESPONSE_1,
+                SUBSCRIPTION_URN_2, ENTITY_RESPONSE_2));
+
+    final Map<Urn, SubscriptionInfo> subscriptions =
+        _subscriptionService.listAssertionSubscriptionsWithoutEntityUrn(
+            opContext, ASSERTION_URN_1, maxQuery);
+    final Map<Urn, SubscriptionInfo> expectedSubscriptions =
+        ImmutableMap.of(
+            SUBSCRIPTION_URN_1,
+            SUBSCRIPTION_INFO_1,
+            SUBSCRIPTION_URN_2,
+            SUBSCRIPTION_INFO_2.setEntityUrn(ENTITY_URN_1));
     assertEquals(subscriptions, expectedSubscriptions);
   }
 

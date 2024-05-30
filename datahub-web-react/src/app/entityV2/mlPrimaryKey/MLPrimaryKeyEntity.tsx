@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { DotChartOutlined, PartitionOutlined } from '@ant-design/icons';
-import { MlPrimaryKey, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
+import { MlPrimaryKey, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
@@ -110,6 +110,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             component: SharingAssetSection,
         },
         {
+            component: SidebarOwnerSection,
+        },
+        {
             component: SidebarDomainSection,
         },
         {
@@ -117,12 +120,6 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         },
         {
             component: SidebarAboutSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
         },
         {
             component: SidebarGlossaryTermsSection,

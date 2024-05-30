@@ -8,7 +8,8 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { DataJob, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, SearchResult } from '../../../types.generated';
+import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -146,39 +147,17 @@ export class DataJobEntity implements Entity<DataJob> {
     );
 
     getSidebarSections = () => [
-        {
-            component: SidebarEntityHeader,
-        },
-        {
-            component: SyncedAssetSection,
-        },
-        {
-            component: SharingAssetSection,
-        },
-        {
-            component: SidebarDomainSection,
-        },
-        {
-            component: DataProductSection,
-        },
-        {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarLineageSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
-        },
-        {
-            component: SidebarGlossaryTermsSection,
-        },
-        {
-            component: SidebarTagsSection,
-        },
+        { component: SidebarEntityHeader },
+        { component: SyncedAssetSection },
+        { component: SharingAssetSection },
+        { component: SidebarQueryOperationsSection },
+        { component: SidebarOwnerSection },
+        { component: SidebarDomainSection },
+        { component: DataProductSection },
+        { component: SidebarAboutSection },
+        { component: SidebarLineageSection },
+        { component: SidebarGlossaryTermsSection },
+        { component: SidebarTagsSection },
     ];
 
     getSidebarTabs = () => [
@@ -285,14 +264,20 @@ export class DataJobEntity implements Entity<DataJob> {
             name: this.displayName(entity),
             expandedName: this.getExpandedNameForDataJob(entity),
             type: EntityType.DataJob,
-            icon: entity?.dataFlow?.platform?.properties?.logoUrl || undefined,
-            // eslint-disable-next-line @typescript-eslint/dot-notation
+            icon: entity?.dataFlow?.platform?.properties?.logoUrl || undefined, // eslint-disable-next-line @typescript-eslint/dot-notation
             downstreamChildren: entity?.['downstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
-            // eslint-disable-next-line @typescript-eslint/dot-notation
+                (relationship) =>
+                    ({
+                        entity: relationship.entity,
+                        type: relationship.entity.type,
+                    } as EntityAndType),
+            ), // eslint-disable-next-line @typescript-eslint/dot-notation
             upstreamChildren: entity?.['upstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
+                (relationship) =>
+                    ({
+                        entity: relationship.entity,
+                        type: relationship.entity.type,
+                    } as EntityAndType),
             ),
             platform: entity?.dataFlow?.platform,
         };

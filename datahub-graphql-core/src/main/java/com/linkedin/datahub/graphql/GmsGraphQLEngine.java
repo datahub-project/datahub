@@ -93,6 +93,7 @@ import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.generated.MatchedField;
+import com.linkedin.datahub.graphql.generated.MetadataAttribution;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
@@ -744,6 +745,7 @@ public class GmsGraphQLEngine {
     configureRoleResolvers(builder);
     configureBusinessAttributeResolver(builder);
     configureBusinessAttributeAssociationResolver(builder);
+    configureMetadataAttributionResolver(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -794,6 +796,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
         .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
@@ -3060,5 +3063,21 @@ public class GmsGraphQLEngine {
                         ((BusinessAttributeAssociation) env.getSource())
                             .getBusinessAttribute()
                             .getUrn())));
+  }
+
+  private void configureMetadataAttributionResolver(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "MetadataAttribution",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "actor",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((MetadataAttribution) env.getSource()).getActor()))
+                .dataFetcher(
+                    "source",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) -> ((MetadataAttribution) env.getSource()).getSource())));
   }
 }

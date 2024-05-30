@@ -62,6 +62,10 @@ record SubscriptionInfo {
         "/*/entityChangeType" : {
             "fieldName": "entityChangeTypes",
             "fieldType": "KEYWORD"
+        },
+        "/*/filter/includeAssertions/*" : {
+            "fieldName": "subscribedAssertions",
+            "fieldType": "URN"
         }
     }
     entityChangeTypes: optional array[EntityChangeDetails]

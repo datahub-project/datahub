@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 
 import { Delete, Add } from '@mui/icons-material';
 import { Select } from 'antd';
 import uniqid from 'uniqid';
+
+import { SelectInputMode } from '../types/values';
 
 import {
 	EmptyStateContainer,
@@ -25,7 +27,7 @@ import {
 
 import { AssetTypeSelect } from '../inputs/AssetTypeSelect';
 
-import { ACTION_TYPES } from './action';
+import { ACTION_TYPES, } from './action';
 
 type Action = {
 	id: number;
@@ -55,13 +57,20 @@ const ActionSelector = ({ ...props }: any) => {
 					onChange={(value: any) => props.updateAction(value, props.id)}
 				/>
 			</div>
-			<div>
-				<AssetTypeSelect
-					entityTypes={selectedAction?.valueOptions.entityTypes}
-					mode={selectedAction?.valueOptions.mode}
-				// TODO: Add onChange & default selected values
-				/>
-			</div>
+			{selectedAction?.valueOptions.mode === SelectInputMode.NONE && (
+				<div>
+					{selectedAction?.description}
+				</div>
+			)}
+			{selectedAction?.valueOptions.mode !== SelectInputMode.NONE && (
+				<div>
+					<AssetTypeSelect
+						entityTypes={selectedAction?.valueOptions.entityTypes}
+						mode={selectedAction?.valueOptions.mode}
+						selected={props.values}
+					/>
+				</div>
+			)}
 			<div>
 				<DeleteButton
 					shape="circle"
@@ -73,7 +82,7 @@ const ActionSelector = ({ ...props }: any) => {
 	);
 }
 
-const ActionBuilder = () => {
+const ActionBuilder = ({ selectedActions }: any) => {
 	// Default Action
 	const defaultAction: Action = {
 		id: uniqid(),
@@ -81,8 +90,23 @@ const ActionBuilder = () => {
 		values: []
 	};
 
+	// Util to format selected actions
+	const formattedSelectedActions = useMemo(() => {
+		return selectedActions?.map((act: any) => ({
+			id: uniqid(),
+			action: act.type,
+			values: act.values
+		})) || [];
+	}, [selectedActions]);
+
 	// State to hold the actions
 	const [actions, setActions] = React.useState<Action[]>([]);
+
+	useEffect(() => {
+		if (formattedSelectedActions.length > 0 && actions.length === 0) {
+			setActions(formattedSelectedActions);
+		}
+	}, [formattedSelectedActions, actions.length, setActions]);
 
 	// Util to find the index of an action
 	const findActionIndex = (list: any, id: number) => list.findIndex((c: any) => c.id === id);
@@ -137,7 +161,7 @@ const ActionBuilder = () => {
 				</EmptyStateContainer>
 			)}
 			<ActionGroupContainer>
-				{actions.map((action,) => (
+				{actions.map((action) => (
 					<ActionSelector
 						key={action.id}
 						{...action}
@@ -159,7 +183,9 @@ const ActionBuilder = () => {
 	);
 }
 
-export const CustomActionSelector = () => {
+export const CustomActionSelector = ({ actionSelection, setActionSelection }: any) => {
+	const { passing, failing } = actionSelection;
+
 	return (
 		<CustomActionsContainer>
 			<BuilderGroupContainer>
@@ -167,14 +193,20 @@ export const CustomActionSelector = () => {
 					<SuccessIcon />
 					<h3>For Passing Assets</h3>
 				</BuilderGroupHeader>
-				<ActionBuilder />
+				<ActionBuilder
+					selectedActions={passing}
+					updateActions={setActionSelection}
+				/>
 			</BuilderGroupContainer>
 			<BuilderGroupContainer>
 				<BuilderGroupHeader>
 					<FailureIcon />
 					<h3>For Failing Assets</h3>
 				</BuilderGroupHeader>
-				<ActionBuilder />
+				<ActionBuilder
+					selectedActions={failing}
+					updateActions={setActionSelection}
+				/>
 			</BuilderGroupContainer>
 		</CustomActionsContainer>
 	);

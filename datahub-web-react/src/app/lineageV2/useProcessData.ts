@@ -1,8 +1,10 @@
 import { useContext, useMemo } from 'react';
 import { Edge } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
+import EntityRegistry from '../entityV2/EntityRegistry';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '../searchV2/utils/constants';
 import { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
+import { useEntityRegistryV2 } from '../useEntityRegistry';
 import {
     ColumnRef,
     createColumnRef,
@@ -24,12 +26,13 @@ import {
     setDefault,
     createFineGrainedOperationRef,
     FineGrainedOperationRef,
+    isUrnTransformational,
+    parseColumnRef,
 } from './common';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from './lineageUtils';
 import NodeBuilder, { LineageVisualizationNode } from './NodeBuilder';
 
 interface FineGrainedLineageData {
-    direct: FineGrainedLineage;
     indirect: FineGrainedLineage;
     fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation>;
 }
@@ -42,11 +45,12 @@ interface ProcessedData {
 
 export default function useProcessData(urn: string, type: EntityType): ProcessedData {
     const { nodes, edges, adjacencyList, nodeVersion, dataVersion, displayVersion } = useContext(LineageNodesContext);
+    const entityRegistry = useEntityRegistryV2();
     const displayVersionNumber = displayVersion[0];
 
     const fineGrainedLineage = useMemo(
         () => {
-            const fgl = getFineGrainedLineage({ nodes, edges });
+            const fgl = getFineGrainedLineage({ nodes, edges }, entityRegistry);
             console.debug(fgl);
             return fgl;
         }, // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -266,57 +270,73 @@ function getTransformationalNodes(
     return result;
 }
 
-function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): FineGrainedLineageData {
-    const { nodes } = context;
+interface TentativeEdge {
+    upstreamRef: ColumnRef;
+    downstreamRef: ColumnRef;
+    queryRef?: ColumnRef;
+    operationRef?: FineGrainedOperationRef;
+}
 
-    // Edges through query nodes
-    const downstream: FineGrainedLineageMap = new Map();
-    const upstream: FineGrainedLineageMap = new Map();
-    // Edges skip query nodes
-    const downstreamDirect: FineGrainedLineageMap = new Map();
-    const upstreamDirect: FineGrainedLineageMap = new Map();
+function getFineGrainedLineage(
+    context: Pick<NodeContext, 'nodes' | 'edges'>,
+    entityRegistry: EntityRegistry,
+): FineGrainedLineageData {
+    const { nodes, edges } = context;
 
+    const indirect: FineGrainedLineage = { downstream: new Map(), upstream: new Map() };
     const fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation> = new Map();
+    // CLL that may be deduplicated, if there exists a column-level path through transformational nodes
+    const tentativeEdges: TentativeEdge[] = [];
+
+    function processEdge(
+        upstreamUrn: string,
+        upstreamField: string,
+        downstreamUrn: string,
+        downstreamField: string,
+        intermediateIsQuery?: boolean,
+        intermediateRef?: ColumnRef,
+        operationRef?: FineGrainedOperationRef,
+    ) {
+        const upstreamRef = createColumnRef(upstreamUrn, upstreamField);
+        const downstreamRef = createColumnRef(downstreamUrn, downstreamField);
+        // Drop ghost edges and self edges
+        if (!nodes.has(upstreamUrn) || !nodes.has(downstreamUrn) || upstreamRef === downstreamRef) return;
+
+        if (
+            edges.get(createEdgeId(upstreamUrn, downstreamUrn))?.isDisplayed ||
+            (!intermediateIsQuery && intermediateRef)
+        ) {
+            addFineGrainedEdges(indirect, upstreamRef, downstreamRef, intermediateRef, operationRef);
+        } else {
+            tentativeEdges.push({ upstreamRef, downstreamRef, queryRef: intermediateRef, operationRef });
+        }
+    }
 
     nodes.forEach((node) => {
         node.entity?.fineGrainedLineages?.forEach((entry) => {
-            let queryInfo: [FineGrainedOperationRef, ColumnRef] | undefined;
-            if (entry.query) {
-                const operationRef = createFineGrainedOperationRef(entry.query, entry.upstreams, entry.downstreams);
-                const queryRef = createColumnRef(entry.query, operationRef);
+            let operationRef: FineGrainedOperationRef | undefined;
+            let queryRef: ColumnRef | undefined;
+            const intermediateNode = entry.query || (node.entity?.type === EntityType.DataJob && node.entity.urn);
+            if (intermediateNode) {
+                operationRef = createFineGrainedOperationRef(intermediateNode, entry.upstreams, entry.downstreams);
+                queryRef = createColumnRef(intermediateNode, operationRef);
                 fineGrainedOperations.set(operationRef, {
                     inputColumns: entry.upstreams?.map((ref) => [ref.urn, ref.path]) || undefined,
                     outputColumns: entry.downstreams?.map((ref) => [ref.urn, ref.path]) || undefined,
                     transformOperation: entry.transformOperation || undefined,
                 });
-                queryInfo = [operationRef, queryRef];
             }
-            entry.upstreams?.forEach((from) => {
-                const fromRef = createColumnRef(from.urn, from.path);
-                entry.downstreams?.forEach((to) => {
-                    if (shouldAddFineGrainedEdge(context, from.urn, to.urn)) {
-                        addFineGrainedEdges(
-                            downstream,
-                            downstreamDirect,
-                            fromRef,
-                            createColumnRef(to.urn, to.path),
-                            queryInfo,
-                        );
-                    }
-                });
-            });
-            entry.downstreams?.forEach((from) => {
-                const fromRef = createColumnRef(from.urn, from.path);
-                entry.upstreams?.forEach((to) => {
-                    if (shouldAddFineGrainedEdge(context, to.urn, from.urn)) {
-                        addFineGrainedEdges(
-                            upstream,
-                            upstreamDirect,
-                            fromRef,
-                            createColumnRef(to.urn, to.path),
-                            queryInfo,
-                        );
-                    }
+            entry.upstreams?.forEach((upstream) => {
+                entry.downstreams?.forEach((downstream) => {
+                    processEdge(
+                        upstream.urn,
+                        upstream.path,
+                        downstream.urn,
+                        downstream.path,
+                        !!entry.query,
+                        queryRef,
+                        operationRef,
+                    );
                 });
             });
         });
@@ -324,50 +344,68 @@ function getFineGrainedLineage(context: Pick<NodeContext, 'nodes' | 'edges'>): F
             // Upstream of chart's field `schemaField` comes in as `schemaFieldUrn`
             if (input?.schemaFieldUrn && input?.schemaField) {
                 const upstreamUrn = getSourceUrnFromSchemaFieldUrn(input.schemaFieldUrn);
-                const upstreamRef = createColumnRef(upstreamUrn, getFieldPathFromSchemaFieldUrn(input.schemaFieldUrn));
-                const downstreamRef = createColumnRef(node.urn, input.schemaField.fieldPath);
-                if (nodes.has(upstreamUrn)) {
-                    addFineGrainedEdges(downstream, downstreamDirect, upstreamRef, downstreamRef, undefined);
-                    addFineGrainedEdges(upstream, upstreamDirect, downstreamRef, upstreamRef, undefined);
-                }
+                const upstreamField = getFieldPathFromSchemaFieldUrn(input.schemaFieldUrn);
+                processEdge(upstreamUrn, upstreamField, node.urn, input.schemaField.fieldPath);
             }
         });
     });
 
+    tentativeEdges
+        .filter(
+            ({ upstreamRef, downstreamRef }) =>
+                !isTransformationalPath(indirect.downstream, upstreamRef, downstreamRef, entityRegistry),
+        )
+        .forEach(({ upstreamRef, downstreamRef, queryRef, operationRef }) => {
+            addFineGrainedEdges(indirect, upstreamRef, downstreamRef, queryRef, operationRef);
+        });
+
     return {
-        indirect: { downstream, upstream },
-        direct: { downstream: downstreamDirect, upstream: upstreamDirect },
+        indirect,
         fineGrainedOperations,
     };
 }
 
-function shouldAddFineGrainedEdge(
-    context: Pick<NodeContext, 'nodes' | 'edges'>,
-    upstreamUrn: string,
-    downstreamUrn: string,
-): boolean {
-    const { nodes, edges } = context;
-    // Note: This filters out self-edges
-    return (
-        nodes.has(upstreamUrn) &&
-        nodes.has(downstreamUrn) &&
-        !edges.get(createEdgeId(upstreamUrn, downstreamUrn))?.hideFineGrained
-    );
+function addFineGrainedEdges(
+    fgl: FineGrainedLineage,
+    upstreamRef: ColumnRef,
+    downstreamRef: ColumnRef,
+    queryRef?: ColumnRef,
+    operationRef?: FineGrainedOperationRef,
+) {
+    if (queryRef) {
+        setDefault(fgl.upstream, downstreamRef, new Map()).set(queryRef, operationRef);
+        setDefault(fgl.upstream, queryRef, new Map()).set(upstreamRef, null);
+        setDefault(fgl.downstream, upstreamRef, new Map()).set(queryRef, operationRef);
+        setDefault(fgl.downstream, queryRef, new Map()).set(downstreamRef, null);
+    } else {
+        setDefault(fgl.upstream, downstreamRef, new Map()).set(upstreamRef, null);
+        setDefault(fgl.downstream, upstreamRef, new Map()).set(downstreamRef, null);
+    }
 }
 
-function addFineGrainedEdges(
-    map: FineGrainedLineageMap,
-    directMap: FineGrainedLineageMap,
-    from: ColumnRef,
-    to: ColumnRef,
-    queryInfo: [FineGrainedOperationRef, ColumnRef] | undefined,
-) {
-    if (queryInfo) {
-        const [operationRef, queryRef] = queryInfo;
-        setDefault(map, from, new Map()).set(queryRef, operationRef);
-        setDefault(map, queryRef, new Map()).set(to, null);
-    } else {
-        setDefault(map, from, new Map()).set(to, null);
+function isTransformationalPath(
+    downstreamMap: FineGrainedLineageMap,
+    upstreamRef: ColumnRef,
+    downstreamRef: ColumnRef,
+    entityRegistry: EntityRegistry,
+): boolean {
+    const stack = [upstreamRef];
+    const seen = new Set<string>(stack);
+    for (let node = stack.pop(); node; node = stack.pop()) {
+        const found = Array.from(downstreamMap.get(node)?.keys() || []).some((childRef) => {
+            if (childRef === downstreamRef) return true;
+            if (!seen.has(childRef)) {
+                const [childUrn] = parseColumnRef(childRef);
+                if (isUrnTransformational(childUrn, entityRegistry)) {
+                    stack.push(childRef);
+                    seen.add(childRef);
+                }
+            }
+            return false;
+        });
+        if (found) {
+            return true;
+        }
     }
-    setDefault(directMap, from, new Map()).set(to, null);
+    return false;
 }

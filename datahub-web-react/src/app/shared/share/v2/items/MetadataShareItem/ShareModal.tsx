@@ -20,7 +20,7 @@ import {
 } from '../../../../../entityV2/shared/containers/profile/sidebar/shared/styledComponents';
 import { StyledCheckbox, StyledShareButton } from '../../styledComponents';
 
-const ModalTitle = styled.span`
+export const ModalTitle = styled.span`
     display: flex;
     align-items: center;
     gap: 8px;
@@ -43,7 +43,7 @@ const StyledContainer = styled.div`
     }
 `;
 
-const StyledModal = styled(Modal)`
+export const StyledModal = styled(Modal)`
     font-family: Mulish;
     max-width: 480px;
 

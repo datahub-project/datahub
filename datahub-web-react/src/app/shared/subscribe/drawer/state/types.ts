@@ -1,5 +1,5 @@
 import { Key } from 'react';
-import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../../types.generated';
+import { Assertion, DataHubSubscription, EntityType, NotificationSinkType } from '../../../../../types.generated';
 
 export const ChannelSelections = {
     SETTINGS: 'SETTINGS',
@@ -23,6 +23,7 @@ export type State = {
     notificationTypes: {
         checkedKeys: Array<Key>;
         expandedKeys: Array<Key>;
+        keysWithAllFilteringCleared: Array<Key>;  // ie. if user has cleared urn filters for assertions
     };
     subscribeToUpstream: boolean;
     notificationSinkTypes: Array<NotificationSinkType>;
@@ -54,6 +55,9 @@ export type InitializeActionPayload = {
     emailSettingsChannel?: string;
     entityType: EntityType;
     subscription?: DataHubSubscription;
+    forSubResource?: {
+        assertion?: Assertion
+    };
     settingsSinkTypes?: NotificationSinkType[];
 };
 
@@ -70,6 +74,7 @@ export const ActionTypes = {
     SET_SUBSCRIBE_TO_UPSTREAM: 'SET_SUBSCRIBE_TO_UPSTREAM,',
     SET_NOTIFICATION_TYPES: 'SET_NOTIFICATION_TYPES',
     SET_EXPANDED_NOTIFICATION_TYPES: 'SET_EXPANDED_NOTIFICATION_TYPES',
+    SET_NOTIFICATION_TYPES_WITH_FILTERS_CLEARED: 'SET_NOTIFICATION_TYPES_WITH_FILTERS_CLEARED',
 } as const;
 
 export type Action =
@@ -84,4 +89,5 @@ export type Action =
     | { type: typeof ActionTypes.SET_EMAIL_SAVE_AS_DEFAULT; payload: boolean }
     | { type: typeof ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM; payload: boolean }
     | { type: typeof ActionTypes.SET_NOTIFICATION_TYPES; payload: Array<Key> }
-    | { type: typeof ActionTypes.SET_EXPANDED_NOTIFICATION_TYPES; payload: Array<Key> };
+    | { type: typeof ActionTypes.SET_EXPANDED_NOTIFICATION_TYPES; payload: Array<Key> }
+    | { type: typeof ActionTypes.SET_NOTIFICATION_TYPES_WITH_FILTERS_CLEARED; payload: Array<Key> };
