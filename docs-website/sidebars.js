@@ -82,7 +82,7 @@ module.exports = {
             {
               label: "Open Assertion Specification",
               type: "doc",
-              id: "docs/assertions/open-assertion-specification",
+              id: "docs/assertions/open-assertions-spec",
             },
           ],
         },
