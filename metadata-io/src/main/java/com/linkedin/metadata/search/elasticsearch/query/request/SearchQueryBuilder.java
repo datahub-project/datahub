@@ -181,6 +181,13 @@ public class SearchQueryBuilder {
     return fields;
   }
 
+  /**
+   * Return query by default fields
+   *
+   * @param entityRegistry entity registry with search annotations
+   * @param entitySpec the entity spect
+   * @return set of queryByDefault field configurations
+   */
   @VisibleForTesting
   public Set<SearchFieldConfig> getFieldsFromEntitySpec(
       @Nonnull EntityRegistry entityRegistry, EntitySpec entitySpec) {
@@ -212,14 +219,20 @@ public class SearchQueryBuilder {
 
     List<SearchableRefFieldSpec> searchableRefFieldSpecs = entitySpec.getSearchableRefFieldSpecs();
     for (SearchableRefFieldSpec refFieldSpec : searchableRefFieldSpecs) {
+      if (!refFieldSpec.getSearchableRefAnnotation().isQueryByDefault()) {
+        continue;
+      }
+
       int depth = refFieldSpec.getSearchableRefAnnotation().getDepth();
-      Set<SearchFieldConfig> searchFieldConfig =
-          SearchFieldConfig.detectSubFieldType(refFieldSpec, depth, entityRegistry);
-      fields.addAll(searchFieldConfig);
+      Set<SearchFieldConfig> searchFieldConfigs =
+          SearchFieldConfig.detectSubFieldType(refFieldSpec, depth, entityRegistry).stream()
+              .filter(SearchFieldConfig::isQueryByDefault)
+              .collect(Collectors.toSet());
+      fields.addAll(searchFieldConfigs);
 
       Map<String, SearchableAnnotation.FieldType> fieldTypeMap =
           getAllFieldTypeFromSearchableRef(refFieldSpec, depth, entityRegistry, "");
-      for (SearchFieldConfig fieldConfig : searchFieldConfig) {
+      for (SearchFieldConfig fieldConfig : searchFieldConfigs) {
         if (fieldConfig.hasDelimitedSubfield()) {
           fields.add(
               SearchFieldConfig.detectSubFieldType(
