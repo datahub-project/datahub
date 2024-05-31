@@ -75,7 +75,8 @@ public class SpringWebConfig implements WebMvcConfigurer {
         Arrays.asList(
             MediaType.APPLICATION_JSON,
             MediaType.APPLICATION_XML,
-            MediaType.valueOf(Constants.SCIM_CONTENT_TYPE)));
+            MediaType.valueOf(Constants.SCIM_CONTENT_TYPE),
+            MediaType.valueOf("application/json-patch+json")));
     return converter;
   }
 
