@@ -165,6 +165,7 @@ import com.linkedin.datahub.graphql.resolvers.form.CreateFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.DeleteFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.IsFormAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.form.SubmitFormPromptResolver;
+import com.linkedin.datahub.graphql.resolvers.form.UpdateFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.VerifyFormResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.AddRelatedTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryNodeResolver;
@@ -1298,7 +1299,8 @@ public class GmsGraphQLEngine {
                   new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
-              .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient));
+              .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
+              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient));
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(
