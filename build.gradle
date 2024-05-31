@@ -250,6 +250,7 @@ project.ext.externalDependency = [
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
     'springKafka': "org.springframework.kafka:spring-kafka:$springKafkaVersion",
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
+    'springRetry': "org.springframework.retry:spring-retry:2.0.6",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.7',
