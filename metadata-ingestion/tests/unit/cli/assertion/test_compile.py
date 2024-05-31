@@ -34,6 +34,7 @@ def test_compile_assertion_config_spec_for_snowflake(pytestconfig, tmp_path):
         DMF_DEFINITIONS_FILE_NAME,
         DMF_ASSOCIATIONS_FILE_NAME,
     ]
+
     for file_name in output_file_names:
         assert os.path.exists(tmp_path / file_name)
         assert filecmp.cmp(

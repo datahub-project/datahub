@@ -15,6 +15,11 @@ from datahub.api.entities.assertion.assertion_operator import (
 class SnowflakeMetricEvalOperatorSQLGenerator:
     @singledispatchmethod
     def operator_sql(self, operators: Operators, metric_sql: str) -> str:
+        """
+        Generates Operator SQL that applies operator on `metric`
+        and returns a numeric boolean value 1 if PASS, 0 if FAIL
+
+        """
         raise ValueError(f"Unsupported metric operator type {type(operators)} ")
 
     @operator_sql.register

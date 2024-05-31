@@ -19,6 +19,9 @@ from datahub.api.entities.assertion.compiler_interface import (
 )
 from datahub.api.entities.assertion.datahub_assertion import DataHubAssertion
 from datahub.api.entities.assertion.field_assertion import FieldValuesAssertion
+from datahub.api.entities.assertion.freshness_assertion import (
+    FixedIntervalFreshnessAssertion,
+)
 from datahub.emitter.mce_builder import make_assertion_urn
 from datahub.integrations.assertion.common import get_entity_name, get_entity_schema
 from datahub.integrations.assertion.snowflake.dmf_generator import SnowflakeDMFHandler
@@ -37,7 +40,6 @@ from datahub.integrations.assertion.snowflake.metric_sql_generator import (
 
 logger = logging.Logger(__name__)
 
-BOOTSTRAP_SQL_FILE_NAME = "bootstrap.sql"
 DMF_DEFINITIONS_FILE_NAME = "dmf_definitions.sql"
 DMF_ASSOCIATIONS_FILE_NAME = "dmf_associations.sql"
 DMF_SCHEMA_PROPERTY_KEY = "DMF_SCHEMA"
@@ -113,24 +115,42 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
             if result.report.num_compile_succeeded > 0:
                 result.add_artifact(
                     CompileResultArtifact(
-                        name=BOOTSTRAP_SQL_FILE_NAME,
+                        name=DMF_DEFINITIONS_FILE_NAME,
                         path=dmf_definitions_path,
                         type=CompileResultArtifactType.SQL_QUERIES,
-                        description="SQL file containing DMF create definitions equivalent to Datahub Assertions"
-                        "\nand ALTER TABLE queries to associate DMFs to table to run on configured schedule.",
+                        description="SQL file containing DMF create definitions equivalent to Datahub Assertions",
+                    )
+                )
+                result.add_artifact(
+                    CompileResultArtifact(
+                        name=DMF_ASSOCIATIONS_FILE_NAME,
+                        path=dmf_associations_path,
+                        type=CompileResultArtifactType.SQL_QUERIES,
+                        description="ALTER TABLE queries to associate DMFs to table to run on configured schedule.",
                     )
                 )
 
             return result
 
     def process_assertion(self, assertion: DataHubAssertion) -> Tuple[str, str]:
-        # TODO: support freshness and schema assertion ?
+        # TODO: support schema assertion ?
 
+        # For freshness assertion, metric is difference in seconds between assertion execution time
+        # and last time table was updated.
+        # For field values assertion, metric is number or percentage of rows that do not satify
+        # operator condition.
+        # For remaining assertions, numeric metric is discernible in assertion definition itself.
         metric_definition = self.metric_generator.metric_sql(assertion.assertion)
 
-        if isinstance(assertion.assertion, FieldValuesAssertion):
-            # metric is number or percentage of rows that do not satify operator condition
-            # evaluator returns a boolean value 1 if PASS, 0 if FAIL
+        if isinstance(assertion.assertion, FixedIntervalFreshnessAssertion):
+            assertion_sql = self.metric_evaluator.operator_sql(
+                LessThanOrEqualToOperator(
+                    type="less_than_or_equal_to",
+                    value=assertion.assertion.lookback_interval.total_seconds(),
+                ),
+                metric_definition,
+            )
+        elif isinstance(assertion.assertion, FieldValuesAssertion):
             assertion_sql = self.metric_evaluator.operator_sql(
                 LessThanOrEqualToOperator(
                     type="less_than_or_equal_to",
@@ -139,7 +159,6 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
                 metric_definition,
             )
         else:
-            # evaluator returns a boolean value 1 if PASS, 0 if FAIL
             assertion_sql = self.metric_evaluator.operator_sql(
                 assertion.assertion.operator, metric_definition
             )

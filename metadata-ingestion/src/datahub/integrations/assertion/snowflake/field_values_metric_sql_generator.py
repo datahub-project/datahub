@@ -3,13 +3,21 @@ from typing import List, Optional
 
 from datahub.api.entities.assertion.assertion_operator import (
     BetweenOperator,
+    ContainsOperator,
+    EndsWithOperator,
     EqualToOperator,
     GreaterThanOperator,
     GreaterThanOrEqualToOperator,
+    InOperator,
+    IsNullOperator,
     LessThanOperator,
     LessThanOrEqualToOperator,
+    MatchesRegexOperator,
+    NotEqualToOperator,
+    NotInOperator,
     NotNullOperator,
     Operators,
+    StartsWithOperator,
 )
 from datahub.api.entities.assertion.field_assertion import (
     FieldTransform,
@@ -19,7 +27,6 @@ from datahub.integrations.assertion.common import get_entity_name
 
 
 class SnowflakeFieldValuesMetricSQLGenerator:
-    # TODO: support remaining operators
     @singledispatchmethod
     def values_metric_sql(
         self,
@@ -28,7 +35,34 @@ class SnowflakeFieldValuesMetricSQLGenerator:
         transformed_field: str,
         where_clause: str,
     ) -> str:
+        """
+        Generates SQL that would return boolean value for each table row.
+        1 if FAIL and 0 if PASS. Note the unusual reversal of 1 and 0.
+        This is deliberate, as metric represents number of failing rows.
+        """
         raise ValueError(f"Unsupported values metric operator type {type(operators)} ")
+
+    @values_metric_sql.register
+    def _(
+        self,
+        operators: InOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when {transformed_field} in {tuple(operators.value)} then 0 else 1 end
+        from {entity_name} {where_clause}"""
+
+    @values_metric_sql.register
+    def _(
+        self,
+        operators: NotInOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when {transformed_field} not in {tuple(operators.value)} then 0 else 1 end
+        from {entity_name} {where_clause}"""
 
     @values_metric_sql.register
     def _(
@@ -38,7 +72,18 @@ class SnowflakeFieldValuesMetricSQLGenerator:
         transformed_field: str,
         where_clause: str,
     ) -> str:
-        return f"""select case when {transformed_field}={operators.value} then 0 else 1
+        return f"""select case when {transformed_field} = {operators.value} then 0 else 1 end
+        from {entity_name} {where_clause}"""
+
+    @values_metric_sql.register
+    def _(
+        self,
+        operators: NotEqualToOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when {transformed_field} != {operators.value} then 0 else 1 end
         from {entity_name} {where_clause}"""
 
     @values_metric_sql.register
@@ -99,12 +144,67 @@ class SnowflakeFieldValuesMetricSQLGenerator:
     @values_metric_sql.register
     def _(
         self,
+        operators: IsNullOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when {transformed_field} is null then 0 else 1 end
+        from {entity_name} {where_clause}"""
+
+    @values_metric_sql.register
+    def _(
+        self,
         operators: NotNullOperator,
         entity_name: str,
         transformed_field: str,
         where_clause: str,
     ) -> str:
         return f"""select case when {transformed_field} is not null then 0 else 1 end
+        from {entity_name} {where_clause}"""
+
+    @values_metric_sql.register
+    def _(
+        self,
+        operators: ContainsOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when contains({transformed_field},'{operators.value}') then 0 else 1 end
+        from {entity_name} {where_clause}"""
+
+    @values_metric_sql.register
+    def _(
+        self,
+        operators: StartsWithOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when startswith({transformed_field},'{operators.value}') then 0 else 1 end
+        from {entity_name} {where_clause}"""
+
+    @values_metric_sql.register
+    def _(
+        self,
+        operators: EndsWithOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when endswith({transformed_field},'{operators.value}') then 0 else 1 end
+        from {entity_name} {where_clause}"""
+
+    @values_metric_sql.register
+    def _(
+        self,
+        operators: MatchesRegexOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when REGEXP_LIKE({transformed_field},'{operators.value}') then 0 else 1 end
         from {entity_name} {where_clause}"""
 
     def _setup_where_clause(self, filters: List[Optional[str]]) -> str:

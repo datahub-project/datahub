@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from typing_extensions import Literal, Protocol
 
@@ -48,7 +48,7 @@ def _generate_assertion_std_parameter(
         )
 
 
-Param = Union[str, int, float, list]
+Param = Union[str, int, float, List[Union[str, float, int]]]
 
 
 def _generate_assertion_std_parameters(
@@ -159,7 +159,7 @@ class GreaterThanOrEqualToOperator(v1_ConfigModel):
 
 class InOperator(v1_ConfigModel):
     type: Literal["in"]
-    value: list
+    value: List[Union[str, float, int]]
 
     operator: str = AssertionStdOperatorClass.IN
 
@@ -170,9 +170,9 @@ class InOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class NotInToOperator(v1_ConfigModel):
+class NotInOperator(v1_ConfigModel):
     type: Literal["not_in"]
-    value: list
+    value: List[Union[str, float, int]]
 
     operator: str = AssertionStdOperatorClass.NOT_IN
 
@@ -261,7 +261,7 @@ class MatchesRegexOperator(v1_ConfigModel):
 
 Operators = Union[
     InOperator,
-    NotInToOperator,
+    NotInOperator,
     EqualToOperator,
     NotEqualToOperator,
     BetweenOperator,

@@ -6,6 +6,10 @@ from datahub.api.entities.assertion.field_assertion import (
     FieldMetricAssertion,
     FieldValuesAssertion,
 )
+from datahub.api.entities.assertion.freshness_assertion import (
+    FixedIntervalFreshnessAssertion,
+    FreshnessSourceType,
+)
 from datahub.api.entities.assertion.sql_assertion import (
     SqlMetricAssertion,
     SqlMetricChangeAssertion,
@@ -33,6 +37,7 @@ class SnowflakeMetricSQLGenerator:
         self,
         assertion: BaseEntityAssertion,
     ) -> str:
+        """Generates Metric SQL that typically returns a numeric metric"""
         raise ValueError(f"Unsupported assertion type {type(assertion)} ")
 
     @metric_sql.register
@@ -42,6 +47,28 @@ class SnowflakeMetricSQLGenerator:
     @metric_sql.register
     def _(self, assertion: SqlMetricChangeAssertion) -> str:
         raise ValueError(f"Unsupported assertion type {type(assertion)} ")
+
+    @metric_sql.register
+    def _(self, assertion: FixedIntervalFreshnessAssertion) -> str:
+        entity_name = ".".join(get_entity_name(assertion))
+        if assertion.filter and assertion.filter.sql:
+            where_clause = f"where {assertion.filter.sql}"
+        else:
+            where_clause = ""
+
+        if (
+            assertion.source_type == FreshnessSourceType.LAST_MODIFIED_COLUMN
+            and assertion.last_modified_field
+        ):
+            return f"""select timediff(
+                second,
+                max({assertion.last_modified_field}::TIMESTAMP_LTZ),
+                SNOWFLAKE.CORE.DATA_METRIC_SCHEDULED_TIME()
+            )  as metric from {entity_name} {where_clause}"""
+        else:
+            raise ValueError(
+                f"Unsupported freshness source type {assertion.source_type} "
+            )
 
     @metric_sql.register
     def _(self, assertion: RowCountTotalVolumeAssertion) -> str:

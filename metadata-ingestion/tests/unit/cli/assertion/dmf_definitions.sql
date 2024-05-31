@@ -1,4 +1,21 @@
 
+-- Start of Assertion 025cce4dd4123c0f007908011a9c64d7
+
+            CREATE or REPLACE DATA METRIC FUNCTION
+            test_db.datahub_dmfs.datahub__025cce4dd4123c0f007908011a9c64d7 (ARGT TABLE(col_date DATE))
+            RETURNS NUMBER
+            COMMENT = 'Created via DataHub for assertion urn:li:assertion:025cce4dd4123c0f007908011a9c64d7 of type freshness'
+            AS
+            $$
+            select case when metric <= 3600 then 1 else 0 end from (select timediff(
+                second,
+                max(col_timestamp::TIMESTAMP_LTZ),
+                SNOWFLAKE.CORE.DATA_METRIC_SCHEDULED_TIME()
+            )  as metric from TEST_DB.PUBLIC.TEST_ASSERTIONS_ALL_TIMES )
+            $$;
+            
+-- End of Assertion 025cce4dd4123c0f007908011a9c64d7
+
 -- Start of Assertion 5c32eef47bd763fece7d21c7cbf6c659
 
             CREATE or REPLACE DATA METRIC FUNCTION

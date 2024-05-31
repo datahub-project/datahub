@@ -10,4 +10,4 @@ def test_assertion_config_spec_parses_correct_type(pytestconfig):
     config_spec = AssertionsConfigSpec.from_yaml(config_file)
     assert config_spec.version == 1
     assert config_spec.id == "test-config-id-1"
-    assert len(config_spec.assertions) == 4
+    assert len(config_spec.assertions) == 5
