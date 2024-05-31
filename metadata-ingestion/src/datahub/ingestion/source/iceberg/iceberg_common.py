@@ -1,5 +1,6 @@
+import logging
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
@@ -17,6 +18,8 @@ from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class IcebergProfilingConfig(ConfigModel):
@@ -56,11 +59,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         default=None, description="Iceberg Stateful Ingestion Config."
     )
     # The catalog configuration is using a dictionary to be open and flexible.  All the keys and values are handled by pyiceberg.  This will future-proof any configuration change done by pyiceberg.
-    # catalog: Dict[str, Dict[str, str]] = Field(
-    #     description="Catalog configuration where to find Iceberg tables.  Only one catalog specification is supported.  The format is the same as [pyiceberg's catalog configuration](https://py.iceberg.apache.org/configuration/), where the catalog name is specified as the object name and attributes are set as key-value pairs.",
-    # )
-    # `catalog` field to accept `Any` to handle both new and deprecated formats.  Once deprecated format is not supported, we can remove this field and use the above `catalog` field.
-    catalog: Any = Field(
+    catalog: Dict[str, Dict[str, str]] = Field(
         description="Catalog configuration where to find Iceberg tables.  Only one catalog specification is supported.  The format is the same as [pyiceberg's catalog configuration](https://py.iceberg.apache.org/configuration/), where the catalog name is specified as the object name and attributes are set as key-value pairs.",
     )
     table_pattern: AllowDenyPattern = Field(
@@ -87,9 +86,8 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             and "config" in value
         ):
             # This looks like the deprecated format
-            print(
-                "The catalog configuration format you are using is deprecated "
-                "and will be removed in a future version. Please update to the new format.",
+            logger.warning(
+                "The catalog configuration format you are using is deprecated and will be removed in a future version. Please update to the new format.",
             )
             catalog_name = value["name"]
             catalog_type = value["type"]
