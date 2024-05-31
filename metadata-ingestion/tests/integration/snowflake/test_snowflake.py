@@ -214,6 +214,7 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         include_views=True,
                         include_view_lineage=True,
                         include_usage_stats=False,
+                        format_sql_queries=True,
                         incremental_lineage=False,
                         include_operational_stats=False,
                         platform_instance="instance1",
