@@ -44,7 +44,7 @@ public class SimpleKafkaConsumerFactory {
           Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    Map<String, Object> customizedProperties = properties.buildConsumerProperties();
+    Map<String, Object> customizedProperties = properties.buildConsumerProperties(null);
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
