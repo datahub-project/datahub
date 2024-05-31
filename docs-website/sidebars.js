@@ -80,9 +80,21 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Open Assertion Specification",
-              type: "doc",
-              id: "docs/assertions/open-assertions-spec",
+              label: "Open Assertions Specification",
+              type: "category",
+              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              items: [
+                {
+                  label: "Overview",
+                  type: "doc",
+                  id: "docs/assertions/open-assertions-spec",
+                },
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
             },
           ],
         },
@@ -899,8 +911,7 @@ module.exports = {
     // "docs/_feature-guide-template"
     // "docs/_api-guide-template"
     // - "metadata-service/services/README"
-    // "metadata-ingestion/examples/structured_properties/README",
-    // "docs/assertions/snowflake/snowflake_dmfs
+    // "metadata-ingestion/examples/structured_properties/README"
     // ],
   ],
 };
