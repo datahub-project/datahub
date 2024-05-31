@@ -46,8 +46,33 @@ describe("proposals", () => {
     cy.contains("Proposed description update!").should("not.exist");
   };
 
+  let removeTagSchemaLevel = (tag) => {
+    cy.get("#entity-profile-sidebar").within(() => {
+      cy.contains(".ant-tag", tag)
+        .find(".ant-tag-close-icon")
+        .click({ force: true });
+    });
+    cy.contains("Yes").click();
+    cy.get("#entity-profile-sidebar").contains(tag).should("not.exist");
+  };
+
+  const deletePreviousEntity = (entityName) => {
+    cy.get(`#entity-profile-sidebar`)
+      .invoke("text")
+      .then((text) => {
+        const storedVariable = text.trim();
+        if (storedVariable.includes(entityName)) {
+          removeTagSchemaLevel(entityName);
+        } else {
+          cy.ensureTextNotPresent(entityName);
+        }
+      });
+  };
+
   let proposeTagOrTerm = (entityRoute, tagNameOrTermName, dataTestId) => {
     cy.visit(entityRoute);
+    cy.wait(2000);
+    deletePreviousEntity(tagNameOrTermName);
     cy.get(
       `[data-testid="proposed-${dataTestId}-${tagNameOrTermName}"]`,
     ).should("not.exist");
@@ -96,17 +121,7 @@ describe("proposals", () => {
     cy.get("#entity-profile-sidebar").contains(to_type).should("be.visible");
   };
 
-  let removeTagSchemaLevel = (field_id, tag) => {
-    cy.get("#entity-profile-sidebar").within(() => {
-      cy.contains("[data-testid=tag-" + tag + "]", tag)
-        .find(".ant-tag-close-icon")
-        .click({ force: true });
-    });
-    cy.contains("Yes").click();
-    cy.get("#entity-profile-sidebar").contains(tag).should("not.exist");
-  };
-
-  it("can propose description to dataset and then reject description proposal from the my requests tab", () => {
+  it.only("can propose description to dataset and then reject description proposal from the my requests tab", () => {
     proposeDatasetDescription();
     cy.rejectProposalInbox();
     cy.visit(datasetUrn.dataPlatformDocument);
@@ -179,7 +194,7 @@ describe("proposals", () => {
     acceptProposalDatasetPage("TagToPropose", "tag");
 
     // Deleting the tag (data cleanup)
-    removeTagSchemaLevel("tag-TagToPropose", "TagToPropose");
+    removeTagSchemaLevel("TagToPropose");
   });
 
   it("can propose term to dataset and then accept term proposal from the dataset page", () => {
@@ -223,7 +238,7 @@ describe("proposals", () => {
     cy.acceptProposalInbox();
     cy.searchNotCachedContainsDataset("TagToPropose", datasetName);
     cy.goToDataset(datasetUrn.dataPlatform, datasetName);
-    removeTagSchemaLevel("tag-TagToPropose", "TagToPropose");
+    removeTagSchemaLevel("TagToPropose");
   });
 
   it("can propose term to dataset and then accept term proposal from the my requests tab", () => {

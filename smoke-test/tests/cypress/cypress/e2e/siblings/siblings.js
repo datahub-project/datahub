@@ -16,23 +16,6 @@ describe("siblings", () => {
     cy.get('[data-testid="table-stats-rowcount"]').contains("100");
   });
 
-  it("will merge metadata to primary sibling", () => {
-    cy.login();
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
-    );
-
-    // check merged platforms
-    cy.contains("dbt & BigQuery");
-
-    // check merged schema (from dbt)
-    cy.contains("This is a unique identifier for a customer");
-
-    // check merged profile (from bigquery)
-    cy.contains("Stats").click({ force: true });
-    cy.get('[data-testid="table-stats-rowcount"]').contains("100");
-  });
-
   it("can view individual nodes", () => {
     cy.login();
 
@@ -47,12 +30,10 @@ describe("siblings", () => {
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
     );
-
+    cy.get(".ant-table-row").should("be.visible");
     // navigate to the bq entity
-    cy.clickOptionWithTestId(
-      "compact-entity-link-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
-    );
-
+    cy.get('[class*="CompactEntityNameList').first().click();
+    cy.get(".ant-table-row").should("be.visible");
     // check merged platforms is not shown
     cy.get('[data-testid="entity-header-test-id"]')
       .contains("dbt & BigQuery")
@@ -74,12 +55,10 @@ describe("siblings", () => {
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
     );
-
+    cy.get(".ant-table-row").should("be.visible");
     // navigate to the bq entity
-    cy.clickOptionWithTestId(
-      "compact-entity-link-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
-    );
-
+    cy.get('[class*="CompactEntityNameList').first().click();
+    cy.get(".ant-table-row").should("be.visible");
     cy.clickOptionWithText("Add Term");
 
     cy.selectOptionInTagTermModal("CypressTerm");

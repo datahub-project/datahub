@@ -8,6 +8,7 @@ const addOrEditAnnouncement = (text, title, description, testId) => {
   cy.get('[data-testid="create-post-title"]').clear().type(title);
   cy.get('[id="description"]').clear().type(description);
   cy.get(`[data-testid="${testId}-post-button"]`).click({ force: true });
+  cy.get(".ant-table-row ").contains(title).should("be.visible");
   cy.reload();
   homePageRedirection();
 };
@@ -18,6 +19,7 @@ const addOrEditLink = (text, title, url, imagesURL, testId) => {
   cy.get('[data-testid="create-post-link"]').clear().type(url);
   cy.get('[data-testid="create-post-media-location"]').clear().type(imagesURL);
   cy.get(`[data-testid="${testId}-post-button"]`).click({ force: true });
+  cy.get(".ant-table-row ").contains(title).should("be.visible");
   cy.reload();
   homePageRedirection();
 };
@@ -66,6 +68,7 @@ describe("create announcement and link post", () => {
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
     cy.reload();
+    cy.ensureTextNotPresent("Test Announcement Title Updated");
     homePageRedirection();
     cy.ensureTextNotPresent("Test Announcement Title Updated");
   });
@@ -103,6 +106,7 @@ describe("create announcement and link post", () => {
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
     cy.reload();
+    cy.ensureTextNotPresent("Test Link Updated Title");
     homePageRedirection();
     cy.ensureTextNotPresent("Test Link Updated Title");
   });
