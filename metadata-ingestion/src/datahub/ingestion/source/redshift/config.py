@@ -54,14 +54,6 @@ class S3LineageProviderConfig(ConfigModel):
         description="Ignore paths that are not match in path_specs. It only applies if path_specs are specified.",
     )
 
-    # Hadoop input formats have path filter to filter out files/folders starting from "_" and "."
-    path_allow_deny: AllowDenyPattern = Field(
-        default=AllowDenyPattern(
-            deny=[".*\\/[._].+"],
-        ),
-        description="Allow/Deny paths based on regex pattern. The deafault regexp is to deny folder or files starting with `_` and `.`",
-    )
-
 
 class S3DatasetLineageProviderConfigBase(ConfigModel):
     """

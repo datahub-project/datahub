@@ -266,17 +266,19 @@ class RedshiftLineageExtractor:
 
     def _get_s3_path(self, path: str) -> Optional[str]:
         if self.config.s3_lineage_config:
-            if not self.config.s3_lineage_config.path_allow_deny.allowed(path):
-                self.report.num_lineage_dropped_s3_path += 1
-                return None
-
             for path_spec in self.config.s3_lineage_config.path_specs:
                 if path_spec.allowed(path):
                     _, table_path = path_spec.extract_table_name_and_path(path)
                     return table_path
 
-            if self.config.s3_lineage_config.ignore_non_path_spec_path:
+            if (
+                self.config.s3_lineage_config.ignore_non_path_spec_path
+                and len(self.config.s3_lineage_config.path_specs) > 0
+            ):
                 self.report.num_lineage_dropped_s3_path += 1
+                logger.debug(
+                    f"Skipping s3 path {path} as it does not match any path spec."
+                )
                 return None
 
             if self.config.s3_lineage_config.strip_urls:
