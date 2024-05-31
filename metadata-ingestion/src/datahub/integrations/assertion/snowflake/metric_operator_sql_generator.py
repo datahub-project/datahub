@@ -5,6 +5,9 @@ from datahub.api.entities.assertion.assertion_operator import (
     EqualToOperator,
     GreaterThanOperator,
     GreaterThanOrEqualToOperator,
+    IsFalseOperator,
+    IsNullOperator,
+    IsTrueOperator,
     LessThanOperator,
     LessThanOrEqualToOperator,
     NotNullOperator,
@@ -51,3 +54,15 @@ class SnowflakeMetricEvalOperatorSQLGenerator:
         return (
             f"select case when metric is not null then 1 else 0 end from ({metric_sql})"
         )
+
+    @operator_sql.register
+    def _(self, operators: IsNullOperator, metric_sql: str) -> str:
+        return f"select case when metric is null then 1 else 0 end from ({metric_sql})"
+
+    @operator_sql.register
+    def _(self, operators: IsTrueOperator, metric_sql: str) -> str:
+        return f"select case when metric then 1 else 0 end from ({metric_sql})"
+
+    @operator_sql.register
+    def _(self, operators: IsFalseOperator, metric_sql: str) -> str:
+        return f"select case when not metric then 1 else 0 end from ({metric_sql})"

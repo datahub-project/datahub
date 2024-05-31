@@ -207,6 +207,30 @@ class NotNullOperator(v1_ConfigModel):
         return _generate_assertion_std_parameters()
 
 
+class IsTrueOperator(v1_ConfigModel):
+    type: Literal["is_true"]
+
+    operator: str = AssertionStdOperatorClass.IS_TRUE
+
+    def id(self) -> str:
+        return f"{self.type}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters()
+
+
+class IsFalseOperator(v1_ConfigModel):
+    type: Literal["is_false"]
+
+    operator: str = AssertionStdOperatorClass.IS_FALSE
+
+    def id(self) -> str:
+        return f"{self.type}"
+
+    def generate_parameters(self) -> AssertionStdParametersClass:
+        return _generate_assertion_std_parameters()
+
+
 class ContainsOperator(v1_ConfigModel):
     type: Literal["contains"]
     value: str
@@ -271,6 +295,8 @@ Operators = Union[
     GreaterThanOrEqualToOperator,
     IsNullOperator,
     NotNullOperator,
+    IsTrueOperator,
+    IsFalseOperator,
     ContainsOperator,
     EndsWithOperator,
     StartsWithOperator,

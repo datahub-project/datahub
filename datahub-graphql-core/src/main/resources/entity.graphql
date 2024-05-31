@@ -7689,6 +7689,16 @@ enum AssertionStdOperator {
     NOT_IN
 
     """
+    Value being asserted is true.
+    """
+    IS_TRUE
+
+    """
+    Value being asserted is false.
+    """
+    IS_FALSE
+
+    """
     Other
     """
     _NATIVE_

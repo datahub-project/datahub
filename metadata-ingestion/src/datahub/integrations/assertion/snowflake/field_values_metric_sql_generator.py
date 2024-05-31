@@ -9,7 +9,9 @@ from datahub.api.entities.assertion.assertion_operator import (
     GreaterThanOperator,
     GreaterThanOrEqualToOperator,
     InOperator,
+    IsFalseOperator,
     IsNullOperator,
+    IsTrueOperator,
     LessThanOperator,
     LessThanOrEqualToOperator,
     MatchesRegexOperator,
@@ -161,6 +163,28 @@ class SnowflakeFieldValuesMetricSQLGenerator:
         where_clause: str,
     ) -> str:
         return f"""select case when {transformed_field} is not null then 0 else 1 end
+        from {entity_name} {where_clause}"""
+
+    @values_metric_sql.register
+    def _(
+        self,
+        operators: IsTrueOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when {transformed_field} then 0 else 1 end
+        from {entity_name} {where_clause}"""
+
+    @values_metric_sql.register
+    def _(
+        self,
+        operators: IsFalseOperator,
+        entity_name: str,
+        transformed_field: str,
+        where_clause: str,
+    ) -> str:
+        return f"""select case when not {transformed_field} then 0 else 1 end
         from {entity_name} {where_clause}"""
 
     @values_metric_sql.register
