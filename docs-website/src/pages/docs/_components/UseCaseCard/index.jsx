@@ -5,13 +5,13 @@ import Link from "@docusaurus/Link";
 import styles from "./quicklinkcard.module.scss";
 import { Tag } from "antd";
 
-const FilterCard = ({
+const UseCaseCard = ({
   image,
+  feature,
   title,
   description,
   to,
   filters,
-  feature,
   tags,
   useTags,
   useFilters,
@@ -109,19 +109,19 @@ const FilterCard = ({
   return (
     <div className={clsx("col col--4", styles.featureCol)}>
       <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)}>
-        <div className={clsx("card__header", styles.featureHeader)}>
           {image && (
-            <div className={styles.featureImage}>
+            <div className={styles.card_image}>
               <img src={image} alt={feature} />
-{/*               <div className={styles.card_overlay_text}> */}
-{/*                 <div class={styles.card_feature}> {feature}</div> */}
-{/*               </div> */}
+              <div className={styles.card_overlay_text}>
+                <div class={styles.card_feature}> Data Freshness </div>
+              </div>
             </div>
           )}
+        <div className={clsx("card__header", styles.featureHeader)}>
           <h2>{title}</h2>
         </div>
         <hr />
-        <div className="card__body">
+        <div className={clsx("card__body", styles.featureBody)}>
           <div>{description}</div>
         </div>
         {(useTags || useFilters) && (
@@ -135,4 +135,4 @@ const FilterCard = ({
   );
 };
 
-export default FilterCard;
+export default UseCaseCard;

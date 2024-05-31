@@ -1,48 +1,53 @@
 {
   "useCases": [
-    { "Path": "docs/use_cases/data-freshness",
-      "imgPath": "img/datahub-logo-color-mark.svg",
+    {
+      "Path": "docs/use_cases/data-freshness",
+      "imgPath": "img/assets/business.jpg",
       "Feature": "Data Freshness",
       "Title": "Ensuring Data Freshness: Why it Matters and How to Achieve It",
-      "Description": "Explore the importance of data freshness, the challenges associated with it, and how our solutions can help you meet your data freshness SLAs consistently.",
+      "Description": "Explore the significance of maintaining up-to-date data, the challenges involved, and how our solutions can ensure your data remains fresh to meet SLAs.",
       "tags": {
-        "Audience":  "Data Engineer"
+        "Audience": "Data Engineer"
       }
     },
-    { "Path": "docs/use_cases/data-mesh",
-      "imgPath": "img/datahub-logo-color-mark.svg",
+    {
+      "Path": "docs/use_cases/data-mesh",
+      "imgPath": "img/assets/business.jpg",
       "Feature": "Data Mesh",
       "Title": "What is a Data Mesh and How to Implement It in Your Organization",
-      "Description": " Implementing a data mesh can align data management with domain expertise and enhancing overall agility.",
+      "Description": "Learn how a data mesh aligns data management with domain expertise, enhancing overall organizational agility.",
       "tags": {
-        "Audience":  "Data Architect, Data Platform Lead"
+        "Audience": "Data Architect, Data Platform Lead"
       }
     },
-    { "Path": "docs/use_cases/data-pipeline",
-      "imgPath": "img/datahub-logo-color-mark.svg",
+    {
+      "Path": "docs/use_cases/data-pipeline",
+      "imgPath": "img/assets/business.jpg",
       "Feature": "Data Pipeline",
       "Title": "What is a Data Pipeline and Why Should We Optimize It",
-      "Description": "Optimizing data pipelines is crucial to maintain data freshness and control costs.",
+      "Description": "Discover the importance of optimizing data pipelines to maintain data freshness and control costs.",
       "tags": {
-        "Audience":  "Data Engineer"
+        "Audience": "Data Engineer"
       }
     },
-    { "Path": "docs/use_cases/business-glossary",
-      "imgPath": "img/datahub-logo-color-mark.svg",
+    {
+      "Path": "docs/use_cases/business-glossary",
+      "imgPath": "img/assets/business.jpg",
       "Feature": "Business Glossary",
       "Title": "What is a Business Glossary and How to Standardize It",
-      "Description": "Without a standardized business glossary, achieving consistency, compliance, and efficient data utilization can be challenging.",
+      "Description": "Understand how a standardized business glossary aids in achieving consistency, compliance, and efficient data use.",
       "tags": {
-        "Audience":  "Data Governance Lead"
+        "Audience": "Data Governance Lead"
       }
     },
-    { "Path": "docs/use_cases/business-metric",
-      "imgPath": "img/datahub-logo-color-mark.svg",
+    {
+      "Path": "docs/use_cases/business-metric",
+      "imgPath": "img/assets/business.jpg",
       "Feature": "Business Metric",
       "Title": "How to Define and Standardize Business Metrics",
-      "Description": "Ensuring that everyone is on the same page when it comes to metrics definition and calculation methods is crucial",
+      "Description": "Learn the importance of consistent metric definitions and calculation methods to ensure organizational alignment.",
       "tags": {
-        "Audience":  "Data Analyst"
+        "Audience": "Data Analyst"
       }
     }
   ]

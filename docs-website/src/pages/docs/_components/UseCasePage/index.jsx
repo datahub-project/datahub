@@ -50,8 +50,9 @@ export function UseCasePage(
     return tags;
   }
 
-  const ingestionSourceContent = metadata.map((source) => {
+  const useCaseContent = metadata.map((source) => {
     return {
+      feature: source.feature,
       title: source.Title,
       image: source.imgPath,
       description: source.Description,
@@ -63,7 +64,7 @@ export function UseCasePage(
       filterState: filterState,
     };
   });
-  const filteredIngestionSourceContent = ingestionSourceContent.filter(
+  const filteredUseCaseContent = useCaseContent.filter(
     (item) => {
       if (textState === "" && filterState.length === 0) return true;
       else if (filterState.length > 0) {
@@ -102,6 +103,7 @@ export function UseCasePage(
                 filterOptions={filterOptions}
                 allowExclusivity={allowExclusivity}
                 setIsExclusive={setIsExclusive}
+                searchPlaceholder="Search for use cases..."
               />
             </div>
           </div>
@@ -109,7 +111,7 @@ export function UseCasePage(
       </header>
 
       <UseCaseCards
-        content={filteredIngestionSourceContent}
+        content={filteredUseCaseContent}
         filterBar={<FilterBar />}
       />
       <br />
