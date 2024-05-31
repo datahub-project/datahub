@@ -207,7 +207,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profile_table(dataset_name, dataset_urn, table)
 
-    def _get_partition_aspect(self, table: Table) -> str:
+    def _get_partition_aspect(self, table: Table) -> Optional[str]:
         """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.
         Each element of the returned array represents a field in the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) that follows [Appendix-C](https://iceberg.apache.org/spec/?#appendix-c-json-serialization) of the Iceberg specification.
         Extra information has been added to this spec to make the information more user-friendly.
@@ -223,21 +223,32 @@ class IcebergSource(StatefulIngestionSourceBase):
             table (Table): The Iceberg table to extract partition spec from.
 
         Returns:
-            str: JSON representation of the partition spec of the provided table.
+            str: JSON representation of the partition spec of the provided table (empty array if table is not partitioned) or `None` if an error occured.
         """
-        partition_list = [
-            {
-                "name": partition.name,
-                "transform": str(partition.transform),
-                "source": str(table.schema().find_column_name(partition.source_id)),
-                "source-id": partition.source_id,
-                "source-type": str(table.schema().find_type(partition.source_id)),
-                "field-id": partition.field_id,
-            }
-            for partition in table.spec().fields
-        ]
-
-        return json.dumps(partition_list)
+        try:
+            return json.dumps(
+                [
+                    {
+                        "name": partition.name,
+                        "transform": str(partition.transform),
+                        "source": str(
+                            table.schema().find_column_name(partition.source_id)
+                        ),
+                        "source-id": partition.source_id,
+                        "source-type": str(
+                            table.schema().find_type(partition.source_id)
+                        ),
+                        "field-id": partition.field_id,
+                    }
+                    for partition in table.spec().fields
+                ]
+            )
+        except Exception as e:
+            self.report.report_warning(
+                "extract-partition",
+                f"Failed to extract partition spec from Iceberg table {table.name()} due to error: {str(e)}",
+            )
+            return None
 
     def _get_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owners = []

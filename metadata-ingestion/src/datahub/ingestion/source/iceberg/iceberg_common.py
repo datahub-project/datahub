@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, List, Optional
 
 from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
@@ -56,7 +56,11 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         default=None, description="Iceberg Stateful Ingestion Config."
     )
     # The catalog configuration is using a dictionary to be open and flexible.  All the keys and values are handled by pyiceberg.  This will future-proof any configuration change done by pyiceberg.
-    catalog: Dict[str, Dict[str, str]] = Field(
+    # catalog: Dict[str, Dict[str, str]] = Field(
+    #     description="Catalog configuration where to find Iceberg tables.  Only one catalog specification is supported.  The format is the same as [pyiceberg's catalog configuration](https://py.iceberg.apache.org/configuration/), where the catalog name is specified as the object name and attributes are set as key-value pairs.",
+    # )
+    # `catalog` field to accept `Any` to handle both new and deprecated formats.  Once deprecated format is not supported, we can remove this field and use the above `catalog` field.
+    catalog: Any = Field(
         description="Catalog configuration where to find Iceberg tables.  Only one catalog specification is supported.  The format is the same as [pyiceberg's catalog configuration](https://py.iceberg.apache.org/configuration/), where the catalog name is specified as the object name and attributes are set as key-value pairs.",
     )
     table_pattern: AllowDenyPattern = Field(
@@ -72,6 +76,30 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         description="Iceberg table property to look for a `CorpGroup` owner.  Can only hold a single group value.  If property has no value, no owner information will be emitted.",
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
+
+    @validator("catalog", pre=True, always=True)
+    def handle_deprecated_catalog_format(cls, value):
+        # Once support for deprecated format is dropped, we can remove this validator.
+        if (
+            isinstance(value, dict)
+            and "name" in value
+            and "type" in value
+            and "config" in value
+        ):
+            # This looks like the deprecated format
+            print(
+                "The catalog configuration format you are using is deprecated "
+                "and will be removed in a future version. Please update to the new format.",
+            )
+            catalog_name = value["name"]
+            catalog_type = value["type"]
+            catalog_config = value["config"]
+            new_catalog_config = {
+                catalog_name: {"type": catalog_type, **catalog_config}
+            }
+            return new_catalog_config
+        # In case the input is already the new format or is invalid
+        return value
 
     @validator("catalog")
     def validate_catalog_size(cls, value):
