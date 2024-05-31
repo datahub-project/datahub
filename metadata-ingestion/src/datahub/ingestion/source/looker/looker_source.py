@@ -437,7 +437,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     for exp in explores
                 ],
                 input_fields=input_fields,
-                owner=None
+                owner=None,
             )
 
         # Dashboard elements can *alternatively* link to an existing look
@@ -489,7 +489,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         if element.look.folder
                         else None
                     ),
-                    owner=self._get_looker_user(element.look.user_id)
+                    owner=self._get_looker_user(element.look.user_id),
                 )
 
         # Failing the above two approaches, pick out details from result_maker
@@ -560,7 +560,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     LookerExplore(model_name=model, name=exp) for exp in explores
                 ],
                 input_fields=input_fields,
-                owner=None
+                owner=None,
             )
 
         logger.debug(f"Element {element.title}: Unable to parse LookerDashboardElement")
