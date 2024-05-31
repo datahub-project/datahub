@@ -1,11 +1,13 @@
 package com.linkedin.gms;
 
 import static com.linkedin.metadata.boot.OnBootApplicationListener.SCHEMA_REGISTRY_SERVLET_NAME;
+import static io.acryl.admin.grafana.GrafanaConfiguration.GRAFANA_SERVLET_NAME;
 
 import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
 import com.datahub.gms.servlet.HealthCheck;
+import com.linkedin.gms.servlet.AcrylGrafanaServletConfig;
 import com.linkedin.gms.servlet.AcrylGraphQLServletConfig;
 import com.linkedin.gms.servlet.AcrylOpenAPIServletConfig;
 import com.linkedin.gms.servlet.AuthServletConfig;
@@ -13,7 +15,6 @@ import com.linkedin.gms.servlet.GraphQLServletConfig;
 import com.linkedin.gms.servlet.OpenAPIServletConfig;
 import com.linkedin.gms.servlet.RestliServletConfig;
 import com.linkedin.gms.servlet.SchemaRegistryServletConfig;
-import io.acryl.admin.grafana.GrafanaServlet;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterRegistration;
 import jakarta.servlet.ServletContext;
@@ -170,13 +171,14 @@ public class WebApplicationInitializer
       AnnotationConfigWebApplicationContext rootContext,
       DispatcherServlet dispatcherServlet,
       ServletContext container) {
-    final String servletName = "grafanaServlet";
-    rootContext.register(GrafanaServlet.class);
+    rootContext.register(AcrylGrafanaServletConfig.class);
 
-    ServletRegistration.Dynamic registration = container.addServlet(servletName, dispatcherServlet);
+    ServletRegistration.Dynamic registration =
+        container.addServlet(GRAFANA_SERVLET_NAME, dispatcherServlet);
     registration.addMapping("/admin/dashboard/*");
     registration.setLoadOnStartup(15);
     registration.setAsyncSupported(true);
-    return servletName;
+
+    return GRAFANA_SERVLET_NAME;
   }
 }

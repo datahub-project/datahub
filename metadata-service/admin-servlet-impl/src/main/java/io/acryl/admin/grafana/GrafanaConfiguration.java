@@ -23,6 +23,8 @@ import org.springframework.context.annotation.PropertySource;
     value = "classpath:/grafana-application.yml",
     factory = YamlPropertySourceFactory.class)
 public class GrafanaConfiguration {
+  public static final String GRAFANA_SERVLET_NAME = "grafanaServlet";
+
   @Value("${grafana.uri}")
   private String uri;
 

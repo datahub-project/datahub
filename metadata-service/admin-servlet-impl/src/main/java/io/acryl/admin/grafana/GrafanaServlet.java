@@ -2,7 +2,6 @@ package io.acryl.admin.grafana;
 
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -15,22 +14,18 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
+@Slf4j
 @Component
-@WebServlet
-@Import({GrafanaConfiguration.class})
 public class GrafanaServlet extends ProxyServlet {
   @Autowired
   @Qualifier("grafanaConfig")
@@ -56,15 +51,10 @@ public class GrafanaServlet extends ProxyServlet {
   @Qualifier("grafanaRedirectDefault")
   private Set<String> grafanaRedirectDefault;
 
-  private WebApplicationContext springContext;
-
   @Override
   public void init(final ServletConfig config) throws ServletException {
-    springContext =
-        WebApplicationContextUtils.getRequiredWebApplicationContext(config.getServletContext());
-    final AutowireCapableBeanFactory beanFactory = springContext.getAutowireCapableBeanFactory();
-    beanFactory.autowireBean(this);
     super.init(config);
+    log.info("Initialized {}", getClass().getSimpleName());
   }
 
   @Override
