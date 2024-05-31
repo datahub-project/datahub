@@ -30,11 +30,11 @@ public class SpringPluginFactory extends PluginFactory {
 
     try {
       String[] packageScan =
-              extractPackageScan(
-                      Optional.ofNullable(pluginConfiguration)
-                              .map(PluginConfiguration::streamAll)
-                              .orElse(Stream.of()))
-                      .toArray(String[]::new);
+          extractPackageScan(
+                  Optional.ofNullable(pluginConfiguration)
+                      .map(PluginConfiguration::streamAll)
+                      .orElse(Stream.of()))
+              .toArray(String[]::new);
 
       if (springApplicationContext != null || packageScan.length == 0) {
         this.springApplicationContext = springApplicationContext;
@@ -43,7 +43,7 @@ public class SpringPluginFactory extends PluginFactory {
 
         for (ClassLoader classLoader : classLoaders) {
           AnnotationConfigApplicationContext applicationContext =
-                  new AnnotationConfigApplicationContext();
+              new AnnotationConfigApplicationContext();
           applicationContext.setId("custom-plugin");
           if (rootContext != null) {
             applicationContext.setParent(rootContext);
