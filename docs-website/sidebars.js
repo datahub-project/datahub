@@ -895,6 +895,11 @@ module.exports = {
     // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
+    // "docs/use_cases/business-glossary",
+    // "docs/use_cases/business-metric",
+    // "docs/use_cases/data-freshness",
+    // "docs/use_cases/data-mesh",
+    // "docs/use_cases/data-pipeline",
     // ],
   ],
 };

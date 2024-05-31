@@ -1,0 +1,49 @@
+{
+  "useCases": [
+    { "Path": "docs/use_cases/data-freshness",
+      "imgPath": "img/datahub-logo-color-mark.svg",
+      "Feature": "Data Freshness",
+      "Title": "Ensuring Data Freshness: Why it Matters and How to Achieve It",
+      "Description": "Explore the importance of data freshness, the challenges associated with it, and how our solutions can help you meet your data freshness SLAs consistently.",
+      "tags": {
+        "Audience":  "Data Engineer"
+      }
+    },
+    { "Path": "docs/use_cases/data-mesh",
+      "imgPath": "img/datahub-logo-color-mark.svg",
+      "Feature": "Data Mesh",
+      "Title": "What is a Data Mesh and How to Implement It in Your Organization",
+      "Description": " Implementing a data mesh can align data management with domain expertise and enhancing overall agility.",
+      "tags": {
+        "Audience":  "Data Architect, Data Platform Lead"
+      }
+    },
+    { "Path": "docs/use_cases/data-pipeline",
+      "imgPath": "img/datahub-logo-color-mark.svg",
+      "Feature": "Data Pipeline",
+      "Title": "What is a Data Pipeline and Why Should We Optimize It",
+      "Description": "Optimizing data pipelines is crucial to maintain data freshness and control costs.",
+      "tags": {
+        "Audience":  "Data Engineer"
+      }
+    },
+    { "Path": "docs/use_cases/business-glossary",
+      "imgPath": "img/datahub-logo-color-mark.svg",
+      "Feature": "Business Glossary",
+      "Title": "What is a Business Glossary and How to Standardize It",
+      "Description": "Without a standardized business glossary, achieving consistency, compliance, and efficient data utilization can be challenging.",
+      "tags": {
+        "Audience":  "Data Governance Lead"
+      }
+    },
+    { "Path": "docs/use_cases/business-metric",
+      "imgPath": "img/datahub-logo-color-mark.svg",
+      "Feature": "Business Metric",
+      "Title": "How to Define and Standardize Business Metrics",
+      "Description": "Ensuring that everyone is on the same page when it comes to metrics definition and calculation methods is crucial",
+      "tags": {
+        "Audience":  "Data Analyst"
+      }
+    }
+  ]
+}
