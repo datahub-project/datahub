@@ -20,7 +20,6 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DataProcessTypeClass,
-    StatusClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
@@ -372,5 +371,5 @@ class DataProcessInstance:
             for iolet in self.inlets + self.outlets:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=str(iolet),
-                    aspect=StatusClass(removed=False),
+                    aspect=iolet.to_key_aspect(),
                 )
