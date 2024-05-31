@@ -9,24 +9,49 @@ of the table with which they are associated.
 
 - You must have a Snowflake Enterprise account, where the DMFs feature is enabled.
 - You must have the necessary permissions to provision DMFs in your Snowflake environment (see below)
-- You must have the necessary permissions to query the DMF results in your Snowflake environment (see below) 
+- You must have the necessary permissions to query the DMF results in your Snowflake environment (see below)
+- You must have DataHub instance with Snowflake metadata ingested. If you do not have existing snowflake ingestion, refer [Snowflake Quickstart Guide](https://datahubproject.io/docs/quick-ingestion-guides/snowflake/overview) to get started.
+- You must have DataHub CLI installed and run [`datahub init`](https://datahubproject.io/docs/cli/#init).
 
-#### Provisioning DMFs
+#### Permissions
+
+*Permissions required for registering DMFs*
 
 According to the latest Snowflake docs, here are the permissions the service account performing the
 DMF registration and ingestion must have:
 
-| Privilege                    | Object           | Notes                                                                                                                      |
-|------------------------------|------------------|----------------------------------------------------------------------------------------------------------------------------|
+| Privilege                    | Object              | Notes                                                                                       |
+|------------------------------|---------------------|---------------------------------------------------------------------------------------------|
+| USAGE                        | Database, schema    | Database and schema where snowflake DMFs will be created. This is configured in compile command described below. |
+| CREATE FUNCTION              | Schema              | This privilege enables creating new DMF in schema configured in compile command.            |
+| EXECUTE DATA METRIC FUNCTION | Account             | This privilege enables you to control which roles have access to server-agnostic compute resources to call the system DMF. |
+| USAGE                        | Database, schema    | These objects are the database and schema that contain the referenced table in the query.   |
+| OWNERSHIP                    | Table               | This privilege enables you to associate a DMF with a referenced table.                      |
+| USAGE                        | DMF                 | This privilege enables calling the DMF in schema configured in compile command.             |
+
+and the roles that must be granted:
+
+| Role                     | Notes                   |
+|--------------------------|-------------------------|
+| SNOWFLAKE.DATA_METRIC_USER | To use System DMFs    |
+
+*Permissions required for running DMFs (scheduled DMFs run with table owner's role)*
+
+Because scheduled DMFs run with the role of the table owner, the table owner must have the following privileges:
+
+| Privilege                    | Object           | Notes                                                                                       |
+|------------------------------|------------------|---------------------------------------------------------------------------------------------|
+| USAGE                        | Database, schema | Database and schema where snowflake DMFs will be created. This is configured in compile command described below. |
+| USAGE                        | DMF              | This privilege enables calling the DMF in schema configured in compile power.             |
 | EXECUTE DATA METRIC FUNCTION | Account          | This privilege enables you to control which roles have access to server-agnostic compute resources to call the system DMF. |
-| USAGE                        | Database, schema | These objects are the database and schema that contain the referenced table in the query.                                  |
-| USAGE                        | Database, schema | Database and schema where snowflake DMFs will be created. This is configured in `compile` command described below.         |
-| USAGE                        | DMF              | This privilege enables you to use the registered DMF                                                                       |
-| OWNERSHIP                    | Table            | This privilege enables you to associate a DMF with a referenced table.                                                     |
-| CREATE FUNCTION              | Schema           | This privilege enables creating new DMF in schema.                                                                         |
 
+and the roles that must be granted:
 
-#### Querying DMF Results
+| Role                     | Notes                   |
+|--------------------------|-------------------------|
+| SNOWFLAKE.DATA_METRIC_USER | To use System DMFs    |
+
+*Permissions required for querying DMF results*
 
 In addition, the service account that will be executing DataHub Ingestion, and querying the DMF results, must have been granted the following system application roles:
 
@@ -35,6 +60,28 @@ In addition, the service account that will be executing DataHub Ingestion, and q
 | DATA_QUALITY_MONITORING_VIEWER | Query the DMF results table |
 
 To learn more about Snowflake DMFs and the privileges required to provision and query them, see the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/data-quality-intro).
+
+*Example: Granting Permissions*
+
+```sql
+-- setup permissions to <assertion-registration-role> to create DMFs and associate DMFs with table
+grant usage on database "<dmf-database>" to role "<assertion-service-role>"
+grant usage on schema "<dmf-database>.<dmf-schema>" to role "<assertion-service-role>"
+grant create function on schema "<dmf-database>.<dmf-schema>" to role "<assertion-service-role>"
+-- grant ownership + rest of permissions to <assertion-service-role>
+grant role "<table-owner-role>" to role "<assertion-service-role>"
+
+-- setup permissions for <table-owner-role> to run DMFs on schedule
+grant usage on database "<dmf-database>" to role "<table-owner-role>"
+grant usage on schema "<dmf-database>.<dmf-schema>" to role "<table-owner-role>"
+grant usage on all functions in "<dmf-database>.<dmf-schema>" to role "<table-owner-role>"
+grant usage on future functions in "<dmf-database>.<dmf-schema>" to role "<table-owner-role>"
+grant database role SNOWFLAKE.DATA_METRIC_USER to role "<table-owner-role>"
+grant execute data metric function on account to role "<table-owner-role>"
+
+-- setup permissions for <datahub-role> to query DMF results 
+grant application role SNOWFLAKE.DATA_QUALITY_MONITORING_VIEWER to role "<datahub_role>"
+```
 
 ### Supported Assertion Types
 
@@ -137,6 +184,10 @@ snowsql -f dmf_definitions.sql
 snowsql -f dmf_associations.sql
 ```
 
+:::NOTE
+Scheduling Data Metric Function on table incurs Serverless Credit Usage in Snowflake. Refer [Billing and Pricing](https://docs.snowflake.com/en/user-guide/data-quality-intro#billing-and-pricing) for more details.
+Please ensure you DROP Data Metric Function created via dmf_associations.sql if the assertion is no longer in use. 
+:::
 
 #### Step 5. Run ingestion to report the results back into DataHub
 
@@ -161,6 +212,12 @@ either via CLI or the UI visible as normal assertions.
 
 `datahub ingest -c snowflake.yml`
 
+### Caveats
+
+- Currently, Snowflake supports at most 1000 DMF-table associations at the moment so you can not define more than 1000 assertions for snowflake.
+- Currently, Snowflake does not allow JOIN queries or non-deterministic functions in DMF definition so you can not use these in SQL for SQL assertion or in filters section.
+- Currently, all DMFs scheduled on a table must follow same exact schedule, so you can not set assertions on same table to run on different schedules.
+- Currently, DMFs are only supported for regular tables and not dynamic or external tables.
 
 ### FAQ
 

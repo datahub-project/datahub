@@ -410,7 +410,7 @@ The full set of supported custom SQL assertion conditions include:
 - `between`
 
 
-### Schema Assertions
+### Schema Assertions (Coming Soon)
 
 Schema Assertions allow you to define custom SQL queries to verify your data meets your expectations.
 Below you'll find examples of defining different types of custom SQL assertions via YAML.
