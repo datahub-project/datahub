@@ -1388,7 +1388,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_start("extract_independent_looks")
 
         logger.debug("Extracting looks not part of Dashboard")
-        look_fields: List[str] = ["id", "title", "description", "query_id", "folder", "user_id"]
+        look_fields: List[str] = [
++            "id",
++            "title",
++            "description",
++            "query_id",
++            "folder",
++            "user_id",
++        ]
         query_fields: List[str] = [
             "id",
             "view",
@@ -1433,7 +1440,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     subtitle_text=look.description,
                     look_id=look.id,
                     dashboard_id=None,  # As this is independent look
-                    look=LookWithQuery(query=query, folder=look.folder, user_id=look.user_id),
+                    look=LookWithQuery(
+                        query=query, folder=look.folder, user_id=look.user_id
+                    ),
                 ),
             )
 
