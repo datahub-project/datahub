@@ -30,7 +30,6 @@ actions_gql = (pathlib.Path(__file__).parent / "actions.gql").read_text()
 
 
 base_action_config = {
-    # "name": "hello_world",
     "source": {
         "type": "kafka",
         "config": {
@@ -66,6 +65,8 @@ base_action_config = {
     "datahub": {
         "server": DATAHUB_SERVER,
     },
+}
+overridable_action_config = {
     "filter": None,
 }
 
@@ -137,13 +138,20 @@ async def start_or_restart_action(
 
 
 def get_config_from_details(action_urn: str, action_details: dict) -> dict:
+    # TODO Respect version / other execution parameters from action_details.
     action_details_recipe = json.loads(action_details["config"]["recipe"])
-    # TODO respect version and other details
+
+    action_name = action_urn
+    consumer_group_prefix = os.getenv("KAFKA_PROPERTIES_GROUP_ID")
+    if consumer_group_prefix:
+        # Add a tenant prefix to the pipeline name to control the consumer group.
+        action_name = f"{consumer_group_prefix}_{action_name}"
 
     recipe = {
-        **base_action_config,
-        "name": action_urn,
+        **overridable_action_config,
         **action_details_recipe,
+        "name": action_name,
+        **base_action_config,
     }
 
     return recipe
