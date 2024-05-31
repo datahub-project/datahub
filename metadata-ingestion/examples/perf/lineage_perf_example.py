@@ -1,11 +1,23 @@
+from typing import Iterable
+
 from datahub.emitter.mce_builder import make_data_job_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
-from datahub.metadata._urns.urn_defs import DatasetUrn
-from datahub.metadata.schema_classes import *
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    List,
+    StatusClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
-def lineage_mcp(urn: str, upstreams: List[str]) -> MetadataChangeProposalWrapper:
+def lineage_mcp_generator(
+    urn: str, upstreams: List[str]
+) -> Iterable[MetadataChangeProposalWrapper]:
     yield MetadataChangeProposalWrapper(
         entityUrn=urn,
         aspect=UpstreamLineageClass(
@@ -22,16 +34,16 @@ def lineage_mcp(urn: str, upstreams: List[str]) -> MetadataChangeProposalWrapper
         yield MetadataChangeProposalWrapper(
             entityUrn=upstream, aspect=StatusClass(removed=False)
         )
-    for urn in [urn, *upstreams]:
+    for urn_itr in [urn, *upstreams]:
         yield MetadataChangeProposalWrapper(
-            entityUrn=urn,
-            aspect=DatasetPropertiesClass(name=DatasetUrn.from_string(urn).name),
+            entityUrn=urn_itr,
+            aspect=DatasetPropertiesClass(name=DatasetUrn.from_string(urn_itr).name),
         )
 
 
-def datajob_lineage_mcp(
+def datajob_lineage_mcp_generator(
     urn: str, upstreams: List[str], downstreams: List[str]
-) -> MetadataChangeProposalWrapper:
+) -> Iterable[MetadataChangeProposalWrapper]:
     yield MetadataChangeProposalWrapper(
         entityUrn=urn,
         aspect=DataJobInputOutputClass(
@@ -57,13 +69,13 @@ def scenario_truncate_basic():
     path = "truncate.basic"
     root_urn = make_dataset_urn("snowflake", f"{path}.root")
 
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         root_urn,
         [make_dataset_urn("snowflake", f"{path}.u_{i}") for i in range(10)],
     )
 
     for i in range(10):
-        yield from lineage_mcp(
+        yield from lineage_mcp_generator(
             make_dataset_urn("snowflake", f"{path}.d_{i}"), [root_urn]
         )
 
@@ -77,22 +89,22 @@ def scenario_truncate_intermediate():
     path = "truncate.intermediate"
     root_urn = make_dataset_urn("snowflake", f"{path}.root")
 
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         root_urn, [make_dataset_urn("snowflake", f"{path}.u_{i}") for i in range(10)]
     )
 
     for i in range(3):
-        yield from lineage_mcp(
+        yield from lineage_mcp_generator(
             make_dataset_urn("snowflake", f"{path}.u_{i}"),
             [make_dataset_urn("snowflake", f"{path}.u_{i}_u_{j}") for j in range(3)],
         )
 
     for i in range(3):
-        yield from lineage_mcp(
+        yield from lineage_mcp_generator(
             make_dataset_urn("snowflake", f"{path}.d_{i}"), [root_urn]
         )
         for j in range(3):
-            yield from lineage_mcp(
+            yield from lineage_mcp_generator(
                 make_dataset_urn("snowflake", f"{path}.d_{i}d_{j}"),
                 [make_dataset_urn("snowflake", f"{path}.d_{i}")],
             )
@@ -145,16 +157,16 @@ def scenario_truncate_complex():
         for e in range(6 if d % 2 == 0 else 1)
     }
 
-    yield from lineage_mcp(root_urn, [lvl_a])
-    yield from lineage_mcp(lvl_a, list(lvl_b.values()))
+    yield from lineage_mcp_generator(root_urn, [lvl_a])
+    yield from lineage_mcp_generator(lvl_a, list(lvl_b.values()))
     for a, urn in lvl_b.items():
-        yield from lineage_mcp(urn, [lvl_c[(a, b)] for b in range(3)])
+        yield from lineage_mcp_generator(urn, [lvl_c[(a, b)] for b in range(3)])
     for (a, b), urn in lvl_c.items():
-        yield from lineage_mcp(urn, [lvl_d[(a, b, c)] for c in range(4)])
+        yield from lineage_mcp_generator(urn, [lvl_d[(a, b, c)] for c in range(4)])
     for (a, b, c), urn in lvl_d.items():
-        yield from lineage_mcp(urn, [lvl_e[(a, b, c, d)] for d in range(5)])
+        yield from lineage_mcp_generator(urn, [lvl_e[(a, b, c, d)] for d in range(5)])
     for (a, b, c, d), urn in lvl_e.items():
-        yield from lineage_mcp(
+        yield from lineage_mcp_generator(
             urn, [lvl_f[(a, b, c, d, e)] for e in range(6 if d % 2 == 0 else 1)]
         )
 
@@ -169,18 +181,18 @@ def scenario_skip_basic():
     upstream_dbt_urn = make_dataset_urn("dbt", f"{path}.u_0")
     upstream_airflow_urn = make_data_job_urn("airflow", f"{path}.flow", f"{path}.u_0")
 
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         root_urn,
         [
             make_dataset_urn("snowflake", f"{path}.u_direct"),
             upstream_dbt_urn,
         ],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urn,
         [make_dataset_urn("snowflake", f"{path}.u_through_dbt")],
     )
-    yield from datajob_lineage_mcp(
+    yield from datajob_lineage_mcp_generator(
         upstream_airflow_urn,
         [make_dataset_urn("snowflake", f"{path}.u_through_airflow")],
         [root_urn],
@@ -188,19 +200,19 @@ def scenario_skip_basic():
 
     downstream_dbt_urn = make_dataset_urn("dbt", f"{path}.d_0")
     downstream_airflow_urn = make_data_job_urn("airflow", f"{path}.flow", f"{path}.d_0")
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         make_dataset_urn("snowflake", f"{path}.d_direct"),
         [root_urn],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         downstream_dbt_urn,
         [root_urn],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         make_dataset_urn("snowflake", f"{path}.d_through_dbt"),
         [downstream_dbt_urn],
     )
-    yield from datajob_lineage_mcp(
+    yield from datajob_lineage_mcp_generator(
         downstream_airflow_urn,
         [root_urn],
         [make_dataset_urn("snowflake", f"{path}.d_through_airflow")],
@@ -219,45 +231,45 @@ def scenario_skip_intermediate():
     upstream_dbt_urns = [make_dataset_urn("dbt", f"{path}.u_{i}") for i in range(6)]
     upstream_airflow_urn = make_data_job_urn("airflow", f"{path}.flow", f"{path}.u_0")
 
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         root_urn,
         [
             make_dataset_urn("snowflake", f"{path}.u_direct"),
             upstream_dbt_urns[0],
         ],
     )
-    yield from datajob_lineage_mcp(
+    yield from datajob_lineage_mcp_generator(
         upstream_airflow_urn, [upstream_dbt_urns[1]], [upstream_dbt_urns[0]]
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urns[1],
         [
             upstream_dbt_urns[2],
         ],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urns[2],
         [
             upstream_dbt_urns[3],
             upstream_dbt_urns[4],
         ],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urns[3],
         [make_dataset_urn("snowflake", f"{path}.u_indirect_0")],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urns[4],
         [
             make_dataset_urn("snowflake", f"{path}.u_indirect_1"),
             make_dataset_urn("snowflake", f"{path}.u_indirect_2"),
         ],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         make_dataset_urn("snowflake", f"{path}.u_indirect_1"),
         [make_dataset_urn("snowflake", f"{path}.u_depth_2"), upstream_dbt_urns[5]],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urns[5],
         [
             make_dataset_urn("snowflake", f"{path}.u_depth_2_indirect"),
@@ -281,34 +293,34 @@ def scenario_skip_complex():
         "indirect_2": make_dataset_urn("snowflake", f"{path}.u_indirect_2"),
     }
 
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         root_urn,
         [
             depth_one_snowflake_urns["direct"],
             upstream_dbt_urns[0],
         ],
     )
-    yield from datajob_lineage_mcp(
+    yield from datajob_lineage_mcp_generator(
         upstream_airflow_urn, [upstream_dbt_urns[1]], [upstream_dbt_urns[0]]
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urns[1],
         [
             upstream_dbt_urns[2],
         ],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urns[2],
         [
             upstream_dbt_urns[3],
             upstream_dbt_urns[4],
         ],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urns[3],
         [depth_one_snowflake_urns["indirect_0"]],
     )
-    yield from lineage_mcp(
+    yield from lineage_mcp_generator(
         upstream_dbt_urns[4],
         [
             depth_one_snowflake_urns["indirect_1"],
@@ -318,11 +330,11 @@ def scenario_skip_complex():
 
     for name, urn in depth_one_snowflake_urns.items():
         dbt_urn = make_dataset_urn("dbt", f"{path}.u_{name}")
-        yield from lineage_mcp(
+        yield from lineage_mcp_generator(
             urn,
             [make_dataset_urn("snowflake", f"{path}.direct_u_{name}"), dbt_urn],
         )
-        yield from lineage_mcp(
+        yield from lineage_mcp_generator(
             dbt_urn,
             [make_dataset_urn("snowflake", f"{path}.indirect_u_{name}")],
         )
@@ -366,14 +378,14 @@ def scenario_perf():
         for d in range(5)
     }
 
-    yield from lineage_mcp(root_urn, [lvl_a])
-    yield from lineage_mcp(lvl_a, list(lvl_b.values()))
+    yield from lineage_mcp_generator(root_urn, [lvl_a])
+    yield from lineage_mcp_generator(lvl_a, list(lvl_b.values()))
     for a, urn in lvl_b.items():
-        yield from lineage_mcp(urn, [lvl_c[(a, b)] for b in range(30)])
+        yield from lineage_mcp_generator(urn, [lvl_c[(a, b)] for b in range(30)])
     for (a, b), urn in lvl_c.items():
-        yield from lineage_mcp(urn, [lvl_d[(a, b, c)] for c in range(40)])
+        yield from lineage_mcp_generator(urn, [lvl_d[(a, b, c)] for c in range(40)])
     for (a, b, c), urn in lvl_d.items():
-        yield from lineage_mcp(urn, [lvl_e[(a, b, c, d)] for d in range(5)])
+        yield from lineage_mcp_generator(urn, [lvl_e[(a, b, c, d)] for d in range(5)])
 
 
 if __name__ == "__main__":
