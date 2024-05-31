@@ -195,17 +195,17 @@ export type AssertionWithMonitorDetails = Assertion & {
     monitors?: any[]; // should almost always have 0-1 items
 };
 
-// export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (
-//     queryData?: GetDatasetAssertionsWithMonitorsQuery,
-// ): AssertionWithMonitorDetails[] | undefined => {
-//     return queryData?.dataset?.assertions?.assertions?.map((assertion) => ({
-//         ...(assertion as Assertion),
-//         monitors:
-//             assertion.monitor?.relationships
-//                 ?.filter((r) => r.entity?.__typename === 'Monitor')
-//                 .map((r) => r.entity as MonitorDetailsFragment) ?? [],
-//     }));
-// };
+export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (
+    queryData?: any, //GetDatasetAssertionsWithMonitorsQuery,
+): AssertionWithMonitorDetails[] | undefined => {
+    return queryData?.dataset?.assertions?.assertions?.map((assertion) => ({
+        ...(assertion as Assertion),
+        monitors:
+            assertion.monitor?.relationships?.filter((r) => r.entity?.__typename === 'Monitor').map((r) => r.entity) ??
+            [],
+        // .map((r) => r.entity as MonitorDetailsFragment) ?? [],
+    }));
+};
 
 /**
  * Returns a status summary for the assertions associated with a Dataset.
@@ -273,35 +273,35 @@ export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
 //  *
 //  * @param assertions The assertions to group
 //  */
-// export const createAssertionGroups = (assertions: Array<AssertionWithMonitorDetails>): AssertionGroup[] => {
-//     // Pre-sort the list of assertions based on which has been most recently executed.
-//     assertions.sort(sortAssertions);
+export const createAssertionGroups = (assertions: Array<AssertionWithMonitorDetails>): AssertionGroup[] => {
+    // Pre-sort the list of assertions based on which has been most recently executed.
+    assertions.sort(sortAssertions);
 
-//     const typeToAssertions = new Map();
-//     assertions
-//         .filter((assertion) => assertion.info?.type)
-//         .forEach((assertion) => {
-//             const groupType = assertion.info?.type;
-//             const groupedAssertions = typeToAssertions.get(groupType) || [];
-//             groupedAssertions.push(assertion);
-//             typeToAssertions.set(groupType, groupedAssertions);
-//         });
+    const typeToAssertions = new Map();
+    assertions
+        .filter((assertion) => assertion.info?.type)
+        .forEach((assertion) => {
+            const groupType = assertion.info?.type;
+            const groupedAssertions = typeToAssertions.get(groupType) || [];
+            groupedAssertions.push(assertion);
+            typeToAssertions.set(groupType, groupedAssertions);
+        });
 
-//     // Now, create summary for each type and build the AssertionGroup object
-//     const assertionGroups: AssertionGroup[] = [];
-//     typeToAssertions.forEach((groupedAssertions, type) => {
-//         const newGroup: AssertionGroup = {
-//             name: getAssertionGroupName(type),
-//             icon: getAssertionGroupTypeIcon(type),
-//             assertions: groupedAssertions,
-//             summary: getAssertionsSummary(groupedAssertions),
-//             type,
-//         };
-//         assertionGroups.push(newGroup);
-//     });
+    // Now, create summary for each type and build the AssertionGroup object
+    const assertionGroups: AssertionGroup[] = [];
+    typeToAssertions.forEach((groupedAssertions, type) => {
+        const newGroup: AssertionGroup = {
+            name: getAssertionGroupName(type),
+            icon: getAssertionGroupTypeIcon(type),
+            assertions: groupedAssertions,
+            summary: getAssertionsSummary(groupedAssertions),
+            type,
+        };
+        assertionGroups.push(newGroup);
+    });
 
-//     return assertionGroups;
-// };
+    return assertionGroups;
+};
 
 // TODO: Make this the default inside DatasetAssertionsSummary.tsx.
 export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) => {

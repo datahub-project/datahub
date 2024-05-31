@@ -3,7 +3,7 @@ import { Modal, Typography } from 'antd';
 import { DataContract, EntityType } from '../../../../../../../../types.generated';
 import ClickOutside from '../../../../../../../shared/ClickOutside';
 import { DataContractBuilderState } from './types';
-// import { DataContractBuilder } from './DataContractBuilder';
+import { DataContractBuilder } from './DataContractBuilder';
 
 const modalStyle = {};
 const modalBodyStyle = {
@@ -64,14 +64,14 @@ export const DataContractBuilderModal = ({
                 visible
                 onCancel={onCancel}
             >
-                {/* <DataContractBuilder
+                <DataContractBuilder
                     entityUrn={entityUrn}
                     entityType={entityType}
                     initialState={initialState}
                     onSubmit={onSubmit}
                     onPropose={onPropose}
                     onCancel={onCancel}
-                /> */}
+                />
             </Modal>
         </ClickOutside>
     );
