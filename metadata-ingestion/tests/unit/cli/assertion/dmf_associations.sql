@@ -20,16 +20,16 @@
             
 -- End of Assertion 04be4145bd8de10bed3dfcb0cee57842
 
--- Start of Assertion 4dfda3a192a48f5b5b733986c145e8db
+-- Start of Assertion b065942d2bca8a4dbe90cc3ec2d9ca9f
 
-            ALTER TABLE TEST_DB.PUBLIC.TEST_ASSERTIONS SET DATA_METRIC_SCHEDULE = 'TRIGGER_ON_CHANGES';
-            ALTER TABLE TEST_DB.PUBLIC.TEST_ASSERTIONS ADD DATA METRIC FUNCTION test_db.datahub_dmfs.datahub__4dfda3a192a48f5b5b733986c145e8db ON (value);
+            ALTER TABLE TEST_DB.PUBLIC.PURCHASE_EVENT SET DATA_METRIC_SCHEDULE = 'TRIGGER_ON_CHANGES';
+            ALTER TABLE TEST_DB.PUBLIC.PURCHASE_EVENT ADD DATA METRIC FUNCTION test_db.datahub_dmfs.datahub__b065942d2bca8a4dbe90cc3ec2d9ca9f ON (quantity);
             
--- End of Assertion 4dfda3a192a48f5b5b733986c145e8db
+-- End of Assertion b065942d2bca8a4dbe90cc3ec2d9ca9f
 
--- Start of Assertion 2d4f2da1e661ffba0c69db7e6c75c0fb
+-- Start of Assertion 170dbd53f28eedbbaba52ebbf189f6b1
 
-            ALTER TABLE TEST_DB.PUBLIC.TEST_ASSERTIONS SET DATA_METRIC_SCHEDULE = 'TRIGGER_ON_CHANGES';
-            ALTER TABLE TEST_DB.PUBLIC.TEST_ASSERTIONS ADD DATA METRIC FUNCTION test_db.datahub_dmfs.datahub__2d4f2da1e661ffba0c69db7e6c75c0fb ON (value);
+            ALTER TABLE TEST_DB.PUBLIC.PURCHASE_EVENT SET DATA_METRIC_SCHEDULE = 'TRIGGER_ON_CHANGES';
+            ALTER TABLE TEST_DB.PUBLIC.PURCHASE_EVENT ADD DATA METRIC FUNCTION test_db.datahub_dmfs.datahub__170dbd53f28eedbbaba52ebbf189f6b1 ON (quantity);
             
--- End of Assertion 2d4f2da1e661ffba0c69db7e6c75c0fb
+-- End of Assertion 170dbd53f28eedbbaba52ebbf189f6b1

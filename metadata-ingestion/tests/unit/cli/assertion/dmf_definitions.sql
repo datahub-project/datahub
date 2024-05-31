@@ -43,29 +43,29 @@
             
 -- End of Assertion 04be4145bd8de10bed3dfcb0cee57842
 
--- Start of Assertion 4dfda3a192a48f5b5b733986c145e8db
+-- Start of Assertion b065942d2bca8a4dbe90cc3ec2d9ca9f
 
             CREATE or REPLACE DATA METRIC FUNCTION
-            test_db.datahub_dmfs.datahub__4dfda3a192a48f5b5b733986c145e8db (ARGT TABLE(value INT))
+            test_db.datahub_dmfs.datahub__b065942d2bca8a4dbe90cc3ec2d9ca9f (ARGT TABLE(quantity FLOAT))
             RETURNS NUMBER
-            COMMENT = 'Created via DataHub for assertion urn:li:assertion:4dfda3a192a48f5b5b733986c145e8db of type field'
+            COMMENT = 'Created via DataHub for assertion urn:li:assertion:b065942d2bca8a4dbe90cc3ec2d9ca9f of type field'
             AS
             $$
-            select case when metric <= 0 then 1 else 0 end from (select sum($1) as metric from (select case when value between 0 and 10 then 0 else 1 end
-        from TEST_DB.PUBLIC.TEST_ASSERTIONS where value is not null))
+            select case when metric <= 0 then 1 else 0 end from (select sum($1) as metric from (select case when quantity between 0 and 10 then 0 else 1 end
+        from TEST_DB.PUBLIC.PURCHASE_EVENT where quantity is not null))
             $$;
             
--- End of Assertion 4dfda3a192a48f5b5b733986c145e8db
+-- End of Assertion b065942d2bca8a4dbe90cc3ec2d9ca9f
 
--- Start of Assertion 2d4f2da1e661ffba0c69db7e6c75c0fb
+-- Start of Assertion 170dbd53f28eedbbaba52ebbf189f6b1
 
             CREATE or REPLACE DATA METRIC FUNCTION
-            test_db.datahub_dmfs.datahub__2d4f2da1e661ffba0c69db7e6c75c0fb (ARGT TABLE(value INT))
+            test_db.datahub_dmfs.datahub__170dbd53f28eedbbaba52ebbf189f6b1 (ARGT TABLE(quantity FLOAT))
             RETURNS NUMBER
-            COMMENT = 'Created via DataHub for assertion urn:li:assertion:2d4f2da1e661ffba0c69db7e6c75c0fb of type sql'
+            COMMENT = 'Created via DataHub for assertion urn:li:assertion:170dbd53f28eedbbaba52ebbf189f6b1 of type sql'
             AS
             $$
-            select case when metric=5 then 1 else 0 end from (select $1 as metric from (select mode(value) from test_db.public.test_assertions))
+            select case when metric=5 then 1 else 0 end from (select $1 as metric from (select mode(quantity) from test_db.public.purchase_event))
             $$;
             
--- End of Assertion 2d4f2da1e661ffba0c69db7e6c75c0fb
+-- End of Assertion 170dbd53f28eedbbaba52ebbf189f6b1

@@ -54,7 +54,7 @@ class FieldValuesAssertion(BaseEntityAssertion):
     field: str
     field_transform: Optional[FieldTransform] = v1_Field(default=None)
     operator: Operators = v1_Field(discriminator="type", alias="condition")
-    filter: Optional[DatasetFilter] = v1_Field(default=None)
+    filters: Optional[DatasetFilter] = v1_Field(default=None)
     failure_threshold: FieldValuesFailThreshold = v1_Field(
         default=FieldValuesFailThreshold()
     )
@@ -72,8 +72,8 @@ class FieldValuesAssertion(BaseEntityAssertion):
                 fieldValuesAssertion=FieldValuesAssertionClass(
                     field=SchemaFieldSpec(
                         path=self.field,
-                        type="",  # TODO - why is this required
-                        nativeType="",  # TODO - why is this required
+                        type="",  # Not required
+                        nativeType="",  # Not required
                     ),
                     operator=self.operator.operator,
                     parameters=self.operator.generate_parameters(),
@@ -104,7 +104,7 @@ class FieldMetricAssertion(BaseEntityAssertion):
     field: str
     operator: Operators = v1_Field(discriminator="type", alias="condition")
     metric: FieldMetric
-    filter: Optional[DatasetFilter] = v1_Field(default=None)
+    filters: Optional[DatasetFilter] = v1_Field(default=None)
 
     def get_assertion_info(
         self,
@@ -118,8 +118,8 @@ class FieldMetricAssertion(BaseEntityAssertion):
                 fieldMetricAssertion=FieldMetricAssertionClass(
                     field=SchemaFieldSpec(
                         path=self.field,
-                        type="",  # TODO - is this really required
-                        nativeType="",  # TODO - is this really required
+                        type="",  # Not required
+                        nativeType="",  # Not required
                     ),
                     metric=self.metric.name,
                     operator=self.operator.operator,

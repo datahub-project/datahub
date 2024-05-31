@@ -44,7 +44,7 @@ class CronFreshnessAssertion(BaseEntityAssertion):
         default=FreshnessSourceType.LAST_MODIFIED_COLUMN
     )
     last_modified_field: str
-    filter: Optional[DatasetFilter] = v1_Field(default=None)
+    filters: Optional[DatasetFilter] = v1_Field(default=None)
 
     def get_assertion_info(
         self,
@@ -67,7 +67,7 @@ class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
     type: Literal["freshness"]
     freshness_type: Literal["interval"] = v1_Field(default="interval")
     lookback_interval: timedelta
-    filter: Optional[DatasetFilter] = v1_Field(default=None)
+    filters: Optional[DatasetFilter] = v1_Field(default=None)
     source_type: FreshnessSourceType = v1_Field(
         default=FreshnessSourceType.LAST_MODIFIED_COLUMN
     )

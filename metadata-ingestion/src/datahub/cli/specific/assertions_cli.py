@@ -47,6 +47,7 @@ def upsert(file: str) -> None:
                     aspect=assertion_spec.get_assertion_info_aspect(),
                 )
                 graph.emit_mcp(mcp)
+                # TODO: Validate uniqueness of assertion ids. Report if duplicates found.
                 # TODO: Use upsert graphql endpoints here instead of graph.emit_mcp.
                 click.secho(f"Update succeeded for urn {mcp.entityUrn}.", fg="green")
             except Exception as e:

@@ -147,8 +147,8 @@ class SnowflakeFieldMetricSQLGenerator:
             assertion.field,
             entity_name,
             (
-                assertion.filter.sql
-                if assertion.filter and assertion.filter.sql
+                assertion.filters.sql
+                if assertion.filters and assertion.filters.sql
                 else None
             ),
         )

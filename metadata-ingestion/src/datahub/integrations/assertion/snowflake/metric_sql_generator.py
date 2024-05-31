@@ -51,8 +51,8 @@ class SnowflakeMetricSQLGenerator:
     @metric_sql.register
     def _(self, assertion: FixedIntervalFreshnessAssertion) -> str:
         entity_name = ".".join(get_entity_name(assertion))
-        if assertion.filter and assertion.filter.sql:
-            where_clause = f"where {assertion.filter.sql}"
+        if assertion.filters and assertion.filters.sql:
+            where_clause = f"where {assertion.filters.sql}"
         else:
             where_clause = ""
 
@@ -77,8 +77,8 @@ class SnowflakeMetricSQLGenerator:
         # Data metric function body cannot refer to the non-deterministic function 'CURRENT_DATABASE_MAIN_METASTORE_ID'.
 
         entity_name = ".".join(get_entity_name(assertion))
-        if assertion.filter and assertion.filter.sql:
-            where_clause = f"where {assertion.filter.sql}"
+        if assertion.filters and assertion.filters.sql:
+            where_clause = f"where {assertion.filters.sql}"
         else:
             where_clause = ""
         return f"select count(*) as metric from {entity_name} {where_clause}"

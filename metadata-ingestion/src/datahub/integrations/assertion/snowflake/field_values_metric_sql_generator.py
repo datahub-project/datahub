@@ -258,7 +258,9 @@ class SnowflakeFieldValuesMetricSQLGenerator:
         entity_name = ".".join(get_entity_name(assertion))
 
         dataset_filter = (
-            assertion.filter.sql if assertion.filter and assertion.filter.sql else None
+            assertion.filters.sql
+            if assertion.filters and assertion.filters.sql
+            else None
         )
         where_clause = self._setup_where_clause(
             [

@@ -26,7 +26,7 @@ class RowCountTotalVolumeAssertion(BaseEntityAssertion):
     type: Literal["volume"]
     metric: Literal["row_count"] = v1_Field(default="row_count")
     operator: Operators = v1_Field(discriminator="type", alias="condition")
-    filter: Optional[DatasetFilter] = v1_Field(default=None)
+    filters: Optional[DatasetFilter] = v1_Field(default=None)
 
     def get_assertion_info(
         self,
@@ -50,7 +50,7 @@ class RowCountChangeVolumeAssertion(BaseEntityAssertion):
     metric: Literal["row_count"] = v1_Field(default="row_count")
     change_type: Literal["absolute", "percentage"]
     operator: Operators = v1_Field(discriminator="type", alias="condition")
-    filter: Optional[DatasetFilter] = v1_Field(default=None)
+    filters: Optional[DatasetFilter] = v1_Field(default=None)
 
     def get_assertion_info(
         self,
