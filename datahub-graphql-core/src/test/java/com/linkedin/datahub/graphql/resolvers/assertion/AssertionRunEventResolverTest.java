@@ -97,6 +97,7 @@ public class AssertionRunEventResolverTest {
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getFailed(), 0);
     assertEquals(result.getSucceeded(), 1);
+    assertEquals(result.getErrored(), 0);
 
     com.linkedin.datahub.graphql.generated.AssertionRunEvent graphqlRunEvent =
         resolver.get(mockEnv).get().getRunEvents().get(0);
