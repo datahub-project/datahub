@@ -7,6 +7,10 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionAction;
+import com.linkedin.assertion.AssertionActionArray;
+import com.linkedin.assertion.AssertionActionType;
+import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.DataPlatformInstance;
@@ -48,6 +52,17 @@ public class AssertionTypeTest {
       new DataPlatformInstance()
           .setPlatform(new DataPlatformUrn("snowflake"))
           .setInstance(null, SetMode.IGNORE_NULL);
+  // Acryl SaaS Only
+  private static final AssertionActions TEST_ASSERTION_ACTIONS =
+      new AssertionActions()
+          .setOnSuccess(
+              new AssertionActionArray(
+                  ImmutableList.of(
+                      new AssertionAction().setType(AssertionActionType.RAISE_INCIDENT))))
+          .setOnFailure(
+              new AssertionActionArray(
+                  ImmutableList.of(
+                      new AssertionAction().setType(AssertionActionType.RESOLVE_INCIDENT))));
 
   private static final String TEST_ASSERTION_URN_2 = "urn:li:assertion:guid-2";
 
@@ -69,6 +84,9 @@ public class AssertionTypeTest {
     assertion1Aspects.put(
         Constants.ASSERTION_INFO_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_INFO.data())));
+    assertion1Aspects.put(
+        Constants.ASSERTION_ACTIONS_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_ASSERTION_ACTIONS.data())));
     Mockito.when(
             client.batchGetV2(
                 any(),
@@ -112,6 +130,12 @@ public class AssertionTypeTest {
     assertEquals(assertion.getInfo().getType().toString(), AssertionType.DATASET.toString());
     assertEquals(assertion.getInfo().getDatasetAssertion(), null);
     assertEquals(assertion.getPlatform().getUrn(), "urn:li:dataPlatform:snowflake");
+    assertEquals(
+        assertion.getActions().getOnSuccess().get(0).getType(),
+        com.linkedin.datahub.graphql.generated.AssertionActionType.RAISE_INCIDENT);
+    assertEquals(
+        assertion.getActions().getOnFailure().get(0).getType(),
+        com.linkedin.datahub.graphql.generated.AssertionActionType.RESOLVE_INCIDENT);
 
     // Assert second element is null.
     assertNull(result.get(1));
