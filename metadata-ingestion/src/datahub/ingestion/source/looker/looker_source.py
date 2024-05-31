@@ -1389,13 +1389,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         logger.debug("Extracting looks not part of Dashboard")
         look_fields: List[str] = [
-+            "id",
-+            "title",
-+            "description",
-+            "query_id",
-+            "folder",
-+            "user_id",
-+        ]
+            "id",
+            "title",
+            "description",
+            "query_id",
+            "folder",
+            "user_id",
+        ]
         query_fields: List[str] = [
             "id",
             "view",
