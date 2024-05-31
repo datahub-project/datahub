@@ -15,7 +15,7 @@ import {
     useBatchAddOwnersMutation,
     useBatchRemoveOwnersMutation,
 } from '../../../../../../../graphql/mutations.generated';
-import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
@@ -129,26 +129,27 @@ export const EditOwnersModal = ({
     }, [ownershipTypes, defaultOwnerType]);
 
     // User and group dropdown search results!
-    const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
-    const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
-    const userSearchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const groupSearchResults = groupSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const [groupSearch, { data: groupSearchData }] = useGetAutoCompleteResultsLazyQuery();
+    const [userSearch, { data: userSearchData }] = useGetAutoCompleteResultsLazyQuery();
+    const userSearchResults: Array<Entity> = userSearchData?.autoComplete?.entities || [];
+    const groupSearchResults: Array<Entity> = groupSearchData?.autoComplete?.entities || [];
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
     const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
     const inputEl = useRef(null);
 
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
-        searchQuery({
-            variables: {
-                input: {
-                    type,
-                    query: text,
-                    start: 0,
-                    count: 5,
+        if (text) {
+            searchQuery({
+                variables: {
+                    input: {
+                        type,
+                        query: text,
+                        limit: 10,
+                    },
                 },
-            },
-        });
+            });
+        }
     };
 
     // Invokes the user search API for both users and groups.

@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
-import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
 import {
     EntityType,
     Tag,
@@ -31,6 +32,7 @@ import { getModalDomContainer } from '../../../utils/focus';
 import ParentEntities from '../../search/filters/ParentEntities';
 import { getParentEntities } from '../../search/filters/utils';
 import analytics, { EntityActionType, EventType } from '../../analytics';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 export enum OperationType {
     ADD,
@@ -46,7 +48,7 @@ type EditTagsModalProps = {
     defaultValues?: { urn: string; entity?: Entity | null }[];
     onOkOverride?: (result: string[]) => void;
     showPropose?: boolean;
-    entityType?: EntityType
+    entityType?: EntityType;
 };
 
 const TagSelect = styled(Select)`
@@ -88,6 +90,18 @@ const SearchResultContainer = styled.div`
     justify-content: center;
 `;
 
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+        color: ${ANTD_GRAY[8]};
+    }
+`;
+
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
 
 const isValidTagName = (tagName: string) => {
@@ -112,7 +126,7 @@ export default function EditTagTermsModal({
     defaultValues = [],
     onOkOverride,
     showPropose = false,
-    entityType
+    entityType,
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
@@ -138,8 +152,9 @@ export default function EditTagTermsModal({
     const [proposeTagMutation] = useProposeTagMutation();
     const [proposeTermMutation] = useProposeTermMutation();
 
-    const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
-    const tagSearchResults = tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const [tagTermSearch, { data: tagTermSearchData, loading }] = useGetAutoCompleteResultsLazyQuery();
+
+    const tagSearchResults: Array<Entity> = tagTermSearchData?.autoComplete?.entities || [];
     const [recommendedData] = useGetRecommendations([EntityType.Tag]);
     const inputEl = useRef(null);
 
@@ -150,8 +165,7 @@ export default function EditTagTermsModal({
                     input: {
                         type,
                         query: text,
-                        start: 0,
-                        count: 10,
+                        limit: 10,
                     },
                 },
             });
@@ -334,7 +348,7 @@ export default function EditTagTermsModal({
                         actionType: EntityActionType.ProposalCreated,
                         actionQualifier,
                         entityType,
-                        entityUrn
+                        entityUrn,
                     });
                 }
             })
@@ -588,8 +602,16 @@ export default function EditTagTermsModal({
                     onBlur={handleBlur}
                     onInputKeyDown={handleKeyDown}
                     dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
+                    loading={loading}
                 >
-                    {tagSearchOptions}
+                    {!tagTermSearchData && loading && (
+                        <TagSelect.Option value="loading">
+                            <LoadingWrapper>
+                                <LoadingOutlined />
+                            </LoadingWrapper>
+                        </TagSelect.Option>
+                    )}
+                    {!loading && tagSearchOptions}
                 </TagSelect>
                 <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
                     <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
