@@ -85,11 +85,6 @@ module.exports = {
               link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
               items: [
                 {
-                  label: "Overview",
-                  type: "doc",
-                  id: "docs/assertions/open-assertions-spec",
-                },
-                {
                   label: "Snowflake",
                   type: "doc",
                   id: "docs/assertions/snowflake/snowflake_dmfs",

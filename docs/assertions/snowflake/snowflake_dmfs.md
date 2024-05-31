@@ -1,11 +1,11 @@
-## Snowflake DMF Assertions [BETA]
+# Snowflake DMF Assertions [BETA]
 
 The DataHub Open Assertion Compiler allows you to define your Data Quality assertions in a simple YAML format, and then compile them to be executed by Snowflake Data Metric Functions.
 Once compiled, you'll be able to register the compiled DMFs in your Snowflake environment, and extract their results them as part of your normal ingestion process for DataHub.
 Results of Snowflake DMF assertions will be reported as normal Assertion Results, viewable on a historical timeline in the context
 of the table with which they are associated.
 
-### Prerequisites
+## Prerequisites
 
 - You must have a Snowflake Enterprise account, where the DMFs feature is enabled.
 - You must have the necessary permissions to provision DMFs in your Snowflake environment (see below)
@@ -13,7 +13,7 @@ of the table with which they are associated.
 - You must have DataHub instance with Snowflake metadata ingested. If you do not have existing snowflake ingestion, refer [Snowflake Quickstart Guide](https://datahubproject.io/docs/quick-ingestion-guides/snowflake/overview) to get started.
 - You must have DataHub CLI installed and run [`datahub init`](https://datahubproject.io/docs/cli/#init).
 
-#### Permissions
+### Permissions
 
 *Permissions required for registering DMFs*
 
@@ -83,7 +83,7 @@ grant execute data metric function on account to role "<table-owner-role>"
 grant application role SNOWFLAKE.DATA_QUALITY_MONITORING_VIEWER to role "<datahub_role>"
 ```
 
-### Supported Assertion Types
+## Supported Assertion Types
 
 The following assertion types are currently supported by the DataHub Snowflake DMF Assertion Compiler:
 
@@ -94,18 +94,18 @@ The following assertion types are currently supported by the DataHub Snowflake D
 
 Note that Schema Assertions are not currently supported.
 
-### Creating Snowflake DMF Assertions
+## Creating Snowflake DMF Assertions
 
 The process for declaring and running assertions backend by Snowflake DMFs consists of a few steps, which will be outlined
 in the following sections.
 
 
-#### Step 1. Define your Data Quality assertions using Assertion YAML files
+### Step 1. Define your Data Quality assertions using Assertion YAML files
 
 See the section **Declaring Assertions in YAML** below for examples of how to define assertions in YAML.
 
 
-#### Step 2. Register your assertions with DataHub
+### Step 2. Register your assertions with DataHub
 
 Use the DataHub CLI to register your assertions with DataHub, so they become visible in the DataHub UI:
 
@@ -114,7 +114,7 @@ datahub assertions upsert -f examples/library/assertions_configuration.yml
 ```
 
 
-#### Step 3. Compile the assertions into Snowflake DMFs using the DataHub CLI
+### Step 3. Compile the assertions into Snowflake DMFs using the DataHub CLI
 
 Next, we'll use the `assertions compile` command to generate the SQL code for the Snowflake DMFs,
 which can then be registered in Snowflake.
@@ -138,7 +138,7 @@ This file stores the SQL code for the DMFs that will be registered in Snowflake,
 from your YAML assertion definitions during the compile step.
 
 ```sql
-# Example dmf_definitions.sql
+-- Example dmf_definitions.sql
 
 -- Start of Assertion 5c32eef47bd763fece7d21c7cbf6c659
 
@@ -161,7 +161,7 @@ This file stores the SQL code for associating with the target table,
 along with scheduling the generated DMFs to run on at particular times.
 
 ```sql
-# Example dmf_associations.sql
+-- Example dmf_associations.sql
 
 -- Start of Assertion 5c32eef47bd763fece7d21c7cbf6c659
 
@@ -173,7 +173,7 @@ along with scheduling the generated DMFs to run on at particular times.
 ```
 
 
-#### Step 4. Register the compiled DMFs in your Snowflake environment
+### Step 4. Register the compiled DMFs in your Snowflake environment
 
 Next, you'll need to run the generated SQL from the files output in Step 3 in Snowflake.
 
@@ -189,7 +189,7 @@ Scheduling Data Metric Function on table incurs Serverless Credit Usage in Snowf
 Please ensure you DROP Data Metric Function created via dmf_associations.sql if the assertion is no longer in use. 
 :::
 
-#### Step 5. Run ingestion to report the results back into DataHub
+### Step 5. Run ingestion to report the results back into DataHub
 
 Once you've registered the DMFs, they will be automatically executed, either when the target table is updated or on a fixed
 schedule.
@@ -212,13 +212,13 @@ either via CLI or the UI visible as normal assertions.
 
 `datahub ingest -c snowflake.yml`
 
-### Caveats
+## Caveats
 
 - Currently, Snowflake supports at most 1000 DMF-table associations at the moment so you can not define more than 1000 assertions for snowflake.
 - Currently, Snowflake does not allow JOIN queries or non-deterministic functions in DMF definition so you can not use these in SQL for SQL assertion or in filters section.
 - Currently, all DMFs scheduled on a table must follow same exact schedule, so you can not set assertions on same table to run on different schedules.
 - Currently, DMFs are only supported for regular tables and not dynamic or external tables.
 
-### FAQ
+## FAQ
 
 Coming soon!
