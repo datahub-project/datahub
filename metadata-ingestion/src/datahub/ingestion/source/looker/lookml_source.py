@@ -1,3 +1,4 @@
+import ast
 import copy
 import glob
 import itertools
@@ -66,6 +67,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewFieldType,
     ViewFieldValue,
     gen_project_key,
+    resolve_liquid_variable,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -575,11 +577,13 @@ class LookerViewFileLoader:
         root_project_name: Optional[str],
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
+        liquid_variable: Dict[Any, Any],
     ) -> None:
         self.viewfile_cache: Dict[str, LookerViewFile] = {}
         self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
+        self.liquid_variable = liquid_variable
 
     def is_view_seen(self, path: str) -> bool:
         return path in self.viewfile_cache
@@ -612,6 +616,14 @@ class LookerViewFileLoader:
         try:
             logger.debug(f"Loading viewfile {path}")
             parsed = load_lkml(path)
+
+            # replace any liquid variable
+            parsed_text: str = resolve_liquid_variable(
+                text=str(parsed),
+                liquid_variable=self.liquid_variable,
+            )
+            parsed = ast.literal_eval(parsed_text)
+
             looker_viewfile = LookerViewFile.from_looker_dict(
                 absolute_file_path=path,
                 looker_view_file_dict=parsed,
@@ -636,7 +648,9 @@ class LookerViewFileLoader:
         reporter: LookMLSourceReport,
     ) -> Optional[LookerViewFile]:
         viewfile = self._load_viewfile(
-            project_name=project_name, path=path, reporter=reporter
+            project_name=project_name,
+            path=path,
+            reporter=reporter,
         )
         if viewfile is None:
             return None
@@ -899,7 +913,10 @@ def _find_view_from_resolved_includes(
     # lives in, so we try them all!
     for include in resolved_includes:
         included_looker_viewfile = looker_viewfile_loader.load_viewfile(
-            include.include, include.project, connection, reporter
+            include.include,
+            include.project,
+            connection,
+            reporter,
         )
         if not included_looker_viewfile:
             continue
@@ -1951,6 +1968,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.source_config.project_name,
             self.base_projects_folder,
             self.reporter,
+            self.source_config.liquid_variable,
         )
 
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.

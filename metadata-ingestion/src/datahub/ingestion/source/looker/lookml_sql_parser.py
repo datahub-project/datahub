@@ -2,8 +2,6 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from liquid import Template, Undefined
-
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.looker.looker_common import (
     LookerConnectionDefinition,
@@ -103,7 +101,15 @@ def _update_fields(
 
 
 def get_qualified_table_name(urn: str) -> str:
-    return urn.split(",")[-2]
+    part: str = urn.split(",")[-2]
+
+    if len(part.split(".")) >= 4:
+        return ".".join(
+            part.split(".")[-3:]
+        )  # return only db.schema.table skip platform instance as higher code is
+        # failing if encounter platform-instance in qualified table name
+    else:
+        return part
 
 
 def get_qualified_table_names_from_spr(spr: SqlParsingResult) -> List[str]:
@@ -119,6 +125,8 @@ def get_qualified_table_names_from_spr(spr: SqlParsingResult) -> List[str]:
 
 
 class SqlQuery:
+    LOOKER_TABLE_PATTERN: str = r"\$\{([a-zA-Z0-9_\.]+)\.SQL_TABLE_NAME\}"
+
     lookml_sql_query: str
     view_name: str
     liquid_context: Dict[Any, Any]
@@ -147,11 +155,10 @@ class SqlQuery:
             sql_query = f"{sql_query} FROM {self.view_name}"
             # Get the list of tables in the query
 
-        # set liquid variables value to NULL
-        Undefined.__str__ = lambda instance: "NULL"  # type: ignore
+        # Replace any ${view_or_derived_table.SQL_TABLE_NAME} by view_or_derived_table
+        sql_query = re.sub(self.LOOKER_TABLE_PATTERN, r"\1", sql_query)
 
-        # Resolve liquid template
-        return Template(sql_query).render(self.liquid_variable)
+        return sql_query
 
 
 class ViewFieldBuilder:

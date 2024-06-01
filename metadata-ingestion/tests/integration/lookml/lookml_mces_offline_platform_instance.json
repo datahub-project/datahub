@@ -170,6 +170,52 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,DEV)",
                                 "type": "VIEW"
                             }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,PROD),country)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),country)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,PROD),city)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),city)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,PROD),is_latest)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),is_latest)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,PROD),timestamp)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),timestamp)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
                         ]
                     }
                 },
@@ -425,8 +471,43 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_view,DEV)",
                                 "type": "VIEW"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_view,PROD),country)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD),country)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_view,PROD),city)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD),city)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_view,PROD),timestamp)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD),timestamp)"
+                                ],
+                                "confidenceScore": 1.0
                             }
                         ]
                     }
@@ -1343,95 +1424,6 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.fragment_derived_view,DEV)",
-                                "type": "VIEW"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "fragment_derived_view",
-                        "platform": "urn:li:dataPlatform:looker",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "aliased_platform",
-                                "nullable": false,
-                                "description": "",
-                                "label": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "country",
-                                "nullable": false,
-                                "description": "",
-                                "label": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "date",
-                                "nullable": false,
-                                "description": "",
-                                "label": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "isPartOfKey": false
-                            }
-                        ],
-                        "primaryKeys": []
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "looker.file.path": "nested/fragment_derived.view.lkml",
@@ -1544,20 +1536,6 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.order,DEV)",
-                                "type": "VIEW"
-                            }
-                        ]
                     }
                 },
                 {
