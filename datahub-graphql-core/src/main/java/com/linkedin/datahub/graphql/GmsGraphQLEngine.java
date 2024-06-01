@@ -820,7 +820,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
