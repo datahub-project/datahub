@@ -12,5 +12,9 @@ record DataQualityContract {
    * The assertion representing the Data Quality contract.
    * E.g. a table or column-level assertion.
    */
+  @Relationship = {
+    "name": "IncludesDataQualityAssertion",
+    "entityTypes": [ "assertion" ]
+  }
   assertion: Urn
 }

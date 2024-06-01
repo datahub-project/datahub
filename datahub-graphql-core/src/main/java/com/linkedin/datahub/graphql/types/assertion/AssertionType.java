@@ -28,8 +28,8 @@ public class AssertionType
           Constants.ASSERTION_KEY_ASPECT_NAME,
           Constants.ASSERTION_INFO_ASPECT_NAME,
           Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-          Constants.GLOBAL_TAGS_ASPECT_NAME);
-
+          Constants.GLOBAL_TAGS_ASPECT_NAME,
+          Constants.ASSERTION_ACTIONS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   public AssertionType(final EntityClient entityClient) {

@@ -7514,6 +7514,11 @@ The result type of an assertion, success or failure.
 """
 enum AssertionResultType {
     """
+    The assertion has not yet been fully evaluated.
+    """
+    INIT
+
+    """
     The assertion succeeded.
     """
     SUCCESS
@@ -7522,6 +7527,11 @@ enum AssertionResultType {
     The assertion failed.
     """
     FAILURE
+
+    """
+    The assertion errored.
+    """
+    ERROR
 }
 
 """
@@ -7684,6 +7694,16 @@ enum AssertionStdOperator {
     NOT_IN
 
     """
+    Value being asserted is true.
+    """
+    IS_TRUE
+
+    """
+    Value being asserted is false.
+    """
+    IS_FALSE
+
+    """
     Other
     """
     _NATIVE_
@@ -7828,6 +7848,11 @@ type AssertionRunEventsResult {
   The number of succeeded run events
   """
   succeeded: Int!
+
+  """
+  The number of errored run events
+  """
+  errored: Int!
 
   """
   The run events themselves
