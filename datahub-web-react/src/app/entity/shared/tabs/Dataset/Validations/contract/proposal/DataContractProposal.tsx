@@ -120,155 +120,29 @@ const StyledEyeOutlined = styled(EyeOutlined)`
  *  Displaying a Data Contract proposal for an entity.
  */
 
-export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, entityType }: any) => {
-    const { urn } = useEntityData();
-    // const [acceptProposalMutation] = useAcceptProposalMutation();
-    // const [rejectProposalMutation] = useRejectProposalMutation();
-    // const { data, refetch: contractRefetch } = useGetContractProposalsQuery({
-    //     variables: {
-    //         urn,
-    //     },
-    // });
-    const data: any = {
-        listActionRequests: {
-            total: 0,
-            actionRequests: [],
-            __typename: 'ListActionRequestsResult',
-        },
-    };
-    const contractRefetch = () => null;
-
-    useEffect(() => {
-        contractRefetch();
-    }, [contractRefetch]);
-
-    const acceptProposal = (actionRequestUrn) => {
-        Modal.confirm({
-            title: 'Accept Proposed Contract',
-            content: 'Are you sure you want to accept this proposal? New assertions will be created for this dataset.',
-            okText: 'Yes',
-            onOk() {
-                // acceptProposalMutation({ variables: { urn: actionRequestUrn } })
-                //     .then(() => {
-                //         analytics.event({
-                //             type: EventType.EntityActionEvent,
-                //             actionType: 'ProposalAccepted', //EntityActionType.ProposalAccepted,
-                //             actionQualifier: 'DATA_CONTRACT', //ActionRequestType.DataContract,
-                //             entityType,
-                //             entityUrn,
-                //         });
-                //         setTimeout(() => refetch(), 3000);
-                //         message.success('Successfully accepted the proposal!');
-                //     })
-                //     .catch((err) => {
-                //         console.log(err);
-                //         message.error('Failed to accept proposal. :(');
-                //     });
-            },
-        });
-    };
-
-    const rejectProposal = (actionRequestUrn) => {
-        Modal.confirm({
-            title: 'Reject Proposed Contract',
-            content:
-                'Are you sure you want to reject this proposal? Proposals will no longer be created for this dataset.',
-            okText: 'Yes',
-            onOk() {
-                // rejectProposalMutation({ variables: { urn: actionRequestUrn } })
-                //     .then(() => {
-                //         analytics.event({
-                //             type: EventType.EntityActionEvent,
-                //             actionType: 'ProposalRejected', //EntityActionType.ProposalRejected,
-                //             actionQualifier: 'DATA_CONTRACT', // ActionRequestType.DataContract,
-                //             entityType,
-                //             entityUrn,
-                //         });
-                //         contractRefetch();
-                //         setTimeout(() => refetch(), 3000);
-                //         message.success('Rejected the proposal.');
-                //     })
-                //     .catch((err) => {
-                //         console.log(err);
-                //         message.error('Failed to reject proposal. :(');
-                //     });
-            },
-        });
-    };
-
-    // Extract the Contract which is being proposed. Note that this only goes to the current user if they are able to approve.
-    const hasContractProposal =
-        ((data?.listActionRequests?.total || 0) > 0 && data?.listActionRequests?.actionRequests?.length) || undefined;
-    const contractActionRequest = hasContractProposal && data?.listActionRequests?.actionRequests[0];
-    const actionRequestStatus = contractActionRequest && contractActionRequest.status;
-    const actionRequestParams = contractActionRequest && contractActionRequest.params;
-    const actionRequestUrn = contractActionRequest && contractActionRequest.urn;
-    const contractProposal = actionRequestParams && actionRequestParams?.dataContractProposal;
-    const isActiveProposal = contractProposal && actionRequestStatus === 'PENDING'; //ActionRequestStatus.Pending;
-
+export const DataContractProposal = ({ showContractBuilder }: any) => {
     return (
         <Container>
             <Summary>
                 <SummaryDescription>
-                    {(isActiveProposal && <StyledEyeOutlined />) || (
-                        <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 24 }} />
-                    )}
                     <SummaryMessage>
-                        {(isActiveProposal && (
-                            <>
-                                <SummaryTitle level={5}>
-                                    There is a contract proposal pending review <StyledInfoCircleOutlined />
-                                </SummaryTitle>
-                                <DataContractProposalDescription
-                                    urn={urn}
-                                    proposal={contractProposal} // as DataContractProposalParams}
-                                />
-                            </>
-                        )) || (
-                            <SummaryTitle level={5}>
-                                No contract found
-                                <div>
-                                    <Typography.Text type="secondary">
-                                        A contract does not yet exist for this dataset
-                                    </Typography.Text>
-                                </div>
-                            </SummaryTitle>
-                        )}
+                        <SummaryTitle level={5}>
+                            No contract found
+                            <div>
+                                <Typography.Text type="secondary">
+                                    A contract does not yet exist for this dataset
+                                </Typography.Text>
+                            </div>
+                        </SummaryTitle>
                     </SummaryMessage>
                 </SummaryDescription>
-                {(isActiveProposal && (
-                    <Actions>
-                        <ApproveButton onClick={() => acceptProposal(actionRequestUrn as any)}>
-                            <CheckOutlined />
-                            ACCEPT
-                        </ApproveButton>
-                        <DenyButton onClick={() => rejectProposal(actionRequestUrn as any)}>
-                            <CloseOutlined />
-                            REJECT
-                        </DenyButton>
-                        <CreateButton onClick={showContractBuilder}>
-                            <PlusOutlined />
-                            CREATE
-                        </CreateButton>
-                    </Actions>
-                )) || (
-                    <Actions>
-                        <CreateButton onClick={showContractBuilder}>
-                            <PlusOutlined />
-                            CREATE
-                        </CreateButton>
-                    </Actions>
-                )}
+                <Actions>
+                    <CreateButton onClick={showContractBuilder}>
+                        <PlusOutlined />
+                        CREATE
+                    </CreateButton>
+                </Actions>
             </Summary>
-            {isActiveProposal && contractProposal && contractProposal?.freshness && (
-                <FreshnessContractSummary contracts={contractProposal?.freshness as any} />
-            )}
-            {isActiveProposal && contractProposal && contractProposal?.schema && (
-                <SchemaContractSummary contracts={contractProposal?.schema as any} />
-            )}
-            {isActiveProposal && contractProposal && contractProposal?.dataQuality && (
-                <DataQualityContractSummary contracts={contractProposal?.dataQuality as any} />
-            )}
         </Container>
     );
 };

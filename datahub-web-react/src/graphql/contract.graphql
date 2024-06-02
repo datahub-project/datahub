@@ -19,17 +19,17 @@ fragment dataContractDetails on DataContract {
     properties {
         freshness {
             assertion {
-                ...assertionDetailsWithMonitors
+                ...assertionDetails
             }
         }
         schema {
             assertion {
-                ...assertionDetailsWithMonitors
+                ...assertionDetails
             }
         }
         dataQuality {
             assertion {
-                ...assertionDetailsWithMonitors
+                ...assertionDetails
             }
         }
     }
@@ -51,4 +51,3 @@ mutation upsertDataContract($input: UpsertDataContractInput!) {
         ...dataContractDetails
     }
 }
-
