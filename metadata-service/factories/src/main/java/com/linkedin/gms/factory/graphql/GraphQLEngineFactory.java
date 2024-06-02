@@ -68,7 +68,7 @@ import org.springframework.context.annotation.Import;
   EntityRegistryFactory.class,
   DataHubTokenServiceFactory.class,
   GitVersionFactory.class,
-  SiblingGraphServiceFactory.class
+  SiblingGraphServiceFactory.class,
 })
 public class GraphQLEngineFactory {
   @Autowired

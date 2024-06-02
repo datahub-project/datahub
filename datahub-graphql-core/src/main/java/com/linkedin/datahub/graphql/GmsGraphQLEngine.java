@@ -54,6 +54,7 @@ import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
+import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Domain;
@@ -64,6 +65,7 @@ import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.FormActorAssignment;
+import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryNodesResult;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryTermsResult;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -102,6 +104,7 @@ import com.linkedin.datahub.graphql.generated.QuerySubject;
 import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
+import com.linkedin.datahub.graphql.generated.SchemaContract;
 import com.linkedin.datahub.graphql.generated.SchemaField;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
@@ -118,7 +121,12 @@ import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.*;
+import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.DebugAccessResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenMetadataResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
@@ -136,6 +144,8 @@ import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsResolver;
+import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver;
+import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchSetDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
@@ -741,6 +751,7 @@ public class GmsGraphQLEngine {
     configureDomainResolvers(builder);
     configureDataProductResolvers(builder);
     configureAssertionResolvers(builder);
+    configureContractResolvers(builder);
     configurePolicyResolvers(builder);
     configureDataProcessInstanceResolvers(builder);
     configureVersionedDatasetResolvers(builder);
@@ -814,7 +825,9 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -2707,6 +2720,59 @@ public class GmsGraphQLEngine {
                 .dataFetcher("runEvents", new AssertionRunEventResolver(entityClient))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
+  }
+
+  private void configureContractResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Dataset",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "contract", new EntityDataContractResolver(this.entityClient, this.graphClient)));
+    builder.type(
+        "FreshnessContract",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "assertion",
+                new LoadableTypeResolver<>(
+                    getAssertionType(),
+                    (env) -> {
+                      final FreshnessContract contract = env.getSource();
+                      return contract.getAssertion() != null
+                          ? contract.getAssertion().getUrn()
+                          : null;
+                    })));
+    builder.type(
+        "DataQualityContract",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "assertion",
+                new LoadableTypeResolver<>(
+                    getAssertionType(),
+                    (env) -> {
+                      final DataQualityContract contract = env.getSource();
+                      return contract.getAssertion() != null
+                          ? contract.getAssertion().getUrn()
+                          : null;
+                    })));
+    builder.type(
+        "SchemaContract",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "assertion",
+                new LoadableTypeResolver<>(
+                    getAssertionType(),
+                    (env) -> {
+                      final SchemaContract contract = env.getSource();
+                      return contract.getAssertion() != null
+                          ? contract.getAssertion().getUrn()
+                          : null;
+                    })));
+    builder.type(
+        "Mutation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "upsertDataContract",
+                new UpsertDataContractResolver(this.entityClient, this.graphClient)));
   }
 
   private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {

@@ -346,10 +346,10 @@ public class PoliciesConfig {
           "The ability to edit the Queries for a Dataset.");
 
   public static final Privilege EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE =
-          Privilege.of(
-                  "EDIT_ENTITY_DATA_CONTRACT",
-                  "Edit Data Contract",
-                  "The ability to edit the Data Contract for an entity.");
+      Privilege.of(
+          "EDIT_ENTITY_DATA_CONTRACT",
+          "Edit Data Contract",
+          "The ability to edit the Data Contract for an entity.");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
