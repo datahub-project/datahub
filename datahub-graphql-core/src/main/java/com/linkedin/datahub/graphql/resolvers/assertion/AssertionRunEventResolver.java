@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
 import com.linkedin.datahub.graphql.generated.AssertionRunEvent;
@@ -40,7 +41,7 @@ public class AssertionRunEventResolver
 
   @Override
   public CompletableFuture<AssertionRunEventsResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
@@ -97,12 +98,24 @@ public class AssertionRunEventResolver
                                     && AssertionResultType.SUCCESS.equals(
                                         runEvent.getResult().getType()))
                         .count()));
+            result.setErrored(
+                Math.toIntExact(
+                    runEvents.stream()
+                        .filter(
+                            runEvent ->
+                                AssertionRunStatus.COMPLETE.equals(runEvent.getStatus())
+                                    && runEvent.getResult() != null
+                                    && AssertionResultType.ERROR.equals(
+                                        runEvent.getResult().getType()))
+                        .count()));
             result.setRunEvents(runEvents);
             return result;
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable

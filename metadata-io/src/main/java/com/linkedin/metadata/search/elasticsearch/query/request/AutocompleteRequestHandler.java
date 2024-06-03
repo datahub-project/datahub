@@ -37,10 +37,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.MultiMatchQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.*;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -118,9 +115,13 @@ public class AutocompleteRequestHandler {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(input).orElse(null);
 
+    BoolQueryBuilder baseQuery = QueryBuilders.boolQuery();
+    baseQuery.minimumShouldMatch(1);
+
     // Initial query with input filters
-    BoolQueryBuilder baseQuery =
+    BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever);
+    baseQuery.filter(filterQuery);
 
     // Add autocomplete query
     baseQuery.should(getQuery(opContext.getObjectMapper(), customAutocompleteConfig, input, field));
@@ -215,10 +216,9 @@ public class AutocompleteRequestHandler {
             autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
             autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
           }
-
+          autocompleteQueryBuilder.field(fieldName + ".delimited");
           finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
         });
-
     finalQuery.should(autocompleteQueryBuilder);
     return finalQuery;
   }

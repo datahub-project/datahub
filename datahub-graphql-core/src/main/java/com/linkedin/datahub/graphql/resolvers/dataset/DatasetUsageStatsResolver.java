@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isVi
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.types.usage.UsageQueryResultMapper;
@@ -32,7 +33,7 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final UsageTimeRange range = UsageTimeRange.valueOf(environment.getArgument("range"));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!isViewDatasetUsageAuthorized(context, resourceUrn)) {
             log.debug(
@@ -52,6 +53,8 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
           }
 
           return UsageQueryResultMapper.EMPTY;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

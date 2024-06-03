@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -43,7 +44,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
     final Urn tagUrn = Urn.createFromString(environment.getArgument("urn"));
     final String colorHex = environment.getArgument("colorHex");
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // If user is not authorized, then throw exception.
@@ -86,7 +87,9 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
             throw new RuntimeException(
                 String.format("Failed to set color for Tag with urn %s", tagUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static boolean isAuthorizedToSetTagColor(@Nonnull QueryContext context, Urn entityUrn) {

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.form;
 import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.FormActorAssignment;
@@ -31,7 +32,7 @@ public class IsFormAssignedToMeResolver implements DataFetcher<CompletableFuture
     final QueryContext context = environment.getContext();
     final FormActorAssignment parent = environment.getSource();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -75,6 +76,8 @@ public class IsFormAssignedToMeResolver implements DataFetcher<CompletableFuture
 
           // Else the user is not directly assigned.
           return false;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }
