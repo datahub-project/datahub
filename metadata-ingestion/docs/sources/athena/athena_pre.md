@@ -64,7 +64,7 @@ In order to execute this source, you will need to create a policy with below per
         "arn:aws:s3:::${athena-query-result-bucket}/*",
         "arn:aws:s3:::${athena-query-result-bucket}"
       ]
-    },
+    }
   ]
 }
 ```
