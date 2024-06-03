@@ -6,14 +6,16 @@ import static org.mockito.Mockito.*;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
+import io.datahubproject.metadata.context.EntityRegistryContext;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -46,7 +48,7 @@ public class IngestDataPlatformInstancesStepTest {
 
     final IngestDataPlatformInstancesStep step =
         new IngestDataPlatformInstancesStep(entityService, migrationsDao);
-    step.execute();
+    step.execute(mock(OperationContext.class));
 
     verify(migrationsDao, times(1)).checkIfAspectExists(anyString());
     verifyNoMoreInteractions(migrationsDao);
@@ -62,7 +64,7 @@ public class IngestDataPlatformInstancesStepTest {
 
     final IngestDataPlatformInstancesStep step =
         new IngestDataPlatformInstancesStep(entityService, migrationsDao);
-    step.execute();
+    step.execute(mock(OperationContext.class));
 
     verify(migrationsDao, times(1)).checkIfAspectExists(anyString());
     verify(migrationsDao, times(1)).countEntities();
@@ -79,18 +81,22 @@ public class IngestDataPlatformInstancesStepTest {
     final int countOfChartEntities = 4;
     final int totalUrnsInDB = countOfCorpUserEntities + countOfChartEntities;
 
-    mockDBWithWorkToDo(
-        entityRegistry,
-        entityService,
-        migrationsDao,
-        countOfCorpUserEntities,
-        countOfChartEntities);
+    OperationContext mockOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
+    EntityRegistryContext spyEntityRegistryContext = spy(mockOpContext.getEntityRegistryContext());
+    mockOpContext =
+        mockOpContext.toBuilder()
+            .entityRegistryContext(spyEntityRegistryContext)
+            .build(mockOpContext.getSessionAuthentication());
+
+    mockDBWithWorkToDo(migrationsDao, countOfCorpUserEntities, countOfChartEntities);
 
     final IngestDataPlatformInstancesStep step =
         new IngestDataPlatformInstancesStep(entityService, migrationsDao);
-    step.execute();
 
-    verify(entityService, times(totalUrnsInDB)).getKeyAspectSpec(any(Urn.class));
+    step.execute(mockOpContext);
+
+    verify(spyEntityRegistryContext, times(totalUrnsInDB)).getKeyAspectSpec(any(Urn.class));
   }
 
   @Test
@@ -101,19 +107,18 @@ public class IngestDataPlatformInstancesStepTest {
     final int countOfCorpUserEntities = 5;
     final int countOfChartEntities = 7;
 
-    mockDBWithWorkToDo(
-        entityRegistry,
-        entityService,
-        migrationsDao,
-        countOfCorpUserEntities,
-        countOfChartEntities);
+    OperationContext mockOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
+
+    mockDBWithWorkToDo(migrationsDao, countOfCorpUserEntities, countOfChartEntities);
 
     final IngestDataPlatformInstancesStep step =
         new IngestDataPlatformInstancesStep(entityService, migrationsDao);
-    step.execute();
+    step.execute(mockOpContext);
 
     verify(entityService, times(1))
         .ingestAspects(
+            any(OperationContext.class),
             argThat(
                 arg ->
                     arg.getItems().stream()
@@ -122,12 +127,13 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((MCPUpsertBatchItem) item).getRecordTemplate()
+                                    && ((ChangeItemImpl) item).getRecordTemplate()
                                         instanceof DataPlatformInstance)),
             anyBoolean(),
             anyBoolean());
     verify(entityService, times(0))
         .ingestAspects(
+            any(OperationContext.class),
             argThat(
                 arg ->
                     !arg.getItems().stream()
@@ -136,7 +142,7 @@ public class IngestDataPlatformInstancesStepTest {
                                 item.getUrn().getEntityType().equals("chart")
                                     && item.getAspectName()
                                         .equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                    && ((MCPUpsertBatchItem) item).getRecordTemplate()
+                                    && ((ChangeItemImpl) item).getRecordTemplate()
                                         instanceof DataPlatformInstance)),
             anyBoolean(),
             anyBoolean());
@@ -144,6 +150,9 @@ public class IngestDataPlatformInstancesStepTest {
 
   @NotNull
   private ConfigEntityRegistry getTestEntityRegistry() {
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
     return new ConfigEntityRegistry(
         IngestDataPlatformInstancesStepTest.class
             .getClassLoader()
@@ -160,25 +169,9 @@ public class IngestDataPlatformInstancesStepTest {
   }
 
   private void mockDBWithWorkToDo(
-      EntityRegistry entityRegistry,
-      EntityService<?> entityService,
-      AspectMigrationsDao migrationsDao,
-      int countOfCorpUserEntities,
-      int countOfChartEntities) {
-    List<Urn> corpUserUrns =
-        insertMockEntities(
-            countOfCorpUserEntities,
-            "corpuser",
-            "urn:li:corpuser:test%d",
-            entityRegistry,
-            entityService);
-    List<Urn> charUrns =
-        insertMockEntities(
-            countOfChartEntities,
-            "chart",
-            "urn:li:chart:(looker,test%d)",
-            entityRegistry,
-            entityService);
+      AspectMigrationsDao migrationsDao, int countOfCorpUserEntities, int countOfChartEntities) {
+    List<Urn> corpUserUrns = insertMockEntities(countOfCorpUserEntities, "urn:li:corpuser:test%d");
+    List<Urn> charUrns = insertMockEntities(countOfChartEntities, "urn:li:chart:(looker,test%d)");
     List<String> allUrnsInDB =
         Stream.concat(corpUserUrns.stream(), charUrns.stream())
             .map(Urn::toString)
@@ -186,22 +179,14 @@ public class IngestDataPlatformInstancesStepTest {
     when(migrationsDao.checkIfAspectExists(DATA_PLATFORM_INSTANCE_ASPECT_NAME)).thenReturn(false);
     when(migrationsDao.countEntities()).thenReturn((long) allUrnsInDB.size());
     when(migrationsDao.listAllUrns(anyInt(), anyInt())).thenReturn(allUrnsInDB);
-    when(entityService.getEntityRegistry()).thenReturn(entityRegistry);
   }
 
-  private List<Urn> insertMockEntities(
-      int count,
-      String entity,
-      String urnTemplate,
-      EntityRegistry entityRegistry,
-      EntityService<?> entityService) {
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entity);
-    AspectSpec keySpec = entitySpec.getKeyAspectSpec();
+  private List<Urn> insertMockEntities(int count, String urnTemplate) {
+
     List<Urn> urns = new ArrayList<>();
     for (int i = 0; i < count; i++) {
       Urn urn = UrnUtils.getUrn(String.format(urnTemplate, i));
       urns.add(urn);
-      when(entityService.getKeyAspectSpec(urn)).thenReturn(keySpec);
     }
     return urns;
   }

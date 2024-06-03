@@ -8,6 +8,7 @@ import {
     EntityPath,
     EntityType,
     GlobalTags,
+    Health,
     Owner,
     SearchInsight,
 } from '../../../../types.generated';
@@ -38,6 +39,7 @@ export const Preview = ({
     deprecation,
     degree,
     paths,
+    health,
 }: {
     urn: string;
     name: string;
@@ -56,6 +58,7 @@ export const Preview = ({
     jobCount?: number | null;
     degree?: number;
     paths?: EntityPath[];
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -87,6 +90,7 @@ export const Preview = ({
             }
             degree={degree}
             paths={paths}
+            health={health || undefined}
         />
     );
 };

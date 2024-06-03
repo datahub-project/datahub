@@ -17,7 +17,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityService;
@@ -30,6 +30,7 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -45,7 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class CassandraRetentionService<U extends UpsertItem> extends RetentionService<U> {
+public class CassandraRetentionService<U extends ChangeMCP> extends RetentionService<U> {
   private final EntityService<U> _entityService;
   private final CqlSession _cqlSession;
   private final int _batchSize;
@@ -59,8 +60,12 @@ public class CassandraRetentionService<U extends UpsertItem> extends RetentionSe
 
   @Override
   protected AspectsBatch buildAspectsBatch(
-      List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp) {
-    return AspectsBatchImpl.builder().mcps(mcps, auditStamp, _entityService).build();
+      @Nonnull OperationContext opContext,
+      List<MetadataChangeProposal> mcps,
+      @Nonnull AuditStamp auditStamp) {
+    return AspectsBatchImpl.builder()
+        .mcps(mcps, auditStamp, opContext.getRetrieverContext().get())
+        .build();
   }
 
   @Override
@@ -195,7 +200,7 @@ public class CassandraRetentionService<U extends UpsertItem> extends RetentionSe
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       @Nonnull final TimeBasedRetention retention) {
-    Timestamp threshold = new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000);
+    Timestamp threshold = new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000L);
     SimpleStatement ss =
         deleteFrom(CassandraAspect.TABLE_NAME)
             .whereColumn(CassandraAspect.URN_COLUMN)

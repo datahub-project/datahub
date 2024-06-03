@@ -21,7 +21,7 @@ import {
     USERS_INVITE_LINK_ID,
     USERS_SSO_ID,
 } from '../../onboarding/config/UsersOnboardingConfig';
-import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
+import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from './cacheUtils';
 import { useUserContext } from '../../context/useUserContext';
 
@@ -113,7 +113,7 @@ export const UserList = () => {
     const error = usersError || rolesError;
     const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
 
-    useUpdateEducationStepIdsAllowlist(canManagePolicies, USERS_INVITE_LINK_ID);
+    useToggleEducationStepIdsAllowList(canManagePolicies, USERS_INVITE_LINK_ID);
 
     return (
         <>

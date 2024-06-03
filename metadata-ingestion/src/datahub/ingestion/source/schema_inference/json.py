@@ -1,3 +1,4 @@
+import itertools
 import logging
 from typing import IO, Dict, List, Type, Union
 
@@ -33,14 +34,28 @@ logger = logging.getLogger(__name__)
 
 
 class JsonInferrer(SchemaInferenceBase):
+    def __init__(self, max_rows: int = 100, format: str = "json"):
+        self.max_rows = max_rows
+        self.format = format
+
     def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
-        try:
-            datastore = ujson.load(file)
-        except ujson.JSONDecodeError as e:
-            logger.info(f"Got ValueError: {e}. Retry with jsonlines")
+        if self.format == "jsonl":
             file.seek(0)
             reader = jsl.Reader(file)
-            datastore = [obj for obj in reader.iter(type=dict, skip_invalid=True)]
+            datastore = [
+                obj
+                for obj in itertools.islice(
+                    reader.iter(type=dict, skip_invalid=True), self.max_rows
+                )
+            ]
+        else:
+            try:
+                datastore = ujson.load(file)
+            except ujson.JSONDecodeError as e:
+                logger.info(f"Got ValueError: {e}. Retry with jsonlines")
+                file.seek(0)
+                reader = jsl.Reader(file)
+                datastore = [obj for obj in reader.iter(type=dict, skip_invalid=True)]
 
         if not isinstance(datastore, list):
             datastore = [datastore]

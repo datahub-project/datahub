@@ -16,6 +16,7 @@ jar.enabled = false // Since we only want to build shadow jars, disabling the re
 
 dependencies {
   implementation project(':entity-registry')
+  implementation project(':metadata-integration:java:datahub-event')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
@@ -26,7 +27,7 @@ dependencies {
     }
   }
 
-  compileOnly externalDependency.httpAsyncClient
+  compileOnly externalDependency.httpClient
   implementation externalDependency.jacksonDataBind
   runtimeOnly externalDependency.jna
 
@@ -40,7 +41,7 @@ dependencies {
   testImplementation externalDependency.mockServer
   testImplementation externalDependency.mockServerClient
   testImplementation externalDependency.testContainers
-  testImplementation externalDependency.httpAsyncClient
+  testImplementation externalDependency.httpClient
   testRuntimeOnly externalDependency.logbackClassic
 }
 
@@ -117,7 +118,8 @@ shadowJar {
   relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
   relocate 'io.github.classgraph', 'datahub.shaded.io.github.classgraph'
   relocate 'nonapi.io.github.classgraph', 'datahub.shaded.nonapi.io.github.classgraph'
-  relocate 'com.github.fge', 'datahub.shaded.com.github.fge'
+  relocate 'org.eclipse.parsson', 'datahub.shaded.parsson'
+  relocate 'jakarta.json', 'datahub.shaded.json'
 
   finalizedBy checkShadowJar
 }

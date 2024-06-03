@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
@@ -65,10 +66,10 @@ public class ListDataProductAssetsResolver
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               Constants.DATA_PRODUCT_ENTITY_NAME,
               dataProductUrn,
-              Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME),
-              context.getAuthentication());
+              Collections.singleton(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME));
       if (entityResponse != null
           && entityResponse
               .getAspects()
@@ -116,7 +117,7 @@ public class ListDataProductAssetsResolver
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // if no assets in data product properties, exit early before search and return empty
           // results
@@ -134,10 +135,12 @@ public class ListDataProductAssetsResolver
               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
           final Filter finalFilter = buildFilterWithUrns(new HashSet<>(assetUrns), baseFilter);
 
-          SearchFlags searchFlags = null;
+          final SearchFlags searchFlags;
           com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
           if (inputFlags != null) {
-            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+            searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
+          } else {
+            searchFlags = null;
           }
 
           try {
@@ -150,15 +153,17 @@ public class ListDataProductAssetsResolver
                 count);
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
                     finalEntityNames,
                     sanitizedQuery,
                     finalFilter,
                     start,
                     count,
-                    searchFlags,
-                    null,
-                    ResolverUtils.getAuthentication(environment)));
+                    null));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for data product assets: entity types {}, query {}, filters: {}, start: {}, count: {}",
@@ -174,6 +179,8 @@ public class ListDataProductAssetsResolver
                         input.getTypes(), input.getQuery(), input.getOrFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

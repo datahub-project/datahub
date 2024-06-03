@@ -9,7 +9,7 @@ import {
     dataset6WithLineage,
     mocks,
 } from '../../../Mocks';
-import { Direction, FetchedEntities } from '../types';
+import { Direction, EntityAndType, FetchedEntities } from '../types';
 import constructTree from '../utils/constructTree';
 import LineageTree from '../LineageTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
@@ -47,7 +47,7 @@ describe('LineageTree', () => {
                     {},
                     acc,
                     testEntityRegistry,
-                    { entity: entry.entity, type: EntityType.Dataset },
+                    { entity: entry.entity, type: EntityType.Dataset } as EntityAndType,
                     entry.fullyFetched,
                 ),
             {} as FetchedEntities,
@@ -78,7 +78,7 @@ describe('LineageTree', () => {
                         scaleXMax={2}
                         scaleYMin={1 / 8}
                         scaleYMax={2}
-                        transformMatrix={initialTransform}
+                        initialTransformMatrix={initialTransform}
                     >
                         {(zoom) => (
                             <svg>
@@ -90,13 +90,13 @@ describe('LineageTree', () => {
                                     onLineageExpand={vi.fn()}
                                     canvasHeight={yMax}
                                     margin={margin}
-                                    direction={Direction.Upstream}
                                     setIsDraggingNode={vi.fn()}
                                     draggedNodes={{}}
                                     setDraggedNodes={vi.fn()}
                                     onEntityCenter={vi.fn()}
                                     setHoveredEntity={vi.fn()}
                                     fetchedEntities={mockFetchedEntities}
+                                    setUpdatedLineages={vi.fn()}
                                 />
                             </svg>
                         )}

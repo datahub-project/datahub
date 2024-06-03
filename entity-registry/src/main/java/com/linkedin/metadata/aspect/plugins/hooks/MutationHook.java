@@ -1,68 +1,51 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
-import com.linkedin.common.AuditStamp;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.ReadItem;
+import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.PluginSpec;
-import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
+import java.util.Collection;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /** Applies changes to the RecordTemplate prior to write */
 public abstract class MutationHook extends PluginSpec {
 
-  public MutationHook(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
-
   /**
-   * Mutating hook
+   * Mutating hook, original objects are potentially modified.
    *
-   * @param changeType Type of change to mutate
-   * @param entitySpec Entity specification
-   * @param aspectSpec Aspect specification
-   * @param oldAspectValue old aspect vale if it exists
-   * @param newAspectValue the new aspect
-   * @param oldSystemMetadata old system metadata if it exists
-   * @param newSystemMetadata the new system metadata
-   * @param auditStamp the audit stamp
+   * @param changeMCPS input upsert items
+   * @param retrieverContext aspect & graph retriever
+   * @return all items, with a boolean to indicate mutation
    */
-  public final void applyMutation(
-      @Nonnull final ChangeType changeType,
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull final AspectSpec aspectSpec,
-      @Nullable final RecordTemplate oldAspectValue,
-      @Nullable final RecordTemplate newAspectValue,
-      @Nullable final SystemMetadata oldSystemMetadata,
-      @Nullable final SystemMetadata newSystemMetadata,
-      @Nonnull AuditStamp auditStamp,
-      @Nonnull AspectRetriever aspectRetriever) {
-    if (shouldApply(changeType, entitySpec.getName(), aspectSpec)) {
-      mutate(
-          changeType,
-          entitySpec,
-          aspectSpec,
-          oldAspectValue,
-          newAspectValue,
-          oldSystemMetadata,
-          newSystemMetadata,
-          auditStamp,
-          aspectRetriever);
-    }
+  public final Stream<Pair<ChangeMCP, Boolean>> applyWriteMutation(
+      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+    return writeMutation(
+        changeMCPS.stream()
+            .filter(i -> shouldApply(i.getChangeType(), i.getEntitySpec(), i.getAspectSpec()))
+            .collect(Collectors.toList()),
+        retrieverContext);
   }
 
-  protected abstract void mutate(
-      @Nonnull final ChangeType changeType,
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull final AspectSpec aspectSpec,
-      @Nullable final RecordTemplate oldAspectValue,
-      @Nullable final RecordTemplate newAspectValue,
-      @Nullable final SystemMetadata oldSystemMetadata,
-      @Nullable final SystemMetadata newSystemMetadata,
-      @Nonnull AuditStamp auditStamp,
-      @Nonnull AspectRetriever aspectRetriever);
+  // Read mutation
+  public final Stream<Pair<ReadItem, Boolean>> applyReadMutation(
+      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
+    return readMutation(
+        items.stream()
+            .filter(i -> isEntityAspectSupported(i.getEntitySpec(), i.getAspectSpec()))
+            .collect(Collectors.toList()),
+        retrieverContext);
+  }
+
+  protected Stream<Pair<ReadItem, Boolean>> readMutation(
+      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
+    return items.stream().map(i -> Pair.of(i, false));
+  }
+
+  protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
+      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+    return changeMCPS.stream().map(i -> Pair.of(i, false));
+  }
 }

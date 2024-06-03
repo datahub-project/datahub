@@ -19,6 +19,8 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -71,16 +73,31 @@ public class CassandraEntityServiceTest
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(
-            _aspectDao,
-            _mockProducer,
-            _testEntityRegistry,
-            false,
-            _mockUpdateIndicesService,
-            preProcessHooks,
-            true);
+        new EntityServiceImpl(_aspectDao, _mockProducer, false, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
+
+    opContext =
+        TestOperationContexts.systemContext(
+            null,
+            null,
+            null,
+            () -> _testEntityRegistry,
+            () ->
+                RetrieverContext.builder()
+                    .aspectRetriever(
+                        EntityServiceAspectRetriever.builder()
+                            .entityService(_entityServiceImpl)
+                            .entityRegistry(_testEntityRegistry)
+                            .build())
+                    .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+                    .build(),
+            null,
+            opContext ->
+                ((EntityServiceAspectRetriever)
+                        opContext.getRetrieverContext().get().getAspectRetriever())
+                    .setSystemOperationContext(opContext));
   }
 
   /**
@@ -121,7 +138,7 @@ public class CassandraEntityServiceTest
       int expectedNextStart = isLastPage ? -1 : pageStart + pageSize;
 
       ListResult<RecordTemplate> page =
-          _entityServiceImpl.listLatestAspects(entity, aspect, pageStart, pageSize);
+          _entityServiceImpl.listLatestAspects(opContext, entity, aspect, pageStart, pageSize);
 
       // Check paging metadata works as expected
       assertEquals(page.getNextStart(), expectedNextStart);
@@ -179,7 +196,7 @@ public class CassandraEntityServiceTest
       int pageStart = pageNo * pageSize;
       int expectedEntityCount = isLastPage ? expectedEntitiesInLastPage : pageSize;
 
-      ListUrnsResult page = _entityServiceImpl.listUrns(entity, pageStart, pageSize);
+      ListUrnsResult page = _entityServiceImpl.listUrns(opContext, entity, pageStart, pageSize);
 
       // Check paging metadata works as expected
       assertEquals(page.getStart().intValue(), pageStart);

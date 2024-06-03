@@ -13,7 +13,6 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
-import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import io.ebean.Database;
 import java.util.List;
@@ -26,7 +25,7 @@ import org.testng.annotations.Test;
 
 public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanAspectDao> {
 
-  public EbeanAspectMigrationsDaoTest() throws EntityRegistryException {}
+  public EbeanAspectMigrationsDaoTest() {}
 
   @BeforeMethod
   public void setupTest() {
@@ -38,15 +37,8 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
-    _entityServiceImpl =
-        new EntityServiceImpl(
-            dao,
-            _mockProducer,
-            _testEntityRegistry,
-            true,
-            _mockUpdateIndicesService,
-            preProcessHooks,
-            true);
+    _entityServiceImpl = new EntityServiceImpl(dao, _mockProducer, true, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
     _entityServiceImpl.setRetentionService(_retentionService);
 
@@ -61,9 +53,12 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
     List<String> ingestedUrns =
         ingestedAspects.keySet().stream().map(Urn::toString).collect(Collectors.toList());
 
-    Stream<EntityAspect> aspectStream =
-        _migrationsDao.streamAspects(CORP_USER_ENTITY_NAME, CORP_USER_KEY_ASPECT_NAME);
-    List<EntityAspect> aspectList = aspectStream.collect(Collectors.toList());
+    List<EntityAspect> aspectList;
+    try (Stream<EntityAspect> stream =
+        _migrationsDao.streamAspects(CORP_USER_ENTITY_NAME, CORP_USER_KEY_ASPECT_NAME)) {
+      aspectList = stream.collect(Collectors.toList());
+    }
+
     assertEquals(ingestedUrns.size(), aspectList.size());
     Set<String> urnsFetched =
         aspectList.stream().map(EntityAspect::getUrn).collect(Collectors.toSet());

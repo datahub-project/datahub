@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
+import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -29,7 +31,11 @@ public class GlossaryNodeType
 
   static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
-          GLOSSARY_NODE_KEY_ASPECT_NAME, GLOSSARY_NODE_INFO_ASPECT_NAME, OWNERSHIP_ASPECT_NAME);
+          GLOSSARY_NODE_KEY_ASPECT_NAME,
+          GLOSSARY_NODE_INFO_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -61,12 +67,12 @@ public class GlossaryNodeType
     try {
       final Map<Urn, EntityResponse> glossaryNodeMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               GLOSSARY_NODE_ENTITY_NAME,
               new HashSet<>(glossaryNodeUrns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryNodeUrns) {
         gmsResults.add(glossaryNodeMap.getOrDefault(urn, null));
       }
@@ -76,7 +82,7 @@ public class GlossaryNodeType
                   gmsGlossaryNode == null
                       ? null
                       : DataFetcherResult.<GlossaryNode>newResult()
-                          .data(GlossaryNodeMapper.map(gmsGlossaryNode))
+                          .data(GlossaryNodeMapper.map(context, gmsGlossaryNode))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

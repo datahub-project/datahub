@@ -2,9 +2,9 @@ package com.linkedin.datahub.graphql.analytics.resolver;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsUtil;
 import com.linkedin.datahub.graphql.generated.AnalyticsChart;
 import com.linkedin.datahub.graphql.generated.AnalyticsChartGroup;
@@ -12,7 +12,6 @@ import com.linkedin.datahub.graphql.generated.BarChart;
 import com.linkedin.datahub.graphql.generated.BarSegment;
 import com.linkedin.datahub.graphql.generated.MetadataAnalyticsInput;
 import com.linkedin.datahub.graphql.generated.NamedBar;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -22,6 +21,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -41,7 +41,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
 
   @Override
   public final List<AnalyticsChartGroup> get(DataFetchingEnvironment environment) throws Exception {
-    final Authentication authentication = ResolverUtils.getAuthentication(environment);
+    final QueryContext context = environment.getContext();
     final MetadataAnalyticsInput input =
         bindArgument(environment.getArgument("input"), MetadataAnalyticsInput.class);
 
@@ -49,7 +49,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
       final AnalyticsChartGroup group = new AnalyticsChartGroup();
       group.setGroupId("FilteredMetadataAnalytics");
       group.setTitle("");
-      group.setCharts(getCharts(input, authentication));
+      group.setCharts(getCharts(input, context.getOperationContext()));
       return ImmutableList.of(group);
     } catch (Exception e) {
       log.error("Failed to retrieve metadata analytics!", e);
@@ -57,8 +57,8 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     }
   }
 
-  private List<AnalyticsChart> getCharts(
-      MetadataAnalyticsInput input, Authentication authentication) throws Exception {
+  private List<AnalyticsChart> getCharts(MetadataAnalyticsInput input, OperationContext opContext)
+      throws Exception {
     final List<AnalyticsChart> charts = new ArrayList<>();
 
     List<String> entities = Collections.emptyList();
@@ -77,8 +77,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     }
 
     SearchResult searchResult =
-        _entityClient.searchAcrossEntities(
-            entities, query, filter, 0, 0, null, null, authentication);
+        _entityClient.searchAcrossEntities(opContext, entities, query, filter, 0, 0, null, null);
 
     List<AggregationMetadata> aggregationMetadataList =
         searchResult.getMetadata().getAggregations();
@@ -91,13 +90,13 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     if (StringUtils.isEmpty(input.getDomain()) && domainAggregation.isPresent()) {
       List<NamedBar> domainChart = buildBarChart(domainAggregation.get());
       AnalyticsUtil.hydrateDisplayNameForBars(
+          opContext,
           _entityClient,
           domainChart,
           Constants.DOMAIN_ENTITY_NAME,
           ImmutableSet.of(Constants.DOMAIN_PROPERTIES_ASPECT_NAME),
-          AnalyticsUtil::getDomainName,
-          authentication);
-      charts.add(BarChart.builder().setTitle("Entities by Domain").setBars(domainChart).build());
+          AnalyticsUtil::getDomainName);
+      charts.add(BarChart.builder().setTitle("Data Assets by Domain").setBars(domainChart).build());
     }
 
     Optional<AggregationMetadata> platformAggregation =
@@ -108,14 +107,14 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     if (platformAggregation.isPresent()) {
       List<NamedBar> platformChart = buildBarChart(platformAggregation.get());
       AnalyticsUtil.hydrateDisplayNameForBars(
+          opContext,
           _entityClient,
           platformChart,
           Constants.DATA_PLATFORM_ENTITY_NAME,
           ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME),
-          AnalyticsUtil::getPlatformName,
-          authentication);
+          AnalyticsUtil::getPlatformName);
       charts.add(
-          BarChart.builder().setTitle("Entities by Platform").setBars(platformChart).build());
+          BarChart.builder().setTitle("Data Assets by Platform").setBars(platformChart).build());
     }
 
     Optional<AggregationMetadata> termAggregation =
@@ -126,14 +125,14 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     if (termAggregation.isPresent()) {
       List<NamedBar> termChart = buildBarChart(termAggregation.get());
       AnalyticsUtil.hydrateDisplayNameForBars(
+          opContext,
           _entityClient,
           termChart,
           Constants.GLOSSARY_TERM_ENTITY_NAME,
           ImmutableSet.of(
               Constants.GLOSSARY_TERM_KEY_ASPECT_NAME, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
-          AnalyticsUtil::getTermName,
-          authentication);
-      charts.add(BarChart.builder().setTitle("Entities by Term").setBars(termChart).build());
+          AnalyticsUtil::getTermName);
+      charts.add(BarChart.builder().setTitle("Data Assets by Term").setBars(termChart).build());
     }
 
     Optional<AggregationMetadata> envAggregation =
@@ -145,7 +144,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
       List<NamedBar> termChart = buildBarChart(envAggregation.get());
       if (termChart.size() > 1) {
         charts.add(
-            BarChart.builder().setTitle("Entities by Environment").setBars(termChart).build());
+            BarChart.builder().setTitle("Data Assets by Environment").setBars(termChart).build());
       }
     }
 
@@ -163,7 +162,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
                     .setSegments(
                         ImmutableList.of(
                             BarSegment.builder()
-                                .setLabel("#Entities")
+                                .setLabel("Count")
                                 .setValue(entry.getValue().intValue())
                                 .build()))
                     .build())

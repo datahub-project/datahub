@@ -102,8 +102,26 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             # We are using fraction-based sampling here, instead of fixed-size sampling because
             # Fixed-size sampling can be slower than equivalent fraction-based sampling
             # as per https://docs.snowflake.com/en/sql-reference/constructs/sample#performance-considerations
-            sample_pc = 100 * self.config.profiling.sample_size / table.rows_count
-            custom_sql = f'select * from "{db_name}"."{schema_name}"."{table.name}" TABLESAMPLE ({sample_pc:.8f})'
+            estimated_block_row_count = 500_000
+            block_profiling_min_rows = 100 * estimated_block_row_count
+
+            tablename = f'"{db_name}"."{schema_name}"."{table.name}"'
+            sample_pc = self.config.profiling.sample_size / table.rows_count
+
+            overgeneration_factor = 1000
+            if (
+                table.rows_count > block_profiling_min_rows
+                and table.rows_count
+                > self.config.profiling.sample_size * overgeneration_factor
+            ):
+                # If the table is significantly larger than the sample size, do a first pass
+                # using block sampling to improve performance. We generate a table 1000 times
+                # larger than the target sample size, and then use normal sampling for the
+                # final size reduction.
+                tablename = f"(SELECT * FROM {tablename} TABLESAMPLE BLOCK ({100 * overgeneration_factor * sample_pc:.8f}))"
+                sample_pc = 1 / overgeneration_factor
+
+            custom_sql = f"select * from {tablename} TABLESAMPLE BERNOULLI ({100 * sample_pc:.8f})"
         return {
             **super().get_batch_kwargs(table, schema_name, db_name),
             # Lowercase/Mixedcase table names in Snowflake do not work by default.

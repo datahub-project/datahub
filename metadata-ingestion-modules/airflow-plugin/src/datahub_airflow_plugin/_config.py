@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 import datahub.emitter.mce_builder as builder
@@ -6,6 +7,11 @@ from datahub.configuration.common import ConfigModel
 
 if TYPE_CHECKING:
     from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
+
+
+class DatajobUrl(Enum):
+    GRID = "grid"
+    TASKINSTANCE = "taskinstance"
 
 
 class DatahubLineageConfig(ConfigModel):
@@ -28,6 +34,10 @@ class DatahubLineageConfig(ConfigModel):
     # If true, the tags field of the DAG will be captured as DataHub tags.
     capture_tags_info: bool = True
 
+    # If true (default), we'll materialize and un-soft-delete any urns
+    # referenced by inlets or outlets.
+    materialize_iolets: bool = True
+
     capture_executions: bool = False
 
     enable_extractors: bool = True
@@ -40,6 +50,8 @@ class DatahubLineageConfig(ConfigModel):
     # Note that this field is only respected by the lineage backend.
     # The Airflow plugin behaves as if it were set to True.
     graceful_exceptions: bool = True
+
+    datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
 
     def make_emitter_hook(self) -> "DatahubGenericHook":
         # This is necessary to avoid issues with circular imports.
@@ -59,11 +71,15 @@ def get_lineage_config() -> DatahubLineageConfig:
         "datahub", "capture_ownership_info", fallback=True
     )
     capture_executions = conf.get("datahub", "capture_executions", fallback=True)
+    materialize_iolets = conf.get("datahub", "materialize_iolets", fallback=True)
     enable_extractors = conf.get("datahub", "enable_extractors", fallback=True)
     log_level = conf.get("datahub", "log_level", fallback=None)
     debug_emitter = conf.get("datahub", "debug_emitter", fallback=False)
     disable_openlineage_plugin = conf.get(
         "datahub", "disable_openlineage_plugin", fallback=True
+    )
+    datajob_url_link = conf.get(
+        "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
     )
 
     return DatahubLineageConfig(
@@ -73,8 +89,10 @@ def get_lineage_config() -> DatahubLineageConfig:
         capture_ownership_info=capture_ownership_info,
         capture_tags_info=capture_tags_info,
         capture_executions=capture_executions,
+        materialize_iolets=materialize_iolets,
         enable_extractors=enable_extractors,
         log_level=log_level,
         debug_emitter=debug_emitter,
         disable_openlineage_plugin=disable_openlineage_plugin,
+        datajob_url_link=datajob_url_link,
     )

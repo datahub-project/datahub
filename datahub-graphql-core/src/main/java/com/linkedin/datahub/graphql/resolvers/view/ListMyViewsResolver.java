@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -14,7 +15,6 @@ import com.linkedin.datahub.graphql.generated.ListMyViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -59,7 +59,7 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
     final ListMyViewsInput input =
         bindArgument(environment.getArgument("input"), ListMyViewsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
           final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
@@ -71,14 +71,13 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
 
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
                     buildFilters(viewType, context.getActorUrn()),
                     DEFAULT_SORT_CRITERION,
                     start,
-                    count,
-                    context.getAuthentication(),
-                    new SearchFlags().setFulltext(true));
+                    count);
 
             final ListViewsResult result = new ListViewsResult();
             result.setStart(gmsResult.getFrom());
@@ -93,7 +92,9 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
           } catch (Exception e) {
             throw new RuntimeException("Failed to list Views", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial View objects which will be

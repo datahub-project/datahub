@@ -40,7 +40,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -76,7 +75,9 @@ public class DataFlowType
           DEPRECATION_ASPECT_NAME,
           DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           DATA_PRODUCTS_ASPECT_NAME,
-          BROWSE_PATHS_V2_ASPECT_NAME);
+          BROWSE_PATHS_V2_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
   private final EntityClient _entityClient;
 
@@ -111,12 +112,12 @@ public class DataFlowType
     try {
       final Map<Urn, EntityResponse> dataFlowMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.DATA_FLOW_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
         gmsResults.add(dataFlowMap.getOrDefault(urn, null));
       }
@@ -126,7 +127,7 @@ public class DataFlowType
                   gmsDataFlow == null
                       ? null
                       : DataFetcherResult.<DataFlow>newResult()
-                          .data(DataFlowMapper.map(gmsDataFlow))
+                          .data(DataFlowMapper.map(context, gmsDataFlow))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -145,14 +146,13 @@ public class DataFlowType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "dataFlow",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -164,8 +164,9 @@ public class DataFlowType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("dataFlow", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+        _entityClient.autoComplete(
+            context.getOperationContext(), "dataFlow", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -181,8 +182,13 @@ public class DataFlowType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "dataFlow", pathStr, facetFilters, start, count, context.getAuthentication());
-    return BrowseResultMapper.map(result);
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "dataFlow",
+            pathStr,
+            facetFilters,
+            start,
+            count);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -190,8 +196,8 @@ public class DataFlowType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(
-            DataFlowUrn.createFromString(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+            context.getOperationContext(), DataFlowUrn.createFromString(urn));
+    return BrowsePathsMapper.map(context, result);
   }
 
   @Override
@@ -200,14 +206,13 @@ public class DataFlowType
       throws Exception {
 
     if (isAuthorized(urn, input, context)) {
-      final CorpuserUrn actor =
-          CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
       final Collection<MetadataChangeProposal> proposals =
-          DataFlowUpdateInputMapper.map(input, actor);
+          DataFlowUpdateInputMapper.map(context, input, actor);
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
       try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+        _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
       } catch (RemoteInvocationException e) {
         throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
       }
@@ -224,7 +229,7 @@ public class DataFlowType
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context.getActorUrn(),
         PoliciesConfig.DATA_FLOW_PRIVILEGES.getResourceType(),
         urn,
         orPrivilegeGroups);

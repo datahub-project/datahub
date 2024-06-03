@@ -1,23 +1,26 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import static com.linkedin.metadata.authorization.ApiGroup.LINEAGE;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
+
+import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -35,7 +38,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final String urnString = ((Entity) environment.getSource()).getUrn();
     final Urn urn = UrnUtils.getUrn(urnString);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           switch (urn.getEntityType()) {
             case Constants.GLOSSARY_TERM_ENTITY_NAME:
@@ -52,15 +55,20 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDataJobPrivileges(urn, context);
             default:
               log.warn(
-                  "Tried to get entity privileges for entity type {} but nothing is implemented for it yet",
+                  "Tried to get entity privileges for entity type {}. Adding common privileges only.",
                   urn.getEntityType());
-              return new EntityPrivileges();
+              EntityPrivileges commonPrivileges = new EntityPrivileges();
+              addCommonPrivileges(commonPrivileges, urn, context);
+              return commonPrivileges;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private EntityPrivileges getGlossaryTermPrivileges(Urn termUrn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, termUrn, context);
     result.setCanManageEntity(false);
     if (GlossaryUtils.canManageGlossaries(context)) {
       result.setCanManageEntity(true);
@@ -77,6 +85,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
 
   private EntityPrivileges getGlossaryNodePrivileges(Urn nodeUrn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, nodeUrn, context);
     result.setCanManageEntity(false);
     if (GlossaryUtils.canManageGlossaries(context)) {
       result.setCanManageEntity(true);
@@ -97,49 +106,41 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   }
 
   private boolean canEditEntityLineage(Urn urn, QueryContext context) {
-    final ConjunctivePrivilegeGroup allPrivilegesGroup =
-        new ConjunctivePrivilegeGroup(
-            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
-    DisjunctivePrivilegeGroup orPrivilegesGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                allPrivilegesGroup,
-                new ConjunctivePrivilegeGroup(
-                    Collections.singletonList(PoliciesConfig.EDIT_LINEAGE_PRIVILEGE.getType()))));
-
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        urn.getEntityType(),
-        urn.toString(),
-        orPrivilegesGroup);
+    return AuthUtil.isAuthorizedUrns(
+        context.getAuthorizer(), context.getActorUrn(), LINEAGE, UPDATE, List.of(urn));
   }
 
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
+    addCommonPrivileges(result, urn, context);
     return result;
   }
 
   private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    addCommonPrivileges(result, urn, context);
     return result;
   }
 
   private EntityPrivileges getDashboardPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    addCommonPrivileges(result, urn, context);
     return result;
   }
 
   private EntityPrivileges getDataJobPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
-    result.setCanEditLineage(canEditEntityLineage(urn, context));
+    addCommonPrivileges(result, urn, context);
     return result;
+  }
+
+  private void addCommonPrivileges(
+      @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
+    result.setCanEditLineage(canEditEntityLineage(urn, context));
+    result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context));
   }
 }

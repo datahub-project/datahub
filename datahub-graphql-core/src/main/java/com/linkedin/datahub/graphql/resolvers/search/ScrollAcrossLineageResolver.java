@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -12,9 +13,11 @@ import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageInput;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnScrollAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -73,14 +76,23 @@ public class ScrollAcrossLineageResolver
     String keepAlive = input.getKeepAlive() != null ? input.getKeepAlive() : "5m";
 
     @Nullable
-    final Long startTimeMillis =
-        input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
+    Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
-    final Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+    Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+
+    final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
+    if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
+      lineageFlags.setStartTimeMillis(startTimeMillis);
+    }
+
+    if (lineageFlags.getEndTimeMillis() == null && endTimeMillis != null) {
+      lineageFlags.setEndTimeMillis(endTimeMillis);
+    }
+    ;
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug(
@@ -93,7 +105,7 @@ public class ScrollAcrossLineageResolver
                 scrollId,
                 count);
 
-            SearchFlags searchFlags = null;
+            final SearchFlags searchFlags;
             final com.linkedin.datahub.graphql.generated.SearchFlags inputFlags =
                 input.getSearchFlags();
             if (inputFlags != null) {
@@ -102,9 +114,16 @@ public class ScrollAcrossLineageResolver
                       .setSkipCache(inputFlags.getSkipCache())
                       .setFulltext(inputFlags.getFulltext())
                       .setMaxAggValues(inputFlags.getMaxAggValues());
+            } else {
+              searchFlags = null;
             }
             return UrnScrollAcrossLineageResultsMapper.map(
+                context,
                 _entityClient.scrollAcrossLineage(
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags)
+                        .withLineageFlags(flags -> lineageFlags != null ? lineageFlags : flags),
                     urn,
                     resolvedDirection,
                     entityNames,
@@ -114,11 +133,7 @@ public class ScrollAcrossLineageResolver
                     null,
                     scrollId,
                     keepAlive,
-                    count,
-                    startTimeMillis,
-                    endTimeMillis,
-                    searchFlags,
-                    ResolverUtils.getAuthentication(environment)));
+                    count));
           } catch (RemoteInvocationException e) {
             log.error(
                 "Failed to execute scroll across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
@@ -142,6 +157,8 @@ public class ScrollAcrossLineageResolver
                         count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

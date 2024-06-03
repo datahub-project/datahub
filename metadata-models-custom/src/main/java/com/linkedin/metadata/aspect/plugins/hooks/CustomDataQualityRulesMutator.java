@@ -1,45 +1,56 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
-import com.linkedin.common.AuditStamp;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import com.mycompany.dq.DataQualityRule;
 import com.mycompany.dq.DataQualityRules;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class CustomDataQualityRulesMutator extends MutationHook {
 
-  public CustomDataQualityRulesMutator(AspectPluginConfig config) {
-    super(config);
+  private AspectPluginConfig config;
+
+  @Override
+  protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
+      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+    return changeMCPS.stream()
+        .map(
+            changeMCP -> {
+              boolean mutated = false;
+
+              if (changeMCP.getRecordTemplate() != null) {
+                DataQualityRules newDataQualityRules =
+                    new DataQualityRules(changeMCP.getRecordTemplate().data());
+
+                for (DataQualityRule rule : newDataQualityRules.getRules()) {
+                  // Ensure uniform lowercase
+                  if (!rule.getType().toLowerCase().equals(rule.getType())) {
+                    mutated = true;
+                    rule.setType(rule.getType().toLowerCase());
+                  }
+                }
+              }
+
+              return mutated ? changeMCP : null;
+            })
+        .filter(Objects::nonNull)
+        .map(changeMCP -> Pair.of(changeMCP, true));
+  }
+
+  @Nonnull
+  @Override
+  public AspectPluginConfig getConfig() {
+    return config;
   }
 
   @Override
-  protected void mutate(
-      @Nonnull ChangeType changeType,
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull AspectSpec aspectSpec,
-      @Nullable RecordTemplate oldAspectValue,
-      @Nullable RecordTemplate newAspectValue,
-      @Nullable SystemMetadata oldSystemMetadata,
-      @Nullable SystemMetadata newSystemMetadata,
-      @Nonnull AuditStamp auditStamp,
-      @Nonnull AspectRetriever aspectRetriever) {
-
-    if (newAspectValue != null) {
-      DataQualityRules newDataQualityRules = new DataQualityRules(newAspectValue.data());
-
-      for (DataQualityRule rule : newDataQualityRules.getRules()) {
-        // Ensure uniform lowercase
-        if (!rule.getType().toLowerCase().equals(rule.getType())) {
-          rule.setType(rule.getType().toLowerCase());
-        }
-      }
-    }
+  public CustomDataQualityRulesMutator setConfig(@Nonnull AspectPluginConfig config) {
+    this.config = config;
+    return this;
   }
 }

@@ -143,7 +143,7 @@ class PowerBiReportServerAPI:
     def __init__(self, config: PowerBiReportServerAPIConfig) -> None:
         self.__config: PowerBiReportServerAPIConfig = config
         self.__auth: HttpNtlmAuth = HttpNtlmAuth(
-            "{}\\{}".format(self.__config.workstation_name, self.__config.username),
+            f"{self.__config.workstation_name}\\{self.__config.username}",
             self.__config.password,
         )
 
@@ -153,14 +153,14 @@ class PowerBiReportServerAPI:
 
     def requests_get(self, url_http: str, url_https: str, content_type: str) -> Any:
         try:
-            LOGGER.info("Request to Report URL={}".format(url_https))
+            LOGGER.info(f"Request to Report URL={url_https}")
             response = requests.get(
                 url=url_https,
                 auth=self.get_auth_credentials,
-                verify=False,
+                verify=True,
             )
         except ConnectionError:
-            LOGGER.info("Request to Report URL={}".format(url_http))
+            LOGGER.info(f"Request to Report URL={url_http}")
             response = requests.get(
                 url=url_http,
                 auth=self.get_auth_credentials,
@@ -406,7 +406,7 @@ class Mapper:
         """
         user_mcps = []
         if user:
-            LOGGER.info("Converting user {} to datahub's user".format(user.username))
+            LOGGER.info(f"Converting user {user.username} to datahub's user")
 
             # Create an URN for User
             user_urn = builder.make_user_urn(user.get_urn_part())
@@ -449,7 +449,7 @@ class Mapper:
     def to_datahub_work_units(self, report: Report) -> List[EquableMetadataWorkUnit]:
         mcps = []
         user_mcps = []
-        LOGGER.info("Converting Dashboard={} to DataHub Dashboard".format(report.name))
+        LOGGER.info(f"Converting Dashboard={report.name} to DataHub Dashboard")
         # Convert user to CorpUser
         user_info = report.user_info.owner_to_add
         if user_info:

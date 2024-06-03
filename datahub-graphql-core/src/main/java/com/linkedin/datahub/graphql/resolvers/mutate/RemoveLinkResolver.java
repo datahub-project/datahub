@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RemoveLinkInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
@@ -23,27 +24,28 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final RemoveLinkInput input =
         bindArgument(environment.getArgument("input"), RemoveLinkInput.class);
 
     String linkUrl = input.getLinkUrl();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    if (!LinkUtils.isAuthorizedToUpdateLinks(environment.getContext(), targetUrn)) {
+    if (!LinkUtils.isAuthorizedToUpdateLinks(context, targetUrn)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          LinkUtils.validateAddRemoveInput(linkUrl, targetUrn, _entityService);
+          LinkUtils.validateAddRemoveInput(
+              context.getOperationContext(), linkUrl, targetUrn, _entityService);
           try {
             log.debug("Removing Link input: {}", input);
 
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
-            LinkUtils.removeLink(linkUrl, targetUrn, actor, _entityService);
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            LinkUtils.removeLink(
+                context.getOperationContext(), linkUrl, targetUrn, actor, _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -55,6 +57,8 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
                     "Failed to remove link from resource with input  %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

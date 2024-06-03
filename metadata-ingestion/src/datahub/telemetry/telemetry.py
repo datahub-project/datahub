@@ -174,7 +174,7 @@ class Telemetry:
                         indent=2,
                     )
                 return True
-            except IOError as x:
+            except OSError as x:
                 if x.errno == errno.ENOENT:
                     logger.debug(
                         f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
@@ -215,12 +215,12 @@ class Telemetry:
         """
 
         try:
-            with open(CONFIG_FILE, "r") as f:
+            with open(CONFIG_FILE) as f:
                 config = json.load(f)
                 self.client_id = config["client_id"]
                 self.enabled = config["enabled"] & ENV_ENABLED
                 return True
-        except IOError as x:
+        except OSError as x:
             if x.errno == errno.ENOENT:
                 logger.debug(
                     f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
@@ -335,7 +335,7 @@ class Telemetry:
                     "serverType", "missing"
                 ),
                 "server_version": server.server_config.get("versions", {})
-                .get("linkedin/datahub", {})
+                .get("acryldata/datahub", {})
                 .get("version", "missing"),
                 "server_id": server.server_id or "missing",
             }

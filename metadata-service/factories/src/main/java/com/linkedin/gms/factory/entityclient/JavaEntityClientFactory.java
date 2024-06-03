@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.entityclient;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
@@ -14,18 +13,16 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
 /** The *Java* Entity Client should be preferred if executing within the GMS service. */
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @ConditionalOnProperty(name = "entityClient.impl", havingValue = "java", matchIfMissing = true)
 public class JavaEntityClientFactory {
 
@@ -41,7 +38,8 @@ public class JavaEntityClientFactory {
       final @Qualifier("timeseriesAspectService") TimeseriesAspectService _timeseriesAspectService,
       final @Qualifier("relationshipSearchService") LineageSearchService _lineageSearchService,
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
-      final RollbackService rollbackService) {
+      final RollbackService rollbackService,
+      final @Value("${entityClient.restli.get.batchSize:375}") int batchGetV2Size) {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -51,7 +49,8 @@ public class JavaEntityClientFactory {
         _lineageSearchService,
         _timeseriesAspectService,
         rollbackService,
-        _eventProducer);
+        _eventProducer,
+        batchGetV2Size);
   }
 
   @Bean("systemEntityClient")
@@ -68,7 +67,7 @@ public class JavaEntityClientFactory {
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
       final RollbackService rollbackService,
       final EntityClientCacheConfig entityClientCacheConfig,
-      @Qualifier("systemAuthentication") final Authentication systemAuthentication) {
+      final @Value("${entityClient.restli.get.batchSize:375}") int batchGetV2Size) {
     return new SystemJavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -79,7 +78,7 @@ public class JavaEntityClientFactory {
         _timeseriesAspectService,
         rollbackService,
         _eventProducer,
-        systemAuthentication,
-        entityClientCacheConfig);
+        entityClientCacheConfig,
+        batchGetV2Size);
   }
 }

@@ -1,8 +1,6 @@
 package com.linkedin.metadata.entity;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
@@ -14,12 +12,12 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.joda.time.DateTimeUtils;
 
 @Slf4j
 public class AspectUtils {
@@ -27,14 +25,14 @@ public class AspectUtils {
   private AspectUtils() {}
 
   public static Map<Urn, Aspect> batchGetLatestAspect(
+      @Nonnull OperationContext opContext,
       String entity,
       Set<Urn> urns,
       String aspectName,
-      EntityClient entityClient,
-      Authentication authentication)
+      EntityClient entityClient)
       throws Exception {
     final Map<Urn, EntityResponse> gmsResponse =
-        entityClient.batchGetV2(entity, urns, ImmutableSet.of(aspectName), authentication);
+        entityClient.batchGetV2(opContext, entity, urns, ImmutableSet.of(aspectName));
     final Map<Urn, Aspect> finalResult = new HashMap<>();
     for (Urn urn : urns) {
       EntityResponse response = gmsResponse.get(urn);
@@ -68,13 +66,6 @@ public class AspectUtils {
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
     return proposal;
-  }
-
-  public static AuditStamp getAuditStamp(Urn actor) {
-    AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(DateTimeUtils.currentTimeMillis());
-    auditStamp.setActor(actor);
-    return auditStamp;
   }
 
   public static AspectSpec validateAspect(MetadataChangeLog mcl, EntitySpec entitySpec) {

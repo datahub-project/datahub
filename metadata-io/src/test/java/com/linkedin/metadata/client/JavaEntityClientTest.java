@@ -16,6 +16,7 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.function.Supplier;
 import org.mockito.MockedStatic;
 import org.testng.annotations.AfterMethod;
@@ -35,6 +36,7 @@ public class JavaEntityClientTest {
   private MockedStatic<MetricUtils> _metricUtils;
   private RollbackService rollbackService;
   private Counter _counter;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setupTest() {
@@ -50,6 +52,7 @@ public class JavaEntityClientTest {
     _metricUtils = mockStatic(MetricUtils.class);
     _counter = mock(Counter.class);
     when(MetricUtils.counter(any(), any())).thenReturn(_counter);
+    opContext = mock(OperationContext.class);
   }
 
   @AfterMethod
@@ -67,7 +70,8 @@ public class JavaEntityClientTest {
         _lineageSearchService,
         _timeseriesAspectService,
         rollbackService,
-        _eventProducer);
+        _eventProducer,
+        1);
   }
 
   @Test

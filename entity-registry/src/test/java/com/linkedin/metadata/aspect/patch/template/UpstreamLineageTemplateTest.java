@@ -1,44 +1,51 @@
 package com.linkedin.metadata.aspect.patch.template;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
-import com.fasterxml.jackson.databind.node.NumericNode;
-import com.github.fge.jackson.jsonpointer.JsonPointer;
-import com.github.fge.jsonpatch.AddOperation;
-import com.github.fge.jsonpatch.JsonPatch;
-import com.github.fge.jsonpatch.JsonPatchOperation;
-import com.github.fge.jsonpatch.RemoveOperation;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.ByteString;
 import com.linkedin.data.DataMap;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.FineGrainedLineageDownstreamType;
 import com.linkedin.dataset.FineGrainedLineageUpstreamType;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.aspect.patch.template.dataset.UpstreamLineageTemplate;
-import java.util.ArrayList;
-import java.util.List;
-import org.testng.Assert;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import jakarta.json.Json;
+import jakarta.json.JsonObjectBuilder;
+import jakarta.json.JsonPatch;
+import jakarta.json.JsonPatchBuilder;
+import jakarta.json.JsonValue;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.testng.annotations.Test;
 
 public class UpstreamLineageTemplateTest {
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   @Test
   public void testPatchUpstream() throws Exception {
     UpstreamLineageTemplate upstreamLineageTemplate = new UpstreamLineageTemplate();
     UpstreamLineage upstreamLineage = upstreamLineageTemplate.getDefault();
-    List<JsonPatchOperation> patchOperations = new ArrayList<>();
-    NumericNode upstreamConfidenceScore = instance.numberNode(1.0f);
-    JsonPatchOperation operation =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/upstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)"),
-            upstreamConfidenceScore);
-    patchOperations.add(operation);
-    JsonPatch jsonPatch = new JsonPatch(patchOperations);
+    JsonPatchBuilder jsonPatchBuilder = Json.createPatchBuilder();
+
+    JsonObjectBuilder fineGrainedLineageNode = Json.createObjectBuilder();
+    JsonValue upstreamConfidenceScore = Json.createValue(1.0f);
+    fineGrainedLineageNode.add("confidenceScore", upstreamConfidenceScore);
+
+    jsonPatchBuilder.add(
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)//urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c1)",
+        fineGrainedLineageNode.build());
 
     // Initial population test
-    UpstreamLineage result = upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatch);
+    UpstreamLineage result =
+        upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatchBuilder.build());
     // Hack because Jackson parses values to doubles instead of floats
     DataMap dataMap = new DataMap();
     dataMap.put("confidenceScore", 1.0);
@@ -48,28 +55,45 @@ public class UpstreamLineageTemplateTest {
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)");
     urns.add(urn1);
-    fineGrainedLineage.setUpstreams(urns);
+    UrnArray upstreams = new UrnArray();
+    Urn upstreamUrn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c1)");
+    upstreams.add(upstreamUrn);
+    fineGrainedLineage.setDownstreams(urns);
+    fineGrainedLineage.setUpstreams(upstreams);
     fineGrainedLineage.setTransformOperation("CREATE");
     fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
-    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-    Assert.assertEquals(result.getFineGrainedLineages().get(0), fineGrainedLineage);
+    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD);
+    assertEquals(result.getFineGrainedLineages().get(0), fineGrainedLineage);
 
-    // Test non-overwrite upstreams and correct confidence score
-    JsonPatchOperation operation2 =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/upstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)"),
-            upstreamConfidenceScore);
-    NumericNode upstreamConfidenceScore2 = instance.numberNode(0.1f);
-    JsonPatchOperation operation3 =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/upstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)"),
-            upstreamConfidenceScore2);
-    List<JsonPatchOperation> patchOperations2 = new ArrayList<>();
-    patchOperations2.add(operation2);
-    patchOperations2.add(operation3);
-    JsonPatch jsonPatch2 = new JsonPatch(patchOperations2);
+    // Test non-overwrite upstreams and correct confidence score and types w/ overwrite
+    JsonObjectBuilder finegrainedLineageNode2 = Json.createObjectBuilder();
+    finegrainedLineageNode2.add(
+        "upstreamType", Json.createValue(FineGrainedLineageUpstreamType.FIELD_SET.name()));
+    finegrainedLineageNode2.add("confidenceScore", upstreamConfidenceScore);
+    finegrainedLineageNode2.add(
+        "downstreamType", Json.createValue(FineGrainedLineageDownstreamType.FIELD.name()));
+
+    JsonPatchBuilder patchOperations2 = Json.createPatchBuilder();
+    patchOperations2.add(
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)/urn:li:query:someQuery/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)",
+        finegrainedLineageNode2.build());
+
+    JsonValue upstreamConfidenceScore2 = Json.createValue(0.1f);
+    JsonObjectBuilder finegrainedLineageNode3 = Json.createObjectBuilder();
+    finegrainedLineageNode3.add(
+        "upstreamType", Json.createValue(FineGrainedLineageUpstreamType.DATASET.name()));
+    finegrainedLineageNode3.add("confidenceScore", upstreamConfidenceScore2);
+    finegrainedLineageNode3.add(
+        "downstreamType", Json.createValue(FineGrainedLineageDownstreamType.FIELD_SET.name()));
+
+    patchOperations2.add(
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)/urn:li:query:someQuery/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)",
+        finegrainedLineageNode3.build());
+
+    JsonPatch jsonPatch2 = patchOperations2.build();
+
     UpstreamLineage result2 = upstreamLineageTemplate.applyPatch(result, jsonPatch2);
     // Hack because Jackson parses values to doubles instead of floats
     DataMap dataMap2 = new DataMap();
@@ -79,23 +103,34 @@ public class UpstreamLineageTemplateTest {
     Urn urn2 =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)");
-    urns2.add(urn1);
     urns2.add(urn2);
+    Urn downstreamUrn2 =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)");
+    UrnArray downstreams2 = new UrnArray();
+    downstreams2.add(downstreamUrn2);
     fineGrainedLineage2.setUpstreams(urns2);
+    fineGrainedLineage2.setDownstreams(downstreams2);
     fineGrainedLineage2.setTransformOperation("CREATE");
-    fineGrainedLineage2.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+    fineGrainedLineage2.setUpstreamType(FineGrainedLineageUpstreamType.DATASET);
     fineGrainedLineage2.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-    Assert.assertEquals(result2.getFineGrainedLineages().get(0), fineGrainedLineage2);
+    fineGrainedLineage2.setQuery(UrnUtils.getUrn("urn:li:query:someQuery"));
+    assertEquals(result2.getFineGrainedLineages().get(1), fineGrainedLineage2);
 
-    // Check different upstream types
-    JsonPatchOperation operation4 =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/upstreamType/DATASET/urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD)"),
-            upstreamConfidenceScore);
-    List<JsonPatchOperation> patchOperations3 = new ArrayList<>();
-    patchOperations3.add(operation4);
-    JsonPatch jsonPatch3 = new JsonPatch(patchOperations3);
+    // Check different queries
+    JsonObjectBuilder finegrainedLineageNode4 = Json.createObjectBuilder();
+    finegrainedLineageNode4.add(
+        "upstreamType", Json.createValue(FineGrainedLineageUpstreamType.FIELD_SET.name()));
+    finegrainedLineageNode4.add("confidenceScore", upstreamConfidenceScore);
+    finegrainedLineageNode4.add(
+        "downstreamType", Json.createValue(FineGrainedLineageDownstreamType.FIELD.name()));
+
+    JsonPatchBuilder patchOperations3 = Json.createPatchBuilder();
+    patchOperations3.add(
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)/urn:li:query:anotherQuery/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)",
+        finegrainedLineageNode4.build());
+
+    JsonPatch jsonPatch3 = patchOperations3.build();
     UpstreamLineage result3 = upstreamLineageTemplate.applyPatch(result2, jsonPatch3);
     // Hack because Jackson parses values to doubles instead of floats
     DataMap dataMap3 = new DataMap();
@@ -103,257 +138,120 @@ public class UpstreamLineageTemplateTest {
     FineGrainedLineage fineGrainedLineage3 = new FineGrainedLineage(dataMap3);
     UrnArray urns3 = new UrnArray();
     Urn urn3 =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD)");
-    urns3.add(urn3);
-    fineGrainedLineage3.setUpstreams(urns3);
-    fineGrainedLineage3.setTransformOperation("CREATE");
-    fineGrainedLineage3.setUpstreamType(FineGrainedLineageUpstreamType.DATASET);
-    fineGrainedLineage3.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-    // Splits into two for different types
-    Assert.assertEquals(result3.getFineGrainedLineages().get(1), fineGrainedLineage3);
-
-    // Check different transform types
-    JsonPatchOperation operation5 =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/TRANSFORM/upstreamType/DATASET/urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD)"),
-            upstreamConfidenceScore);
-    List<JsonPatchOperation> patchOperations4 = new ArrayList<>();
-    patchOperations4.add(operation5);
-    JsonPatch jsonPatch4 = new JsonPatch(patchOperations4);
-    UpstreamLineage result4 = upstreamLineageTemplate.applyPatch(result3, jsonPatch4);
-    // Hack because Jackson parses values to doubles instead of floats
-    DataMap dataMap4 = new DataMap();
-    dataMap4.put("confidenceScore", 1.0);
-    FineGrainedLineage fineGrainedLineage4 = new FineGrainedLineage(dataMap4);
-    UrnArray urns4 = new UrnArray();
-    Urn urn4 =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD)");
-    urns4.add(urn4);
-    fineGrainedLineage4.setUpstreams(urns4);
-    fineGrainedLineage4.setTransformOperation("TRANSFORM");
-    fineGrainedLineage4.setUpstreamType(FineGrainedLineageUpstreamType.DATASET);
-    fineGrainedLineage4.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-    // New entry in array because of new transformation type
-    Assert.assertEquals(result4.getFineGrainedLineages().get(2), fineGrainedLineage4);
-
-    // Remove
-    JsonPatchOperation removeOperation =
-        new RemoveOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/upstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)"));
-    JsonPatchOperation removeOperation2 =
-        new RemoveOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/upstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)"));
-    JsonPatchOperation removeOperation3 =
-        new RemoveOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/upstreamType/DATASET/urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD)"));
-    JsonPatchOperation removeOperation4 =
-        new RemoveOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/TRANSFORM/upstreamType/DATASET/urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD)"));
-
-    List<JsonPatchOperation> removeOperations = new ArrayList<>();
-    removeOperations.add(removeOperation);
-    removeOperations.add(removeOperation2);
-    removeOperations.add(removeOperation3);
-    removeOperations.add(removeOperation4);
-    JsonPatch removePatch = new JsonPatch(removeOperations);
-    UpstreamLineage finalResult = upstreamLineageTemplate.applyPatch(result4, removePatch);
-    Assert.assertEquals(upstreamLineageTemplate.getDefault(), finalResult);
-  }
-
-  @Test
-  public void testPatchDownstream() throws Exception {
-    UpstreamLineageTemplate upstreamLineageTemplate = new UpstreamLineageTemplate();
-    UpstreamLineage upstreamLineage = upstreamLineageTemplate.getDefault();
-    List<JsonPatchOperation> patchOperations = new ArrayList<>();
-    NumericNode downstreamConfidenceScore = instance.numberNode(1.0f);
-    JsonPatchOperation operation =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/downstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)"),
-            downstreamConfidenceScore);
-    patchOperations.add(operation);
-    JsonPatch jsonPatch = new JsonPatch(patchOperations);
-
-    // Initial population test
-    UpstreamLineage result = upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatch);
-    // Hack because Jackson parses values to doubles instead of floats
-    DataMap dataMap = new DataMap();
-    dataMap.put("confidenceScore", 1.0);
-    FineGrainedLineage fineGrainedLineage = new FineGrainedLineage(dataMap);
-    UrnArray urns = new UrnArray();
-    Urn urn1 =
         UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)");
-    urns.add(urn1);
-    fineGrainedLineage.setDownstreams(urns);
-    fineGrainedLineage.setTransformOperation("CREATE");
-    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
-    Assert.assertEquals(result.getFineGrainedLineages().get(0), fineGrainedLineage);
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)");
+    urns3.add(urn3);
 
-    // Test non-overwrite downstreams and correct confidence score
-    JsonPatchOperation operation2 =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/downstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)"),
-            downstreamConfidenceScore);
-    NumericNode downstreamConfidenceScore2 = instance.numberNode(0.1f);
-    JsonPatchOperation operation3 =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/downstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)"),
-            downstreamConfidenceScore2);
-    List<JsonPatchOperation> patchOperations2 = new ArrayList<>();
-    patchOperations2.add(operation2);
-    patchOperations2.add(operation3);
-    JsonPatch jsonPatch2 = new JsonPatch(patchOperations2);
-    UpstreamLineage result2 = upstreamLineageTemplate.applyPatch(result, jsonPatch2);
-    // Hack because Jackson parses values to doubles instead of floats
-    DataMap dataMap2 = new DataMap();
-    dataMap2.put("confidenceScore", 0.1);
-    FineGrainedLineage fineGrainedLineage2 = new FineGrainedLineage(dataMap2);
-    UrnArray urns2 = new UrnArray();
-    Urn urn2 =
+    Urn upstreamUrn3 =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)");
-    urns2.add(urn1);
-    urns2.add(urn2);
-    fineGrainedLineage2.setDownstreams(urns2);
-    fineGrainedLineage2.setTransformOperation("CREATE");
-    fineGrainedLineage2.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-    fineGrainedLineage2.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
-    Assert.assertEquals(result2.getFineGrainedLineages().get(0), fineGrainedLineage2);
-
-    // Check different downstream types
-    JsonPatchOperation operation4 =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/downstreamType/FIELD/urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD)"),
-            downstreamConfidenceScore);
-    List<JsonPatchOperation> patchOperations3 = new ArrayList<>();
-    patchOperations3.add(operation4);
-    JsonPatch jsonPatch3 = new JsonPatch(patchOperations3);
-    UpstreamLineage result3 = upstreamLineageTemplate.applyPatch(result2, jsonPatch3);
-    // Hack because Jackson parses values to doubles instead of floats
-    DataMap dataMap3 = new DataMap();
-    dataMap3.put("confidenceScore", 1.0);
-    FineGrainedLineage fineGrainedLineage3 = new FineGrainedLineage(dataMap3);
-    UrnArray urns3 = new UrnArray();
-    Urn urn3 =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD)");
-    urns3.add(urn3);
+    UrnArray upstreamUrns3 = new UrnArray();
+    upstreamUrns3.add(upstreamUrn3);
     fineGrainedLineage3.setDownstreams(urns3);
+    fineGrainedLineage3.setUpstreams(upstreamUrns3);
     fineGrainedLineage3.setTransformOperation("CREATE");
-    fineGrainedLineage3.setDownstreamType(FineGrainedLineageDownstreamType.FIELD);
     fineGrainedLineage3.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+    fineGrainedLineage3.setDownstreamType(FineGrainedLineageDownstreamType.FIELD);
+    fineGrainedLineage3.setQuery(UrnUtils.getUrn("urn:li:query:anotherQuery"));
     // Splits into two for different types
-    Assert.assertEquals(result3.getFineGrainedLineages().get(1), fineGrainedLineage3);
+    assertEquals(result3.getFineGrainedLineages().get(2), fineGrainedLineage3);
 
     // Check different transform types
-    JsonPatchOperation operation5 =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/TRANSFORM/downstreamType/FIELD/urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD)"),
-            downstreamConfidenceScore);
-    List<JsonPatchOperation> patchOperations4 = new ArrayList<>();
-    patchOperations4.add(operation5);
-    JsonPatch jsonPatch4 = new JsonPatch(patchOperations4);
+    JsonObjectBuilder finegrainedLineageNode5 = Json.createObjectBuilder();
+    finegrainedLineageNode5.add(
+        "upstreamType", Json.createValue(FineGrainedLineageUpstreamType.FIELD_SET.name()));
+    finegrainedLineageNode5.add("confidenceScore", upstreamConfidenceScore);
+    finegrainedLineageNode5.add(
+        "downstreamType", Json.createValue(FineGrainedLineageDownstreamType.FIELD.name()));
+
+    JsonPatchBuilder patchOperations4 = Json.createPatchBuilder();
+    patchOperations4.add(
+        "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)/urn:li:query:anotherQuery/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)",
+        finegrainedLineageNode5.build());
+    JsonPatch jsonPatch4 = patchOperations4.build();
+
     UpstreamLineage result4 = upstreamLineageTemplate.applyPatch(result3, jsonPatch4);
     // Hack because Jackson parses values to doubles instead of floats
     DataMap dataMap4 = new DataMap();
     dataMap4.put("confidenceScore", 1.0);
     FineGrainedLineage fineGrainedLineage4 = new FineGrainedLineage(dataMap4);
-    UrnArray urns4 = new UrnArray();
-    Urn urn4 =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD)");
-    urns4.add(urn4);
-    fineGrainedLineage4.setDownstreams(urns4);
+    fineGrainedLineage4.setUpstreams(upstreamUrns3);
+    fineGrainedLineage4.setDownstreams(urns3);
     fineGrainedLineage4.setTransformOperation("TRANSFORM");
-    fineGrainedLineage4.setDownstreamType(FineGrainedLineageDownstreamType.FIELD);
     fineGrainedLineage4.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+    fineGrainedLineage4.setDownstreamType(FineGrainedLineageDownstreamType.FIELD);
+    fineGrainedLineage4.setQuery(UrnUtils.getUrn("urn:li:query:anotherQuery"));
     // New entry in array because of new transformation type
-    Assert.assertEquals(result4.getFineGrainedLineages().get(2), fineGrainedLineage4);
+    assertEquals(result4.getFineGrainedLineages().get(3), fineGrainedLineage4);
 
     // Remove
-    JsonPatchOperation removeOperation =
-        new RemoveOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/downstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)"));
-    JsonPatchOperation removeOperation2 =
-        new RemoveOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/downstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)"));
-    JsonPatchOperation removeOperation3 =
-        new RemoveOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/downstreamType/FIELD/urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD)"));
-    JsonPatchOperation removeOperation4 =
-        new RemoveOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/TRANSFORM/downstreamType/FIELD/urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD)"));
+    JsonPatchBuilder removeOperations = Json.createPatchBuilder();
+    removeOperations.remove(
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c1)");
+    removeOperations.remove(
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)/urn:li:query:someQuery/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)");
+    removeOperations.remove(
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)/urn:li:query:anotherQuery/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)");
+    removeOperations.remove(
+        "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)/urn:li:query:anotherQuery/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)");
 
-    List<JsonPatchOperation> removeOperations = new ArrayList<>();
-    removeOperations.add(removeOperation);
-    removeOperations.add(removeOperation2);
-    removeOperations.add(removeOperation3);
-    removeOperations.add(removeOperation4);
-    JsonPatch removePatch = new JsonPatch(removeOperations);
+    JsonPatch removePatch = removeOperations.build();
     UpstreamLineage finalResult = upstreamLineageTemplate.applyPatch(result4, removePatch);
-    Assert.assertEquals(upstreamLineageTemplate.getDefault(), finalResult);
+    assertEquals(finalResult, upstreamLineageTemplate.getDefault());
   }
 
   @Test
-  public void testUpAndDown() throws Exception {
+  public void testLargePatchStandard() throws Exception {
+    // Load patch operations from fixture
+    String patchStr =
+        OBJECT_MAPPER
+            .readTree(
+                new GzipCompressorInputStream(
+                    this.getClass()
+                        .getResourceAsStream("/patch/large_upstream_lineage_mcp.json.gz")))
+            .get("aspect")
+            .get("com.linkedin.pegasus2avro.mxe.GenericAspect")
+            .get("value")
+            .asText();
+
+    JsonPatchBuilder patchBuilder =
+        Json.createPatchBuilder(Json.createReader(new StringReader(patchStr)).readArray());
+
+    // Overall the patch is a no-op, adding change to assert difference after application
+    patchBuilder.remove(
+        "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,road_curated_nrt.db_3134_dbo.lineitem,PROD)");
+
+    JsonPatch jsonPatch = patchBuilder.build();
+    assertEquals(jsonPatch.toJsonArray().size(), 7491);
+
+    // Load existing aspect
+    String aspectStr =
+        OBJECT_MAPPER
+            .readTree(
+                new GzipCompressorInputStream(
+                    this.getClass()
+                        .getResourceAsStream("/patch/large_upstream_lineage_aspect.json.gz")))
+            .get("select")
+            .get(0)
+            .get("metadata")
+            .asText();
+    UpstreamLineage upstreamLineage =
+        GenericRecordUtils.deserializeAspect(
+            ByteString.copyString(aspectStr, StandardCharsets.UTF_8), JSON, UpstreamLineage.class);
+    assertEquals(upstreamLineage.getUpstreams().size(), 188);
+    assertEquals(upstreamLineage.getFineGrainedLineages().size(), 607);
+
+    // Apply patch standard
     UpstreamLineageTemplate upstreamLineageTemplate = new UpstreamLineageTemplate();
-    UpstreamLineage upstreamLineage = upstreamLineageTemplate.getDefault();
-    List<JsonPatchOperation> patchOperations = new ArrayList<>();
-    NumericNode downstreamConfidenceScore = instance.numberNode(1.0f);
-    JsonPatchOperation operation =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/downstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)"),
-            downstreamConfidenceScore);
-    patchOperations.add(operation);
-    NumericNode upstreamConfidenceScore = instance.numberNode(1.0f);
-    JsonPatchOperation operation2 =
-        new AddOperation(
-            new JsonPointer(
-                "/fineGrainedLineages/CREATE/upstreamType/FIELD_SET/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)"),
-            upstreamConfidenceScore);
-    patchOperations.add(operation2);
-    JsonPatch jsonPatch = new JsonPatch(patchOperations);
 
-    // Initial population test
+    long start = System.currentTimeMillis();
     UpstreamLineage result = upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatch);
-    // Hack because Jackson parses values to doubles instead of floats
-    DataMap dataMap = new DataMap();
-    dataMap.put("confidenceScore", 1.0);
-    FineGrainedLineage fineGrainedLineage = new FineGrainedLineage(dataMap);
-    UrnArray urns = new UrnArray();
-    Urn urn1 =
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)");
-    urns.add(urn1);
-    fineGrainedLineage.setTransformOperation("CREATE");
-    fineGrainedLineage.setUpstreams(urns);
-    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
-    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-    fineGrainedLineage.setDownstreams(urns);
+    long end = System.currentTimeMillis();
+    assertTrue(
+        end - start < 10000,
+        String.format("Expected less then 10 seconds patch actual %s ms", end - start));
 
-    // Hack because Jackson parses values to doubles instead of floats
-    DataMap dataMap2 = new DataMap();
-    dataMap2.put("confidenceScore", 1.0);
-    FineGrainedLineage fineGrainedLineage2 = new FineGrainedLineage(dataMap2);
-    fineGrainedLineage2.setTransformOperation("CREATE");
-    fineGrainedLineage2.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
-    fineGrainedLineage2.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-    fineGrainedLineage2.setDownstreams(urns);
-
-    Assert.assertEquals(result.getFineGrainedLineages().get(1), fineGrainedLineage2);
+    assertEquals(result.getUpstreams().size(), 187, "Expected 1 less upstream");
+    assertEquals(result.getFineGrainedLineages().size(), 607);
   }
 }

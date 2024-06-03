@@ -4,7 +4,9 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAssertionsResult;
@@ -25,8 +27,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /** GraphQL Resolver used for fetching the list of Assertions associated with an Entity. */
+@Slf4j
 public class EntityAssertionsResolver
     implements DataFetcher<CompletableFuture<EntityAssertionsResult>> {
 
@@ -42,13 +46,15 @@ public class EntityAssertionsResolver
 
   @Override
   public CompletableFuture<EntityAssertionsResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
           final String entityUrn = ((Entity) environment.getSource()).getUrn();
           final Integer start = environment.getArgumentOrDefault("start", 0);
           final Integer count = environment.getArgumentOrDefault("count", 200);
+          final Boolean includeSoftDeleted =
+              environment.getArgumentOrDefault("includeSoftDeleted", false);
 
           try {
             // Step 1: Fetch set of assertions associated with the target entity from the Graph
@@ -70,10 +76,10 @@ public class EntityAssertionsResolver
             // Step 2: Hydrate the assertion entities based on the urns from step 1
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.ASSERTION_ENTITY_NAME,
                     new HashSet<>(assertionUrns),
-                    null,
-                    context.getAuthentication());
+                    null);
 
             // Step 3: Map GMS assertion model to GraphQL model
             final List<EntityResponse> gmsResults = new ArrayList<>();
@@ -83,7 +89,8 @@ public class EntityAssertionsResolver
             final List<Assertion> assertions =
                 gmsResults.stream()
                     .filter(Objects::nonNull)
-                    .map(AssertionMapper::map)
+                    .map(r -> AssertionMapper.map(context, r))
+                    .filter(assertion -> assertionExists(assertion, includeSoftDeleted, context))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
@@ -96,6 +103,21 @@ public class EntityAssertionsResolver
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
+  }
+
+  private boolean assertionExists(
+      Assertion assertion, Boolean includeSoftDeleted, QueryContext context) {
+    try {
+      return _entityClient.exists(
+          context.getOperationContext(), UrnUtils.getUrn(assertion.getUrn()), includeSoftDeleted);
+    } catch (RemoteInvocationException e) {
+      log.error(
+          String.format("Unable to check if assertion %s exists, ignoring it", assertion.getUrn()),
+          e);
+      return false;
+    }
   }
 }

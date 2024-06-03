@@ -15,7 +15,10 @@ class UrnEncoder:
 
     @staticmethod
     def encode_string(s: str) -> str:
-        return "".join([UrnEncoder.encode_char(c) for c in s])
+        if not UrnEncoder.contains_reserved_char(s):
+            # Fast path for the common case, where no encoding is needed.
+            return s
+        return "".join(UrnEncoder.encode_char(c) for c in s)
 
     @staticmethod
     def encode_char(c: str) -> str:

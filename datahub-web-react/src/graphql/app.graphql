@@ -63,9 +63,11 @@ query appConfig {
             showSearchFiltersV2
             showBrowseV2
             showAcrylInfo
+            erModelRelationshipFeatureEnabled
             showAccessManagement
             nestedDomainsEnabled
             platformBrowseV2
+            businessAttributeEntityEnabled
         }
     }
 }

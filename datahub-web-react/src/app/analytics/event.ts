@@ -81,6 +81,7 @@ export enum EventType {
     EmbedProfileViewEvent,
     EmbedProfileViewInDataHubEvent,
     EmbedLookupNotFoundEvent,
+    CreateBusinessAttributeEvent,
 }
 
 /**
@@ -303,6 +304,8 @@ export const EntityActionType = {
     UpdateSchemaTags: 'UpdateSchemaTags',
     UpdateSchemaTerms: 'UpdateSchemaTerms',
     ClickExternalUrl: 'ClickExternalUrl',
+    AddIncident: 'AddIncident',
+    ResolvedIncident: 'ResolvedIncident',
 };
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
@@ -631,6 +634,11 @@ export interface EmbedLookupNotFoundEvent extends BaseEvent {
     reason: EmbedLookupNotFoundReason;
 }
 
+export interface CreateBusinessAttributeEvent extends BaseEvent {
+    type: EventType.CreateBusinessAttributeEvent;
+    name: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -708,4 +716,5 @@ export type Event =
     | DeselectQuickFilterEvent
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
-    | EmbedLookupNotFoundEvent;
+    | EmbedLookupNotFoundEvent
+    | CreateBusinessAttributeEvent;

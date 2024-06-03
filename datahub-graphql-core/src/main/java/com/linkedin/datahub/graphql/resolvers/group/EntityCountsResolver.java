@@ -3,11 +3,13 @@ package com.linkedin.datahub.graphql.resolvers.group;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityCountInput;
 import com.linkedin.datahub.graphql.generated.EntityCountResult;
 import com.linkedin.datahub.graphql.generated.EntityCountResults;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -20,8 +22,11 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
 
   private final EntityClient _entityClient;
 
-  public EntityCountsResolver(final EntityClient entityClient) {
+  private final ViewService _viewService;
+
+  public EntityCountsResolver(final EntityClient entityClient, final ViewService viewService) {
     _entityClient = entityClient;
+    _viewService = viewService;
   }
 
   @Override
@@ -35,16 +40,17 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
         bindArgument(environment.getArgument("input"), EntityCountInput.class);
     final EntityCountResults results = new EntityCountResults();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // First, get all counts
             Map<String, Long> gmsResult =
                 _entityClient.batchGetTotalEntityCount(
+                    context.getOperationContext(),
                     input.getTypes().stream()
                         .map(EntityTypeMapper::getName)
                         .collect(Collectors.toList()),
-                    context.getAuthentication());
+                    viewFilter(context.getOperationContext(), _viewService, input.getViewUrn()));
 
             // bind to a result.
             List<EntityCountResult> resultList =
@@ -62,6 +68,8 @@ public class EntityCountsResolver implements DataFetcher<CompletableFuture<Entit
           } catch (Exception e) {
             throw new RuntimeException("Failed to get entity counts", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

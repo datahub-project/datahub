@@ -2,6 +2,7 @@ package com.linkedin.metadata.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -25,6 +26,9 @@ import org.springframework.web.context.WebApplicationContext;
 @Slf4j
 @Component
 public class OnBootApplicationListener {
+
+  public static final String SCHEMA_REGISTRY_SERVLET_NAME = "dispatcher-schema-registry";
+
   private static final Set<Integer> ACCEPTED_HTTP_CODES =
       Set.of(
           HttpStatus.SC_OK,
@@ -51,8 +55,18 @@ public class OnBootApplicationListener {
   @Value("${bootstrap.servlets.waitTimeout}")
   private int _servletsWaitTimeout;
 
+  @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
+
   @EventListener(ContextRefreshedEvent.class)
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
+
+    if (SCHEMA_REGISTRY_SERVLET_NAME.equals(event.getApplicationContext().getId())) {
+      log.info("Loading servlet {} without interruption.", SCHEMA_REGISTRY_SERVLET_NAME);
+      return;
+    }
+
     log.warn(
         "OnBootApplicationListener context refreshed! {} event: {}",
         ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId()),
@@ -62,7 +76,7 @@ public class OnBootApplicationListener {
       if (InternalSchemaRegistryFactory.TYPE.equals(schemaRegistryType)) {
         executorService.submit(isSchemaRegistryAPIServletReady());
       } else {
-        _bootstrapManager.start();
+        _bootstrapManager.start(systemOperationContext);
       }
     }
   }
@@ -92,7 +106,7 @@ public class OnBootApplicationListener {
             timeouts);
         System.exit(1);
       } else {
-        _bootstrapManager.start();
+        _bootstrapManager.start(systemOperationContext);
       }
     };
   }

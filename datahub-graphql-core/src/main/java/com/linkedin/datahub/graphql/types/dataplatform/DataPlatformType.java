@@ -42,10 +42,10 @@ public class DataPlatformType implements EntityType<DataPlatform, String> {
     try {
       final Map<Urn, EntityResponse> dataPlatformMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               DATA_PLATFORM_ENTITY_NAME,
               new HashSet<>(dataPlatformUrns),
-              null,
-              context.getAuthentication());
+              null);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : dataPlatformUrns) {
@@ -58,7 +58,7 @@ public class DataPlatformType implements EntityType<DataPlatform, String> {
                   gmsPlatform == null
                       ? null
                       : DataFetcherResult.<DataPlatform>newResult()
-                          .data(DataPlatformMapper.map(gmsPlatform))
+                          .data(DataPlatformMapper.map(context, gmsPlatform))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

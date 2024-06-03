@@ -2,9 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
@@ -63,10 +64,10 @@ public class UpsertIngestionSourceResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
+            any(),
             Mockito.eq(
                 MutationUtils.buildMetadataChangeProposalWithUrn(
                     TEST_INGESTION_SOURCE_URN, INGESTION_INFO_ASPECT_NAME, info)),
-            Mockito.any(Authentication.class),
             Mockito.eq(false));
   }
 
@@ -83,8 +84,7 @@ public class UpsertIngestionSourceResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean());
   }
 
   @Test
@@ -93,7 +93,7 @@ public class UpsertIngestionSourceResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class), Mockito.eq(false));
+        .ingestProposal(any(), any(), Mockito.eq(false));
     UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver

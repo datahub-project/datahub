@@ -37,14 +37,8 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(
-            _aspectDao,
-            _mockProducer,
-            _testEntityRegistry,
-            true,
-            _mockUpdateIndicesService,
-            preProcessHooks,
-            true);
+        new EntityServiceImpl(_aspectDao, _mockProducer, true, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
   }
 
   /**

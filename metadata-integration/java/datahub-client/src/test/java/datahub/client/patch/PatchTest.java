@@ -56,18 +56,20 @@ public class PatchTest {
       DatasetUrn upstreamUrn =
           DatasetUrn.createFromString(
               "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)");
-      Urn schemaFieldUrn =
+      Urn upstreamSchemaFieldUrn =
           UrnUtils.getUrn(
               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), foo)");
+      Urn downstreamSchemaFieldUrn =
+          UrnUtils.getUrn(
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), bar)");
       MetadataChangeProposal upstreamPatch =
           new UpstreamLineagePatchBuilder()
               .urn(
                   UrnUtils.getUrn(
                       "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"))
               .addUpstream(upstreamUrn, DatasetLineageType.TRANSFORMED)
-              .addFineGrainedUpstreamDataset(upstreamUrn, null, "TRANSFORM")
-              .addFineGrainedUpstreamField(schemaFieldUrn, null, "TRANSFORM", null)
-              .addFineGrainedDownstreamField(schemaFieldUrn, null, "TRANSFORM", null)
+              .addFineGrainedUpstreamField(
+                  upstreamSchemaFieldUrn, null, "TRANSFORM", downstreamSchemaFieldUrn, null)
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(upstreamPatch);
 
@@ -83,12 +85,12 @@ public class PatchTest {
   public void testLocalUpstreamRemove() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {
-      DatasetUrn upstreamUrn =
-          DatasetUrn.createFromString(
-              "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)");
-      Urn schemaFieldUrn =
+      Urn upstreamSchemaFieldUrn =
           UrnUtils.getUrn(
               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), foo)");
+      Urn downstreamSchemaFieldUrn =
+          UrnUtils.getUrn(
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD), bar)");
       MetadataChangeProposal upstreamPatch =
           new UpstreamLineagePatchBuilder()
               .urn(
@@ -97,9 +99,8 @@ public class PatchTest {
               .removeUpstream(
                   DatasetUrn.createFromString(
                       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"))
-              .removeFineGrainedUpstreamDataset(upstreamUrn, "TRANSFORM")
-              .removeFineGrainedUpstreamField(schemaFieldUrn, "TRANSFORM", null)
-              .removeFineGrainedDownstreamField(schemaFieldUrn, "TRANSFORM", null)
+              .removeFineGrainedUpstreamField(
+                  upstreamSchemaFieldUrn, "TRANSFORM", downstreamSchemaFieldUrn, null)
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(upstreamPatch);
 

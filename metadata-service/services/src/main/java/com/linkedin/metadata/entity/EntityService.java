@@ -10,39 +10,104 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.UpsertItem;
-import com.linkedin.metadata.aspect.plugins.validation.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public interface EntityService<U extends UpsertItem> extends AspectRetriever {
+public interface EntityService<U extends ChangeMCP> {
 
   /**
    * Just whether the entity/aspect exists
    *
-   * @param urn urn for the entity
-   * @param aspectName aspect for the entity
-   * @return exists or not
+   * @param urns urns for the entities
+   * @param aspectName aspect for the entity, if null, assumes key aspect
+   * @param includeSoftDelete including soft deleted entities
+   * @return set of urns with the specified aspect existing
    */
-  Boolean exists(Urn urn, String aspectName);
+  Set<Urn> exists(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Collection<Urn> urns,
+      @Nullable String aspectName,
+      boolean includeSoftDelete);
+
+  /**
+   * Just whether the entity/aspect exists, prefer batched method.
+   *
+   * @param urn urn for the entity
+   * @param aspectName aspect for the entity, if null use the key aspect
+   * @param includeSoftDelete including soft deleted entities
+   * @return boolean if the entity/aspect exists
+   */
+  default boolean exists(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nullable String aspectName,
+      boolean includeSoftDelete) {
+    return exists(opContext, Set.of(urn), aspectName, includeSoftDelete).contains(urn);
+  }
+
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  default Set<Urn> exists(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Collection<Urn> urns,
+      boolean includeSoftDelete) {
+    return exists(opContext, urns, null, includeSoftDelete);
+  }
+
+  /**
+   * Returns a set of urns of entities that exist (has materialized aspects).
+   *
+   * @param urns the list of urns of the entities to check
+   * @return a set of urns of entities that exist.
+   */
+  default Set<Urn> exists(
+      @Nonnull OperationContext opContext, @Nonnull final Collection<Urn> urns) {
+    return exists(opContext, urns, true);
+  }
+
+  /**
+   * Returns whether the urn of the entity exists (has materialized aspects).
+   *
+   * @param urn the urn of the entity to check
+   * @return entities exists.
+   */
+  default boolean exists(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, boolean includeSoftDelete) {
+    return exists(opContext, List.of(urn), includeSoftDelete).contains(urn);
+  }
+
+  /**
+   * Returns whether the urn of the entity exists (has materialized aspects).
+   *
+   * @param urn the urn of the entity to check
+   * @return entities exists.
+   */
+  default boolean exists(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    return exists(opContext, urn, true);
+  }
 
   /**
    * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided set
@@ -53,10 +118,14 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    * @return a map of provided {@link Urn} to a List containing the requested aspects.
    */
   Map<Urn, List<RecordTemplate>> getLatestAspects(
-      @Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames);
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames);
 
   Map<String, RecordTemplate> getLatestAspectsForUrn(
-      @Nonnull final Urn urn, @Nonnull final Set<String> aspectNames);
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final Set<String> aspectNames);
 
   /**
    * Retrieves an aspect having a specific {@link Urn}, name, & version.
@@ -71,7 +140,10 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    *     one cannot be found
    */
   RecordTemplate getAspect(
-      @Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version);
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      @Nonnull long version);
 
   /**
    * Retrieves the latest aspects for the given urn as dynamic aspect objects (Without having to
@@ -83,6 +155,7 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    * @return a map of {@link Urn} to {@link Entity} object
    */
   EntityResponse getEntityV2(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final Urn urn,
       @Nonnull final Set<String> aspectNames)
@@ -98,6 +171,7 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    * @return a map of {@link Urn} to {@link Entity} object
    */
   Map<Urn, EntityResponse> getEntitiesV2(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames)
@@ -113,7 +187,9 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    * @return a map of {@link Urn} to {@link Entity} object
    */
   Map<Urn, EntityResponse> getEntitiesVersionedV2(
-      @Nonnull final Set<VersionedUrn> versionedUrns, @Nonnull final Set<String> aspectNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<VersionedUrn> versionedUrns,
+      @Nonnull final Set<String> aspectNames)
       throws URISyntaxException;
 
   /**
@@ -124,7 +200,8 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    * @return a map of {@link Urn} to {@link EnvelopedAspect} object
    */
   Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
-      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) throws URISyntaxException;
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      throws URISyntaxException;
 
   /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
@@ -135,7 +212,9 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    * @return a map of {@link Urn} to {@link EnvelopedAspect} object
    */
   Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
-      @Nonnull Set<VersionedUrn> versionedUrns, @Nonnull Set<String> aspectNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<VersionedUrn> versionedUrns,
+      @Nonnull Set<String> aspectNames)
       throws URISyntaxException;
 
   /**
@@ -147,26 +226,38 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    * @return {@link EnvelopedAspect} object, or null if one cannot be found
    */
   EnvelopedAspect getLatestEnvelopedAspect(
-      @Nonnull final String entityName, @Nonnull final Urn urn, @Nonnull final String aspectName)
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName)
       throws Exception;
 
   @Deprecated
-  VersionedAspect getVersionedAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version);
+  VersionedAspect getVersionedAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      long version);
 
   ListResult<RecordTemplate> listLatestAspects(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int count);
 
   List<UpdateAspectResult> ingestAspects(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
       @Nonnull final AuditStamp auditStamp,
       @Nullable SystemMetadata systemMetadata);
 
   List<UpdateAspectResult> ingestAspects(
-      @Nonnull final AspectsBatch aspectsBatch, boolean emitMCL, boolean overwrite);
+      @Nonnull OperationContext opContext,
+      @Nonnull final AspectsBatch aspectsBatch,
+      boolean emitMCL,
+      boolean overwrite);
 
   /**
    * Ingests (inserts) a new version of an entity aspect & emits a {@link
@@ -186,6 +277,7 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
   RecordTemplate ingestAspectIfNotPresent(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull String aspectName,
       @Nonnull RecordTemplate newValue,
@@ -194,28 +286,56 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
 
   // TODO: Why not in RetentionService?
   String batchApplyRetention(
-      Integer start, Integer count, Integer attemptWithVersion, String aspectName, String urn);
+      @Nonnull OperationContext opContext,
+      Integer start,
+      Integer count,
+      Integer attemptWithVersion,
+      String aspectName,
+      String urn);
 
-  Integer getCountAspect(@Nonnull String aspectName, @Nullable String urnLike);
+  Integer getCountAspect(
+      @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike);
 
   // TODO: Extract this to a different service, doesn't need to be here
-  RestoreIndicesResult restoreIndices(
-      @Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger);
+  List<RestoreIndicesResult> restoreIndices(
+      @Nonnull OperationContext opContext,
+      @Nonnull RestoreIndicesArgs args,
+      @Nonnull Consumer<String> logger);
 
-  ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count);
+  // Restore indices from list using key lookups (no scans)
+  List<RestoreIndicesResult> restoreIndices(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nullable Set<String> inputAspectNames,
+      @Nullable Integer inputBatchSize)
+      throws RemoteInvocationException, URISyntaxException;
+
+  ListUrnsResult listUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      final int start,
+      final int count);
 
   @Deprecated
-  Entity getEntity(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames);
+  Entity getEntity(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final Set<String> aspectNames);
 
   @Deprecated
-  Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull Set<String> aspectNames);
+  Map<Urn, Entity> getEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull Set<String> aspectNames);
 
   Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
 
   Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull String entityName,
       @Nonnull String aspectName,
@@ -231,48 +351,47 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
 
   @Deprecated
   void ingestEntities(
+      @Nonnull OperationContext opContext,
       @Nonnull final List<Entity> entities,
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final List<SystemMetadata> systemMetadata);
 
   @Deprecated
-  SystemMetadata ingestEntity(Entity entity, AuditStamp auditStamp);
+  SystemMetadata ingestEntity(
+      @Nonnull OperationContext opContext, Entity entity, AuditStamp auditStamp);
 
   @Deprecated
   void ingestEntity(
+      @Nonnull OperationContext opContext,
       @Nonnull Entity entity,
       @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata systemMetadata);
 
   void setRetentionService(RetentionService<U> retentionService);
 
-  AspectSpec getKeyAspectSpec(@Nonnull final Urn urn);
-
-  Optional<AspectSpec> getAspectSpec(
-      @Nonnull final String entityName, @Nonnull final String aspectName);
-
-  String getKeyAspectName(@Nonnull final Urn urn);
-
-  AspectSpec getKeyAspectSpec(@Nonnull final String entityName);
-
-  Set<String> getEntityAspectNames(final String entityName);
-
-  @Override
-  @Nonnull
-  EntityRegistry getEntityRegistry();
-
   RollbackResult deleteAspect(
-      String urn, String aspectName, @Nonnull Map<String, String> conditions, boolean hardDelete);
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete);
 
-  RollbackRunResult deleteUrn(Urn urn);
+  RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn);
 
   RollbackRunResult rollbackRun(
-      List<AspectRowSummary> aspectRows, String runId, boolean hardDelete);
+      @Nonnull OperationContext opContext,
+      List<AspectRowSummary> aspectRows,
+      String runId,
+      boolean hardDelete);
 
   RollbackRunResult rollbackWithConditions(
-      List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete);
+      @Nonnull OperationContext opContext,
+      List<AspectRowSummary> aspectRows,
+      Map<String, String> conditions,
+      boolean hardDelete);
 
-  Set<IngestResult> ingestProposal(AspectsBatch aspectsBatch, final boolean async);
+  Set<IngestResult> ingestProposal(
+      @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async);
 
   /**
    * If you have more than 1 proposal use the {AspectsBatch} method
@@ -283,31 +402,19 @@ public interface EntityService<U extends UpsertItem> extends AspectRetriever {
    * @return ingestion result
    */
   IngestResult ingestProposal(
-      MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async);
-
-  /**
-   * Returns a set of urns of entities that exist (has materialized aspects).
-   *
-   * @param urns the list of urns of the entities to check
-   * @return a set of urns of entities that exist.
-   */
-  Set<Urn> exists(@Nonnull final Collection<Urn> urns, boolean includeSoftDelete);
-
-  /**
-   * Returns a set of urns of entities that exist (has materialized aspects).
-   *
-   * @param urns the list of urns of the entities to check
-   * @return a set of urns of entities that exist.
-   */
-  default Set<Urn> exists(@Nonnull final Collection<Urn> urns) {
-    return exists(urns, true);
-  }
-
-  default boolean exists(@Nonnull Urn urn, boolean includeSoftDelete) {
-    return exists(List.of(urn), includeSoftDelete).contains(urn);
-  }
+      @Nonnull OperationContext opContext,
+      MetadataChangeProposal proposal,
+      AuditStamp auditStamp,
+      final boolean async);
 
   void setWritable(boolean canWrite);
 
-  RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
+  RecordTemplate getLatestAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName);
+
+  SearchIndicesService getUpdateIndicesService();
+
+  void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService);
 }

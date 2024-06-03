@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
@@ -31,19 +31,18 @@ public class DeleteDomainResolverTest {
     // Domain has 0 child domains
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq("domain"),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.any()))
+                Mockito.eq(1)))
         .thenReturn(new SearchResult().setNumEntities(0));
 
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(
-            Mockito.eq(Urn.createFromString(TEST_URN)), Mockito.any(Authentication.class));
+        .deleteEntity(any(), Mockito.eq(Urn.createFromString(TEST_URN)));
   }
 
   @Test
@@ -60,18 +59,17 @@ public class DeleteDomainResolverTest {
     // Domain has child domains
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq("domain"),
                 Mockito.any(),
                 Mockito.any(),
                 Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.any()))
+                Mockito.eq(1)))
         .thenReturn(new SearchResult().setNumEntities(1));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    Mockito.verify(mockClient, Mockito.times(0))
-        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(any(), Mockito.any());
   }
 
   @Test
@@ -87,7 +85,6 @@ public class DeleteDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(any(), Mockito.any());
   }
 }

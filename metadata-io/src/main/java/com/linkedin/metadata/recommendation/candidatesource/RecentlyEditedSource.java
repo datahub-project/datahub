@@ -8,6 +8,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
@@ -15,12 +16,14 @@ import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -79,7 +82,7 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
 
   @Override
   public boolean isEligible(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
@@ -97,8 +100,11 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull Urn userUrn, @Nonnull RecommendationRequestContext requestContext) {
-    SearchRequest searchRequest = buildSearchRequest(userUrn);
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
+    SearchRequest searchRequest =
+        buildSearchRequest(opContext.getSessionActorContext().getActorUrn());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlyEdited").time()) {
       final SearchResponse searchResponse =
           _searchClient.search(searchRequest, RequestOptions.DEFAULT);
@@ -108,7 +114,7 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
           parsedTerms.getBuckets().stream()
               .map(MultiBucketsAggregation.Bucket::getKeyAsString)
               .collect(Collectors.toList());
-      return buildContent(bucketUrns, _entityService)
+      return buildContent(opContext, bucketUrns, _entityService)
           .limit(MAX_CONTENT)
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -127,6 +133,11 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
+    // Filter for the entity edit events of the user requesting recommendation
+    query.must(
+        QueryBuilders.termQuery(
+            ESUtils.toKeywordField(DataHubUsageEventConstants.ACTOR_URN, false),
+            userUrn.toString()));
     // Filter for the entity action events
     query.must(
         QueryBuilders.termQuery(

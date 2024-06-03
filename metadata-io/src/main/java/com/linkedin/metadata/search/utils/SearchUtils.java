@@ -198,6 +198,14 @@ public class SearchUtils {
     if (!finalSearchFlags.hasSkipCache() || finalSearchFlags.isSkipCache() == null) {
       finalSearchFlags.setSkipCache(defaultFlags.isSkipCache());
     }
+    if (!finalSearchFlags.hasIncludeSoftDeleted()
+        || finalSearchFlags.isIncludeSoftDeleted() == null) {
+      finalSearchFlags.setIncludeSoftDeleted(defaultFlags.isIncludeSoftDeleted());
+    }
+    if (!finalSearchFlags.hasIncludeRestricted()
+        || finalSearchFlags.isIncludeRestricted() == null) {
+      finalSearchFlags.setIncludeRestricted(defaultFlags.isIncludeRestricted());
+    }
     if ((!finalSearchFlags.hasGroupingSpec() || finalSearchFlags.getGroupingSpec() == null)
         && (defaultFlags.getGroupingSpec() != null)) {
       finalSearchFlags.setGroupingSpec(defaultFlags.getGroupingSpec());

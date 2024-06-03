@@ -4,7 +4,7 @@ import static com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.common.TagUrn;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

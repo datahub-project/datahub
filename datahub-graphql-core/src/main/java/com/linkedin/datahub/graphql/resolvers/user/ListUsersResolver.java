@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.ListUsersInput;
@@ -13,7 +14,6 @@ import com.linkedin.datahub.graphql.generated.ListUsersResult;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUsersResult>> {
 
@@ -51,48 +52,52 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // First, get all policy Urns.
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
                       CORP_USER_ENTITY_NAME,
                       query,
                       Collections.emptyMap(),
                       start,
-                      count,
-                      context.getAuthentication(),
-                      new SearchFlags().setFulltext(true));
+                      count);
 
               // Then, get hydrate all users.
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       CORP_USER_ENTITY_NAME,
                       new HashSet<>(
                           gmsResult.getEntities().stream()
                               .map(SearchEntity::getEntity)
                               .collect(Collectors.toList())),
-                      null,
-                      context.getAuthentication());
+                      null);
 
               // Now that we have entities we can bind this to a result.
               final ListUsersResult result = new ListUsersResult();
               result.setStart(gmsResult.getFrom());
               result.setCount(gmsResult.getPageSize());
               result.setTotal(gmsResult.getNumEntities());
-              result.setUsers(mapEntities(entities.values()));
+              result.setUsers(mapEntities(context, entities.values()));
               return result;
             } catch (Exception e) {
               throw new RuntimeException("Failed to list users", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 
-  private List<CorpUser> mapEntities(final Collection<EntityResponse> entities) {
-    return entities.stream().map(CorpUserMapper::map).collect(Collectors.toList());
+  private static List<CorpUser> mapEntities(
+      @Nullable QueryContext context, final Collection<EntityResponse> entities) {
+    return entities.stream().map(e -> CorpUserMapper.map(context, e)).collect(Collectors.toList());
   }
 }

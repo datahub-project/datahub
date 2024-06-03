@@ -6,18 +6,23 @@ import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageInput;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -77,6 +82,8 @@ public class SearchAcrossLineageResolver
   public CompletableFuture<SearchAcrossLineageResults> get(DataFetchingEnvironment environment)
       throws URISyntaxException {
     log.debug("Entering search across lineage graphql resolver");
+    final QueryContext context = environment.getContext();
+
     final SearchAcrossLineageInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossLineageInput.class);
 
@@ -92,19 +99,32 @@ public class SearchAcrossLineageResolver
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
-    final List<FacetFilterInput> filters =
-        input.getFilters() != null ? input.getFilters() : new ArrayList<>();
-    final Integer maxHops = getMaxHops(filters);
+    final List<AndFilterInput> filters =
+        input.getOrFilters() != null ? input.getOrFilters() : new ArrayList<>();
+    final List<FacetFilterInput> facetFilters =
+        filters.stream()
+            .map(AndFilterInput::getAnd)
+            .flatMap(List::stream)
+            .collect(Collectors.toList());
+    final Integer maxHops = getMaxHops(facetFilters);
 
     @Nullable
-    final Long startTimeMillis =
-        input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
+    Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
-    final Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+    Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+
+    final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
+    if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
+      lineageFlags.setStartTimeMillis(startTimeMillis);
+    }
+
+    if (lineageFlags.getEndTimeMillis() == null && endTimeMillis != null) {
+      lineageFlags.setEndTimeMillis(endTimeMillis);
+    }
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug(
@@ -117,11 +137,12 @@ public class SearchAcrossLineageResolver
                 start,
                 count);
 
-            final Filter filter = ResolverUtils.buildFilter(filters, input.getOrFilters());
-            SearchFlags searchFlags = null;
+            final Filter filter =
+                ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+            final SearchFlags searchFlags;
             com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
             if (inputFlags != null) {
-              searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+              searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
               if (inputFlags.getSkipHighlighting() == null) {
                 searchFlags.setSkipHighlighting(true);
               }
@@ -130,6 +151,10 @@ public class SearchAcrossLineageResolver
             }
             LineageSearchResult salResults =
                 _entityClient.searchAcrossLineage(
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withLineageFlags(flags -> lineageFlags),
                     urn,
                     resolvedDirection,
                     entityNames,
@@ -138,13 +163,9 @@ public class SearchAcrossLineageResolver
                     filter,
                     null,
                     start,
-                    count,
-                    startTimeMillis,
-                    endTimeMillis,
-                    searchFlags,
-                    getAuthentication(environment));
+                    count);
 
-            return UrnSearchAcrossLineageResultsMapper.map(salResults);
+            return UrnSearchAcrossLineageResultsMapper.map(context, salResults);
           } catch (RemoteInvocationException e) {
             log.error(
                 "Failed to execute search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
@@ -170,6 +191,8 @@ public class SearchAcrossLineageResolver
           } finally {
             log.debug("Returning from search across lineage resolver");
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

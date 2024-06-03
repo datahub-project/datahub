@@ -76,7 +76,7 @@ dependencies {
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
-  runtimeOnly externalDependency.guice4
+  runtimeOnly externalDependency.guicePlay
   runtimeOnly (externalDependency.playDocs) {
     exclude group: 'com.typesafe.akka', module: 'akka-http-core_2.12'
   }
@@ -90,7 +90,7 @@ dependencies {
 
 play {
   platform {
-    playVersion = '2.8.18'
+    playVersion = '2.8.21'
     scalaVersion = '2.12'
     javaVersion = JavaVersion.VERSION_11
   }

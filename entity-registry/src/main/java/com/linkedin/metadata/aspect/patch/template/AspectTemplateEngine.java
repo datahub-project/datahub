@@ -15,10 +15,9 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.github.fge.jsonpatch.JsonPatchException;
-import com.github.fge.jsonpatch.Patch;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
+import jakarta.json.JsonPatch;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -75,13 +74,11 @@ public class AspectTemplateEngine {
    * @param aspectSpec aspectSpec of the template
    * @return a {@link RecordTemplate} with the patch applied
    * @throws JsonProcessingException if there is an issue with processing the record template's json
-   * @throws JsonPatchException if there is an issue with applying the json patch
    */
   @Nonnull
   public <T extends RecordTemplate> RecordTemplate applyPatch(
-      RecordTemplate recordTemplate, Patch jsonPatch, AspectSpec aspectSpec)
-      throws JsonProcessingException, JsonPatchException {
-
+      RecordTemplate recordTemplate, JsonPatch jsonPatch, AspectSpec aspectSpec)
+      throws JsonProcessingException {
     Template<T> template = getTemplate(aspectSpec);
     return template.applyPatch(recordTemplate, jsonPatch);
   }

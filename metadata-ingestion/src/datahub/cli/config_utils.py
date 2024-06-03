@@ -1,3 +1,7 @@
+"""
+For helper methods to contain manipulation of the config file in local system.
+"""
+
 import logging
 import os
 import sys
@@ -9,9 +13,6 @@ from pydantic import BaseModel, ValidationError
 
 from datahub.cli.env_utils import get_boolean_env_variable
 
-__help__ = (
-    "For helper methods to contain manipulation of the config file in local system."
-)
 log = logging.getLogger(__name__)
 
 DEFAULT_GMS_HOST = "http://localhost:8080"
@@ -83,7 +84,7 @@ def ensure_datahub_config() -> None:
 
 
 def get_client_config(as_dict: bool = False) -> Union[Optional[DatahubConfig], dict]:
-    with open(DATAHUB_CONFIG_PATH, "r") as stream:
+    with open(DATAHUB_CONFIG_PATH) as stream:
         try:
             config_json = yaml.safe_load(stream)
             if as_dict:

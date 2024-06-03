@@ -17,7 +17,6 @@ from typing import (
 )
 
 # This import verifies that the dependencies are available.
-import teradatasqlalchemy  # noqa: F401
 import teradatasqlalchemy.types as custom_types
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
@@ -53,12 +52,13 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
-from datahub.metadata._schema_classes import SchemaMetadataClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     TimeTypeClass,
 )
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -81,6 +81,9 @@ register_custom_type(custom_types.MBR, BytesTypeClass)
 register_custom_type(custom_types.GEOMETRY, BytesTypeClass)
 register_custom_type(custom_types.TDUDT, BytesTypeClass)
 register_custom_type(custom_types.XML, BytesTypeClass)
+register_custom_type(custom_types.PERIOD_TIME, TimeTypeClass)
+register_custom_type(custom_types.PERIOD_DATE, TimeTypeClass)
+register_custom_type(custom_types.PERIOD_TIMESTAMP, TimeTypeClass)
 
 
 @dataclass
@@ -458,7 +461,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
     LINEAGE_QUERY_DATABASE_FILTER: str = """and default_database IN ({databases})"""
 
     LINEAGE_TIMESTAMP_BOUND_QUERY: str = """
-    SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.DBQLogTbl
+    SELECT MIN(CollectTimeStamp) as "min_ts", MAX(CollectTimeStamp) as "max_ts" from DBC.QryLogV
     """.strip()
 
     QUERY_TEXT_QUERY: str = """
@@ -469,8 +472,8 @@ class TeradataSource(TwoTierSQLAlchemySource):
         DefaultDatabase as default_database,
         s.SqlTextInfo as "query_text",
         s.SqlRowNo as "row_no"
-    FROM "DBC".DBQLogTbl as l
-    JOIN "DBC".DBQLSqlTbl as s on s.QueryID = l.QueryID
+    FROM "DBC".QryLogV as l
+    JOIN "DBC".QryLogSqlV as s on s.QueryID = l.QueryID
     WHERE
         l.ErrorCode = 0
         AND l.statementtype not in (
@@ -499,7 +502,7 @@ class TeradataSource(TwoTierSQLAlchemySource):
 
     TABLES_AND_VIEWS_QUERY: str = """
 SELECT
-    t.DatabaseName,
+    t.DataBaseName,
     t.TableName as name,
     t.CommentString as description,
     CASE t.TableKind
@@ -514,8 +517,8 @@ SELECT
     t.LastAlterName,
     t.LastAlterTimeStamp,
     t.RequestText
-FROM dbc.Tables t
-WHERE DatabaseName NOT IN (
+FROM dbc.TablesV t
+WHERE DataBaseName NOT IN (
                 'All',
                 'Crashdumps',
                 'Default',
@@ -561,7 +564,7 @@ WHERE DatabaseName NOT IN (
                 'dbc'
 )
 AND t.TableKind in ('T', 'V', 'Q', 'O')
-ORDER by DatabaseName, TableName;
+ORDER by DataBaseName, TableName;
      """.strip()
 
     _tables_cache: MutableMapping[str, List[TeradataTable]] = defaultdict(list)
@@ -573,9 +576,9 @@ ORDER by DatabaseName, TableName;
         self.graph: Optional[DataHubGraph] = ctx.graph
 
         self.builder: SqlParsingBuilder = SqlParsingBuilder(
-            usage_config=self.config.usage
-            if self.config.include_usage_statistics
-            else None,
+            usage_config=(
+                self.config.usage if self.config.include_usage_statistics else None
+            ),
             generate_lineage=True,
             generate_usage_statistics=self.config.include_usage_statistics,
             generate_operations=self.config.usage.include_operational_stats,
@@ -631,13 +634,14 @@ ORDER by DatabaseName, TableName;
                 ),
             )
 
-            setattr(  # noqa: B010
-                TeradataDialect,
-                "get_view_definition",
-                lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
-                    self, connection, view_name, schema, tables_cache=tables_cache, **kw
-                ),
-            )
+            # Disabling the below because the cached view definition is not the view definition the column in tablesv actually holds the last statement executed against the object... not necessarily the view definition
+            # setattr(  # noqa: B010
+            #   TeradataDialect,
+            #    "get_view_definition",
+            #   lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
+            #        self, connection, view_name, schema, tables_cache=tables_cache, **kw
+            #    ),
+            # )
 
             setattr(  # noqa: B010
                 TeradataDialect,
@@ -775,16 +779,18 @@ ORDER by DatabaseName, TableName;
         engine = self.get_metadata_engine()
         for entry in engine.execute(self.TABLES_AND_VIEWS_QUERY):
             table = TeradataTable(
-                database=entry.DatabaseName.strip(),
+                database=entry.DataBaseName.strip(),
                 name=entry.name.strip(),
                 description=entry.description.strip() if entry.description else None,
                 object_type=entry.object_type,
                 create_timestamp=entry.CreateTimeStamp,
                 last_alter_name=entry.LastAlterName,
                 last_alter_timestamp=entry.LastAlterTimeStamp,
-                request_text=entry.RequestText.strip()
-                if entry.object_type == "View" and entry.RequestText
-                else None,
+                request_text=(
+                    entry.RequestText.strip()
+                    if entry.object_type == "View" and entry.RequestText
+                    else None
+                ),
             )
             if table.database not in self._tables_cache:
                 self._tables_cache[table.database] = []
@@ -836,9 +842,9 @@ ORDER by DatabaseName, TableName;
             sql=query.replace("(NOT CASESPECIFIC)", ""),
             schema_resolver=self.schema_resolver,
             default_db=None,
-            default_schema=default_database
-            if default_database
-            else self.config.default_db,
+            default_schema=(
+                default_database if default_database else self.config.default_db
+            ),
         )
         if result.debug_info.table_error:
             logger.debug(

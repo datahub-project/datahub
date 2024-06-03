@@ -30,6 +30,8 @@ python3 -m pip install --upgrade acryl-datahub
 # validate that the install was successful
 datahub version
 # If you see "command not found", try running this instead: python3 -m datahub version
+datahub init
+# authenticate your datahub CLI with your datahub instance
 ```
 
 If you run into an error, try checking the [_common setup issues_](../metadata-ingestion/developing.md#Common-setup-issues).
@@ -107,9 +109,9 @@ ingestion recipe is producing the desired metadata events before ingesting them 
 
 ```shell
 # Dry run
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --dry-run
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --dry-run
 # Short-form
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n
 ```
 
 #### ingest --preview
@@ -119,22 +121,23 @@ This option helps with quick end-to-end smoke testing of the ingestion recipe.
 
 ```shell
 # Preview
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --preview
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --preview
 # Preview with dry-run
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --preview
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n --preview
 ```
 
 By default `--preview` creates 10 workunits. But if you wish to try producing more workunits you can use another option `--preview-workunits`
 
 ```shell
 # Preview 20 workunits without sending anything to sink
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --preview --preview-workunits=20
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n --preview --preview-workunits=20
 ```
 
 #### ingest deploy
 
 The `ingest deploy` command instructs the cli to upload an ingestion recipe to DataHub to be run by DataHub's [UI Ingestion](./ui-ingestion.md).
-This command can also be used to schedule the ingestion while uploading or even to update existing sources.
+This command can also be used to schedule the ingestion while uploading or even to update existing sources. It will upload to the remote instance the
+CLI is connected to, not the sink of the recipe. Use `datahub init` to set the remote if not already set.
 
 To schedule a recipe called "test", to run at 5am everyday, London time with the recipe configured in a local `recipe.yaml` file: 
 ````shell
@@ -183,6 +186,22 @@ The init command is used to tell `datahub` about where your DataHub instance is 
 Running `datahub init` will allow you to customize the datahub instance you are communicating with. It has an optional `--use-password` option which allows to initialise the config using username, password. We foresee this mainly being used by admins as majority of organisations will be using SSO and there won't be any passwords to use.
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
+
+```
+# locally hosted example
+datahub init
+/Users/user/.datahubenv already exists. Overwrite? [y/N]: y
+Configure which datahub instance to connect to
+Enter your DataHub host [http://localhost:8080]: http://localhost:8080
+Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax) []:
+
+# acryl example
+datahub init
+/Users/user/.datahubenv already exists. Overwrite? [y/N]: y
+Configure which datahub instance to connect to
+Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acryl.io/gms
+Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax) []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
+```
 
 #### Environment variables supported
 

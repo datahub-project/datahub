@@ -15,7 +15,10 @@ dependencies {
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.reflections
-  implementation externalDependency.jsonPatch
+
+  api externalDependency.jsonPatch
+  implementation externalDependency.jsonPathImpl
+
   constraints {
     implementation(externalDependency.snakeYaml) {
       because("previous versions are vulnerable to CVE-2022-25857")
@@ -28,11 +31,19 @@ dependencies {
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation project(':metadata-utils')
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
   testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
   testImplementation externalDependency.classGraph
+
+  testImplementation externalDependency.swaggerCore
+  testImplementation spec.product.pegasus.dataAvro
+  testImplementation('io.acryl:json-schema-avro:0.2.2') {
+    exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+  }
 
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')

@@ -10,9 +10,9 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.search.EntitySearchService;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -31,21 +31,18 @@ public class IndexDataPlatformsStep extends UpgradeStep {
   private static final Integer BATCH_SIZE = 1000;
 
   private final EntitySearchService _entitySearchService;
-  private final EntityRegistry _entityRegistry;
 
   public IndexDataPlatformsStep(
-      EntityService<?> entityService,
-      EntitySearchService entitySearchService,
-      EntityRegistry entityRegistry) {
+      EntityService<?> entityService, EntitySearchService entitySearchService) {
     super(entityService, VERSION, UPGRADE_ID);
     _entitySearchService = entitySearchService;
-    _entityRegistry = entityRegistry;
   }
 
   @Override
-  public void upgrade() throws Exception {
+  public void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception {
     final AspectSpec dataPlatformSpec =
-        _entityRegistry
+        systemOperationContext
+            .getEntityRegistry()
             .getEntitySpec(Constants.DATA_PLATFORM_ENTITY_NAME)
             .getAspectSpec(Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
 
@@ -54,7 +51,7 @@ public class IndexDataPlatformsStep extends UpgradeStep {
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
 
-    getAndReIndexDataPlatforms(auditStamp, dataPlatformSpec);
+    getAndReIndexDataPlatforms(systemOperationContext, auditStamp, dataPlatformSpec);
 
     log.info("Successfully indexed data platform aspects");
   }
@@ -66,9 +63,12 @@ public class IndexDataPlatformsStep extends UpgradeStep {
   }
 
   private int getAndReIndexDataPlatforms(
-      AuditStamp auditStamp, AspectSpec dataPlatformInfoAspectSpec) throws Exception {
+      @Nonnull OperationContext opContext,
+      AuditStamp auditStamp,
+      AspectSpec dataPlatformInfoAspectSpec)
+      throws Exception {
     ListUrnsResult listResult =
-        _entityService.listUrns(Constants.DATA_PLATFORM_ENTITY_NAME, 0, BATCH_SIZE);
+        entityService.listUrns(opContext, Constants.DATA_PLATFORM_ENTITY_NAME, 0, BATCH_SIZE);
 
     List<Urn> dataPlatformUrns = listResult.getEntities();
 
@@ -77,7 +77,8 @@ public class IndexDataPlatformsStep extends UpgradeStep {
     }
 
     final Map<Urn, EntityResponse> dataPlatformInfoResponses =
-        _entityService.getEntitiesV2(
+        entityService.getEntitiesV2(
+            opContext,
             Constants.DATA_PLATFORM_ENTITY_NAME,
             new HashSet<>(dataPlatformUrns),
             Collections.singleton(Constants.DATA_PLATFORM_INFO_ASPECT_NAME));
@@ -98,8 +99,9 @@ public class IndexDataPlatformsStep extends UpgradeStep {
       }
 
       futures.add(
-          _entityService
+          entityService
               .alwaysProduceMCLAsync(
+                  opContext,
                   dpUrn,
                   Constants.DATA_PLATFORM_ENTITY_NAME,
                   Constants.DATA_PLATFORM_INFO_ASPECT_NAME,

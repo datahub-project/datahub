@@ -74,6 +74,19 @@ def test_infer_schema_tsv():
         assert_field_types_match(fields, expected_field_types)
 
 
+def test_infer_schema_jsonl():
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(
+            bytes(test_table.to_json(orient="records", lines=True), encoding="utf-8")
+        )
+        file.seek(0)
+
+        fields = json.JsonInferrer(max_rows=100, format="jsonl").infer_schema(file)
+
+        assert_field_paths_match(fields, expected_field_paths)
+        assert_field_types_match(fields, expected_field_types)
+
+
 def test_infer_schema_json():
     with tempfile.TemporaryFile(mode="w+b") as file:
         file.write(bytes(test_table.to_json(orient="records"), encoding="utf-8"))

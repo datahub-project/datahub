@@ -10,8 +10,9 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.MCPBatchItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
@@ -42,6 +43,7 @@ import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -492,9 +494,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return exp.findCount();
   }
 
+  /**
+   * Warning this inner Streams must be closed
+   *
+   * @param args
+   * @return
+   */
   @Nonnull
   @Override
-  public PagedList<EbeanAspectV2> getPagedAspects(final RestoreIndicesArgs args) {
+  public PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args) {
     ExpressionList<EbeanAspectV2> exp =
         _server
             .find(EbeanAspectV2.class)
@@ -509,6 +517,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
     if (args.urnLike != null) {
       exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
+    }
+    if (args.gePitEpochMs > 0) {
+      exp =
+          exp.ge(
+                  EbeanAspectV2.CREATED_ON_COLUMN,
+                  Timestamp.from(Instant.ofEpochMilli(args.gePitEpochMs)))
+              .le(
+                  EbeanAspectV2.CREATED_ON_COLUMN,
+                  Timestamp.from(Instant.ofEpochMilli(args.lePitEpochMs)));
     }
 
     int start = args.start;
@@ -530,15 +547,28 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       }
     }
 
-    return exp.orderBy()
-        .asc(EbeanAspectV2.URN_COLUMN)
-        .orderBy()
-        .asc(EbeanAspectV2.ASPECT_COLUMN)
-        .setFirstRow(start)
-        .setMaxRows(args.batchSize)
-        .findPagedList();
+    if (args.limit > 0) {
+      exp = exp.setMaxRows(args.limit);
+    }
+
+    return PartitionedStream.<EbeanAspectV2>builder()
+        .delegateStream(
+            exp.orderBy()
+                .asc(EbeanAspectV2.URN_COLUMN)
+                .orderBy()
+                .asc(EbeanAspectV2.ASPECT_COLUMN)
+                .setFirstRow(start)
+                .findStream())
+        .build();
   }
 
+  /**
+   * Warning the stream must be closed
+   *
+   * @param entityName
+   * @param aspectName
+   * @return
+   */
   @Override
   @Nonnull
   public Stream<EntityAspect> streamAspects(String entityName, String aspectName) {
@@ -637,13 +667,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       Set<Urn> urnsWithKeyAspects =
           batch.getMCPItems().stream()
               .filter(i -> i.getEntitySpec().getKeyAspectSpec().equals(i.getAspectSpec()))
-              .map(MCPBatchItem::getUrn)
+              .map(MCPItem::getUrn)
               .collect(Collectors.toSet());
 
       if (!urnsWithKeyAspects.isEmpty()) {
 
         // Split into batches by urn with key aspect, remaining aspects in the pair's second
-        Pair<List<AspectsBatch>, AspectsBatch> splitBatches = splitByUrn(batch, urnsWithKeyAspects);
+        Pair<List<AspectsBatch>, AspectsBatch> splitBatches =
+            splitByUrn(batch, urnsWithKeyAspects, batch.getRetrieverContext());
 
         // Run non-key aspect `other` batch per normal
         if (!splitBatches.getSecond().getItems().isEmpty()) {
@@ -902,12 +933,13 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    * @return separated batches
    */
   private static Pair<List<AspectsBatch>, AspectsBatch> splitByUrn(
-      AspectsBatch batch, Set<Urn> urns) {
-    Map<Urn, List<MCPBatchItem>> itemsByUrn =
-        batch.getMCPItems().stream().collect(Collectors.groupingBy(MCPBatchItem::getUrn));
+      AspectsBatch batch, Set<Urn> urns, RetrieverContext retrieverContext) {
+    Map<Urn, List<MCPItem>> itemsByUrn =
+        batch.getMCPItems().stream().collect(Collectors.groupingBy(MCPItem::getUrn));
 
     AspectsBatch other =
         AspectsBatchImpl.builder()
+            .retrieverContext(retrieverContext)
             .items(
                 itemsByUrn.entrySet().stream()
                     .filter(entry -> !urns.contains(entry.getKey()))
@@ -917,7 +949,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     List<AspectsBatch> nonEmptyBatches =
         urns.stream()
-            .map(urn -> AspectsBatchImpl.builder().items(itemsByUrn.get(urn)).build())
+            .map(
+                urn ->
+                    AspectsBatchImpl.builder()
+                        .retrieverContext(retrieverContext)
+                        .items(itemsByUrn.get(urn))
+                        .build())
             .filter(b -> !b.getItems().isEmpty())
             .collect(Collectors.toList());
 

@@ -149,6 +149,11 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         }
     };
 
+    const handleBlur = (event: React.FocusEvent<HTMLInputElement>, setterFunction: (value: string) => void) => {
+        const trimmedValue = event.target.value.trim();
+        setterFunction(trimmedValue);
+    };
+
     return (
         <>
             <Form layout="vertical">
@@ -168,6 +173,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                         placeholder="My Redshift Source #2"
                         value={state.name}
                         onChange={(event) => setName(event.target.value)}
+                        onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
                 <Collapse ghost>
@@ -181,6 +187,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 placeholder="default"
                                 value={state.config?.executorId || ''}
                                 onChange={(event) => setExecutorId(event.target.value)}
+                                onBlur={(event) => handleBlur(event, setExecutorId)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>
@@ -193,6 +200,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 placeholder="(e.g. 0.12.0)"
                                 value={state.config?.version || ''}
                                 onChange={(event) => setVersion(event.target.value)}
+                                onBlur={(event) => handleBlur(event, setVersion)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>Debug Mode</Typography.Text>}>
@@ -213,6 +221,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 placeholder='{"MY_CUSTOM_ENV": "my_custom_value2"}'
                                 value={retrieveExtraEnvs()}
                                 onChange={(event) => setExtraEnvs(event.target.value)}
+                                onBlur={(event) => handleBlur(event, setExtraEnvs)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>Extra DataHub plugins</Typography.Text>}>
@@ -224,6 +233,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 placeholder='["debug"]'
                                 value={retrieveExtraDataHubPlugins()}
                                 onChange={(event) => setExtraDataHubPlugins(event.target.value)}
+                                onBlur={(event) => handleBlur(event, setExtraDataHubPlugins)}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>Extra Pip Libraries</Typography.Text>}>
@@ -235,6 +245,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 placeholder='["sqlparse==0.4.3"]'
                                 value={retrieveExtraReqs()}
                                 onChange={(event) => setExtraReqs(event.target.value)}
+                                onBlur={(event) => handleBlur(event, setExtraReqs)}
                             />
                         </Form.Item>
                     </Collapse.Panel>

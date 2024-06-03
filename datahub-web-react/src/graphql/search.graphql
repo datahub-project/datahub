@@ -241,6 +241,12 @@ fragment autoCompleteFields on Entity {
     ... on DataPlatform {
         ...nonConflictingPlatformFields
     }
+    ... on BusinessAttribute {
+        properties {
+            name
+            description
+        }
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
@@ -372,15 +378,12 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...deprecationFields
     }
     health {
-        type
-        status
-        message
-        causes
+        ...entityHealth
     }
     ...datasetStatsFields
 }
 
-fragment searchResultFields on Entity {
+fragment searchResultsWithoutSchemaField on Entity {
     urn
     type
     ... on Dataset {
@@ -502,6 +505,9 @@ fragment searchResultFields on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on Chart {
         chartId
@@ -568,6 +574,9 @@ fragment searchResultFields on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on DataFlow {
         flowId
@@ -605,6 +614,9 @@ fragment searchResultFields on Entity {
         }
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
             total
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on DataJob {
@@ -654,6 +666,9 @@ fragment searchResultFields on Entity {
                     actor
                 }
             }
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on GlossaryTerm {
@@ -816,6 +831,36 @@ fragment searchResultFields on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
+    ... on ERModelRelationship {
+        urn
+        type
+        id
+        properties {
+            ...ermodelrelationPropertiesFields
+        }
+        editableProperties {
+            ...ermodelrelationEditablePropertiesFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on BusinessAttribute {
+        ...businessAttributeFields
+    }
+}
+
+fragment searchResultFields on Entity {
+    ...searchResultsWithoutSchemaField
+    ... on SchemaFieldEntity {
+          ...entityField
+    }
 }
 
 fragment facetFields on FacetMetadata {
@@ -923,12 +968,32 @@ fragment searchResults on SearchResults {
     }
 }
 
+fragment entityField on SchemaFieldEntity {
+  urn
+  type
+  parent {
+    urn
+    type
+  }
+  fieldPath
+  structuredProperties {
+    properties {
+      ...structuredPropertiesFields
+    }
+  }
+  businessAttributes {
+    businessAttribute {
+      ...businessAttribute
+    }
+  }
+}
+
 fragment schemaFieldEntityFields on SchemaFieldEntity {
     urn
     type
     fieldPath
     parent {
-        ...searchResultFields
+        ...searchResultsWithoutSchemaField
     }
 }
 
@@ -961,7 +1026,7 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         }
         paths {
             path {
-                ...searchResultFields
+                ...searchResultsWithoutSchemaField
                 ... on SchemaFieldEntity {
                     ...schemaFieldEntityFields
                 }

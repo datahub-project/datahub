@@ -16,7 +16,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.batch.MCPBatchItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
@@ -27,10 +27,11 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
@@ -54,31 +55,32 @@ import org.apache.commons.lang3.NotImplementedException;
 
 public class DataGenerator {
   private static final Faker FAKER = new Faker();
-  private final EntityRegistry entityRegistry;
+  private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final boolean generateDefaultAspects;
 
-  public DataGenerator(EntityService<?> entityService) {
-    this(entityService, false);
+  public DataGenerator(OperationContext opContext, EntityService<?> entityService) {
+    this(opContext, entityService, false);
   }
 
-  public DataGenerator(EntityService<?> entityService, Boolean generateDefaultAspects) {
+  public DataGenerator(
+      OperationContext opContext, EntityService<?> entityService, Boolean generateDefaultAspects) {
+    this.opContext = opContext;
     this.entityService = entityService;
-    this.entityRegistry = entityService.getEntityRegistry();
     this.generateDefaultAspects = generateDefaultAspects != null ? generateDefaultAspects : false;
   }
 
   public static DataGenerator build(EntityRegistry entityRegistry) {
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
     EntityServiceImpl mockEntityServiceImpl =
         new EntityServiceImpl(
             mock(AspectDao.class),
             mock(EventProducer.class),
-            entityRegistry,
             false,
-            mock(UpdateIndicesService.class),
             mock(PreProcessHooks.class),
             anyBoolean());
-    return new DataGenerator(mockEntityServiceImpl);
+    return new DataGenerator(opContext, mockEntityServiceImpl);
   }
 
   public Stream<List<MetadataChangeProposal>> generateDatasets() {
@@ -91,7 +93,7 @@ public class DataGenerator {
 
   public Stream<List<MetadataChangeProposal>> generateMCPs(
       String entityName, long count, List<String> aspects) {
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     AuditStamp auditStamp =
         new AuditStamp()
             .setActor(UrnUtils.getUrn(Constants.DATAHUB_ACTOR))
@@ -164,15 +166,21 @@ public class DataGenerator {
               if (generateDefaultAspects) {
                 // Expand with default aspects instead of relying on default generation
                 return Stream.concat(
-                        Stream.of(mcp),
+                        // Remove duplicate key aspects (generated as default aspects)
+                        Stream.of(mcp).filter(m -> !m.getAspectName().endsWith("Key")),
                         DefaultAspectsUtil.getAdditionalChanges(
+                                opContext,
                                 AspectsBatchImpl.builder()
-                                    .mcps(List.of(mcp), auditStamp, entityService)
-                                    .build(),
+                                    .mcps(
+                                        List.of(mcp),
+                                        auditStamp,
+                                        opContext.getRetrieverContext().get())
+                                    .build()
+                                    .getMCPItems(),
                                 entityService,
                                 true)
                             .stream()
-                            .map(MCPBatchItem::getMetadataChangeProposal))
+                            .map(MCPItem::getMetadataChangeProposal))
                     .collect(Collectors.toList());
               } else {
                 return List.of(mcp);

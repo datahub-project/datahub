@@ -4,7 +4,9 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.PoliciesConfig.ACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.INACTIVE_POLICY_STATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.METADATA_POLICY_TYPE;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.eq;
@@ -36,17 +38,22 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.RoleMembership;
-import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
-import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.metadata.context.ServicesRegistryContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,12 +74,13 @@ public class DataHubAuthorizerTest {
   private static final Urn USER_WITH_ADMIN_ROLE =
       UrnUtils.getUrn("urn:li:corpuser:user-with-admin");
 
-  private EntityClient _entityClient;
+  private SystemEntityClient _entityClient;
   private DataHubAuthorizer _dataHubAuthorizer;
+  private OperationContext systemOpContext;
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = mock(EntityClient.class);
+    _entityClient = mock(SystemEntityClient.class);
 
     // Init mocks.
     final Urn activePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
@@ -158,29 +166,56 @@ public class DataHubAuthorizerTest {
                     ImmutableList.of(new SearchEntity().setEntity(adminPolicyUrn))));
 
     when(_entityClient.scrollAcrossEntities(
+            any(OperationContext.class),
             eq(List.of("dataHubPolicy")),
             eq(""),
+            nullable(Filter.class),
             isNull(),
-            any(),
             isNull(),
-            anyInt(),
-            eq(
-                new SearchFlags()
-                    .setFulltext(true)
-                    .setSkipAggregates(true)
-                    .setSkipHighlighting(true)
-                    .setSkipCache(true)),
-            any()))
-        .thenReturn(policySearchResult1)
-        .thenReturn(policySearchResult2)
-        .thenReturn(policySearchResult3)
-        .thenReturn(policySearchResult4)
+            anyInt()))
+        .thenReturn(policySearchResult1);
+    when(_entityClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataHubPolicy")),
+            eq(""),
+            nullable(Filter.class),
+            eq("1"),
+            isNull(),
+            anyInt()))
+        .thenReturn(policySearchResult2);
+    when(_entityClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataHubPolicy")),
+            eq(""),
+            nullable(Filter.class),
+            eq("2"),
+            isNull(),
+            anyInt()))
+        .thenReturn(policySearchResult3);
+    when(_entityClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataHubPolicy")),
+            eq(""),
+            nullable(Filter.class),
+            eq("3"),
+            isNull(),
+            anyInt()))
+        .thenReturn(policySearchResult4);
+    when(_entityClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataHubPolicy")),
+            eq(""),
+            nullable(Filter.class),
+            eq("4"),
+            isNull(),
+            anyInt()))
         .thenReturn(policySearchResult5);
 
-    when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME), any(), eq(null), any()))
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class), eq(POLICY_ENTITY_NAME), any(), anySet()))
         .thenAnswer(
             args -> {
-              Set<Urn> inputUrns = args.getArgument(1);
+              Set<Urn> inputUrns = args.getArgument(2);
               Urn urn = inputUrns.stream().findFirst().get();
 
               switch (urn.toString()) {
@@ -229,49 +264,65 @@ public class DataHubAuthorizerTest {
             .setValue(
                 new com.linkedin.entity.Aspect(createOwnershipAspect(userUrns, groupUrns).data())));
     ownershipResponse.setAspects(ownershipAspectMap);
-    when(_entityClient.getV2(any(), any(), eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)), any()))
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            any(),
+            any(),
+            eq(Collections.singleton(OWNERSHIP_ASPECT_NAME))))
         .thenReturn(ownershipResponse);
 
     // Mocks to get domains on a resource
-    when(_entityClient.getV2(any(), any(), eq(Collections.singleton(DOMAINS_ASPECT_NAME)), any()))
+    when(_entityClient.getV2(
+            any(OperationContext.class),
+            any(),
+            any(),
+            eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
         .thenReturn(createDomainsResponse(CHILD_DOMAIN_URN));
 
     // Mocks to get parent domains on a domain
     when(_entityClient.batchGetV2(
+            any(OperationContext.class),
             any(),
             eq(Collections.singleton(CHILD_DOMAIN_URN)),
-            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)),
-            any()))
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
         .thenReturn(createDomainPropertiesBatchResponse(PARENT_DOMAIN_URN));
 
     // Mocks to reach the stopping point on domain parents
     when(_entityClient.batchGetV2(
+            any(OperationContext.class),
             any(),
             eq(Collections.singleton(PARENT_DOMAIN_URN)),
-            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)),
-            any()))
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
         .thenReturn(createDomainPropertiesBatchResponse(null));
 
     // Mocks to reach role membership for a user urn
     when(_entityClient.batchGetV2(
+            any(OperationContext.class),
             any(),
             eq(Collections.singleton(USER_WITH_ADMIN_ROLE)),
             eq(
                 ImmutableSet.of(
                     ROLE_MEMBERSHIP_ASPECT_NAME,
                     GROUP_MEMBERSHIP_ASPECT_NAME,
-                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            any()))
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
         .thenReturn(
             createRoleMembershipBatchResponse(
                 USER_WITH_ADMIN_ROLE, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
 
     final Authentication systemAuthentication =
         new Authentication(new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID), "");
+    systemOpContext =
+        OperationContext.asSystem(
+            OperationContextConfig.builder().build(),
+            systemAuthentication,
+            mock(EntityRegistry.class),
+            mock(ServicesRegistryContext.class),
+            mock(IndexConvention.class),
+            mock(RetrieverContext.class));
 
     _dataHubAuthorizer =
         new DataHubAuthorizer(
-            systemAuthentication,
+            systemOpContext,
             _entityClient,
             10,
             10,
@@ -279,7 +330,7 @@ public class DataHubAuthorizerTest {
             1 // force pagination logic
             );
     _dataHubAuthorizer.init(
-        Collections.emptyMap(), createAuthorizerContext(systemAuthentication, _entityClient));
+        Collections.emptyMap(), createAuthorizerContext(systemOpContext, _entityClient));
     _dataHubAuthorizer.invalidateCache();
     Thread.sleep(500); // Sleep so the runnable can execute. (not ideal)
   }
@@ -353,27 +404,30 @@ public class DataHubAuthorizerTest {
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
 
     // Now init the mocks to return 0 policies.
-    final SearchResult emptyResult = new SearchResult();
+    final ScrollResult emptyResult = new ScrollResult();
     emptyResult.setNumEntities(0);
     emptyResult.setEntities(new SearchEntityArray());
 
-    when(_entityClient.search(
-            eq("dataHubPolicy"),
+    when(_entityClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataHubPolicy")),
             eq(""),
             isNull(),
             any(),
-            anyInt(),
-            anyInt(),
             any(),
-            eq(new SearchFlags().setFulltext(true))))
+            anyInt()))
         .thenReturn(emptyResult);
     when(_entityClient.batchGetV2(
-            eq(POLICY_ENTITY_NAME), eq(Collections.emptySet()), eq(null), any()))
+            any(OperationContext.class),
+            eq(POLICY_ENTITY_NAME),
+            eq(Collections.emptySet()),
+            eq(null)))
         .thenReturn(Collections.emptyMap());
 
     // Invalidate Cache.
     _dataHubAuthorizer.invalidateCache();
     Thread.sleep(500); // Sleep so the runnable can execute. (not ideal)
+
     // Now verify that invalidating the cache updates the policies by running the same authorization
     // request.
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
@@ -478,24 +532,24 @@ public class DataHubAuthorizerTest {
 
     // User has no role associated but is part of 1 group
     when(_entityClient.batchGetV2(
+            any(OperationContext.class),
             any(),
             eq(Collections.singleton(userUrnWithoutPermissions)),
             eq(
                 ImmutableSet.of(
                     ROLE_MEMBERSHIP_ASPECT_NAME,
                     GROUP_MEMBERSHIP_ASPECT_NAME,
-                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
-            any()))
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
         .thenReturn(
             createEntityBatchResponse(
                 userUrnWithoutPermissions, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
 
     // Group has a role
     when(_entityClient.batchGetV2(
+            any(OperationContext.class),
             any(),
             eq(Collections.singleton(groupWithAdminPermission)),
-            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)),
-            any()))
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
         .thenReturn(
             createRoleMembershipBatchResponse(
                 groupWithAdminPermission, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
@@ -646,8 +700,8 @@ public class DataHubAuthorizerTest {
   }
 
   private AuthorizerContext createAuthorizerContext(
-      final Authentication systemAuthentication, final EntityClient entityClient) {
+      final OperationContext systemOpContext, final SystemEntityClient entityClient) {
     return new AuthorizerContext(
-        Collections.emptyMap(), new DefaultEntitySpecResolver(systemAuthentication, entityClient));
+        Collections.emptyMap(), new DefaultEntitySpecResolver(systemOpContext, entityClient));
   }
 }

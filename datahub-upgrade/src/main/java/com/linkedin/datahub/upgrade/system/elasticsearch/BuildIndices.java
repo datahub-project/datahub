@@ -1,7 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch;
 
-import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPostStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPreStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class BuildIndices implements Upgrade {
+public class BuildIndices implements BlockingSystemUpgrade {
 
   private final List<UpgradeStep> _steps;
 

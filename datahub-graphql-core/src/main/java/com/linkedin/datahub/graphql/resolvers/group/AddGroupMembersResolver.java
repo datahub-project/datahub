@@ -10,6 +10,7 @@ import com.linkedin.common.OriginType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -45,19 +46,20 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    if (!_groupService.groupExists(groupUrn)) {
+    if (!_groupService.groupExists(context.getOperationContext(), groupUrn)) {
       // The group doesn't exist.
       throw new DataHubGraphQLException(
           String.format("Failed to add members to group %s. Group does not exist.", groupUrnStr),
           DataHubGraphQLErrorCode.NOT_FOUND);
     }
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          Origin groupOrigin = _groupService.getGroupOrigin(groupUrn);
+          Origin groupOrigin =
+              _groupService.getGroupOrigin(context.getOperationContext(), groupUrn);
           if (groupOrigin == null || !groupOrigin.hasType()) {
             try {
               _groupService.migrateGroupMembershipToNativeGroupMembership(
-                  groupUrn, context.getActorUrn(), context.getAuthentication());
+                  context.getOperationContext(), groupUrn, context.getActorUrn());
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format(
@@ -76,12 +78,16 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
             final List<Urn> userUrnList =
                 input.getUserUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
             userUrnList.forEach(
-                userUrn -> _groupService.addUserToNativeGroup(userUrn, groupUrn, authentication));
+                userUrn ->
+                    _groupService.addUserToNativeGroup(
+                        context.getOperationContext(), userUrn, groupUrn));
             return true;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to add group members to group %s", groupUrnStr));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

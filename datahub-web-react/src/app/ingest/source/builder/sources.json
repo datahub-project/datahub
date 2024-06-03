@@ -200,14 +200,14 @@
         "name": "azure-ad",
         "displayName": "Azure AD",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/azure-ad/",
-        "recipe": "source:\n    type: azure-ad\n    config:\n        client_id: # Your Azure Client ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        tenant_id: # Your Azure Tenant ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        # Add secret in Secrets Tab with this name\n        client_secret: \"${AZURE_AD_CLIENT_SECRET}\"\n        redirect: # Your Redirect URL, e.g. \"https://login.microsoftonline.com/common/oauth2/nativeclient\"\n        authority: # Your Authority URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000\"\n        token_url: # Your Token URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token\"\n        graph_url: # The Graph URL, e.g. \"https://graph.microsoft.com/v1.0\"\n        \n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n        \n        # Optional Allow / Deny extraction of particular Groups\n        # groups_pattern:\n        #    allow:\n        #        - \".*\"\n\n        # Optional Allow / Deny extraction of particular Users.\n        # users_pattern:\n        #    allow:\n        #        - \".*\""
+        "recipe": "source:\n    type: azure-ad\n    config:\n        client_id: # Your Azure Client ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        tenant_id: # Your Azure Tenant ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        # Add secret in Secrets Tab with this name\n        client_secret: \n        redirect: # Your Redirect URL, e.g. \"https://login.microsoftonline.com/common/oauth2/nativeclient\"\n        authority: # Your Authority URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000\"\n        token_url: # Your Token URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token\"\n        graph_url: # The Graph URL, e.g. \"https://graph.microsoft.com/v1.0\"\n        \n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n        \n        # Optional Allow / Deny extraction of particular Groups\n        # groups_pattern:\n        #    allow:\n        #        - \".*\"\n\n        # Optional Allow / Deny extraction of particular Users.\n        # users_pattern:\n        #    allow:\n        #        - \".*\""
     },
     {
         "urn": "urn:li:dataPlatform:okta",
         "name": "okta",
         "displayName": "Okta",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/okta/",
-        "recipe": "source:\n    type: okta\n    config:\n        # Coordinates\n        okta_domain: # Your Okta Domain, e.g. \"dev-35531955.okta.com\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        okta_api_token: \"${OKTA_API_TOKEN}\" # Your Okta API Token, e.g. \"11be4R_M2MzDqXawbTHfKGpKee0kuEOfX1RCQSRx99\"\n\n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n\n        # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User\n        # profile. Reference: https://developer.okta.com/docs/reference/api/users/\n        # okta_profile_to_username_attr: str = \"login\"\n        # okta_profile_to_username_regex: str = \"([^@]+)\"\n    \n        # Optional: Customize the mapping to DataHub Group from an attribute appearing in the Okta Group\n        # profile. Reference: https://developer.okta.com/docs/reference/api/groups/\n        # okta_profile_to_group_name_attr: str = \"name\"\n        # okta_profile_to_group_name_regex: str = \"(.*)\"\n        \n        # Optional: Include deprovisioned or suspended Okta users in the ingestion.\n        # include_deprovisioned_users = False\n        # include_suspended_users = False"
+        "recipe": "source:\n    type: okta\n    config:\n        # Coordinates\n        okta_domain: # Your Okta Domain, e.g. \"dev-35531955.okta.com\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        okta_api_token:  # Your Okta API Token, e.g. \"11be4R_M2MzDqXawbTHfKGpKee0kuEOfX1RCQSRx99\"\n\n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n\n        # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User\n        # profile. Reference: https://developer.okta.com/docs/reference/api/users/\n        # okta_profile_to_username_attr: str = \"login\"\n        # okta_profile_to_username_regex: str = \"([^@]+)\"\n    \n        # Optional: Customize the mapping to DataHub Group from an attribute appearing in the Okta Group\n        # profile. Reference: https://developer.okta.com/docs/reference/api/groups/\n        # okta_profile_to_group_name_attr: str = \"name\"\n        # okta_profile_to_group_name_regex: str = \"(.*)\"\n        \n        # Optional: Include deprovisioned or suspended Okta users in the ingestion.\n        # include_deprovisioned_users = False\n        # include_suspended_users = False"
     },
     {
         "urn": "urn:li:dataPlatform:vertica",
@@ -236,5 +236,26 @@
         "displayName": "Other",
         "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
         "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>"
+    },
+    {
+        "urn": "urn:li:dataPlatform:qlik-sense",
+        "name": "qlik-sense",
+        "displayName": "Qlik Sense",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/qlik-sense/",
+        "recipe": "source:\n    type: qlik-sense\n    config:\n        # Coordinates\n        tenant_hostname: https://xyz12xz.us.qlikcloud.com\n        # Coordinates\n        api_key: QLIK_API_KEY\n\n        # Optional - filter for certain space names instead of ingesting everything.\n        # space_pattern:\n\n        #   allow:\n        #     - space_name\n        ingest_owner: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:sigma",
+        "name": "sigma",
+        "displayName": "Sigma",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/sigma/",
+        "recipe": "source:\n    type: sigma\n    config:\n        # Coordinates\n        api_url: https://aws-api.sigmacomputing.com/v2\n        # Coordinates\n        client_id: CLIENT_ID\n        client_secret: CLIENT_SECRET\n\n        # Optional - filter for certain workspace names instead of ingesting everything.\n        # workspace_pattern:\n\n        #   allow:\n        #     - workspace_name\n        ingest_owner: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:cockroachdb",
+        "name": "cockroachdb",
+        "displayName": "CockroachDb",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/cockroachdb/",
+        "recipe": "source: \n    type: cockroachdb\n    config:\n        # Coordinates\n        host_port: # Your CockroachDb host and port, e.g. cockroachdb:5432\n        database: # Your CockroachDb Database, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your CockroachDb username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     }
 ]

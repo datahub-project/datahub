@@ -44,7 +44,6 @@ public class AuthenticatorChainTest {
   public void testAuthenticateFailure() throws Exception {
     final AuthenticatorChain authenticatorChain = new AuthenticatorChain();
     final Authenticator mockAuthenticator = Mockito.mock(Authenticator.class);
-    final Authentication mockAuthentication = Mockito.mock(Authentication.class);
     Mockito.when(mockAuthenticator.authenticate(Mockito.any()))
         .thenThrow(new AuthenticationException("Failed to authenticate"));
 
@@ -64,7 +63,6 @@ public class AuthenticatorChainTest {
   public void testAuthenticateThrows() throws Exception {
     final AuthenticatorChain authenticatorChain = new AuthenticatorChain();
     final Authenticator mockAuthenticator = Mockito.mock(Authenticator.class);
-    final Authentication mockAuthentication = Mockito.mock(Authentication.class);
     Mockito.when(mockAuthenticator.authenticate(Mockito.any()))
         .thenThrow(new AuthenticationExpiredException("Failed to authenticate, token has expired"));
 

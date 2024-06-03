@@ -1,14 +1,12 @@
 from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
-from urllib.parse import quote
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass as DatasetProperties,
     EditableDatasetPropertiesClass as EditableDatasetProperties,
     EditableSchemaMetadataClass as EditableSchemaMetadata,
     FineGrainedLineageClass as FineGrainedLineage,
-    FineGrainedLineageDownstreamTypeClass as FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamTypeClass as FineGrainedLineageUpstreamType,
     GlobalTagsClass as GlobalTags,
     GlossaryTermAssociationClass as Term,
     GlossaryTermsClass as GlossaryTerms,
@@ -27,17 +25,17 @@ from datahub.specific.structured_properties import StructuredPropertiesPatchHelp
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
-T = TypeVar("T", bound=MetadataPatchProposal)
+_Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
 
-class FieldPatchHelper(Generic[T]):
+class FieldPatchHelper(Generic[_Parent]):
     def __init__(
         self,
-        parent: T,
+        parent: _Parent,
         field_path: str,
         editable: bool = True,
     ) -> None:
-        self._parent: T = parent
+        self._parent: _Parent = parent
         self.field_path = field_path
         self.aspect_name = (
             EditableSchemaMetadata.ASPECT_NAME
@@ -86,7 +84,7 @@ class FieldPatchHelper(Generic[T]):
         )
         return self
 
-    def parent(self) -> T:
+    def parent(self) -> _Parent:
         return self._parent
 
 
@@ -127,7 +125,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UpstreamLineage.ASPECT_NAME,
             "add",
-            path=f"/upstreams/{quote(upstream.dataset, safe='')}",
+            path=f"/upstreams/{self.quote(upstream.dataset)}",
             value=upstream,
         )
         return self
@@ -154,26 +152,17 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     ) -> "DatasetPatchBuilder":
         (
             transform_op,
-            upstream_type,
-            downstream_type,
+            downstream_urn,
+            query_id,
         ) = DatasetPatchBuilder.get_fine_grained_key(fine_grained_lineage)
         for upstream_urn in fine_grained_lineage.upstreams or []:
             self._add_patch(
                 UpstreamLineage.ASPECT_NAME,
                 "add",
-                path=DatasetPatchBuilder.quote_fine_grained_upstream_path(
-                    transform_op, upstream_type, upstream_urn
+                path=DatasetPatchBuilder.quote_fine_grained_path(
+                    transform_op, downstream_urn, query_id, upstream_urn
                 ),
-                value=fine_grained_lineage.confidenceScore,
-            )
-        for downstream_urn in fine_grained_lineage.downstreams or []:
-            self._add_patch(
-                UpstreamLineage.ASPECT_NAME,
-                "add",
-                path=DatasetPatchBuilder.quote_fine_grained_downstream_path(
-                    transform_op, downstream_type, downstream_urn
-                ),
-                value=fine_grained_lineage.confidenceScore,
+                value={"confidenceScore": fine_grained_lineage.confidenceScore},
             )
         return self
 
@@ -181,35 +170,21 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     def get_fine_grained_key(
         fine_grained_lineage: FineGrainedLineage,
     ) -> Tuple[str, str, str]:
+        downstreams = fine_grained_lineage.downstreams or []
+        if len(downstreams) != 1:
+            raise TypeError("Cannot patch with more or less than one downstream.")
         transform_op = fine_grained_lineage.transformOperation or "NONE"
-        upstream_type = (
-            fine_grained_lineage.upstreamType
-            if isinstance(fine_grained_lineage.upstreamType, str)
-            else FineGrainedLineageUpstreamType.FIELD_SET
-        )
-        downstream_type = (
-            fine_grained_lineage.downstreamType
-            if isinstance(fine_grained_lineage.downstreamType, str)
-            else FineGrainedLineageDownstreamType.FIELD_SET
-        )
-        return transform_op, upstream_type, downstream_type
+        downstream_urn = downstreams[0]
+        query_id = fine_grained_lineage.query or "NONE"
+        return transform_op, downstream_urn, query_id
 
-    @staticmethod
-    def quote_fine_grained_downstream_path(
-        transform_op: str, downstream_type: str, downstream_urn: str
+    @classmethod
+    def quote_fine_grained_path(
+        cls, transform_op: str, downstream_urn: str, query_id: str, upstream_urn: str
     ) -> str:
         return (
-            f"/fineGrainedLineages/{quote(transform_op, safe='')}/downstreamType/"
-            f"{quote(downstream_type, safe='')}/{quote(downstream_urn, safe='')}"
-        )
-
-    @staticmethod
-    def quote_fine_grained_upstream_path(
-        transform_op: str, upstream_type: str, upstream_urn: str
-    ) -> str:
-        return (
-            f"/fineGrainedLineages/{quote(transform_op, safe='')}/upstreamType/"
-            f"{quote(upstream_type, safe='')}/{quote(upstream_urn, safe='')}"
+            f"/fineGrainedLineages/{cls.quote(transform_op)}/"
+            f"{cls.quote(downstream_urn)}/{cls.quote(query_id)}/{cls.quote(upstream_urn)}"
         )
 
     def remove_fine_grained_upstream_lineage(
@@ -217,24 +192,15 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     ) -> "DatasetPatchBuilder":
         (
             transform_op,
-            upstream_type,
-            downstream_type,
+            downstream_urn,
+            query_id,
         ) = DatasetPatchBuilder.get_fine_grained_key(fine_grained_lineage)
         for upstream_urn in fine_grained_lineage.upstreams or []:
             self._add_patch(
                 UpstreamLineage.ASPECT_NAME,
                 "remove",
-                path=DatasetPatchBuilder.quote_fine_grained_upstream_path(
-                    transform_op, upstream_type, upstream_urn
-                ),
-                value={},
-            )
-        for downstream_urn in fine_grained_lineage.downstreams or []:
-            self._add_patch(
-                UpstreamLineage.ASPECT_NAME,
-                "remove",
-                path=DatasetPatchBuilder.quote_fine_grained_downstream_path(
-                    transform_op, downstream_type, downstream_urn
+                path=DatasetPatchBuilder.quote_fine_grained_path(
+                    transform_op, downstream_urn, query_id, upstream_urn
                 ),
                 value={},
             )
@@ -293,16 +259,19 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         )
 
     def set_description(
-        self, description: str, editable: bool = False
+        self, description: Optional[str] = None, editable: bool = False
     ) -> "DatasetPatchBuilder":
-        self._add_patch(
-            DatasetProperties.ASPECT_NAME
-            if not editable
-            else EditableDatasetProperties.ASPECT_NAME,
-            "add",
-            path="/description",
-            value=description,
-        )
+        if description is not None:
+            self._add_patch(
+                (
+                    DatasetProperties.ASPECT_NAME
+                    if not editable
+                    else EditableDatasetProperties.ASPECT_NAME
+                ),
+                "add",
+                path="/description",
+                value=description,
+            )
         return self
 
     def set_custom_properties(
@@ -320,17 +289,63 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self.custom_properties_patch_helper.add_property(key, value)
         return self
 
+    def add_custom_properties(
+        self, custom_properties: Optional[Dict[str, str]] = None
+    ) -> "DatasetPatchBuilder":
+        if custom_properties is not None:
+            for key, value in custom_properties.items():
+                self.custom_properties_patch_helper.add_property(key, value)
+        return self
+
     def remove_custom_property(self, key: str) -> "DatasetPatchBuilder":
         self.custom_properties_patch_helper.remove_property(key)
         return self
 
-    def set_display_name(self, display_name: str) -> "DatasetPatchBuilder":
+    def set_display_name(
+        self, display_name: Optional[str] = None
+    ) -> "DatasetPatchBuilder":
         if display_name is not None:
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
                 "add",
                 path="/name",
                 value=display_name,
+            )
+        return self
+
+    def set_qualified_name(
+        self, qualified_name: Optional[str] = None
+    ) -> "DatasetPatchBuilder":
+        if qualified_name is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "add",
+                path="/qualifiedName",
+                value=qualified_name,
+            )
+        return self
+
+    def set_created(
+        self, timestamp: Optional[TimeStamp] = None
+    ) -> "DatasetPatchBuilder":
+        if timestamp is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "add",
+                path="/created",
+                value=timestamp,
+            )
+        return self
+
+    def set_last_modified(
+        self, timestamp: Optional[TimeStamp] = None
+    ) -> "DatasetPatchBuilder":
+        if timestamp is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "add",
+                path="/lastModified",
+                value=timestamp,
             )
         return self
 

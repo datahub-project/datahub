@@ -6,13 +6,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.EntitySpec;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.avro2pegasus.events.KafkaAuditHeader;
@@ -30,13 +27,13 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.generated.AspectRowSummary;
@@ -48,6 +45,7 @@ import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.generated.OneOfEnvelopedAspectValue;
 import io.datahubproject.openapi.generated.OneOfGenericAspectValue;
 import io.datahubproject.openapi.generated.Status;
+import io.datahubproject.openapi.generated.StructuredProperties;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -146,6 +144,14 @@ public class MappingUtil {
         .type(AspectType.fromValue(envelopedAspect.getType().name().toUpperCase(Locale.ROOT)))
         .created(objectMapper.convertValue(envelopedAspect.getCreated().data(), AuditStamp.class))
         .value(mapAspectValue(envelopedAspect.getName(), envelopedAspect.getValue(), objectMapper))
+        .systemMetadata(
+            Optional.ofNullable(envelopedAspect.getSystemMetadata())
+                .map(
+                    systemMetadata ->
+                        objectMapper.convertValue(
+                            systemMetadata.data(),
+                            io.datahubproject.openapi.generated.SystemMetadata.class))
+                .orElse(null))
         .build();
   }
 
@@ -271,8 +277,47 @@ public class MappingUtil {
         ENVELOPED_ASPECT_TYPE_MAP.get(aspectName);
     DataMap wrapper = insertDiscriminator(aspectClass, aspect.data());
     try {
-      String dataMapAsJson = objectMapper.writeValueAsString(wrapper);
-      return objectMapper.readValue(dataMapAsJson, aspectClass);
+      if (aspectClass.equals(StructuredProperties.class)) {
+        return mapStructuredPropertyValues(wrapper, objectMapper);
+      } else {
+        String dataMapAsJson = objectMapper.writeValueAsString(wrapper);
+        return objectMapper.readValue(dataMapAsJson, aspectClass);
+      }
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static OneOfEnvelopedAspectValue mapStructuredPropertyValues(
+      DataMap dataMap, ObjectMapper objectMapper) {
+    try {
+      String dataMapAsJson = objectMapper.writeValueAsString(dataMap);
+      JsonNode jsonObject = objectMapper.readTree(dataMapAsJson);
+      ArrayNode properties = (ArrayNode) jsonObject.get("properties");
+
+      if (properties.isEmpty()) {
+        return objectMapper.readValue(dataMapAsJson, StructuredProperties.class);
+      }
+
+      properties.forEach(
+          property -> {
+            ArrayNode values = (ArrayNode) property.get("values");
+            ArrayNode newValues = JsonNodeFactory.instance.arrayNode();
+            values.forEach(
+                value -> {
+                  if (value.has("string")) {
+                    newValues.add(value.get("string").textValue());
+                  } else if (value.has("double")) {
+                    newValues.add(value.get("double").doubleValue());
+                  }
+                });
+            if (!newValues.isEmpty()) {
+              values.removeAll();
+              values.addAll(newValues);
+            }
+          });
+      return objectMapper.readValue(
+          objectMapper.writeValueAsString(jsonObject), StructuredProperties.class);
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
@@ -417,31 +462,21 @@ public class MappingUtil {
     }
   }
 
-  public static boolean authorizeProposals(
-      List<com.linkedin.mxe.MetadataChangeProposal> proposals,
-      EntityService entityService,
-      Authorizer authorizer,
-      String actorUrnStr,
-      DisjunctivePrivilegeGroup orGroup) {
-    List<Optional<EntitySpec>> resourceSpecs =
-        proposals.stream()
-            .map(
-                proposal -> {
-                  com.linkedin.metadata.models.EntitySpec entitySpec =
-                      entityService.getEntityRegistry().getEntitySpec(proposal.getEntityType());
-                  Urn entityUrn =
-                      EntityKeyUtils.getUrnFromProposal(proposal, entitySpec.getKeyAspectSpec());
-                  return Optional.of(
-                      new EntitySpec(proposal.getEntityType(), entityUrn.toString()));
-                })
-            .collect(Collectors.toList());
-    return AuthUtil.isAuthorizedForResources(authorizer, actorUrnStr, resourceSpecs, orGroup);
-  }
-
   public static Pair<String, Boolean> ingestProposal(
+      @Nonnull OperationContext opContext,
       com.linkedin.mxe.MetadataChangeProposal serviceProposal,
       String actorUrn,
-      EntityService<MCPUpsertBatchItem> entityService,
+      EntityService<ChangeItemImpl> entityService,
+      boolean async) {
+    return ingestBatchProposal(opContext, List.of(serviceProposal), actorUrn, entityService, async)
+        .get(0);
+  }
+
+  public static List<Pair<String, Boolean>> ingestBatchProposal(
+      @Nonnull OperationContext opContext,
+      List<com.linkedin.mxe.MetadataChangeProposal> serviceProposals,
+      String actorUrn,
+      EntityService<ChangeItemImpl> entityService,
       boolean async) {
 
     // TODO: Use the actor present in the IC.
@@ -451,19 +486,26 @@ public class MappingUtil {
             .setTime(System.currentTimeMillis())
             .setActor(UrnUtils.getUrn(actorUrn));
 
-    log.info("Proposal: {}", serviceProposal);
+    log.info("Proposal: {}", serviceProposals);
     Throwable exceptionally = null;
     try {
       AspectsBatch batch =
           AspectsBatchImpl.builder()
-              .mcps(List.of(serviceProposal), auditStamp, entityService)
+              .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext().get())
               .build();
 
-      Set<IngestResult> proposalResult = entityService.ingestProposal(batch, async);
+      Map<Urn, List<IngestResult>> resultMap =
+          entityService.ingestProposal(opContext, batch, async).stream()
+              .collect(Collectors.groupingBy(IngestResult::getUrn));
 
-      Urn urn = proposalResult.stream().findFirst().get().getUrn();
-      return new Pair<>(
-          urn.toString(), proposalResult.stream().anyMatch(IngestResult::isSqlCommitted));
+      return resultMap.entrySet().stream()
+          .map(
+              entry ->
+                  Pair.of(
+                      entry.getKey().toString(),
+                      entry.getValue().stream().anyMatch(IngestResult::isSqlCommitted)))
+          .collect(Collectors.toList());
+
     } catch (ValidationException ve) {
       exceptionally = ve;
       throw HttpClientErrorException.create(
@@ -481,7 +523,10 @@ public class MappingUtil {
     }
   }
 
-  public static MetadataChangeProposal mapToProposal(UpsertAspectRequest aspectRequest) {
+  public static MetadataChangeProposal mapToProposal(
+      UpsertAspectRequest aspectRequest,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
     MetadataChangeProposal.MetadataChangeProposalBuilder metadataChangeProposal =
         MetadataChangeProposal.builder();
     io.datahubproject.openapi.generated.GenericAspect genericAspect =
@@ -497,9 +542,19 @@ public class MappingUtil {
               .value(aspectRequest.getEntityKeyAspect())
               .build();
     }
+
+    final io.datahubproject.openapi.generated.ChangeType changeType;
+    if (Boolean.TRUE.equals(createEntityIfNotExists)) {
+      changeType = io.datahubproject.openapi.generated.ChangeType.CREATE_ENTITY;
+    } else if (Boolean.TRUE.equals(createIfNotExists)) {
+      changeType = io.datahubproject.openapi.generated.ChangeType.CREATE;
+    } else {
+      changeType = io.datahubproject.openapi.generated.ChangeType.UPSERT;
+    }
+
     metadataChangeProposal
         .aspect(genericAspect)
-        .changeType(io.datahubproject.openapi.generated.ChangeType.UPSERT)
+        .changeType(changeType)
         .aspectName(ASPECT_NAME_MAP.get(aspectRequest.getAspect().getClass()))
         .entityKeyAspect(keyAspect)
         .entityUrn(aspectRequest.getEntityUrn())
@@ -580,9 +635,10 @@ public class MappingUtil {
         .build();
   }
 
-  public static UpsertAspectRequest createStatusRemoval(Urn urn, EntityService entityService) {
+  public static UpsertAspectRequest createStatusRemoval(
+      @Nonnull OperationContext opContext, Urn urn) {
     com.linkedin.metadata.models.EntitySpec entitySpec =
-        entityService.getEntityRegistry().getEntitySpec(urn.getEntityType());
+        opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
     if (entitySpec == null || !entitySpec.getAspectSpecMap().containsKey(STATUS_ASPECT_NAME)) {
       throw new IllegalArgumentException(
           "Entity type is not valid for soft deletes: " + urn.getEntityType());

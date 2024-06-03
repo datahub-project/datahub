@@ -49,5 +49,5 @@ record FormPrompt {
   /**
    * Whether the prompt is required to be completed, in order for the form to be marked as complete.
    */
-   required: boolean = true
+   required: boolean = false
 }

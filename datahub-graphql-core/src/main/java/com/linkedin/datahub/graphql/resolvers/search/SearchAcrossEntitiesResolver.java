@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -47,20 +48,20 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final DataHubViewInfo maybeResolvedView =
               (input.getViewUrn() != null)
                   ? resolveView(
+                      context.getOperationContext(),
                       _viewService,
-                      UrnUtils.getUrn(input.getViewUrn()),
-                      context.getAuthentication())
+                      UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
           final Filter baseFilter =
               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
 
-          SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
+          SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
           SortCriterion sortCriterion =
               input.getSortInput() != null
                   ? mapSortCriterion(input.getSortInput().getSortCriterion())
@@ -75,12 +76,20 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 start,
                 count);
 
+            List<String> finalEntities =
+                maybeResolvedView != null
+                    ? SearchUtils.intersectEntityTypes(
+                        entityNames, maybeResolvedView.getDefinition().getEntityTypes())
+                    : entityNames;
+            if (finalEntities.size() == 0) {
+              return SearchUtils.createEmptySearchResults(start, count);
+            }
+
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
-                    maybeResolvedView != null
-                        ? SearchUtils.intersectEntityTypes(
-                            entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-                        : entityNames,
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    finalEntities,
                     sanitizedQuery,
                     maybeResolvedView != null
                         ? SearchUtils.combineFilters(
@@ -88,9 +97,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         : baseFilter,
                     start,
                     count,
-                    searchFlags,
-                    sortCriterion,
-                    ResolverUtils.getAuthentication(environment)));
+                    sortCriterion));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
@@ -106,6 +113,8 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         input.getTypes(), input.getQuery(), input.getOrFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

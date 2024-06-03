@@ -9,21 +9,25 @@ configurations {
 
 dependencies {
   implementation project(':entity-registry')
+  implementation project(':metadata-service:auth-config')
+  api project(':metadata-io:metadata-io-api')
   api project(':metadata-utils')
   api project(':metadata-events:mxe-avro')
   api project(':metadata-events:mxe-registration')
   api project(':metadata-events:mxe-utils-avro')
   api project(':metadata-models')
-  api project(':metadata-service:restli-client')
+  api project(':metadata-service:restli-client-api')
   api project(':metadata-service:configuration')
   api project(':metadata-service:services')
+  api project(':metadata-operation-context')
 
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator
 
   implementation externalDependency.guava
   implementation externalDependency.reflections
-  implementation externalDependency.jsonPatch
+
+  implementation 'com.github.java-json-tools:json-patch:1.13' // TODO: Replace with jakarta.json
   api(externalDependency.dgraph4j) {
     exclude group: 'com.google.guava', module: 'guava'
     exclude group: 'io.grpc', module: 'grpc-protobuf'
@@ -60,6 +64,7 @@ dependencies {
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation project(':datahub-graphql-core')
   testImplementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+  testImplementation project(':metadata-service:auth-impl')
   testImplementation externalDependency.testng
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector

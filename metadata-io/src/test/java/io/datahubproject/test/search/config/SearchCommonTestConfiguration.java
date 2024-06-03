@@ -7,9 +7,8 @@ import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistryException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
@@ -52,11 +51,8 @@ public class SearchCommonTestConfiguration {
     return customConfiguration.resolve(new YAMLMapper());
   }
 
-  @Bean(name = "entityRegistry")
-  public EntityRegistry entityRegistry() throws EntityRegistryException {
-    return new ConfigEntityRegistry(
-        SearchCommonTestConfiguration.class
-            .getClassLoader()
-            .getResourceAsStream("entity-registry.yml"));
+  @Bean(name = "queryOperationContext")
+  public OperationContext queryOperationContext() {
+    return TestOperationContexts.systemContextNoSearchAuthorization();
   }
 }

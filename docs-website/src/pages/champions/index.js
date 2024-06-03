@@ -1,7 +1,6 @@
 import React from "react";
 import Layout from "@theme/Layout";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
-import { useColorMode } from "@docusaurus/theme-common";
 import Link from "@docusaurus/Link";
 import ChampionQualityCardsSection from "./_components/ChampionQualityCardsSection"
 
@@ -166,7 +165,7 @@ const championSections = [
         bio: (
           <>
             <p>
-            Reliably provided dirxection to Community Members across all support channels in Slack.
+            Reliably provides direction to community members and submitted 5 pull request, including improvements to Athena ingestion (support for nested schemas) and the REST emitter. 
             </p>
           </>
         ),
@@ -352,10 +351,9 @@ const championSections = [
 ];
 
 const HeroImage = (props) => {
-  const { colorMode } = useColorMode();
   return (
     <>
-      <img style={{ marginBottom: "2rem", height: "14rem" }} src={`/img/champions/champions-logo-${colorMode}.png`} alt="DataHub Champions" {...props} />
+      <img style={{ marginBottom: "2rem", height: "14rem" }} src={`/img/champions/champions-logo-light.png`} alt="DataHub Champions" {...props} />
     </>
   );
 };

@@ -59,9 +59,10 @@ from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_USAGE_AGGREGATION,
 )
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -203,7 +204,7 @@ class BigQueryUsageState(Closeable):
                     r.resource,
                     q.query,
                     COUNT(r.key) as query_count,
-                    ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource, q.query ORDER BY COUNT(r.key) DESC, q.query) as rank
+                    ROW_NUMBER() over (PARTITION BY r.timestamp, r.resource ORDER BY COUNT(r.key) DESC) as rank
                 FROM
                     read_events r
                     INNER JOIN query_events q ON r.name = q.key
@@ -255,6 +256,7 @@ class BigQueryUsageState(Closeable):
 
     def usage_statistics(self, top_n: int) -> Iterator[UsageStatistic]:
         query = self.usage_statistics_query(top_n)
+
         rows = self.read_events.sql_query_iterator(
             query, refs=[self.query_events, self.column_accesses]
         )

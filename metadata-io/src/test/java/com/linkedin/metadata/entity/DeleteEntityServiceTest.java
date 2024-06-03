@@ -13,20 +13,19 @@ import com.linkedin.container.Container;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.graph.RelatedEntity;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.service.UpdateIndicesService;
-import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.sql.Timestamp;
 import java.util.Map;
 import org.mockito.Mockito;
@@ -34,33 +33,22 @@ import org.testng.annotations.Test;
 
 public class DeleteEntityServiceTest {
 
+  protected OperationContext opContext;
   protected EbeanAspectDao _aspectDao;
-
   protected EntityServiceImpl _entityServiceImpl;
   protected GraphService _graphService = Mockito.mock(GraphService.class);
-
   protected DeleteEntityService _deleteEntityService;
   protected UpdateIndicesService _mockUpdateIndicesService;
 
-  protected EntityRegistry _entityRegistry;
-
   public DeleteEntityServiceTest() {
-    _entityRegistry =
-        new ConfigEntityRegistry(
-            Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     _aspectDao = mock(EbeanAspectDao.class);
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(
-            _aspectDao,
-            mock(EventProducer.class),
-            _entityRegistry,
-            true,
-            _mockUpdateIndicesService,
-            preProcessHooks,
-            true);
+        new EntityServiceImpl(_aspectDao, mock(EventProducer.class), true, preProcessHooks, true);
+    _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _deleteEntityService = new DeleteEntityService(_entityServiceImpl, _graphService);
   }
 
@@ -127,7 +115,7 @@ public class DeleteEntityServiceTest {
         .thenReturn(result);
 
     final DeleteReferencesResponse response =
-        _deleteEntityService.deleteReferencesTo(container, false);
+        _deleteEntityService.deleteReferencesTo(opContext, container, false);
     assertEquals(1, (int) response.getTotal());
     assertFalse(response.getRelatedAspects().isEmpty());
   }

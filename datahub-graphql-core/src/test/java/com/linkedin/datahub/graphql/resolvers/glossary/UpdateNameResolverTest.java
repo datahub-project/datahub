@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -24,6 +25,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -49,7 +51,10 @@ public class UpdateNameResolverTest {
     final String name = "test name";
     Mockito.when(
             mockService.getAspect(
-                Urn.createFromString(TERM_URN), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, 0))
+                any(),
+                eq(Urn.createFromString(TERM_URN)),
+                eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
+                eq(0L)))
         .thenReturn(new GlossaryTermInfo().setName(name));
 
     GlossaryTermInfo info = new GlossaryTermInfo();
@@ -62,7 +67,10 @@ public class UpdateNameResolverTest {
   public void testGetSuccess() throws Exception {
     EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TERM_URN)), eq(true))).thenReturn(true);
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class), eq(Urn.createFromString(TERM_URN)), eq(true)))
+        .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);
 
@@ -77,7 +85,8 @@ public class UpdateNameResolverTest {
   public void testGetSuccessForNode() throws Exception {
     EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(NODE_URN)), eq(true))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(NODE_URN)), eq(true)))
+        .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT_FOR_NODE);
 
@@ -89,7 +98,10 @@ public class UpdateNameResolverTest {
     final String name = "test name";
     Mockito.when(
             mockService.getAspect(
-                Urn.createFromString(NODE_URN), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, 0))
+                any(OperationContext.class),
+                eq(Urn.createFromString(NODE_URN)),
+                eq(GLOSSARY_NODE_INFO_ASPECT_NAME),
+                eq(0L)))
         .thenReturn(new GlossaryNodeInfo().setName(name));
 
     GlossaryNodeInfo info = new GlossaryNodeInfo();
@@ -107,7 +119,7 @@ public class UpdateNameResolverTest {
   public void testGetSuccessForDomain() throws Exception {
     EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(DOMAIN_URN)), eq(true)))
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(DOMAIN_URN)), eq(true)))
         .thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT_FOR_DOMAIN);
@@ -120,18 +132,21 @@ public class UpdateNameResolverTest {
     final String name = "test name";
     Mockito.when(
             mockService.getAspect(
-                Urn.createFromString(DOMAIN_URN), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, 0))
+                any(OperationContext.class),
+                eq(Urn.createFromString(DOMAIN_URN)),
+                eq(DOMAIN_PROPERTIES_ASPECT_NAME),
+                eq(0L)))
         .thenReturn(new DomainProperties().setName(name));
 
     Mockito.when(
             mockClient.filter(
+                any(),
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(
                     DomainUtils.buildNameAndParentDomainFilter(INPUT_FOR_DOMAIN.getName(), null)),
                 Mockito.eq(null),
                 Mockito.any(Integer.class),
-                Mockito.any(Integer.class),
-                Mockito.any(Authentication.class)))
+                Mockito.any(Integer.class)))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
     DomainProperties properties = new DomainProperties();
@@ -150,7 +165,9 @@ public class UpdateNameResolverTest {
   public void testGetFailureEntityDoesNotExist() throws Exception {
     EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockService.exists(eq(Urn.createFromString(TERM_URN)), eq(true)))
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class), eq(Urn.createFromString(TERM_URN)), eq(true)))
         .thenReturn(false);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);

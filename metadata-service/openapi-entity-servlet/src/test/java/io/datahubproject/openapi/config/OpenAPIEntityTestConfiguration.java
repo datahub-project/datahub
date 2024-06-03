@@ -15,7 +15,6 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -27,11 +26,13 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeline.TimelineService;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.dto.UrnResponseMap;
-import io.datahubproject.openapi.entities.EntitiesController;
 import io.datahubproject.openapi.generated.EntityResponse;
-import io.datahubproject.openapi.relationships.RelationshipsController;
-import io.datahubproject.openapi.timeline.TimelineController;
+import io.datahubproject.openapi.v1.entities.EntitiesController;
+import io.datahubproject.openapi.v1.relationships.RelationshipsController;
+import io.datahubproject.openapi.v2.controller.TimelineController;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -49,20 +50,14 @@ public class OpenAPIEntityTestConfiguration {
     return new ObjectMapper(new YAMLFactory());
   }
 
-  @Bean
-  @Primary
-  public EntityService entityService(final EntityRegistry mockRegistry) {
-    EntityService entityService = mock(EntityServiceImpl.class);
-    when(entityService.getEntityRegistry()).thenReturn(mockRegistry);
-    return entityService;
-  }
+  @MockBean EntityService<?> entityService;
 
   @Bean
   @Primary
   public SearchService searchService() {
     SearchService searchService = mock(SearchService.class);
     when(searchService.scrollAcrossEntities(
-            anyList(), any(), any(), any(), any(), any(), anyInt(), any()))
+            any(OperationContext.class), anyList(), any(), any(), any(), any(), any(), anyInt()))
         .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()));
 
     return searchService;
@@ -95,7 +90,7 @@ public class OpenAPIEntityTestConfiguration {
       dependency.
     */
     PluginEntityRegistryLoader custom =
-        new PluginEntityRegistryLoader(getClass().getResource("/custom-model").getFile());
+        new PluginEntityRegistryLoader(getClass().getResource("/custom-model").getFile(), 60, null);
 
     ConfigEntityRegistry standard =
         new ConfigEntityRegistry(
@@ -134,4 +129,9 @@ public class OpenAPIEntityTestConfiguration {
   @MockBean public TimelineController timelineController;
 
   @MockBean public RelationshipsController relationshipsController;
+
+  @Bean(name = "systemOperationContext")
+  public OperationContext operationContext(final EntityRegistry entityRegistry) {
+    return TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
+  }
 }

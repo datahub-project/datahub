@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -13,7 +14,6 @@ import com.linkedin.datahub.graphql.generated.ListAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
@@ -41,7 +41,7 @@ public class ListAccessTokensResolver
   @Override
   public CompletableFuture<ListAccessTokenResult> get(DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final ListAccessTokenInput input =
@@ -65,14 +65,15 @@ public class ListAccessTokensResolver
                       .setOrder(SortOrder.DESCENDING);
               final SearchResult searchResult =
                   _entityClient.search(
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.ACCESS_TOKEN_ENTITY_NAME,
                       "",
                       buildFilter(filters, Collections.emptyList()),
                       sortCriterion,
                       start,
-                      count,
-                      getAuthentication(environment),
-                      new SearchFlags().setFulltext(true));
+                      count);
 
               final List<AccessTokenMetadata> tokens =
                   searchResult.getEntities().stream()
@@ -98,7 +99,9 @@ public class ListAccessTokensResolver
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

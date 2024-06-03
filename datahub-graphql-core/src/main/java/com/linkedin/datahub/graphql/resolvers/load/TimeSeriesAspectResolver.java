@@ -2,9 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
@@ -22,9 +23,8 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -48,14 +48,14 @@ public class TimeSeriesAspectResolver
   private final EntityClient _client;
   private final String _entityName;
   private final String _aspectName;
-  private final Function<EnvelopedAspect, TimeSeriesAspect> _aspectMapper;
+  private final BiFunction<QueryContext, EnvelopedAspect, TimeSeriesAspect> _aspectMapper;
   private final SortCriterion _sort;
 
   public TimeSeriesAspectResolver(
       final EntityClient client,
       final String entityName,
       final String aspectName,
-      final Function<EnvelopedAspect, TimeSeriesAspect> aspectMapper) {
+      final BiFunction<QueryContext, EnvelopedAspect, TimeSeriesAspect> aspectMapper) {
     this(client, entityName, aspectName, aspectMapper, null);
   }
 
@@ -63,7 +63,7 @@ public class TimeSeriesAspectResolver
       final EntityClient client,
       final String entityName,
       final String aspectName,
-      final Function<EnvelopedAspect, TimeSeriesAspect> aspectMapper,
+      final BiFunction<QueryContext, EnvelopedAspect, TimeSeriesAspect> aspectMapper,
       final SortCriterion sort) {
     _client = client;
     _entityName = entityName;
@@ -76,17 +76,18 @@ public class TimeSeriesAspectResolver
   private boolean isAuthorized(QueryContext context, String urn) {
     if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
         && _aspectName.equals(Constants.DATASET_PROFILE_ASPECT_NAME)) {
-      return AuthorizationUtils.isAuthorized(
-          context,
-          Optional.of(new EntitySpec(_entityName, urn)),
-          PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE);
+      return AuthUtil.isAuthorized(
+          context.getAuthorizer(),
+          context.getActorUrn(),
+          PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
+          new EntitySpec(_entityName, urn));
     }
     return true;
   }
 
   @Override
   public CompletableFuture<List<TimeSeriesAspect>> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           // Fetch the urn, assuming the parent has an urn field.
@@ -112,6 +113,7 @@ public class TimeSeriesAspectResolver
             // Step 1: Get aspects.
             List<EnvelopedAspect> aspects =
                 _client.getTimeseriesAspectValues(
+                    context.getOperationContext(),
                     urn,
                     _entityName,
                     _aspectName,
@@ -119,15 +121,18 @@ public class TimeSeriesAspectResolver
                     maybeEndTimeMillis,
                     maybeLimit,
                     buildFilters(maybeFilters),
-                    maybeSort,
-                    context.getAuthentication());
+                    maybeSort);
 
             // Step 2: Bind profiles into GraphQL strong types.
-            return aspects.stream().map(_aspectMapper).collect(Collectors.toList());
+            return aspects.stream()
+                .map(a -> _aspectMapper.apply(context, a))
+                .collect(Collectors.toList());
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve aspects from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildFilters(@Nullable FilterInput maybeFilters) {

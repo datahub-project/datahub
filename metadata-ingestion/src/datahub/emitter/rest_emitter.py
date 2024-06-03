@@ -10,7 +10,7 @@ from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub.cli.cli_utils import get_system_auth
+from datahub.cli.cli_utils import fixup_gms_url, get_system_auth
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -72,7 +72,7 @@ class DataHubRestEmitter(Closeable, Emitter):
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
-        self._gms_server = gms_server
+        self._gms_server = fixup_gms_url(gms_server)
         self._token = token
         self.server_config: Dict[str, Any] = {}
 
@@ -158,32 +158,21 @@ class DataHubRestEmitter(Closeable, Emitter):
             timeout=(self._connect_timeout_sec, self._read_timeout_sec),
         )
 
-    def test_connection(self) -> dict:
+    def test_connection(self) -> None:
         url = f"{self._gms_server}/config"
         response = self._session.get(url)
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
                 self.server_config = config
-                return config
+                return
 
             else:
-                # Looks like we either connected to an old GMS or to some other service. Let's see if we can determine which before raising an error
-                # A common misconfiguration is connecting to datahub-frontend so we special-case this check
-                if (
-                    config.get("config", {}).get("application") == "datahub-frontend"
-                    or config.get("config", {}).get("shouldShowDatasetLineage")
-                    is not None
-                ):
-                    raise ConfigurationError(
-                        "You seem to have connected to the frontend instead of the GMS endpoint. "
-                        "The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)"
-                    )
-                else:
-                    raise ConfigurationError(
-                        "You have either connected to a pre-v0.8.0 DataHub GMS instance, or to a different server altogether! "
-                        "Please check your configuration and make sure you are talking to the DataHub GMS endpoint."
-                    )
+                raise ConfigurationError(
+                    "You seem to have connected to the frontend service instead of the GMS endpoint. "
+                    "The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms). "
+                    "For Acryl users, the endpoint should be https://<name>.acryl.io/gms"
+                )
         else:
             logger.debug(
                 f"Unable to connect to {url} with status_code: {response.status_code}. Response: {response.text}"
@@ -194,6 +183,10 @@ class DataHubRestEmitter(Closeable, Emitter):
                 message = f"Unable to connect to {url} with status_code: {response.status_code}."
             message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
             raise ConfigurationError(message)
+
+    def get_server_config(self) -> dict:
+        self.test_connection()
+        return self.server_config
 
     def to_graph(self) -> "DataHubGraph":
         from datahub.ingestion.graph.client import DataHubGraph

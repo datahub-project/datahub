@@ -26,6 +26,13 @@ record ViewProperties {
   viewLogic: string
 
   /**
+   * The formatted view logic. This is particularly used for SQL sources, where the SQL
+   * logic is formatted for better readability, and with dbt, where this contains the
+   * compiled SQL logic.
+   */
+  formattedViewLogic: optional string
+
+  /**
    * The view logic language / dialect
    */
   viewLanguage: string

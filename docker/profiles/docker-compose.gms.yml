@@ -58,7 +58,10 @@ x-datahub-system-update-service: &datahub-system-update-service
   command:
     - -u
     - SystemUpdate
-  env_file: datahub-upgrade/env/docker.env
+  env_file:
+    - datahub-upgrade/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty2.env}
   environment: &datahub-system-update-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
     SCHEMA_REGISTRY_SYSTEM_UPDATE: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:-true}
@@ -87,12 +90,17 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
 #################################
 x-datahub-gms-service: &datahub-gms-service
   hostname: datahub-gms
-  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-gms}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_VERSION:-head}
   ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
-  env_file: datahub-gms/env/docker.env
+  env_file:
+    - datahub-gms/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED: true
+    ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE: '/etc/datahub/search/search_config.yaml'
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -101,19 +109,19 @@ x-datahub-gms-service: &datahub-gms-service
     timeout: 5s
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/search:/etc/datahub/search
   labels:
     io.datahubproject.datahub.component: "gms"
 
 x-datahub-gms-service-dev: &datahub-gms-service-dev
   <<: *datahub-gms-service
-  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-gms}:debug
+  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:debug
   ports:
     - ${DATAHUB_MAPPED_GMS_DEBUG_PORT:-5001}:5001
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
   environment: &datahub-gms-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-gms-env]
     SKIP_ELASTICSEARCH_CHECK: false
-    METADATA_SERVICE_AUTH_ENABLED: false
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001'
     BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE: false
     SEARCH_SERVICE_ENABLE_CACHE: false
@@ -122,26 +130,31 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
+    - ./datahub-gms/jetty-jmx.xml:/datahub/datahub-gms/scripts/jetty-jmx.xml
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ../../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/search:/etc/datahub/search
 
 #################################
 # MAE Consumer
 #################################
 x-datahub-mae-consumer-service: &datahub-mae-consumer-service
   hostname: datahub-mae-consumer
-  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
   ports:
     - 9091:9091
-  env_file: datahub-mae-consumer/env/docker.env
+  env_file:
+    - datahub-mae-consumer/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_MAE_ENV:-empty2.env}
   environment: &datahub-mae-consumer-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
 
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
   <<: *datahub-mae-consumer-service
-  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-mae-consumer}:debug
+  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:debug
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mae-consumer-env]
   volumes:
@@ -155,16 +168,19 @@ x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
 #################################
 x-datahub-mce-consumer-service: &datahub-mce-consumer-service
   hostname: datahub-mce-consumer
-  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
   ports:
     - 9090:9090
-  env_file: datahub-mce-consumer/env/docker.env
+  env_file:
+    - datahub-mce-consumer/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_MCE_ENV:-empty2.env}
   environment: &datahub-mce-consumer-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
 
 x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
   <<: *datahub-mce-consumer-service
-  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-linkedin}/datahub-mce-consumer}:debug
+  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:debug
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
   volumes:
@@ -178,7 +194,6 @@ services:
   #################################
   system-update-quickstart:
     <<: *datahub-system-update-service
-    container_name: system-update
     profiles:
       - quickstart
       - quickstart-storage
@@ -194,7 +209,6 @@ services:
         condition: service_completed_successfully
   system-update-quickstart-cassandra:
     <<: *datahub-system-update-service
-    container_name: system-update
     profiles:
       - quickstart-cassandra
     environment:
@@ -210,7 +224,6 @@ services:
         condition: service_completed_successfully
   system-update-quickstart-postgres:
     <<: *datahub-system-update-service
-    container_name: system-update
     profiles:
       - quickstart-postgres
     environment:
@@ -224,7 +237,6 @@ services:
         condition: service_completed_successfully
   system-update-debug:
     <<: *datahub-system-update-service-dev
-    container_name: system-update-dev
     profiles:
       - debug
       - debug-backend
@@ -238,7 +250,6 @@ services:
         condition: service_completed_successfully
   system-update-debug-elasticsearch:
     <<: *datahub-system-update-service-dev
-    container_name: system-update-dev
     profiles:
       - debug-elasticsearch
     depends_on:
@@ -250,7 +261,6 @@ services:
         condition: service_completed_successfully
   system-update-debug-postgres:
     <<: *datahub-system-update-service-dev
-    container_name: system-update-dev
     profiles:
       - debug-postgres
     environment:
@@ -264,7 +274,6 @@ services:
         condition: service_completed_successfully
   system-update-debug-cassandra:
     <<: *datahub-system-update-service-dev
-    container_name: system-update-dev
     profiles:
       - debug-cassandra
     environment:
@@ -278,7 +287,6 @@ services:
         condition: service_completed_successfully
   system-update-debug-neo4j:
     <<: *datahub-system-update-service-dev
-    container_name: system-update-dev
     profiles:
       - debug-neo4j
     environment:
@@ -298,7 +306,6 @@ services:
     profiles:
       - quickstart
       - quickstart-backend
-    container_name: datahub-gms
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
@@ -306,7 +313,6 @@ services:
     <<: *datahub-gms-service
     profiles:
       - quickstart-cassandra
-    container_name: datahub-gms
     environment:
       <<: [*primary-datastore-cassandra-env, *graph-datastore-neo4j-env, *datahub-gms-env]
     depends_on:
@@ -316,7 +322,6 @@ services:
     <<: *datahub-gms-service
     profiles:
       - quickstart-postgres
-    container_name: datahub-gms
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-gms-env]
     depends_on:
@@ -326,7 +331,6 @@ services:
     <<: *datahub-gms-service
     profiles:
       - quickstart-consumers
-    container_name: datahub-gms
     environment:
       <<: *datahub-gms-env
       MAE_CONSUMER_ENABLED: false
@@ -339,7 +343,6 @@ services:
     profiles:
       - debug
       - debug-backend
-    container_name: datahub-gms-dev
     depends_on:
       system-update-debug:
         condition: service_completed_successfully
@@ -349,7 +352,6 @@ services:
       - debug-postgres
     environment:
       <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
-    container_name: datahub-gms-dev
     depends_on:
       system-update-debug-postgres:
         condition: service_completed_successfully
@@ -359,7 +361,6 @@ services:
       - debug-cassandra
     environment:
       <<: [*primary-datastore-cassandra-env, *datahub-gms-dev-env]
-    container_name: datahub-gms-dev
     depends_on:
       system-update-debug-cassandra:
         condition: service_completed_successfully
@@ -371,7 +372,6 @@ services:
       <<: *datahub-gms-dev-env
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
-    container_name: datahub-gms-dev
     depends_on:
       system-update-debug:
         condition: service_completed_successfully
@@ -381,7 +381,6 @@ services:
       - debug-neo4j
     environment:
       <<: [*graph-datastore-neo4j-env, *datahub-gms-dev-env]
-    container_name: datahub-gms-dev
     depends_on:
       system-update-debug-neo4j:
         condition: service_completed_successfully
@@ -389,7 +388,6 @@ services:
     <<: *datahub-gms-service-dev
     profiles:
       - debug-elasticsearch
-    container_name: datahub-gms-dev
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully
@@ -400,7 +398,6 @@ services:
     <<: *datahub-mae-consumer-service
     profiles:
       - quickstart-consumers
-    container_name: datahub-mae-consumer
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
@@ -408,7 +405,6 @@ services:
     <<: *datahub-mae-consumer-service-dev
     profiles:
       - debug-consumers
-    container_name: datahub-mae-consumer-dev
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy
@@ -419,7 +415,6 @@ services:
     <<: *datahub-mce-consumer-service
     profiles:
       - quickstart-consumers
-    container_name: datahub-mce-consumer
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
@@ -427,7 +422,6 @@ services:
     <<: *datahub-mce-consumer-service-dev
     profiles:
       - debug-consumers
-    container_name: datahub-mce-consumer-dev
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy

@@ -54,10 +54,10 @@ public class StructuredPropertyType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               STRUCTURED_PROPERTY_ENTITY_NAME,
               new HashSet<>(extendedPropertyUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : extendedPropertyUrns) {
@@ -69,7 +69,7 @@ public class StructuredPropertyType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<StructuredPropertyEntity>newResult()
-                          .data(StructuredPropertyMapper.map(gmsResult))
+                          .data(StructuredPropertyMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

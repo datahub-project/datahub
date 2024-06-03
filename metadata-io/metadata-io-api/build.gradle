@@ -1,0 +1,11 @@
+plugins {
+  id 'java-library'
+}
+
+dependencies {
+  implementation project(':entity-registry')
+  implementation project(':metadata-service:services')
+  implementation project(':metadata-utils')
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+}

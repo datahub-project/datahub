@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -46,11 +47,11 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
   private static final String UPGRADE_ID = "backfill-default-browse-paths-v2-step";
   private static final Integer BATCH_SIZE = 5000;
 
-  private final SearchService _searchService;
+  private final SearchService searchService;
 
   public BackfillBrowsePathsV2Step(EntityService<?> entityService, SearchService searchService) {
     super(entityService, VERSION, UPGRADE_ID);
-    _searchService = searchService;
+    this.searchService = searchService;
   }
 
   @Nonnull
@@ -60,7 +61,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
   }
 
   @Override
-  public void upgrade() throws Exception {
+  public void upgrade(@Nonnull OperationContext systemOpContext) throws Exception {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
@@ -74,13 +75,17 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
             String.format(
                 "Upgrading batch %s-%s of browse paths for entity type %s",
                 migratedCount, migratedCount + BATCH_SIZE, entityType));
-        scrollId = backfillBrowsePathsV2(entityType, auditStamp, scrollId);
+        scrollId = backfillBrowsePathsV2(systemOpContext, entityType, auditStamp, scrollId);
         migratedCount += BATCH_SIZE;
       } while (scrollId != null);
     }
   }
 
-  private String backfillBrowsePathsV2(String entityType, AuditStamp auditStamp, String scrollId)
+  private String backfillBrowsePathsV2(
+      @Nonnull OperationContext systemOperationContext,
+      String entityType,
+      AuditStamp auditStamp,
+      String scrollId)
       throws Exception {
 
     // Condition: has `browsePaths` AND does NOT have `browsePathV2`
@@ -106,15 +111,22 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     filter.setOr(conjunctiveCriterionArray);
 
     final ScrollResult scrollResult =
-        _searchService.scrollAcrossEntities(
-            ImmutableList.of(entityType), "*", filter, null, scrollId, "5m", BATCH_SIZE, null);
+        searchService.scrollAcrossEntities(
+            systemOperationContext,
+            ImmutableList.of(entityType),
+            "*",
+            filter,
+            null,
+            scrollId,
+            "5m",
+            BATCH_SIZE);
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;
     }
 
     for (SearchEntity searchEntity : scrollResult.getEntities()) {
       try {
-        ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
+        ingestBrowsePathsV2(systemOperationContext, searchEntity.getEntity(), auditStamp);
       } catch (Exception e) {
         // don't stop the whole step because of one bad urn or one bad ingestion
         log.error(
@@ -128,9 +140,12 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     return scrollResult.getScrollId();
   }
 
-  private void ingestBrowsePathsV2(Urn urn, AuditStamp auditStamp) throws Exception {
+  private void ingestBrowsePathsV2(
+      @Nonnull OperationContext systemOperationContext, Urn urn, AuditStamp auditStamp)
+      throws Exception {
     BrowsePathsV2 browsePathsV2 =
-        DefaultAspectsUtil.buildDefaultBrowsePathV2(urn, true, _entityService);
+        DefaultAspectsUtil.buildDefaultBrowsePathV2(
+            systemOperationContext, urn, true, entityService);
     log.debug(String.format("Adding browse path v2 for urn %s with value %s", urn, browsePathsV2));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -140,6 +155,6 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     proposal.setSystemMetadata(
         new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
     proposal.setAspect(GenericRecordUtils.serializeAspect(browsePathsV2));
-    _entityService.ingestProposal(proposal, auditStamp, false);
+    entityService.ingestProposal(systemOperationContext, proposal, auditStamp, false);
   }
 }

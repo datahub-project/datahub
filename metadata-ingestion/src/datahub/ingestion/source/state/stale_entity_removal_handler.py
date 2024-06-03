@@ -37,7 +37,7 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
         description="Soft-deletes the entities present in the last successful run but missing in the current run with stateful_ingestion enabled.",
     )
     fail_safe_threshold: float = pydantic.Field(
-        default=100.0,
+        default=40.0,
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
         le=100.0,
         ge=0.0,
@@ -164,6 +164,9 @@ class StaleEntityRemovalHandler(
     def is_checkpointing_enabled(self) -> bool:
         return self.checkpointing_enabled
 
+    def _get_state_obj(self):
+        return self.state_type_class()
+
     def create_checkpoint(self) -> Optional[Checkpoint]:
         if self.is_checkpointing_enabled() and not self._ignore_new_state():
             assert self.stateful_ingestion_config is not None
@@ -172,7 +175,7 @@ class StaleEntityRemovalHandler(
                 job_name=self.job_id,
                 pipeline_name=self.pipeline_name,
                 run_id=self.run_id,
-                state=self.state_type_class(),
+                state=self._get_state_obj(),
             )
         return None
 
@@ -221,6 +224,8 @@ class StaleEntityRemovalHandler(
 
         assert self.stateful_ingestion_config
 
+        copy_previous_state_and_fail = False
+
         # Check if the entity delta is below the fail-safe threshold.
         entity_difference_percent = cur_checkpoint_state.get_percent_entities_changed(
             last_checkpoint_state
@@ -239,26 +244,32 @@ class StaleEntityRemovalHandler(
                 f"Will not soft-delete entities, since we'd be deleting {entity_difference_percent:.1f}% of the existing entities. "
                 f"To force a deletion, increase the value of 'stateful_ingestion.fail_safe_threshold' (currently {self.stateful_ingestion_config.fail_safe_threshold})",
             )
-            return
+            copy_previous_state_and_fail = True
 
         if self.source.get_report().events_produced == 0:
-            # SUBTLE: By reporting this as a failure here, we also ensure that the
-            # new (empty) state doesn't get committed.
-            # TODO: Move back to using fail_safe_threshold once we're confident that we've squashed all the bugs.
             self.source.get_report().report_failure(
                 "stale-entity-removal",
                 "Skipping stale entity soft-deletion because the source produced no events. "
                 "This is a fail-safe mechanism to prevent accidental deletion of all entities.",
             )
-            return
+            copy_previous_state_and_fail = True
 
         # If the source already had a failure, skip soft-deletion.
-        # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far.
+        # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far, not just the source.
         if self.source.get_report().failures:
             self.source.get_report().report_warning(
                 "stale-entity-removal",
-                "Skipping stale entity soft-deletion since source already had failures.",
+                "Skipping stale entity soft-deletion and copying urns from last state since source already had failures.",
             )
+            copy_previous_state_and_fail = True
+
+        if copy_previous_state_and_fail:
+            logger.info(
+                f"Copying urns from last state (size {last_checkpoint_state.urns}) to current state (size {cur_checkpoint_state.urns}) "
+                "to ensure stale entities from previous runs are deleted on the next successful run."
+            )
+            for urn in last_checkpoint_state.urns:
+                self.add_entity_to_state("", urn)
             return
 
         # Everything looks good, emit the soft-deletion workunits

@@ -8,7 +8,7 @@ Currently, this project only supports aspects defined in PDL to existing or newl
 
 ## Pre-Requisites
 
-Before proceeding further, make sure you understand the DataHub Metadata Model concepts defined [here](docs/modeling/metadata-model.md) and extending the model defined [here](docs/modeling/extending-the-metadata-model.md). 
+Before proceeding further, make sure you understand the DataHub Metadata Model concepts defined [here](/docs/modeling/metadata-model.md) and extending the model defined [here](/docs/modeling/extending-the-metadata-model.md). 
 
 ## Create your new aspect(s)
 
@@ -48,7 +48,7 @@ Change your directory to the metadata-models-custom folder and then run this com
 This will create a zip file in the build/dist folder. Then change your directory back to the main datahub folder and run 
 
 ```
-./gradlew :metadata-models-custom:install
+./gradlew :metadata-models-custom:modelDeploy
 ```
 
 This will install the zip file as a datahub plugin. It is installed at `~/.datahub/plugins/models/` and if you list the directory you should see the following path if you are following the customDataQualityRules implementation example: `~/.datahub/plugins/models/mycompany-dq-model/0.0.0-dev/`
@@ -167,7 +167,7 @@ As you evolve the metadata model, you can publish new versions of the repository
 
 ###  Custom Plugins
 
-Adding custom aspects to DataHub's existing data model is a powerful way to extend DataHub without forking the entire repo. Often however extending
+Adding custom aspects to DataHub's existing data model is a powerful way to extend DataHub without forking the entire repo. Often extending
 just the data model is not enough and additional custom code might be required. For a few of these use cases a plugin framework was developed
 to control how instances of custom aspects can be validated, mutated, and generate side effects (additional aspects).
 
@@ -210,7 +210,7 @@ Custom aspects might require that instances of those aspects adhere to specific 
 as a null or range check for one or more fields within the custom aspect. Additionally, a lookup can be done on other aspects in order to validate the current aspect using the `AspectRetriever`.
 
 There are two integration points for validation. The first integration point is `on request` via the `validateProposedAspect` method where the aspect is validated independent of the previous value. This validation is performed
-outside of any kind of database transaction and can perform more intensive checks without introducing added latency within a transaction.
+outside of a database transaction and can perform more intensive checks without introducing added latency within a transaction. Note that added latency from the validation check is still introduced into the request itself.
 
 The second integration point for validation occurs within the database transaction using the `validatePreCommitAspect` and has access to the new aspect as well as the old aspect. See the included
 example in [`CustomDataQualityRulesValidator.java`](src/main/java/com/linkedin/metadata/aspect/plugins/validation/CustomDataQualityRulesValidator.java).
@@ -220,26 +220,13 @@ Shown below is the interface to be implemented for a custom validator.
 ```java
 public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
     @Override
-    protected void validateProposedAspect(
-            @Nonnull ChangeType changeType,
-            @Nonnull Urn entityUrn,
-            @Nonnull AspectSpec aspectSpec,
-            @Nonnull RecordTemplate aspectPayload,
-            @Nonnull AspectRetriever aspectRetriever)
-            throws AspectValidationException {
-
+    protected Stream<AspectValidationException> validateProposedAspects(
+            @Nonnull Collection<? extends BatchItem> mcpItems, @Nonnull AspectRetriever aspectRetriever) {
     }
 
     @Override
-    protected void validatePreCommitAspect(
-            @Nonnull ChangeType changeType,
-            @Nonnull Urn entityUrn,
-            @Nonnull AspectSpec aspectSpec,
-            @Nullable RecordTemplate previousAspect,
-            @Nonnull RecordTemplate proposedAspect,
-            @Nonnull AspectRetriever aspectRetriever)
-            throws AspectValidationException {
-
+    protected Stream<AspectValidationException> validatePreCommitAspects(
+            @Nonnull Collection<ChangeMCP> changeMCPs, AspectRetriever aspectRetriever) {
     }
 }
 ```
@@ -265,33 +252,42 @@ plugins:
 
 **Warning: This hook is for advanced users only. It is possible to corrupt data and render your system inoperable.**
 
+Mutation hooks have two possible mutation points. The first is the `write` mutation which can change the data
+being written to persistent storage. The second mutation hook is a `read` hook which can modify the data when
+read from persistent storage.
+
+Write Mutation:
+
 In this example, we want to make sure that the field type is always lowercase regardless of the string being provided
 by ingestion. The full example can be found in [`CustomDataQualityMutator.java`](src/main/java/com/linkedin/metadata/aspect/plugins/hooks/CustomDataQualityRulesMutator.java).
 
 ```java
 public class CustomDataQualityRulesMutator extends MutationHook {
     @Override
-    protected void mutate(
-            @Nonnull ChangeType changeType,
-            @Nonnull EntitySpec entitySpec,
-            @Nonnull AspectSpec aspectSpec,
-            @Nullable RecordTemplate oldAspectValue,
-            @Nullable RecordTemplate newAspectValue,
-            @Nullable SystemMetadata oldSystemMetadata,
-            @Nullable SystemMetadata newSystemMetadata,
-            @Nonnull AuditStamp auditStamp,
-            @Nonnull AspectRetriever aspectRetriever) {
+    protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
+            @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+        return changeMCPS.stream()
+                .map(
+                        changeMCP -> {
+                            boolean mutated = false;
 
-        if (newAspectValue != null) {
-            DataQualityRules newDataQualityRules = new DataQualityRules(newAspectValue.data());
+                            if (changeMCP.getRecordTemplate() != null) {
+                                DataQualityRules newDataQualityRules =
+                                        new DataQualityRules(changeMCP.getRecordTemplate().data());
 
-            for (DataQualityRule rule : newDataQualityRules.getRules()) {
-                // Ensure uniform lowercase
-                if (!rule.getType().toLowerCase().equals(rule.getType())) {
-                    rule.setType(rule.getType().toLowerCase());
-                }
-            }
-        }
+                                for (DataQualityRule rule : newDataQualityRules.getRules()) {
+                                    // Ensure uniform lowercase
+                                    if (!rule.getType().toLowerCase().equals(rule.getType())) {
+                                        mutated = true;
+                                        rule.setType(rule.getType().toLowerCase());
+                                    }
+                                }
+                            }
+
+                            return mutated ? changeMCP : null;
+                        })
+                .filter(Objects::nonNull)
+                .map(changeMCP -> Pair.of(changeMCP, true));
     }
 }
 ```
@@ -303,6 +299,44 @@ plugins:
       enabled: true
       supportedOperations:
         - UPSERT
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: customDataQualityRules
+```
+
+Read Mutation:
+
+A read mutator would implement the following interface and the following example is a read mutation which hides soft 
+deleted structured properties from being returned on entities. 
+
+```java
+public class StructuredPropertiesSoftDelete extends MutationHook {
+    @Override
+    protected Stream<Pair<ReadItem, Boolean>> readMutation(
+            @Nonnull Collection<ReadItem> items, @Nonnull AspectRetriever aspectRetriever) {
+        Map<Urn, StructuredProperties> entityStructuredPropertiesMap =
+                items.stream()
+                        .filter(i -> i.getRecordTemplate() != null)
+                        .map(i -> Pair.of(i.getUrn(), i.getAspect(StructuredProperties.class)))
+                        .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+
+        // Apply filter
+        Map<Urn, Boolean> mutatedEntityStructuredPropertiesMap =
+                StructuredPropertyUtils.filterSoftDelete(entityStructuredPropertiesMap, aspectRetriever);
+
+        return items.stream()
+                .map(i -> Pair.of(i, mutatedEntityStructuredPropertiesMap.getOrDefault(i.getUrn(), false)));
+    }
+}
+```
+
+Note that the `supportedOperations` is left empty since those operation types only include change types like `UPSERT` or `DELETE`
+
+```yaml
+plugins:
+  mutationHooks:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.CustomDataQualityRulesMutator'
+      enabled: true
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: customDataQualityRules
@@ -323,18 +357,22 @@ The full example can be found in [`CustomDataQualityRulesMCPSideEffect.java`](sr
 ```java
 public class CustomDataQualityRulesMCPSideEffect extends MCPSideEffect {
     @Override
-    protected Stream<UpsertItem> applyMCPSideEffect(
-            UpsertItem input, EntityRegistry entityRegistry, @Nonnull AspectRetriever aspectRetriever) {
+    protected Stream<ChangeMCP> applyMCPSideEffect(
+            Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
         // Mirror aspects to another URN in SQL & Search
-        Urn mirror = UrnUtils.getUrn(input.getUrn().toString().replace(",PROD)", ",DEV)"));
-        return Stream.of(
-                MCPUpsertBatchItem.builder()
-                        .urn(mirror)
-                        .aspectName(input.getAspectName())
-                        .aspect(input.getAspect())
-                        .auditStamp(input.getAuditStamp())
-                        .systemMetadata(input.getSystemMetadata())
-                        .build(entityRegistry, aspectRetriever));
+        return changeMCPS.stream()
+                .map(
+                        changeMCP -> {
+                            Urn mirror =
+                                    UrnUtils.getUrn(changeMCP.getUrn().toString().replace(",PROD)", ",DEV)"));
+                            return ChangeItemImpl.builder()
+                                    .urn(mirror)
+                                    .aspectName(changeMCP.getAspectName())
+                                    .recordTemplate(changeMCP.getRecordTemplate())
+                                    .auditStamp(changeMCP.getAuditStamp())
+                                    .systemMetadata(changeMCP.getSystemMetadata())
+                                    .build(aspectRetriever);
+                        });
     }
 }
 ```
@@ -367,34 +405,32 @@ The full example can be found in [`CustomDataQualityRulesMCLSideEffect.java`](sr
 ```java
 public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
     @Override
-    protected Stream<MCLBatchItem> applyMCLSideEffect(
-            @Nonnull MCLBatchItem input,
-            @Nonnull EntityRegistry entityRegistry,
-            @Nonnull AspectRetriever aspectRetriever) {
+    protected Stream<MCLItem> applyMCLSideEffect(
+            @Nonnull Collection<MCLItem> mclItems, @Nonnull AspectRetriever aspectRetriever) {
+        return mclItems.stream()
+                .map(
+                        item -> {
+                            // Generate Timeseries event aspect based on non-Timeseries aspect
+                            MetadataChangeLog originMCP = item.getMetadataChangeLog();
 
-        // Generate Timeseries event aspect based on non-Timeseries aspect
-        MetadataChangeLog originMCP = input.getMetadataChangeLog();
-
-        Optional<MCLBatchItem> timeseriesOptional =
-                buildEvent(originMCP)
-                        .map(
-                                event -> {
-                                    try {
-                                        MetadataChangeLog eventMCP = originMCP.clone();
-                                        eventMCP.setAspect(GenericRecordUtils.serializeAspect(event));
-                                        eventMCP.setAspectName("customDataQualityRuleEvent");
-                                        return eventMCP;
-                                    } catch (CloneNotSupportedException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                })
-                        .map(
-                                eventMCP ->
-                                        MCLBatchItemImpl.builder()
-                                                .metadataChangeLog(eventMCP)
-                                                .build(entityRegistry, aspectRetriever));
-
-        return timeseriesOptional.stream();
+                            return buildEvent(originMCP)
+                                    .map(
+                                            event -> {
+                                                try {
+                                                    MetadataChangeLog eventMCP = originMCP.clone();
+                                                    eventMCP.setAspect(GenericRecordUtils.serializeAspect(event));
+                                                    eventMCP.setAspectName("customDataQualityRuleEvent");
+                                                    return eventMCP;
+                                                } catch (CloneNotSupportedException e) {
+                                                    throw new RuntimeException(e);
+                                                }
+                                            })
+                                    .map(
+                                            eventMCP ->
+                                                    MCLItemImpl.builder().metadataChangeLog(eventMCP).build(aspectRetriever));
+                        })
+                .filter(Optional::isPresent)
+                .map(Optional::get);
     }
 
     private Optional<DataQualityRuleEvent> buildEvent(MetadataChangeLog originMCP) {
@@ -430,6 +466,73 @@ plugins:
         - entityName: 'dataset'
           aspectName: customDataQualityRules
 ```
+
+#### Spring Support
+
+Validators, mutators, and side-effects can also utilize Spring to inject dependencies and autoconfigure them. While Spring is
+not required, it is possible to use Spring to both inject autoconfiguration and the plugins themselves. An example Spring-enabled
+validator has been included in the package `com.linkedin.metadata.aspect.plugins.spring.validation`. The plugin
+class loader and Spring context is isolated so conflicts between DataHub and custom classes are avoided.
+
+The configuration of a Spring enabled plugin looks like the following, note the addition of `spring.enabled: true` below.
+A list of packages to scan for Spring configuration and components should also be provided which should include
+your custom classes with Spring annotations per the `packageScan` below.
+
+```yaml
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.linkedin.metadata.aspect.plugins.spring.validation.CustomDataQualityRulesValidator'
+      packageScan:
+        - com.linkedin.metadata.aspect.plugins.spring.validation
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: 'dataset'
+          aspectName: customDataQualityRules
+      spring:
+        enabled: true
+```
+
+In the Spring example, a configuration component called `CustomDataQualityRulesConfig` provides a string `Spring injection works!` demonstrating
+injection of a bean into a function which is called by Spring after constructing the custom validator plugin.
+
+```java
+@Configuration
+public class CustomDataQualityRulesConfig {
+    @Bean("myCustomMessage")
+    public String myCustomMessage() {
+        return "Spring injection works!";
+    }
+}
+```
+
+```java
+@Component
+@Import(CustomDataQualityRulesConfig.class)
+public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
+    @Autowired
+    @Qualifier("myCustomMessage")
+    private String myCustomMessage;
+
+    @PostConstruct
+    public void message() {
+        System.out.println(myCustomMessage);
+    }
+    
+    // ...
+}
+```
+
+Example Log:
+
+```
+INFO  c.l.m.m.r.PluginEntityRegistryLoader:187 - com.linkedin.metadata.models.registry.PluginEntityRegistryLoader@144e466d: Registry mycompany-dq-model:0.0.0-dev discovered. Loading...
+INFO  c.l.m.m.registry.PatchEntityRegistry:143 - Loading custom config entity file: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev/entity-registry.yaml, dir: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev
+INFO  c.l.m.m.registry.PatchEntityRegistry:143 - Loading custom config entity file: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev/entity-registry.yaml, dir: /etc/datahub/plugins/models/mycompany-dq-model/0.0.0-dev
+Spring injection works!
+```
+
 
 ## The Future
 

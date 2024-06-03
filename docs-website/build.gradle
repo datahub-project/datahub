@@ -45,7 +45,7 @@ def projectMdFiles = project.fileTree("${project.projectDir}") {
     include '**/*.ts'
     exclude 'node_modules'
     exclude '**/dist/**'
-    }
+}
 
 // Combine GraphQL schemas for documentation.
 task generateGraphQLSchema(type: Exec) {
@@ -68,12 +68,25 @@ task yarnInstall(type: YarnTask) {
   } else {
     args = ['install']
   }
+
+  // The node_modules directory can contain built artifacts, so
+  // it's not really safe to cache it.
+  outputs.cacheIf { false }
+
+  inputs.files(
+    file('yarn.lock'),
+    file('package.json'),
+  )
+  outputs.dir('node_modules')
 }
 
 task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     generateGraphQLSchema, generateJsonSchema,
     ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
-    ':metadata-ingestion:buildWheel', ':metadata-ingestion-modules:airflow-plugin:buildWheel'] ) {
+    ':metadata-ingestion:buildWheel',
+    ':metadata-ingestion-modules:airflow-plugin:buildWheel',
+    ':metadata-ingestion-modules:dagster-plugin:buildWheel',
+    ]) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']
@@ -94,17 +107,11 @@ task fastReload(type: YarnTask) {
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   inputs.files(projectMdFiles)
   args = ['run', 'lint-check']
-  outputs.dir("dist")
-  // tell gradle to apply the build cache
-  outputs.cacheIf { true }
 }
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
   inputs.files(projectMdFiles)
   args = ['run', 'lint-fix']
-  outputs.dir("dist")
-  // tell gradle to apply the build cache
-  outputs.cacheIf { true }
 }
 
 task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
@@ -123,11 +130,11 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate, downloadHisto
   outputs.cacheIf { true }
   // See https://stackoverflow.com/questions/53230823/fatal-error-ineffective-mark-compacts-near-heap-limit-allocation-failed-java
   // and https://github.com/facebook/docusaurus/issues/8329.
-  // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader.
+  // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader or esbuild minification.
   if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
-    environment = ['NODE_OPTIONS': '--max-old-space-size=10248']
+    environment = ['NODE_OPTIONS': '--max-old-space-size=10240']
   } else {
-    environment = ['NODE_OPTIONS': '--max-old-space-size=10248 --openssl-legacy-provider']
+    environment = ['NODE_OPTIONS': '--max-old-space-size=10240 --openssl-legacy-provider']
   }
   args = ['run', 'build']
 

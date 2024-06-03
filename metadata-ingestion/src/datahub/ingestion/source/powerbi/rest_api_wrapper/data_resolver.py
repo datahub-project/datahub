@@ -63,7 +63,7 @@ class DataResolverBase(ABC):
         self.__access_token_expiry_time: Optional[datetime] = None
         self.__tenant_id = tenant_id
         # Test connection by generating access token
-        logger.info("Trying to connect to {}".format(self._get_authority_url()))
+        logger.info(f"Trying to connect to {self._get_authority_url()}")
         # Power-Bi Auth (Service Principal Auth)
         self.__msal_client = msal.ConfidentialClientApplication(
             client_id,
@@ -72,7 +72,7 @@ class DataResolverBase(ABC):
         )
         self.get_access_token()
 
-        logger.info("Connected to {}".format(self._get_authority_url()))
+        logger.info(f"Connected to {self._get_authority_url()}")
         self._request_session = requests.Session()
         # set re-try parameter for request_session
         self._request_session.mount(
@@ -124,7 +124,7 @@ class DataResolverBase(ABC):
         pass
 
     def _get_authority_url(self):
-        return "{}{}".format(DataResolverBase.AUTHORITY, self.__tenant_id)
+        return f"{DataResolverBase.AUTHORITY}{self.__tenant_id}"
 
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
@@ -193,7 +193,7 @@ class DataResolverBase(ABC):
                 id=instance.get(Constant.ID),
                 isReadOnly=instance.get(Constant.IS_READ_ONLY),
                 displayName=instance.get(Constant.DISPLAY_NAME),
-                description=instance.get(Constant.DESCRIPTION, str()),
+                description=instance.get(Constant.DESCRIPTION, ""),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 webUrl=instance.get(Constant.WEB_URL),
                 workspace_id=workspace.id,
@@ -276,7 +276,7 @@ class DataResolverBase(ABC):
                 name=raw_instance.get(Constant.NAME),
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
-                description=raw_instance.get(Constant.DESCRIPTION, str()),
+                description=raw_instance.get(Constant.DESCRIPTION, ""),
                 pages=self._get_pages_by_report(
                     workspace=workspace, report_id=raw_instance[Constant.ID]
                 ),
@@ -809,7 +809,7 @@ class AdminAPIResolver(DataResolverBase):
 
         # Return scan_id of Scan created for the given workspace
         workspace_ids = [row["id"] for row in res.json()]
-        logger.debug("modified workspace_ids: {}".format(workspace_ids))
+        logger.debug(f"modified workspace_ids: {workspace_ids}")
         return workspace_ids
 
     def get_dataset_parameters(

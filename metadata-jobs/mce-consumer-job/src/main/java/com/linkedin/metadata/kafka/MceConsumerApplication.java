@@ -32,14 +32,15 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.metadata.dao.producer",
       "com.linkedin.gms.factory.form",
       "com.linkedin.metadata.dao.producer",
-      "io.datahubproject.metadata.jobs.common.health.kafka"
+      "io.datahubproject.metadata.jobs.common.health.kafka",
+      "com.linkedin.gms.factory.context"
     },
     excludeFilters = {
       @ComponentScan.Filter(
           type = FilterType.ASSIGNABLE_TYPE,
           classes = {ScheduledAnalyticsFactory.class})
     })
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
+@PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
 public class MceConsumerApplication {
 
   public static void main(String[] args) {

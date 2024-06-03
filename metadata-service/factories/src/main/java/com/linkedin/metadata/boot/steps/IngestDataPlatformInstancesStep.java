@@ -11,10 +11,11 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.MCPUpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -42,14 +43,15 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
     return ExecutionMode.ASYNC;
   }
 
-  private Optional<DataPlatformInstance> getDataPlatformInstance(Urn urn) {
-    final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
+  private Optional<DataPlatformInstance> getDataPlatformInstance(
+      @Nonnull OperationContext opContext, Urn urn) {
+    final AspectSpec keyAspectSpec = opContext.getEntityRegistryContext().getKeyAspectSpec(urn);
     RecordTemplate keyAspect = EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec);
     return DataPlatformInstanceUtils.buildDataPlatformInstance(urn.getEntityType(), keyAspect);
   }
 
   @Override
-  public void execute() throws Exception {
+  public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
     log.info("Checking for DataPlatformInstance");
     if (_migrationsDao.checkIfAspectExists(DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
       log.info("DataPlatformInstance aspect exists. Skipping step");
@@ -65,7 +67,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
           start,
           start + BATCH_SIZE);
 
-      List<MCPUpsertBatchItem> items = new LinkedList<>();
+      List<ChangeItemImpl> items = new LinkedList<>();
       final AuditStamp aspectAuditStamp =
           new AuditStamp()
               .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
@@ -73,19 +75,27 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
 
       for (String urnStr : _migrationsDao.listAllUrns(start, start + BATCH_SIZE)) {
         Urn urn = Urn.createFromString(urnStr);
-        Optional<DataPlatformInstance> dataPlatformInstance = getDataPlatformInstance(urn);
+        Optional<DataPlatformInstance> dataPlatformInstance =
+            getDataPlatformInstance(systemOperationContext, urn);
         if (dataPlatformInstance.isPresent()) {
           items.add(
-              MCPUpsertBatchItem.builder()
+              ChangeItemImpl.builder()
                   .urn(urn)
                   .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
                   .recordTemplate(dataPlatformInstance.get())
                   .auditStamp(aspectAuditStamp)
-                  .build(_entityService));
+                  .build(systemOperationContext.getRetrieverContext().get().getAspectRetriever()));
         }
       }
 
-      _entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), true, true);
+      _entityService.ingestAspects(
+          systemOperationContext,
+          AspectsBatchImpl.builder()
+              .retrieverContext(systemOperationContext.getRetrieverContext().get())
+              .items(items)
+              .build(),
+          true,
+          true);
 
       log.info(
           "Finished ingesting DataPlatformInstance for urn {} to {}", start, start + BATCH_SIZE);

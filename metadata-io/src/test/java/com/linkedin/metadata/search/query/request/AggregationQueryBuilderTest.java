@@ -1,12 +1,19 @@
 package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
+import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -15,9 +22,17 @@ import java.util.stream.Collectors;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class AggregationQueryBuilderTest {
+
+  private static AspectRetriever aspectRetriever;
+
+  @BeforeClass
+  public static void setup() throws RemoteInvocationException, URISyntaxException {
+    aspectRetriever = TestOperationContexts.emptyAspectRetriever(null);
+  }
 
   @Test
   public void testGetDefaultAggregationsHasFields() {
@@ -42,9 +57,11 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation));
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
 
-    List<AggregationBuilder> aggs = builder.getAggregations();
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(TestOperationContexts.systemContextNoSearchAuthorization());
 
     Assert.assertTrue(aggs.stream().anyMatch(agg -> agg.getName().equals("hasTest")));
   }
@@ -73,9 +90,11 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation));
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
 
-    List<AggregationBuilder> aggs = builder.getAggregations();
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(TestOperationContexts.systemContextNoSearchAuthorization());
 
     Assert.assertTrue(aggs.stream().anyMatch(agg -> agg.getName().equals("test")));
   }
@@ -120,17 +139,24 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation1, annotation2));
+        new AggregationQueryBuilder(
+            config,
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)));
 
     // Case 1: Ask for fields that should exist.
     List<AggregationBuilder> aggs =
-        builder.getAggregations(ImmutableList.of("test1", "test2", "hasTest1"));
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(),
+            ImmutableList.of("test1", "test2", "hasTest1"));
     Assert.assertEquals(aggs.size(), 3);
     Set<String> facets = aggs.stream().map(AggregationBuilder::getName).collect(Collectors.toSet());
     Assert.assertEquals(ImmutableSet.of("test1", "test2", "hasTest1"), facets);
 
     // Case 2: Ask for fields that should NOT exist.
-    aggs = builder.getAggregations(ImmutableList.of("hasTest2"));
+    aggs =
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(),
+            ImmutableList.of("hasTest2"));
     Assert.assertEquals(aggs.size(), 0);
   }
 
@@ -139,10 +165,14 @@ public class AggregationQueryBuilderTest {
     SearchConfiguration config = new SearchConfiguration();
     config.setMaxTermBucketSize(25);
 
-    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, List.of());
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
 
     List<AggregationBuilder> aggs =
-        builder.getAggregations(List.of("structuredProperties.ab.fgh.ten"));
+        builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(),
+            List.of("structuredProperties.ab.fgh.ten"));
     Assert.assertEquals(aggs.size(), 1);
     AggregationBuilder aggBuilder = aggs.get(0);
     Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
@@ -153,6 +183,7 @@ public class AggregationQueryBuilderTest {
     // Two structured properties
     aggs =
         builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(),
             List.of("structuredProperties.ab.fgh.ten", "structuredProperties.hello"));
     Assert.assertEquals(aggs.size(), 2);
     Assert.assertEquals(
@@ -202,11 +233,14 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation1, annotation2));
+        new AggregationQueryBuilder(
+            config,
+            ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation1, annotation2)));
 
     // Aggregate over fields and structured properties
     List<AggregationBuilder> aggs =
         builder.getAggregations(
+            TestOperationContexts.systemContextNoSearchAuthorization(),
             ImmutableList.of(
                 "test1",
                 "test2",
@@ -252,9 +286,11 @@ public class AggregationQueryBuilderTest {
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(config, ImmutableList.of(annotation));
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)));
 
-    List<AggregationBuilder> aggs = builder.getAggregations();
+    List<AggregationBuilder> aggs =
+        builder.getAggregations(TestOperationContexts.systemContextNoSearchAuthorization());
 
     Assert.assertTrue(aggs.stream().anyMatch(agg -> agg.getName().equals("hasTest")));
     Assert.assertTrue(

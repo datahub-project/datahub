@@ -7,6 +7,10 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectVersion;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -15,6 +19,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.util.Pair;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -173,5 +178,21 @@ public class QueryUtils {
         .setOr(
             new ConjunctiveCriterionArray(
                 new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
+  }
+
+  public static List<EntitySpec> getQueryByDefaultEntitySpecs(EntityRegistry entityRegistry) {
+    return entityRegistry.getEntitySpecs().values().stream()
+        .map(
+            spec ->
+                Pair.of(
+                    spec,
+                    spec.getSearchableFieldSpecs().stream()
+                        .map(SearchableFieldSpec::getSearchableAnnotation)
+                        .collect(Collectors.toList())))
+        .filter(
+            specPair ->
+                specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
+        .map(Pair::getFirst)
+        .collect(Collectors.toList());
   }
 }

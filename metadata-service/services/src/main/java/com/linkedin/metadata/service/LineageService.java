@@ -1,8 +1,8 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
+import static com.linkedin.metadata.utils.AuditStampUtils.getAuditStamp;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.chart.ChartDataSourceTypeArray;
 import com.linkedin.chart.ChartInfo;
@@ -23,9 +23,10 @@ import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,15 +39,14 @@ import lombok.extern.slf4j.Slf4j;
 public class LineageService {
   private static final String SOURCE_FIELD_NAME = "source";
   private static final String UI_SOURCE = "UI";
-  private final EntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
 
   /**
    * Validates that a given list of urns are all datasets and all exist. Throws error if either
    * condition is false for any urn.
    */
   public void validateDatasetUrns(
-      @Nonnull final List<Urn> urns, @Nonnull final Authentication authentication)
-      throws Exception {
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> urns) throws Exception {
     for (final Urn urn : urns) {
       if (!urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)) {
         throw new IllegalArgumentException(
@@ -54,7 +54,7 @@ public class LineageService {
                 "Tried to add lineage edge with non-dataset node when we expect a dataset. Upstream urn: %s",
                 urn));
       }
-      validateUrnExists(urn, authentication);
+      validateUrnExists(opContext, urn);
     }
   }
 
@@ -63,8 +63,7 @@ public class LineageService {
    * Otherwise, throw an error.
    */
   public void validateDashboardUpstreamUrns(
-      @Nonnull final List<Urn> urns, @Nonnull final Authentication authentication)
-      throws Exception {
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> urns) throws Exception {
     for (final Urn urn : urns) {
       if (!urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)
           && !urn.getEntityType().equals(Constants.CHART_ENTITY_NAME)) {
@@ -73,14 +72,14 @@ public class LineageService {
                 "Tried to add an upstream to a dashboard that isn't a chart or dataset. Upstream urn: %s",
                 urn));
       }
-      validateUrnExists(urn, authentication);
+      validateUrnExists(opContext, urn);
     }
   }
 
   /** Validates that a given urn exists using the entityService */
-  public void validateUrnExists(
-      @Nonnull final Urn urn, @Nonnull final Authentication authentication) throws Exception {
-    if (!_entityClient.exists(urn, authentication)) {
+  public void validateUrnExists(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
+      throws Exception {
+    if (!_entityClient.exists(opContext, urn)) {
       throw new IllegalArgumentException(String.format("Error: urn does not exist: %s", urn));
     }
   }
@@ -90,20 +89,20 @@ public class LineageService {
    * existing upstreamLineage aspect.
    */
   public void updateDatasetLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
       @Nonnull final List<Urn> upstreamUrnsToAdd,
       @Nonnull final List<Urn> upstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
-    validateDatasetUrns(upstreamUrnsToAdd, authentication);
+    validateDatasetUrns(opContext, upstreamUrnsToAdd);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
     try {
       MetadataChangeProposal changeProposal =
           buildDatasetLineageProposal(
-              downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, authentication);
-      _entityClient.ingestProposal(changeProposal, authentication, false);
+              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+      _entityClient.ingestProposal(opContext, changeProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update dataset lineage for urn %s", downstreamUrn), e);
@@ -113,18 +112,18 @@ public class LineageService {
   /** Builds an MCP of UpstreamLineage for dataset entities. */
   @Nonnull
   public MetadataChangeProposal buildDatasetLineageProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
       @Nonnull final List<Urn> upstreamUrnsToAdd,
       @Nonnull final List<Urn> upstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
     EntityResponse entityResponse =
         _entityClient.getV2(
+            opContext,
             Constants.DATASET_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME),
-            authentication);
+            ImmutableSet.of(Constants.UPSTREAM_LINEAGE_ASPECT_NAME));
 
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     if (entityResponse != null
@@ -169,22 +168,22 @@ public class LineageService {
 
   /** Updates Chart lineage by building and ingesting an MCP based on inputs. */
   public void updateChartLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
       @Nonnull final List<Urn> upstreamUrnsToAdd,
       @Nonnull final List<Urn> upstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
     // ensure all upstream urns are dataset urns and they exist
-    validateDatasetUrns(upstreamUrnsToAdd, authentication);
+    validateDatasetUrns(opContext, upstreamUrnsToAdd);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
     try {
       MetadataChangeProposal changeProposal =
           buildChartLineageProposal(
-              downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, authentication);
-      _entityClient.ingestProposal(changeProposal, authentication, false);
+              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+      _entityClient.ingestProposal(opContext, changeProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
@@ -194,18 +193,18 @@ public class LineageService {
   /** Builds an MCP of ChartInfo for chart entities. */
   @Nonnull
   public MetadataChangeProposal buildChartLineageProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
       @Nonnull final List<Urn> upstreamUrnsToAdd,
       @Nonnull final List<Urn> upstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
     EntityResponse entityResponse =
         _entityClient.getV2(
+            opContext,
             Constants.CHART_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME),
-            authentication);
+            ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME));
 
     if (entityResponse == null
         || !entityResponse.getAspects().containsKey(Constants.CHART_INFO_ASPECT_NAME)) {
@@ -252,21 +251,21 @@ public class LineageService {
 
   /** Updates Dashboard lineage by building and ingesting an MCP based on inputs. */
   public void updateDashboardLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
       @Nonnull final List<Urn> upstreamUrnsToAdd,
       @Nonnull final List<Urn> upstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
-    validateDashboardUpstreamUrns(upstreamUrnsToAdd, authentication);
+    validateDashboardUpstreamUrns(opContext, upstreamUrnsToAdd);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
     try {
       MetadataChangeProposal changeProposal =
           buildDashboardLineageProposal(
-              downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, authentication);
-      _entityClient.ingestProposal(changeProposal, authentication, false);
+              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+      _entityClient.ingestProposal(opContext, changeProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
@@ -280,18 +279,18 @@ public class LineageService {
    */
   @Nonnull
   public MetadataChangeProposal buildDashboardLineageProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
       @Nonnull final List<Urn> upstreamUrnsToAdd,
       @Nonnull final List<Urn> upstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
     EntityResponse entityResponse =
         _entityClient.getV2(
+            opContext,
             Constants.DASHBOARD_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME),
-            authentication);
+            ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME));
 
     if (entityResponse == null
         || !entityResponse.getAspects().containsKey(Constants.DASHBOARD_INFO_ASPECT_NAME)) {
@@ -453,8 +452,7 @@ public class LineageService {
    * Otherwise, throw an error.
    */
   public void validateDataJobUpstreamUrns(
-      @Nonnull final List<Urn> urns, @Nonnull final Authentication authentication)
-      throws Exception {
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> urns) throws Exception {
     for (final Urn urn : urns) {
       if (!urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)
           && !urn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)) {
@@ -463,27 +461,27 @@ public class LineageService {
                 "Tried to add an upstream to a dataJob that isn't a datJob or dataset. Upstream urn: %s",
                 urn));
       }
-      validateUrnExists(urn, authentication);
+      validateUrnExists(opContext, urn);
     }
   }
 
   /** Updates DataJob lineage by building and ingesting an MCP based on inputs. */
   public void updateDataJobUpstreamLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
       @Nonnull final List<Urn> upstreamUrnsToAdd,
       @Nonnull final List<Urn> upstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
-    validateDataJobUpstreamUrns(upstreamUrnsToAdd, authentication);
+    validateDataJobUpstreamUrns(opContext, upstreamUrnsToAdd);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
     try {
       MetadataChangeProposal changeProposal =
           buildDataJobUpstreamLineageProposal(
-              downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, authentication);
-      _entityClient.ingestProposal(changeProposal, authentication, false);
+              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+      _entityClient.ingestProposal(opContext, changeProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
@@ -498,18 +496,18 @@ public class LineageService {
    */
   @Nonnull
   public MetadataChangeProposal buildDataJobUpstreamLineageProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
       @Nonnull final List<Urn> upstreamUrnsToAdd,
       @Nonnull final List<Urn> upstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
     EntityResponse entityResponse =
         _entityClient.getV2(
+            opContext,
             Constants.DATA_JOB_ENTITY_NAME,
             downstreamUrn,
-            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME),
-            authentication);
+            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME));
 
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     if (entityResponse != null
@@ -667,21 +665,21 @@ public class LineageService {
 
   /** Updates DataJob lineage in the downstream direction (outputDatasets and outputDatasetEdges) */
   public void updateDataJobDownstreamLineage(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn dataJobUrn,
       @Nonnull final List<Urn> downstreamUrnsToAdd,
       @Nonnull final List<Urn> downstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
-    validateDatasetUrns(downstreamUrnsToAdd, authentication);
+    validateDatasetUrns(opContext, downstreamUrnsToAdd);
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
     try {
       final MetadataChangeProposal changeProposal =
           buildDataJobDownstreamLineageProposal(
-              dataJobUrn, downstreamUrnsToAdd, downstreamUrnsToRemove, actor, authentication);
-      _entityClient.ingestProposal(changeProposal, authentication, false);
+              opContext, dataJobUrn, downstreamUrnsToAdd, downstreamUrnsToRemove, actor);
+      _entityClient.ingestProposal(opContext, changeProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", dataJobUrn), e);
@@ -701,18 +699,18 @@ public class LineageService {
    */
   @Nonnull
   public MetadataChangeProposal buildDataJobDownstreamLineageProposal(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn dataJobUrn,
       @Nonnull final List<Urn> downstreamUrnsToAdd,
       @Nonnull final List<Urn> downstreamUrnsToRemove,
-      @Nonnull final Urn actor,
-      @Nonnull final Authentication authentication)
+      @Nonnull final Urn actor)
       throws Exception {
     final EntityResponse entityResponse =
         _entityClient.getV2(
+            opContext,
             Constants.DATA_JOB_ENTITY_NAME,
             dataJobUrn,
-            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME),
-            authentication);
+            ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME));
 
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     if (entityResponse != null

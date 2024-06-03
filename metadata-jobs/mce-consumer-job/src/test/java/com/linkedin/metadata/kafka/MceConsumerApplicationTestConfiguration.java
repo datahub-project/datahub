@@ -1,10 +1,10 @@
 package com.linkedin.metadata.kafka;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.context.SystemOperationContextFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.SiblingGraphService;
@@ -27,7 +27,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 @TestConfiguration
-@Import(value = {SystemAuthenticationFactory.class})
+@Import(value = {SystemAuthenticationFactory.class, SystemOperationContextFactory.class})
 public class MceConsumerApplicationTestConfiguration {
 
   @Autowired private TestRestTemplate restTemplate;
@@ -39,16 +39,15 @@ public class MceConsumerApplicationTestConfiguration {
   @Bean
   @Primary
   public SystemEntityClient systemEntityClient(
-      @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
-      @Qualifier("systemAuthentication") final Authentication systemAuthentication) {
+      @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider) {
     String selfUri = restTemplate.getRootUri();
     final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
     return new SystemRestliEntityClient(
         restClient,
         new ExponentialBackoff(1),
         1,
-        systemAuthentication,
-        configurationProvider.getCache().getClient().getEntityClient());
+        configurationProvider.getCache().getClient().getEntityClient(),
+        1);
   }
 
   @MockBean public Database ebeanServer;

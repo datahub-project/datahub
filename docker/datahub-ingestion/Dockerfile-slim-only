@@ -1,30 +1,28 @@
 # Defining environment
 ARG BASE_IMAGE=acryldata/datahub-ingestion-base
 ARG DOCKER_VERSION=head-slim
-ARG PIP_MIRROR_URL=null
+ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
-USER 0
+USER datahub
 
-COPY ./metadata-ingestion /datahub-ingestion
+# Optionally set corporate mirror for apk and pip
+ARG PIP_MIRROR_URL
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+
+COPY --chown=datahub ./metadata-ingestion /datahub-ingestion
 
 ARG RELEASE_VERSION
 WORKDIR /datahub-ingestion
 RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed s/-/+/)\"/" src/datahub/__init__.py && \
-    cat src/datahub/__init__.py && \
-    chown -R datahub /datahub-ingestion
-
-USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"
+    cat src/datahub/__init__.py
 
 FROM base as slim-install
 
-ARG PIP_MIRROR_URL
-
-RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-RUN pip install --no-cache --user ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
+RUN uv pip install --no-cache -e ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
+    datahub --version
 
 FROM slim-install as final
 
 USER datahub
-ENV PATH="/datahub-ingestion/.local/bin:$PATH"

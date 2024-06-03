@@ -1,6 +1,5 @@
 import time
-from typing import Dict, List, Optional, TypeVar, Union
-from urllib.parse import quote
+from typing import Dict, List, Optional, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -20,8 +19,6 @@ from datahub.specific.custom_properties import CustomPropertiesPatchHelper
 from datahub.specific.ownership import OwnershipPatchHelper
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
-
-T = TypeVar("T", bound=MetadataPatchProposal)
 
 
 class DashboardPatchBuilder(MetadataPatchProposal):
@@ -166,7 +163,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
-            path=f"/datasetEdges/{quote(dataset_urn, safe='')}",
+            path=f"/datasetEdges/{self.quote(dataset_urn)}",
             value=dataset_edge,
         )
         return self
@@ -249,7 +246,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
-            path=f"/chartEdges/{quote(chart_urn, safe='')}",
+            path=f"/chartEdges/{self.quote(chart_urn)}",
             value=chart_edge,
         )
         return self

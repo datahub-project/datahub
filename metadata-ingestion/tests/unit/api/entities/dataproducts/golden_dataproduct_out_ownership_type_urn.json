@@ -1,0 +1,125 @@
+[
+  {
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "dataProductProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "version": "2.0",
+          "classification": "pii"
+        },
+        "externalUrl": "https://github.com/datahub-project/datahub",
+        "name": "Pet of the Week Campaign",
+        "description": "This campaign includes Pet of the Week data.",
+        "assets": [
+          {
+            "destinationUrn": "urn:li:container:DATABASE",
+            "created": {
+              "time": 1681455600000,
+              "actor": "urn:li:corpuser:datahub",
+              "message": "yaml"
+            }
+          },
+          {
+            "destinationUrn": "urn:li:container:SCHEMA",
+            "created": {
+              "time": 1681455600000,
+              "actor": "urn:li:corpuser:datahub",
+              "message": "yaml"
+            }
+          },
+          {
+            "destinationUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)",
+            "created": {
+              "time": 1681455600000,
+              "actor": "urn:li:corpuser:datahub",
+              "message": "yaml"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:12345"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "json": {
+        "tags": [
+          {
+            "tag": "urn:li:tag:awesome"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+      "json": {
+        "terms": [
+          {
+            "urn": "urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance"
+          }
+        ],
+        "auditStamp": {
+          "time": 1681455600000,
+          "actor": "urn:li:corpuser:datahub",
+          "message": "yaml"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:jdoe",
+            "type": "CUSTOM",
+            "typeUrn": "urn:li:ownershipType:abc"
+          }
+        ],
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataProduct",
+    "entityUrn": "urn:li:dataProduct:pet_of_the_week",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  }
+]

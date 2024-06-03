@@ -1,8 +1,8 @@
 package com.datahub.metadata.ingestion;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.UrnArray;
@@ -18,6 +18,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.query.ListResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
@@ -93,11 +94,11 @@ public class IngestionSchedulerTest {
     // Set up mocks for ingestion source batch fetching
     Mockito.when(
             mockClient.list(
+                any(),
                 Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
                 Mockito.eq(Collections.emptyMap()),
                 Mockito.eq(0),
-                Mockito.eq(30),
-                Mockito.any()))
+                Mockito.eq(30)))
         .thenReturn(
             new ListResult()
                 .setCount(30)
@@ -106,10 +107,10 @@ public class IngestionSchedulerTest {
                 .setEntities(new UrnArray(ingestionSourceUrn1, ingestionSourceUrn2)));
     Mockito.when(
             mockClient.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(ingestionSourceUrn1, ingestionSourceUrn2)),
-                Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 ingestionSourceUrn1, entityResponse1,
@@ -117,7 +118,7 @@ public class IngestionSchedulerTest {
 
     _ingestionScheduler =
         new IngestionScheduler(
-            Mockito.mock(Authentication.class),
+            Mockito.mock(OperationContext.class),
             mockClient,
             Mockito.mock(IngestionConfiguration.class),
             1,
@@ -128,11 +129,11 @@ public class IngestionSchedulerTest {
 
   @Test
   public void testInvokeUpdateExistingSchedule() throws Exception {
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
 
     Urn ingestionSourceUrn = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0");
     Future<?> beforeFuture =
-        _ingestionScheduler._nextIngestionSourceExecutionCache.get(ingestionSourceUrn);
+        _ingestionScheduler.nextIngestionSourceExecutionCache.get(ingestionSourceUrn);
 
     final DataHubIngestionSourceInfo newInfo = new DataHubIngestionSourceInfo();
     newInfo.setSchedule(
@@ -149,9 +150,9 @@ public class IngestionSchedulerTest {
 
     // Assert that the new source has been scheduled successfully.
     _ingestionScheduler.scheduleNextIngestionSourceExecution(ingestionSourceUrn, newInfo);
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
     Future<?> newFuture =
-        _ingestionScheduler._nextIngestionSourceExecutionCache.get(ingestionSourceUrn);
+        _ingestionScheduler.nextIngestionSourceExecutionCache.get(ingestionSourceUrn);
 
     // Ensure that there is an overwritten future.
     Assert.assertNotSame(beforeFuture, newFuture);
@@ -159,7 +160,7 @@ public class IngestionSchedulerTest {
 
   @Test
   public void testInvokeNewSchedule() throws Exception {
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
 
     final Urn urn = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:2");
     final DataHubIngestionSourceInfo newInfo = new DataHubIngestionSourceInfo();
@@ -177,12 +178,12 @@ public class IngestionSchedulerTest {
 
     // Assert that the new source has been scheduled successfully.
     _ingestionScheduler.scheduleNextIngestionSourceExecution(urn, newInfo);
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 2);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 2);
   }
 
   @Test
   public void testInvokeInvalidSchedule() throws Exception {
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
 
     final Urn urn = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:2");
     final DataHubIngestionSourceInfo newInfo = new DataHubIngestionSourceInfo();
@@ -201,12 +202,12 @@ public class IngestionSchedulerTest {
 
     // Assert that no changes have been made to next execution cache.
     _ingestionScheduler.scheduleNextIngestionSourceExecution(urn, newInfo);
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
   }
 
   @Test
   public void testInvokeMissingSchedule() throws Exception {
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
 
     final Urn urn = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0");
     final DataHubIngestionSourceInfo newInfo = new DataHubIngestionSourceInfo();
@@ -221,27 +222,27 @@ public class IngestionSchedulerTest {
 
     // Assert that the schedule has been removed.
     _ingestionScheduler.scheduleNextIngestionSourceExecution(urn, newInfo);
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 0);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 0);
   }
 
   @Test
   public void testInvokeDelete() throws Exception {
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
 
     // Attempt to delete an unscheduled urn
     final Urn urn1 = Urn.createFromString("urn:li:dataHubIngestionSource:not-scheduled");
     _ingestionScheduler.unscheduleNextIngestionSourceExecution(urn1);
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
 
     // Attempt to delete a scheduled urn
     final Urn urn2 = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0");
     _ingestionScheduler.unscheduleNextIngestionSourceExecution(urn2);
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 0);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 0);
   }
 
   @Test
   public void testSchedule() throws Exception {
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
 
     final Urn urn = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:0");
     final DataHubIngestionSourceInfo newInfo = new DataHubIngestionSourceInfo();
@@ -259,7 +260,7 @@ public class IngestionSchedulerTest {
 
     _ingestionScheduler.scheduleNextIngestionSourceExecution(urn, newInfo);
 
-    ScheduledFuture<?> future = _ingestionScheduler._nextIngestionSourceExecutionCache.get(urn);
+    ScheduledFuture<?> future = _ingestionScheduler.nextIngestionSourceExecutionCache.get(urn);
     Assert.assertTrue(
         future.getDelay(TimeUnit.SECONDS)
             < 60); // Next execution must always be less than a minute away.
@@ -267,7 +268,7 @@ public class IngestionSchedulerTest {
 
   @Test
   public void testUnscheduleAll() throws Exception {
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 1);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 1);
 
     final Urn urn = Urn.createFromString("urn:li:dataHubIngestionSourceUrn:3");
     final DataHubIngestionSourceInfo newInfo = new DataHubIngestionSourceInfo();
@@ -284,16 +285,16 @@ public class IngestionSchedulerTest {
             .setVersion("0.8.18"));
     _ingestionScheduler.scheduleNextIngestionSourceExecution(urn, newInfo);
 
-    assertEquals(_ingestionScheduler._nextIngestionSourceExecutionCache.size(), 2);
+    assertEquals(_ingestionScheduler.nextIngestionSourceExecutionCache.size(), 2);
 
     // Get reference to schedules futures
-    ScheduledFuture<?> future = _ingestionScheduler._nextIngestionSourceExecutionCache.get(urn);
+    ScheduledFuture<?> future = _ingestionScheduler.nextIngestionSourceExecutionCache.get(urn);
 
     // Unschedule all
     _ingestionScheduler.unscheduleAll();
 
     // Ensure that the cache is empty
-    Assert.assertTrue(_ingestionScheduler._nextIngestionSourceExecutionCache.isEmpty());
+    Assert.assertTrue(_ingestionScheduler.nextIngestionSourceExecutionCache.isEmpty());
 
     // And that the future is cancelled
     Assert.assertTrue(future.isCancelled());

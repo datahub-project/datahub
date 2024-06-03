@@ -20,7 +20,9 @@ public class SearchUtilsTest {
             .setSkipCache(true)
             .setSkipAggregates(true)
             .setMaxAggValues(1)
-            .setSkipHighlighting(true),
+            .setSkipHighlighting(true)
+            .setIncludeSoftDeleted(false)
+            .setIncludeRestricted(false),
         true);
   }
 
@@ -54,7 +56,9 @@ public class SearchUtilsTest {
                 .setSkipCache(false)
                 .setSkipAggregates(false)
                 .setMaxAggValues(2)
-                .setSkipHighlighting(false),
+                .setSkipHighlighting(false)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             "not empty",
             defaultFlags),
         setConvertSchemaFieldsToDatasets(
@@ -63,7 +67,9 @@ public class SearchUtilsTest {
                 .setSkipAggregates(false)
                 .setSkipCache(false)
                 .setMaxAggValues(2)
-                .setSkipHighlighting(false),
+                .setSkipHighlighting(false)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
         "Expected no default values");
 
@@ -74,7 +80,9 @@ public class SearchUtilsTest {
                 .setSkipCache(false)
                 .setSkipAggregates(false)
                 .setMaxAggValues(2)
-                .setSkipHighlighting(false),
+                .setSkipHighlighting(false)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             null,
             defaultFlags),
         setConvertSchemaFieldsToDatasets(
@@ -83,7 +91,9 @@ public class SearchUtilsTest {
                 .setSkipAggregates(false)
                 .setSkipCache(false)
                 .setMaxAggValues(2)
-                .setSkipHighlighting(true),
+                .setSkipHighlighting(true)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
         "Expected skip highlight due to query null query");
     for (String query : Set.of("*", "")) {
@@ -94,7 +104,9 @@ public class SearchUtilsTest {
                   .setSkipCache(false)
                   .setSkipAggregates(false)
                   .setMaxAggValues(2)
-                  .setSkipHighlighting(false),
+                  .setSkipHighlighting(false)
+                  .setIncludeSoftDeleted(false)
+                  .setIncludeRestricted(false),
               query,
               defaultFlags),
           setConvertSchemaFieldsToDatasets(
@@ -103,7 +115,9 @@ public class SearchUtilsTest {
                   .setSkipAggregates(false)
                   .setSkipCache(false)
                   .setMaxAggValues(2)
-                  .setSkipHighlighting(true),
+                  .setSkipHighlighting(true)
+                  .setIncludeSoftDeleted(false)
+                  .setIncludeRestricted(false),
               SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
           String.format("Expected skip highlight due to query string `%s`", query));
     }
@@ -117,7 +131,9 @@ public class SearchUtilsTest {
                 .setSkipAggregates(true)
                 .setSkipCache(true)
                 .setMaxAggValues(1)
-                .setSkipHighlighting(true),
+                .setSkipHighlighting(true)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
         "Expected all default values except fulltext");
     assertEquals(
@@ -129,7 +145,9 @@ public class SearchUtilsTest {
                 .setSkipAggregates(true)
                 .setSkipCache(false)
                 .setMaxAggValues(1)
-                .setSkipHighlighting(true),
+                .setSkipHighlighting(true)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
         "Expected all default values except skipCache");
     assertEquals(
@@ -141,7 +159,9 @@ public class SearchUtilsTest {
                 .setSkipAggregates(false)
                 .setSkipCache(true)
                 .setMaxAggValues(1)
-                .setSkipHighlighting(true),
+                .setSkipHighlighting(true)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
         "Expected all default values except skipAggregates");
     assertEquals(
@@ -153,7 +173,9 @@ public class SearchUtilsTest {
                 .setSkipAggregates(true)
                 .setSkipCache(true)
                 .setMaxAggValues(2)
-                .setSkipHighlighting(true),
+                .setSkipHighlighting(true)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
         "Expected all default values except maxAggValues");
     assertEquals(
@@ -165,7 +187,9 @@ public class SearchUtilsTest {
                 .setSkipAggregates(true)
                 .setSkipCache(true)
                 .setMaxAggValues(1)
-                .setSkipHighlighting(false),
+                .setSkipHighlighting(false)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
         "Expected all default values except skipHighlighting");
   }
@@ -184,7 +208,9 @@ public class SearchUtilsTest {
                     .setSkipCache(false)
                     .setSkipAggregates(false)
                     .setMaxAggValues(2)
-                    .setSkipHighlighting(false),
+                    .setSkipHighlighting(false)
+                    .setIncludeSoftDeleted(false)
+                    .setIncludeRestricted(false),
                 SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
             "not empty",
             defaultFlags),
@@ -194,7 +220,9 @@ public class SearchUtilsTest {
                 .setSkipAggregates(false)
                 .setSkipCache(false)
                 .setMaxAggValues(2)
-                .setSkipHighlighting(false),
+                .setSkipHighlighting(false)
+                .setIncludeSoftDeleted(false)
+                .setIncludeRestricted(false),
             SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
         "Expected no default values");
 

@@ -3,12 +3,19 @@ package com.linkedin.metadata.search.indexbuilder;
 import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.*;
 
+import com.datahub.test.TestRefEntity;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.EntitySpecBuilder;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.TestSearchFieldConfig;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +28,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 21);
+    assertEquals(properties.size(), 22);
     assertEquals(
         properties.get("urn"),
         ImmutableMap.of(
@@ -50,6 +57,7 @@ public class MappingsBuilderTest {
                     "analyzer",
                     "partial_urn_component"))));
     assertEquals(properties.get("runId"), ImmutableMap.of("type", "keyword"));
+    assertEquals(properties.get("systemCreated"), ImmutableMap.of("type", "date"));
     assertTrue(properties.containsKey("browsePaths"));
     assertTrue(properties.containsKey("browsePathV2"));
     assertTrue(properties.containsKey("removed"));
@@ -270,5 +278,62 @@ public class MappingsBuilderTest {
     assertEquals("testPropNumber", keyInMap);
     mappings = structuredPropertyFieldMappingsNumber.get(keyInMap);
     assertEquals(Map.of("type", "double"), mappings);
+  }
+
+  @Test
+  public void testRefMappingsBuilder() {
+    EntityRegistry entityRegistry = getTestEntityRegistry();
+    MappingsBuilder.setEntityRegistry(entityRegistry);
+    EntitySpec entitySpec = new EntitySpecBuilder().buildEntitySpec(new TestRefEntity().schema());
+    Map<String, Object> result = MappingsBuilder.getMappings(entitySpec);
+    assertEquals(result.size(), 1);
+    Map<String, Object> properties = (Map<String, Object>) result.get("properties");
+    assertEquals(properties.size(), 7);
+    ImmutableMap<String, Serializable> expectedURNField =
+        ImmutableMap.of(
+            "type",
+            "keyword",
+            "fields",
+            ImmutableMap.of(
+                "delimited",
+                ImmutableMap.of(
+                    "type",
+                    "text",
+                    "analyzer",
+                    "urn_component",
+                    "search_analyzer",
+                    "query_urn_component",
+                    "search_quote_analyzer",
+                    "quote_analyzer"),
+                "ngram",
+                ImmutableMap.of(
+                    "type",
+                    "search_as_you_type",
+                    "max_shingle_size",
+                    "4",
+                    "doc_values",
+                    "false",
+                    "analyzer",
+                    "partial_urn_component")));
+    assertEquals(properties.get("urn"), expectedURNField);
+    assertEquals(properties.get("runId"), ImmutableMap.of("type", "keyword"));
+    assertTrue(properties.containsKey("editedFieldDescriptions"));
+    assertTrue(properties.containsKey("displayName"));
+    assertTrue(properties.containsKey("refEntityUrns"));
+    // @SearchableRef Field
+    Map<String, Object> refField = (Map<String, Object>) properties.get("refEntityUrns");
+    assertEquals(refField.size(), 1);
+    Map<String, Object> refFieldProperty = (Map<String, Object>) refField.get("properties");
+
+    assertEquals(refFieldProperty.get("urn"), expectedURNField);
+    assertTrue(refFieldProperty.containsKey("displayName"));
+    assertTrue(refFieldProperty.containsKey("editedFieldDescriptions"));
+  }
+
+  private EntityRegistry getTestEntityRegistry() {
+    return new ConfigEntityRegistry(
+        TestSearchFieldConfig.class
+            .getClassLoader()
+            .getResourceAsStream("test-entity-registry.yaml"));
   }
 }

@@ -13,6 +13,9 @@ query getDomain($urn: String!) {
         ownership {
             ...ownershipFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         institutionalMemory {
             elements {
                 url
@@ -29,6 +32,14 @@ query getDomain($urn: String!) {
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
         ...domainEntitiesFields
     }
