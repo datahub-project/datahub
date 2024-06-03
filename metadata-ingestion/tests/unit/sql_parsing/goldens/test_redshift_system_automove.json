@@ -3,7 +3,7 @@
     "query_type_props": {
         "kind": "TABLE"
     },
-    "query_fingerprint": "93a463cd97acfcf1bf0a57a087596771f72d65e013f856a9d8c17c81b6439a2f",
+    "query_fingerprint": "f9ecadf44a23ac60349f68bdbcb65fcab8b30c6fbeb972ae42fa13c551ea7458",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.public.permanent_1,PROD)"
     ],
@@ -40,6 +40,6 @@
     ],
     "debug_info": {
         "confidence": 0.2,
-        "generalized_statement": "CREATE TABLE \"pg_automv\".\"mv_tbl__auto_mv_12708107__0_recomputed\" AS (SELECT COUNT(CAST(? AS INTEGER)) AS \"aggvar_3\", COUNT(CAST(? AS INTEGER)) AS \"num_rec\" FROM \"public\".\"permanent_1\" AS \"permanent_1\" WHERE ((CAST(\"permanent_1\".\"insertxid\" AS SMALLINT) <= ?) AND (CAST(\"permanent_1\".\"deletexid\" AS SMALLINT) > ?)) OR (CAST(FALSE AS BOOLEAN) AND (CAST(\"permanent_1\".\"insertxid\" AS SMALLINT) = ?) AND (CAST(\"permanent_1\".\"deletexid\" AS SMALLINT) <> ?)))"
+        "generalized_statement": "CREATE TABLE \"pg_automv\".\"mv_tbl__auto_mv_12708107__0_recomputed\" BACKUP YES DISTSTYLE KEY DISTKEY(\"2\") AS (SELECT COUNT(CAST(? AS INTEGER)) AS \"aggvar_3\", COUNT(CAST(? AS INTEGER)) AS \"num_rec\" FROM \"public\".\"permanent_1\" AS \"permanent_1\" WHERE ((CAST(\"permanent_1\".\"insertxid\" AS BIGINT) <= ?) AND (CAST(\"permanent_1\".\"deletexid\" AS BIGINT) > ?)) OR (CAST(FALSE AS BOOLEAN) AND (CAST(\"permanent_1\".\"insertxid\" AS BIGINT) = ?) AND (CAST(\"permanent_1\".\"deletexid\" AS BIGINT) <> ?)))"
     }
 }

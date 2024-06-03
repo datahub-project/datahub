@@ -24,6 +24,9 @@ fragment incidentsFields on EntityIncidentsResult {
             time
             actor
         }
+        tags {
+            ...globalTagsFields
+        }
     }
 }
 
