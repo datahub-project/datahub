@@ -425,7 +425,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.1"},
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
     "unity-catalog": databricks | sql_common | sqllineage_lib,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common | sqllineage_lib,
