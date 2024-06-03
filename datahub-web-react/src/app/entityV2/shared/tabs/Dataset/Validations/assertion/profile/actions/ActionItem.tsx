@@ -16,18 +16,20 @@ type Props = {
 export const ActionItem = ({ primary = false, tip, disabled = false, onClick, icon, key }: Props) => {
     return (
         <Tooltip placement="top" title={tip}>
-            <ActionItemButton
-                primary={primary}
-                key={key}
-                disabled={disabled}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    if (disabled) return;
-                    onClick();
-                }}
-            >
-                {icon}
-            </ActionItemButton>
+            <span style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}>
+                <ActionItemButton
+                    primary={primary}
+                    key={key}
+                    disabled={disabled}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (disabled) return;
+                        onClick();
+                    }}
+                >
+                    {icon}
+                </ActionItemButton>
+            </span>
         </Tooltip>
     );
 };

@@ -1,10 +1,15 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParametersInput;
+import com.linkedin.datahub.graphql.generated.SchemaAssertionCompatibility;
 import com.linkedin.datahub.graphql.generated.SchemaAssertionFieldInput;
+import com.linkedin.datahub.graphql.generated.SchemaAssertionInput;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.DatasetSchemaSourceType;
+import com.linkedin.schema.SchemaFieldDataType;
+import com.linkedin.schema.StringType;
 import java.util.Collections;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -60,5 +65,27 @@ public class SchemaAssertionUtilsTest {
     Assert.assertNotNull(schemaField);
     Assert.assertEquals(schemaField.getFieldPath(), "testPath");
     // Add more assertions as needed
+  }
+
+  @Test
+  public void testCreateDataSchemaAssertionInfo() {
+    SchemaAssertionFieldInput fieldInput = new SchemaAssertionFieldInput();
+    fieldInput.setPath("testPath");
+    fieldInput.setType(com.linkedin.datahub.graphql.generated.SchemaFieldDataType.STRING);
+
+    SchemaAssertionInput input = new SchemaAssertionInput();
+    input.setFields(Collections.singletonList(fieldInput));
+    input.setCompatibility(SchemaAssertionCompatibility.EXACT_MATCH);
+
+    SchemaAssertionInfo info = SchemaAssertionUtils.createDataSchemaAssertionInfo(input);
+
+    Assert.assertNotNull(info);
+    Assert.assertEquals(
+        info.getCompatibility(), com.linkedin.assertion.SchemaAssertionCompatibility.EXACT_MATCH);
+    Assert.assertEquals(info.getSchema().getFields().size(), 1);
+    Assert.assertEquals(info.getSchema().getFields().get(0).getFieldPath(), "testPath");
+    Assert.assertEquals(
+        info.getSchema().getFields().get(0).getType().getType(),
+        SchemaFieldDataType.Type.create(new StringType()));
   }
 }

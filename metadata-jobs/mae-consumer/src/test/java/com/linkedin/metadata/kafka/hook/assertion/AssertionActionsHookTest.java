@@ -56,6 +56,7 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
@@ -91,7 +92,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-            entityClient, false, Mockito.mock(OpenApiClient.class), objectMapper);
+            entityClient,
+            Mockito.mock(GraphClient.class),
+            false,
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
 
     final MetadataChangeLog event =
         buildMetadataChangeLog(
@@ -116,7 +121,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     // Case 1: Incorrect aspect --- Assertion Info
@@ -199,7 +208,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -222,7 +235,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
@@ -266,7 +280,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -289,7 +307,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -350,7 +369,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -373,7 +396,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -423,7 +447,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -446,7 +474,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -502,7 +531,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -525,7 +558,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -573,7 +607,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -596,7 +634,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
@@ -649,7 +688,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     AssertionRunEvent testEvent =
@@ -672,7 +715,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -754,7 +798,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -777,7 +825,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -818,7 +867,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -841,7 +894,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -912,7 +966,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -935,7 +993,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -991,7 +1050,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -1009,7 +1072,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -1064,7 +1128,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -1082,7 +1150,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -1134,7 +1203,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -1152,7 +1225,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -1204,7 +1278,11 @@ public class AssertionActionsHookTest {
 
     final AssertionActionsHook hook =
         new AssertionActionsHook(
-                entityClient, true, Mockito.mock(OpenApiClient.class), objectMapper)
+                entityClient,
+                Mockito.mock(GraphClient.class),
+                true,
+                Mockito.mock(OpenApiClient.class),
+                objectMapper)
             .init(mockOperationContext());
 
     MetadataChangeLog event =
@@ -1223,7 +1301,8 @@ public class AssertionActionsHookTest {
                 ImmutableSet.of(
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    GLOBAL_TAGS_ASPECT_NAME)));
 
     // Ensure that we searched for the active anomalies associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -1280,7 +1359,8 @@ public class AssertionActionsHookTest {
                   ImmutableSet.of(
                       ASSERTION_INFO_ASPECT_NAME,
                       ASSERTION_ACTIONS_ASPECT_NAME,
-                      DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                      DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                      GLOBAL_TAGS_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)
@@ -1354,7 +1434,8 @@ public class AssertionActionsHookTest {
                   ImmutableSet.of(
                       ASSERTION_INFO_ASPECT_NAME,
                       ASSERTION_ACTIONS_ASPECT_NAME,
-                      DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                      DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                      GLOBAL_TAGS_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)

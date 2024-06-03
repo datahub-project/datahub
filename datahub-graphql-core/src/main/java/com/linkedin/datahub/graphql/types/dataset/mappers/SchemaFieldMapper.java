@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.generated.SchemaFieldDataType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,38 +54,10 @@ public class SchemaFieldMapper {
 
   public SchemaFieldDataType mapSchemaFieldDataType(
       @Nonnull final com.linkedin.schema.SchemaFieldDataType dataTypeUnion) {
-    final com.linkedin.schema.SchemaFieldDataType.Type type = dataTypeUnion.getType();
-    if (type.isBytesType()) {
-      return SchemaFieldDataType.BYTES;
-    } else if (type.isFixedType()) {
-      return SchemaFieldDataType.FIXED;
-    } else if (type.isBooleanType()) {
-      return SchemaFieldDataType.BOOLEAN;
-    } else if (type.isStringType()) {
-      return SchemaFieldDataType.STRING;
-    } else if (type.isNumberType()) {
-      return SchemaFieldDataType.NUMBER;
-    } else if (type.isDateType()) {
-      return SchemaFieldDataType.DATE;
-    } else if (type.isTimeType()) {
-      return SchemaFieldDataType.TIME;
-    } else if (type.isEnumType()) {
-      return SchemaFieldDataType.ENUM;
-    } else if (type.isNullType()) {
-      return SchemaFieldDataType.NULL;
-    } else if (type.isArrayType()) {
-      return SchemaFieldDataType.ARRAY;
-    } else if (type.isMapType()) {
-      return SchemaFieldDataType.MAP;
-    } else if (type.isRecordType()) {
-      return SchemaFieldDataType.STRUCT;
-    } else if (type.isUnionType()) {
-      return SchemaFieldDataType.UNION;
-    } else {
-      throw new RuntimeException(
-          String.format(
-              "Unrecognized SchemaFieldDataType provided %s", type.memberType().toString()));
-    }
+    String result =
+        AssertionUtils.mapSchemaFieldDataType(
+            dataTypeUnion); // Validate that the type is supported (throws if not)
+    return SchemaFieldDataType.valueOf(result);
   }
 
   private SchemaFieldEntity createSchemaFieldEntity(

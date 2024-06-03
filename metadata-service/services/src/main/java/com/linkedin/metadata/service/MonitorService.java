@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.CronSchedule;
@@ -37,6 +38,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -58,6 +60,7 @@ public class MonitorService extends BaseService {
   private static final int DEFAULT_RETRY_INTERVAL = 2;
   private static final MonitorType DEFAULT_MONITOR_TYPE = MonitorType.ASSERTION;
   private static final String TEST_ASSERTION_ENDPOINT = "assertions/evaluate_assertion";
+  private static final String RUN_ASSERTIONS_ENDPOINT = "assertions/evaluate_assertion_urns";
 
   private final String monitorServiceHost;
   private final Integer monitorServicePort;
@@ -391,48 +394,32 @@ public class MonitorService extends BaseService {
     request.addHeader("Content-Type", "application/json");
   }
 
-  private AssertionResult testAssertion(@Nonnull final String jsonBody) {
-    CloseableHttpResponse response = null;
+  public Map<Urn, AssertionResult> runAssertions(
+      @Nonnull final List<Urn> assertionUrns,
+      final boolean dryRun,
+      final @Nonnull Map<String, String> parameters,
+      final boolean async) {
     try {
-      // Build request
-      final HttpPost request =
-          new HttpPost(
-              String.format(
-                  "%s://%s:%s/%s",
-                  protocol,
-                  this.monitorServiceHost,
-                  this.monitorServicePort,
-                  TEST_ASSERTION_ENDPOINT));
+      String jsonBody =
+          MonitorServiceUtils.buildRunAssertionsBodyJson(assertionUrns, dryRun, parameters, async);
+      return executeRunAssertions(assertionUrns, jsonBody);
+    } catch (Exception e) {
+      throw new RuntimeException("Received exception while attempting to run assertions!", e);
+    }
+  }
 
-      addRequestHeaders(request);
-
-      request.setEntity(new StringEntity(jsonBody, StandardCharsets.UTF_8));
-
-      // Execute request
-      response = executeRequest(request);
-      final HttpEntity entity = response.getEntity();
-
-      if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK && entity != null) {
-        final String jsonStr = EntityUtils.toString(entity);
-        return MonitorServiceUtils.buildTestAssertionResult(jsonStr);
+  @Nullable
+  private Map<Urn, AssertionResult> executeRunAssertions(
+      @Nonnull List<Urn> assertionUrns, @Nonnull final String jsonBody) {
+    try {
+      String maybeJsonResponse = executeRequest(RUN_ASSERTIONS_ENDPOINT, jsonBody);
+      if (maybeJsonResponse != null) {
+        return MonitorServiceUtils.buildRunAssertionsResult(assertionUrns, maybeJsonResponse);
       }
-      // Otherwise, something went wrong!
-      log.error(
-          String.format(
-              "Bad response from the Monitors Service: %s %s",
-              response.getStatusLine().toString(), EntityUtils.toString(entity, "UTF-8")));
+      log.warn("Received empty body response from Monitors Service!");
       return null;
     } catch (Exception e) {
-      log.error("Failed to test assertion.", e);
-      return null;
-    } finally {
-      try {
-        if (response != null) {
-          response.close();
-        }
-      } catch (Exception e) {
-        log.error("Failed to close http response to Monitors service.", e);
-      }
+      throw new RuntimeException("Failed to run assertions against the Monitors Service.", e);
     }
   }
 
@@ -531,6 +518,86 @@ public class MonitorService extends BaseService {
     } catch (Exception e) {
       log.error("Failed to test FIELD assertion.", e);
       return null;
+    }
+  }
+
+  @Nonnull
+  public AssertionResult testSchemaAssertion(
+      @Nonnull final Urn asserteeUrn,
+      @Nonnull final Urn connectionUrn,
+      @Nonnull final SchemaAssertionInfo schemaAssertionInfo,
+      @Nonnull final AssertionEvaluationParameters parameters) {
+    Objects.requireNonNull(asserteeUrn, "asserteeUrn must not be null");
+    Objects.requireNonNull(connectionUrn, "connectionUrn must not be null");
+    Objects.requireNonNull(schemaAssertionInfo, "schemaAssertionInfo must not be null");
+    Objects.requireNonNull(parameters, "parameters must not be null");
+
+    try {
+      final String jsonBody =
+          MonitorServiceUtils.buildTestSchemaAssertionBodyJson(
+              "DATA_SCHEMA",
+              asserteeUrn.toString(),
+              connectionUrn.toString(),
+              schemaAssertionInfo,
+              parameters);
+      return testAssertion(jsonBody);
+    } catch (Exception e) {
+      log.error("Failed to test DATA_SCHEMA assertion.", e);
+      return null;
+    }
+  }
+
+  @Nullable
+  private AssertionResult testAssertion(@Nonnull final String jsonBody) {
+    try {
+      String maybeResponseJson = executeRequest(TEST_ASSERTION_ENDPOINT, jsonBody);
+      if (maybeResponseJson != null) {
+        return MonitorServiceUtils.buildTestAssertionResult(maybeResponseJson);
+      }
+      log.warn("Received EMPTY response body when testing assertion!");
+    } catch (Exception e) {
+      log.error("Failed to test assertion.", e);
+    }
+    return null;
+  }
+
+  @Nullable
+  private String executeRequest(final String endpoint, final String jsonBody) {
+    CloseableHttpResponse response = null;
+    try {
+      // Build request
+      final HttpPost request =
+          new HttpPost(
+              String.format(
+                  "%s://%s:%s/%s",
+                  protocol, this.monitorServiceHost, this.monitorServicePort, endpoint));
+
+      addRequestHeaders(request);
+      request.setEntity(new StringEntity(jsonBody, StandardCharsets.UTF_8));
+
+      // Execute request
+      response = executeRequest(request);
+      final HttpEntity entity = response.getEntity();
+
+      if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+        return entity != null ? EntityUtils.toString(entity) : null;
+      }
+      // Received bad response from Monitors Service!
+      throw new RuntimeException(
+          String.format(
+              "Failed to run query against the Monitors Service. Bad response received from the service. %s",
+              response.getStatusLine().toString()));
+    } catch (Exception e) {
+      log.error("Failed to execute request to monitors service.", e);
+      return null;
+    } finally {
+      try {
+        if (response != null) {
+          response.close();
+        }
+      } catch (Exception e) {
+        log.error("Failed to close http response to monitors service.", e);
+      }
     }
   }
 }

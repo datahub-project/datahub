@@ -31,6 +31,8 @@ from datahub_executor.coordinator.ingestion import IngestionAction
 from datahub_executor.coordinator.manager import ExecutionRequestManager
 from datahub_executor.coordinator.scheduler import ExecutionRequestScheduler
 
+from .assertion_handlers import async_queue_start, async_queue_stop
+
 logger = logging.getLogger(__name__)
 manager = None
 
@@ -108,6 +110,9 @@ def start_scheduler(sighandler: List[Callable]) -> None:
         sighandler.append(manager.shutdown)
 
         logger.info("Successfully created fetcher scheduler.")
+
+        async_queue_start()
+        sighandler.append(async_queue_stop)
 
         # Start the monitors
         manager.start()

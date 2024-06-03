@@ -126,7 +126,7 @@ class IngestionAction(Action):
         else:
             STATS_INGESTION_HANDLER_REQUESTS.labels(executor_id, "false").inc()
             task = apply_remote_ingestion_request(orig_event, aspect_dict["executorId"])
-            logger.info(f"started task ingestion_request task_id = {task}")
+            logger.info(f"started task ingestion_request for exec_id = {task}")
 
     def _apply_ingestion_request(self, orig_event: MetadataChangeLogClass) -> None:
         execution_request = extract_execution_request(orig_event)

@@ -32,6 +32,7 @@ import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentSourceType;
 import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentType;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.HookUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.query.filter.Filter;
@@ -140,12 +141,13 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   @Autowired
   public AssertionActionsHook(
       @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final GraphClient graphClient,
       @Nonnull @Value("${assertionActions.hook.enabled:true}") Boolean isEnabled,
       @Nonnull final OpenApiClient openApiClient,
       final ObjectMapper objectMapper) {
     _entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
-
-    _assertionService = new AssertionService(systemEntityClient, openApiClient, objectMapper);
+    _assertionService =
+        new AssertionService(systemEntityClient, graphClient, openApiClient, objectMapper);
     _incidentService = new IncidentService(systemEntityClient, openApiClient, objectMapper);
     _anomalyService = new AnomalyService(systemEntityClient, openApiClient, objectMapper);
     _isEnabled = isEnabled;

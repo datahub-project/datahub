@@ -1018,6 +1018,10 @@ class Assertion(AssertionInfo):
     # raw assertionInfo aspect
     raw_info_aspect: Optional[RawAspect]
 
+    # It's not possible to define circular dependency due to how python parsing works, so
+    # if provided, monitor is stored as json string and then parsed into pydantic model separately
+    monitor: Optional[Dict]
+
     @root_validator(pre=True)
     def extract_assertion(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         # Attempt to extract the entity field from the "relationships"

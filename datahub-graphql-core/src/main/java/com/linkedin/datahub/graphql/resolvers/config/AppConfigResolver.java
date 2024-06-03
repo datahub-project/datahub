@@ -204,6 +204,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         FeatureFlagsConfig.builder()
             .setAssertionMonitorsEnabled(_featureFlags.isAssertionMonitorsEnabled())
             .setSchemaAssertionMonitorsEnabled(_featureFlags.isSchemaAssertionMonitorsEnabled())
+            .setRunAssertionsEnabled(_featureFlags.isRunAssertionsEnabled())
             .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
             .setBusinessAttributeEntityEnabled(_featureFlags.isBusinessAttributeEntityEnabled())
             .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())

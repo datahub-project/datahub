@@ -9,6 +9,7 @@ import { ContractAction } from './ContractAction';
 import { CopyLinkAction } from './CopyLinkAction';
 import { CopyUrnAction } from './CopyUrnAction';
 import { SubscribeAction } from './SubscribeAction';
+import { RunAction } from './RunAction';
 
 const ActionList = styled.div`
     display: flex;
@@ -39,6 +40,7 @@ export const Actions = ({
     return (
         <ActionList>
             <StartStopAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
+            <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
             <SubscribeAction assertion={assertion} refetch={refetch} />
             <ContractAction
                 assertion={assertion}

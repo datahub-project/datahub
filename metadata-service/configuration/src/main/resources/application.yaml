@@ -455,6 +455,7 @@ featureFlags:
   platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
   lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
   assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native assertions inside the UI.
+  runAssertionsEnabled: ${RUN_ASSERTIONS_ENABLED:false} # Enables the ability to run native assertions inside the UI.
   schemaAssertionMonitorsEnabled: ${SCHEMA_ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native schema assertions inside the UI.
   subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true} # Enables the ability to subscribe to notifications
   datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false} # Enables the Dataset Health dashboard in the application
@@ -575,9 +576,9 @@ integrationsService:
   port: ${DATAHUB_INTEGRATIONS_PORT:9003}
   useSsl: ${DATAHUB_INTEGRATIONS_USE_SSL:false}
 monitorService:
-  host: ${DATAHUB_MONITORS_HOST:localhost}
-  port: ${DATAHUB_MONITORS_PORT:9004}
-  useSsl: ${DATAHUB_MONITORS_USE_SSL:false}
+  host: ${DATAHUB_EXECUTOR_HOST:localhost}
+  port: ${DATAHUB_EXECUTOR_PORT:9004}
+  useSsl: ${DATAHUB_EXECUTOR_USE_SSL:false}
 
 subscriptions:
   ownerSubscriptionHook:

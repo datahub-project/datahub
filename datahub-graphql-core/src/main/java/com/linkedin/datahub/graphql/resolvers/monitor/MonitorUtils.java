@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.generated.CronScheduleInput;
 import com.linkedin.datahub.graphql.generated.DataHubOperationSpecInput;
 import com.linkedin.datahub.graphql.generated.DatasetFieldAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParametersInput;
+import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.SystemMonitorType;
@@ -43,6 +44,8 @@ import com.linkedin.monitor.DatasetFieldAssertionParameters;
 import com.linkedin.monitor.DatasetFieldAssertionSourceType;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
+import com.linkedin.monitor.DatasetSchemaAssertionParameters;
+import com.linkedin.monitor.DatasetSchemaSourceType;
 import com.linkedin.monitor.DatasetVolumeAssertionParameters;
 import com.linkedin.monitor.DatasetVolumeSourceType;
 import java.util.List;
@@ -188,6 +191,16 @@ public class MonitorUtils {
             DataHubGraphQLErrorCode.BAD_REQUEST);
       }
     }
+    if (AssertionEvaluationParametersType.DATASET_SCHEMA.equals(result.getType())) {
+      if (input.getDatasetSchemaParameters() != null) {
+        result.setDatasetSchemaParameters(
+            createDatasetSchemaParameters(input.getDatasetSchemaParameters()));
+      } else {
+        throw new DataHubGraphQLException(
+            "Invalid input. Dataset Schema Parameters are required when type is DATASET_SCHEMA.",
+            DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
+    }
 
     return result;
   }
@@ -237,6 +250,13 @@ public class MonitorUtils {
         && input.getChangedRowsField() != null) {
       result.setChangedRowsField(createFreshnessFieldSpec(input.getChangedRowsField()));
     }
+    return result;
+  }
+
+  private static DatasetSchemaAssertionParameters createDatasetSchemaParameters(
+      @Nonnull final DatasetSchemaAssertionParametersInput input) {
+    final DatasetSchemaAssertionParameters result = new DatasetSchemaAssertionParameters();
+    result.setSourceType(DatasetSchemaSourceType.valueOf(input.getSourceType().toString()));
     return result;
   }
 

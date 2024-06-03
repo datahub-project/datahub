@@ -26,7 +26,7 @@ def apply_remote_assertion_request(
 
         # before we try to send a task over celery, we make sure we have valid SQS creds
         if not update_celery_credentials(app, False, executor_id):
-            return
+            return execution_request.args["urn"]
 
         message_size = len(execution_request.json())
         if message_size > SQS_MESSAGE_MAX_LENGTH:
@@ -34,7 +34,7 @@ def apply_remote_assertion_request(
             logger.error(
                 f"Assertion ExecutionRequest {execution_request.args['urn']} is too big ({message_size}) to send via SQS and will be dropped."
             )
-            return
+            return execution_request.args["urn"]
 
         # for others (monitors/assertions) we directly trigger the task run.
         assertion_request.apply_async(
@@ -61,13 +61,13 @@ def apply_remote_ingestion_request(
 
         # before we try to send a task over celery, we make sure we have valid SQS creds
         if not update_celery_credentials(app, False, executor_id):
-            return
+            return event.entityUrn
 
         if event.aspect is None:
             logger.error(
                 f"Ingestion ExecutionRequest {event.entityUrn} has no aspect and will be dropped."
             )
-            return
+            return event.entityUrn
 
         message_size = len(event.aspect.value)
         if message_size > SQS_MESSAGE_MAX_LENGTH:
@@ -75,7 +75,7 @@ def apply_remote_ingestion_request(
             logger.error(
                 f"Ingestion ExecutionRequest {event.entityUrn} is too big ({message_size}) to send via SQS and will be dropped."
             )
-            return
+            return event.entityUrn
 
         # for others (monitors/assertions) we directly trigger the task run.
         ingestion_request.apply_async(

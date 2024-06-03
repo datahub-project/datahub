@@ -30,6 +30,69 @@ extend type Mutation {
   testAssertion(input: TestAssertionInput!): AssertionResult!
 
   """
+  Runs a native assertion and returns the result.
+  If the provided URN does not exist, or is not a native assertion, an error will be returned.
+
+  The timeout for this API is 30 seconds. If you have long-running assertions,
+  please use the async option, and poll for the result by fetching the assertion results by URN.
+  If async is True (false by default), then the result will be null.
+  """
+  runAssertion(
+    """The URN of the assertion to run."""
+    urn: String!
+    """Whether to save the result of the assertion run for viewing through the UI."""
+    saveResult: Boolean,
+    """An optional set of custom runtime parameters to inject into any SQL fragment in the assertion."""
+    parameters: [StringMapEntryInput!],
+    """Whether to run assertion asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly."""
+    async: Boolean,
+  ): AssertionResult
+
+  """
+  Runs a native assertion and returns the result.
+  If the provided URN does not exist, or is not a native assertion, an error will be returned.
+
+  The maximum number of assertions allowed to run at once is 20.
+  If more than 20 URNs are provided, an error will be returned.
+
+  The timeout for this API is 30 seconds. If you have long-running assertions,
+  please use the async option, and poll for the result by fetching the assertion results by URN.
+  If async is True (false by default), then the result will be null.
+  """
+  runAssertions(
+    """The urns of the assertion to run."""
+    urns: [String!]!
+    """Whether to save the results of the assertion run for viewing through the UI."""
+    saveResults: Boolean,
+    """An optional set of custom runtime parameters to inject into any SQL fragment in the assertion."""
+    parameters: [StringMapEntryInput!],
+    """Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly."""
+    async: Boolean,
+  ): RunAssertionsResult
+
+  """
+  Runs the assertions associated with a specific asset. Any NON-NATIVE assertions associated with the asset
+  will simply be omitted in the result.
+
+  The maximum number of assertions allowed to run at once is 20.
+  If more than 20 URNs are provided, an error will be returned.
+
+  The timeout for this API is 30 seconds. If you have long-running assertions,
+  please use the async option, and poll for the result by fetching the assertion results by URN.
+  If async is True (false by default), then the result will be null.
+  """
+  runAssertionsForAsset(
+    """The urn of the asset whose assertions should be run"""
+    urn: String!,
+    """An optional set of tags URNs used to filter the assertions that are run"""
+    tagUrns: [String!],
+    """An optional set of custom runtime parameters to inject into any SQL fragment in any assertions for the asset"""
+    parameters: [StringMapEntryInput!],
+    """Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly."""
+    async: Boolean,
+  ): RunAssertionsResult
+
+  """
   Update an existing Dataset Assertion
   """
   updateDatasetAssertion(
@@ -1990,6 +2053,11 @@ input TestAssertionInput {
   fieldTestInput: CreateFieldAssertionInput
 
   """
+  Input for testing a Schema assertion. Required if type is DATA_SCHEMA.
+  """
+  schemaTestInput: SchemaAssertionInput
+
+  """
   Parameters required to evaluate the assertion
   """
   parameters: AssertionEvaluationParametersInput
@@ -2019,4 +2087,38 @@ type SchemaAssertionInfo {
   The compatibility level required for the assertion to pass.
   """
   compatibility: SchemaAssertionCompatibility!
+}
+
+type RunAssertionsResult {
+  """
+  The number of assertions that passed
+  """
+  passingCount: Int
+
+  """
+  The number of assertions that failed
+  """
+  failingCount: Int
+
+  """
+  The number of assertions that errored
+  """
+  errorCount: Int
+
+  """
+  The result of each assertion
+  """
+  results: [RunAssertionResult!]!
+}
+
+type RunAssertionResult {
+  """
+  The assertion itself
+  """
+  assertion: Assertion!
+
+  """
+  The latest result of the assertion
+  """
+  result: AssertionResult!
 }

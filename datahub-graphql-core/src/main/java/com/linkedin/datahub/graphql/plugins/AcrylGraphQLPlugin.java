@@ -45,12 +45,16 @@ import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsRe
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ai.SuggestDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.AssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateFieldAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateFreshnessAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateSqlAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateVolumeAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionsForAssetResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.TestAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionMetadataResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
@@ -61,6 +65,7 @@ import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetVolumeAsser
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
+import com.linkedin.datahub.graphql.resolvers.datacontract.DataContractResultResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
@@ -142,6 +147,7 @@ import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.SettingsService;
@@ -179,6 +185,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private IntegrationsService integrationsService;
   private ProposalService proposalService;
   private AssertionService assertionService;
+  private DataContractService dataContractService;
   private EntitySearchService entitySearchService;
   private MonitorService monitorService;
   private SubscriptionService subscriptionService;
@@ -218,6 +225,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.usageClient = args.getUsageClient();
     this.connectionService = args.getConnectionService();
     this.assertionService = args.getAssertionService();
+    this.dataContractService = args.getDataContractService();
     this.secretService = args.getSecretService();
     this.monitorService = args.getMonitorService();
     this.proposalService = args.getProposalService();
@@ -317,6 +325,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureExecutorResolvers(builder, baseEngine);
     configureFormAnalyticsResolver(builder, baseEngine);
     configureQueryEntityResolvers(builder, baseEngine);
+    configureAssertionResolvers(builder, baseEngine);
   }
 
   private void configureMutationResolvers(
@@ -371,6 +380,13 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "createFieldAssertion", new CreateFieldAssertionResolver(assertionService))
                 .dataFetcher("createSqlAssertion", new CreateSqlAssertionResolver(assertionService))
                 .dataFetcher("testAssertion", new TestAssertionResolver(monitorService))
+                .dataFetcher(
+                    "runAssertion", new RunAssertionResolver(monitorService, assertionService))
+                .dataFetcher(
+                    "runAssertions", new RunAssertionsResolver(monitorService, assertionService))
+                .dataFetcher(
+                    "runAssertionsForAsset",
+                    new RunAssertionsForAssetResolver(monitorService, assertionService))
                 .dataFetcher(
                     "updateDatasetAssertion", new UpdateDatasetAssertionResolver(assertionService))
                 .dataFetcher(
@@ -550,6 +566,15 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         "DataJob",
         typeWiring ->
             typeWiring.dataFetcher("anomalies", new EntityAnomaliesResolver(entityClient)));
+  }
+
+  private void configureAssertionResolvers(
+      final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
+    builder.type(
+        "Assertion",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "monitor", new AssertionMonitorResolver(this.entityClient, this.graphClient)));
   }
 
   private void configureConnectionResolvers(
@@ -899,6 +924,13 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                           ? contract.getAssertion().getUrn()
                           : null;
                     })));
+    builder.type(
+        "DataContract",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "result",
+                new DataContractResultResolver(
+                    this.monitorService, this.assertionService, this.dataContractService)));
     builder.type(
         "Mutation",
         typeWiring ->

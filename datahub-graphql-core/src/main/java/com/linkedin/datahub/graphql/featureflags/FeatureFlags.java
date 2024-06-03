@@ -33,4 +33,5 @@ public class FeatureFlags {
   private boolean metadataShareEnabled = false;
   private boolean documentationFormsEnabled = false;
   private boolean emailNotificationsEnabled = false;
+  private boolean runAssertionsEnabled = false;
 }

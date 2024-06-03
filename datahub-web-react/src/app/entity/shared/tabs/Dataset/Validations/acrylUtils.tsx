@@ -419,7 +419,7 @@ export const useConnectionForEntityExists = (entityUrn: string) => {
  * @param entityUrn 
  * @returns {boolean} optimistically returns true
  */
-export const useConnectionWithTestAssertionCapabilitiesForEntityExists = (entityUrn: string): boolean => {
+export const useConnectionWithRunAssertionCapabilitiesForEntityExists = (entityUrn: string): boolean => {
     const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
         variables: { urn: entityUrn as string },
         fetchPolicy: 'cache-first',

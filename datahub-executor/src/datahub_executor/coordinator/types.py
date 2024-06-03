@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -160,11 +160,36 @@ class EvaluateAssertionInputSchema(BaseModel):
     parameters: AssertionEvaluationParametersSchema
     dryRun: bool = True
 
+    @validator("dryRun", pre=True, always=True)
+    def validate_dry_run(cls, dry_run: Optional[bool]) -> bool:
+        if dry_run is None:
+            return True
+        return dry_run
+
+
+class EvaluateAssertionUrnsInputSchema(BaseModel):
+    urns: List[str]
+    dryRun: bool = True
+    parameters: Optional[Dict]
+    asyncFlag: bool = Field(alias="async", default=False)
+
+    @validator("dryRun", pre=True, always=True)
+    def validate_dry_run(cls, dry_run: Optional[bool]) -> bool:
+        if dry_run is None:
+            return True
+        return dry_run
+
 
 class EvaluateAssertionUrnInputSchema(BaseModel):
     assertionUrn: str
-    parameters: AssertionEvaluationParametersSchema
+    parameters: Optional[AssertionEvaluationParametersSchema]
     dryRun: bool = True
+
+    @validator("dryRun", pre=True, always=True)
+    def validate_dry_run(cls, dry_run: Optional[bool]) -> bool:
+        if dry_run is None:
+            return True
+        return dry_run
 
 
 class AssertionResultErrorSchema(BaseModel):
@@ -187,3 +212,12 @@ class AssertionResultSchema(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class AssertionsResultItemSchema(BaseModel):
+    urn: str
+    result: AssertionResultSchema
+
+
+class AssertionsResultSchema(BaseModel):
+    results: List[AssertionsResultItemSchema]

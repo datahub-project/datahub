@@ -61,6 +61,7 @@ export const DEFAULT_APP_CONFIG = {
         platformBrowseV2: false,
         assertionMonitorsEnabled: false,
         schemaAssertionMonitorsEnabled: false,
+        runAssertionsEnabled: false,
         subscriptionsEnabled: false,
         datasetHealthDashboardEnabled: false,
         businessAttributeEntityEnabled: false,

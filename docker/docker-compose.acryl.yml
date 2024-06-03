@@ -12,8 +12,8 @@ services:
       - datahub-integrations-service/env/docker.env
     ports:
       - ${DATAHUB_MAPPED_INTEGRATIONS_PORT:-9003}:9003
-  datahub-executor:
-    container_name: datahub-executor
+  datahub-executor-coordinator:
+    container_name: datahub-executor-coordinator
     hostname: datahub-executor
     build:
       context: ../

@@ -1023,6 +1023,11 @@ type FeatureFlagsConfig {
   assertionMonitorsEnabled: Boolean!
 
   """
+  SaaS only -- Whether to allow on-demand run of native assertions in the UI.
+  """
+  runAssertionsEnabled: Boolean!
+
+  """
   SaaS only -- Whether Schema Assertion Monitors are enabled.
   """
   schemaAssertionMonitorsEnabled: Boolean!

@@ -23,6 +23,8 @@ import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.assertion.SchemaAssertionCompatibility;
+import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.SqlAssertionType;
 import com.linkedin.common.CronSchedule;
@@ -48,13 +50,21 @@ import com.linkedin.monitor.DatasetFieldAssertionParameters;
 import com.linkedin.monitor.DatasetFieldAssertionSourceType;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
+import com.linkedin.monitor.DatasetSchemaAssertionParameters;
+import com.linkedin.monitor.DatasetSchemaSourceType;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
+import com.linkedin.schema.OtherSchema;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaFieldSpec;
+import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.schema.StringType;
 import com.linkedin.timeseries.CalendarInterval;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
@@ -62,6 +72,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -914,5 +925,165 @@ public class MonitorServiceTest {
         "localhost:9004/assertions/evaluate_assertion",
         request.getURI().getAuthority() + request.getURI().getPath());
     assertEquals(AssertionResultType.SUCCESS, result.getType());
+  }
+
+  @Test
+  public void testSchemaAssertionSuccess() throws Exception {
+    final SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
+    final CloseableHttpClient httpClient = Mockito.mock(CloseableHttpClient.class);
+    final MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            httpClient,
+            backoffPolicy,
+            3,
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
+
+    final SchemaMetadata schemaMetadata = new SchemaMetadata();
+    schemaMetadata.setVersion(0);
+    schemaMetadata.setHash("testHash");
+    schemaMetadata.setPlatformSchema(SchemaMetadata.PlatformSchema.create(new OtherSchema()));
+    schemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setFieldPath("testPath")
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new StringType())))
+                    .setNativeDataType("varchar"))));
+
+    final SchemaAssertionInfo schemaAssertionInfo =
+        new SchemaAssertionInfo()
+            .setCompatibility(SchemaAssertionCompatibility.SUPERSET)
+            .setSchema(schemaMetadata);
+
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    when(mockResponse.getStatusLine())
+        .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+
+    String expectedJson =
+        "{\"type\": \"SUCCESS\", \"rowCount\": null, \"missingCount\": null, \"unexpectedCount\": null, "
+            + "\"actualAggValue\": null, \"nativeResults\": {     \"Value\": \"200\" }, \"externalUrl\": null, \"error\": null}";
+    BasicHttpEntity entity = new BasicHttpEntity();
+    entity.setContent(new ByteArrayInputStream(expectedJson.getBytes(StandardCharsets.UTF_8)));
+    when(mockResponse.getEntity()).thenReturn(entity);
+    when(httpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    AssertionResult result =
+        service.testSchemaAssertion(
+            TEST_ENTITY_URN,
+            TEST_CONNECTION_URN,
+            schemaAssertionInfo,
+            new AssertionEvaluationParameters()
+                .setType(AssertionEvaluationParametersType.DATASET_SCHEMA)
+                .setDatasetSchemaParameters(
+                    new DatasetSchemaAssertionParameters()
+                        .setSourceType(DatasetSchemaSourceType.DATAHUB_SCHEMA)));
+
+    ArgumentCaptor<HttpPost> argument = ArgumentCaptor.forClass(HttpPost.class);
+    verify(httpClient, times(1)).execute(argument.capture());
+    HttpPost request = argument.getValue();
+
+    assertEquals(
+        "localhost:9004/assertions/evaluate_assertion",
+        request.getURI().getAuthority() + request.getURI().getPath());
+    assertEquals(AssertionResultType.SUCCESS, result.getType());
+  }
+
+  @Test
+  public void testRunAssertionsSuccess() throws Exception {
+    final SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
+    final CloseableHttpClient httpClient = Mockito.mock(CloseableHttpClient.class);
+    final MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            httpClient,
+            backoffPolicy,
+            3,
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
+
+    final Urn testUrn1 = UrnUtils.getUrn("urn:li:assertion:test");
+    final Urn testUrn2 = UrnUtils.getUrn("urn:li:assertion:test2");
+    final Urn testUrn3 = UrnUtils.getUrn("urn:li:assertion:test3");
+    final List<Urn> urns = ImmutableList.of(testUrn1, testUrn2, testUrn3);
+
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    when(mockResponse.getStatusLine())
+        .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+
+    String expectedJson =
+        "{\"results\": [{ \"urn\": \"urn:li:assertion:test\", \"result\": { \"type\": \"SUCCESS\" }}, { \"urn\": \"urn:li:assertion:test2\", \"result\": { \"type\": \"FAILURE\" }}, { \"urn\": \"urn:li:assertion:test3\", \"result\": { \"type\": \"ERROR\" }}]}";
+    BasicHttpEntity entity = new BasicHttpEntity();
+    entity.setContent(new ByteArrayInputStream(expectedJson.getBytes(StandardCharsets.UTF_8)));
+    when(mockResponse.getEntity()).thenReturn(entity);
+    when(httpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    Map<Urn, AssertionResult> result =
+        service.runAssertions(urns, true, Collections.emptyMap(), false);
+
+    ArgumentCaptor<HttpPost> argument = ArgumentCaptor.forClass(HttpPost.class);
+    verify(httpClient, times(1)).execute(argument.capture());
+    HttpPost request = argument.getValue();
+
+    assertEquals(
+        "localhost:9004/assertions/evaluate_assertion_urns",
+        request.getURI().getAuthority() + request.getURI().getPath());
+    assertEquals(result.size(), 3);
+    assertTrue(result.containsKey(testUrn1));
+    assertTrue(result.containsKey(testUrn2));
+    assertTrue(result.containsKey(testUrn3));
+    assertEquals(result.get(testUrn1).getType(), AssertionResultType.SUCCESS);
+    assertEquals(result.get(testUrn2).getType(), AssertionResultType.FAILURE);
+    assertEquals(result.get(testUrn3).getType(), AssertionResultType.ERROR);
+  }
+
+  @Test
+  public void testRunAssertionsAsync() throws Exception {
+    final SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
+    final CloseableHttpClient httpClient = Mockito.mock(CloseableHttpClient.class);
+    final MonitorService service =
+        new MonitorService(
+            TEST_HOST,
+            TEST_PORT,
+            false,
+            mockClient,
+            httpClient,
+            backoffPolicy,
+            3,
+            Mockito.mock(OpenApiClient.class),
+            objectMapper);
+
+    final Urn testUrn1 = UrnUtils.getUrn("urn:li:assertion:test");
+    final Urn testUrn2 = UrnUtils.getUrn("urn:li:assertion:test2");
+    final Urn testUrn3 = UrnUtils.getUrn("urn:li:assertion:test3");
+    final List<Urn> urns = ImmutableList.of(testUrn1, testUrn2, testUrn3);
+
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    when(mockResponse.getStatusLine())
+        .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
+
+    when(mockResponse.getEntity()).thenReturn(null);
+    when(httpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+
+    Map<Urn, AssertionResult> result =
+        service.runAssertions(urns, true, Collections.emptyMap(), false);
+
+    ArgumentCaptor<HttpPost> argument = ArgumentCaptor.forClass(HttpPost.class);
+    verify(httpClient, times(1)).execute(argument.capture());
+    HttpPost request = argument.getValue();
+
+    assertEquals(
+        "localhost:9004/assertions/evaluate_assertion_urns",
+        request.getURI().getAuthority() + request.getURI().getPath());
+    assertNull(result);
   }
 }

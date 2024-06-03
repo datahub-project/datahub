@@ -5,6 +5,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionResult;
+import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
@@ -26,6 +28,8 @@ import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AssertionsSummary;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.EntityRelationship;
+import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -34,17 +38,21 @@ import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.AssertionKey;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.SchemaMetadata;
@@ -75,23 +83,29 @@ public class AssertionService extends BaseService {
 
   static final List<String> ENTITY_TYPES_WITH_ASSERTION_SUMMARIES =
       ImmutableList.of(Constants.DATASET_ENTITY_NAME);
-
+  private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
+  private static final int MAX_ASSERTIONS_TO_LIST = 1000;
+  private final GraphClient _graphClient;
   private final Clock _clock;
 
   public AssertionService(
       @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final GraphClient graphClient,
       @Nonnull final OpenApiClient openApiClient,
       @Nonnull final Clock clock,
       @Nonnull ObjectMapper objectMapper) {
     super(entityClient, openApiClient, objectMapper);
+    _graphClient = graphClient;
     _clock = clock;
   }
 
   public AssertionService(
       @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final GraphClient graphClient,
       @Nonnull final OpenApiClient openApiClient,
       @Nonnull ObjectMapper objectMapper) {
     super(entityClient, openApiClient, objectMapper);
+    _graphClient = graphClient;
     _clock = Clock.systemUTC();
   }
 
@@ -184,6 +198,42 @@ public class AssertionService extends BaseService {
   }
 
   /**
+   * Retrieves the list of assertions associated with the target entity.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the urn of the entity to retrieve assertions for
+   * @return a list of assertion urns associated with the entity
+   */
+  public List<Urn> getAssertionUrnsForEntity(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    try {
+      // Fetch set of assertions associated with the target entity from the Graph
+      final EntityRelationships relationships =
+          _graphClient.getRelatedEntities(
+              entityUrn.toString(),
+              ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
+              RelationshipDirection.INCOMING,
+              0,
+              MAX_ASSERTIONS_TO_LIST,
+              opContext.getActorContext().getActorUrn().toString());
+
+      final List<Urn> assertionUrns =
+          relationships.getRelationships().stream()
+              .map(EntityRelationship::getEntity)
+              .collect(Collectors.toList());
+
+      // Filter out assertions that exist (not hard or soft deleted)
+      return assertionUrns.stream()
+          .filter(urn -> assertionExists(urn, false, opContext))
+          .collect(Collectors.toList());
+
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve assertions for entity with urn %s", entityUrn), e);
+    }
+  }
+
+  /**
    * Produces a Metadata Change Proposal to update the AssertionsSummary aspect for a given entity.
    */
   public void updateAssertionsSummary(
@@ -229,7 +279,8 @@ public class AssertionService extends BaseService {
           ImmutableSet.of(
               Constants.ASSERTION_INFO_ASPECT_NAME,
               Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME));
+              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+              Constants.GLOBAL_TAGS_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Assertion with urn %s", assertionUrn), e);
@@ -295,6 +346,52 @@ public class AssertionService extends BaseService {
               "Failed to list entities with assertion summary containing assertion urn %s",
               assertionUrn),
           e);
+    }
+  }
+
+  /**
+   * Returns an instance of {@link com.linkedin.assertion.AssertionResult} for the specified
+   * assertion URN, if one exists, null if one is not found.
+   */
+  @Nullable
+  public AssertionResult getLatestAssertionRunResult(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    final AssertionRunEvent event = getLatestAssertionRunEvent(opContext, assertionUrn);
+    return event != null ? event.getResult() : null;
+  }
+
+  /**
+   * Returns an instance of {@link com.linkedin.assertion.AssertionRunEvent} for the specified
+   * assertion URN, if one exists, null if one is not found.
+   */
+  @Nullable
+  public AssertionRunEvent getLatestAssertionRunEvent(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    try {
+      final List<EnvelopedAspect> aspects =
+          this.entityClient.getTimeseriesAspectValues(
+              opContext,
+              assertionUrn.toString(),
+              Constants.ASSERTION_ENTITY_NAME,
+              Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+              null,
+              null,
+              1,
+              null);
+      if (aspects != null && !aspects.isEmpty()) {
+        final EnvelopedAspect envelopedAspect = aspects.get(0);
+        return GenericRecordUtils.deserializeAspect(
+            envelopedAspect.getAspect().getValue(),
+            envelopedAspect.getAspect().getContentType(),
+            AssertionRunEvent.class);
+      }
+      return null;
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
     }
   }
 
@@ -1047,6 +1144,16 @@ public class AssertionService extends BaseService {
     } catch (RemoteInvocationException ex) {
       log.error(
           String.format("Failed to delete assertion references for urn %s! ", assertionUrn), ex);
+    }
+  }
+
+  private boolean assertionExists(
+      @Nonnull Urn urn, @Nonnull Boolean includeSoftDeleted, @Nonnull OperationContext opContext) {
+    try {
+      return this.entityClient.exists(opContext, urn, includeSoftDeleted);
+    } catch (RemoteInvocationException e) {
+      log.error(String.format("Unable to check if assertion %s exists, ignoring it", urn), e);
+      return false;
     }
   }
 

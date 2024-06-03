@@ -100,7 +100,7 @@ class ExecutionRequestScheduler:
                         execution_request, execution_request.executor_id
                     )
 
-                    logger.debug(f"started task assertion_request task_id = {task.id}")
+                    logger.debug(f"started task assertion_request for exec_id = {task}")
         except Exception:
             STATS_SCHEDULER_SUBMISSION_ERRORS.labels(
                 execution_request.executor_id,

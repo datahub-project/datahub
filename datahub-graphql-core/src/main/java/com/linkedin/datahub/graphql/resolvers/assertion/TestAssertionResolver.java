@@ -20,7 +20,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class TestAssertionResolver implements DataFetcher<CompletableFuture<AssertionResult>> {
-
   private final MonitorService _monitorService;
 
   public TestAssertionResolver(@Nonnull final MonitorService monitorService) {
@@ -73,6 +72,15 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
                         FieldAssertionUtils.createFieldAssertionInfo(input.getFieldTestInput()),
                         MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
                 return AssertionRunEventMapper.mapResult(context, fieldResult);
+              case DATA_SCHEMA:
+                final com.linkedin.assertion.AssertionResult dataSchemaResult =
+                    _monitorService.testSchemaAssertion(
+                        asserteeUrn,
+                        connectionUrn,
+                        SchemaAssertionUtils.createDataSchemaAssertionInfo(
+                            input.getSchemaTestInput()),
+                        MonitorUtils.createAssertionEvaluationParameters(input.getParameters()));
+                return AssertionRunEventMapper.mapResult(context, dataSchemaResult);
               default:
                 throw new IllegalArgumentException(
                     "Unsupported assertion type: " + input.getType());

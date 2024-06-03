@@ -11,7 +11,7 @@ import { TestAssertionModal } from './preview/TestAssertionModal';
 import { builderStateToTestFreshnessAssertionVariables } from '../utils';
 import { useTestAssertionModal } from './utils';
 import { DatasetFreshnessAssertionBuilder } from './freshness/DatasetFreshnessAssertionBuilder';
-import { useConnectionWithTestAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
 import { AssertionActionsSection } from './actions/AssertionActionsSection';
 
 const Step = styled.div`
@@ -38,7 +38,7 @@ const ControlsGroup = styled.div`
  */
 export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goTo, prev, }: StepProps) => {
     const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
-    const isTestAssertionActionDisabled = !useConnectionWithTestAssertionCapabilitiesForEntityExists(state.entityUrn ?? '');
+    const isTestAssertionActionDisabled = !useConnectionWithRunAssertionCapabilitiesForEntityExists(state.entityUrn ?? '');
 
     return (
         <Step>

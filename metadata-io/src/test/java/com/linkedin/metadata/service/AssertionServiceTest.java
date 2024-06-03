@@ -16,6 +16,9 @@ import com.linkedin.assertion.AssertionActionArray;
 import com.linkedin.assertion.AssertionActionType;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionResult;
+import com.linkedin.assertion.AssertionResultType;
+import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionStdOperator;
@@ -43,6 +46,9 @@ import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AssertionsSummary;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.EntityRelationship;
+import com.linkedin.common.EntityRelationshipArray;
+import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -57,11 +63,13 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -119,7 +127,8 @@ public class AssertionServiceTest {
   private void testGetAssertionInfo() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Case 1: Info exists
     AssertionInfo info = service.getAssertionInfo(opContext, TEST_ASSERTION_URN);
@@ -133,7 +142,8 @@ public class AssertionServiceTest {
                 ImmutableSet.of(
                     Constants.ASSERTION_INFO_ASPECT_NAME,
                     Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    Constants.GLOBAL_TAGS_ASPECT_NAME)));
 
     // Case 2: Info does not exist
     info = service.getAssertionInfo(opContext, TEST_NON_EXISTENT_ASSERTION_URN);
@@ -147,14 +157,16 @@ public class AssertionServiceTest {
                 ImmutableSet.of(
                     Constants.ASSERTION_INFO_ASPECT_NAME,
                     Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    Constants.GLOBAL_TAGS_ASPECT_NAME)));
   }
 
   @Test
   private void testGetAssertionDataPlatformInstance() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Case 1: data platform exists
     DataPlatformInstance instance =
@@ -169,7 +181,8 @@ public class AssertionServiceTest {
                 ImmutableSet.of(
                     Constants.ASSERTION_INFO_ASPECT_NAME,
                     Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    Constants.GLOBAL_TAGS_ASPECT_NAME)));
 
     // Case 2: data platform info does not exist
     instance = service.getAssertionDataPlatformInstance(opContext, TEST_NON_EXISTENT_ASSERTION_URN);
@@ -183,14 +196,16 @@ public class AssertionServiceTest {
                 ImmutableSet.of(
                     Constants.ASSERTION_INFO_ASPECT_NAME,
                     Constants.ASSERTION_ACTIONS_ASPECT_NAME,
-                    DATA_PLATFORM_INSTANCE_ASPECT_NAME)));
+                    DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    Constants.GLOBAL_TAGS_ASPECT_NAME)));
   }
 
   @Test
   private void testGetAssertionsSummary() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Case 1: Summary exists
     AssertionsSummary summary = service.getAssertionsSummary(opContext, TEST_DATASET_URN);
@@ -217,7 +232,8 @@ public class AssertionServiceTest {
   private void testUpdateAssertionsSummary() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
     service.updateAssertionsSummary(opContext, TEST_DATASET_URN, mockAssertionSummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
@@ -239,7 +255,8 @@ public class AssertionServiceTest {
                     ImmutableSet.of(
                         Constants.ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
-                        DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ASSERTION_URN)
@@ -257,7 +274,8 @@ public class AssertionServiceTest {
     final Clock clock = Clock.fixed(nowInstant, ZoneId.systemDefault());
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), clock, objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), clock, objectMapper);
 
     service.updateAssertionMetadata(opContext, TEST_ASSERTION_URN, mockAssertionActions(), null);
     Mockito.verify(mockClient, Mockito.times(1))
@@ -292,7 +310,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -331,7 +350,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -364,7 +384,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -407,7 +428,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -435,7 +457,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -476,7 +499,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -522,7 +546,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -587,7 +612,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -644,7 +670,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -716,7 +743,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -775,7 +803,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -854,7 +883,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -928,7 +958,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -1008,7 +1039,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -1037,7 +1069,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -1078,7 +1111,8 @@ public class AssertionServiceTest {
         .batchIngestProposals(any(OperationContext.class), Mockito.anyList(), Mockito.eq(false));
 
     final AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     // Test method
     Urn result =
@@ -1095,7 +1129,8 @@ public class AssertionServiceTest {
 
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
     AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     AssertionsSummaryPatchBuilder mockPatchBuilder = mock(AssertionsSummaryPatchBuilder.class);
     Mockito.when(mockPatchBuilder.build()).thenReturn(mockAssertionSummaryMcp());
@@ -1164,12 +1199,169 @@ public class AssertionServiceTest {
                             new SearchEntity().setEntity(urn2)))));
 
     AssertionService service =
-        new AssertionService(mockClient, mock(OpenApiClient.class), objectMapper);
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
 
     List<Urn> urns = service.listEntitiesWithAssertionInSummary(opContext, TEST_ASSERTION_URN);
     Assert.assertEquals(urns.size(), 2);
     Assert.assertTrue(urns.contains(urn1));
     Assert.assertTrue(urns.contains(urn2));
+  }
+
+  @Test
+  public void testGetAssertionUrnsForEntity() throws Exception {
+    // Test data and mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    GraphClient mockGraphClient = mock(GraphClient.class);
+
+    Mockito.when(
+            mockGraphClient.getRelatedEntities(
+                Mockito.eq(TEST_DATASET_URN.toString()),
+                Mockito.eq(ImmutableList.of("Asserts")),
+                Mockito.eq(RelationshipDirection.INCOMING),
+                Mockito.eq(0),
+                Mockito.eq(1000),
+                Mockito.anyString()))
+        .thenReturn(
+            new EntityRelationships()
+                .setTotal(3)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        ImmutableList.of(
+                            new EntityRelationship().setEntity(TEST_ASSERTION_URN),
+                            new EntityRelationship().setEntity(TEST_FRESHNESS_ASSERTION_URN),
+                            new EntityRelationship().setEntity(TEST_VOLUME_ASSERTION_URN)))));
+
+    Mockito.when(
+            mockClient.exists(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ASSERTION_URN),
+                Mockito.eq(false)))
+        .thenReturn(true);
+
+    Mockito.when(
+            mockClient.exists(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_FRESHNESS_ASSERTION_URN),
+                Mockito.eq(false)))
+        .thenReturn(true);
+
+    // VOLUME assertion DOES NOT EXIST! Should be filtered.
+    Mockito.when(
+            mockClient.exists(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_VOLUME_ASSERTION_URN),
+                Mockito.eq(false)))
+        .thenReturn(false);
+
+    final AssertionService service =
+        new AssertionService(mockClient, mockGraphClient, mock(OpenApiClient.class), objectMapper);
+
+    // Test method
+    final List<Urn> assertionUrns = service.getAssertionUrnsForEntity(opContext, TEST_DATASET_URN);
+
+    // Assert result
+    Assert.assertEquals(assertionUrns.size(), 2);
+    Assert.assertTrue(assertionUrns.contains(TEST_ASSERTION_URN));
+    Assert.assertTrue(assertionUrns.contains(TEST_FRESHNESS_ASSERTION_URN));
+    Assert.assertFalse(assertionUrns.contains(TEST_VOLUME_ASSERTION_URN));
+  }
+
+  @Test
+  public void getLatestAssertionRunEvent() throws Exception {
+    // Test data and mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    GraphClient mockGraphClient = mock(GraphClient.class);
+
+    AssertionRunEvent latestRunEvent =
+        new AssertionRunEvent()
+            .setResult(new AssertionResult().setType(AssertionResultType.SUCCESS));
+
+    Mockito.when(
+            mockClient.getTimeseriesAspectValues(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ASSERTION_URN.toString()),
+                Mockito.eq(ASSERTION_ENTITY_NAME),
+                Mockito.eq(ASSERTION_RUN_EVENT_ASPECT_NAME),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq(1),
+                Mockito.eq(null)))
+        .thenReturn(
+            ImmutableList.of(
+                new com.linkedin.metadata.aspect.EnvelopedAspect()
+                    .setAspect(GenericRecordUtils.serializeAspect(latestRunEvent))));
+
+    final AssertionService service =
+        new AssertionService(mockClient, mockGraphClient, mock(OpenApiClient.class), objectMapper);
+
+    // Test method
+    final AssertionRunEvent actualEvent =
+        service.getLatestAssertionRunEvent(opContext, TEST_ASSERTION_URN);
+
+    // Assert results are equal
+    Assert.assertEquals(actualEvent, latestRunEvent);
+  }
+
+  @Test
+  public void getLatestAssertionRunEventNoEvents() throws Exception {
+    // Test data and mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    GraphClient mockGraphClient = mock(GraphClient.class);
+
+    Mockito.when(
+            mockClient.getTimeseriesAspectValues(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ASSERTION_URN.toString()),
+                Mockito.eq(ASSERTION_ENTITY_NAME),
+                Mockito.eq(ASSERTION_RUN_EVENT_ASPECT_NAME),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq(1),
+                Mockito.eq(null)))
+        .thenReturn(Collections.emptyList());
+
+    final AssertionService service =
+        new AssertionService(mockClient, mockGraphClient, mock(OpenApiClient.class), objectMapper);
+
+    // Test method
+    final AssertionRunEvent actualEvent =
+        service.getLatestAssertionRunEvent(opContext, TEST_ASSERTION_URN);
+
+    Assert.assertNull(actualEvent);
+  }
+
+  @Test
+  public void getLatestAssertionRunResultNullResult() throws Exception {
+    // Test data and mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    GraphClient mockGraphClient = mock(GraphClient.class);
+
+    AssertionRunEvent latestRunEvent = new AssertionRunEvent();
+
+    Mockito.when(
+            mockClient.getTimeseriesAspectValues(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ASSERTION_URN.toString()),
+                Mockito.eq(ASSERTION_ENTITY_NAME),
+                Mockito.eq(ASSERTION_RUN_EVENT_ASPECT_NAME),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq(1),
+                Mockito.eq(null)))
+        .thenReturn(
+            ImmutableList.of(
+                new com.linkedin.metadata.aspect.EnvelopedAspect()
+                    .setAspect(GenericRecordUtils.serializeAspect(latestRunEvent))));
+
+    final AssertionService service =
+        new AssertionService(mockClient, mockGraphClient, mock(OpenApiClient.class), objectMapper);
+
+    // Test method
+    final AssertionResult actualEvent =
+        service.getLatestAssertionRunResult(opContext, TEST_ASSERTION_URN);
+
+    Assert.assertNull(actualEvent);
   }
 
   private static SystemEntityClient createMockEntityClient() throws Exception {
@@ -1185,7 +1377,8 @@ public class AssertionServiceTest {
                     ImmutableSet.of(
                         Constants.ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
-                        DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ASSERTION_URN)
@@ -1207,7 +1400,8 @@ public class AssertionServiceTest {
                     ImmutableSet.of(
                         Constants.ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
-                        DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_NON_EXISTENT_ASSERTION_URN)
@@ -1222,7 +1416,8 @@ public class AssertionServiceTest {
                     ImmutableSet.of(
                         ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
-                        DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ASSERTION_URN)
@@ -1242,7 +1437,8 @@ public class AssertionServiceTest {
                     ImmutableSet.of(
                         ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
-                        DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_VOLUME_ASSERTION_URN)
@@ -1262,7 +1458,8 @@ public class AssertionServiceTest {
                     ImmutableSet.of(
                         ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
-                        DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_SQL_ASSERTION_URN)

@@ -2,9 +2,9 @@ import React, { useEffect } from 'react';
 import { Button, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
-import { AssertionResultType, TestAssertionInput } from '../../../../../../../../../../types.generated';
+import { AssertionResult, AssertionResultType, TestAssertionInput } from '../../../../../../../../../../types.generated';
 import { AssertionStatusTag } from './AssertionStatusTag';
-import { TestAssertionResult } from './TestAssertionResult';
+import { RunAssertionResult } from './RunAssertionResult';
 import { useTestAssertionMutation } from '../../../../../../../../../../graphql/assertion.generated';
 
 const LoadingIcon = styled(LoadingOutlined)`
@@ -50,26 +50,27 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
             onCancel={handleClose}
             footer={
                 <Button type="primary" onClick={handleClose}>
-                    OK
+                    Ok
                 </Button>
             }
         >
             {data?.testAssertion && (
-                <div>
+                <>
                     {[AssertionResultType.Success, AssertionResultType.Failure].includes(data.testAssertion.type) && (
-                        <Typography.Paragraph>This query ran successfully.</Typography.Paragraph>
+                        <Typography.Paragraph>The assertion was evaluated successfully.</Typography.Paragraph>
                     )}
                     <Row>
                         <AssertionStatusTag assertionResultType={data.testAssertion.type} />
-                        <div>
-                            <TestAssertionResult result={data.testAssertion} />
-                        </div>
+                        <RunAssertionResult result={data.testAssertion as AssertionResult} isTest />
                     </Row>
-                </div>
+                </>
             )}
             {error && (
                 <Typography.Paragraph>
-                    An error occurred while testing the assertion. Try again later.
+                    {(error?.networkError as any)?.statusCode === 503 
+                        ? 'Oops! The assertion has exceeded the real-time results timeout (30s). Create the assertion to run it to completion!' 
+                        : 'Oops. An unknown error occurred while testing the assertion! Try again later.'
+                    }
                 </Typography.Paragraph>
             )}
             {loading && <LoadingIcon spin />}

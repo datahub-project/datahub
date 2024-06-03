@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import com.linkedin.assertion.SchemaAssertionCompatibility;
+import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.SchemaAssertionFieldInput;
+import com.linkedin.datahub.graphql.generated.SchemaAssertionInput;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.DatasetSchemaAssertionParameters;
@@ -78,6 +81,16 @@ public class SchemaAssertionUtils {
     if (field.getNativeType() != null) {
       result.setNativeDataType(field.getNativeType());
     }
+    return result;
+  }
+
+  @Nonnull
+  public static SchemaAssertionInfo createDataSchemaAssertionInfo(
+      @Nonnull final SchemaAssertionInput input) {
+    final SchemaAssertionInfo result = new SchemaAssertionInfo();
+    result.setCompatibility(
+        SchemaAssertionCompatibility.valueOf(input.getCompatibility().toString()));
+    result.setSchema(createSchemaMetadata(input.getFields()));
     return result;
   }
 

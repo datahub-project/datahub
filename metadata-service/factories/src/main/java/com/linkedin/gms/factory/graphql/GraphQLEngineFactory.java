@@ -20,6 +20,7 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.datacontract.DataContractServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.integration.IntegrationsServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
@@ -37,6 +38,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -76,6 +78,7 @@ import org.springframework.context.annotation.Import;
   TestEngineFactory.class,
   EntitySearchServiceFactory.class,
   AssertionServiceFactory.class,
+  DataContractServiceFactory.class,
   IntegrationsServiceFactory.class
 })
 public class GraphQLEngineFactory {
@@ -214,6 +217,10 @@ public class GraphQLEngineFactory {
   private MonitorService _monitorService;
 
   @Autowired
+  @Qualifier("dataContractService")
+  private DataContractService _dataContractService;
+
+  @Autowired
   @Qualifier("integrationsService")
   private IntegrationsService _integrationsService;
 
@@ -306,6 +313,7 @@ public class GraphQLEngineFactory {
     args.setSubscriptionService(_subscriptionService);
     args.setShareService(_shareService);
     args.setExecutorConfiguration(configProvider.getExecutors());
+    args.setDataContractService(_dataContractService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 }

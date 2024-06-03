@@ -697,5 +697,41 @@ public class AssertionUtils {
     }
   }
 
+  public static String mapSchemaFieldDataType(
+      @Nonnull final com.linkedin.schema.SchemaFieldDataType dataTypeUnion) {
+    final com.linkedin.schema.SchemaFieldDataType.Type type = dataTypeUnion.getType();
+    if (type.isBytesType()) {
+      return "BYTES";
+    } else if (type.isFixedType()) {
+      return "FIXED";
+    } else if (type.isBooleanType()) {
+      return "BOOLEAN";
+    } else if (type.isStringType()) {
+      return "STRING";
+    } else if (type.isNumberType()) {
+      return "NUMBER";
+    } else if (type.isDateType()) {
+      return "DATE";
+    } else if (type.isTimeType()) {
+      return "TIME";
+    } else if (type.isEnumType()) {
+      return "ENUM";
+    } else if (type.isNullType()) {
+      return "NULL";
+    } else if (type.isArrayType()) {
+      return "ARRAY";
+    } else if (type.isMapType()) {
+      return "MAP";
+    } else if (type.isRecordType()) {
+      return "STRUCT";
+    } else if (type.isUnionType()) {
+      return "UNION";
+    } else {
+      throw new RuntimeException(
+          String.format(
+              "Unrecognized SchemaFieldDataType provided %s", type.memberType().toString()));
+    }
+  }
+
   private AssertionUtils() {}
 }

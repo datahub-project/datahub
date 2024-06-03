@@ -34,6 +34,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -112,4 +113,5 @@ public class GmsGraphQLEngineArgs {
   SubscriptionService subscriptionService;
   ShareService shareService;
   ExecutorConfiguration executorConfiguration;
+  DataContractService dataContractService;
 }
