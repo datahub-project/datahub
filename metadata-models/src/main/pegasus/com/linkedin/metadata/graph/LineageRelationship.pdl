@@ -73,6 +73,11 @@ record LineageRelationship {
     */
     explored: optional boolean
 
+    /**
+     * Indicates this destination node has additional unexplored child relationships
+     */
+    truncatedChildren: optional boolean
+
    /**
     * Whether this relationship was ignored as a hop while performing the graph walk
     */
