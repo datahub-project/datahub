@@ -171,7 +171,6 @@ class VerticaSource(SQLAlchemySource):
                     ),
                 )
 
-                
                 if sql_config.include_projections:
                     yield from self.loop_projections(inspector, schema, sql_config)
                 if sql_config.include_models:
@@ -305,7 +304,7 @@ class VerticaSource(SQLAlchemySource):
                                 entityUrn=dataset_snapshot.urn,
                                 aspect=lineage_info,
                             ).as_workunit()
-                 
+
                     except Exception as e:
                         logger.warning(
                             f"Unable to get lineage of view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
