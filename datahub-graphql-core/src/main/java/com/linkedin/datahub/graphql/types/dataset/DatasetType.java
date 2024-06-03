@@ -133,10 +133,10 @@ public class DatasetType
 
       final Map<Urn, EntityResponse> datasetMap =
           entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.DATASET_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
@@ -216,7 +216,7 @@ public class DatasetType
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context)
       throws Exception {
     final StringArray result =
-        entityClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn), context.getAuthentication());
+        entityClient.getBrowsePaths(context.getOperationContext(), DatasetUtils.getDatasetUrn(urn));
     return BrowsePathsMapper.map(context, result);
   }
 
@@ -246,7 +246,7 @@ public class DatasetType
         Arrays.stream(input).map(BatchDatasetUpdateInput::getUrn).collect(Collectors.toList());
 
     try {
-      entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+      entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urns), e);
     }
@@ -267,7 +267,7 @@ public class DatasetType
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
       try {
-        entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+        entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
       } catch (RemoteInvocationException e) {
         throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
       }

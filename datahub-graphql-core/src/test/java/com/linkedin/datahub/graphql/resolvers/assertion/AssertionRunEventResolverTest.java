@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -45,6 +46,7 @@ public class AssertionRunEventResolverTest {
 
     Mockito.when(
             mockClient.getTimeseriesAspectValues(
+                any(),
                 Mockito.eq(assertionUrn.toString()),
                 Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
                 Mockito.eq(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME),
@@ -53,8 +55,7 @@ public class AssertionRunEventResolverTest {
                 Mockito.eq(5),
                 Mockito.eq(
                     AssertionRunEventResolver.buildFilter(
-                        null, AssertionRunStatus.COMPLETE.toString())),
-                Mockito.any(Authentication.class)))
+                        null, AssertionRunStatus.COMPLETE.toString()))))
         .thenReturn(
             ImmutableList.of(
                 new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(gmsRunEvent))));
@@ -83,19 +84,20 @@ public class AssertionRunEventResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .getTimeseriesAspectValues(
+            any(),
             Mockito.eq(assertionUrn.toString()),
             Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
             Mockito.eq(Constants.ASSERTION_RUN_EVENT_ASPECT_NAME),
             Mockito.eq(0L),
             Mockito.eq(10L),
             Mockito.eq(5),
-            Mockito.any(Filter.class),
-            Mockito.any(Authentication.class));
+            Mockito.any(Filter.class));
 
     // Assert that GraphQL assertion run event matches expectations
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getFailed(), 0);
     assertEquals(result.getSucceeded(), 1);
+    assertEquals(result.getErrored(), 0);
 
     com.linkedin.datahub.graphql.generated.AssertionRunEvent graphqlRunEvent =
         resolver.get(mockEnv).get().getRunEvents().get(0);

@@ -285,7 +285,8 @@ public class AuthorizationUtils {
                     // they are a `one of` non-null.
                     // i.e. ChartProperties or ChartEditableProperties are required.
                     if (field.getAnnotation(javax.annotation.Nonnull.class) != null
-                        || field.getName().toLowerCase().contains("properties")) {
+                        || field.getName().toLowerCase().contains("properties")
+                        || field.getType().isPrimitive()) {
                       try {
                         switch (field.getName()) {
                             // pass through to the restricted entity
@@ -303,21 +304,32 @@ public class AuthorizationUtils {
                             return fieldGetter.invoke(entity, (Object[]) null);
                           default:
                             switch (field.getType().getSimpleName()) {
+                              case "boolean":
                               case "Boolean":
                                 Method boolGetter =
                                     MethodUtils.getMatchingMethod(
                                         entity.getClass(),
                                         "get" + StringUtils.capitalise(field.getName()));
-                                return boolGetter.invoke(entity, (Object[]) null);
+                                return Boolean.TRUE.equals(
+                                    boolGetter.invoke(entity, (Object[]) null));
                                 // mask these fields in the restricted entity
+                              case "char":
                               case "String":
                                 return "";
+                              case "short":
+                              case "Short":
+                              case "int":
                               case "Integer":
                                 return 0;
+                              case "long":
                               case "Long":
                                 return 0L;
+                              case "float":
+                              case "Float":
+                                return 0F;
+                              case "double":
                               case "Double":
-                                return 0.0;
+                                return 0D;
                               case "List":
                                 return List.of();
                               default:

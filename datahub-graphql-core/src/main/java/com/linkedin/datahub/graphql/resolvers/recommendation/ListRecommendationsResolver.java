@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
 import com.linkedin.datahub.graphql.generated.FacetFilter;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.recommendation.EntityRequestContext;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.SearchRequestContext;
+import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -44,6 +46,7 @@ public class ListRecommendationsResolver
       new ListRecommendationsResult(Collections.emptyList());
 
   private final RecommendationsService _recommendationsService;
+  private final ViewService _viewService;
 
   @WithSpan
   @Override
@@ -52,7 +55,7 @@ public class ListRecommendationsResolver
     final ListRecommendationsInput input =
         bindArgument(environment.getArgument("input"), ListRecommendationsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug("Listing recommendations for input {}", input);
@@ -60,6 +63,7 @@ public class ListRecommendationsResolver
                 _recommendationsService.listRecommendations(
                     context.getOperationContext(),
                     mapRequestContext(input.getRequestContext()),
+                    viewFilter(context.getOperationContext(), _viewService, input.getViewUrn()),
                     input.getLimit());
             return ListRecommendationsResult.builder()
                 .setModules(
@@ -73,7 +77,9 @@ public class ListRecommendationsResolver
             log.error("Failed to get recommendations for input {}", input, e);
             return EMPTY_RECOMMENDATIONS;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private com.linkedin.metadata.recommendation.RecommendationRequestContext mapRequestContext(

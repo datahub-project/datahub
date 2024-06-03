@@ -39,6 +39,7 @@ query getMe {
             manageSecrets
             manageTokens
             manageDomains
+            viewTests
             manageTests
             manageGlossaries
             manageUserCredentials
@@ -48,6 +49,9 @@ query getMe {
             manageGlobalViews
             manageOwnershipTypes
             manageGlobalAnnouncements
+            createBusinessAttributes
+            manageBusinessAttributes
+
         }
     }
 }

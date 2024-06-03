@@ -24,12 +24,14 @@ import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Builder
 public class EntityClientCache {
   @NonNull private EntityClientCacheConfig config;
   @NonNull private final ClientCache<Key, EnvelopedAspect, EntityClientCacheConfig> cache;
-  @NonNull private Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction;
+  @NonNull private final Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction;
 
   public EntityResponse getV2(
       @Nonnull OperationContext opContext,
@@ -44,12 +46,28 @@ public class EntityClientCache {
       @Nonnull final Set<String> aspectNames) {
     final Map<Urn, EntityResponse> response;
 
+    final Set<String> projectedAspects;
+    if (aspectNames.isEmpty()) {
+      projectedAspects =
+          urns.stream()
+              .map(Urn::getEntityType)
+              .distinct()
+              .flatMap(entityName -> opContext.getEntityAspectNames(entityName).stream())
+              .collect(Collectors.toSet());
+      log.warn(
+          "No aspectNames specified, projecting to ALL aspects. The caller is likely over-fetching. Request: {} Aspects: {}",
+          opContext.getRequestID(),
+          projectedAspects);
+    } else {
+      projectedAspects = aspectNames;
+    }
+
     if (config.isEnabled()) {
       Set<Key> keys =
           urns.stream()
               .flatMap(
                   urn ->
-                      aspectNames.stream()
+                      projectedAspects.stream()
                           .map(
                               a ->
                                   Key.builder()
@@ -79,7 +97,7 @@ public class EntityClientCache {
               CollectionKey.builder()
                   .contextId(opContext.getEntityContextId())
                   .urns(urns)
-                  .aspectNames(aspectNames)
+                  .aspectNames(projectedAspects)
                   .build());
     }
 
@@ -104,7 +122,14 @@ public class EntityClientCache {
       return this;
     }
 
-    public EntityClientCache build(Class<?> metricClazz) {
+    private EntityClientCacheBuilder loadFunction(
+        Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction) {
+      return this;
+    }
+
+    public EntityClientCache build(
+        @Nonnull final Function<CollectionKey, Map<Urn, EntityResponse>> fetchFunction,
+        Class<?> metricClazz) {
       // estimate size
       Weigher<Key, EnvelopedAspect> weighByEstimatedSize =
           (key, value) -> value.getValue().data().toString().getBytes().length;
@@ -118,7 +143,7 @@ public class EntityClientCache {
             return keysByContextEntity.entrySet().stream()
                 .flatMap(
                     entry ->
-                        loadByEntity(entry.getKey(), entry.getValue(), loadFunction)
+                        loadByEntity(entry.getKey(), entry.getValue(), fetchFunction)
                             .entrySet()
                             .stream())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -133,15 +158,15 @@ public class EntityClientCache {
                   .getOrDefault(key.getEntityName(), Map.of())
                   .getOrDefault(key.getAspectName(), config.getDefaultTTLSeconds());
 
-      cache =
+      this.cache =
           ClientCache.<Key, EnvelopedAspect, EntityClientCacheConfig>builder()
               .weigher(weighByEstimatedSize)
-              .config(config)
+              .config(this.config)
               .loadFunction(loader)
               .ttlSecondsFunction(ttlSeconds)
               .build(metricClazz);
 
-      return new EntityClientCache(config, cache, loadFunction);
+      return new EntityClientCache(this.config, this.cache, fetchFunction);
     }
   }
 
@@ -191,6 +216,7 @@ public class EntityClientCache {
                         envAspect -> {
                           Key key =
                               Key.builder()
+                                  .contextId(contextId)
                                   .urn(resp.getKey())
                                   .aspectName(envAspect.getName())
                                   .build();

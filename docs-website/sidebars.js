@@ -43,69 +43,146 @@ module.exports = {
         description: "Learn about the features of DataHub.",
       },
       items: [
-        "docs/ui-ingestion",
-        "docs/how/search",
-        "docs/schema-history",
         // "docs/how/ui-tabs-guide",
-        "docs/domains",
-        "docs/dataproducts",
-        "docs/glossary/business-glossary",
-        "docs/tags",
-        "docs/ownership/ownership-types",
-        "docs/authorization/access-policies-guide",
-        "docs/features/dataset-usage-and-query-history",
-        "docs/posts",
-        "docs/sync-status",
-        "docs/incidents/incidents",
-        "docs/generated/lineage/lineage-feature-guide",
         {
-          type: "doc",
-          id: "docs/tests/metadata-tests",
-          className: "saasOnly",
-        },
-        "docs/act-on-metadata/impact-analysis",
-        {
-          label: "Observability",
+          label: "Assertions",
           type: "category",
+          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
           items: [
             {
-              label: "Assertions",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "docs/managed-datahub/observe/assertions",
-              },
-              items: [
-                {
-                  type: "doc",
-                  id: "docs/managed-datahub/observe/freshness-assertions",
-                  className: "saasOnly",
-                },
-                {
-                  type: "doc",
-                  id: "docs/managed-datahub/observe/volume-assertions",
-                  className: "saasOnly",
-                },
-                {
-                  type: "doc",
-                  id: "docs/managed-datahub/observe/custom-sql-assertions",
-                  className: "saasOnly",
-                },
-                {
-                  type: "doc",
-                  id: "docs/managed-datahub/observe/column-assertions",
-                  className: "saasOnly",
-                },
-              ],
+              label: "Column Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/column-assertions",
+              className: "saasOnly",
             },
             {
+              label: "Custom SQL Assertions",
               type: "doc",
-              id: "docs/managed-datahub/observe/data-contract",
+              id: "docs/managed-datahub/observe/custom-sql-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Freshness Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/freshness-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Schema Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/schema-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Volume Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/volume-assertions",
+              className: "saasOnly",
             },
           ],
         },
         {
-          Guides: ["docs/features/feature-guides/ui-lineage"],
+          label: "Business Attributes",
+          type: "doc",
+          id: "docs/businessattributes",
+        },
+        {
+          label: "Business Glossary",
+          type: "doc",
+          id: "docs/glossary/business-glossary",
+        },
+        {
+          label: "Data Contract",
+          type: "doc",
+          id: "docs/managed-datahub/observe/data-contract",
+        },
+        {
+          label: "Data Products",
+          type: "doc",
+          id: "docs/dataproducts",
+        },
+        {
+          label: "Dataset Usage and Query History",
+          type: "doc",
+          id: "docs/features/dataset-usage-and-query-history",
+        },
+        "docs/features/feature-guides/documentation-forms",
+        {
+          label: "Domains",
+          type: "doc",
+          id: "docs/domains",
+        },
+        {
+          label: "Incidents",
+          type: "doc",
+          id: "docs/incidents/incidents",
+        },
+        {
+          label: "Ingestion",
+          type: "doc",
+          id: "docs/ui-ingestion",
+        },
+        {
+          label: "Lineage",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/generated/lineage/lineage-feature-guide",
+          },
+          items: [
+            {
+              label: "Lineage Impact analysis",
+              type: "doc",
+              id: "docs/act-on-metadata/impact-analysis",
+            },
+            {
+              label: "Managing Lineage via UI",
+              type: "doc",
+              id: "docs/features/feature-guides/ui-lineage",
+            },
+          ],
+        },
+        {
+          label: "Metadata Tests",
+          type: "doc",
+          id: "docs/tests/metadata-tests",
+          className: "saasOnly",
+        },
+        {
+          label: "Ownership",
+          type: "doc",
+          id: "docs/ownership/ownership-types",
+        },
+        {
+          label: "Policies",
+          type: "doc",
+          id: "docs/authorization/access-policies-guide",
+        },
+        {
+          label: "Posts",
+          type: "doc",
+          id: "docs/posts",
+        },
+        "docs/features/feature-guides/properties",
+        {
+          label: "Schema history",
+          type: "doc",
+          id: "docs/schema-history",
+        },
+        {
+          label: "Search",
+          type: "doc",
+          id: "docs/how/search",
+        },
+        {
+          label: "Sync Status",
+          type: "doc",
+          id: "docs/sync-status",
+        },
+        {
+          label: "Tags",
+          type: "doc",
+          id: "docs/tags",
         },
       ],
     },
@@ -166,7 +243,7 @@ module.exports = {
           "Operator Guide": [
             {
               type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
               className: "saasOnly",
             },
             {
@@ -187,6 +264,8 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_2",
+            "docs/managed-datahub/release-notes/v_0_3_1",
             "docs/managed-datahub/release-notes/v_0_2_16",
             "docs/managed-datahub/release-notes/v_0_2_15",
             "docs/managed-datahub/release-notes/v_0_2_14",
@@ -315,11 +394,24 @@ module.exports = {
           id: "docs/lineage/dagster",
           label: "Dagster",
         },
+        {
+          type: "doc",
+          id: "docs/lineage/openlineage",
+          label: "OpenLineage",
+        },
+        {
+          type: "doc",
+          id: "metadata-integration/java/spark-lineage/README",
+          label: "Spark (Legacy)",
+        },
+        {
+          type: "doc",
+          id: "metadata-integration/java/spark-lineage-beta/README",
+          label: "Spark",
+        },
         //"docker/airflow/local_airflow",
-        "metadata-integration/java/spark-lineage/README",
         "metadata-ingestion/integration_docs/great-expectations",
         "metadata-integration/java/datahub-protobuf/README",
-        "metadata-integration/java/spark-lineage-beta/README",
         //"metadata-ingestion/source-docs-template",
         {
           type: "autogenerated",
@@ -411,6 +503,7 @@ module.exports = {
       "Advanced Guides": [
         "docs/how/delete-metadata",
         "docs/how/configuring-authorization-with-apache-ranger",
+        "docs/managed-datahub/configuring-identity-provisioning-with-ms-entra",
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
         "docs/advanced/db-retention",
@@ -585,11 +678,6 @@ module.exports = {
               label: "OpenAPI",
               id: "docs/api/openapi/openapi-usage-guide",
             },
-            {
-              type: "doc",
-              label: "Structured Properties",
-              id: "docs/api/openapi/openapi-structured-properties",
-            },
           ],
         },
         "docs/dev-guides/timeline",
@@ -708,17 +796,23 @@ module.exports = {
     },
     {
       "API & SDK Guides": [
-        "docs/advanced/patch",
+        "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/datasets",
-        "docs/api/tutorials/lineage",
-        "docs/api/tutorials/tags",
-        "docs/api/tutorials/terms",
-        "docs/api/tutorials/owners",
-        "docs/api/tutorials/domains",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
-        "docs/api/tutorials/custom-properties",
+        "docs/api/tutorials/domains",
+        "docs/api/tutorials/forms",
+        "docs/api/tutorials/lineage",
         "docs/api/tutorials/ml",
+        "docs/api/tutorials/owners",
+        "docs/api/tutorials/structured-properties",
+        "docs/api/tutorials/tags",
+        "docs/api/tutorials/terms",
+        {
+          type: "doc",
+          id: "docs/advanced/patch",
+          label: "Patch",
+        },
       ],
     },
     {
@@ -798,6 +892,7 @@ module.exports = {
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
+    // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // ],

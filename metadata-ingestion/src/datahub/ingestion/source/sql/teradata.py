@@ -447,11 +447,6 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(SourceCapability.USAGE_STATS, "Optionally enabled via configuration")
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 class TeradataSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

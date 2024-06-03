@@ -1,4 +1,5 @@
 import uuid
+from collections import namedtuple
 from unittest import mock
 from unittest.mock import patch
 
@@ -274,6 +275,9 @@ def register_mock_data(workspace_client):
     ]
 
 
+TableEntry = namedtuple("TableEntry", ["database", "tableName", "isTemporary"])
+
+
 def mock_hive_sql(query):
 
     if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` betStatusId":
@@ -347,6 +351,35 @@ def mock_hive_sql(query):
                 "",
             ),
         ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`external_metastore`":
+        return [
+            ("betStatusId", "bigint", None),
+            ("channelId", "bigint", None),
+            (
+                "combination",
+                "struct<combinationRef:bigint,currentOdds:double,eachWay:boolean,liveBetting:boolean,odds:double,outcomes:array<struct<betOfferTypeId:bigint,criterionId:bigint,criterionName:string,currentOdds:double,eventGroupId:bigint,eventGroupPath:array<struct<id:bigint,name:string>>,eventId:bigint,eventName:string,eventStartDate:string,live:boolean,odds:double,outcomeIds:array<bigint>,outcomeLabel:string,sportId:string,status:string,voidReason:string>>,payout:double,rewardExtraPayout:double,stake:double>",
+                None,
+            ),
+            ("", "", ""),
+            ("# Detailed Table Information", "", ""),
+            ("Catalog", "hive_metastore", ""),
+            ("Database", "bronze_kambi", ""),
+            ("Table", "external_metastore", ""),
+            ("Created Time", "Wed Jun 22 05:14:56 UTC 2022", ""),
+            ("Last Access", "UNKNOWN", ""),
+            ("Created By", "Spark 3.2.1", ""),
+            ("Statistics", "1024 bytes, 3 rows", ""),
+            ("Type", "EXTERNAL", ""),
+            ("Location", "s3://external_metastore/", ""),
+            ("Provider", "delta", ""),
+            ("Owner", "root", ""),
+            ("Is_managed_location", "true", ""),
+            (
+                "Table Properties",
+                "[delta.autoOptimize.autoCompact=true,delta.autoOptimize.optimizeWrite=true,delta.minReaderVersion=1,delta.minWriterVersion=2]",
+                "",
+            ),
+        ]
     elif query == "DESCRIBE EXTENDED `bronze_kambi`.`view1`":
         return [
             ("betStatusId", "bigint", None),
@@ -367,12 +400,25 @@ def mock_hive_sql(query):
             ("Type", "VIEW", ""),
             ("Owner", "root", ""),
         ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`delta_error_table`":
+        raise Exception(
+            "[DELTA_PATH_DOES_NOT_EXIST] doesn't exist, or is not a Delta table."
+        )
     elif query == "SHOW CREATE TABLE `bronze_kambi`.`view1`":
         return [
             (
                 "CREATE VIEW `hive_metastore`.`bronze_kambi`.`view1` AS SELECT * FROM `hive_metastore`.`bronze_kambi`.`bet`",
             )
         ]
+    elif query == "SHOW TABLES FROM `bronze_kambi`":
+        return [
+            TableEntry("bronze_kambi", "bet", False),
+            TableEntry("bronze_kambi", "external_metastore", False),
+            TableEntry("bronze_kambi", "delta_error_table", False),
+            TableEntry("bronze_kambi", "view1", False),
+        ]
+    elif query == "SHOW VIEWS FROM `bronze_kambi`":
+        return [TableEntry("bronze_kambi", "view1", False)]
 
     return []
 
@@ -385,17 +431,19 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
 
     output_file_name = "unity_catalog_mcps.json"
 
-    with patch("databricks.sdk.WorkspaceClient") as WorkspaceClient, patch.object(
+    with patch(
+        "datahub.ingestion.source.unity.proxy.WorkspaceClient"
+    ) as mock_client, patch.object(
         HiveMetastoreProxy, "get_inspector"
-    ) as get_inspector, patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql:
+    ) as get_inspector, patch.object(
+        HiveMetastoreProxy, "_execute_sql"
+    ) as execute_sql:
         workspace_client: mock.MagicMock = mock.MagicMock()
-        WorkspaceClient.return_value = workspace_client
+        mock_client.return_value = workspace_client
         register_mock_data(workspace_client)
 
         inspector = mock.MagicMock()
         inspector.get_schema_names.return_value = ["bronze_kambi"]
-        inspector.get_view_names.return_value = ["view1"]
-        inspector.get_table_names.return_value = ["bet", "view1"]
         get_inspector.return_value = inspector
 
         execute_sql.side_effect = mock_hive_sql

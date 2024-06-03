@@ -25,6 +25,7 @@ from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
 from datahub.cli.specific.dataset_cli import dataset
@@ -37,6 +38,7 @@ from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
 from datahub.telemetry import telemetry
+from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
 
@@ -99,6 +101,7 @@ def version() -> None:
     """Print version number and exit."""
 
     click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
+    click.echo(f"Models: {model_version_name()}")
     click.echo(f"Python version: {sys.version}")
 
 
@@ -117,7 +120,9 @@ def init(use_password: bool = False) -> None:
     if os.path.isfile(DATAHUB_CONFIG_PATH):
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
-    click.echo("Configure which datahub instance to connect to")
+    click.echo(
+        "Configure which datahub instance to connect to (https://your-instance.acryl.io/gms for Acryl hosted users)"
+    )
     host = click.prompt(
         "Enter your DataHub host", type=str, default="http://localhost:8080"
     )
@@ -160,6 +165,7 @@ datahub.add_command(dataset)
 datahub.add_command(properties)
 datahub.add_command(forms)
 datahub.add_command(datacontract)
+datahub.add_command(assertions)
 
 try:
     from datahub.cli.lite_cli import lite

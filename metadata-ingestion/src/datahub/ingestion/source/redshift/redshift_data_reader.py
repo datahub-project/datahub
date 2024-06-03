@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 import redshift_connector
 
-from datahub.ingestion.source.sql.data_reader import DataReader
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.Logger(__name__)

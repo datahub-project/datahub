@@ -9,7 +9,7 @@ For the Town Hall meetings after June 2023, please refer to our [LinkedIn Live e
 
 - Community & Project Updates - Maggie Hays & Shirshanka Das (Acryl Data)
 - Community Case Study: Dataset Joins - Raj Tekal & Bobbie-Jean Nowak (Optum)
-- DataHub 201: Column-Level Lineage - Hyejin Yoon (Acryl Data)
+- DataHub 201: Column-Level Data Lineage - Hyejin Yoon (Acryl Data)
 - Sneak Peek:  BigQuery Column-Level Lineage with SQL Parsing - Harshal Sheth (Acryl Data)
 - DataHub Performance Tuning – Indy Prentice (Acryl Data)
 
@@ -196,7 +196,7 @@ November Town Hall (in December!)
 - Lineage Impact Analysis - using DataHub to understand the impact of changes on downstream dependencies
 - Displaying Data Quality Checks in the UI
 - Roadmap update: Schema Version History & Column-Level Lineage
-- Community Case Study: Managing Lineage via YAML
+- Community Case Study: Managing Data Lineage via YAML
 
 ### Jan 2022 
 [Full YouTube video](https://youtu.be/ShlSR3dMUnE)
@@ -340,7 +340,7 @@ November Town Hall (in December!)
    - 0.7.1 Release and callouts (dbt by Gary Lucas)
    - Product Analytics design sprint announcement (Maggie Hayes)
 - Use-Case: DataHub at DefinedCrowd ([video](https://www.youtube.com/watch?v=qz5Rpmw8I5E)) by Pedro Silva - 15 mins 
-- Deep Dive + Demo: Lineage! Airflow, Superset integration ([video](https://www.youtube.com/watch?v=3wiaqhb8UR0)) by Harshal Sheth and Gabe Lyons - 10 mins
+- Deep Dive + Demo: Data Lineage! Airflow, Superset integration ([video](https://www.youtube.com/watch?v=3wiaqhb8UR0)) by Harshal Sheth and Gabe Lyons - 10 mins
 - Use-Case: DataHub Hackathon at Depop ([video](https://www.youtube.com/watch?v=SmOMyFc-9J0)) by John Cragg - 10 mins
 - Observability Feedback share out - 5 mins
 - General Q&A and closing remarks - 5 mins

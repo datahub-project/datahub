@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.settings.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -69,9 +69,7 @@ public class GlobalViewsSettingsResolverTest {
   @Test
   public void testGetException() throws Exception {
     SettingsService mockService = Mockito.mock(SettingsService.class);
-    Mockito.doThrow(RuntimeException.class)
-        .when(mockService)
-        .getGlobalSettings(Mockito.any(Authentication.class));
+    Mockito.doThrow(RuntimeException.class).when(mockService).getGlobalSettings(any());
 
     GlobalViewsSettingsResolver resolver = new GlobalViewsSettingsResolver(mockService);
 
@@ -98,7 +96,7 @@ public class GlobalViewsSettingsResolverTest {
   private static SettingsService initSettingsService(GlobalViewsSettings existingViewSettings) {
     SettingsService mockService = Mockito.mock(SettingsService.class);
 
-    Mockito.when(mockService.getGlobalSettings(Mockito.any(Authentication.class)))
+    Mockito.when(mockService.getGlobalSettings(any()))
         .thenReturn(new GlobalSettingsInfo().setViews(existingViewSettings, SetMode.IGNORE_NULL));
 
     return mockService;

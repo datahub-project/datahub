@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.RemoveOwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
@@ -24,6 +25,7 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final RemoveOwnerInput input =
         bindArgument(environment.getArgument("input"), RemoveOwnerInput.class);
 
@@ -34,16 +36,15 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
             ? null
             : Urn.createFromString(input.getOwnershipTypeUrn());
 
-    OwnerUtils.validateAuthorizedToUpdateOwners(environment.getContext(), targetUrn);
+    OwnerUtils.validateAuthorizedToUpdateOwners(context, targetUrn);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          OwnerUtils.validateRemoveInput(targetUrn, _entityService);
+          OwnerUtils.validateRemoveInput(context.getOperationContext(), targetUrn, _entityService);
           try {
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             OwnerUtils.removeOwnersFromResources(
+                context.getOperationContext(),
                 ImmutableList.of(ownerUrn),
                 ownershipTypeUrn,
                 ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), null, null)),
@@ -57,6 +58,8 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
                     "Failed to remove owner from resource with input  %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

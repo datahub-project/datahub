@@ -7,6 +7,7 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authorization.role.RoleService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -30,27 +31,31 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
     final String inviteTokenStr = input.getInviteToken();
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenStr);
-            if (!_inviteTokenService.isInviteTokenValid(inviteTokenUrn, authentication)) {
+            if (!_inviteTokenService.isInviteTokenValid(
+                context.getOperationContext(), inviteTokenUrn)) {
               throw new RuntimeException(
                   String.format("Invite token %s is invalid", inviteTokenStr));
             }
 
             final Urn roleUrn =
-                _inviteTokenService.getInviteTokenRole(inviteTokenUrn, authentication);
+                _inviteTokenService.getInviteTokenRole(
+                    context.getOperationContext(), inviteTokenUrn);
             _roleService.batchAssignRoleToActors(
+                context.getOperationContext(),
                 Collections.singletonList(authentication.getActor().toUrnStr()),
-                roleUrn,
-                authentication);
+                roleUrn);
 
             return true;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to accept role using invite token %s", inviteTokenStr), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

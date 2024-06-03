@@ -7,6 +7,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.role.RoleService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAssignRoleInput;
 import graphql.schema.DataFetcher;
@@ -35,16 +36,18 @@ public class BatchAssignRoleResolver implements DataFetcher<CompletableFuture<Bo
     final List<String> actors = input.getActors();
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Urn roleUrn = roleUrnStr == null ? null : Urn.createFromString(roleUrnStr);
-            _roleService.batchAssignRoleToActors(actors, roleUrn, authentication);
+            _roleService.batchAssignRoleToActors(context.getOperationContext(), actors, roleUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

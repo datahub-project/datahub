@@ -74,7 +74,9 @@ try:
                 coltype = _type_map[col_type]
             except KeyError:
                 util.warn(
-                    "Did not recognize type '%s' of column '%s'" % (col_type, col_name)
+                    "Did not recognize type '{}' of column '{}'".format(
+                        col_type, col_name
+                    )
                 )
                 coltype = types.NullType  # type: ignore
             result.append(
@@ -112,7 +114,7 @@ def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
             self.identifier_preparer.quote_identifier(schema),
             self.identifier_preparer.quote_identifier(view_name),
         )
-    row = connection.execute("SHOW CREATE TABLE {}".format(full_table)).fetchone()
+    row = connection.execute(f"SHOW CREATE TABLE {full_table}").fetchone()
     return row[0]
 
 
@@ -134,11 +136,6 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 class HiveSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

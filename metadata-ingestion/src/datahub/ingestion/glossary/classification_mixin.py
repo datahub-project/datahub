@@ -14,15 +14,19 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classifier import ClassificationConfig, Classifier
 from datahub.ingestion.glossary.classifier_registry import classifier_registry
-from datahub.ingestion.source.sql.data_reader import DataReader
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     GlossaryTermAssociation,
     GlossaryTerms,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
+
+SAMPLE_SIZE_MULTIPLIER = 1.2
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -287,14 +291,24 @@ def classification_workunit_processor(
     classification_handler: ClassificationHandler,
     data_reader: Optional[DataReader],
     table_id: List[str],
-    data_reader_kwargs: dict = {},
+    data_reader_kwargs: Optional[dict] = None,
 ) -> Iterable[MetadataWorkUnit]:
+    """
+    Classification handling for a particular table.
+    Currently works only for workunits having MCP or MCPW
+    """
     table_name = ".".join(table_id)
     if not classification_handler.is_classification_enabled_for_table(table_name):
         yield from table_wu_generator
     for wu in table_wu_generator:
         maybe_schema_metadata = wu.get_aspect_of_type(SchemaMetadata)
-        if maybe_schema_metadata:
+        if (
+            isinstance(wu.metadata, MetadataChangeEvent)
+            and len(wu.metadata.proposedSnapshot.aspects) > 1
+        ) or not maybe_schema_metadata:
+            yield wu
+            continue
+        else:  # This is MCP or MCPW workunit with SchemaMetadata aspect
             try:
                 classification_handler.classify_schema_fields(
                     table_name,
@@ -304,8 +318,8 @@ def classification_workunit_processor(
                             data_reader.get_sample_data_for_table,
                             table_id,
                             classification_handler.config.classification.sample_size
-                            * 1.2,
-                            **data_reader_kwargs,
+                            * SAMPLE_SIZE_MULTIPLIER,
+                            **(data_reader_kwargs or {}),
                         )
                         if data_reader
                         else dict()
@@ -317,10 +331,8 @@ def classification_workunit_processor(
                     is_primary_source=wu.is_primary_source,
                 )
             except Exception as e:
-                logger.debug(
+                logger.warning(
                     f"Failed to classify table columns for {table_name} due to error -> {e}",
                     exc_info=e,
                 )
                 yield wu
-        else:
-            yield wu

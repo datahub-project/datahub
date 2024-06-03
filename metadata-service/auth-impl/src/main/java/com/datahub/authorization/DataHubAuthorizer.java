@@ -27,6 +27,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,7 +65,7 @@ public class DataHubAuthorizer implements Authorizer {
   private final PolicyEngine policyEngine;
   private EntitySpecResolver entitySpecResolver;
   private AuthorizationMode mode;
-  private final OperationContext systemOpContext;
+  @Getter private final OperationContext systemOpContext;
 
   public static final String ALL = "ALL";
 
@@ -77,8 +78,7 @@ public class DataHubAuthorizer implements Authorizer {
       final int policyFetchSize) {
     this.systemOpContext = systemOpContext;
     this.mode = Objects.requireNonNull(mode);
-    policyEngine =
-        new PolicyEngine(systemOpContext.getAuthentication(), Objects.requireNonNull(entityClient));
+    policyEngine = new PolicyEngine(Objects.requireNonNull(entityClient));
     if (refreshIntervalSeconds > 0) {
       policyRefreshRunnable =
           new PolicyRefreshRunnable(
@@ -146,7 +146,7 @@ public class DataHubAuthorizer implements Authorizer {
         resourceSpec.map(entitySpecResolver::resolve);
 
     return policyEngine.getGrantedPrivileges(
-        policiesToEvaluate, resolvedActorSpec, resolvedResourceSpec);
+        systemOpContext, policiesToEvaluate, resolvedActorSpec, resolvedResourceSpec);
   }
 
   @Override
@@ -166,6 +166,7 @@ public class DataHubAuthorizer implements Authorizer {
             policy ->
                 (policy.getActors() != null && policy.getActors().isResourceOwners())
                     || policyEngine.isActorMatch(
+                        systemOpContext,
                         resolvedActorSpec,
                         policy.getActors(),
                         Optional.empty(),
@@ -277,13 +278,19 @@ public class DataHubAuthorizer implements Authorizer {
       return false;
     }
 
-    final ResolvedEntitySpec resolvedActorSpec =
-        entitySpecResolver.resolve(
-            new EntitySpec(actorUrn.get().getEntityType(), request.getActorUrn()));
-    final PolicyEngine.PolicyEvaluationResult result =
-        policyEngine.evaluatePolicy(
-            policy, resolvedActorSpec, request.getPrivilege(), resourceSpec);
-    return result.isGranted();
+    try {
+      final ResolvedEntitySpec resolvedActorSpec =
+          entitySpecResolver.resolve(
+              new EntitySpec(actorUrn.get().getEntityType(), request.getActorUrn()));
+
+      final PolicyEngine.PolicyEvaluationResult result =
+          policyEngine.evaluatePolicy(
+              systemOpContext, policy, resolvedActorSpec, request.getPrivilege(), resourceSpec);
+      return result.isGranted();
+    } catch (RuntimeException e) {
+      log.error("Error evaluating policy {} for request {}", policy.getDisplayName(), request);
+      throw e;
+    }
   }
 
   private Optional<Urn> getUrnFromRequestActor(String actor) {

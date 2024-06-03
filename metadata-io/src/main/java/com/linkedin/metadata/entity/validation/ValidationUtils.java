@@ -3,21 +3,14 @@ package com.linkedin.metadata.entity.validation;
 import com.codahale.metrics.Timer;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.AbstractArrayTemplate;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntity;
@@ -28,11 +21,9 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import java.net.URISyntaxException;
-import java.net.URLEncoder;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -42,114 +33,11 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ValidationUtils {
-  public static final int URN_NUM_BYTES_LIMIT = 512;
-  public static final String URN_DELIMITER_SEPARATOR = "␟";
-
-  /**
-   * Validates a {@link RecordTemplate} and throws {@link
-   * com.linkedin.restli.server.RestLiServiceException} if validation fails.
-   *
-   * @param record record to be validated.
-   */
-  public static void validateOrThrow(RecordTemplate record) {
-    RecordTemplateValidator.validate(
-        record,
-        validationResult -> {
-          throw new ValidationException(
-              String.format(
-                  "Failed to validate record with class %s: %s",
-                  record.getClass().getName(), validationResult.getMessages().toString()));
-        });
-  }
-
-  /**
-   * Validates a {@link RecordTemplate} and logs a warning if validation fails.
-   *
-   * @param record record to be validated.ailure.
-   */
-  public static void validateOrWarn(RecordTemplate record) {
-    RecordTemplateValidator.validate(
-        record,
-        validationResult -> {
-          log.warn(String.format("Failed to validate record %s against its schema.", record));
-        });
-  }
-
-  public static AspectSpec validate(EntitySpec entitySpec, String aspectName) {
-    if (aspectName == null || aspectName.isEmpty()) {
-      throw new UnsupportedOperationException(
-          "Aspect name is required for create and update operations");
-    }
-
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
-
-    if (aspectSpec == null) {
-      throw new RuntimeException(
-          String.format("Unknown aspect %s for entity %s", aspectName, entitySpec.getName()));
-    }
-
-    return aspectSpec;
-  }
-
-  public static void validateRecordTemplate(
-      EntitySpec entitySpec,
-      Urn urn,
-      @Nullable RecordTemplate aspect,
-      @Nonnull AspectRetriever aspectRetriever) {
-    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
-    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
-    validator.setCurrentEntitySpec(entitySpec);
-    Consumer<ValidationResult> resultFunction =
-        validationResult -> {
-          throw new IllegalArgumentException(
-              "Invalid format for aspect: "
-                  + entitySpec.getName()
-                  + "\n Cause: "
-                  + validationResult.getMessages());
-        };
-
-    RecordTemplateValidator.validate(
-        EntityUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
-
-    if (aspect != null) {
-      RecordTemplateValidator.validate(aspect, resultFunction, validator);
-    }
-  }
-
-  public static void validateUrn(@Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
-    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
-    validator.setCurrentEntitySpec(entityRegistry.getEntitySpec(urn.getEntityType()));
-    RecordTemplateValidator.validate(
-        EntityUtils.buildKeyAspect(entityRegistry, urn),
-        validationResult -> {
-          throw new IllegalArgumentException(
-              "Invalid urn: " + urn + "\n Cause: " + validationResult.getMessages());
-        },
-        validator);
-
-    if (urn.toString().trim().length() != urn.toString().length()) {
-      throw new IllegalArgumentException(
-          "Error: cannot provide an URN with leading or trailing whitespace");
-    }
-    if (URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
-      throw new IllegalArgumentException(
-          "Error: cannot provide an URN longer than "
-              + Integer.toString(URN_NUM_BYTES_LIMIT)
-              + " bytes (when URL encoded)");
-    }
-    if (urn.toString().contains(URN_DELIMITER_SEPARATOR)) {
-      throw new IllegalArgumentException(
-          "Error: URN cannot contain " + URN_DELIMITER_SEPARATOR + " character");
-    }
-    try {
-      Urn.createFromString(urn.toString());
-    } catch (URISyntaxException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
 
   public static SearchResult validateSearchResult(
-      final SearchResult searchResult, @Nonnull final EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      final SearchResult searchResult,
+      @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateSearchResult").time()) {
       if (searchResult == null) {
@@ -166,7 +54,12 @@ public class ValidationUtils {
 
       SearchEntityArray validatedEntities =
           validateSearchUrns(
-                  searchResult.getEntities(), SearchEntity::getEntity, entityService, true, true)
+                  opContext,
+                  searchResult.getEntities(),
+                  SearchEntity::getEntity,
+                  entityService,
+                  true,
+                  true)
               .collect(Collectors.toCollection(SearchEntityArray::new));
       validatedSearchResult.setEntities(validatedEntities);
 
@@ -175,7 +68,9 @@ public class ValidationUtils {
   }
 
   public static ScrollResult validateScrollResult(
-      final ScrollResult scrollResult, @Nonnull final EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      final ScrollResult scrollResult,
+      @Nonnull final EntityService<?> entityService) {
     if (scrollResult == null) {
       return null;
     }
@@ -192,7 +87,12 @@ public class ValidationUtils {
 
     SearchEntityArray validatedEntities =
         validateSearchUrns(
-                scrollResult.getEntities(), SearchEntity::getEntity, entityService, true, true)
+                opContext,
+                scrollResult.getEntities(),
+                SearchEntity::getEntity,
+                entityService,
+                true,
+                true)
             .collect(Collectors.toCollection(SearchEntityArray::new));
 
     validatedScrollResult.setEntities(validatedEntities);
@@ -201,7 +101,9 @@ public class ValidationUtils {
   }
 
   public static BrowseResult validateBrowseResult(
-      final BrowseResult browseResult, @Nonnull final EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      final BrowseResult browseResult,
+      @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateBrowseResult").time()) {
       if (browseResult == null) {
@@ -221,7 +123,12 @@ public class ValidationUtils {
 
       BrowseResultEntityArray validatedEntities =
           validateSearchUrns(
-                  browseResult.getEntities(), BrowseResultEntity::getUrn, entityService, true, true)
+                  opContext,
+                  browseResult.getEntities(),
+                  BrowseResultEntity::getUrn,
+                  entityService,
+                  true,
+                  true)
               .collect(Collectors.toCollection(BrowseResultEntityArray::new));
       validatedBrowseResult.setEntities(validatedEntities);
 
@@ -230,7 +137,9 @@ public class ValidationUtils {
   }
 
   public static ListResult validateListResult(
-      final ListResult listResult, @Nonnull final EntityService<?> entityService) {
+      @Nonnull OperationContext opContext,
+      final ListResult listResult,
+      @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
         MetricUtils.timer(ValidationUtils.class, "validateListResult").time()) {
       if (listResult == null) {
@@ -246,7 +155,12 @@ public class ValidationUtils {
 
       UrnArray validatedEntities =
           validateSearchUrns(
-                  listResult.getEntities(), Function.identity(), entityService, true, true)
+                  opContext,
+                  listResult.getEntities(),
+                  Function.identity(),
+                  entityService,
+                  true,
+                  true)
               .collect(Collectors.toCollection(UrnArray::new));
       validatedListResult.setEntities(validatedEntities);
 
@@ -255,6 +169,7 @@ public class ValidationUtils {
   }
 
   public static LineageSearchResult validateLineageSearchResult(
+      @Nonnull OperationContext opContext,
       final LineageSearchResult lineageSearchResult,
       @Nonnull final EntityService<?> entityService) {
     try (Timer.Context ignored =
@@ -273,6 +188,7 @@ public class ValidationUtils {
 
       LineageSearchEntityArray validatedEntities =
           validateSearchUrns(
+                  opContext,
                   lineageSearchResult.getEntities(),
                   LineageSearchEntity::getEntity,
                   entityService,
@@ -287,6 +203,7 @@ public class ValidationUtils {
   }
 
   public static EntityLineageResult validateEntityLineageResult(
+      @Nonnull OperationContext opContext,
       @Nullable final EntityLineageResult entityLineageResult,
       @Nonnull final EntityService<?> entityService) {
     if (entityLineageResult == null) {
@@ -302,6 +219,7 @@ public class ValidationUtils {
 
     LineageRelationshipArray validatedRelationships =
         validateSearchUrns(
+                opContext,
                 entityLineageResult.getRelationships(),
                 LineageRelationship::getEntity,
                 entityService,
@@ -321,6 +239,7 @@ public class ValidationUtils {
   }
 
   public static LineageScrollResult validateLineageScrollResult(
+      @Nonnull OperationContext opContext,
       final LineageScrollResult lineageScrollResult,
       @Nonnull final EntityService<?> entityService) {
     if (lineageScrollResult == null) {
@@ -339,6 +258,7 @@ public class ValidationUtils {
 
     LineageSearchEntityArray validatedEntities =
         validateSearchUrns(
+                opContext,
                 lineageScrollResult.getEntities(),
                 LineageSearchEntity::getEntity,
                 entityService,
@@ -352,6 +272,7 @@ public class ValidationUtils {
   }
 
   private static <T> Stream<T> validateSearchUrns(
+      @Nonnull OperationContext opContext,
       final AbstractArrayTemplate<T> array,
       Function<T, Urn> urnFunction,
       @Nonnull final EntityService<?> entityService,
@@ -361,7 +282,9 @@ public class ValidationUtils {
     if (enforceSQLExistence) {
       Set<Urn> existingUrns =
           entityService.exists(
-              array.stream().map(urnFunction).collect(Collectors.toList()), includeSoftDeleted);
+              opContext,
+              array.stream().map(urnFunction).collect(Collectors.toList()),
+              includeSoftDeleted);
       return array.stream().filter(item -> existingUrns.contains(urnFunction.apply(item)));
     } else {
       Set<Urn> validatedUrns =
@@ -370,7 +293,7 @@ public class ValidationUtils {
               .filter(
                   urn -> {
                     try {
-                      validateUrn(entityService.getEntityRegistry(), urn);
+                      ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), urn);
                       return true;
                     } catch (Exception e) {
                       log.warn(

@@ -558,6 +558,7 @@ class SnowflakeQuery:
         include_top_n_queries: bool,
         email_domain: Optional[str],
         email_filter: AllowDenyPattern,
+        table_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0
@@ -565,6 +566,12 @@ class SnowflakeQuery:
             time_bucket_size == BucketDuration.DAY
             or time_bucket_size == BucketDuration.HOUR
         )
+
+        temp_table_filter = create_deny_regex_sql_filter(
+            table_deny_pattern,
+            ["object_name"],
+        )
+
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
         )
@@ -604,6 +611,7 @@ class SnowflakeQuery:
                 )
                 t,
                 lateral flatten(input => t.{objects_column}) object
+            {("where " + temp_table_filter) if temp_table_filter else ""}
         )
         ,
         field_access_history AS
@@ -773,7 +781,7 @@ class SnowflakeQuery:
             SELECT
                 r.value : "objectName" :: varchar AS upstream_table_name,
                 r.value : "objectDomain" :: varchar AS upstream_table_domain,
-                w.value : "objectName" :: varchar AS downstream_table_name,
+                REPLACE(w.value : "objectName" :: varchar, '__DBT_TMP', '') AS downstream_table_name,
                 w.value : "objectDomain" :: varchar AS downstream_table_domain,
                 wcols.value : "columnName" :: varchar AS downstream_column_name,
                 wcols_directSources.value : "objectName" as upstream_column_table_name,
@@ -1008,3 +1016,26 @@ class SnowflakeQuery:
             ORDER BY
                 h.downstream_table_name
         """
+
+    @staticmethod
+    def dmf_assertion_results(start_time_millis: int, end_time_millis: int) -> str:
+
+        pattern = r"datahub\\_\\_%"
+        escape_pattern = r"\\"
+        return f"""
+            SELECT
+                MEASUREMENT_TIME AS "MEASUREMENT_TIME",
+                METRIC_NAME AS "METRIC_NAME",
+                TABLE_NAME AS "TABLE_NAME",
+                TABLE_SCHEMA AS "TABLE_SCHEMA",
+                TABLE_DATABASE AS "TABLE_DATABASE",
+                VALUE::INT AS "VALUE"
+            FROM
+                SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS
+            WHERE
+                MEASUREMENT_TIME >= to_timestamp_ltz({start_time_millis}, 3)
+                AND MEASUREMENT_TIME < to_timestamp_ltz({end_time_millis}, 3)
+                AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'
+                ORDER BY MEASUREMENT_TIME ASC;
+
+"""

@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -14,12 +15,14 @@ import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageInput;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -106,14 +109,22 @@ public class SearchAcrossLineageResolver
     final Integer maxHops = getMaxHops(facetFilters);
 
     @Nullable
-    final Long startTimeMillis =
-        input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
+    Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
-    final Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+    Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+
+    final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
+    if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
+      lineageFlags.setStartTimeMillis(startTimeMillis);
+    }
+
+    if (lineageFlags.getEndTimeMillis() == null && endTimeMillis != null) {
+      lineageFlags.setEndTimeMillis(endTimeMillis);
+    }
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug(
@@ -140,7 +151,10 @@ public class SearchAcrossLineageResolver
             }
             LineageSearchResult salResults =
                 _entityClient.searchAcrossLineage(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withLineageFlags(flags -> lineageFlags),
                     urn,
                     resolvedDirection,
                     entityNames,
@@ -149,9 +163,7 @@ public class SearchAcrossLineageResolver
                     filter,
                     null,
                     start,
-                    count,
-                    startTimeMillis,
-                    endTimeMillis);
+                    count);
 
             return UrnSearchAcrossLineageResultsMapper.map(context, salResults);
           } catch (RemoteInvocationException e) {
@@ -179,6 +191,8 @@ public class SearchAcrossLineageResolver
           } finally {
             log.debug("Returning from search across lineage resolver");
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

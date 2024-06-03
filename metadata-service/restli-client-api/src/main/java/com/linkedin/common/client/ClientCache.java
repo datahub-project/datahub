@@ -15,8 +15,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import javax.annotation.Nonnull;
 import lombok.Builder;
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -29,21 +29,21 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 @Slf4j
 @Builder
 public class ClientCache<K, V, C extends ClientCacheConfig> {
-  @NonNull protected final C config;
-  @NonNull protected final LoadingCache<K, V> cache;
-  @NonNull private final Function<Iterable<? extends K>, Map<K, V>> loadFunction;
-  @NonNull private final Weigher<K, V> weigher;
-  @NonNull private final BiFunction<C, K, Integer> ttlSecondsFunction;
+  @Nonnull protected final C config;
+  @Nonnull protected final LoadingCache<K, V> cache;
+  @Nonnull private final Function<Iterable<? extends K>, Map<K, V>> loadFunction;
+  @Nonnull private final Weigher<K, V> weigher;
+  @Nonnull private final BiFunction<C, K, Integer> ttlSecondsFunction;
 
-  public @Nullable V get(@NonNull K key) {
+  public @Nullable V get(@Nonnull K key) {
     return cache.get(key);
   }
 
-  public @NonNull Map<@NonNull K, @NonNull V> getAll(@NonNull Iterable<? extends @NonNull K> keys) {
+  public @Nonnull Map<K, V> getAll(@Nonnull Iterable<? extends K> keys) {
     return cache.getAll(keys);
   }
 
-  public void refresh(@NonNull K key) {
+  public void refresh(@Nonnull K key) {
     cache.refresh(key);
   }
 
@@ -62,13 +62,13 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
       CacheLoader<K, V> loader =
           new CacheLoader<K, V>() {
             @Override
-            public V load(@NonNull K key) {
+            public V load(@Nonnull K key) {
               return loadAll(Set.of(key)).get(key);
             }
 
             @Override
-            @NonNull
-            public Map<K, V> loadAll(@NonNull Set<? extends K> keys) {
+            @Nonnull
+            public Map<K, V> loadAll(@Nonnull Set<? extends K> keys) {
               return loadFunction.apply(keys);
             }
           };
@@ -84,7 +84,7 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
               .expireAfter(
                   new Expiry<K, V>() {
                     public long expireAfterCreate(
-                        @NonNull K key, @NonNull V aspect, long currentTime) {
+                        @Nonnull K key, @Nonnull V aspect, long currentTime) {
                       int ttlSeconds = ttlSecondsFunction.apply(config, key);
                       if (ttlSeconds < 0) {
                         ttlSeconds = Integer.MAX_VALUE;
@@ -93,12 +93,12 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
                     }
 
                     public long expireAfterUpdate(
-                        @NonNull K key, @NonNull V aspect, long currentTime, long currentDuration) {
+                        @Nonnull K key, @Nonnull V aspect, long currentTime, long currentDuration) {
                       return currentDuration;
                     }
 
                     public long expireAfterRead(
-                        @NonNull K key, @NonNull V aspect, long currentTime, long currentDuration) {
+                        @Nonnull K key, @Nonnull V aspect, long currentTime, long currentDuration) {
                       return currentDuration;
                     }
                   });

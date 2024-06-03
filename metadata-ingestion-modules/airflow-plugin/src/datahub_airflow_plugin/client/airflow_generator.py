@@ -274,7 +274,7 @@ class AirflowGenerator:
         if config and config.datajob_url_link == DatajobUrl.GRID:
             datajob.url = f"{base_url}/dags/{datajob.flow_urn.get_flow_id()}/grid?task_id={task.task_id}"
         else:
-            datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.get_flow_id()}&_flt_3_task_id={task.task_id}"
+            datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.flow_id}&_flt_3_task_id={task.task_id}"
 
         if capture_owner and dag.owner:
             datajob.owners.add(dag.owner)
@@ -420,6 +420,7 @@ class AirflowGenerator:
         config: Optional[DatahubLineageConfig] = None,
     ) -> DataProcessInstance:
         if datajob is None:
+            assert ti.task is not None
             datajob = AirflowGenerator.generate_datajob(
                 cluster, ti.task, dag, config=config
             )
@@ -428,8 +429,8 @@ class AirflowGenerator:
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
             id=f"{dag.dag_id}_{ti.task_id}_{dag_run.run_id}",
-            clone_inlets=True,
-            clone_outlets=True,
+            clone_inlets=config is None or config.materialize_iolets,
+            clone_outlets=config is None or config.materialize_iolets,
         )
         job_property_bag: Dict[str, str] = {}
         job_property_bag["run_id"] = str(dag_run.run_id)
@@ -509,6 +510,7 @@ class AirflowGenerator:
         :return: DataProcessInstance
         """
         if datajob is None:
+            assert ti.task is not None
             datajob = AirflowGenerator.generate_datajob(
                 cluster, ti.task, dag, config=config
             )
@@ -530,6 +532,7 @@ class AirflowGenerator:
                     f"Result should be either success or failure and it was {ti.state}"
                 )
 
+        assert datajob is not None
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
             id=f"{dag.dag_id}_{ti.task_id}_{dag_run.run_id}",

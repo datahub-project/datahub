@@ -10,6 +10,8 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
@@ -20,12 +22,16 @@ import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
+import com.linkedin.metadata.config.GraphQLConcurrencyConfiguration;
+import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -38,14 +44,18 @@ import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.usage.RestliUsageClient;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -58,7 +68,7 @@ import org.springframework.context.annotation.Import;
   EntityRegistryFactory.class,
   DataHubTokenServiceFactory.class,
   GitVersionFactory.class,
-  SiblingGraphServiceFactory.class
+  SiblingGraphServiceFactory.class,
 })
 public class GraphQLEngineFactory {
   @Autowired
@@ -72,10 +82,6 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("graphClient")
   private GraphClient graphClient;
-
-  @Autowired
-  @Qualifier("usageClient")
-  private RestliUsageClient usageClient;
 
   @Autowired
   @Qualifier("entityService")
@@ -180,6 +186,14 @@ public class GraphQLEngineFactory {
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
+  @Autowired
+  @Qualifier("businessAttributeService")
+  private BusinessAttributeService businessAttributeService;
+
+  @Autowired
+  @Qualifier("connectionService")
+  private ConnectionService _connectionService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -189,7 +203,9 @@ public class GraphQLEngineFactory {
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
     args.setGraphClient(graphClient);
-    args.setUsageClient(usageClient);
+    args.setUsageClient(
+        new UsageStatsJavaClient(
+            timeseriesAspectService, configProvider.getCache().getClient().getUsageClient()));
     if (isAnalyticsEnabled) {
       args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
     }
@@ -228,7 +244,41 @@ public class GraphQLEngineFactory {
     args.setDataProductService(dataProductService);
     args.setGraphQLQueryComplexityLimit(
         configProvider.getGraphQL().getQuery().getComplexityLimit());
+    args.setGraphQLQueryIntrospectionEnabled(
+        configProvider.getGraphQL().getQuery().isIntrospectionEnabled());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
+    args.setBusinessAttributeService(businessAttributeService);
+    args.setConnectionService(_connectionService);
     return new GmsGraphQLEngine(args).builder().build();
+  }
+
+  @Bean(name = "graphQLWorkerPool")
+  @ConditionalOnProperty("graphQL.concurrency.separateThreadPool")
+  protected ExecutorService graphQLWorkerPool() {
+    GraphQLConcurrencyConfiguration concurrencyConfig =
+        configProvider.getGraphQL().getConcurrency();
+    GraphQLWorkerPoolThreadFactory threadFactory =
+        new GraphQLWorkerPoolThreadFactory(concurrencyConfig.getStackSize());
+    int corePoolSize =
+        concurrencyConfig.getCorePoolSize() < 0
+            ? Runtime.getRuntime().availableProcessors() * 5
+            : concurrencyConfig.getCorePoolSize();
+    int maxPoolSize =
+        concurrencyConfig.getMaxPoolSize() <= 0
+            ? Runtime.getRuntime().availableProcessors() * 100
+            : concurrencyConfig.getMaxPoolSize();
+
+    ThreadPoolExecutor graphQLWorkerPool =
+        new ThreadPoolExecutor(
+            corePoolSize,
+            maxPoolSize,
+            concurrencyConfig.getKeepAlive(),
+            TimeUnit.SECONDS,
+            new SynchronousQueue(),
+            threadFactory,
+            new ThreadPoolExecutor.CallerRunsPolicy());
+    GraphQLConcurrencyUtils.setExecutorService(graphQLWorkerPool);
+
+    return graphQLWorkerPool;
   }
 }

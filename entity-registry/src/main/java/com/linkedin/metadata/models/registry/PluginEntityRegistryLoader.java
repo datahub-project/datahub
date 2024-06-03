@@ -1,5 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
+import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
 import com.linkedin.metadata.models.registry.config.LoadStatus;
 import com.linkedin.util.Pair;
@@ -19,7 +21,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
@@ -33,13 +37,22 @@ public class PluginEntityRegistryLoader {
   private final Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>
       patchRegistries;
   private MergedEntityRegistry mergedEntityRegistry;
+
+  @Nullable
+  private final BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory>
+      pluginFactoryProvider;
+
   private boolean started = false;
   private final Lock lock = new ReentrantLock();
   private final Condition initialized = lock.newCondition();
   private boolean booted = false;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
 
-  public PluginEntityRegistryLoader(String pluginDirectory, int loadDelaySeconds) {
+  public PluginEntityRegistryLoader(
+      String pluginDirectory,
+      int loadDelaySeconds,
+      @Nullable
+          BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
     File directory = new File(pluginDirectory);
     if (!directory.exists() || !directory.isDirectory()) {
       log.warn(
@@ -52,6 +65,7 @@ public class PluginEntityRegistryLoader {
     this.pluginDirectory = pluginDirectory;
     this.patchRegistries = new HashMap<>();
     this.loadDelaySeconds = loadDelaySeconds;
+    this.pluginFactoryProvider = pluginFactoryProvider;
   }
 
   public Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>
@@ -180,7 +194,9 @@ public class PluginEntityRegistryLoader {
         EntityRegistryLoadResult.builder().registryLocation(patchDirectory);
     EntityRegistry entityRegistry = null;
     try {
-      entityRegistry = new PatchEntityRegistry(patchDirectory, registryName, registryVersion);
+      entityRegistry =
+          new PatchEntityRegistry(
+              patchDirectory, registryName, registryVersion, pluginFactoryProvider);
       parentRegistry.apply(entityRegistry);
       loadResultBuilder.loadResult(LoadStatus.SUCCESS);
 

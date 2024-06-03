@@ -29,7 +29,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
 class DataProcessInstanceKey(DatahubKey):
-    cluster: str
+    cluster: Optional[str] = None
     orchestrator: str
     id: str
 
@@ -46,23 +46,23 @@ class DataProcessInstance:
     """This is a DataProcessInstance class which represent an instance of a DataFlow or DataJob.
 
     Args:
-        id (str): The id of the dataprocess instance execution.
-        orchestrator (str): The orchestrator which does the execution. For example airflow.
-        type (str): The execution type like Batch, Streaming, Ad-hoc, etc..  See valid values at DataProcessTypeClass
-        template_urn (Optional[Union[DataJobUrn, DataFlowUrn]]): The parent DataJob or DataFlow which was instantiated if applicable
-        parent_instance (Optional[DataProcessInstanceUrn]): The parent execution's urn if applicable
-        properties Dict[str, str]: Custom properties to set for the DataProcessInstance
-        url (Optional[str]): Url which points to the execution at the orchestrator
-        inlets (List[str]): List of entities the DataProcessInstance consumes
-        outlets (List[str]): List of entities the DataProcessInstance produces
+        id: The id of the dataprocess instance execution.
+        orchestrator: The orchestrator which does the execution. For example airflow.
+        type: The execution type like Batch, Streaming, Ad-hoc, etc..  See valid values at DataProcessTypeClass
+        template_urn: The parent DataJob or DataFlow which was instantiated if applicable
+        parent_instance: The parent execution's urn if applicable
+        properties: Custom properties to set for the DataProcessInstance
+        url: Url which points to the execution at the orchestrator
+        inlets: List of entities the DataProcessInstance consumes
+        outlets: List of entities the DataProcessInstance produces
     """
 
-    id: str
     urn: DataProcessInstanceUrn = field(init=False)
+    id: str
     orchestrator: str
-    cluster: str
+    cluster: Optional[str] = None
     type: str = DataProcessTypeClass.BATCH_SCHEDULED
-    template_urn: Optional[Union[DataJobUrn, DataFlowUrn]] = None
+    template_urn: Optional[Union[DataJobUrn, DataFlowUrn, DatasetUrn]] = None
     parent_instance: Optional[DataProcessInstanceUrn] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None
@@ -168,6 +168,7 @@ class DataProcessInstance:
         result: InstanceRunResult,
         result_type: Optional[str] = None,
         attempt: Optional[int] = None,
+        start_timestamp_millis: Optional[int] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
 
@@ -175,6 +176,8 @@ class DataProcessInstance:
         :param result: (InstanceRunResult) the result of the run
         :param result_type: (string) It identifies the system where the native result comes from like Airflow, Azkaban
         :param attempt: (int) the attempt number of this execution
+        :param start_timestamp_millis: (Optional[int]) the start time of the execution in milliseconds
+
         """
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
@@ -188,6 +191,9 @@ class DataProcessInstance:
                     else self.orchestrator,
                 ),
                 attempt=attempt,
+                durationMillis=(end_timestamp_millis - start_timestamp_millis)
+                if start_timestamp_millis
+                else None,
             ),
         )
         yield mcp
@@ -199,6 +205,7 @@ class DataProcessInstance:
         result: InstanceRunResult,
         result_type: Optional[str] = None,
         attempt: Optional[int] = None,
+        start_timestamp_millis: Optional[int] = None,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """
@@ -210,12 +217,15 @@ class DataProcessInstance:
         :param result_type: (string) It identifies the system where the native result comes from like Airflow, Azkaban
         :param attempt: (int) the attempt number of this execution
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
+        :param start_timestamp_millis: (Optional[int]) the start time of the execution in milliseconds
+
         """
         for mcp in self.end_event_mcp(
             end_timestamp_millis=end_timestamp_millis,
             result=result,
             result_type=result_type,
             attempt=attempt,
+            start_timestamp_millis=start_timestamp_millis,
         ):
             self._emit_mcp(mcp, emitter, callback)
 
@@ -296,8 +306,8 @@ class DataProcessInstance:
         :return: DataProcessInstance
         """
         dpi: DataProcessInstance = DataProcessInstance(
-            orchestrator=datajob.flow_urn.get_orchestrator_name(),
-            cluster=datajob.flow_urn.get_env(),
+            orchestrator=datajob.flow_urn.orchestrator,
+            cluster=datajob.flow_urn.cluster,
             template_urn=datajob.urn,
             id=id,
         )

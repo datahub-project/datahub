@@ -132,11 +132,6 @@ class PostgresConfig(BasePostgresConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:
@@ -150,7 +145,10 @@ class PostgresSource(SQLAlchemySource):
     config: PostgresConfig
 
     def __init__(self, config: PostgresConfig, ctx: PipelineContext):
-        super().__init__(config, ctx, "postgres")
+        super().__init__(config, ctx, self.get_platform())
+
+    def get_platform(self):
+        return "postgres"
 
     @classmethod
     def create(cls, config_dict, ctx):

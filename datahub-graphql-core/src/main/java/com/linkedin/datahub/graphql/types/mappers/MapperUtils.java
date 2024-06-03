@@ -3,16 +3,18 @@ package com.linkedin.datahub.graphql.types.mappers;
 import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
+import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchSuggestion;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import java.net.URISyntaxException;
@@ -87,7 +89,7 @@ public class MapperUtils {
               if (SearchUtils.isUrn(field.getValue())) {
                 try {
                   Urn urn = Urn.createFromString(field.getValue());
-                  ValidationUtils.validateUrn(
+                  ValidationApiUtils.validateUrn(
                       context.getOperationContext().getEntityRegistry(), urn);
                   matchedField.setEntity(UrnToEntityMapper.map(context, urn));
                 } catch (IllegalArgumentException | URISyntaxException e) {
@@ -103,5 +105,12 @@ public class MapperUtils {
       com.linkedin.metadata.search.SearchSuggestion suggestion) {
     return new SearchSuggestion(
         suggestion.getText(), suggestion.getScore(), Math.toIntExact(suggestion.getFrequency()));
+  }
+
+  public static EntityPath mapPath(@Nullable final QueryContext context, UrnArray path) {
+    EntityPath entityPath = new EntityPath();
+    entityPath.setPath(
+        path.stream().map(p -> UrnToEntityMapper.map(context, p)).collect(Collectors.toList()));
+    return entityPath;
   }
 }

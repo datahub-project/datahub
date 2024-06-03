@@ -5,6 +5,13 @@ import pytest
 from freezegun import freeze_time
 from moto import mock_dynamodb
 
+from datahub.ingestion.glossary.classification_mixin import ClassificationConfig
+from datahub.ingestion.glossary.classifier import DynamicTypedClassifierConfig
+from datahub.ingestion.glossary.datahub_classifier import (
+    DataHubClassifierConfig,
+    InfoTypeConfig,
+    PredictionFactorsAndWeights,
+)
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
@@ -61,6 +68,8 @@ def test_dynamodb(pytestconfig, tmp_path):
                 "config": {
                     "aws_access_key_id": "test",
                     "aws_secret_access_key": "test",
+                    "aws_session_token": "test",
+                    "aws_region": "us-west-2",
                 },
             },
             "sink": {
@@ -90,6 +99,29 @@ def test_dynamodb(pytestconfig, tmp_path):
                     "platform_instance": "dynamodb_test",
                     "aws_access_key_id": "test",
                     "aws_secret_access_key": "test",
+                    "aws_session_token": "test",
+                    "aws_region": "us-west-2",
+                    "classification": ClassificationConfig(
+                        enabled=True,
+                        classifiers=[
+                            DynamicTypedClassifierConfig(
+                                type="datahub",
+                                config=DataHubClassifierConfig(
+                                    minimum_values_threshold=1,
+                                    info_types_config={
+                                        "Phone_Number": InfoTypeConfig(
+                                            prediction_factors_and_weights=PredictionFactorsAndWeights(
+                                                name=0.7,
+                                                description=0,
+                                                datatype=0,
+                                                values=0.3,
+                                            )
+                                        )
+                                    },
+                                ),
+                            )
+                        ],
+                    ),
                 },
             },
             "sink": {

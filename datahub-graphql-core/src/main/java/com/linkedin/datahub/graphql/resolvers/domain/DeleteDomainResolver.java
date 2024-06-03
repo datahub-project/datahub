@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -27,7 +28,7 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
     final QueryContext context = environment.getContext();
     final String domainUrn = environment.getArgument("urn");
     final Urn urn = Urn.createFromString(domainUrn);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (AuthorizationUtils.canManageDomains(context)
               || AuthorizationUtils.canDeleteEntity(urn, context)) {
@@ -38,7 +39,7 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
                     String.format("Cannot delete domain %s which has child domains", domainUrn));
               }
 
-              _entityClient.deleteEntity(urn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
               log.info(
                   String.format("I've successfully deleted the entity %s with urn", domainUrn));
 
@@ -46,7 +47,7 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
                     } catch (Exception e) {
                       log.error(
                           String.format(
@@ -65,6 +66,8 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

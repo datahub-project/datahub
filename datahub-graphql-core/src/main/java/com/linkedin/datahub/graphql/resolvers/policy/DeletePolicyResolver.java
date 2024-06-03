@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.policy;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
@@ -24,10 +25,10 @@ public class DeletePolicyResolver implements DataFetcher<CompletableFuture<Strin
     if (PolicyAuthUtils.canManagePolicies(context)) {
       final String policyUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(policyUrn);
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
-              _entityClient.deleteEntity(urn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
               if (context.getAuthorizer() instanceof AuthorizerChain) {
                 ((AuthorizerChain) context.getAuthorizer())
                     .getDefaultAuthorizer()
@@ -39,7 +40,9 @@ public class DeletePolicyResolver implements DataFetcher<CompletableFuture<Strin
                   String.format("Failed to perform delete against policy with urn %s", policyUrn),
                   e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

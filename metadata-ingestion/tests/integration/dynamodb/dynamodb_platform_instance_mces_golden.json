@@ -56,6 +56,17 @@
                     },
                     "nativeDataType": "List",
                     "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:Phone_Number"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1693396800000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
                     "isPartOfKey": false
                 },
                 {
@@ -209,6 +220,22 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1693396800000,
+        "runId": "dynamodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Phone_Number",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Phone_Number"
         }
     },
     "systemMetadata": {

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataplatforminstance;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -124,12 +125,12 @@ public class DataPlatformInstanceTest {
         new EnvelopedAspect().setValue(new Aspect(TEST_DATAPLATFORMINSTANCE_1_STATUS.data())));
     Mockito.when(
             client.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME),
                 Mockito.eq(
                     new HashSet<>(
                         ImmutableSet.of(dataPlatformInstance1Urn, dataPlatformInstance2Urn))),
-                Mockito.eq(DataPlatformInstanceType.ASPECTS_TO_FETCH),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(DataPlatformInstanceType.ASPECTS_TO_FETCH)))
         .thenReturn(
             ImmutableMap.of(
                 dataPlatformInstance1Urn,
@@ -154,10 +155,10 @@ public class DataPlatformInstanceTest {
     // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.DATA_PLATFORM_INSTANCE_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(dataPlatformInstance1Urn, dataPlatformInstance2Urn)),
-            Mockito.eq(DataPlatformInstanceType.ASPECTS_TO_FETCH),
-            Mockito.any(Authentication.class));
+            Mockito.eq(DataPlatformInstanceType.ASPECTS_TO_FETCH));
 
     assertEquals(result.size(), 2);
 
@@ -197,11 +198,7 @@ public class DataPlatformInstanceTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.anyString(),
-            Mockito.anySet(),
-            Mockito.anySet(),
-            Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet());
     com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType type =
         new com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType(
             mockClient);

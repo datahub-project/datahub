@@ -143,6 +143,7 @@ def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources
                             "http://nifi02:9081/nifi/": "default",
                             "http://nifi03:9082/nifi/": "default",
                         },
+                        "incremental_lineage": False,
                     },
                 },
                 "sink": {
