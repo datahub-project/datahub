@@ -16,7 +16,7 @@ const EntityColumnContainer = styled.div`
 const ContentContainer = styled.div`
     display: flex;
     flex-direction: row;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     gap: 16px;
 `;
