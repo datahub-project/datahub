@@ -140,12 +140,13 @@ export const ListCard = styled.div`
     }
 `;
 
-export const ListCardHeader = styled.div`
+export const ListCardHeader = styled.div<{ status: string | undefined }>`
     & .categoryAndDeployed {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 4px;
+				height: 30.8516px;
 
         & h4 {
             color: ${sharedStyles.contentColor};
@@ -188,12 +189,37 @@ export const ListCardHeader = styled.div`
             text-overflow: ellipsis;
         }
     }
+
     & .status {
-        padding: 4px 8px;
-        border-radius: 20px;
-        background: ${sharedStyles.statusInactiveColor};
-        color: ${sharedStyles.statusInactiveFontColor};
+			display: flex;
+			align-items: center;
+			padding: 4px 8px;
+			border-radius: 20px;
+			background: ${sharedStyles.statusInactiveColor};
+			color: ${sharedStyles.statusInactiveFontColor};
     }
+
+		${({ status }) => status === 'running' && `
+			.status {
+				background: ${sharedStyles.statusActiveColor};
+				color: ${sharedStyles.statusActiveFontColor};
+
+				& svg {
+					color: ${sharedStyles.statusActiveFontColor};
+				}
+			}
+		`}
+
+		${({ status }) => status === 'stopped' && `
+			.status {
+				background: ${sharedStyles.statusInactiveColor};
+				color: ${sharedStyles.statusInactiveFontColor};
+
+				& svg {
+					color: ${sharedStyles.statusInactiveFontColor};
+				}
+			}
+		`}
 `;
 
 export const ListCardBody = styled.div`
@@ -329,41 +355,41 @@ export const ButtonsContainer = styled.div`
     gap: 8px;
 `;
 
-export const IconContainer = styled.div<{ addExtraPadding?: boolean; disabled?: boolean }>`
+export const IconContainer = styled.div<{ addExtraPadding?: boolean; disabled?: boolean; }>`
     border-radius: 50%;
     color: ${sharedStyles.activeColor};
-    border: 2px solid ${sharedStyles.buttonBorderColor};
+    border: 1px solid ${sharedStyles.buttonBorderColor};
     padding: 3px;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 30px;
-    width: 30px;
+    height: 25px;
+    width: 25px;
 
     svg {
-        height: 18px;
-        width: 18px;
+			height: 15px;
+			width: 15px;
     }
 `;
 
 export const UndoButton = styled.div`
     border-radius: 50%;
     color: ${sharedStyles.activeColor};
-    border: 2px solid ${sharedStyles.buttonBorderColor};
+    border: 1px solid ${sharedStyles.buttonBorderColor};
     padding: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 30px;
-    width: 30px;
+    height: 25px;
+    width: 25px;
 
     svg {
-        height: 18px;
-        width: 18px;
+			height: 15px;
+			width: 15px;
 
-        path {
-            fill: ${sharedStyles.activeColor};
-        }
+			path {
+				fill: ${sharedStyles.activeColor};
+			}
     }
 `;
 

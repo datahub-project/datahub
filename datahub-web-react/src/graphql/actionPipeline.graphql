@@ -32,6 +32,12 @@ query getActionPipeline($urn: String!) {
   }
 }
 
+query getActionPipelineStatus($urn: String!) {
+  actionPipeline(urn: $urn) {
+		status
+  }
+}
+
 mutation createActionPipeline($input: UpdateActionPipelineInput!) {
 	createActionPipeline(input: $input)
 }

@@ -26,23 +26,6 @@ export const truncateString = (str, maxLength) => {
 	return str;
 }
 
-export const simplifyDataForListView = (data: any) =>
-	data.map((item: any) => {
-		console.log('item', item);
-		return {
-			key: item.urn || titleCase(item.details?.name),
-			urn: item.urn,
-			name: item.name || titleCase(item.details?.name),
-			description: item.description,
-			category: item.category || 'Propagation',
-			definition: item.details?.config?.recipe || item.definition?.json,
-			type: item.__typename,
-			status: data.status || 'ACTIVE',
-			updated: new Date(),
-			created: new Date(),
-		};
-	});
-
 // Util to safely parse JSON
 export const parseJSON = (jsonString) => {
 	try {
@@ -52,6 +35,21 @@ export const parseJSON = (jsonString) => {
 		return {};
 	}
 }
+
+export const simplifyDataForListView = (data: any) =>
+	data.map((item: any) => {
+		return {
+			key: item.urn || titleCase(item.details?.name),
+			urn: item.urn,
+			name: item.name || titleCase(item.details?.name),
+			description: item.description,
+			category: item.category || 'Propagation',
+			definition: item.details?.config?.recipe || item.definition?.json,
+			type: item.__typename,
+			updated: new Date(),
+			created: new Date(),
+		};
+	});
 
 // Fill YAML with form data
 export const getYaml = (automation: any) => {

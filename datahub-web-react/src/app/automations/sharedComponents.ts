@@ -24,8 +24,12 @@ export const sharedStyles = {
 	darkBorderColor: '#D9DBE9',
 	dividerColor: '#D9DBE9',
 
+	statusDefaultColor: '#A3A7B9',
+	statusDefaultFontColor: '#81879F',
+
 	statusActiveColor: '#deeed5',
 	statusActiveFontColor: '#8fc470',
+
 	statusInactiveColor: '#FFE4BD',
 	statusInactiveFontColor: '#845B10',
 
