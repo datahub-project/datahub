@@ -45,7 +45,6 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
@@ -1739,12 +1738,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return None
 
         subtypes: List[str] = [node.node_type.capitalize()]
-        if node.materialization == "table":
-            subtypes.append(DatasetSubTypes.TABLE)
-
-        if node.node_type == "model" or node.node_type == "snapshot":
-            # We need to add the view subtype so that the view properties tab shows up in the UI.
-            subtypes.append(DatasetSubTypes.VIEW)
 
         return MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,
