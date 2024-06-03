@@ -32,6 +32,7 @@ _DELETE_WITH_REFERENCES_TYPES = {
     "domain",
     "glossaryTerm",
     "glossaryNode",
+    "form",
 }
 
 _RECURSIVE_DELETE_TYPES = {
