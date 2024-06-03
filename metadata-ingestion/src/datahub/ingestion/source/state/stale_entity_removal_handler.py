@@ -6,6 +6,7 @@ from typing import Dict, Iterable, Optional, Set, Type, cast
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.source_helpers import auto_stale_entity_removal
@@ -23,6 +24,7 @@ from datahub.ingestion.source.state.use_case_handler import (
 )
 from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -276,6 +278,9 @@ class StaleEntityRemovalHandler(
         for urn in last_checkpoint_state.get_urns_not_in(
             type="*", other_checkpoint_state=cur_checkpoint_state
         ):
+            if not entity_supports_aspect(guess_entity_type(urn), StatusClass):
+                # If any entity does not support aspect 'status' then skip that entity
+                continue
             if urn in self._urns_to_skip:
                 logger.debug(
                     f"Not soft-deleting entity {urn} since it is in urns_to_skip"
