@@ -11,7 +11,16 @@
   left: 50%;
   transform: translate(-50%, -50%);
   color: white;
+  font-style: italic;
 
+}
+
+.card_date {
+    padding: 1rem;
+    font-size: 0.8rem;
+    font-style: italic;
+    text-align: right;
+    color: gray;
 }
 
 .card_feature {

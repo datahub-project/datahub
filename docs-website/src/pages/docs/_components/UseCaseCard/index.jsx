@@ -8,6 +8,7 @@ import { Tag } from "antd";
 const UseCaseCard = ({
   image,
   feature,
+  date,
   title,
   description,
   to,
@@ -113,7 +114,7 @@ const UseCaseCard = ({
             <div className={styles.card_image}>
               <img src={image} alt={feature} />
               <div className={styles.card_overlay_text}>
-                <div class={styles.card_feature}> Data Freshness </div>
+                <div class={styles.card_feature}> {feature} </div>
               </div>
             </div>
           )}
@@ -130,6 +131,7 @@ const UseCaseCard = ({
             {useFilters && renderFilters()}
           </div>
         )}
+      <div className={clsx(styles.card_date)}>Published on {date}</div>
       </Link>
     </div>
   );

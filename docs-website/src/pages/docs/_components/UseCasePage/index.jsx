@@ -52,12 +52,13 @@ export function UseCasePage(
 
   const useCaseContent = metadata.map((source) => {
     return {
-      feature: source.feature,
+      feature: source.Feature,
       title: source.Title,
       image: source.imgPath,
       description: source.Description,
       tags: getTags(source.Path),
       filters: source.tags,
+      date: source.Date,
       to: source.Path,
       useFilters: useFilters,
       useTags: useTags,
