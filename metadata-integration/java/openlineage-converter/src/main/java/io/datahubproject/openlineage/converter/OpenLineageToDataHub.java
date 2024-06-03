@@ -98,9 +98,56 @@ public class OpenLineageToDataHub {
 
   public static Optional<DatasetUrn> convertOpenlineageDatasetToDatasetUrn(
       OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
+
     String namespace = dataset.getNamespace();
     String datasetName = dataset.getName();
+    Optional<DatasetUrn> datahubUrn;
+    if (dataset.getFacets() != null && dataset.getFacets().getSymlinks() != null) {
+      Optional<DatasetUrn> originalUrn =
+          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+      for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
+          dataset.getFacets().getSymlinks().getIdentifiers()) {
+        if (symlink.getType().equals("TABLE")) {
+          if (symlink.getNamespace().startsWith("aws:glue:")) {
+            namespace = "glue";
+          } else {
+            namespace = mappingConfig.getHivePlatformAlias();
+          }
+          datasetName = symlink.getName();
+        }
+      }
+      Optional<DatasetUrn> symlinkedUrn =
+          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+      if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
+        mappingConfig
+            .getUrnAliases()
+            .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
+      }
+      datahubUrn = symlinkedUrn;
+    } else {
+      datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+    }
 
+    log.info("Dataset URN: {}, alias_list: {}", datahubUrn, mappingConfig.getUrnAliases());
+    // If we have the urn in urn aliases then we should use the alias instead of the original urn
+    if (datahubUrn.isPresent()
+        && mappingConfig.getUrnAliases().containsKey(datahubUrn.get().toString())) {
+      try {
+        datahubUrn =
+            Optional.of(
+                DatasetUrn.createFromString(
+                    mappingConfig.getUrnAliases().get(datahubUrn.get().toString())));
+        return datahubUrn;
+      } catch (URISyntaxException e) {
+        return Optional.empty();
+      }
+    }
+
+    return datahubUrn;
+  }
+
+  private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
+      String namespace, String datasetName, DatahubOpenlineageConfig mappingConfig) {
     String platform;
     if (namespace.contains(SCHEME_SEPARATOR)) {
       try {
@@ -115,8 +162,8 @@ public class OpenLineageToDataHub {
         } else {
           platform = datasetUri.getScheme();
         }
-        datasetName = datasetUri.getPath();
         if (HdfsPlatform.isFsPlatformPrefix(platform)) {
+          datasetName = datasetUri.getPath();
           try {
             HdfsPathDataset hdfsPathDataset = HdfsPathDataset.create(datasetUri, mappingConfig);
             return Optional.of(hdfsPathDataset.urn());
@@ -125,8 +172,6 @@ public class OpenLineageToDataHub {
                 "Unable to create urn from namespace: {} and dataset {}.", namespace, datasetName);
             return Optional.empty();
           }
-        } else {
-          datasetName = dataset.getName();
         }
       } catch (URISyntaxException e) {
         log.warn("Unable to create URI from namespace: {} and dataset {}.", namespace, datasetName);
@@ -134,7 +179,6 @@ public class OpenLineageToDataHub {
       }
     } else {
       platform = namespace;
-      datasetName = dataset.getName();
     }
 
     if (mappingConfig.getCommonDatasetPlatformInstance() != null) {
@@ -328,8 +372,15 @@ public class OpenLineageToDataHub {
                               + inputField.getField()
                               + ")");
                   upstreamFields.add(datasetFieldUrn);
-                  upstreams.add(
-                      new Upstream().setDataset(urn.get()).setType(DatasetLineageType.TRANSFORMED));
+                  if (upstreams.stream()
+                      .noneMatch(
+                          upstream ->
+                              upstream.getDataset().toString().equals(urn.get().toString()))) {
+                    upstreams.add(
+                        new Upstream()
+                            .setDataset(urn.get())
+                            .setType(DatasetLineageType.TRANSFORMED));
+                  }
                 }
               });
 

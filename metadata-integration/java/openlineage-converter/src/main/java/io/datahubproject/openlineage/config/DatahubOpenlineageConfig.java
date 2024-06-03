@@ -28,6 +28,8 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private final DataJobUrn parentJobUrn = null;
   // This is disabled until column level patch support won't be fixed in GMS
   @Builder.Default private final boolean usePatch = true;
+  @Builder.Default private String hivePlatformAlias = "hive";
+  @Builder.Default private Map<String, String> urnAliases = new HashMap<>();
 
   public List<PathSpec> getPathSpecsForPlatform(String platform) {
     if ((pathSpecs == null) || (pathSpecs.isEmpty())) {
