@@ -64,9 +64,6 @@ class SourceCapability(Enum):
 
 @dataclass
 class SourceReport(Report):
-    dpi_status_list: Dict[str, list] = field(
-        default_factory=lambda: defaultdict(LossyList)
-    )
     events_produced: int = 0
     events_produced_per_sec: int = 0
 
@@ -104,8 +101,6 @@ class SourceReport(Report):
 
                 if aspectName is not None:  # usually true
                     self.aspects[entityType][aspectName] += 1
-                    if entityType == "dataProcessInstance" and aspectName == "status":
-                        self.dpi_status_list[entityType].append(urn)
                     self.aspect_urn_samples[entityType][aspectName].append(urn)
                     if isinstance(mcp.aspect, UpstreamLineageClass):
                         upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)

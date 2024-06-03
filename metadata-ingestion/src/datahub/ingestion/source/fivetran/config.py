@@ -128,7 +128,6 @@ class MetadataExtractionPerfReport(Report):
 @dataclass
 class FivetranSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
-    jobs_scanned: int = 0
     filtered_connectors: List[str] = dataclass_field(default_factory=list)
     metadata_extraction_perf: MetadataExtractionPerfReport = dataclass_field(
         default_factory=MetadataExtractionPerfReport
@@ -136,9 +135,6 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
 
     def report_connectors_scanned(self, count: int = 1) -> None:
         self.connectors_scanned += count
-
-    def report_jobs_scanned(self, count: int = 1) -> None:
-        self.jobs_scanned += count
 
     def report_connectors_dropped(self, model: str) -> None:
         self.filtered_connectors.append(model)

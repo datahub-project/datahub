@@ -263,7 +263,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Map Fivetran's job/sync history entity with Datahub's data process entity
         for job in connector.jobs:
             dpi = self._generate_dpi_from_job(job, datajob)
-            self.report.report_jobs_scanned()
             yield from self._get_dpi_workunits(job, dpi)
 
     @classmethod
