@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { DotChartOutlined, PartitionOutlined } from '@ant-design/icons';
+import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { MlFeature, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -22,6 +22,7 @@ import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
 
@@ -144,6 +145,12 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
+        },
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
         },
     ];
 

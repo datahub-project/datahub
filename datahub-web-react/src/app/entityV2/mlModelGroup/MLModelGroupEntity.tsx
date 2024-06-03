@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { CodeSandboxOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { MlModelGroup, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -21,6 +21,7 @@ import { isOutputPort } from '../shared/utils';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
 
@@ -73,7 +74,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     };
 
     useEntityQuery = useGetMlModelGroupQuery;
-    
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -93,6 +94,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
+            sidebarTabs={this.getSidebarTabs()}
         />
     );
 
@@ -123,6 +125,15 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         },
         {
             component: SidebarTagsSection,
+        },
+    ];
+
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
         },
     ];
 

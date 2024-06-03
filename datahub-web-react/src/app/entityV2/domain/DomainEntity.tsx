@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { AppstoreOutlined, FileDoneOutlined, FileOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Domain, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -21,6 +21,7 @@ import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
@@ -122,6 +123,7 @@ export class DomainEntity implements Entity<Domain> {
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
+            sidebarTabs={this.getSidebarTabs()}
         />
     );
 
@@ -143,6 +145,15 @@ export class DomainEntity implements Entity<Domain> {
         },
         {
             component: SidebarEntitiesSection,
+        },
+    ];
+
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
         },
     ];
 

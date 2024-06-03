@@ -110,13 +110,9 @@ export class DataProductEntity implements Entity<DataProduct> {
                     component: DataProductEntitiesTab,
                     icon: AppstoreOutlined,
                 },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
             ]}
             sidebarSections={this.getSidebarSections()}
+            sidebarTabs={this.getSidebarTabs()}
         />
     );
 
@@ -154,6 +150,15 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
         {
             component: SidebarTagsSection,
+        },
+    ];
+
+    getSidebarTabs = () => [
+        {
+            name: 'Properties',
+            component: PropertiesTab,
+            description: 'View additional properties about this asset',
+            icon: UnorderedListOutlined,
         },
     ];
 
