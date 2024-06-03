@@ -115,7 +115,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   private static final RunsRequestBuilders RUNS_REQUEST_BUILDERS = new RunsRequestBuilders();
 
   private final int batchGetV2Size;
-  private final ExecutorService executor;
+  private final int batchGetV2Concurrency;
 
   public RestliEntityClient(
       @Nonnull final Client restliClient,
@@ -125,7 +125,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       int batchGetV2Concurrency) {
     super(restliClient, backoffPolicy, retryCount);
     this.batchGetV2Size = Math.max(1, batchGetV2Size);
-    executor = Executors.newFixedThreadPool(Math.max(1, batchGetV2Concurrency));
+    this.batchGetV2Concurrency = batchGetV2Concurrency;
   }
 
   @Override
@@ -223,49 +223,54 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException, URISyntaxException {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
+    ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, batchGetV2Concurrency));
 
-    Iterable<List<Urn>> iterable = () -> Iterators.partition(urns.iterator(), batchGetV2Size);
-    List<Future<Map<Urn, EntityResponse>>> futures =
-        StreamSupport.stream(iterable.spliterator(), false)
-            .map(
-                batch ->
-                    executor.submit(
-                        () -> {
-                          try {
-                            log.debug("Executing batchGetV2 with batch size: {}", batch.size());
-                            final EntitiesV2BatchGetRequestBuilder requestBuilder =
-                                ENTITIES_V2_REQUEST_BUILDERS
-                                    .batchGet()
-                                    .aspectsParam(aspectNames)
-                                    .ids(
-                                        batch.stream()
-                                            .map(Urn::toString)
-                                            .collect(Collectors.toList()));
+    try {
+      Iterable<List<Urn>> iterable = () -> Iterators.partition(urns.iterator(), batchGetV2Size);
+      List<Future<Map<Urn, EntityResponse>>> futures =
+          StreamSupport.stream(iterable.spliterator(), false)
+              .map(
+                  batch ->
+                      executor.submit(
+                          () -> {
+                            try {
+                              log.debug("Executing batchGetV2 with batch size: {}", batch.size());
+                              final EntitiesV2BatchGetRequestBuilder requestBuilder =
+                                  ENTITIES_V2_REQUEST_BUILDERS
+                                      .batchGet()
+                                      .aspectsParam(aspectNames)
+                                      .ids(
+                                          batch.stream()
+                                              .map(Urn::toString)
+                                              .collect(Collectors.toList()));
 
-                            return sendClientRequest(
-                                    requestBuilder, opContext.getSessionAuthentication())
-                                .getEntity()
-                                .getResults()
-                                .entrySet()
-                                .stream()
-                                .collect(
-                                    Collectors.toMap(
-                                        entry -> UrnUtils.getUrn(entry.getKey()),
-                                        entry -> entry.getValue().getEntity()));
-                          } catch (RemoteInvocationException e) {
-                            throw new RuntimeException(e);
-                          }
-                        }))
-            .collect(Collectors.toList());
+                              return sendClientRequest(
+                                      requestBuilder, opContext.getSessionAuthentication())
+                                  .getEntity()
+                                  .getResults()
+                                  .entrySet()
+                                  .stream()
+                                  .collect(
+                                      Collectors.toMap(
+                                          entry -> UrnUtils.getUrn(entry.getKey()),
+                                          entry -> entry.getValue().getEntity()));
+                            } catch (RemoteInvocationException e) {
+                              throw new RuntimeException(e);
+                            }
+                          }))
+              .collect(Collectors.toList());
 
-    futures.forEach(
-        result -> {
-          try {
-            responseMap.putAll(result.get());
-          } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-          }
-        });
+      futures.forEach(
+          result -> {
+            try {
+              responseMap.putAll(result.get());
+            } catch (InterruptedException | ExecutionException e) {
+              throw new RuntimeException(e);
+            }
+          });
+    } finally {
+      executor.shutdown();
+    }
 
     return responseMap;
   }
@@ -287,56 +292,62 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable final Set<String> aspectNames) {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
+    ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, batchGetV2Concurrency));
 
-    Iterable<List<VersionedUrn>> iterable =
-        () -> Iterators.partition(versionedUrns.iterator(), batchGetV2Size);
-    List<Future<Map<Urn, EntityResponse>>> futures =
-        StreamSupport.stream(iterable.spliterator(), false)
-            .map(
-                batch ->
-                    executor.submit(
-                        () -> {
-                          try {
-                            log.debug(
-                                "Executing batchGetVersionedV2 with batch size: {}", batch.size());
-                            final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder =
-                                ENTITIES_VERSIONED_V2_REQUEST_BUILDERS
-                                    .batchGet()
-                                    .aspectsParam(aspectNames)
-                                    .entityTypeParam(entityName)
-                                    .ids(
-                                        batch.stream()
-                                            .map(
-                                                versionedUrn ->
-                                                    com.linkedin.common.urn.VersionedUrn.of(
-                                                        versionedUrn.getUrn().toString(),
-                                                        versionedUrn.getVersionStamp()))
-                                            .collect(Collectors.toSet()));
+    try {
+      Iterable<List<VersionedUrn>> iterable =
+          () -> Iterators.partition(versionedUrns.iterator(), batchGetV2Size);
+      List<Future<Map<Urn, EntityResponse>>> futures =
+          StreamSupport.stream(iterable.spliterator(), false)
+              .map(
+                  batch ->
+                      executor.submit(
+                          () -> {
+                            try {
+                              log.debug(
+                                  "Executing batchGetVersionedV2 with batch size: {}",
+                                  batch.size());
+                              final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder =
+                                  ENTITIES_VERSIONED_V2_REQUEST_BUILDERS
+                                      .batchGet()
+                                      .aspectsParam(aspectNames)
+                                      .entityTypeParam(entityName)
+                                      .ids(
+                                          batch.stream()
+                                              .map(
+                                                  versionedUrn ->
+                                                      com.linkedin.common.urn.VersionedUrn.of(
+                                                          versionedUrn.getUrn().toString(),
+                                                          versionedUrn.getVersionStamp()))
+                                              .collect(Collectors.toSet()));
 
-                            return sendClientRequest(
-                                    requestBuilder, opContext.getSessionAuthentication())
-                                .getEntity()
-                                .getResults()
-                                .entrySet()
-                                .stream()
-                                .collect(
-                                    Collectors.toMap(
-                                        entry -> UrnUtils.getUrn(entry.getKey().getUrn()),
-                                        entry -> entry.getValue().getEntity()));
-                          } catch (RemoteInvocationException e) {
-                            throw new RuntimeException(e);
-                          }
-                        }))
-            .collect(Collectors.toList());
+                              return sendClientRequest(
+                                      requestBuilder, opContext.getSessionAuthentication())
+                                  .getEntity()
+                                  .getResults()
+                                  .entrySet()
+                                  .stream()
+                                  .collect(
+                                      Collectors.toMap(
+                                          entry -> UrnUtils.getUrn(entry.getKey().getUrn()),
+                                          entry -> entry.getValue().getEntity()));
+                            } catch (RemoteInvocationException e) {
+                              throw new RuntimeException(e);
+                            }
+                          }))
+              .collect(Collectors.toList());
 
-    futures.forEach(
-        result -> {
-          try {
-            responseMap.putAll(result.get());
-          } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-          }
-        });
+      futures.forEach(
+          result -> {
+            try {
+              responseMap.putAll(result.get());
+            } catch (InterruptedException | ExecutionException e) {
+              throw new RuntimeException(e);
+            }
+          });
+    } finally {
+      executor.shutdown();
+    }
 
     return responseMap;
   }
