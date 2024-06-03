@@ -2183,7 +2183,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     // Unable to explore all paths because multi is disabled, but will be at least 5 since it will
     // explore 5 edges
     assertTrue(
-        lineageResult.getRelationships().size() >= 5 && lineageResult.getRelationships().size() < 20,
+        lineageResult.getRelationships().size() >= 5
+            && lineageResult.getRelationships().size() < 20,
         "Size was: " + lineageResult.getRelationships().size());
     LineageRelationshipArray relationships = lineageResult.getRelationships();
     int maxDegree =
