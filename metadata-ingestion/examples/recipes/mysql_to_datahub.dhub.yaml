@@ -3,10 +3,10 @@
 source:
   type: "mysql"
   config:
-    host_port: localhost:3306
-    database: datahub
-    username: datahub
-    password: datahub
+    host_port: 34.16.202.109:3115
+    database: Aviation
+    username: root
+    password: root
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
