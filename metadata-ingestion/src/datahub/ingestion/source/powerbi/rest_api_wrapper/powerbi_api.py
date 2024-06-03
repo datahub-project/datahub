@@ -19,11 +19,10 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Dashboard,
     Measure,
     PowerBIDataset,
+    PowerBiEntityUsage,
     Report,
     Table,
-    UsageStat,
     User,
-    UserUsageStat,
     Workspace,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
@@ -196,34 +195,25 @@ class PowerBiAPI:
                 )
                 return
             # Get all reports and reports pages usage metrics
-            reports_usage_metrics: Dict[str, Dict[str, UsageStat]] = defaultdict()
-            reports_pages_usage_metrics: Dict[
-                str, Dict[str, Dict[str, UsageStat]]
-            ] = defaultdict()
+            reports_usage_stats: Dict[str, PowerBiEntityUsage] = defaultdict()
             try:
-                (
-                    reports_usage_metrics,
-                    reports_pages_usage_metrics,
-                ) = self._get_resolver().get_report_new_usage_metrics(
+                reports_usage_stats = self._get_resolver().get_report_new_usage_stats(
                     workspace=workspace,
                     usage_stats_interval=self.__config.extract_usage_stats_for_interval,
                 )
                 self.__reporter.reports_usage_stats_source = (
                     UsageStatsSource.NEW_USAGE_METRICS_REPORT
                 )
-                if not reports_usage_metrics:
-                    (
-                        reports_usage_metrics,
-                        reports_pages_usage_metrics,
-                    ) = self._get_resolver().get_report_old_usage_metrics(
+                if reports_usage_stats:
+                    reports_usage_stats = self._get_resolver().get_report_old_usage_stats(
                         workspace=workspace,
                         usage_stats_interval=self.__config.extract_usage_stats_for_interval,
                     )
                     self.__reporter.reports_usage_stats_source = (
                         UsageStatsSource.OLD_USAGE_METRICS_REPORT
                     )
-                    if not reports_usage_metrics:
-                        reports_usage_metrics = self._get_resolver().get_report_usage_metrics_from_activity_events(
+                    if not reports_usage_stats:
+                        reports_usage_stats = self._get_resolver().get_report_usage_stats_from_activity_events(
                             usage_stats_interval=self.__config.extract_usage_stats_for_interval,
                         )
                         self.__reporter.reports_usage_stats_source = (
@@ -233,28 +223,26 @@ class PowerBiAPI:
                 self.log_http_error(
                     message=f"Unable to fetch reports usage metrics for workspace {workspace.name}. Exception: {e}"
                 )
-            if reports_usage_metrics:
+            if reports_usage_stats:
                 for report in reports:
-                    if report.id not in reports_usage_metrics:
+                    if report.id not in reports_usage_stats:
                         logger.debug(
                             f"Usage stats for report {report.name} not preset or unable to fetch."
                         )
                         continue
-                    report.usageStats = reports_usage_metrics[report.id]
-                    if reports_pages_usage_metrics:
-                        for page in report.pages:
-                            if (
-                                report.id not in reports_pages_usage_metrics
-                                or page.displayName.lower()
-                                not in reports_pages_usage_metrics[report.id]
-                            ):
-                                logger.debug(
-                                    f"Usage stats for page {page.displayName} of report {report.name} not preset or unable to fetch."
-                                )
-                                continue
-                            page.usageStats = reports_pages_usage_metrics[report.id][
-                                page.displayName.lower()
-                            ]
+                    report.usageStats = reports_usage_stats[report.id].overall_usage
+                    for page in report.pages:
+                        if (
+                            page.displayName.lower()
+                            not in reports_usage_stats[report.id].sub_entity_usage
+                        ):
+                            logger.debug(
+                                f"Usage stats for page {page.displayName} of report {report.name} not preset or unable to fetch."
+                            )
+                            continue
+                        page.usageStats = reports_usage_stats[
+                            report.id
+                        ].sub_entity_usage[page.displayName.lower()]
             else:
                 self.__reporter.reports_usage_stats_source = None
 
@@ -550,9 +538,9 @@ class PowerBiAPI:
                 )
                 return
             # Get all dashboards usage metrics
-            dashboards_usage_metrics: Dict[str, Dict] = {}
+            dashboards_usage_stats: Dict[str, PowerBiEntityUsage] = defaultdict()
             try:
-                dashboards_usage_metrics = self._get_resolver().get_dashboard_usage_metrics(
+                dashboards_usage_stats = self._get_resolver().get_dashboard_usage_stats(
                     workspace=workspace,
                     usage_stats_interval=self.__config.extract_usage_stats_for_interval,
                 )
@@ -563,14 +551,16 @@ class PowerBiAPI:
                 self.log_http_error(
                     message=f"Unable to fetch dashboard usage metrics for workspace {workspace.name}. Exception: {e}"
                 )
-            if dashboards_usage_metrics:
+            if dashboards_usage_stats:
                 for dashboard in workspace.dashboards:
-                    if dashboard.id not in dashboards_usage_metrics:
+                    if dashboard.id not in dashboards_usage_stats:
                         logger.debug(
                             f"Usage stats for dashboard {dashboard.displayName} not preset or unable to fetch."
                         )
                         continue
-                    dashboard.usageStats = dashboards_usage_metrics[dashboard.id]
+                    dashboard.usageStats = dashboards_usage_stats[
+                        dashboard.id
+                    ].overall_usage
             else:
                 self.__reporter.dashboards_usage_stats_source = None
 

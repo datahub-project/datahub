@@ -1,5 +1,6 @@
 import dataclasses
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
@@ -169,13 +170,22 @@ class UsageStat:
     userUsageStats: Dict[str, UserUsageStat]
 
 
+DateWiseUsage = Dict[datetime, UsageStat]
+
+
+@dataclass
+class PowerBiEntityUsage:
+    overall_usage: DateWiseUsage
+    sub_entity_usage: Dict[str, DateWiseUsage]
+
+
 @dataclass
 class Page:
     id: str
     displayName: str
     name: str
     order: int
-    usageStats: Optional[Dict[str, UsageStat]]  # date as key
+    usageStats: Optional[DateWiseUsage]
 
     def get_urn_part(self):
         return f"pages.{self.id}"
@@ -219,7 +229,7 @@ class Report:
     embedUrl: str
     description: str
     dataset: Optional["PowerBIDataset"]
-    usageStats: Optional[Dict[str, UsageStat]]  # date as key
+    usageStats: Optional[DateWiseUsage]
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
@@ -257,7 +267,7 @@ class Dashboard:
     isReadOnly: Any
     workspace_id: str
     workspace_name: str
-    usageStats: Optional[Dict[str, UsageStat]]  # date as key
+    usageStats: Optional[DateWiseUsage]
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]

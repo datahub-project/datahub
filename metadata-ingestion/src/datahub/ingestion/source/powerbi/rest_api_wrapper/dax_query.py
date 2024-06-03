@@ -47,24 +47,37 @@ class PowerBiDaxQuery:
     )"""
 
     GET_OLD_USAGE_METRICS_REPORT_VIEWS: str = """EVALUATE SELECTCOLUMNS (
-        FILTER (
-            'Views',
-            'Views'[Date] > TODAY()-{usage_stats_interval}
+        SUMMARIZECOLUMNS (
+            'Views'[ReportGuid],
+            'Views'[ReportPage],
+            'Views'[Date],
+            'Views'[UserGuid],
+            FILTER (
+                'Views',
+                'Views'[Date] > TODAY()-{usage_stats_interval}
+            ),
+            "views_count", SUM('Views'[GranularViewsCount])
         ),
         "entity_id", 'Views'[ReportGuid],
         "sub_entity_id", 'Views'[ReportPage],
         "date", 'Views'[Date],
         "user_id", 'Views'[UserGuid],
-        "views_count", 'Views'[GranularViewsCount]
+        "views_count", [views_count]
     )"""
 
     GET_OLD_USAGE_METRICS_DASHBOARD_VIEWS: str = """EVALUATE SELECTCOLUMNS (
-        FILTER (
-            'Views',
-            'Views'[Date] > TODAY()-{usage_stats_interval}
+        SUMMARIZECOLUMNS (
+            'Views'[DashboardGuid],
+            'Views'[Date],
+            'Views'[UserGuid],
+            FILTER (
+                'Views',
+                'Views'[Date] > TODAY()-{usage_stats_interval}
+            ),
+            "views_count", SUM('Views'[GranularViewsCount])
         ),
         "entity_id", 'Views'[DashboardGuid],
         "date", 'Views'[Date],
         "user_id", 'Views'[UserGuid],
-        "views_count", 'Views'[GranularViewsCount]
+        "views_count", [views_count]
     )"""

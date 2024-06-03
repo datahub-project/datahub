@@ -4,7 +4,6 @@
 #
 #########################################################
 import logging
-from datetime import datetime, timezone
 from typing import Iterable, List, Optional, Tuple, Union
 
 import datahub.emitter.mce_builder as builder
@@ -38,7 +37,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.powerbi.config import (
-    POWERBI_USAGE_DATETIME_FORMAT,
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -799,12 +797,7 @@ class Mapper:
                     total_views_count = total_views_count + user_usage_stat.viewsCount
                 chart_usage_stats_aspects.append(
                     ChartUsageStatisticsClass(
-                        timestampMillis=round(
-                            datetime.strptime(date, POWERBI_USAGE_DATETIME_FORMAT)
-                            .replace(tzinfo=timezone.utc)
-                            .timestamp()
-                            * 1000
-                        ),
+                        timestampMillis=round(date.timestamp() * 1000),
                         eventGranularity=TimeWindowSizeClass(
                             unit=CalendarIntervalClass.DAY
                         ),
@@ -878,12 +871,7 @@ class Mapper:
                 total_views_count = total_views_count + user_usage_stat.viewsCount
             dashboard_usage_stats_aspects.append(
                 DashboardUsageStatisticsClass(
-                    timestampMillis=round(
-                        datetime.strptime(date, POWERBI_USAGE_DATETIME_FORMAT)
-                        .replace(tzinfo=timezone.utc)
-                        .timestamp()
-                        * 1000
-                    ),
+                    timestampMillis=round(date.timestamp() * 1000),
                     eventGranularity=TimeWindowSizeClass(
                         unit=CalendarIntervalClass.DAY
                     ),

@@ -518,5 +518,7 @@ class PowerBiDashboardSourceConfig(
     @root_validator(skip_on_failure=True)
     def validate_extract_usage_stats_for_interval(cls, values: Dict) -> Dict:
         if values["extract_usage_stats_for_interval"] > 30:
-            raise ValueError("Usage stats for last 30 days only can be extracted.")
+            raise ValueError(
+                "Usage stats older than last 30 days can not be extracted."
+            )
         return values
