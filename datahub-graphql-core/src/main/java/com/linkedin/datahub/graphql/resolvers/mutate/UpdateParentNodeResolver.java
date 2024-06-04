@@ -7,6 +7,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateParentNodeInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
@@ -55,7 +56,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
     }
 
     GlossaryNodeUrn finalParentNodeUrn = parentNodeUrn;
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           Urn currentParentUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
           // need to be able to manage current parent node and new parent node
@@ -78,7 +79,9 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Boolean updateGlossaryTermParentNode(

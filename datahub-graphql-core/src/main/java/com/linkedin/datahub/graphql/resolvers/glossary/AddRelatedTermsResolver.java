@@ -8,6 +8,7 @@ import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RelatedTermsInput;
 import com.linkedin.datahub.graphql.generated.TermRelationshipType;
@@ -43,7 +44,7 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
         bindArgument(environment.getArgument("input"), RelatedTermsInput.class);
     final Urn urn = Urn.createFromString(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Urn parentUrn = GlossaryUtils.getParentUrn(urn, context, _entityClient);
           if (GlossaryUtils.canManageChildrenEntities(context, parentUrn, _entityClient)) {
@@ -102,7 +103,9 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public Boolean validateRelatedTermsInput(

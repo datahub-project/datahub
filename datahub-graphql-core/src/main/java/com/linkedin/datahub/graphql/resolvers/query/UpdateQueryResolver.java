@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -44,7 +45,7 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
     final Urn queryUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QuerySubjects existingSubjects =
               _queryService.getQuerySubjects(context.getOperationContext(), queryUrn);
@@ -103,6 +104,8 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
             throw new RuntimeException(
                 String.format("Failed to update Query from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }
