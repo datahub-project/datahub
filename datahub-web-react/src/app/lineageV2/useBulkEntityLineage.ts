@@ -106,15 +106,7 @@ function processEdge(
 ): void {
     const { adjacencyList, nodes, edges } = context;
 
-    if (nodes.has(relationship.urn) && relationship.entity && !isQuery(relationship.entity)) {
-        const edgeId = getEdgeId(node.urn, relationship.urn, direction);
-        edges.set(edgeId, { ...edges.get(edgeId), ...makeLineageEdge(relationship) });
-        addToAdjacencyList(adjacencyList, direction, node.urn, relationship.urn);
-
-        relationship.paths?.forEach((path) => {
-            addQueryNodes(path?.path, direction, context);
-        });
-
+    if (relationship.entity && !isQuery(relationship.entity)) {
         if ([FetchStatus.COMPLETE, FetchStatus.LOADING].includes(node.fetchStatus[direction])) {
             // Add nodes that should be in the graph
             // TODO: Bust search across lineage cache?
@@ -123,6 +115,16 @@ function processEdge(
                 relationship.urn,
                 entityNodeDefault(relationship.urn, relationship.entity.type, direction),
             );
+        }
+
+        if (nodes.has(relationship.urn)) {
+            const edgeId = getEdgeId(node.urn, relationship.urn, direction);
+            edges.set(edgeId, { ...edges.get(edgeId), ...makeLineageEdge(relationship) });
+            addToAdjacencyList(adjacencyList, direction, node.urn, relationship.urn);
+
+            relationship.paths?.forEach((path) => {
+                addQueryNodes(path?.path, direction, context);
+            });
         }
     }
 }

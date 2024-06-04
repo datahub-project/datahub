@@ -162,7 +162,14 @@ export default class NodeBuilder {
         return Array.from(baseEdges.values()).map(createEdge);
     }
 
-    #getLayerSeparation(isCurrentLayerMini: boolean, wasLastLayerMini: boolean): number {
+    #isLayerMini(layer?: Layer): boolean {
+        const { main, mini } = parseLayer(layer);
+        return !!mini || (!main && !mini && this.isHomeTransformational);
+    }
+
+    #getLayerSeparation(layer: Layer, prevLayer?: Layer): number {
+        const isCurrentLayerMini = this.#isLayerMini(layer);
+        const wasLastLayerMini = this.#isLayerMini(prevLayer);
         if (isCurrentLayerMini && wasLastLayerMini) {
             return MINI_X_SEP;
         }
@@ -170,6 +177,10 @@ export default class NodeBuilder {
             return MAIN_TO_MINI_X_SEP;
         }
         return MAIN_X_SEP;
+    }
+
+    #getNodeSize(layer: Layer): number {
+        return this.#isLayerMini(layer) ? TRANSFORMATION_NODE_SIZE : LINEAGE_NODE_WIDTH;
     }
 
     /**
@@ -233,17 +244,6 @@ export default class NodeBuilder {
             }
         });
 
-        const getNodeSize = (layer: Layer): number => {
-            const { mini } = parseLayer(layer);
-            if (mini) {
-                return TRANSFORMATION_NODE_SIZE;
-            }
-            if (layer === defaultLayer) {
-                return this.isHomeTransformational ? TRANSFORMATION_NODE_SIZE : LINEAGE_NODE_WIDTH;
-            }
-            return LINEAGE_NODE_WIDTH;
-        };
-
         const upstreamLayers = Array.from(this.layerNodes.keys())
             .filter((layer) => layer.startsWith('-'))
             .sort(compareLayers);
@@ -253,23 +253,22 @@ export default class NodeBuilder {
 
         this.layerPositions.set(defaultLayer, 0);
         upstreamLayers.forEach((layer, i) => {
-            const { mini } = parseLayer(layer);
             const prevLayer = upstreamLayers[i - 1];
-            const { mini: prevMini } = parseLayer(prevLayer || defaultLayer);
-            const separation = this.#getLayerSeparation(!!mini, !!prevMini);
-            this.layerPositions.set(layer, (this.layerPositions.get(prevLayer) || 0) - getNodeSize(layer) - separation);
+            const separation = this.#getLayerSeparation(layer, prevLayer);
+            this.layerPositions.set(
+                layer,
+                (this.layerPositions.get(prevLayer) || 0) - this.#getNodeSize(layer) - separation,
+            );
         });
         downstreamLayers.forEach((layer, i) => {
             if (i === 0) {
                 return;
             }
-            const { mini } = parseLayer(layer);
             const prevLayer = downstreamLayers[i - 1];
-            const { mini: prevMini } = parseLayer(prevLayer || defaultLayer);
-            const separation = this.#getLayerSeparation(!!mini, !!prevMini);
+            const separation = this.#getLayerSeparation(layer, prevLayer);
             this.layerPositions.set(
                 layer,
-                (this.layerPositions.get(prevLayer) || 0) + getNodeSize(prevLayer) + separation,
+                (this.layerPositions.get(prevLayer) || 0) + this.#getNodeSize(prevLayer) + separation,
             );
         });
 
