@@ -268,8 +268,14 @@ class RedshiftLineageExtractor:
         if self.config.s3_lineage_config:
             for path_spec in self.config.s3_lineage_config.path_specs:
                 if path_spec.allowed(path):
+                    self.report.num_s3_lineage_path_spec_match += 1
                     _, table_path = path_spec.extract_table_name_and_path(path)
                     return table_path
+
+            if self.config.s3_lineage_config.path_specs:
+                self.report.num_s3_lineage_path_spec_mismatch += 1
+                self.report.s3_lineage_path_spec_mismatch.append(path)
+                return path
 
             if self.config.s3_lineage_config.strip_urls:
                 if "/" in urlparse(path).path:
@@ -361,25 +367,23 @@ class RedshiftLineageExtractor:
                 self.report.num_lineage_dropped_query_parser += 1
         else:
             if lineage_type == lineage_type.COPY and filename is not None:
-                platform = LineageDatasetPlatform.S3
-                path = filename.strip()
-                if urlparse(path).scheme != "s3":
-                    logger.warning(
-                        "Only s3 source supported with copy. The source was: {path}."
+                try:
+                    platform = LineageDatasetPlatform.S3
+                    # Following call requires 'filename' key in lineage_row
+                    source_path = self._build_s3_path_from_row(filename)
+                    urn = make_dataset_urn_with_platform_instance(
+                        platform=platform.value,
+                        name=source_path,
+                        env=self.config.env,
+                        platform_instance=(
+                            self.config.platform_instance_map.get(platform.value)
+                            if self.config.platform_instance_map is not None
+                            else None
+                        ),
                     )
-                    self.report.num_lineage_dropped_not_support_copy_path += 1
+                except ValueError as e:
+                    self.warn(logger, "non-s3-lineage", str(e))
                     return [], None
-                path = strip_s3_prefix(self._get_s3_path(path))
-                urn = make_dataset_urn_with_platform_instance(
-                    platform=platform.value,
-                    name=path,
-                    env=self.config.env,
-                    platform_instance=(
-                        self.config.platform_instance_map.get(platform.value)
-                        if self.config.platform_instance_map is not None
-                        else None
-                    ),
-                )
             elif source_schema is not None and source_table is not None:
                 platform = LineageDatasetPlatform.REDSHIFT
                 path = f"{db_name}.{source_schema}.{source_table}"
@@ -551,6 +555,7 @@ class RedshiftLineageExtractor:
                 )
             except ValueError as e:
                 self.warn(logger, "non-s3-lineage", str(e))
+                self.report.num_lineage_dropped_not_support_copy_path += 1
                 return None
         else:
             target_platform = LineageDatasetPlatform.REDSHIFT
