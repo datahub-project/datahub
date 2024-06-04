@@ -50,9 +50,13 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
 @dataclass
 class StaleEntityRemovalSourceReport(StatefulIngestionReport):
     soft_deleted_stale_entities: LossyList[str] = field(default_factory=LossyList)
+    last_state_unremovable_entities: LossyList[str] = field(default_factory=LossyList)
 
     def report_stale_entity_soft_deleted(self, urn: str) -> None:
         self.soft_deleted_stale_entities.append(urn)
+
+    def report_last_state_unremovable_entities(self, urn: str) -> None:
+        self.last_state_unremovable_entities.append(urn)
 
 
 class StaleEntityRemovalHandler(
@@ -274,12 +278,16 @@ class StaleEntityRemovalHandler(
                 self.add_entity_to_state("", urn)
             return
 
+        report = self.source.get_report()
+        assert isinstance(report, StaleEntityRemovalSourceReport)
+
         # Everything looks good, emit the soft-deletion workunits
         for urn in last_checkpoint_state.get_urns_not_in(
             type="*", other_checkpoint_state=cur_checkpoint_state
         ):
             if not entity_supports_aspect(guess_entity_type(urn), StatusClass):
-                # If any entity does not support aspect 'status' then skip that entity
+                # If any entity does not support aspect 'status' then skip that entity urn
+                report.report_last_state_unremovable_entities(urn)
                 continue
             if urn in self._urns_to_skip:
                 logger.debug(
