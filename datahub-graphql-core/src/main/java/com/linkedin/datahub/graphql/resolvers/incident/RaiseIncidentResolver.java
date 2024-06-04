@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RaiseIncidentInput;
 import com.linkedin.entity.client.EntityClient;
@@ -49,7 +50,7 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
         bindArgument(environment.getArgument("input"), RaiseIncidentInput.class);
     final Urn resourceUrn = Urn.createFromString(input.getResourceUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!isAuthorizedToCreateIncidentForResource(resourceUrn, context)) {
             throw new AuthorizationException(
@@ -76,7 +77,9 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
             log.error("Failed to create incident. {}", e.getMessage());
             throw new RuntimeException("Failed to incident", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private IncidentInfo mapIncidentInfo(final RaiseIncidentInput input, final QueryContext context)

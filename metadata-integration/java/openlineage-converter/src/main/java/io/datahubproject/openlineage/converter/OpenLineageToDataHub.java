@@ -423,6 +423,45 @@ public class OpenLineageToDataHub {
     for (Map.Entry<String, OpenLineage.RunFacet> entry :
         event.getRun().getFacets().getAdditionalProperties().entrySet()) {
       switch (entry.getKey()) {
+        case "spark_jobDetails":
+          if (entry.getValue().getAdditionalProperties().get("jobId") != null) {
+            customProperties.put(
+                "jobId",
+                (String) entry.getValue().getAdditionalProperties().get("jobId").toString());
+          }
+          if (entry.getValue().getAdditionalProperties().get("jobDescription") != null) {
+            customProperties.put(
+                "jobDescription",
+                (String) entry.getValue().getAdditionalProperties().get("jobDescription"));
+          }
+          if (entry.getValue().getAdditionalProperties().get("jobGroup") != null) {
+            customProperties.put(
+                "jobGroup", (String) entry.getValue().getAdditionalProperties().get("jobGroup"));
+          }
+          if (entry.getValue().getAdditionalProperties().get("jobCallSite") != null) {
+            customProperties.put(
+                "jobCallSite",
+                (String) entry.getValue().getAdditionalProperties().get("jobCallSite"));
+          }
+        case "processing_engine":
+          if (entry.getValue().getAdditionalProperties().get("processing-engine") != null) {
+            customProperties.put(
+                "processing-engine",
+                (String) entry.getValue().getAdditionalProperties().get("name"));
+          }
+          if (entry.getValue().getAdditionalProperties().get("processing-engine-version") != null) {
+            customProperties.put(
+                "processing-engine-version",
+                (String) entry.getValue().getAdditionalProperties().get("version"));
+          }
+          if (entry.getValue().getAdditionalProperties().get("openlineage-adapter-version")
+              != null) {
+            customProperties.put(
+                "openlineage-adapter-version",
+                (String)
+                    entry.getValue().getAdditionalProperties().get("openlineageAdapterVersion"));
+          }
+
         case "spark_version":
           {
             if (entry.getValue().getAdditionalProperties().get("spark-version") != null) {

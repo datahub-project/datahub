@@ -6,6 +6,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalViewsSettingsInput;
 import com.linkedin.metadata.service.SettingsService;
@@ -37,7 +38,7 @@ public class UpdateGlobalViewsSettingsResolver implements DataFetcher<Completabl
     final UpdateGlobalViewsSettingsInput input =
         bindArgument(environment.getArgument("input"), UpdateGlobalViewsSettingsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (AuthorizationUtils.canManageGlobalViews(context)) {
             try {
@@ -68,7 +69,9 @@ public class UpdateGlobalViewsSettingsResolver implements DataFetcher<Completabl
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static void updateViewsSettings(
