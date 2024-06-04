@@ -4,7 +4,7 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import { Assertion } from '../../../../../../../types.generated';
 import { StyledCheckOutlined, StyledCloseOutlined, StyledExclamationOutlined } from '../shared/styledComponents';
-import { getAssertionsSummary } from '../acrylUtils';
+import { getAssertionsSummary } from '../utils';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
 
 const Container = styled.div`

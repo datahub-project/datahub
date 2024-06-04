@@ -9,7 +9,7 @@ import {
     PlusOutlined,
     StopOutlined,
 } from '@ant-design/icons';
-import { useEntityData } from '../../../../../EntityContext';
+import { useEntityData } from '../../../../EntityContext';
 // import { useGetContractProposalsQuery } from '../../../../../../../../graphql/contract.generated';
 // import {
 //     ActionRequestStatus,
@@ -17,17 +17,17 @@ import { useEntityData } from '../../../../../EntityContext';
 //     DataContractProposalParams,
 //     EntityType,
 // } from '../../../../../../../../types.generated';
-import { DataContractProposalDescription } from './DataContractProposalDescription';
+import { DataContractProposalDescription } from './proposal/DataContractProposalDescription';
 // import {
 //     useAcceptProposalMutation,
 //     useRejectProposalMutation,
 // } from '../../../../../../../../graphql/actionRequest.generated';
-import { ANTD_GRAY } from '../../../../../constants';
-import { FAILURE_COLOR_HEX } from '../../../../Incident/incidentUtils';
-import { FreshnessContractSummary } from '../FreshnessContractSummary';
-import { SchemaContractSummary } from '../SchemaContractSummary';
-import { DataQualityContractSummary } from '../DataQualityContractSummary';
-import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
+import { ANTD_GRAY } from '../../../../constants';
+import { FAILURE_COLOR_HEX } from '../../../Incident/incidentUtils';
+import { FreshnessContractSummary } from './FreshnessContractSummary';
+import { SchemaContractSummary } from './SchemaContractSummary';
+import { DataQualityContractSummary } from './DataQualityContractSummary';
+import analytics, { EntityActionType, EventType } from '../../../../../../analytics';
 
 const Container = styled.div``;
 
@@ -120,7 +120,7 @@ const StyledEyeOutlined = styled(EyeOutlined)`
  *  Displaying a Data Contract proposal for an entity.
  */
 
-export const DataContractProposal = ({ showContractBuilder }: any) => {
+export const DataContractEmptyState = ({ showContractBuilder }: any) => {
     return (
         <Container>
             <Summary>

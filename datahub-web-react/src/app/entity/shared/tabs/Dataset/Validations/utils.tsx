@@ -26,7 +26,7 @@ import {
     // MonitorMode,
 } from '../../../../../../types.generated';
 import { sortAssertions } from './assertionUtils';
-import { AssertionGroup, AssertionStatusSummary } from './acrylTypes';
+import { AssertionGroup, AssertionStatusSummary } from './types';
 import { lowerFirstLetter } from '../../../../../shared/textUtil';
 // import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
 // import {

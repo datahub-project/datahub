@@ -20,7 +20,7 @@ import {
     AssertionWithMonitorDetails,
     createAssertionGroups,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
-} from '../../acrylUtils';
+} from '../../utils';
 import { DataContractAssertionGroupSelect } from './DataContractAssertionGroupSelect';
 import { ANTD_GRAY } from '../../../../../constants';
 import { DATA_QUALITY_ASSERTION_TYPES } from '../utils';

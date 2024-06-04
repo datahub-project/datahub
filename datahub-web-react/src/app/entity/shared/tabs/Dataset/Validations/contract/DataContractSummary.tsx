@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import EditIcon from '@mui/icons-material/Edit';
 import { Button, Typography } from 'antd';
 import { DataContractState } from '../../../../../../../types.generated';
-import { AssertionStatusSummary } from '../acrylTypes';
+import { AssertionStatusSummary } from '../types';
 import { getContractSummaryIcon, getContractSummaryTitle, getContractSummaryMessage } from './utils';
 import { ANTD_GRAY } from '../../../../constants';
 

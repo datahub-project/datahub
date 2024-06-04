@@ -3,14 +3,14 @@ import styled from 'styled-components';
 import { useGetDatasetContractQuery } from '../../../../../../../graphql/contract.generated';
 import { DataContractState } from '../../../../../../../types.generated';
 import { useEntityData } from '../../../../EntityContext';
-import { DataContractProposal } from './proposal/DataContractProposal';
+import { DataContractEmptyState } from './DataContractEmptyState';
 import { DataContractSummary } from './DataContractSummary';
 import { DataQualityContractSummary } from './DataQualityContractSummary';
 import { SchemaContractSummary } from './SchemaContractSummary';
 import { FreshnessContractSummary } from './FreshnessContractSummary';
 import { DataContractBuilderModal } from './builder/DataContractBuilderModal';
 import { createBuilderState } from './builder/utils';
-import { getAssertionsSummary } from '../acrylUtils';
+import { getAssertionsSummary } from '../utils';
 
 const Container = styled.div`
     display: flex;
@@ -104,7 +104,7 @@ export const DataContractTab = () => {
                     </Container>
                 </>
             )) || (
-                <DataContractProposal
+                <DataContractEmptyState
                     refetch={refetch}
                     showContractBuilder={() => setShowContractBuilder(true)}
                     entityUrn={urn}
