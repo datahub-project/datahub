@@ -1,6 +1,7 @@
 """Datahub Emitter classes used to emit prefect metadata to Datahub REST."""
 
 import asyncio
+import datahub.emitter.mce_builder as builder
 import traceback
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -23,7 +24,7 @@ from prefect.client.schemas import FlowRun, TaskRun, Workspace
 from prefect.client.schemas.objects import Flow
 from prefect.context import FlowRunContext, TaskRunContext
 from prefect.settings import PREFECT_API_URL
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from prefect_datahub.entities import _Entity
 
@@ -75,11 +76,8 @@ COMPLETE = "Completed"
 FAILED = "Failed"
 CANCELLED = "Cancelled"
 
-
-class DatahubEmitter(Block):
+class DatahubEmitterConfig(BaseModel):
     """
-    Block used to emit prefect task and flow related metadata to Datahub REST
-
     Attributes:
         datahub_rest_url Optional(str) : Datahub GMS Rest URL. \
             Example: http://localhost:8080.
@@ -106,9 +104,7 @@ class DatahubEmitter(Block):
         block = DatahubEmitter.load("BLOCK_NAME")
         ```
     """
-
-    _block_type_name: Optional[str] = "datahub emitter"
-
+    
     datahub_rest_url: str = Field(
         default="http://localhost:8080",
         title="Datahub rest url",
@@ -116,7 +112,7 @@ class DatahubEmitter(Block):
     )
 
     env: str = Field(
-        default="prod",
+        default=builder.DEFAULT_ENV,
         title="Environment",
         description="The environment that all assets produced by this orchestrator "
         "belong to. For more detail and possible values refer "
@@ -131,13 +127,21 @@ class DatahubEmitter(Block):
         "https://datahubproject.io/docs/platform-instances/.",
     )
 
-    def __init__(self, *args, **kwargs):
+class DatahubEmitter(Block):
+    """
+    Block used to emit prefect task and flow related metadata to Datahub REST
+    """
+
+    _block_type_name: Optional[str] = "datahub emitter"
+
+    def __init__(self, config: DatahubEmitterConfig, *args, **kwargs):
         """
         Initialize datahub rest emitter
         """
         super().__init__(*args, **kwargs)
+        self.config = config
         self.datajobs_to_emit = {}
-        self.emitter = DatahubRestEmitter(gms_server=self.datahub_rest_url)
+        self.emitter = DatahubRestEmitter(gms_server=self.config.datahub_rest_url)
         self.emitter.test_connection()
 
     def _entities_to_urn_list(self, iolets: List[_Entity]) -> List[DatasetUrn]:
@@ -209,7 +213,7 @@ class DatahubEmitter(Block):
         mcp = MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=BrowsePathsClass(
-                paths=[f"/{ORCHESTRATOR}/{self.env}/{workspace_name}"]
+                paths=[f"/{ORCHESTRATOR}/{self.config.env}/{workspace_name}"]
             ),
         )
         self.emitter.emit(mcp)
@@ -233,11 +237,12 @@ class DatahubEmitter(Block):
         Returns:
             The datajob entity.
         """
+
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=ORCHESTRATOR,
             flow_id=flow_run_ctx.flow.name,
-            env=self.env,
-            platform_instance=self.platform_instance,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
         )
         if task_run_ctx is not None:
             datajob = DataJob(
@@ -302,9 +307,9 @@ class DatahubEmitter(Block):
         dataflow = DataFlow(
             orchestrator=ORCHESTRATOR,
             id=flow_run_ctx.flow.name,
-            env=self.env,
+            env=self.config.env,
             name=flow_run_ctx.flow.name,
-            platform_instance=self.platform_instance,
+            platform_instance=self.config.platform_instance,
         )
         dataflow.description = flow_run_ctx.flow.description
         dataflow.tags = set(flow.tags)
@@ -416,8 +421,8 @@ class DatahubEmitter(Block):
             return
         assert flow_run
 
-        if self.platform_instance is not None:
-            dpi_id = f"{self.platform_instance}.{flow_run.name}"
+        if self.config.platform_instance is not None:
+            dpi_id = f"{self.config.platform_instance}.{flow_run.name}"
         else:
             dpi_id = flow_run.name
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dpi_id)
@@ -470,8 +475,8 @@ class DatahubEmitter(Block):
             return
         assert task_run
 
-        if self.platform_instance is not None:
-            dpi_id = f"{self.platform_instance}.{flow_run_name}.{task_run.name}"
+        if self.config.platform_instance is not None:
+            dpi_id = f"{self.config.platform_instance}.{flow_run_name}.{task_run.name}"
         else:
             dpi_id = f"{flow_run_name}.{task_run.name}"
         dpi = DataProcessInstance.from_datajob(

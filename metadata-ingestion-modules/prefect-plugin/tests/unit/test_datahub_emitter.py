@@ -14,7 +14,7 @@ from prefect.server.schemas.core import Flow
 from prefect.task_runners import SequentialTaskRunner
 from requests.models import Response
 
-from prefect_datahub.datahub_emitter import DatahubEmitter
+from prefect_datahub.datahub_emitter import DatahubEmitterConfig, DatahubEmitter
 from prefect_datahub.entities import Dataset, _Entity
 
 mock_transform_task_json: Dict = {
@@ -503,7 +503,8 @@ def mock_prefect_cloud_client():
 
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
 def test_entities_to_urn_list(mock_emit):
-    dataset_urn_list = DatahubEmitter()._entities_to_urn_list(
+    config = DatahubEmitterConfig()
+    dataset_urn_list = DatahubEmitter(config=config)._entities_to_urn_list(
         [Dataset("snowflake", "mydb.schema.tableA")]
     )
     for dataset_urn in dataset_urn_list:
@@ -512,15 +513,17 @@ def test_entities_to_urn_list(mock_emit):
 
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
 def test_get_flow_run_graph(mock_emit, mock_prefect_client):
+    config = DatahubEmitterConfig()
     graph_json = asyncio.run(
-        DatahubEmitter()._get_flow_run_graph("c3b947e5-3fa1-4b46-a2e2-58d50c938f2e")
+        DatahubEmitter(config=config)._get_flow_run_graph("c3b947e5-3fa1-4b46-a2e2-58d50c938f2e")
     )
     assert isinstance(graph_json, list)
 
 
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
 def test__get_workspace(mock_emit, mock_prefect_cloud_client):
-    workspace_name = DatahubEmitter()._get_workspace()
+    config = DatahubEmitterConfig()
+    workspace_name = DatahubEmitter(config=config)._get_workspace()
     assert workspace_name == "datahub"
 
 
@@ -529,7 +532,8 @@ def test_add_task(mock_emit, mock_run_context):
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
 
-    datahub_emitter = DatahubEmitter()
+    config = DatahubEmitterConfig()
+    datahub_emitter = DatahubEmitter(config=config)
     inputs: Optional[List[_Entity]] = [Dataset("snowflake", "mydb.schema.tableA")]
     outputs: Optional[List[_Entity]] = [Dataset("snowflake", "mydb.schema.tableC")]
     datahub_emitter.add_task(
@@ -542,13 +546,13 @@ def test_add_task(mock_emit, mock_run_context):
 
     expected_datajob_urn = (
         f"urn:li:dataJob:(urn:li:dataFlow:"
-        f"(prefect,{flow_run_ctx.flow.name},prod),{task_run_ctx.task.task_key})"
+        f"(prefect,{flow_run_ctx.flow.name},PROD),{task_run_ctx.task.task_key})"
     )
 
     assert expected_datajob_urn in datahub_emitter.datajobs_to_emit.keys()
     actual_datajob = datahub_emitter.datajobs_to_emit[expected_datajob_urn]
     assert isinstance(actual_datajob, DataJob)
-    assert str(actual_datajob.flow_urn) == "urn:li:dataFlow:(prefect,etl,prod)"
+    assert str(actual_datajob.flow_urn) == "urn:li:dataFlow:(prefect,etl,PROD)"
     assert actual_datajob.name == task_run_ctx.task.name
     assert actual_datajob.description == task_run_ctx.task.description
     assert actual_datajob.tags == task_run_ctx.task.tags
@@ -572,7 +576,8 @@ def test_emit_flow(
 
     platform_instance = "datahub_workspace"
 
-    datahub_emitter = DatahubEmitter(platform_instance=platform_instance)
+    config = DatahubEmitterConfig(platform_instance=platform_instance)
+    datahub_emitter = DatahubEmitter(config=config)
     datahub_emitter.add_task()
     datahub_emitter.emit_flow()
 
@@ -580,7 +585,7 @@ def test_emit_flow(
     flow_run_ctx = mock_run_context[1]
 
     expected_dataflow_urn = (
-        f"urn:li:dataFlow:(prefect,{platform_instance}.{flow_run_ctx.flow.name},prod)"
+        f"urn:li:dataFlow:(prefect,{platform_instance}.{flow_run_ctx.flow.name},PROD)"
     )
 
     assert mock_emitter.method_calls[1][1][0].aspectName == "dataFlowInfo"
@@ -596,7 +601,7 @@ def test_emit_flow(
     )
     assert (
         mock_emitter.method_calls[8][1][0].entityUrn
-        == "urn:li:dataProcessInstance:a95d24db6abd98384fc1d4c8540098a4"
+        == "urn:li:dataProcessInstance:56231547bcc2781e0c14182ceab6c9ac"
     )
     assert (
         mock_emitter.method_calls[9][1][0].aspectName
@@ -604,14 +609,14 @@ def test_emit_flow(
     )
     assert (
         mock_emitter.method_calls[9][1][0].entityUrn
-        == "urn:li:dataProcessInstance:a95d24db6abd98384fc1d4c8540098a4"
+        == "urn:li:dataProcessInstance:56231547bcc2781e0c14182ceab6c9ac"
     )
     assert (
         mock_emitter.method_calls[10][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
     assert (
         mock_emitter.method_calls[10][1][0].entityUrn
-        == "urn:li:dataProcessInstance:a95d24db6abd98384fc1d4c8540098a4"
+        == "urn:li:dataProcessInstance:56231547bcc2781e0c14182ceab6c9ac"
     )
     assert mock_emitter.method_calls[11][1][0].aspectName == "dataJobInfo"
     assert (
@@ -644,7 +649,7 @@ def test_emit_flow(
     )
     assert (
         mock_emitter.method_calls[16][1][0].entityUrn
-        == "urn:li:dataProcessInstance:bf5eab177af0097bbff6a41694f39af9"
+        == "urn:li:dataProcessInstance:b048ba729c1403f229a0760f8765d691"
     )
     assert (
         mock_emitter.method_calls[17][1][0].aspectName
@@ -652,21 +657,21 @@ def test_emit_flow(
     )
     assert (
         mock_emitter.method_calls[17][1][0].entityUrn
-        == "urn:li:dataProcessInstance:bf5eab177af0097bbff6a41694f39af9"
+        == "urn:li:dataProcessInstance:b048ba729c1403f229a0760f8765d691"
     )
     assert (
         mock_emitter.method_calls[18][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
     assert (
         mock_emitter.method_calls[18][1][0].entityUrn
-        == "urn:li:dataProcessInstance:bf5eab177af0097bbff6a41694f39af9"
+        == "urn:li:dataProcessInstance:b048ba729c1403f229a0760f8765d691"
     )
     assert (
         mock_emitter.method_calls[19][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
     assert (
         mock_emitter.method_calls[19][1][0].entityUrn
-        == "urn:li:dataProcessInstance:bf5eab177af0097bbff6a41694f39af9"
+        == "urn:li:dataProcessInstance:b048ba729c1403f229a0760f8765d691"
     )
     assert mock_emitter.method_calls[20][1][0].aspectName == "dataJobInfo"
     assert (
@@ -699,7 +704,7 @@ def test_emit_flow(
     )
     assert (
         mock_emitter.method_calls[25][1][0].entityUrn
-        == "urn:li:dataProcessInstance:095673536b61e6f25c7691af0d2cc317"
+        == "urn:li:dataProcessInstance:e7df9fe09bb4da19687b8199e5ee5038"
     )
     assert (
         mock_emitter.method_calls[26][1][0].aspectName
@@ -707,21 +712,21 @@ def test_emit_flow(
     )
     assert (
         mock_emitter.method_calls[26][1][0].entityUrn
-        == "urn:li:dataProcessInstance:095673536b61e6f25c7691af0d2cc317"
+        == "urn:li:dataProcessInstance:e7df9fe09bb4da19687b8199e5ee5038"
     )
     assert (
         mock_emitter.method_calls[27][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
     assert (
         mock_emitter.method_calls[27][1][0].entityUrn
-        == "urn:li:dataProcessInstance:095673536b61e6f25c7691af0d2cc317"
+        == "urn:li:dataProcessInstance:e7df9fe09bb4da19687b8199e5ee5038"
     )
     assert (
         mock_emitter.method_calls[28][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
     assert (
         mock_emitter.method_calls[28][1][0].entityUrn
-        == "urn:li:dataProcessInstance:095673536b61e6f25c7691af0d2cc317"
+        == "urn:li:dataProcessInstance:e7df9fe09bb4da19687b8199e5ee5038"
     )
     assert mock_emitter.method_calls[29][1][0].aspectName == "dataJobInfo"
     assert (
@@ -758,7 +763,7 @@ def test_emit_flow(
     )
     assert (
         mock_emitter.method_calls[34][1][0].entityUrn
-        == "urn:li:dataProcessInstance:04ba0f8064b2c45f69da571c434f1c69"
+        == "urn:li:dataProcessInstance:bfa255d4d1fba52d23a52c9de4f6d0a6"
     )
     assert (
         mock_emitter.method_calls[35][1][0].aspectName
@@ -766,19 +771,19 @@ def test_emit_flow(
     )
     assert (
         mock_emitter.method_calls[35][1][0].entityUrn
-        == "urn:li:dataProcessInstance:04ba0f8064b2c45f69da571c434f1c69"
+        == "urn:li:dataProcessInstance:bfa255d4d1fba52d23a52c9de4f6d0a6"
     )
     assert (
         mock_emitter.method_calls[36][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
     assert (
         mock_emitter.method_calls[36][1][0].entityUrn
-        == "urn:li:dataProcessInstance:04ba0f8064b2c45f69da571c434f1c69"
+        == "urn:li:dataProcessInstance:bfa255d4d1fba52d23a52c9de4f6d0a6"
     )
     assert (
         mock_emitter.method_calls[37][1][0].aspectName == "dataProcessInstanceRunEvent"
     )
     assert (
         mock_emitter.method_calls[37][1][0].entityUrn
-        == "urn:li:dataProcessInstance:04ba0f8064b2c45f69da571c434f1c69"
+        == "urn:li:dataProcessInstance:bfa255d4d1fba52d23a52c9de4f6d0a6"
     )
