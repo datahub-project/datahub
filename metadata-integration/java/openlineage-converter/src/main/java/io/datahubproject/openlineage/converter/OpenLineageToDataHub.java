@@ -128,7 +128,7 @@ public class OpenLineageToDataHub {
       datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
     }
 
-    log.info("Dataset URN: {}, alias_list: {}", datahubUrn, mappingConfig.getUrnAliases());
+    log.debug("Dataset URN: {}, alias_list: {}", datahubUrn, mappingConfig.getUrnAliases());
     // If we have the urn in urn aliases then we should use the alias instead of the original urn
     if (datahubUrn.isPresent()
         && mappingConfig.getUrnAliases().containsKey(datahubUrn.get().toString())) {
