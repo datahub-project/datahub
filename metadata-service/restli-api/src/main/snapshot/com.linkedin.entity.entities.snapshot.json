@@ -6771,6 +6771,11 @@
             "doc" : "Marks an entity as having been explored for as a part of the graph walk",
             "optional" : true
           }, {
+            "name" : "truncatedChildren",
+            "type" : "boolean",
+            "doc" : "Indicates this destination node has additional unexplored child relationships",
+            "optional" : true
+          }, {
             "name" : "ignoredAsHop",
             "type" : "boolean",
             "doc" : "Whether this relationship was ignored as a hop while performing the graph walk",
