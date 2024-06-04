@@ -39,6 +39,8 @@ export const Configure = ({ automation, formData, setFormData }: any) => {
 	const [categorySelected, setCategorySelected] = useState<string | undefined>();
 	const [details, setDetails] = useState<any>({});
 
+	console.log(connectionSelected);
+
 	// Initialize the form data
 	useEffect(() => {
 		if (automation) {
