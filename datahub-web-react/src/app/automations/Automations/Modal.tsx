@@ -68,7 +68,7 @@ export const AutomationModal = ({ isOpen, setIsOpen, type = 'CREATE', data }: Au
 	const baseRecipe = automationData ? automationData?.baseRecipe as any : {} as any;
 
 	// Check if the form is disabled
-	const isDisabled = true;
+	const isDisabled = false;
 
 	// Close the modal util
 	const closeModal = () => {
@@ -91,23 +91,36 @@ export const AutomationModal = ({ isOpen, setIsOpen, type = 'CREATE', data }: Au
 
 			// Create action pipeline
 			if (automationType === AutomationTypes.ACTION) {
-				// Update recipe with terms selected
-				// This is a temporary solution until we have a better way to handle this
-				baseRecipe.action.config.term_propagation.target_terms = formData.termsSelected || "[]";
+				// Determine types of propagations
+				const isTermPropagation = !!baseRecipe.action.config.term_propagation;
+
+				// Base input
+				const inputData = {
+					name: formData.details?.name || baseRecipe.name,
+					description: formData.details?.description || baseRecipe.description,
+					type: '',
+					config: {} as any,
+				};
+
+				// Modify for specific automations
+				if (isTermPropagation) {
+					baseRecipe.action.config.term_propagation.target_terms = formData.termsSelected || "[]";
+					inputData.type = 'term_propagation';
+				}
+
+				// Set config
+				inputData.config = {
+					recipe: JSON.stringify(baseRecipe),
+					version: undefined,
+					executorId: 'default',
+					debugMode: false,
+				}
+
+				// Run mutation
 				createActionPipelineMutation({
 					variables: {
-						input: {
-							name: formData.details.name,
-							description: formData.details.description,
-							type: 'term_propagation', // e.g. tag-propagation, term-propagation. Should match the recipe.
-							config: {
-								recipe: JSON.stringify(baseRecipe),
-								version: undefined,
-								executorId: 'default',
-								debugMode: false,
-							},
-						},
-					},
+						input: inputData
+					}
 				});
 			}
 
