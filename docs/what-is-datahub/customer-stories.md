@@ -8,7 +8,7 @@ Meet the DataHub users who have shared their stories with us.
 We're excited to hear about your experience with DataHub. Share your story with us!
 <a
     className='button button--secondary button--md'
-    href="">
+    href="/customer-stories-survey">
 Share Your Story
 </a>
 :::
