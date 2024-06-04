@@ -11,6 +11,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
@@ -49,7 +50,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   @Override
   public CompletableFuture<AuthenticatedUser> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // 1. Get currently logged in user profile.
@@ -100,7 +101,9 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to fetch authenticated user!", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /** Returns true if the authenticated user has privileges to view analytics. */
