@@ -58,6 +58,13 @@ public interface EntitySpec {
         fieldSet.add(SearchableAnnotation.FieldType.BOOLEAN);
         fieldSpecMap.put(fieldName, fieldSet);
       }
+      if (searchableAnnotation.getFieldNameAliases() != null && !searchableAnnotation.getFieldNameAliases().isEmpty()) {
+        for (String fieldName : searchableAnnotation.getFieldNameAliases()) {
+          Set<SearchableAnnotation.FieldType> fieldSet = new HashSet<>();
+          fieldSet.add(searchableAnnotation.getFieldType());
+          fieldSpecMap.put(fieldName, fieldSet);
+        }
+      }
     }
     fieldSpecMap.putAll(
         getSearchableFieldSpecs().stream()
