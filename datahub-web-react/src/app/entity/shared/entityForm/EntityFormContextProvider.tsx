@@ -11,6 +11,7 @@ import { EntityAndType, GenericEntityProperties } from '../types';
 import { getBulkByQuestionPrompts } from '../containers/profile/sidebar/FormInfo/utils';
 import { SCHEMA_FIELD_PROMPT_TYPES } from './constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useGetEntityQuery } from '../../../../graphql/entity.generated';
 
 interface Props {
     children: React.ReactNode;
@@ -87,15 +88,16 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     }
 
     // Grab the datasets data
-    const entityQuery = selectedEntity ? entityRegistry.getEntityQuery(selectedEntity.type) : null;
+    const query = selectedEntity ? entityRegistry.getEntityQuery(selectedEntity.type) : null;
+    const entityQuery = query || useGetEntityQuery;
     const {
         data: fetchedData,
         refetch: entityRefetch,
         loading: entityLoading,
-    } = entityQuery?.({
+    } = entityQuery({
         variables: { urn: selectedEntity?.urn || '' },
         skip: !selectedEntity,
-    }) || { data: undefined, refetch: undefined , loading: undefined};
+    });
 
     // Entity related utility consts
     const isOnEntityProfilePage = selectedEntity && selectedEntity.urn === entityData?.urn;
