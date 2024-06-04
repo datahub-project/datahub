@@ -7,6 +7,7 @@ import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
@@ -80,4 +81,7 @@ public class ConfigurationProvider {
 
   /** GraphQL Configurations */
   private GraphQLConfiguration graphQL;
+
+  /** MCP throttling configuration */
+  private MetadataChangeProposalConfig metadataChangeProposal;
 }

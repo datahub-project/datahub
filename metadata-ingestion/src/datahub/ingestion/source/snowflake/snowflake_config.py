@@ -164,6 +164,12 @@ class SnowflakeV2Config(
         "username.",
     )
 
+    include_assertion_results: bool = Field(
+        default=False,
+        description="Whether to ingest assertion run results for assertions created using Datahub"
+        " assertions CLI in snowflake",
+    )
+
     @validator("convert_urns_to_lowercase")
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:

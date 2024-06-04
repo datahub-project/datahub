@@ -13,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -44,7 +45,7 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
     final Urn incidentUrn = Urn.createFromString(environment.getArgument("urn"));
     final UpdateIncidentStatusInput input =
         bindArgument(environment.getArgument("input"), UpdateIncidentStatusInput.class);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // Check whether the incident exists.
@@ -89,7 +90,9 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
           throw new DataHubGraphQLException(
               "Failed to update incident. Incident does not exist.",
               DataHubGraphQLErrorCode.NOT_FOUND);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToUpdateIncident(final Urn resourceUrn, final QueryContext context) {
