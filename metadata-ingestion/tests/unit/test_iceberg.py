@@ -34,7 +34,6 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergSource,
     IcebergSourceConfig,
 )
-from datahub.ingestion.source.iceberg.iceberg_common import IcebergCatalogConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -50,9 +49,7 @@ from datahub.metadata.schema_classes import (
 
 
 def with_iceberg_source() -> IcebergSource:
-    catalog: IcebergCatalogConfig = IcebergCatalogConfig(
-        name="test", type="rest", config={}
-    )
+    catalog = {"test": {"type": "rest"}}
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
         config=IcebergSourceConfig(catalog=catalog),
@@ -95,14 +92,29 @@ def test_config_catalog_not_configured():
     """
     Test when an Iceberg catalog is provided, but not properly configured.
     """
-    with pytest.raises(ValidationError):
-        IcebergCatalogConfig()  # type: ignore
-
-    with pytest.raises(ValidationError, match="conf"):
-        IcebergCatalogConfig(type="a type")  # type: ignore
-
+    # When no catalog configurationis provided, the config should be invalid
     with pytest.raises(ValidationError, match="type"):
-        IcebergCatalogConfig(conf={})  # type: ignore
+        IcebergSourceConfig(catalog={})  # type: ignore
+
+    # When a catalog name is provided without configuration, the config should be invalid
+    with pytest.raises(ValidationError):
+        IcebergSourceConfig(catalog={"test": {}})
+
+
+def test_config_deprecated_catalog_configuration():
+    """
+    Test when a deprecated Iceberg catalog configuration is provided, it should be converted to the current scheme.
+    """
+    deprecated_config = {
+        "name": "test",
+        "type": "rest",
+        "config": {"uri": "http://a.uri.test", "another_prop": "another_value"},
+    }
+    migrated_config = IcebergSourceConfig(catalog=deprecated_config)
+    assert migrated_config.catalog["test"] is not None
+    assert migrated_config.catalog["test"]["type"] == "rest"
+    assert migrated_config.catalog["test"]["uri"] == "http://a.uri.test"
+    assert migrated_config.catalog["test"]["another_prop"] == "another_value"
 
 
 def test_config_for_tests():
