@@ -29,7 +29,7 @@ export default function QueriesTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn;
     const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
-    const siblingUrn = baseEntity?.dataset?.siblings?.siblings?.[0]?.urn;
+    const siblingUrn = baseEntity?.dataset?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
 
     const [showQueryBuilder, setShowQueryBuilder] = useState(false);
     const [filterText, setFilterText] = useState('');

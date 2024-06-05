@@ -1800,6 +1800,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     siblings: SiblingProperties
 
     """
+    Executes a search on only the siblings of an entity
+    """
+    siblingsSearch(input: ScrollAcrossEntitiesInput!): ScrollResults
+
+    """
     Lineage information for the column-level. Includes a list of objects
     detailing which columns are upstream and which are downstream of each other.
     The upstream and downstream columns are from datasets.
@@ -1997,7 +2002,7 @@ type SiblingProperties {
     """
     The sibling entities
     """
-    siblings: [Entity]
+    siblings: [Entity] @deprecated(reason: "Use siblingsSearch on Entity instead")
 }
 
 """

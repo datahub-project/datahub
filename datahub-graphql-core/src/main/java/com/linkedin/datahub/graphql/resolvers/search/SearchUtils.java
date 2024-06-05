@@ -23,10 +23,14 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FormFilter;
+import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.FormUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnScrollResultsMapper;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -36,6 +40,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
@@ -43,17 +48,23 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.codehaus.plexus.util.CollectionUtils;
 
 @Slf4j
 public class SearchUtils {
   private SearchUtils() {}
+
+  private static final int DEFAULT_SCROLL_COUNT = 10;
+  private static final String DEFAULT_SCROLL_KEEP_ALIVE = "5m";
 
   /** Entities that are searched by default in Search Across Entities */
   public static final List<EntityType> SEARCHABLE_ENTITY_TYPES =
@@ -350,5 +361,88 @@ public class SearchUtils {
     result.setSuggestions(new ArrayList<>());
     result.setFacets(new ArrayList<>());
     return result;
+  }
+
+  public static CompletableFuture<ScrollResults> scrollAcrossEntities(
+      QueryContext inputContext,
+      final EntityClient _entityClient,
+      final ViewService _viewService,
+      List<EntityType> inputEntityTypes,
+      String inputQuery,
+      Filter baseFilter,
+      String viewUrn,
+      com.linkedin.datahub.graphql.generated.SearchFlags inputSearchFlags,
+      Integer inputCount,
+      String scrollId,
+      String inputKeepAlive) {
+    final List<EntityType> entityTypes =
+        (inputEntityTypes == null || inputEntityTypes.isEmpty())
+            ? SEARCHABLE_ENTITY_TYPES
+            : inputEntityTypes;
+    final List<String> entityNames =
+        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+
+    // escape forward slash since it is a reserved character in Elasticsearch, default to * if
+    // blank/empty
+    final String query =
+        StringUtils.isNotBlank(inputQuery) ? ResolverUtils.escapeForwardSlash(inputQuery) : "*";
+
+    final Optional<SearchFlags> searchFlags =
+        Optional.ofNullable(inputSearchFlags)
+            .map((flags) -> SearchFlagsInputMapper.map(inputContext, flags));
+    final OperationContext context =
+        inputContext.getOperationContext().withSearchFlags(searchFlags::orElse);
+
+    final int count = Optional.ofNullable(inputCount).orElse(DEFAULT_SCROLL_COUNT);
+    final String keepAlive = Optional.ofNullable(inputKeepAlive).orElse(DEFAULT_SCROLL_KEEP_ALIVE);
+
+    return CompletableFuture.supplyAsync(
+        () -> {
+          final OperationContext baseContext = inputContext.getOperationContext();
+          final Optional<DataHubViewInfo> maybeResolvedView =
+              Optional.ofNullable(viewUrn)
+                  .map((urn) -> resolveView(baseContext, _viewService, UrnUtils.getUrn(urn)));
+
+          final List<String> finalEntityNames =
+              maybeResolvedView
+                  .map(
+                      (view) ->
+                          intersectEntityTypes(entityNames, view.getDefinition().getEntityTypes()))
+                  .orElse(entityNames);
+
+          final Filter finalFilters =
+              maybeResolvedView
+                  .map((view) -> combineFilters(baseFilter, view.getDefinition().getFilter()))
+                  .orElse(baseFilter);
+
+          log.debug(
+              "Executing search for multiple entities: entity types {}, query {}, filters: {}, scrollId: {}, count: {}",
+              finalEntityNames,
+              query,
+              finalFilters,
+              scrollId,
+              count);
+
+          try {
+            final ScrollResult scrollResult =
+                _entityClient.scrollAcrossEntities(
+                    context, finalEntityNames, query, finalFilters, scrollId, keepAlive, count);
+            return UrnScrollResultsMapper.map(inputContext, scrollResult);
+          } catch (Exception e) {
+            log.warn(
+                "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, searchAfter: {}, count: {}",
+                finalEntityNames,
+                query,
+                finalFilters,
+                scrollId,
+                count);
+            throw new RuntimeException(
+                "Failed to execute search: "
+                    + String.format(
+                        "entity types %s, query %s, filters: %s, start: %s, count: %s",
+                        finalEntityNames, query, finalFilters, scrollId, count),
+                e);
+          }
+        });
   }
 }

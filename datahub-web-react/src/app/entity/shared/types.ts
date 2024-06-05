@@ -46,6 +46,7 @@ import {
     Forms,
     Share,
     DisplayProperties,
+    ScrollResults,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -111,6 +112,7 @@ export type GenericEntityProperties = {
     status?: Maybe<Status>;
     deprecation?: Maybe<Deprecation>;
     siblings?: Maybe<SiblingProperties>;
+    siblingsSearch?: Maybe<ScrollResults>;
     parentContainers?: Maybe<ParentContainersResult>;
     parentDomains?: Maybe<ParentDomainsResult>;
     children?: Maybe<EntityRelationshipsResult>;
@@ -149,12 +151,12 @@ export type GenericEntityUpdate = {
 export type UpdateEntityType<U> = (
     options?:
         | MutationFunctionOptions<
-            U,
-            {
-                urn: string;
-                input: GenericEntityUpdate;
-            }
-        >
+              U,
+              {
+                  urn: string;
+                  input: GenericEntityUpdate;
+              }
+          >
         | undefined,
 ) => Promise<FetchResult<U, Record<string, any>, Record<string, any>>>;
 

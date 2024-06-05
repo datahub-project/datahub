@@ -29,23 +29,33 @@ fragment autoCompleteFields on Entity {
             siblings {
                 urn
                 type
-                ... on Dataset {
-                    exists
-                    platform {
-                        ...platformFields
-                    }
-                    parentContainers {
-                        ...parentContainersFields
-                    }
-                    name
-                    properties {
+            }
+        }
+        siblingsSearch(input: { query: "*" }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        exists
+                        platform {
+                            ...platformFields
+                        }
+                        parentContainers {
+                            ...parentContainersFields
+                        }
                         name
-                        description
-                        qualifiedName
-                        externalUrl
-                        lastModified {
-                            time
-                            actor
+                        properties {
+                            name
+                            description
+                            qualifiedName
+                            externalUrl
+                            lastModified {
+                                time
+                                actor
+                            }
                         }
                     }
                 }
@@ -409,10 +419,20 @@ fragment searchResultsWithoutSchemaField on Entity {
             siblings {
                 urn
                 type
-                ... on Dataset {
-                    ...nonSiblingsDatasetSearchFields
-                    siblings {
-                        isPrimary
+            }
+        }
+        siblingsSearch(input: { query: "*" }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        ...nonSiblingsDatasetSearchFields
+                        siblings {
+                            isPrimary
+                        }
                     }
                 }
             }

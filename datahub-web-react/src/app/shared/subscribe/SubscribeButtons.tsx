@@ -52,11 +52,11 @@ export default function SubscribeButtons() {
         isPersonal,
         entityUrn: primaryEntityUrn,
         groupUrn,
-        isEntityExists
+        isEntityExists,
     });
 
     const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
-    const isSiblingMode = entityData?.siblings?.siblings?.length && !isSeparateSiblingsMode || false; 
+    const isSiblingMode = (entityData?.siblingsSearch?.total && !isSeparateSiblingsMode) || false;
 
     const {
         isUserSubscribed,
@@ -65,7 +65,7 @@ export default function SubscribeButtons() {
         groupNames,
         setIsUserSubscribed,
         refetchSubscriptionSummary,
-    } = useSubscriptionSummary({ entityUrn: primaryEntityUrn,isEntityExists });
+    } = useSubscriptionSummary({ entityUrn: primaryEntityUrn, isEntityExists });
 
     const handleUpsertSubscription = () => setIsUserSubscribed(true);
 
@@ -145,13 +145,21 @@ export default function SubscribeButtons() {
                     buttonsRender={([leftButton, rightButton]) => [
                         <Tooltip
                             title={
-                                !isSiblingMode ?                                 (
+                                !isSiblingMode ? (
                                     <SubscriptionStarTooltip
-                                    isUserSubscribed={isUserSubscribed}
-                                    numUserSubscriptions={numUserSubscriptions}
-                                    numGroupSubscriptions={numGroupSubscriptions}
-                                    groupNames={groupNames}
-                                />) : (<>You cannot subscribe to this group of assets. <br/><br/>Please subscribe to the assets that this group is <b>Composed Of</b> by navigating to them in the sidebar below.</>)
+                                        isUserSubscribed={isUserSubscribed}
+                                        numUserSubscriptions={numUserSubscriptions}
+                                        numGroupSubscriptions={numGroupSubscriptions}
+                                        groupNames={groupNames}
+                                    />
+                                ) : (
+                                    <>
+                                        You cannot subscribe to this group of assets. <br />
+                                        <br />
+                                        Please subscribe to the assets that this group is <b>Composed Of</b> by
+                                        navigating to them in the sidebar below.
+                                    </>
+                                )
                             }
                             placement="left"
                             color="#262626"
