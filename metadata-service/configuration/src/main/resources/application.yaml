@@ -440,6 +440,12 @@ cache:
           dashboardUsageStatistics: 21600 # 6hrs
 
 graphQL:
+  concurrency:
+    separateThreadPool: ${GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL:false} # Enable the separate thread pool, the following configurations only apply if enabled
+    stackSize: ${GRAPHQL_CONCURRENCY_STACK_SIZE:256000} # Default to JVM default of 256 KB
+    corePoolSize: ${GRAPHQL_CONCURRENCY_CORE_POOL_SIZE:-1} # Base thread pool size for GraphQL executor service, default 5 * # of cores
+    maxPoolSize: ${GRAPHQL_CONCURRENCY_MAX_POOL_SIZE:-1} # Maximum thread pool size for GraphQL executor service, default 100 * # of cores
+    keepAlive: ${GRAPHQL_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
   query:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
@@ -454,3 +460,28 @@ forms:
 businessAttribute:
   fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:20000}
   fetchRelatedEntitiesBatchSize: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_BATCH_SIZE:1000}
+  threadCount: ${BUSINESS_ATTRIBUTE_PROPAGATION_CONCURRENCY_THREAD_COUNT:-1} # Thread Pool size, default 2 * # of cores
+  keepAliveTime: ${BUSINESS_ATTRIBUTE_PROPAGATION_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
+
+metadataChangeProposal:
+  throttle:
+    updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
+
+    # Versioned MCL topic
+    versioned:
+      # Whether to throttle MCP processing based on MCL backlog
+      enabled: ${MCP_VERSIONED_THROTTLE_ENABLED:false}
+      threshold: ${MCP_VERSIONED_THRESHOLD:4000} # throttle threshold
+      maxAttempts: ${MCP_VERSIONED_MAX_ATTEMPTS:1000}
+      initialIntervalMs: ${MCP_VERSIONED_INITIAL_INTERVAL_MS:100}
+      multiplier: ${MCP_VERSIONED_MULTIPLIER:10}
+      maxIntervalMs:  ${MCP_VERSIONED_MAX_INTERVAL_MS:30000}
+    # Timeseries MCL topic
+    timeseries:
+      # Whether to throttle MCP processing based on MCL backlog
+      enabled: ${MCP_TIMESERIES_THROTTLE_ENABLED:false}
+      threshold: ${MCP_TIMESERIES_THRESHOLD:4000} # throttle threshold
+      maxAttempts: ${MCP_TIMESERIES_MAX_ATTEMPTS:1000}
+      initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
+      multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
+      maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}

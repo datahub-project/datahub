@@ -10,6 +10,7 @@ import com.linkedin.common.OriginType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -55,7 +56,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
           DataHubGraphQLErrorCode.NOT_FOUND);
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           Origin groupOrigin =
               _groupService.getGroupOrigin(context.getOperationContext(), groupUrn);
@@ -82,6 +83,8 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

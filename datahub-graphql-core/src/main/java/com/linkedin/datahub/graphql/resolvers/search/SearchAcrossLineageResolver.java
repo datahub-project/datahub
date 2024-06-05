@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -123,7 +124,7 @@ public class SearchAcrossLineageResolver
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug(
@@ -190,6 +191,8 @@ public class SearchAcrossLineageResolver
           } finally {
             log.debug("Returning from search across lineage resolver");
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }
