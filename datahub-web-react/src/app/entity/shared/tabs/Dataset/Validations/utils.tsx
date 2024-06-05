@@ -273,7 +273,7 @@ export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
 //  *
 //  * @param assertions The assertions to group
 //  */
-export const createAssertionGroups = (assertions: Array<AssertionWithMonitorDetails>): AssertionGroup[] => {
+export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGroup[] => {
     // Pre-sort the list of assertions based on which has been most recently executed.
     assertions.sort(sortAssertions);
 

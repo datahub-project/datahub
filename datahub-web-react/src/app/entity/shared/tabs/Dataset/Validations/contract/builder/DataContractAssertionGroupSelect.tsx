@@ -44,10 +44,10 @@ export const DataContractAssertionGroupSelect = ({
             </Category>
             <DatasetAssertionsList
                 assertions={assertions}
-                // showMenu={false}
-                // showSelect
-                // selectedUrns={selectedUrns}
-                // onSelect={onSelect}
+                showMenu={false}
+                showSelect
+                selectedUrns={selectedUrns}
+                onSelect={onSelect}
                 // canEditAssertions={false}
                 // canEditMonitors={false}
                 // canEditSqlAssertions={false}

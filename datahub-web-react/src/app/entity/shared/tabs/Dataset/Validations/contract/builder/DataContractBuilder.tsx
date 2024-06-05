@@ -8,6 +8,7 @@ import {
     // DataContractProposalOperationType,
     // ActionRequestType,
     EntityType,
+    Assertion,
 } from '../../../../../../../../types.generated';
 import { DataContractBuilderState, DataContractCategoryType, DEFAULT_BUILDER_STATE } from './types';
 import { buildUpsertDataContractMutationVariables, buildProposeDataContractMutationVariables } from './utils';
@@ -15,15 +16,11 @@ import {
     // useProposeDataContractMutation,
     useUpsertDataContractMutation,
 } from '../../../../../../../../graphql/contract.generated';
-// import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../../../graphql/monitor.generated';
-import {
-    AssertionWithMonitorDetails,
-    createAssertionGroups,
-    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
-} from '../../utils';
+import { createAssertionGroups } from '../../utils';
 import { DataContractAssertionGroupSelect } from './DataContractAssertionGroupSelect';
 import { ANTD_GRAY } from '../../../../../constants';
 import { DATA_QUALITY_ASSERTION_TYPES } from '../utils';
+import { useGetDatasetAssertionsQuery } from '../../../../../../../../graphql/dataset.generated';
 // import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 
 const AssertionsSection = styled.div`
@@ -75,17 +72,17 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
     // const [proposeDataContractMutation] = useProposeDataContractMutation();
 
     // note that for contracts, we do not allow the use of sibling node assertions, for clarity.
-    // const { data: assertionData } = useGetDatasetAssertionsWithMonitorsQuery({
-    //     variables: { urn: entityUrn },
-    //     fetchPolicy: 'cache-first',
-    // });
-    const assertionData = [];
-    const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
-        tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(assertionData) ?? [];
-    const assertionGroups = createAssertionGroups(assertionsWithMonitorsDetails);
+    const { data } = useGetDatasetAssertionsQuery({
+        variables: { urn: entityUrn },
+        fetchPolicy: 'cache-first',
+    });
+    const assertionData = data?.dataset?.assertions?.assertions ?? [];
+
+    const assertionGroups = createAssertionGroups(assertionData as Array<Assertion>);
     const freshnessAssertions =
         assertionGroups.find((group) => group.type === AssertionType.Freshness)?.assertions || [];
     const schemaAssertions = assertionGroups.find((group) => group.type === AssertionType.DataSchema)?.assertions || [];
+    const dataSetAssertions = assertionGroups.find((group) => group.type === AssertionType.Dataset)?.assertions || [];
     const dataQualityAssertions = assertionGroups
         .filter((group) => DATA_QUALITY_ASSERTION_TYPES.has(group.type))
         .flatMap((group) => group.assertions || []);
@@ -112,80 +109,17 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
             });
     };
 
-    /**
-     * Proposes the upsert to the Data Contract for an entity
-     */
-    const proposeUpsertDataContract = () => {
-        // return proposeDataContractMutation({
-        //     variables: buildProposeDataContractMutationVariables(
-        //         DataContractProposalOperationType.Overwrite,
-        //         entityUrn,
-        //         builderState,
-        //     ),
-        // })
-        //     .then(({ errors }) => {
-        //         if (!errors) {
-        //             analytics.event({
-        //                 type: EventType.EntityActionEvent,
-        //                 actionType: EntityActionType.ProposalCreated,
-        //                 actionQualifier: ActionRequestType.DataContract,
-        //                 entityType,
-        //                 entityUrn,
-        //             });
-        //             message.success({
-        //                 content: `Proposed Data Contract!`,
-        //                 duration: 3,
-        //             });
-        //             onPropose?.();
-        //         }
-        //     })
-        //     .catch(() => {
-        //         message.destroy();
-        //         message.error({ content: 'Failed to propose Data Contract! An unexpected error occurred' });
-        //     });
-    };
-
-    const onSelectFreshnessAssertion = (assertionUrn: string) => {
-        const selected = builderState.freshness?.assertionUrn === assertionUrn;
+    const onSelectDataAssertion = (assertionUrn: string, type: string) => {
+        const selected = builderState[type]?.some((c) => c.assertionUrn === assertionUrn);
         if (selected) {
             setBuilderState({
                 ...builderState,
-                freshness: undefined,
+                [type]: builderState[type]?.filter((c) => c.assertionUrn !== assertionUrn),
             });
         } else {
             setBuilderState({
                 ...builderState,
-                freshness: { assertionUrn },
-            });
-        }
-    };
-
-    const onSelectSchemaAssertion = (assertionUrn: string) => {
-        const selected = builderState.schema?.assertionUrn === assertionUrn;
-        if (selected) {
-            setBuilderState({
-                ...builderState,
-                schema: undefined,
-            });
-        } else {
-            setBuilderState({
-                ...builderState,
-                schema: { assertionUrn },
-            });
-        }
-    };
-
-    const onSelectDataQualityAssertion = (assertionUrn: string) => {
-        const selected = builderState.dataQuality?.some((c) => c.assertionUrn === assertionUrn);
-        if (selected) {
-            setBuilderState({
-                ...builderState,
-                dataQuality: builderState.dataQuality?.filter((c) => c.assertionUrn !== assertionUrn),
-            });
-        } else {
-            setBuilderState({
-                ...builderState,
-                dataQuality: [...(builderState.dataQuality || []), { assertionUrn }],
+                [type]: [...(builderState[type] || []), { assertionUrn }],
             });
         }
     };
@@ -209,7 +143,7 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                         selectedUrns={
                             (builderState.freshness?.assertionUrn && [builderState.freshness?.assertionUrn]) || []
                         }
-                        onSelect={onSelectFreshnessAssertion}
+                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'freshness')}
                     />
                 )) ||
                     undefined}
@@ -219,7 +153,7 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                         assertions={schemaAssertions}
                         multiple={false}
                         selectedUrns={(builderState.schema?.assertionUrn && [builderState.schema?.assertionUrn]) || []}
-                        onSelect={onSelectSchemaAssertion}
+                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'schema')}
                     />
                 )) ||
                     undefined}
@@ -228,19 +162,22 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                         category={DataContractCategoryType.DATA_QUALITY}
                         assertions={dataQualityAssertions}
                         selectedUrns={builderState.dataQuality?.map((c) => c.assertionUrn) || []}
-                        onSelect={onSelectDataQualityAssertion}
+                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'dataQuality')}
                     />
                 )) ||
                     undefined}
+                {dataSetAssertions.length && (
+                    <DataContractAssertionGroupSelect
+                        category={DataContractCategoryType.DATA_SET}
+                        assertions={dataSetAssertions}
+                        selectedUrns={builderState.dataset?.map((c) => c.assertionUrn) || []}
+                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'dataset')}
+                    />
+                )}
             </AssertionsSection>
             <ActionContainer>
                 <CancelButton onClick={onCancel}>Cancel</CancelButton>
                 <div>
-                    <Tooltip title="Propose changes to this asset's contract">
-                        <ProposeButton disabled={editDisabled} onClick={proposeUpsertDataContract}>
-                            Propose
-                        </ProposeButton>
-                    </Tooltip>
                     <SaveButton disabled={editDisabled} type="primary" onClick={upsertDataContract}>
                         Save
                     </SaveButton>

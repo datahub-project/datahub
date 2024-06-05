@@ -36,7 +36,6 @@ export const DataContractTab = () => {
         },
     });
     const [showContractBuilder, setShowContractBuilder] = useState(false);
-    console.log('data>>>>', data);
 
     const contract = data?.dataset?.contract;
     const schemaContracts = data?.dataset?.contract?.properties?.schema || [];
