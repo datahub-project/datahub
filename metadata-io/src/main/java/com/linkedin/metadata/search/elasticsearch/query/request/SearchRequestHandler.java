@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -56,6 +57,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.unit.TimeValue;
@@ -85,6 +87,7 @@ public class SearchRequestHandler {
   private final SearchQueryBuilder searchQueryBuilder;
   private final AggregationQueryBuilder aggregationQueryBuilder;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
+  private final Map<PathSpec, String> searchableFieldPaths;
 
   private SearchRequestHandler(
       @Nonnull EntitySpec entitySpec,
@@ -119,6 +122,19 @@ public class SearchRequestHandler {
                     (set1, set2) -> {
                       set1.addAll(set2);
                       return set1;
+                    }));
+    searchableFieldPaths =
+        this.entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getSearchableFieldPathMap().entrySet().stream())
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (s1, s2) -> {
+                      if (!StringUtils.equals(s1, s2)) {
+                        log.error("Merging values {} and {}, field paths should be unique", s1, s2);
+                      }
+                      return s1;
                     }));
   }
 
@@ -180,18 +196,6 @@ public class SearchRequestHandler {
             searchableFieldTypes,
             opContext.getRetrieverContext().get().getAspectRetriever());
     return applyDefaultSearchFilters(opContext, filter, filterQuery);
-  }
-
-  public BoolQueryBuilder getFilterQuery(@Nullable Predicate predicate) {
-    return getFilterQuery(predicate, searchableFieldTypes);
-  }
-
-  public static BoolQueryBuilder getFilterQuery(
-      @Nullable Predicate predicate,
-      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
-    BoolQueryBuilder filterQuery = ESPredicateUtils.buildFilterQuery(predicate, false, searchableFieldTypes);
-
-    return ESPredicateUtils.filterSoftDeletedByDefault(predicate, filterQuery);
   }
 
   /**
@@ -635,5 +639,22 @@ public class SearchRequestHandler {
       }
     }
     return searchSuggestions;
+  }
+
+
+  // SAAS ONLY - Predicate support for filters
+  public BoolQueryBuilder getFilterQuery(@Nonnull OperationContext opContext, @Nullable Predicate predicate) {
+    return getFilterQuery(opContext, predicate, searchableFieldPaths, searchableFieldTypes);
+  }
+
+  public static BoolQueryBuilder getFilterQuery(
+      @Nonnull OperationContext opContext,
+      @Nullable Predicate predicate,
+      Map<PathSpec, String> searchableFieldPaths,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    BoolQueryBuilder filterQuery = ESPredicateUtils.buildFilterQuery(predicate, false, searchableFieldPaths,
+        searchableFieldTypes, opContext);
+
+    return ESPredicateUtils.applyDefaultSearchFilters(opContext, predicate, filterQuery);
   }
 }

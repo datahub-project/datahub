@@ -521,11 +521,11 @@ public class TestEngine {
     // Validate 'on' block queries.
     if (testDefinition.getOn().getConditions() != null) {
       queries.addAll(
-          _predicateEvaluator.extractQueriesForPredicate(testDefinition.getOn().getConditions()));
+          Predicate.extractQueriesForPredicate(testDefinition.getOn().getConditions()));
     }
 
     // Validate 'rules' block queries.
-    queries.addAll(_predicateEvaluator.extractQueriesForPredicate(testDefinition.getRules()));
+    queries.addAll(Predicate.extractQueriesForPredicate(testDefinition.getRules()));
 
     // Verify that each defined query is valid. If multiple are invalid, merge the
     // error messages
@@ -553,7 +553,7 @@ public class TestEngine {
     }
     Set<TestQuery> requiredQueries =
         rules.stream()
-            .flatMap(rule -> _predicateEvaluator.extractQueriesForPredicate(rule).stream())
+            .flatMap(rule -> Predicate.extractQueriesForPredicate(rule).stream())
             .collect(Collectors.toSet());
     return _queryEngine.batchEvaluateQueries(systemOpContext, new HashSet<>(urns), requiredQueries);
   }

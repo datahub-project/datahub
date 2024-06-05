@@ -144,27 +144,6 @@ public class PredicateEvaluator {
             "Unsupported operation param type: %s", expression.getClass().getSimpleName()));
   }
 
-  /** Retrieve the set of {@link TestQuery}s required to evaluate a given {@link Predicate}. */
-  public Set<TestQuery> extractQueriesForPredicate(final @Nonnull Predicate predicate) {
-
-    // If the predicate is a leaf, then simply return the Queries inside the leaf nodes.
-    List<Query> queryParams = predicate.getOperands().getOperandsOfType(Query.class);
-    if (!queryParams.isEmpty()) {
-      return queryParams.stream().map(Query::getQuery).collect(Collectors.toSet());
-    }
-
-    // If the predicate is a non-leaf, then recurse down to subpredicates.
-    List<Predicate> subPredicates = predicate.getOperands().getOperandsOfType(Predicate.class);
-    if (!subPredicates.isEmpty()) {
-      return subPredicates.stream()
-          .flatMap(pred -> extractQueriesForPredicate(pred).stream())
-          .collect(Collectors.toSet());
-    }
-
-    // Otherwise, there are no required queries to be resolved
-    return Collections.emptySet();
-  }
-
   public boolean isOperationValid(String operation) {
     try {
       return operationEvaluators.containsKey(OperatorType.fromCommonName(operation));
