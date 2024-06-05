@@ -233,10 +233,6 @@ public class GraphQLEngineFactory {
   private IntegrationsService _integrationsService;
 
   @Autowired
-  @Qualifier("connectionService")
-  private ConnectionService _connectionService;
-
-  @Autowired
   @Qualifier("subscriptionService")
   private SubscriptionService _subscriptionService;
 
