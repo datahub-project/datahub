@@ -225,11 +225,7 @@ microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "pyiceberg~=0.4",
-    # We currently pin to pydantic v1, since we only test against pydantic v1 in CI.
-    # However, we should remove this once we fix compatibility with newer versions
-    # of pyiceberg, which depend on pydantic v2.
-    *pydantic_no_v2,
+    "pyiceberg>=0.4,<0.7",
 }
 
 mssql_common = {
@@ -797,6 +793,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
                         "datahub-kafka",
                         "sync-file-emitter",
                         "sql-parser",
+                        "iceberg",
                     }
                     else set()
                 )

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.search;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -50,7 +51,7 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
 
     final Filter filter = ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
     final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _logger.debug(
@@ -89,6 +90,8 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
                         input.getLimit()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

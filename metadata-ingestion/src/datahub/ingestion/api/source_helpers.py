@@ -125,17 +125,16 @@ def auto_status_aspect(
         else:
             raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
-        if not isinstance(
-            wu.metadata, MetadataChangeEventClass
-        ) and not entity_supports_aspect(wu.metadata.entityType, StatusClass):
-            # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
-            # Example like dataProcessInstance doesn't suppport status aspect.
-            # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
-            skip_urns.add(urn)
-
         yield wu
 
     for urn in sorted(all_urns - status_urns - skip_urns):
+        entity_type = guess_entity_type(urn)
+        if not entity_supports_aspect(entity_type, StatusClass):
+            # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
+            # Example like dataProcessInstance doesn't suppport status aspect.
+            # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
+            continue
+
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=StatusClass(removed=False),

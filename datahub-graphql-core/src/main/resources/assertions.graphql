@@ -1099,6 +1099,26 @@ type AssertionSource {
 }
 
 """
+Information about the field to use in an assertion
+"""
+type SchemaFieldSpec {
+  """
+  The field path
+  """
+  path: String!
+
+  """
+  The DataHub standard schema field type.
+  """
+  type: String!
+
+  """
+  The native field type
+  """
+  nativeType: String!
+}
+
+"""
 An enum to represent a type of change in an assertion value, metric, or measurement.
 """
 enum AssertionValueChangeType {

@@ -8,6 +8,7 @@ import com.linkedin.businessattribute.BusinessAttributes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AddBusinessAttributeInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.metadata.entity.EntityService;
@@ -36,7 +37,7 @@ public class RemoveBusinessAttributeResolver implements DataFetcher<CompletableF
     final Urn businessAttributeUrn = UrnUtils.getUrn(input.getBusinessAttributeUrn());
     final List<ResourceRefInput> resourceRefInputs = input.getResourceUrn();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             removeBusinessAttribute(
@@ -55,7 +56,9 @@ public class RemoveBusinessAttributeResolver implements DataFetcher<CompletableF
                     businessAttributeUrn, resourceRefInputs),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void removeBusinessAttribute(

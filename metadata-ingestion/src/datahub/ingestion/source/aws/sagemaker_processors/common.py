@@ -3,7 +3,6 @@ from typing import Dict, List, Optional, Union
 
 from pydantic.fields import Field
 
-from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -14,7 +13,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 
 class SagemakerSourceConfig(
     AwsSourceConfig,
-    PlatformInstanceConfigMixin,
     StatefulIngestionConfigBase,
 ):
     extract_feature_groups: Optional[bool] = Field(

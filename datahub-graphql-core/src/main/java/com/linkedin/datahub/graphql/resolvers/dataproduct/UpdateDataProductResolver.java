@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.UpdateDataProductInput;
@@ -35,7 +36,7 @@ public class UpdateDataProductResolver implements DataFetcher<CompletableFuture<
     final Urn dataProductUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!_dataProductService.verifyEntityExists(
               context.getOperationContext(), dataProductUrn)) {
@@ -75,6 +76,8 @@ public class UpdateDataProductResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to update DataProduct with urn %s", dataProductUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

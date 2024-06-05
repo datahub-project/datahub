@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
 import com.linkedin.datahub.graphql.generated.FacetFilter;
@@ -54,7 +55,7 @@ public class ListRecommendationsResolver
     final ListRecommendationsInput input =
         bindArgument(environment.getArgument("input"), ListRecommendationsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug("Listing recommendations for input {}", input);
@@ -76,7 +77,9 @@ public class ListRecommendationsResolver
             log.error("Failed to get recommendations for input {}", input, e);
             return EMPTY_RECOMMENDATIONS;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private com.linkedin.metadata.recommendation.RecommendationRequestContext mapRequestContext(

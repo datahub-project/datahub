@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageSta
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DashboardUsageAggregation;
 import com.linkedin.datahub.graphql.generated.DashboardUsageMetrics;
 import com.linkedin.datahub.graphql.generated.DashboardUsageQueryResult;
@@ -55,7 +56,7 @@ public class DashboardUsageStatsResolver
     // Max number of aspects to return for absolute dashboard usage.
     final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           DashboardUsageQueryResult usageQueryResult = new DashboardUsageQueryResult();
 
@@ -84,7 +85,9 @@ public class DashboardUsageStatsResolver
                   context, dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, maybeLimit);
           usageQueryResult.setMetrics(dashboardUsageMetrics);
           return usageQueryResult;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<DashboardUsageMetrics> getDashboardUsageMetrics(

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.businessattribute;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
@@ -29,7 +30,7 @@ public class DeleteBusinessAttributeResolver implements DataFetcher<CompletableF
       throw new RuntimeException(
           String.format("This urn does not exist: %s", businessAttributeUrn));
     }
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _entityClient.deleteEntity(context.getOperationContext(), businessAttributeUrn);
@@ -53,6 +54,8 @@ public class DeleteBusinessAttributeResolver implements DataFetcher<CompletableF
                     "Failed to delete Business Attribute with urn %s", businessAttributeUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

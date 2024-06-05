@@ -9,6 +9,7 @@ import com.datahub.authentication.token.TokenType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AccessToken;
 import com.linkedin.datahub.graphql.generated.AccessTokenType;
@@ -33,7 +34,7 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
   @Override
   public CompletableFuture<AccessToken> get(final DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final GetAccessTokenInput input =
@@ -57,7 +58,9 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToGenerateToken(

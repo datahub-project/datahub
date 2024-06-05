@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.ContainerEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -67,7 +68,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
     final int start = input.getStart() != null ? input.getStart() : 0;
     final int count = input.getCount() != null ? input.getCount() : 20;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -100,6 +101,8 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
                     "Failed to resolve entities associated with container with urn %s", urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

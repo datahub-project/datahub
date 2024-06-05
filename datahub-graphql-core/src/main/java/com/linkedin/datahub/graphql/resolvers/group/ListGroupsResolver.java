@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -51,7 +52,7 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // First, get all group Urns.
@@ -94,7 +95,9 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
             } catch (Exception e) {
               throw new RuntimeException("Failed to list groups", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

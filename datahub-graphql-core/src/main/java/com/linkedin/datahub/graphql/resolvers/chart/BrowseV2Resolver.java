@@ -9,6 +9,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveV
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BrowseResultGroupV2;
 import com.linkedin.datahub.graphql.generated.BrowseResultMetadata;
 import com.linkedin.datahub.graphql.generated.BrowseResultsV2;
@@ -60,7 +61,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(query);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final DataHubViewInfo maybeResolvedView =
@@ -100,7 +101,9 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
           } catch (Exception e) {
             throw new RuntimeException("Failed to execute browse V2", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static List<String> getEntityNames(BrowseV2Input input) {

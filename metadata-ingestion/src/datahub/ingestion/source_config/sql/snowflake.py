@@ -13,6 +13,7 @@ from snowflake.connector.network import (
 )
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.oauth import OAuthConfiguration, OAuthIdentityProvider
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -44,6 +45,8 @@ SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
 
 class BaseSnowflakeConfig(ConfigModel):
     # Note: this config model is also used by the snowflake-usage source.
+
+    _connection = auto_connection_resolver()
 
     options: dict = pydantic.Field(
         default_factory=dict,

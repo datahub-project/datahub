@@ -27,7 +27,7 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private final boolean captureColumnLevelLineage = true;
   @Builder.Default private final DataJobUrn parentJobUrn = null;
   // This is disabled until column level patch support won't be fixed in GMS
-  @Builder.Default private final boolean usePatch = false;
+  @Builder.Default private final boolean usePatch = true;
 
   public List<PathSpec> getPathSpecsForPlatform(String platform) {
     if ((pathSpecs == null) || (pathSpecs.isEmpty())) {

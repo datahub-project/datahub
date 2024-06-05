@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.jobs;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceResult;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -49,7 +50,7 @@ public class EntityRunsResolver
 
   @Override
   public CompletableFuture<DataProcessInstanceResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
@@ -109,7 +110,9 @@ public class EntityRunsResolver
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve incidents from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildTaskRunsEntityFilter(
