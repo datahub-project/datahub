@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterator, List, Optional
 
+from google.api_core import retry
 from google.cloud import bigquery
 from google.cloud.bigquery.table import (
     RowIterator,
@@ -149,6 +150,10 @@ class BigQuerySchemaApi:
         return resp.result()
 
     def get_projects(self) -> List[BigqueryProject]:
+        def _should_retry(exc: BaseException) -> bool:
+            logger.debug(f"Exception reason: {str(exc)}. Type: {type(exc)}")
+            return True
+
         with self.report.list_projects:
             try:
                 projects: List[BigqueryProject] = []
@@ -161,7 +166,9 @@ class BigQuerySchemaApi:
                 while True:
                     with rate_limiter:
                         projects_iterator = self.bq_client.list_projects(
-                            max_results=30, page_token=page_token
+                            max_results=50,
+                            page_token=page_token,
+                            retry=retry.Retry(predicate=_should_retry, timeout=20),
                         )
                         count = 0
                         for p in projects_iterator:
