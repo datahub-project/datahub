@@ -157,8 +157,7 @@ class BigQuerySchemaApi:
                 # Also project.list returns max 50 projects per page.
                 # Assuming list_projects method internally not adding any limit in requests call,
                 # externally we are adding limit in requests call per second.
-                rate_limiter = RateLimiter(max_calls=2, period=1)
-                res_count = 0
+                rate_limiter = RateLimiter(max_calls=1, period=2)
                 while True:
                     with rate_limiter:
                         projects_iterator = self.bq_client.list_projects(
@@ -172,10 +171,8 @@ class BigQuerySchemaApi:
                             count += 1
                         logger.debug(f"Projects count per request {str(count)}")
                     page_token = projects_iterator.next_page_token
-                    res_count += 1
                     if page_token is None:
                         break
-                logger.debug(f"List project requests count {str(res_count)}")
 
                 return projects
             except Exception as e:
