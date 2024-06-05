@@ -1,4 +1,3 @@
-import traceback
 import typing
 import urllib.parse
 from typing import Any, Dict, Iterable, Optional, Tuple
@@ -133,9 +132,7 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
                             inspector = inspect(conn)
                             yield inspector
                 except Exception as e:
-                    logger.debug(
-                        f"Failed to create connection with Database {db} -> {''.join(traceback.format_tb(e.__traceback__))}"
-                    )
+                    logger.exception(f"Failed to create connection with Database {db} -> {e}")
 
     def gen_schema_containers(
         self,

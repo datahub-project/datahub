@@ -705,21 +705,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                             self.report.report_dropped(dataset_name)
                             continue
 
-                        try:
-                            yield from self._process_table(
-                                dataset_name,
-                                inspector,
-                                schema,
-                                table,
-                                sql_config,
-                                data_reader,
-                            )
-                        except Exception as e:
-                            self.warn(
-                                logger, f"{schema}.{table}", f"Ingestion error: {e}"
-                            )
+                        yield from self._process_table(
+                            dataset_name,
+                            inspector,
+                            schema,
+                            table,
+                            sql_config,
+                            data_reader,
+                        )
                     except Exception as e:
-                        self.error(logger, f"{schema}", f"Tables error -> {''.join(traceback.format_tb(e.__traceback__))}")
+                        self.warn(
+                            logger, f"{schema}.{table}", f"Ingestion error: {''.join(traceback.format_tb(e.__traceback__))}"
+                        )
             except Exception as e:
                 self.error(logger, f"{schema}", f"Tables error: {e}")
 
