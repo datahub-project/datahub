@@ -12,15 +12,26 @@ import { AutomationTypes } from '../utils';
 import SnowflakeLogo from '../../../images/snowflakelogo.png';
 import AcrylLogo from '../../../images/acryl-logo.svg';
 
+export type Field = {
+	type: string;
+	isRequired: boolean;
+};
+
+export type Step = {
+	title: string;
+	description: string;
+	fields: any[];
+	tooltip?: string;
+	config?: any;
+};
+
+export type Steps = Record<string, Step>;
+
 // Define some steps that automations can include
-const steps = {
+const steps: Steps = {
 	choose_terms: {
-		isHidden: false,
 		title: 'Select Terms',
 		description: 'Choose the terms that you want to propagate.',
-		hasMapping: false,
-		canPreview: false,
-		previewTitle: undefined,
 		fields: [
 			{
 				type: 'termSelector',
@@ -29,11 +40,8 @@ const steps = {
 		],
 	},
 	select_source: {
-		isHidden: true, // TODO: Build out custom field & activate
 		title: 'Select Source Assets',
 		description: 'Choose the source assets (columns or tables) that need to be watched for applications of these terms.',
-		canPreview: true,
-		previewTitle: 'Preview Source Set',
 		fields: [
 			{
 				type: 'dataAssetSelector',
@@ -42,10 +50,8 @@ const steps = {
 		],
 	},
 	select_data_assets: {
-		isHidden: false,
 		title: 'Select Asset Types',
 		description: 'Which asset types should be considered for this automation?',
-		canPreview: false,
 		fields: [
 			{
 				type: 'dataAssetSelector',
@@ -54,12 +60,9 @@ const steps = {
 		],
 	},
 	select_conditions: {
-		isHidden: false,
 		title: 'Define Conditions',
 		description: 'What criteria must each selected asset type meet?',
 		tooltip: 'If you do not provide any conditions, all assets in the selection criteria will be considered passing.',
-		canTest: true,
-		previewTitle: 'Test Conditions',
 		fields: [
 			{
 				type: 'conditionSelector',
@@ -67,7 +70,6 @@ const steps = {
 		],
 	},
 	select_custom_actions: {
-		isHidden: false,
 		title: 'Add Custom Actions',
 		description: 'What actions would you like to apply to the data assets that pass or fail the conditions?',
 		fields: [
@@ -77,11 +79,8 @@ const steps = {
 		],
 	},
 	select_traversal: {
-		isHidden: false, // TODO: Create builder for these field types & enable
 		title: 'Select Traversal',
 		description: 'Configure propagation traversal.',
-		canPreview: true,
-		previewTitle: 'Preview Impacted Set',
 		fields: [
 			{
 				type: 'traversalSelector',
@@ -90,14 +89,11 @@ const steps = {
 		],
 	},
 	select_destination: {
-		isHidden: false, // TODO: Create builder for these field types & enable
 		title: 'Select Destination Connection',
 		description: 'Choose the destination connection where the terms will be propagated.',
-		canTest: true,
-		testTitle: 'Test Connection',
-		canPreview: true,
-		previewTitle: 'Run on 1 asset',
-		connectionTypes: ['snowflake'],
+		config: {
+			connectionTypes: ['snowflake'],
+		},
 		fields: [
 			{
 				type: 'connectionSelector',
@@ -106,7 +102,6 @@ const steps = {
 		],
 	},
 	details: {
-		isHidden: false,
 		title: 'Configure Details',
 		description: 'Provide a name and description for this automation.',
 		fields: [
@@ -139,6 +134,7 @@ export const selectableAutomations = [
 		steps: [
 			{ ...steps.choose_terms, hasMapping: true },
 			{ ...steps.select_source },
+			{ ...steps.select_conditions },
 			{ ...steps.select_destination },
 			{ ...steps.details },
 		],
@@ -152,9 +148,9 @@ export const selectableAutomations = [
 		description: 'This automation allows you to propagate terms via lineage.',
 		logo: AcrylLogo,
 		steps: [
-			{ ...steps.choose_terms },
-			{ ...steps.select_source },
-			{ ...steps.select_traversal },
+			// { ...steps.choose_terms },
+			// { ...steps.select_source },
+			// { ...steps.select_traversal },
 			{ ...steps.details },
 		],
 		baseRecipe: termPropagation as any,
@@ -195,8 +191,7 @@ export const selectableAutomations = [
 // Get the steps for the automation type
 export const getSteps = (key) =>
 	selectableAutomations
-		.filter((automation) => automation.key === key)[0]?.steps
-		.filter((step) => !step.isHidden) || undefined;
+		.filter((automation) => automation.key === key)[0]?.steps;
 
 // Get the data of the automation type
 export const getAutomationData = (key, type) => {

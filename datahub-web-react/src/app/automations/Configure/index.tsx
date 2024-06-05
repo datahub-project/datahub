@@ -9,10 +9,7 @@ import {
 	Step,
 	StepHeader,
 	StepField,
-	StepButtons,
 } from './components';
-
-import { SecondaryButton } from '../sharedComponents';
 
 import { AutomationTypes } from '../utils';
 import { getSteps } from './utils';
@@ -25,60 +22,44 @@ import { CustomActionSelector } from './fields/CustomActionSelector';
 import { DataAssetSelector } from './fields/DataAssetSelector';
 import { ConditionSelector } from './fields/ConditionSelector';
 
-export const Configure = ({ automation, formData, setFormData }: any) => {
+export type FormDataType = {
+	terms: string[];
+	connection: string | undefined;
+	conditions: string[];
+	actions: string[];
+	category: string | undefined;
+	source: string[];
+	name: string | undefined;
+	description: string | undefined;
+}
+
+interface Props {
+	automation: any;
+	formData: FormDataType;
+	setFormData: (data: FormDataType) => void;
+}
+
+export const Configure = ({ automation, formData, setFormData }: Props) => {
 	const steps = automation.steps || getSteps(automation);
 	const prevProps = useRef(formData);
 
 	// Various field states
-	const [actionSelection, setActionSelection] = useState<string[]>([]);
+	const [actionSelection, setActionSelection] = useState<string[]>(formData.actions || []);
 	const [conditionSelection, setConditionSelection] = useState<string[]>([]);
-	const [initialConditions, setInitialConditions] = useState<string[]>([]);
-	const [assetTypesSelected, setAssetTypesSelected] = useState<string[]>([]);
-	const [termsSelected, setTermsSelected] = useState<string[]>([]);
-	const [connectionSelected, setConnectionSelected] = useState<string | undefined>();
-	const [categorySelected, setCategorySelected] = useState<string | undefined>();
-	const [details, setDetails] = useState<any>({});
-
-	console.log(connectionSelected);
-
-	// Initialize the form data
-	useEffect(() => {
-		if (automation) {
-			const { definition, category, name, description } = automation;
-
-			// Handle Recipe Info for Metadata Tests
-			if (automation.type === AutomationTypes.TEST) {
-				if (definition?.actions) setActionSelection(definition?.actions);
-				if (definition?.on?.types) setAssetTypesSelected(definition?.on?.types);
-				if (definition?.on?.conditions) setInitialConditions([definition?.on?.conditions]);
-				if (definition?.rules) setInitialConditions([...initialConditions, definition?.rules])
-			}
-
-			// Handle Recipe Info for Action Pipelines
-			if (automation.type === AutomationTypes.ACTION) {
-				const action = definition?.action;
-				if (action) {
-					const terms = action?.config?.term_propagation?.target_terms;
-					if (termsSelected.length === 0 && terms?.length > 0)
-						setTermsSelected(action.config.term_propagation.target_terms);
-				}
-			}
-
-			// Handle Category
-			if (!categorySelected && category) setCategorySelected(category);
-
-			// Handle Details
-			if ((!details.name || !details.description) && (name || description)) {
-				setDetails({
-					name,
-					description
-				});
-			}
-		}
-	}, [automation, setCategorySelected, setDetails]);
+	const [initialConditions, setInitialConditions] = useState<string[]>(formData.conditions || []);
+	const [assetTypesSelected, setAssetTypesSelected] = useState<string[]>(formData.source || []);
+	const [termsSelected, setTermsSelected] = useState<string[]>(formData.terms || automation.terms || []);
+	const [connectionSelected, setConnectionSelected] = useState<string | undefined>(formData.connection);
+	const [categorySelected, setCategorySelected] = useState<string | undefined>(
+		formData.category || automation.category
+	);
+	const [details, setDetails] = useState<any>({
+		name: formData.name || automation.name,
+		description: formData.description || automation.description
+	});
 
 	// Form Data to be submitted
-	const data = {
+	const data: FormDataType = {
 		terms: termsSelected,
 		connection: connectionSelected,
 		conditions: conditionSelection,
@@ -91,9 +72,9 @@ export const Configure = ({ automation, formData, setFormData }: any) => {
 	// Send the form data back to the parent component
 	// Only sends the data if the form data has changed
 	useEffect(() => {
-		if (JSON.stringify(prevProps.current) !== JSON.stringify(data)) {
-			setFormData(data);
-		}
+		const prevData = prevProps.current;
+		const hasChanged = JSON.stringify(prevData) !== JSON.stringify(data);
+		if (hasChanged) setFormData(data);
 		prevProps.current = data;
 	}, [data]);
 
@@ -196,14 +177,6 @@ export const Configure = ({ automation, formData, setFormData }: any) => {
 							</StepField>
 						)
 					})}
-
-					{/* Test / Preview Buttons */}
-					{step.canTest || step.canPreview && (
-						<StepButtons>
-							{step.canTest && <SecondaryButton disabled>{step.testTitle}</SecondaryButton>}
-							{step.canPreview && <SecondaryButton disabled>{step.previewTitle}</SecondaryButton>}
-						</StepButtons>
-					)}
 				</Step>
 			))}
 		</div>

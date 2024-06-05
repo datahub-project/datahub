@@ -52,18 +52,21 @@ export const simplifyDataForListView = (data: any) =>
 	});
 
 // Fill YAML with form data
-export const getYaml = (automation: any) => {
+export const getYaml = (automation: any, formData: any) => {
 	if (!automation) return '';
-
-	// const automationType = automation?.type;
 
 	const baseRecipe = automation?.baseRecipe;
 
 	if (automation.type === AutomationTypes.ACTION) {
-		baseRecipe.name = automation.name || "";
+		baseRecipe.name = formData.name || '';
 		if (baseRecipe.action && baseRecipe.action.config.term_propagation) {
-			baseRecipe.action.config.term_propagation.target_terms = automation.termsSelected || "[]";
-			baseRecipe.action.config.snowflake.password = ""; // redact password
+			baseRecipe.action.config.term_propagation.target_terms = formData.terms || '';
+
+			// handle setting config values for snowflake
+			if (formData.connection) {
+				baseRecipe.action.config.snowflake = formData.connection;
+				baseRecipe.action.config.snowflake.password = '';
+			}
 		}
 	}
 

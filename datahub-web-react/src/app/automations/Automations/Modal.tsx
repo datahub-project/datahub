@@ -85,6 +85,16 @@ export const AutomationModal = ({ isOpen, setIsOpen, type = 'CREATE', data }: Au
 		setShowYaml(false);
 	};
 
+	// Handle YAML toggle 
+	const handleYamlToggle = (fd: any) => {
+		setShowYaml(!showYaml);
+		setFormData(fd);
+	};
+
+	const handleSetFormData = (fd: any) => {
+		setFormData(fd);
+	}
+
 	// Handle form create submission
 	const handleCreate = () => {
 		if (!isDisabled) {
@@ -151,10 +161,6 @@ export const AutomationModal = ({ isOpen, setIsOpen, type = 'CREATE', data }: Au
 		}
 	}
 
-	const onYamlChange = (yaml: string) => {
-		console.log(yaml);
-	}
-
 	const mergeDataIfEdit = () => {
 		if (!data) return {};
 		const { name, description, category } = data;
@@ -214,10 +220,10 @@ export const AutomationModal = ({ isOpen, setIsOpen, type = 'CREATE', data }: Au
 					<div>
 						{(showForm || showYaml) && (
 							<YamlButtonsContainer>
-								<TextButton type="text" isActive={!showYaml} onClick={() => setShowYaml(false)}>
+								<TextButton isActive={!showYaml} onClick={() => handleYamlToggle(formData)}>
 									<FormOutlined /> Form
 								</TextButton>
-								<TextButton type="text" isActive={showYaml} onClick={() => setShowYaml(true)}>
+								<TextButton isActive={showYaml} onClick={() => handleYamlToggle(formData)}>
 									<CodeOutlined /> YAML
 								</TextButton>
 							</YamlButtonsContainer>
@@ -245,14 +251,14 @@ export const AutomationModal = ({ isOpen, setIsOpen, type = 'CREATE', data }: Au
 				<Configure
 					automation={configureInfo}
 					formData={formData}
-					setFormData={setFormData}
+					setFormData={handleSetFormData}
 				/>
 			)}
 			{showYaml && (
 				<YamlEditor
-					initialText={getYaml(configureInfo) || ''}
+					initialText={getYaml(configureInfo, formData)}
 					height="450px"
-					onChange={onYamlChange}
+					onChange={() => null}
 					isDisabled
 				/>
 			)}

@@ -26,7 +26,7 @@ const SelectWrapper = styled.div`
 `;
 
 interface Props {
-	handleChange: (value: Object) => void;
+	handleChange: (value: any) => void;
 }
 
 export const SnowflakeConnectionSelector = ({ handleChange }: Props) => {

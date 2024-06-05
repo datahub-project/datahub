@@ -25,11 +25,11 @@ export const snowflakeTagPropagation = {
 				target_terms: [] // to be filled by form data
 			},
 			snowflake: {
-				account_id: 'xaa48144',
-				warehouse: 'COMPUTE_WH',
-				username: 'swaroop',
-				password: 'password',
-				role: 'ACCOUNTADMIN',
+				account_id: '', // to be filled by form data
+				warehouse: '', // to be filled by form data
+				username: '', // to be filled by form data
+				password: '', // to be filled by form data
+				role: '', // to be filled by form data
 			}
 		}
 	}

@@ -50,3 +50,9 @@ export const StepButtons = styled.div`
 	justify-content: flex-end;
 	gap: 8px;
 `;
+
+export const InputWithButton = styled.div`
+	display: flex;
+	align-items: center;
+	gap: 8px;
+`;
