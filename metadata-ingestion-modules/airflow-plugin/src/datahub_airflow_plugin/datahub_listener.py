@@ -551,7 +551,9 @@ class DataHubListener:
 
             ingested_dataflow_urns = list(
                 self.graph.get_urns_by_filter(
-                    platform="airflow", entity_types=["dataFlow"]
+                    platform="airflow",
+                    entity_types=["dataFlow"],
+                    env=self.config.cluster,
                 )
             )
             ingested_datajob_urns = list(
@@ -567,7 +569,9 @@ class DataHubListener:
 
             for dag in all_airflow_dags:
                 flow_urn = builder.make_data_flow_urn(
-                    orchestrator="airflow", flow_id=dag.dag_id
+                    orchestrator="airflow",
+                    flow_id=dag.dag_id,
+                    cluster=self.config.cluster,
                 )
                 airflow_flow_urns.append(flow_urn)
 
