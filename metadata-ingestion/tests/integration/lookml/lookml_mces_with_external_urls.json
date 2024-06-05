@@ -472,7 +472,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.my_view,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)",
                                 "type": "VIEW"
                             }
                         ],
@@ -480,7 +480,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.my_view,PROD),country)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),country)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -491,7 +491,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.my_view,PROD),city)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),city)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -502,7 +502,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.my_view,PROD),timestamp)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),timestamp)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [

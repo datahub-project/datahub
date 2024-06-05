@@ -22,8 +22,6 @@ from typing import (
     cast,
 )
 
-from liquid import Template, Undefined
-from liquid.exceptions import LiquidSyntaxError
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import (
     DBConnection,
@@ -139,23 +137,6 @@ def remove_suffix(original: str, suffix: str) -> str:
     if original.endswith(suffix):
         return original[: -len(suffix)]
     return original
-
-
-def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
-    # Set variable value to NULL if not present in liquid_variable dictionary
-    Undefined.__str__ = lambda instance: "NULL"  # type: ignore
-    try:
-        # Resolve liquid template
-        return Template(text).render(liquid_variable)
-    except LiquidSyntaxError as e:
-        logger.warning(f"Unsupported liquid template encountered. error [{e.message}]")
-        # TODO: There are some tag specific to looker and python-liquid library does not understand them. currently
-        #  we are not parsing such liquid template.
-        #
-        # See doc: https://cloud.google.com/looker/docs/templated-filters and look for { % condition region %}
-        # order.region { % endcondition %}
-
-    return text
 
 
 @dataclass

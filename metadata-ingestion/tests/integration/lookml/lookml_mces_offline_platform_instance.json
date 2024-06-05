@@ -175,7 +175,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,PROD),country)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,DEV),country)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -186,7 +186,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,PROD),city)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,DEV),city)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -197,7 +197,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,PROD),is_latest)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,DEV),is_latest)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -208,7 +208,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,PROD),timestamp)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_table,DEV),timestamp)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -471,7 +471,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_view,DEV)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)",
                                 "type": "VIEW"
                             }
                         ],
@@ -479,7 +479,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_view,PROD),country)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),country)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -490,7 +490,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_view,PROD),city)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),city)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -501,7 +501,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.default_db.default_schema.my_view,PROD),timestamp)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD),timestamp)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [

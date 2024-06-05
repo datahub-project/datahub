@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.looker.looker_common import (
@@ -100,32 +100,8 @@ def _update_fields(
     return fields
 
 
-def get_qualified_table_name(urn: str) -> str:
-    part: str = urn.split(",")[-2]
-
-    if len(part.split(".")) >= 4:
-        return ".".join(
-            part.split(".")[-3:]
-        )  # return only db.schema.table skip platform instance as higher code is
-        # failing if encounter platform-instance in qualified table name
-    else:
-        return part
-
-
-def get_qualified_table_names_from_spr(spr: SqlParsingResult) -> List[str]:
-    qualified_table_names: List[str] = []
-
-    for in_table in spr.in_tables:
-        qualified_table_names.append(get_qualified_table_name(in_table))
-
-    for out_table in spr.out_tables:
-        qualified_table_names.append(get_qualified_table_name(out_table))
-
-    return qualified_table_names
-
-
 class SqlQuery:
-    LOOKER_TABLE_PATTERN: str = r"\$\{([a-zA-Z0-9_\.]+)\.SQL_TABLE_NAME\}"
+    LOOKER_TABLE_PATTERN: str = r"\$\{([^}]*)\}"
 
     lookml_sql_query: str
     view_name: str
@@ -171,7 +147,6 @@ class ViewFieldBuilder:
         self,
         sql_query: SqlQuery,
         connection: LookerConnectionDefinition,
-        env: str,
         view_urn: str,
         ctx: PipelineContext,
     ) -> Tuple[List[ViewField], List[str]]:
@@ -252,17 +227,17 @@ class ViewFieldBuilder:
             default_db=connection.default_db,
             platform=connection.platform,
             platform_instance=connection.platform_instance,
-            env=env,
+            env=cast(str, connection.platform_env),  # It's never going to be None
             graph=ctx.graph,
         )
 
-        sql_tables: List[str] = get_qualified_table_names_from_spr(spr)
+        upstream_urns: List[str] = [urn for urn in spr.in_tables]
 
         if self.fields:  # It is syntax1
             return (
                 _update_fields(view_urn=view_urn, fields=self.fields, spr=spr),
-                sql_tables,
+                upstream_urns,
             )
 
         # It is syntax2
-        return _create_fields(spr), sql_tables
+        return _create_fields(spr), upstream_urns
