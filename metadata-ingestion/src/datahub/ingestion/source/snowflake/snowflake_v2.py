@@ -257,6 +257,7 @@ class SnowflakeV2Source(
                 graph=self.ctx.graph,
                 generate_usage_statistics=False,
                 generate_operations=False,
+                format_queries=self.config.format_sql_queries,
             )
             self.report.sql_aggregator = self.aggregator.report
 
