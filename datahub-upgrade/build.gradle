@@ -103,6 +103,17 @@ bootJar {
   archiveFileName = "${project.name}.jar"
 }
 
+/**
+ * Runs SystemUpdate on locally running system
+ */
+task run(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  commandLine "java", "-jar", bootJar.getArchiveFile().get(), "-u", "SystemUpdate"
+}
+
 docker {
   name "${docker_registry}/${docker_repo}:v${version}"
   version "v${version}"
