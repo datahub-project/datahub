@@ -9,6 +9,7 @@ import {
     HealthStatus,
     HealthStatusType,
     Maybe,
+    ScrollResults,
     SiblingProperties,
 } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
@@ -17,6 +18,7 @@ export function stripSiblingsFromEntity(entity: any) {
     return {
         ...entity,
         siblings: null,
+        siblingsSearch: null,
         siblingPlatforms: null,
     };
 }
@@ -271,25 +273,15 @@ const customMerge = (isPrimary, key) => {
     };
 };
 
-export const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties> => {
-    if (!baseEntity) {
-        return null;
-    }
-    const baseEntityKey = Object.keys(baseEntity)[0];
-    const extractedBaseEntity = baseEntity[baseEntityKey];
-
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    return extractedBaseEntity?.['siblings'];
-};
-
 // should the entity's metadata win out against its siblings?
-export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: { siblings?: SiblingProperties | null }) => {
-    const siblingAspect = extractedBaseEntity?.siblings;
-
-    const siblingsList = siblingAspect?.siblings || [];
+export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: {
+    siblings?: SiblingProperties | null;
+    siblingsSearch?: ScrollResults | null;
+}) => {
+    const siblingsList = extractedBaseEntity?.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
 
     // if the entity is marked as primary, take its metadata first
-    const isPrimarySibling = !!siblingAspect?.isPrimary;
+    const isPrimarySibling = !!extractedBaseEntity?.siblings?.isPrimary;
 
     // if no entity in the cohort is primary, just have the entity whos urn is navigated
     // to be primary
@@ -301,14 +293,11 @@ export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: { siblings?:
 };
 
 const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    const siblingAspect = entity.siblings;
-    if ((siblingAspect?.siblings || []).length === 0) {
+    if (!entity?.siblingsSearch?.count) {
         return entity;
     }
 
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    const siblings = siblingAspect?.siblings || [];
+    const siblings = entity.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
 
     const isPrimary = shouldEntityBeTreatedAsPrimary(entity);
 
@@ -334,9 +323,7 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     const baseEntityKey = Object.keys(baseEntity)[0];
     const extractedBaseEntity = baseEntity[baseEntityKey];
 
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    const siblingAspect = extractedBaseEntity.siblings;
-    if ((siblingAspect?.siblings || []).length === 0) {
+    if (!extractedBaseEntity?.siblingsSearch?.count) {
         return baseEntity;
     }
 
@@ -363,7 +350,8 @@ export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set
     if (visitedSiblingUrns.has(entity.urn)) return { skipped: true };
 
     const combinedEntity: CombinedEntity = { entity: combineEntityWithSiblings({ ...entity }) };
-    const siblings = (combinedEntity.entity as GenericEntityProperties).siblings?.siblings ?? [];
+    const siblings =
+        (combinedEntity.entity as GenericEntityProperties).siblingsSearch?.searchResults.map((r) => r.entity) ?? [];
     const isPrimary = (combinedEntity.entity as GenericEntityProperties).siblings?.isPrimary;
     const siblingUrns = siblings.map((sibling) => sibling?.urn);
 

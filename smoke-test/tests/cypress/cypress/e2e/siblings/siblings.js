@@ -16,6 +16,23 @@ describe("siblings", () => {
     cy.get('[data-testid="table-stats-rowcount"]').contains("100");
   });
 
+  it("will merge metadata to primary sibling", () => {
+    cy.login();
+    cy.visit(
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
+    );
+
+    // check merged platforms
+    cy.contains("dbt & BigQuery");
+
+    // check merged schema (from dbt)
+    cy.contains("This is a unique identifier for a customer");
+
+    // check merged profile (from bigquery)
+    cy.contains("Stats").click({ force: true });
+    cy.get('[data-testid="table-stats-rowcount"]').contains("100");
+  });
+
   it("can view individual nodes", () => {
     cy.login();
 

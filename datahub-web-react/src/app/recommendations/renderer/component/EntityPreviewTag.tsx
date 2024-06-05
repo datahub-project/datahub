@@ -53,6 +53,7 @@ type Props = {
     logoComponent?: React.ReactNode;
     onClick?: () => void;
     columnName?: string;
+    dataTestId?: string;
 };
 
 export const EntityPreviewTag = ({
@@ -63,9 +64,10 @@ export const EntityPreviewTag = ({
     logoComponent,
     onClick,
     columnName,
+    dataTestId,
 }: Props) => {
     return (
-        <Link to={url} onClick={onClick}>
+        <Link to={url} onClick={onClick} data-testid={dataTestId}>
             <EntityTag>
                 <TitleContainer>
                     <IconContainer>

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useDataNotCombinedWithSiblings, useEntityData } from '../../../../../entity/shared/EntityContext';
-import {stripSiblingsFromEntity} from "../../../../../entity/shared/siblingUtils";
+import { stripSiblingsFromEntity } from '../../../../../entity/shared/siblingUtils';
 import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
 import { Dataset, Entity } from '../../../../../../types.generated';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
@@ -10,8 +10,17 @@ import { SidebarSection } from './SidebarSection';
 import { REDESIGN_COLORS } from '../../../constants';
 
 const EntityListContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    flex-wrap: wrap;
+
     margin-left: -8px;
     color: ${REDESIGN_COLORS.DARK_GREY};
+`;
+
+const AndMoreWrapper = styled.div`
+    margin-left: 4px;
 `;
 
 export const SidebarSiblingsSection = () => {
@@ -38,7 +47,7 @@ export const SidebarSiblingsSection = () => {
         );
     }
 
-    const siblingEntities = entityData?.siblings?.siblings || [];
+    const siblingEntities = entityData?.siblingsSearch?.searchResults?.map((r) => r.entity) || [];
     const entityDataWithoutSiblings = stripSiblingsFromEntity(dataNotCombinedWithSiblings.dataset);
 
     const allSiblingsInGroup = [...siblingEntities, entityDataWithoutSiblings] as Dataset[];
@@ -51,6 +60,8 @@ export const SidebarSiblingsSection = () => {
         return <></>;
     }
 
+    const numSiblingsNotShown = (entityData?.siblingsSearch?.total || 0) - allSiblingsInGroup.length + 1;
+
     return (
         <SidebarSection
             title="Composed of"
@@ -61,6 +72,7 @@ export const SidebarSiblingsSection = () => {
                         linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
                         showTooltips
                     />
+                    {numSiblingsNotShown > 0 && <AndMoreWrapper>and {numSiblingsNotShown} more</AndMoreWrapper>}
                 </EntityListContainer>
             }
         />

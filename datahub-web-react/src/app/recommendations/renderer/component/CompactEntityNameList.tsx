@@ -59,23 +59,20 @@ export const CompactEntityNameList = ({
                 const url = entityRegistry.getEntityUrl(entity.type, entity.urn, linkUrlParams);
                 return (
                     <NameWrapper addMargin={showArrow}>
-                        <span>
-                            <HoverEntityTooltip entity={entity} canOpen={showTooltips} placement={placement}>
-                                <span data-testid={`compact-entity-link-${entity.urn}`}>
-                                    <EntityPreviewTag
-                                        displayName={displayName}
-                                        url={url}
-                                        platformLogoUrl={platformLogoUrl || undefined}
-                                        platformLogoUrls={genericProps?.siblingPlatforms?.map(
-                                            (platform) => platform.properties?.logoUrl,
-                                        )}
-                                        logoComponent={fallbackIcon}
-                                        onClick={() => onClick?.(index)}
-                                        columnName={columnName}
-                                    />
-                                </span>
-                            </HoverEntityTooltip>
-                        </span>
+                        <HoverEntityTooltip entity={entity} canOpen={showTooltips} placement={placement}>
+                            <EntityPreviewTag
+                                displayName={displayName}
+                                url={url}
+                                platformLogoUrl={platformLogoUrl || undefined}
+                                platformLogoUrls={genericProps?.siblingPlatforms?.map(
+                                    (platform) => platform.properties?.logoUrl,
+                                )}
+                                logoComponent={fallbackIcon}
+                                onClick={() => onClick?.(index)}
+                                columnName={columnName}
+                                dataTestId={`compact-entity-link-${entity.urn}`}
+                            />
+                        </HoverEntityTooltip>
                         {showArrow && <StyledArrow />}
                     </NameWrapper>
                 );

@@ -74,9 +74,12 @@ export function getDataForEntityType<T>({
         };
     }
 
-    if (anyEntityData?.siblings?.siblings?.filter((sibling) => sibling.exists).length > 0 && !isHideSiblingMode) {
-        const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblings?.siblings?.map((sibling) =>
-            getDataForEntityType({ data: sibling, getOverrideProperties: () => ({}) }),
+    if (
+        anyEntityData?.siblingsSearch?.searchResults?.filter((sibling) => sibling.entity.exists).length > 0 &&
+        !isHideSiblingMode
+    ) {
+        const genericSiblingProperties: GenericEntityProperties[] = anyEntityData?.siblingsSearch?.searchResults?.map(
+            (sibling) => getDataForEntityType({ data: sibling.entity, getOverrideProperties: () => ({}) }),
         );
 
         const allPlatforms = anyEntityData.siblings.isPrimary
@@ -109,8 +112,9 @@ export function getEntityPath(
     if (!tabName) {
         return `${entityRegistry.getEntityUrl(entityType, urn)}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
     }
-    return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
-        }${tabParamsString}`;
+    return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${
+        isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
+    }${tabParamsString}`;
 }
 
 export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {

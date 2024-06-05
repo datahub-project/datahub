@@ -350,6 +350,7 @@ export const dataset1 = {
     incidents: null,
     totalIncidents: null,
     siblings: null,
+    siblingsSearch: null,
     embed: null,
     browsePathV2: { path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
@@ -451,6 +452,7 @@ export const dataset2 = {
     incidents: null,
     totalIncidents: null,
     siblings: null,
+    siblingsSearch: null,
     embed: null,
     browsePathV2: { path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }], __typename: 'BrowsePathV2' },
     autoRenderAspects: [],
@@ -693,6 +695,7 @@ export const dataset3 = {
     runs: null,
     testResults: null,
     siblings: null,
+    siblingsSearch: null,
     statsSummary: null,
     incidents: null,
     totalIncidents: null,
@@ -772,6 +775,7 @@ export const dataset3WithSchema = {
         },
         editableSchemaMetadata: null,
         siblings: null,
+        siblingsSearch: null,
     },
 };
 
@@ -1526,10 +1530,10 @@ export const businessAttribute = {
         name: 'TestBusinessAtt-2',
         description: 'lorem upsum updated 12',
         created: {
-            time: 1705857132786
+            time: 1705857132786,
         },
         lastModified: {
-            time: 1705857132786
+            time: 1705857132786,
         },
         glossaryTerms: {
             terms: [
@@ -1540,8 +1544,8 @@ export const businessAttribute = {
                         hierarchicalName: 'SampleHierarchicalName',
                         name: 'SampleName',
                     },
-                    associatedUrn: 'urn:li:businessAttribute:ba1'
-                }
+                    associatedUrn: 'urn:li:businessAttribute:ba1',
+                },
             ],
             __typename: 'GlossaryTerms',
         },
@@ -1556,7 +1560,7 @@ export const businessAttribute = {
                         name: 'abc-sample-tag',
                     },
                     __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1'
+                    associatedUrn: 'urn:li:businessAttribute:ba1',
                 },
                 {
                     tag: {
@@ -1566,30 +1570,30 @@ export const businessAttribute = {
                         name: 'TestTag',
                     },
                     __typename: 'TagAssociation',
-                    associatedUrn: 'urn:li:businessAttribute:ba1'
-                }
-            ]
+                    associatedUrn: 'urn:li:businessAttribute:ba1',
+                },
+            ],
         },
         customProperties: [
             {
                 key: 'prop2',
                 value: 'val2',
                 associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry'
+                __typename: 'CustomPropertiesEntry',
             },
             {
                 key: 'prop1',
                 value: 'val1',
                 associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry'
+                __typename: 'CustomPropertiesEntry',
             },
             {
                 key: 'prop3',
                 value: 'val3',
                 associatedUrn: 'urn:li:businessAttribute:ba1',
-                __typename: 'CustomPropertiesEntry'
-            }
-        ]
+                __typename: 'CustomPropertiesEntry',
+            },
+        ],
     },
     ownership: {
         owners: [
@@ -4305,6 +4309,11 @@ export const mockFineGrainedLineages1: GenericEntityProperties = {
     siblings: {
         isPrimary: true,
         siblings: [{ type: EntityType.ActionsPipeline, urn: 'test_urn' }],
+    },
+    siblingsSearch: {
+        count: 1,
+        total: 1,
+        searchResults: [{ entity: { type: EntityType.ActionsPipeline, urn: 'test_urn' }, matchedFields: [] }],
     },
     fineGrainedLineages: [
         {

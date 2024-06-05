@@ -306,10 +306,20 @@ fragment lineageFields on EntityWithRelationships {
             siblings {
                 urn
                 type
-                ... on Dataset {
-                    exists
+            }
+        }
+        siblingsSearch(input: { query: "*" }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        exists
+                    }
+                    ...lineageNodeProperties
                 }
-                ...lineageNodeProperties
             }
         }
     }
@@ -418,10 +428,20 @@ fragment entityLineage on Entity {
             siblings {
                 urn
                 type
-                ... on Dataset {
-                    exists
+            }
+        }
+        siblingsSearch(input: { query: "*" }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Dataset {
+                        exists
+                    }
+                    ...lineageNodeProperties
                 }
-                ...lineageNodeProperties
             }
         }
     }
@@ -603,20 +623,6 @@ query getEntityLineage(
 ) {
     entity(urn: $urn) {
       ...entityLineage
-    }
-}
-
-query getBulkEntityLineage(
-    $urns: [String!]!,
-    $separateSiblings: Boolean
-    $showColumns: Boolean!
-    $startTimeMillis: Long
-    $endTimeMillis: Long
-    $excludeUpstream: Boolean = false
-    $excludeDownstream: Boolean = false
-) {
-    entities(urns: $urns) {
-        ...entityLineage
     }
 }
 

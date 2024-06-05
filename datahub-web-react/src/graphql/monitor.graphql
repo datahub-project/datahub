@@ -82,7 +82,17 @@ query getDatasetAssertionsWithMonitors($urn: String!) {
             siblings {
                 urn
                 type
-                ...assertionsQueryWithMonitors
+            }
+        }
+        siblingsSearch(input: { query: "*" }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...assertionsQueryWithMonitors
+                }
             }
         }
         privileges {

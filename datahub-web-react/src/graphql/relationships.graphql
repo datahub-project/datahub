@@ -32,7 +32,17 @@ fragment relationshipFields on EntityWithRelationships {
             siblings {
                 urn
                 type
-                ...lineageNodeProperties
+            }
+        }
+        siblingsSearch(input: { query: "*" }) {
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ...lineageNodeProperties
+                }
             }
         }
     }
