@@ -14,11 +14,13 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubConnectionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -191,5 +193,23 @@ public class ConnectionService {
           String.format("Failed to update Connection with urn %s", connectionUrn), e);
     }
     return connectionUrn;
+  }
+
+  public boolean deleteConnection(@Nonnull OperationContext opContext, @Nonnull Urn connectionUrn)
+      throws RemoteInvocationException {
+    _entityClient.deleteEntity(opContext, connectionUrn);
+    CompletableFuture.runAsync(
+        () -> {
+          try {
+            _entityClient.deleteEntityReferences(opContext, connectionUrn);
+          } catch (RemoteInvocationException e) {
+            log.error(
+                String.format(
+                    "Caught exception while attempting to clear all entity references for Connection with urn %s",
+                    connectionUrn),
+                e);
+          }
+        });
+    return true;
   }
 }

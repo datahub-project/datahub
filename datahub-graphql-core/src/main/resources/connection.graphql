@@ -21,6 +21,12 @@ extend type Mutation {
   This requires the 'Manage Connections' platform privilege.
   """
   updateConnection(input: UpdateDataHubConnectionInput!): DataHubConnection!
+
+  """
+  Delete an existing connection
+  This requires the 'Manage Connections' platform privilege.
+  """
+  deleteConnection(input: DeleteDataHubConnectionInput!): Boolean!
 }
 
 """
@@ -136,7 +142,7 @@ input DataHubJsonConnectionInput {
 }
 
 """
-Input required to update a new DataHub connection.
+Input required to update a DataHub connection.
 """
 input UpdateDataHubConnectionInput {
   """
@@ -163,4 +169,14 @@ input UpdateDataHubConnectionInput {
   An optional name for this connection entity
   """
   name: String
+}
+
+"""
+Input required to delete a DataHub connection.
+"""
+input DeleteDataHubConnectionInput {
+  """
+  The urn of the Connection entity you want to delete
+  """
+  urn: String!
 }
