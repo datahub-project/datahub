@@ -804,7 +804,7 @@ module.exports = {
         "docs/api/tutorials/assertions",
         "docs/api/tutorials/incidents",
         "docs/api/tutorials/operations",
-        "docs/incidents/data-contracts",
+        "docs/api/tutorials/data-contracts",
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
