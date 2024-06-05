@@ -62,6 +62,7 @@ import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFieldAssert
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFreshnessAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSqlAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetVolumeAssertionMonitorResolver;
+import com.linkedin.datahub.graphql.resolvers.connection.UpdateConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
@@ -582,9 +583,13 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     builder.type(
         "Mutation",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "upsertConnection",
-                new UpsertConnectionResolver(connectionService, secretService)));
+            typeWiring
+                .dataFetcher(
+                    "upsertConnection",
+                    new UpsertConnectionResolver(connectionService, secretService))
+                .dataFetcher(
+                    "updateConnection",
+                    new UpdateConnectionResolver(connectionService, secretService)));
     builder.type(
         "Query",
         typeWiring -> typeWiring.dataFetcher("connection", baseEngine.getResolver(connectionType)));

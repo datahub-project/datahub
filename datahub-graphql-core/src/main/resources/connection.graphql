@@ -15,6 +15,12 @@ extend type Mutation {
   This requires the 'Manage Connections' platform privilege.
   """
   upsertConnection(input: UpsertDataHubConnectionInput!): DataHubConnection!
+
+  """
+  Update (patch) a particular connection.
+  This requires the 'Manage Connections' platform privilege.
+  """
+  updateConnection(input: UpdateDataHubConnectionInput!): DataHubConnection!
 }
 
 """
@@ -127,4 +133,34 @@ input DataHubJsonConnectionInput {
   The JSON blob containing the specific connection details.
   """
   blob: String!
+}
+
+"""
+Input required to update a new DataHub connection.
+"""
+input UpdateDataHubConnectionInput {
+  """
+  The urn of the Connection entity you want to update
+  """
+  urn: String!
+
+  """
+  The type or format of connection
+  """
+  type: DataHubConnectionDetailsType
+
+  """
+  Urn of the associated platform
+  """
+  platformUrn: String
+
+  """
+  A JSON-encoded connection. This must be present when type is JSON.
+  """
+  json: DataHubJsonConnectionInput
+
+  """
+  An optional name for this connection entity
+  """
+  name: String
 }

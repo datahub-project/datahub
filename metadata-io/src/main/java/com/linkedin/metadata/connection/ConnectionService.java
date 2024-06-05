@@ -126,4 +126,70 @@ public class ConnectionService {
           String.format("Failed to retrieve Connection with urn %s", connectionUrn), e);
     }
   }
+
+  /**
+   * Upserts a DataHub connection. If the connection with the provided ID already exists, then it
+   * will be overwritten.
+   *
+   * <p>This method assumes that authorization has already been verified at the calling layer.
+   *
+   * @return the URN of the new connection.
+   */
+  public Urn updateConnection(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn connectionUrn,
+      @Nullable final Urn platformUrn,
+      @Nullable final DataHubConnectionDetailsType type,
+      @Nullable final DataHubJsonConnection json,
+      @Nullable final String name) {
+    Objects.requireNonNull(connectionUrn, "urn must not be null");
+    // 1. Get existing connection details
+    final DataHubConnectionDetails details = getConnectionDetails(opContext, connectionUrn);
+
+    if (details == null) {
+      throw new IllegalArgumentException(
+          String.format("Connection with urn %s does not exist", connectionUrn));
+    }
+
+    // 2. Update details according to input
+    if (name != null) {
+      details.setName(name);
+    }
+    if (type != null) {
+      details.setType(type);
+    }
+    if (json != null) {
+      details.setJson(json);
+    }
+
+    if (DataHubConnectionDetailsType.JSON.equals(details.getType())) {
+      if (details.getJson() == null) {
+        throw new IllegalArgumentException(
+            "Connections with type JSON must provide the field 'json'.");
+      }
+    }
+
+    final List<MetadataChangeProposal> aspectsToIngest = new ArrayList<>();
+
+    // 3. Build platform instance if exists
+    if (platformUrn != null) {
+      final DataPlatformInstance platformInstance = new DataPlatformInstance();
+      platformInstance.setPlatform(platformUrn);
+      aspectsToIngest.add(
+          AspectUtils.buildMetadataChangeProposal(
+              connectionUrn, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME, platformInstance));
+    }
+
+    // 4. Write changes to GMS
+    aspectsToIngest.add(
+        AspectUtils.buildMetadataChangeProposal(
+            connectionUrn, Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME, details));
+    try {
+      _entityClient.batchIngestProposals(opContext, aspectsToIngest, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update Connection with urn %s", connectionUrn), e);
+    }
+    return connectionUrn;
+  }
 }
