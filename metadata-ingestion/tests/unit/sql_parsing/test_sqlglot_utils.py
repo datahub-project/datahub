@@ -97,6 +97,19 @@ class QueryGeneralizationTestMode(Enum):
         (
             textwrap.dedent(
                 """\
+                INSERT INTO MyTable
+                (Column1, Column2, Column3)
+                VALUES
+                ('John', 123, 'Lloyds Office');
+                """
+            ),
+            "mssql",
+            "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?)",
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        (
+            textwrap.dedent(
+                """\
                 /* Copied from https://stackoverflow.com/a/452934/5004662 */
                 INSERT INTO MyTable
                 (Column1, Column2, Column3)
@@ -110,7 +123,7 @@ class QueryGeneralizationTestMode(Enum):
             ),
             "mssql",
             "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?), (?), (?), (?)",
-            QueryGeneralizationTestMode.BOTH,
+            QueryGeneralizationTestMode.FULL,
         ),
         # Test table name normalization.
         # These are only supported with fast normalization.

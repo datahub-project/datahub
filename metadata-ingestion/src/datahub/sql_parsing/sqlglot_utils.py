@@ -111,10 +111,10 @@ def _expression_to_string(
 
 
 _BASIC_NORMALIZATION_RULES = {
-    # Remove -- comments.
-    re.compile(r"--.*"): "",
     # Remove /* */ comments.
-    re.compile(r"/\*.*?\*/"): "",
+    re.compile(r"/\*.*?\*/", re.DOTALL): "",
+    # Remove -- comments.
+    re.compile(r"--.*$"): "",
     # Replace all runs of whitespace with a single space.
     re.compile(r"\s+"): " ",
     # Remove leading and trailing whitespace and trailing semicolons.
@@ -124,8 +124,10 @@ _BASIC_NORMALIZATION_RULES = {
     # Replace anything that looks like a string with a placeholder.
     re.compile(r"'[^']*'"): "?",
     # Replace sequences of IN/VALUES with a single placeholder.
-    re.compile(r"\b(IN|VALUES)\s*(\([^)]+\))", re.IGNORECASE): r"\1 (?)",
-    re.compile(r"\(\?(?:, \?)*\)", re.IGNORECASE): "(?)",
+    re.compile(r"\b(IN|VALUES)\s*\(\?(?:, \?)*\)", re.IGNORECASE): r"\1 (?)",
+    # Normalize parenthesis spacing.
+    re.compile(r"\( "): "(",
+    re.compile(r" \)"): ")",
 }
 _TABLE_NAME_NORMALIZATION_RULES = {
     # Replace UUID-like strings with a placeholder (both - and _ variants).
