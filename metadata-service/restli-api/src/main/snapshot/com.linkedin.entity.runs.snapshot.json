@@ -585,10 +585,10 @@
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
+      "RVW" : "Designates review fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
-      "UAT" : "Designates user acceptance testing fabrics",
-      "RVW" : "Designates review fabrics"
+      "UAT" : "Designates user acceptance testing fabrics"
     }
   }, {
     "type" : "record",
@@ -2222,7 +2222,13 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who last modified the status and when."
+      "doc" : "Audit stamp containing who last modified the status and when.",
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "statusLastModifiedAt",
+          "fieldType" : "COUNT"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "corpUserStatus"
@@ -2594,8 +2600,9 @@
             }, {
               "name" : "label",
               "type" : "string",
-              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.",
+              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.\n\nNote that this field is deprecated and is not surfaced in the UI.",
               "optional" : true,
+              "Deprecated" : true,
               "Searchable" : {
                 "boostScore" : 0.2,
                 "fieldName" : "fieldLabels",

@@ -2,6 +2,7 @@ namespace com.linkedin.assertion
 
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.AuditStamp
 
 /**
  * Information about an assertion
@@ -66,9 +67,14 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     volumeAssertion: optional VolumeAssertionInfo
 
     /**
-    * A SQL Assertion definition. This field is populated when the type is SQL.
+        * A SQL Assertion definition. This field is populated when the type is SQL.
     */
     sqlAssertion: optional SqlAssertionInfo
+
+    /**
+    * A Field Assertion definition. This field is populated when the type is FIELD.
+    */
+    fieldAssertion: optional FieldAssertionInfo
 
     /**
     * An schema Assertion definition. This field is populated when the type is DATA_SCHEMA
@@ -82,6 +88,12 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     * the platform where it was ingested from.
     */
     source: optional AssertionSource
+
+    /**
+      * The time at which the assertion was last updated and the actor who updated it.
+      * This field is only present for Native assertions updated after this field was introduced.
+      */
+    lastUpdated: optional AuditStamp
 
     /**
     * An optional human-readable description of the assertion
