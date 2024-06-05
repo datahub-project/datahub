@@ -53,7 +53,7 @@ export type SourceOption = {
 const PLATFORM_ASSERTION_CONFIGS = {
     [SNOWFLAKE_URN]: {
         freshness: {
-            defaultSourceType: DatasetFreshnessSourceType.AuditLog,
+            defaultSourceType: DatasetFreshnessSourceType.InformationSchema,
             sourceTypes: [
                 DatasetFreshnessSourceType.AuditLog,
                 DatasetFreshnessSourceType.InformationSchema,
