@@ -17,12 +17,14 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDatabase,
     SnowflakeDataDictionary,
 )
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeConnectionMixin,
     SnowflakeQueryMixin,
 )
-from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.utilities.lossy_collections import LossyList
@@ -167,13 +169,13 @@ WHERE query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
     # This is a bit of a hack, but lets us reuse the code from the main ingestion source.
     # Mypy doesn't really know how to deal with it though, which is why we have all these
     # type ignore comments.
-    get_databases = SnowflakeV2Source.get_databases
-    get_databases_from_ischema = SnowflakeV2Source.get_databases_from_ischema
-    fetch_schemas_for_database = SnowflakeV2Source.fetch_schemas_for_database
-    fetch_tables_for_schema = SnowflakeV2Source.fetch_tables_for_schema
-    fetch_views_for_schema = SnowflakeV2Source.fetch_views_for_schema
-    get_tables_for_schema = SnowflakeV2Source.get_tables_for_schema
-    get_views_for_schema = SnowflakeV2Source.get_views_for_schema
+    get_databases = SnowflakeSchemaGenerator.get_databases
+    get_databases_from_ischema = SnowflakeSchemaGenerator.get_databases_from_ischema
+    fetch_schemas_for_database = SnowflakeSchemaGenerator.fetch_schemas_for_database
+    fetch_tables_for_schema = SnowflakeSchemaGenerator.fetch_tables_for_schema
+    fetch_views_for_schema = SnowflakeSchemaGenerator.fetch_views_for_schema
+    get_tables_for_schema = SnowflakeSchemaGenerator.get_tables_for_schema
+    get_views_for_schema = SnowflakeSchemaGenerator.get_views_for_schema
 
     def get_report(self) -> SnowflakeSummaryReport:
         return self.report
