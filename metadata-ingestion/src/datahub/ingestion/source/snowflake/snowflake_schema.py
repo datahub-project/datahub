@@ -1,10 +1,14 @@
+import functools
 import logging
+import threading
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from typing import Callable, Dict, List, Optional
 
+import cachetools
+import cachetools.keys
 from snowflake.connector import SnowflakeConnection
 
 from datahub.ingestion.api.report import SupportsAsObj
@@ -16,6 +20,37 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, Base
 logger: logging.Logger = logging.getLogger(__name__)
 
 SCHEMA_PARALLELISM = 10
+
+
+def serialized_lru_cache(maxsize: int) -> Callable:
+    """Similar to `lru_cache`, but ensures multiple calls with the same parameters are serialized."""
+
+    def decorator(func: Callable) -> Callable:
+        cache_lock = threading.Lock()
+        cache = cachetools.LRUCache(maxsize=maxsize)
+        locks: Dict[str, threading.Lock] = {}
+
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            key = cachetools.keys.hashkey(*args, **kwargs)
+
+            with cache_lock:
+                if key in cache:
+                    return cache[key]
+
+                lock = locks[key]
+
+            with lock:
+                # TODO check the cache again?
+                result = func(*args, **kwargs)
+                with cache_lock:
+                    cache[key] = result
+
+                return result
+
+        return wrapped
+
+    return decorator
 
 
 @dataclass
