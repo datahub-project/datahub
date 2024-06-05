@@ -136,14 +136,12 @@ export function selectShouldTurnOnEmailInSettings(state: State) {
 
 export function selectShouldShowUpdateSlackSettingsWarning(state: State) {
     const shouldTurnOnSlackInSettings = selectShouldTurnOnSlackInSettings(state);
-    const settingsSlackChannel = selectSlackSettingsChannel(state);
-    return shouldTurnOnSlackInSettings && !!settingsSlackChannel;
+    return shouldTurnOnSlackInSettings;
 }
 
 export function selectShouldShowUpdateEmailSettingsWarning(state: State) {
     const shouldTurnOnEmailInSettings = selectShouldTurnOnEmailInSettings(state);
-    const settingsEmailChannel = selectEmailSettingsChannel(state);
-    return shouldTurnOnEmailInSettings && !!settingsEmailChannel;
+    return shouldTurnOnEmailInSettings;
 }
 
 export function selectHasEnabledSink(state: State) {
