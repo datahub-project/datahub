@@ -50,10 +50,10 @@
                 "column": "c",
                 "column_type": {
                     "type": {
-                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
                 },
-                "native_column_type": "INT[]"
+                "native_column_type": "INT"
             },
             "upstreams": [
                 {

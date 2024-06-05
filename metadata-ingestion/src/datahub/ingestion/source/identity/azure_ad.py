@@ -263,7 +263,7 @@ class AzureADSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):
-        super(AzureADSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = AzureADSourceReport(
             filtered_tracking=self.config.filtered_tracking
@@ -488,7 +488,7 @@ class AzureADSource(StatefulIngestionSourceBase):
         yield from self._get_azure_ad_data(kind=kind)
 
     def _get_azure_ad_data(self, kind: str) -> Iterable[List]:
-        headers = {"Authorization": "Bearer {}".format(self.token)}
+        headers = {"Authorization": f"Bearer {self.token}"}
         #           'ConsistencyLevel': 'eventual'}
         url = self.config.graph_url + kind
         while True:

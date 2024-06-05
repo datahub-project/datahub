@@ -31,9 +31,7 @@ def remove_docker_image():
 def spark_submit(file_path: str, args: str = "") -> None:
     docker = "docker"
     command = f"{docker} exec spark-iceberg spark-submit {file_path} {args}"
-    ret = subprocess.run(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
 
 

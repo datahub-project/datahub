@@ -131,10 +131,10 @@ def run(
                 pipeline.run()
             except Exception as e:
                 logger.info(
-                    f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+                    f"Source ({pipeline.source_type}) report:\n{pipeline.source.get_report().as_string()}"
                 )
                 logger.info(
-                    f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+                    f"Sink ({pipeline.sink_type}) report:\n{pipeline.sink.get_report().as_string()}"
                 )
                 raise e
             else:
@@ -588,6 +588,6 @@ def rollback(
                 for row in unsafe_entities:
                     writer.writerow([row.get("urn")])
 
-        except IOError as e:
+        except OSError as e:
             logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")

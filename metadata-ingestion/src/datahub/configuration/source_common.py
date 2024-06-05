@@ -10,9 +10,9 @@ from datahub.metadata.schema_classes import FabricTypeClass
 DEFAULT_ENV = FabricTypeClass.PROD
 
 # Get all the constants from the FabricTypeClass. It's not an enum, so this is a bit hacky but works.
-ALL_ENV_TYPES: Set[str] = set(
-    [value for name, value in vars(FabricTypeClass).items() if not name.startswith("_")]
-)
+ALL_ENV_TYPES: Set[str] = {
+    value for name, value in vars(FabricTypeClass).items() if not name.startswith("_")
+}
 
 
 class PlatformInstanceConfigMixin(ConfigModel):

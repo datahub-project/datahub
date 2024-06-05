@@ -203,7 +203,8 @@ public class PoliciesConfig {
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_CONNECTIONS_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
-          MANAGE_MONITORS);
+          MANAGE_MONITORS,
+          MANAGE_CONNECTIONS_PRIVILEGE);
 
   // Resource Privileges //
 

@@ -5,6 +5,7 @@ import logging
 import os
 import pathlib
 import pprint
+import re
 import shutil
 import tempfile
 from typing import Any, Dict, List, Sequence, Union
@@ -40,6 +41,7 @@ def assert_metadata_files_equal(
     update_golden: bool,
     copy_output: bool,
     ignore_paths: Sequence[str] = (),
+    ignore_paths_v2: Sequence[str] = (),
     ignore_order: bool = True,
 ) -> None:
     golden_exists = os.path.isfile(golden_path)
@@ -69,6 +71,16 @@ def assert_metadata_files_equal(
             except (ValueError, AssertionError) as e:
                 logger.info(f"Error reformatting golden file as MCP/MCEs: {e}")
                 golden = load_json_file(golden_path)
+
+    if ignore_paths_v2:
+        golden_json = load_json_file(golden_path)
+        for i, obj in enumerate(golden_json):
+            aspect_json = obj.get("aspect", {}).get("json", [])
+            for j, item in enumerate(aspect_json):
+                if isinstance(item, dict):
+                    if item.get("path") in ignore_paths_v2:
+                        json_path = f"root[{i}]['aspect']['json'][{j}]['value']"
+                        ignore_paths = (*ignore_paths, re.escape(json_path))
 
     diff = diff_metadata_json(output, golden, ignore_paths, ignore_order=ignore_order)
     if diff and update_golden:

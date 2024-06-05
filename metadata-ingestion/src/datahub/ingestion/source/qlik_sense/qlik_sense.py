@@ -112,7 +112,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "qlik-sense"
 
     def __init__(self, config: QlikSourceConfig, ctx: PipelineContext):
-        super(QlikSenseSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.reporter = QlikSourceReport()
         try:

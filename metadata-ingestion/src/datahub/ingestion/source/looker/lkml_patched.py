@@ -24,5 +24,5 @@ def load_lkml(path: Union[str, pathlib.Path]) -> dict:
     # Using this method instead of lkml.load directly ensures
     # that our patches to lkml are applied.
 
-    with open(path, "r") as file:
+    with open(path) as file:
         return lkml.load(file)

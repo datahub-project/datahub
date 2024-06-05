@@ -66,7 +66,7 @@ class FivetranSource(StatefulIngestionSourceBase):
     platform: str = "fivetran"
 
     def __init__(self, config: FivetranSourceConfig, ctx: PipelineContext):
-        super(FivetranSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = FivetranSourceReport()
 

@@ -332,7 +332,7 @@ class SnowflakeUsageExtractor(
                     and self.config.email_domain
                     and user_count["user_name"]
                 ):
-                    user_email = "{0}@{1}".format(
+                    user_email = "{}@{}".format(
                         user_count["user_name"], self.config.email_domain
                     ).lower()
                 if not user_email or not self.config.user_email_pattern.allowed(

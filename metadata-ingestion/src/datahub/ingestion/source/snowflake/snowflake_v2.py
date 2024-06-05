@@ -366,7 +366,7 @@ class SnowflakeV2Source(
             object_type: str
 
         def query(query):
-            logger.info("Query : {}".format(query))
+            logger.info(f"Query : {query}")
             resp = conn.cursor().execute(query)
             return resp
 

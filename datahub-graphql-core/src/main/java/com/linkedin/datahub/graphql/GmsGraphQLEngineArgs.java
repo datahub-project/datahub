@@ -97,10 +97,12 @@ public class GmsGraphQLEngineArgs {
   RestrictedService restrictedService;
   int graphQLQueryComplexityLimit;
   int graphQLQueryDepthLimit;
+  boolean graphQLQueryIntrospectionEnabled;
   BusinessAttributeService businessAttributeService;
   ChromeExtensionConfiguration chromeExtensionConfiguration;
   ClassificationConfiguration classificationConfiguration;
   AssertionService assertionService;
+  ConnectionService connectionService;
 
   // any fork specific args should go below this line
   EntitySearchService entitySearchService;
@@ -108,7 +110,6 @@ public class GmsGraphQLEngineArgs {
   ProposalService proposalService;
   MonitorService monitorService;
   IntegrationsService integrationsService;
-  ConnectionService connectionService;
   ActionPipelineConfiguration actionPipelineConfiguration;
   SubscriptionService subscriptionService;
   ShareService shareService;

@@ -68,7 +68,7 @@ class MockResponse:
 
     def raise_for_status(self):
         if self.error_list is not None and self.url in self.error_list:
-            http_error_msg = "%s Client Error: %s for url: %s" % (
+            http_error_msg = "{} Client Error: {} for url: {}".format(
                 400,
                 "Simulate error",
                 self.url,

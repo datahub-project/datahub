@@ -39,6 +39,7 @@ PowerBI Source supports M-Query expression for below listed PowerBI Data Sources
 3.  PostgreSQL
 4.  Microsoft SQL Server
 5.  Google BigQuery
+6.  Databricks
 
 Native SQL query parsing is supported for `Snowflake` and `Amazon Redshift` data-sources.
 

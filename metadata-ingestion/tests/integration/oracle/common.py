@@ -212,7 +212,7 @@ class OracleTestCaseBase:
         }
 
     def get_output_mce_path(self):
-        return "{}/{}".format(self.tmp_path, self.mces_output_file_name)
+        return f"{self.tmp_path}/{self.mces_output_file_name}"
 
     def get_mock_data_impl(self):
         return self.default_mock_data

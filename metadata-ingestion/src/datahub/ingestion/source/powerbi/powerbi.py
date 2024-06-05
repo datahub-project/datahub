@@ -580,7 +580,7 @@ class Mapper:
         )
 
         # Browse path
-        browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+        browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.CHART,
             entity_urn=chart_urn,
@@ -990,7 +990,7 @@ class Mapper:
             )
 
             # Browse path
-            browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+            browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
             browse_path_mcp = self.new_mcp(
                 entity_type=Constant.CHART,
                 entity_urn=chart_urn,
@@ -1195,7 +1195,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "powerbi"
 
     def __init__(self, config: PowerBiDashboardSourceConfig, ctx: PipelineContext):
-        super(PowerBiDashboardSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
         self.dataplatform_instance_resolver = create_dataplatform_instance_resolver(

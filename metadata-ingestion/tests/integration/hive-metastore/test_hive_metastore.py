@@ -1,6 +1,6 @@
 import re
 import subprocess
-from typing import Dict
+from typing import Dict, Sequence
 
 import pytest
 import requests
@@ -120,18 +120,28 @@ def test_hive_metastore_ingest(
         # config_file = (test_resources_dir / "presto_on_hive_to_file.yml").resolve()
         # run_datahub_cmd(["ingest", "-c", f"{config_file}"])
 
+        ignore_paths: Sequence[str] = [
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastDdlTime'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['create_date'\]",
+        ]
+
+        ignore_paths_v2: Sequence[str] = [
+            "/customProperties/create_date",
+            "/customProperties/transient_lastDdlTime",
+            "/customProperties/numfiles",
+            "/customProperties/totalsize",
+        ]
+
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=f"hive_metastore_mces{test_suffix}.json",
             golden_path=test_resources_dir
             / f"hive_metastore_mces_golden{test_suffix}.json",
-            ignore_paths=[
-                r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastDdlTime'\]",
-                r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
-                r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
-                r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['create_date'\]",
-            ],
+            ignore_paths=ignore_paths,
+            ignore_paths_v2=ignore_paths_v2,
         )
 
 

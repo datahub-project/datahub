@@ -73,7 +73,7 @@ class DummySource(StatefulIngestionSourceBase):
     reporter: DummySourceReport
 
     def __init__(self, config: DummySourceConfig, ctx: PipelineContext):
-        super(DummySource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.reporter = DummySourceReport()
         # Create and register the stateful ingestion use-case handler.

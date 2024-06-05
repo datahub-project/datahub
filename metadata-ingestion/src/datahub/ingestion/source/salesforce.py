@@ -353,7 +353,7 @@ class SalesforceSource(Source):
             self.base_url
             + "tooling/query/?q=SELECT Description, Language, ManageableState, "
             + "CreatedDate, CreatedBy.Username, LastModifiedDate, LastModifiedBy.Username "
-            + "FROM CustomObject where DeveloperName='{0}'".format(sObjectDeveloperName)
+            + f"FROM CustomObject where DeveloperName='{sObjectDeveloperName}'"
         )
         custom_objects_response = self.sf._call_salesforce("GET", query_url).json()
         if len(custom_objects_response["records"]) > 0:
@@ -656,7 +656,7 @@ class SalesforceSource(Source):
             + "Precision, Scale, Length, Digits ,FieldDefinition.IsIndexed, IsUnique,"
             + "IsCompound, IsComponent, ReferenceTo, FieldDefinition.ComplianceGroup,"
             + "RelationshipName, IsNillable, FieldDefinition.Description, InlineHelpText "
-            + "FROM EntityParticle WHERE EntityDefinitionId='{0}'".format(
+            + "FROM EntityParticle WHERE EntityDefinitionId='{}'".format(
                 sObject["DurableId"]
             )
         )
@@ -665,16 +665,14 @@ class SalesforceSource(Source):
             "GET", sObject_fields_query_url
         ).json()
 
-        logger.debug(
-            "Received Salesforce {sObject} fields response".format(sObject=sObjectName)
-        )
+        logger.debug(f"Received Salesforce {sObjectName} fields response")
 
         sObject_custom_fields_query_url = (
             self.base_url
             + "tooling/query?q=SELECT "
             + "DeveloperName,CreatedDate,CreatedBy.Username,InlineHelpText,"
             + "LastModifiedDate,LastModifiedBy.Username "
-            + "FROM CustomField WHERE EntityDefinitionId='{0}'".format(
+            + "FROM CustomField WHERE EntityDefinitionId='{}'".format(
                 sObject["DurableId"]
             )
         )

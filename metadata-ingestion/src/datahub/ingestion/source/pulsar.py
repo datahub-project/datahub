@@ -53,7 +53,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class PulsarTopic(object):
+class PulsarTopic:
     __slots__ = ["topic_parts", "fullname", "type", "tenant", "namespace", "topic"]
 
     def __init__(self, topic):
@@ -65,7 +65,7 @@ class PulsarTopic(object):
         self.topic = topic_parts[5]
 
 
-class PulsarSchema(object):
+class PulsarSchema:
     __slots__ = [
         "schema_version",
         "schema_name",

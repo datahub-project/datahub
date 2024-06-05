@@ -205,7 +205,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
     def __init__(self, ctx: PipelineContext, config: LDAPSourceConfig):
         """Constructor."""
-        super(LDAPSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
 
         # ensure prior defaults are in place

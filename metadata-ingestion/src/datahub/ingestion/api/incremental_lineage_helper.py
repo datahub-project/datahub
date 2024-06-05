@@ -4,6 +4,7 @@ from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid, set_aspect
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -105,21 +106,26 @@ def auto_incremental_lineage(
     for wu in stream:
         urn = wu.get_urn()
 
-        lineage_aspect: Optional[UpstreamLineageClass] = wu.get_aspect_of_type(
-            UpstreamLineageClass
-        )
         if isinstance(wu.metadata, MetadataChangeEventClass):
-            set_aspect(
-                wu.metadata, None, UpstreamLineageClass
-            )  # we'll handle upstreamLineage separately below
+            lineage_aspect = wu.get_aspect_of_type(UpstreamLineageClass)
+            set_aspect(wu.metadata, None, UpstreamLineageClass)
             if len(wu.metadata.proposedSnapshot.aspects) > 0:
                 yield wu
 
-        if lineage_aspect:
+            if lineage_aspect and lineage_aspect.upstreams:
+                yield convert_upstream_lineage_to_patch(
+                    urn, lineage_aspect, wu.metadata.systemMetadata
+                )
+        elif isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+            wu.metadata.aspect, UpstreamLineageClass
+        ):
+            lineage_aspect = wu.metadata.aspect
             if lineage_aspect.upstreams:
                 yield convert_upstream_lineage_to_patch(
                     urn, lineage_aspect, wu.metadata.systemMetadata
                 )
+        else:
+            yield wu
 
 
 class IncrementalLineageConfigMixin(ConfigModel):

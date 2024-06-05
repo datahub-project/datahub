@@ -28,3 +28,4 @@ cat ../../datahub-graphql-core/src/main/resources/connection.graphql >> combined
 cat ../../datahub-graphql-core/src/main/resources/share.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/query.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/common.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/connection.graphql >> combined.graphql

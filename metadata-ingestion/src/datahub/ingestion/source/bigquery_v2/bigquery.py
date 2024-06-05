@@ -223,7 +223,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     }
 
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
-        super(BigqueryV2Source, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
         self.classification_handler = ClassificationHandler(self.config, self.report)
@@ -340,7 +340,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> CapabilityReport:
         for project_id in project_ids:
             try:
-                logger.info((f"Metadata read capability test for project {project_id}"))
+                logger.info(f"Metadata read capability test for project {project_id}")
                 client: bigquery.Client = config.get_bigquery_client()
                 assert client
                 bigquery_data_dictionary = BigQuerySchemaApi(

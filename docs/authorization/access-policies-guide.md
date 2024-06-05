@@ -1,4 +1,4 @@
-# About DataHub Access Policies
+# Access Policies
 
 <FeatureAvailability/>
 

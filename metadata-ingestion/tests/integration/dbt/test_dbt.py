@@ -232,13 +232,13 @@ def test_dbt_ingest(
     config: DbtTestConfig = dbt_test_config
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
-    with open(test_resources_dir / "dbt_manifest.json", "r") as f:
+    with open(test_resources_dir / "dbt_manifest.json") as f:
         requests_mock.get("http://some-external-repo/dbt_manifest.json", text=f.read())
 
-    with open(test_resources_dir / "dbt_catalog.json", "r") as f:
+    with open(test_resources_dir / "dbt_catalog.json") as f:
         requests_mock.get("http://some-external-repo/dbt_catalog.json", text=f.read())
 
-    with open(test_resources_dir / "dbt_sources.json", "r") as f:
+    with open(test_resources_dir / "dbt_sources.json") as f:
         requests_mock.get("http://some-external-repo/dbt_sources.json", text=f.read())
 
     config.set_paths(

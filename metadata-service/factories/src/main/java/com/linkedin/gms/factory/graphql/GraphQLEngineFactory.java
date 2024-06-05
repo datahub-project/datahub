@@ -245,6 +245,10 @@ public class GraphQLEngineFactory {
 
   @Value("${LINEAGE_DEFAULT_LAST_DAYS_FILTER:#{null}}")
   private Integer defaultLineageLastDaysFilter;
+  
+  @Autowired
+  @Qualifier("connectionService")
+  private ConnectionService _connectionService;
 
   @Bean(name = "graphQLEngine")
   @Nonnull
@@ -297,6 +301,8 @@ public class GraphQLEngineFactory {
     args.setDataProductService(dataProductService);
     args.setGraphQLQueryComplexityLimit(
         configProvider.getGraphQL().getQuery().getComplexityLimit());
+    args.setGraphQLQueryIntrospectionEnabled(
+        configProvider.getGraphQL().getQuery().isIntrospectionEnabled());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     args.setBusinessAttributeService(businessAttributeService);
     args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
@@ -314,6 +320,7 @@ public class GraphQLEngineFactory {
     args.setShareService(_shareService);
     args.setExecutorConfiguration(configProvider.getExecutors());
     args.setDataContractService(_dataContractService);
+    args.setConnectionService(_connectionService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 }

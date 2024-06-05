@@ -230,7 +230,7 @@ def default_query_results(  # noqa: C901
         return [
             {
                 "TABLE_SCHEMA": "TEST_SCHEMA",
-                "TABLE_NAME": "TABLE_{}".format(tbl_idx),
+                "TABLE_NAME": f"TABLE_{tbl_idx}",
                 "TABLE_TYPE": "BASE TABLE",
                 "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
@@ -245,7 +245,7 @@ def default_query_results(  # noqa: C901
         return [
             {
                 "schema_name": "TEST_SCHEMA",
-                "name": "VIEW_{}".format(view_idx),
+                "name": f"VIEW_{view_idx}",
                 "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "comment": "Comment for View",
                 "text": f"create view view_{view_idx} as select * from table_{view_idx}",
@@ -257,13 +257,13 @@ def default_query_results(  # noqa: C901
     elif query in [
         *[
             SnowflakeQuery.columns_for_table(
-                "TABLE_{}".format(tbl_idx), "TEST_SCHEMA", "TEST_DB"
+                f"TABLE_{tbl_idx}", "TEST_SCHEMA", "TEST_DB"
             )
             for tbl_idx in range(1, num_tables + 1)
         ],
         *[
             SnowflakeQuery.columns_for_table(
-                "VIEW_{}".format(view_idx), "TEST_SCHEMA", "TEST_DB"
+                f"VIEW_{view_idx}", "TEST_SCHEMA", "TEST_DB"
             )
             for view_idx in range(1, num_views + 1)
         ],
@@ -273,7 +273,7 @@ def default_query_results(  # noqa: C901
                 # "TABLE_CATALOG": "TEST_DB",
                 # "TABLE_SCHEMA": "TEST_SCHEMA",
                 # "TABLE_NAME": "TABLE_{}".format(tbl_idx),
-                "COLUMN_NAME": "COL_{}".format(col_idx),
+                "COLUMN_NAME": f"COL_{col_idx}",
                 "ORDINAL_POSITION": col_idx,
                 "IS_NULLABLE": "NO",
                 "DATA_TYPE": "TEXT" if col_idx > 1 else "NUMBER",
@@ -317,7 +317,7 @@ def default_query_results(  # noqa: C901
                     [
                         {
                             "columns": [
-                                {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                                {"columnId": 0, "columnName": f"COL_{col_idx}"}
                                 for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
@@ -326,7 +326,7 @@ def default_query_results(  # noqa: C901
                         },
                         {
                             "columns": [
-                                {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                                {"columnId": 0, "columnName": f"COL_{col_idx}"}
                                 for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
@@ -335,7 +335,7 @@ def default_query_results(  # noqa: C901
                         },
                         {
                             "columns": [
-                                {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                                {"columnId": 0, "columnName": f"COL_{col_idx}"}
                                 for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
@@ -348,7 +348,7 @@ def default_query_results(  # noqa: C901
                     [
                         {
                             "columns": [
-                                {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                                {"columnId": 0, "columnName": f"COL_{col_idx}"}
                                 for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
@@ -357,7 +357,7 @@ def default_query_results(  # noqa: C901
                         },
                         {
                             "columns": [
-                                {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                                {"columnId": 0, "columnName": f"COL_{col_idx}"}
                                 for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
@@ -366,7 +366,7 @@ def default_query_results(  # noqa: C901
                         },
                         {
                             "columns": [
-                                {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                                {"columnId": 0, "columnName": f"COL_{col_idx}"}
                                 for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
@@ -381,10 +381,10 @@ def default_query_results(  # noqa: C901
                             "columns": [
                                 {
                                     "columnId": 0,
-                                    "columnName": "COL_{}".format(col_idx),
+                                    "columnName": f"COL_{col_idx}",
                                     "directSources": [
                                         {
-                                            "columnName": "COL_{}".format(col_idx),
+                                            "columnName": f"COL_{col_idx}",
                                             "objectDomain": "Table",
                                             "objectId": 0,
                                             "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
@@ -395,7 +395,7 @@ def default_query_results(  # noqa: C901
                             ],
                             "objectDomain": "Table",
                             "objectId": 0,
-                            "objectName": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
+                            "objectName": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",
                         }
                     ]
                 ),
@@ -456,11 +456,11 @@ def default_query_results(  # noqa: C901
     ):
         return [
             {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
+                "DOWNSTREAM_TABLE_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",
                 "UPSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_2",
                 "UPSTREAM_TABLE_COLUMNS": json.dumps(
                     [
-                        {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                        {"columnId": 0, "columnName": f"COL_{col_idx}"}
                         for col_idx in range(1, num_cols + 1)
                     ]
                 ),
@@ -468,10 +468,10 @@ def default_query_results(  # noqa: C901
                     [
                         {
                             "columnId": 0,
-                            "columnName": "COL_{}".format(col_idx),
+                            "columnName": f"COL_{col_idx}",
                             "directSources": [
                                 {
-                                    "columnName": "COL_{}".format(col_idx),
+                                    "columnName": f"COL_{col_idx}",
                                     "objectDomain": "Table",
                                     "objectId": 0,
                                     "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
@@ -519,7 +519,7 @@ def default_query_results(  # noqa: C901
 
         return [
             {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
+                "DOWNSTREAM_TABLE_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",
                 "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
                 "UPSTREAM_TABLES": json.dumps(
                     [
@@ -609,7 +609,7 @@ def default_query_results(  # noqa: C901
     ):
         return [
             {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
+                "DOWNSTREAM_TABLE_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",
                 "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
                 "UPSTREAM_TABLES": json.dumps(
                     [
@@ -690,7 +690,7 @@ def default_query_results(  # noqa: C901
                 "VIEW_DOMAIN": "VIEW",
                 "VIEW_COLUMNS": json.dumps(
                     [
-                        {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                        {"columnId": 0, "columnName": f"COL_{col_idx}"}
                         for col_idx in range(1, num_cols + 1)
                     ]
                 ),
@@ -699,10 +699,10 @@ def default_query_results(  # noqa: C901
                     [
                         {
                             "columnId": 0,
-                            "columnName": "COL_{}".format(col_idx),
+                            "columnName": f"COL_{col_idx}",
                             "directSources": [
                                 {
-                                    "columnName": "COL_{}".format(col_idx),
+                                    "columnName": f"COL_{col_idx}",
                                     "objectDomain": "Table",
                                     "objectId": 0,
                                     "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
