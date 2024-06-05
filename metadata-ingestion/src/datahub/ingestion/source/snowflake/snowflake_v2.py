@@ -50,6 +50,9 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeEdition,
     SnowflakeObjectDomain,
 )
+from datahub.ingestion.source.snowflake.snowflake_assertion import (
+    SnowflakeAssertionsHandler,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
@@ -603,6 +606,11 @@ class SnowflakeV2Source(
             self.config.include_usage_stats or self.config.include_operational_stats
         ) and self.usage_extractor:
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
+
+        if self.config.include_assertion_results:
+            yield from SnowflakeAssertionsHandler(
+                self.config, self.report, self.gen_dataset_urn
+            ).get_assertion_workunits(discovered_datasets)
 
     def report_cache_info(self) -> None:
         lru_cache_functions: List[Callable] = [
