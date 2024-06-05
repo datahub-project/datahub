@@ -2,7 +2,6 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import lru_cache
 from typing import Callable, Dict, List, Optional
 
 from snowflake.connector import SnowflakeConnection
@@ -16,7 +15,7 @@ from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-SCHEMA_PARALLELISM = 10
+SCHEMA_PARALLELISM = 20
 
 
 @dataclass
@@ -265,7 +264,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
             snowflake_schemas.append(snowflake_schema)
         return snowflake_schemas
 
-    @lru_cache(maxsize=1)
+    @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
@@ -323,7 +322,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
             )
         return tables
 
-    @lru_cache(maxsize=1)
+    @serialized_lru_cache(maxsize=1)
     def get_views_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
