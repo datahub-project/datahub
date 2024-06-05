@@ -15,6 +15,8 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, Base
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+SCHEMA_PARALLELISM = 10
+
 
 @dataclass
 class SnowflakePK:
@@ -370,7 +372,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
             )
         return views
 
-    @lru_cache(maxsize=1)
+    @lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_columns_for_schema(
         self, schema_name: str, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeColumn]]]:
@@ -426,7 +428,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
             )
         return columns
 
-    @lru_cache(maxsize=1)
+    @lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_pk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, SnowflakePK]:
@@ -443,7 +445,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
             constraints[row["table_name"]].column_names.append(row["column_name"])
         return constraints
 
-    @lru_cache(maxsize=1)
+    @lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_fk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeFK]]:

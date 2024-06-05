@@ -1,4 +1,6 @@
+import concurrent.futures
 import logging
+import queue
 from typing import Dict, Iterable, List, Optional, Union
 
 from snowflake.connector import SnowflakeConnection
@@ -33,12 +35,12 @@ from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDa
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SCHEMA_PARALLELISM,
     SnowflakeColumn,
     SnowflakeDatabase,
     SnowflakeDataDictionary,
     SnowflakeFK,
     SnowflakePK,
-    SnowflakeQuery,
     SnowflakeSchema,
     SnowflakeTable,
     SnowflakeTag,
@@ -252,7 +254,8 @@ class SnowflakeSchemaGenerator(
         db_name = snowflake_db.name
 
         try:
-            self.query(SnowflakeQuery.use_database(db_name))
+            pass
+            # self.query(SnowflakeQuery.use_database(db_name))
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 # This may happen if REFERENCE_USAGE permissions are set
@@ -289,12 +292,52 @@ class SnowflakeSchemaGenerator(
 
         # Caches tables for a single database. Consider moving to disk or S3 when possible.
         db_tables: Dict[str, List[SnowflakeTable]] = {}
-        for snowflake_schema in snowflake_db.schemas:
-            yield from self._process_schema(snowflake_schema, db_name, db_tables)
+        yield from self._process_db_schemas(snowflake_db, db_tables)
 
         if self.profiler and db_tables:
             self.report.set_ingestion_stage(snowflake_db.name, PROFILING)
             yield from self.profiler.get_workunits(snowflake_db, db_tables)
+
+    def _process_db_schemas(
+        self,
+        snowflake_db: SnowflakeDatabase,
+        db_tables: Dict[str, List[SnowflakeTable]],
+    ) -> Iterable[MetadataWorkUnit]:
+        q = queue.Queue(maxsize=100)
+
+        def _process_schema_worker(snowflake_schema: SnowflakeSchema) -> None:
+            for wu in self._process_schema(
+                snowflake_schema, snowflake_db.name, db_tables
+            ):
+                q.put(wu)
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=SCHEMA_PARALLELISM
+        ) as executor:
+            futures = []
+            for snowflake_schema in snowflake_db.schemas:
+                f = executor.submit(_process_schema_worker, snowflake_schema)
+                futures.append(f)
+
+            # Read from the queue and yield the work units until all futures are done.
+            while True:
+                if q.empty():
+                    while not q.empty():
+                        yield q.get_nowait()
+                else:
+                    try:
+                        yield q.get(timeout=0.2)
+                    except queue.Empty:
+                        pass
+
+                # Filter out the done futures.
+                futures = [f for f in futures if not f.done()]
+                if not futures:
+                    break
+
+        # Yield the remaining work units. This theoretically should not happen, but adding it just in case.
+        while not q.empty():
+            yield q.get_nowait()
 
     def fetch_schemas_for_database(
         self, snowflake_db: SnowflakeDatabase, db_name: str
