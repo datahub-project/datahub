@@ -29,16 +29,10 @@ function useDeleteEntity(
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
     const { handleDeleteDomain } = useHandleDeleteDomain({ entityData, urn });
 
-    const maybeDeleteEntity = getDeleteEntityMutation(type)();
-    const deleteEntity = (maybeDeleteEntity && maybeDeleteEntity[0]) || undefined;
-    const client = maybeDeleteEntity?.[1].client;
+    const [deleteEntity, { client }] = getDeleteEntityMutation(type)() ?? [undefined, { client: undefined }];
 
     function handleDeleteEntity() {
-        deleteEntity?.({
-            variables: {
-                urn,
-            },
-        })
+        deleteEntity?.({ variables: { urn } })
             .then(() => {
                 analytics.event({
                     type: EventType.DeleteEntityEvent,
@@ -56,10 +50,6 @@ function useDeleteEntity(
                     handleDeleteDomain();
                 }
 
-                if (client && entityData.type === EntityType.GlossaryTerm && entityData?.parentNodes?.nodes) {
-                    removeTermFromGlossaryNode(client, entityData.parentNodes.nodes[0].urn, urn);
-                }
-
                 setTimeout(
                     () => {
                         setHasBeenDeleted(true);
@@ -67,6 +57,9 @@ function useDeleteEntity(
                         if (isInGlossaryContext) {
                             const parentNodeToUpdate = getParentNodeToUpdate(entityData, type);
                             updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                            if (client) {
+                                removeTermFromGlossaryNode(client, parentNodeToUpdate, urn);
+                            }
                         }
                         if (!hideMessage) {
                             message.success({

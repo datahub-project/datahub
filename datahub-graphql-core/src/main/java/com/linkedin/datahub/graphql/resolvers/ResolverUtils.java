@@ -239,6 +239,9 @@ public class ResolverUtils {
       return null;
     }
     DataHubViewInfo viewInfo = resolveView(opContext, viewService, UrnUtils.getUrn(viewUrn));
+    if (viewInfo == null) {
+      return null;
+    }
     Filter result = SearchUtils.combineFilters(null, viewInfo.getDefinition().getFilter());
     return result;
   }

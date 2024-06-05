@@ -71,6 +71,7 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         .setDegrees(new ArrayList<>(searchEntity.getDegrees()))
         .setExplored(Boolean.TRUE.equals(searchEntity.isExplored()))
         .setIgnoredAsHop(Boolean.TRUE.equals(searchEntity.isIgnoredAsHop()))
+        .setTruncatedChildren(Boolean.TRUE.equals(searchEntity.isTruncatedChildren()))
         .build();
   }
 }
