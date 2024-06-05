@@ -215,15 +215,16 @@ class FivetranLogAPI:
         return jobs
 
     @functools.lru_cache()
+    def _get_users(self) -> Dict[str, str]:
+        users = self._query(self.fivetran_log_query.get_users_query())
+        if not users:
+            return {}
+        return {user[Constant.USER_ID]: user[Constant.EMAIL] for user in users}
+
     def get_user_email(self, user_id: str) -> Optional[str]:
         if not user_id:
             return None
-        user_details = self._query(
-            self.fivetran_log_query.get_user_query(user_id=user_id)
-        )
-        if not user_details:
-            return None
-        return f"{user_details[0][Constant.EMAIL]}"
+        return self._get_users().get(user_id)
 
     def _fill_connectors_table_lineage(self, connectors: List[Connector]) -> None:
         table_lineage_metadata = self._get_connectors_table_lineage_metadata()

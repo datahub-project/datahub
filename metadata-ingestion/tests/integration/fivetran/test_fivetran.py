@@ -89,7 +89,7 @@ def default_query_results(
                 "destination_column_name": "name",
             },
         ]
-    elif query == fivetran_log_query.get_user_query("reapply_phone"):
+    elif query == fivetran_log_query.get_users_query():
         return [
             {
                 "user_id": "reapply_phone",

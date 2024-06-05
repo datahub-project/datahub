@@ -290,6 +290,7 @@ class StaleEntityRemovalHandler(
                 report.report_last_state_non_deletable_entities(urn)
                 continue
             if urn in self._urns_to_skip:
+                report.report_last_state_non_deletable_entities(urn)
                 logger.debug(
                     f"Not soft-deleting entity {urn} since it is in urns_to_skip"
                 )
