@@ -176,6 +176,8 @@ class DataProcessInstance:
         :param result: (InstanceRunResult) the result of the run
         :param result_type: (string) It identifies the system where the native result comes from like Airflow, Azkaban
         :param attempt: (int) the attempt number of this execution
+        :param start_timestamp_millis: (Optional[int]) the start time of the execution in milliseconds
+
         """
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
@@ -215,12 +217,15 @@ class DataProcessInstance:
         :param result_type: (string) It identifies the system where the native result comes from like Airflow, Azkaban
         :param attempt: (int) the attempt number of this execution
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
+        :param start_timestamp_millis: (Optional[int]) the start time of the execution in milliseconds
+
         """
         for mcp in self.end_event_mcp(
             end_timestamp_millis=end_timestamp_millis,
             result=result,
             result_type=result_type,
             attempt=attempt,
+            start_timestamp_millis=start_timestamp_millis,
         ):
             self._emit_mcp(mcp, emitter, callback)
 

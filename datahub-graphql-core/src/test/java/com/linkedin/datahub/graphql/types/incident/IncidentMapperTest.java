@@ -136,6 +136,7 @@ public class IncidentMapperTest {
     assertEquals(incident.getAssignees().size(), 2);
     assertEquals(((CorpUser) incident.getAssignees().get(0)).getUrn(), "urn:li:corpuser:test");
     assertEquals(((CorpUser) incident.getAssignees().get(1)).getUrn(), "urn:li:corpuser:test2");
+
     assertEquals(incident.getTags().getTags().size(), 1);
     assertEquals(
         incident.getTags().getTags().get(0).getTag().getUrn().toString(), "urn:li:tag:test");

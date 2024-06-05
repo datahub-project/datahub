@@ -373,6 +373,7 @@ def test_airflow_plugin(
         golden_path=golden_path,
         ignore_paths=[
             # TODO: If we switched to Git urls, maybe we could get this to work consistently.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['datahub_sql_parser_error'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
         ],
     )

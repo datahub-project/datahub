@@ -261,6 +261,9 @@ fragment assertionResultDetails on AssertionResult {
     assertionInferenceDetails {
         generatedAt
     }
+    tags {
+        ...globalTagsFields
+    }
 }
 
 fragment assertionRunEventDetails on AssertionRunEvent {

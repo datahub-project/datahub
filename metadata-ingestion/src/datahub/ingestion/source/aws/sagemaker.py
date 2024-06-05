@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import DefaultDict, Dict, Iterable
+from typing import DefaultDict, Dict, Iterable, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -10,7 +10,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceConfig,
@@ -26,13 +26,19 @@ from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
 )
 from datahub.ingestion.source.aws.sagemaker_processors.lineage import LineageProcessor
 from datahub.ingestion.source.aws.sagemaker_processors.models import ModelProcessor
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
 
 
 @platform_name("SageMaker")
 @config_class(SagemakerSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-class SagemakerSource(Source):
+class SagemakerSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
@@ -45,7 +51,7 @@ class SagemakerSource(Source):
     report = SagemakerSourceReport()
 
     def __init__(self, config: SagemakerSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.report = SagemakerSourceReport()
         self.sagemaker_client = config.sagemaker_client
@@ -55,6 +61,14 @@ class SagemakerSource(Source):
     def create(cls, config_dict, ctx):
         config = SagemakerSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # get common lineage graph
