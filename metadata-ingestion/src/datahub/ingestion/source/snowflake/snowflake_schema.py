@@ -1,14 +1,10 @@
-import functools
 import logging
-import threading
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from typing import Callable, Dict, List, Optional
 
-import cachetools
-import cachetools.keys
 from snowflake.connector import SnowflakeConnection
 
 from datahub.ingestion.api.report import SupportsAsObj
@@ -16,41 +12,11 @@ from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 SCHEMA_PARALLELISM = 10
-
-
-def serialized_lru_cache(maxsize: int) -> Callable:
-    """Similar to `lru_cache`, but ensures multiple calls with the same parameters are serialized."""
-
-    def decorator(func: Callable) -> Callable:
-        cache_lock = threading.Lock()
-        cache = cachetools.LRUCache(maxsize=maxsize)
-        locks: Dict[str, threading.Lock] = {}
-
-        @functools.wraps(func)
-        def wrapped(*args, **kwargs):
-            key = cachetools.keys.hashkey(*args, **kwargs)
-
-            with cache_lock:
-                if key in cache:
-                    return cache[key]
-
-                lock = locks[key]
-
-            with lock:
-                # TODO check the cache again?
-                result = func(*args, **kwargs)
-                with cache_lock:
-                    cache[key] = result
-
-                return result
-
-        return wrapped
-
-    return decorator
 
 
 @dataclass
@@ -407,7 +373,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
             )
         return views
 
-    @lru_cache(maxsize=SCHEMA_PARALLELISM)
+    @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_columns_for_schema(
         self, schema_name: str, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeColumn]]]:
@@ -463,7 +429,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
             )
         return columns
 
-    @lru_cache(maxsize=SCHEMA_PARALLELISM)
+    @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_pk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, SnowflakePK]:
@@ -480,7 +446,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
             constraints[row["table_name"]].column_names.append(row["column_name"])
         return constraints
 
-    @lru_cache(maxsize=SCHEMA_PARALLELISM)
+    @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_fk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeFK]]:

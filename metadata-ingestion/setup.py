@@ -197,6 +197,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
+    "cachetools",
 } | classification_lib
 
 trino = {
