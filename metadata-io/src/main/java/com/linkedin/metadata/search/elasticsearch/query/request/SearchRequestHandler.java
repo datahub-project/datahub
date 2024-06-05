@@ -644,14 +644,6 @@ public class SearchRequestHandler {
 
   // SAAS ONLY - Predicate support for filters
   public BoolQueryBuilder getFilterQuery(@Nonnull OperationContext opContext, @Nullable Predicate predicate) {
-    return getFilterQuery(opContext, predicate, searchableFieldPaths, searchableFieldTypes);
-  }
-
-  public static BoolQueryBuilder getFilterQuery(
-      @Nonnull OperationContext opContext,
-      @Nullable Predicate predicate,
-      Map<PathSpec, String> searchableFieldPaths,
-      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     BoolQueryBuilder filterQuery = ESPredicateUtils.buildFilterQuery(predicate, false, searchableFieldPaths,
         searchableFieldTypes, opContext);
 
