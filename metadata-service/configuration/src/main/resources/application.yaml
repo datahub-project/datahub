@@ -490,7 +490,8 @@ entityClient:
       batchSize: ${ENTITY_CLIENT_JAVA_GET_BATCH_SIZE:375} # matches EbeanAspectDao batch size
   restli:
     get:
-      batchSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE:100} # limited to prevent exceeding restli URI size limit
+      batchSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE:50} # limited to prevent exceeding restli URI/header size limits
+      batchConcurrency: ${ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY:2} # parallel threads
 
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
