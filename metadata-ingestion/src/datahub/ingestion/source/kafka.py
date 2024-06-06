@@ -308,7 +308,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if self.source_config.topic_patterns.allowed(topic):
                 try:
                     yield from self._extract_record(
-                        topic, "", topic_detail, extra_topic_details.get(topic)
+                        topic, False, topic_detail, extra_topic_details.get(topic)
                     )
                 except Exception as e:
                     logger.warning(f"Failed to extract topic {topic}", exc_info=True)
@@ -322,7 +322,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         for subject in self.schema_registry_client.get_subjects():
             try:
                 yield from self._extract_record(
-                    "", subject, topic_detail=None, extra_topic_config=None
+                    subject, True, topic_detail=None, extra_topic_config=None
                 )
             except Exception as e:
                 logger.warning(f"Failed to extract subject {subject}", exc_info=True)
@@ -333,25 +333,25 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def _extract_record(
         self,
         topic: str,
-        subject: str,
+        is_subject: bool,
         topic_detail: Optional[TopicMetadata],
         extra_topic_config: Optional[Dict[str, ConfigEntry]],
     ) -> Iterable[MetadataWorkUnit]:
         AVRO = "AVRO"
 
-        kafka_entity = topic if len(topic) != 0 else subject
-        is_subject = False if len(topic) != 0 else True
+        kafka_entity = "subject" if is_subject else "topic"
 
-        logger.debug(f"kafka entity name = {kafka_entity}")
+        logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
 
         platform_urn = make_data_platform_urn(self.platform)
 
         # 1. Create schemaMetadata aspect (pass control to SchemaRegistry)
         schema_metadata = self.schema_registry_client.get_schema_metadata(
-            kafka_entity, platform_urn, is_subject
+            topic, platform_urn, is_subject
         )
 
         # topic can have no associated subject, but still it can be ingested without schema
+        # for schema ingestion, ingest only if it has valid schema
         if is_subject:
             if schema_metadata is None:
                 return
@@ -359,10 +359,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         else:
             dataset_name = topic
 
-        # dataset_name = schema_metadata.schemaName if len(topic) == 0 else topic
         # 2. Create the default dataset snapshot for the topic.
-        #         if schema_metadata is not None:
-        #             dataset_name = schema_metadata.schemaName if len(topic) == 0 else topic
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
@@ -386,17 +383,17 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         # build custom properties for topic, schema properties may be added as needed
         custom_props: Dict[str, str] = {}
-        if len(topic) != 0:
+        if not is_subject:
             custom_props = self.build_custom_properties(
                 topic, topic_detail, extra_topic_config
             )
-            schemaName: Optional[
+            schema_name: Optional[
                 str
             ] = self.schema_registry_client._get_subject_for_topic(
-                dataset_subtype=topic, is_key_schema=False
+                topic, is_key_schema=False
             )
-            if schemaName is not None:
-                custom_props["Schema Name"] = schemaName
+            if schema_name is not None:
+                custom_props["Schema Name"] = schema_name
 
         # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
         description: Optional[str] = None
@@ -472,7 +469,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         yield MetadataWorkUnit(id=f"kafka-{kafka_entity}", mce=mce)
 
         # 7. Add the subtype aspect marking this as a "topic" or "schema"
-        typeName = DatasetSubTypes.TOPIC if len(topic) != 0 else DatasetSubTypes.SCHEMA
+        typeName = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=SubTypesClass(typeNames=[typeName]),
