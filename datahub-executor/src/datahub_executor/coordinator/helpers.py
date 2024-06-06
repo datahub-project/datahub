@@ -51,6 +51,7 @@ def start_ingestion_pipeline(sighandler: List[Callable]) -> None:
                 consumer_config=connection.get("consumer_config", {}),
             ),
             topic_routes=config_dict.get("topic_routes", None),
+            async_commit_enabled=True,
         ),
         ctx=PipelineContext(
             pipeline_name="datahub-executor-ingestion-pipeline",
