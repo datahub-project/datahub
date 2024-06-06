@@ -66,7 +66,7 @@ MAX_CONTENT_WIDTH = 120
     "--log-file",
     type=click.Path(dir_okay=False),
     default=None,
-    help="Enable debug logging.",
+    help="Write debug-level logs to a file.",
 )
 @click.version_option(
     version=datahub_package.nice_version_name(),
