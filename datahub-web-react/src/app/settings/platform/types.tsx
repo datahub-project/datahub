@@ -1,10 +1,12 @@
 import React from 'react';
 import oidcLogo from '../../../images/oidclogo.png';
 import slackLogo from '../../../images/slacklogo.png';
+import acrylLogo from '../../../images/acryl-dark-mark.svg';
 import snowflakeLogo from '../../../images/snowflakelogo.png';
 import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '../../../types.generated';
 import { SlackIntegration } from './slack/SlackIntegration';
 import { OidcIntegration } from './sso/OidcIntegration';
+import AcrylInstances from './acryl/AcrylInstances';
 import { SnowflakeIntegration } from './snowflake/SnowflakeIntegration';
 
 /**
@@ -32,6 +34,18 @@ const SLACK_INTEGRATION = {
 };
 
 /**
+ * Acryl Instance Integrations
+ */
+
+const ACRYL_INSTANCE_INTEGRATION = {
+    id: 'acryl',
+    name: 'Acryl',
+    img: acrylLogo,
+    description: 'Integrate with another Acryl instance to enable sharing, etc.',
+    content: <AcrylInstances />,
+};
+
+/**
  * Ingestion Integrations
  */
 const SNOWFLAKE_INTEGRATION = {
@@ -42,7 +56,7 @@ const SNOWFLAKE_INTEGRATION = {
 	content: <SnowflakeIntegration />,
 };
 
-export const SUPPORTED_INTEGRATIONS = [SLACK_INTEGRATION, SNOWFLAKE_INTEGRATION];
+export const SUPPORTED_INTEGRATIONS = [SLACK_INTEGRATION, ACRYL_INSTANCE_INTEGRATION, SNOWFLAKE_INTEGRATION];
 
 /**
  * Notifications

@@ -13,6 +13,21 @@ mutation upsertConnection($input: UpsertDataHubConnectionInput!) {
     }
 }
 
+mutation updateConnection($input: UpdateDataHubConnectionInput!) {
+    updateConnection(input: $input) {
+        urn
+        details {
+            type
+            json {
+                blob
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+}
+
 query connection($urn: String!) {
     connection(urn: $urn) {
         urn

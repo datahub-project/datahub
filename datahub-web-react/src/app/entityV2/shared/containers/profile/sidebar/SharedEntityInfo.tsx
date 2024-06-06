@@ -13,7 +13,7 @@ import analytics, { EventType } from '../../../../../analytics';
 import { useShareEntityMutation } from '../../../../../../graphql/share.generated';
 import { EntityType, ShareResult } from '../../../../../../types.generated';
 import { InstanceIcon, StyledLabel } from './shared/styledComponents';
-import { StyledCheckbox, StyledShareButton } from '../../../../../shared/share/v2/styledComponents';
+import { StyledCheckbox, StyledButton } from '../../../../../shared/share/v2/styledComponents';
 
 const SharingInfoContainer = styled.div`
     margin-bottom: 12px;
@@ -193,12 +193,12 @@ export const SharedEntityInfo = ({
                 <StyledLabel>Sharing with</StyledLabel>
                 {selectedInstancesToUnshare.length > 0 && (
                     <ButtonContainer>
-                        <StyledShareButton
+                        <StyledButton
                             $color={REDESIGN_COLORS.TITLE_PURPLE}
                             onClick={() => setSelectedInstancesToUnshare([])}
                         >
                             Clear
-                        </StyledShareButton>
+                        </StyledButton>
                     </ButtonContainer>
                 )}
             </HeaderContainer>

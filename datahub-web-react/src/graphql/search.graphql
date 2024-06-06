@@ -920,6 +920,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on DataHubConnection {
         details {
             name
+            json {
+                blob
+            }
         }
     }
 }
