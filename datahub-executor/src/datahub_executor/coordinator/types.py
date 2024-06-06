@@ -11,11 +11,14 @@ from datahub_executor.common.types import (
     DatasetFieldSourceType,
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
+    DatasetSchemaAssertionParameters,
+    DatasetSchemaSourceType,
     DatasetVolumeAssertionParameters,
     DatasetVolumeSourceType,
     FieldAssertion,
     FreshnessAssertion,
     FreshnessFieldKind,
+    SchemaAssertion,
     SQLAssertion,
     VolumeAssertion,
 )
@@ -81,6 +84,13 @@ class FieldAssertionParametersSchema(BaseModel):
         )
 
 
+class SchemaAssertionParametersSchema(BaseModel):
+    source_type: DatasetSchemaSourceType = Field(alias="sourceType")
+
+    def to_internal_params(self) -> DatasetSchemaAssertionParameters:
+        return DatasetSchemaAssertionParameters(sourceType=self.source_type)
+
+
 class AssertionInfoSchema(BaseModel):
     freshness_assertion: Optional[FreshnessAssertion] = Field(
         alias="freshnessAssertion"
@@ -88,6 +98,7 @@ class AssertionInfoSchema(BaseModel):
     volume_assertion: Optional[VolumeAssertion] = Field(alias="volumeAssertion")
     sql_assertion: Optional[SQLAssertion] = Field(alias="sqlAssertion")
     field_assertion: Optional[FieldAssertion] = Field(alias="fieldAssertion")
+    schema_assertion: Optional[SchemaAssertion] = Field(alias="schemaAssertion")
 
 
 class AssertionEvaluationParametersSchema(BaseModel):
@@ -104,6 +115,11 @@ class AssertionEvaluationParametersSchema(BaseModel):
     # Dataset FIELD Parameters. Present if the type is DATASET_FIELD
     dataset_field_parameters: Optional[FieldAssertionParametersSchema] = Field(
         alias="datasetFieldParameters"
+    )
+
+    # Dataset SCHEMA Parameters. Present if the type is DATASET_FIELD
+    dataset_schema_parameters: Optional[SchemaAssertionParametersSchema] = Field(
+        alias="datasetSchemaParameters"
     )
 
     # The type of the parameters"""
@@ -134,6 +150,13 @@ class AssertionEvaluationParametersSchema(BaseModel):
             raise ValueError(
                 f"datasetFieldParameters is required when type is {AssertionEvaluationParametersType.DATASET_FIELD.value}"
             )
+        if (
+            type == AssertionEvaluationParametersType.DATASET_SCHEMA
+            and values.get("dataset_schema_parameters") is None
+        ):
+            raise ValueError(
+                f"datasetSchemaParameters is required when type is {AssertionEvaluationParametersType.DATASET_SCHEMA.value}"
+            )
 
         return type
 
@@ -148,6 +171,9 @@ class AssertionEvaluationParametersSchema(BaseModel):
             else None,
             dataset_field_parameters=self.dataset_field_parameters.to_internal_params()
             if self.dataset_field_parameters
+            else None,
+            dataset_schema_parameters=self.dataset_schema_parameters.to_internal_params()
+            if self.dataset_schema_parameters
             else None,
         )
 

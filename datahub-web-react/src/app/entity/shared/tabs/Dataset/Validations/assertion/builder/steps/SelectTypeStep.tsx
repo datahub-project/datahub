@@ -14,7 +14,7 @@ import {
 } from '../constants';
 import { getDefaultDatasetFreshnessAssertionParametersState, isEntityEligibleForAssertionMonitoring } from '../utils';
 import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
-import { getDefaultDatasetFieldAssertionParametersState, getDefaultDatasetFieldAssertionState, getDefaultDatasetSchemaAssertionState } from './field/utils';
+import { getDefaultDatasetFieldAssertionParametersState, getDefaultDatasetFieldAssertionState, getDefaultDatasetSchemaAssertionParametersState, getDefaultDatasetSchemaAssertionState } from './field/utils';
 import { useAppConfig } from '../../../../../../../../useAppConfig';
 
 const Step = styled.div`
@@ -106,8 +106,12 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
                     type,
                     schemaAssertion: getDefaultDatasetSchemaAssertionState(),
                 },
+                parameters: getDefaultDatasetSchemaAssertionParametersState(),
             };
         }
+
+        console.log(newState);
+
 
         updateState({
             ...newState,

@@ -585,6 +585,12 @@ input UpsertDatasetSchemaAssertionMonitorInput {
   The parameters required to evaluate a dataset schema assertion -- Optional since there are no useful options yet.
   """
   evaluationParameters: DatasetSchemaAssertionParametersInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  If not provided, a default of every 6 hours will be used.
+  """
+  evaluationSchedule: CronScheduleInput
 }
 
 """
@@ -2019,6 +2025,26 @@ input FieldMetricAssertionInput {
 }
 
 """
+Input for creating a new Data Schema Assertion.
+"""
+input CreateSchemaAssertionInput {
+  """
+  The entity targeted by this Field check.
+  """
+  entityUrn: String!
+
+  """
+  The compatibility level required for the assertion to pass.
+  """
+  compatibility: SchemaAssertionCompatibility!
+
+  """
+  The list of fields defining the schema.
+  """
+  fields: [SchemaAssertionFieldInput!]!
+}
+
+"""
 Input for testing a new Assertion
 """
 input TestAssertionInput {
@@ -2055,7 +2081,7 @@ input TestAssertionInput {
   """
   Input for testing a Schema assertion. Required if type is DATA_SCHEMA.
   """
-  schemaTestInput: SchemaAssertionInput
+  schemaTestInput: CreateSchemaAssertionInput
 
   """
   Parameters required to evaluate the assertion

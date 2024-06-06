@@ -1,10 +1,14 @@
 
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
 import { AssertionBuilderStep, StepProps } from '../types';
 import { AssertionActionsSection } from './actions/AssertionActionsSection';
 import { SchemaAssertionBuilder } from './schema/SchemaAssertionBuilder';
+import { useTestAssertionModal } from '../../../../../../../../entity/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
+import { TestAssertionModal } from './preview/TestAssertionModal';
+import { AssertionEvaluationParametersInput, AssertionType, CreateSchemaAssertionInput } from '../../../../../../../../../types.generated';
+import { builderStateToTestSchemaAssertionVariables } from '../utils';
 
 const Step = styled.div`
     height: 100%;
@@ -30,6 +34,7 @@ const ControlsGroup = styled.div`
  * TODO: Add support for trying this type of assertion out. 
  */
 export const ConfigureDatasetSchemaAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
+    const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
     return (
         <Step>
             <div>
@@ -39,16 +44,22 @@ export const ConfigureDatasetSchemaAssertionStep = ({ state, updateState, goTo, 
             <Controls>
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>
-                    <Tooltip
-                        title="Coming soon!"
-                    >
-                        <Button onClick={undefined} disabled>Try it out</Button>
-                    </Tooltip>
+                    <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
                     <Button type="primary" onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>
                         Next
                     </Button>
                 </ControlsGroup>
             </Controls>
+            <TestAssertionModal
+                visible={isTestAssertionModalVisible}
+                handleClose={hideTestAssertionModal}
+                input={{
+                    type: AssertionType.DataSchema,
+                    connectionUrn: state.platformUrn as string,
+                    schemaTestInput: builderStateToTestSchemaAssertionVariables(state) as CreateSchemaAssertionInput,
+                    parameters: state.parameters as AssertionEvaluationParametersInput,
+                }}
+            />
         </Step>
     );
 };
