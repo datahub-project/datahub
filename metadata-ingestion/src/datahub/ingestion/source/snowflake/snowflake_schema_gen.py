@@ -303,7 +303,7 @@ class SnowflakeSchemaGenerator(
         snowflake_db: SnowflakeDatabase,
         db_tables: Dict[str, List[SnowflakeTable]],
     ) -> Iterable[MetadataWorkUnit]:
-        q = queue.Queue(maxsize=100)
+        q: "queue.Queue[MetadataWorkUnit]" = queue.Queue(maxsize=100)
 
         def _process_schema_worker(snowflake_schema: SnowflakeSchema) -> None:
             for wu in self._process_schema(
