@@ -1,4 +1,4 @@
-import { DataContractProposalOperationType, DataContract } from '../../../../../../../../types.generated';
+import { DataContract } from '../../../../../../../../types.generated';
 import { DataContractBuilderState, DataContractCategoryType } from './types';
 
 /**
@@ -30,25 +30,6 @@ export const createBuilderState = (contract?: DataContract | null): DataContract
 export const buildUpsertDataContractMutationVariables = (entityUrn: string, state: DataContractBuilderState) => {
     return {
         input: {
-            entityUrn,
-            freshness: (state.freshness && [state.freshness]) || [],
-            schema: (state.schema && [state.schema]) || [],
-            dataQuality: state.dataQuality || [],
-        },
-    };
-};
-
-/**
- * Constructs the input variables required for proposing a data contract using graphql
- */
-export const buildProposeDataContractMutationVariables = (
-    operationType: DataContractProposalOperationType,
-    entityUrn: string,
-    state: DataContractBuilderState,
-) => {
-    return {
-        input: {
-            operationType,
             entityUrn,
             freshness: (state.freshness && [state.freshness]) || [],
             schema: (state.schema && [state.schema]) || [],

@@ -106,4 +106,9 @@ export const getDataContractCategoryFromAssertion = (assertion: Assertion) => {
     return DataContractCategoryType.DATA_QUALITY;
 };
 
-export const DATA_QUALITY_ASSERTION_TYPES = new Set([AssertionType.Volume, AssertionType.Sql, AssertionType.Field]);
+export const DATA_QUALITY_ASSERTION_TYPES = new Set([
+    AssertionType.Volume,
+    AssertionType.Sql,
+    AssertionType.Field,
+    AssertionType.Dataset,
+]);

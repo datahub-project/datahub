@@ -66,7 +66,6 @@ export const DatasetAssertionsList = ({
     selectedUrns,
 }: Props) => {
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
-    console.log('selectedUrns>>>>', selectedUrns);
 
     const deleteAssertion = async (urn: string) => {
         try {

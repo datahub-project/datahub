@@ -1,33 +1,9 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { Button, message, Modal, Typography } from 'antd';
-import {
-    CheckOutlined,
-    CloseOutlined,
-    EyeOutlined,
-    InfoCircleOutlined,
-    PlusOutlined,
-    StopOutlined,
-} from '@ant-design/icons';
-import { useEntityData } from '../../../../EntityContext';
-// import { useGetContractProposalsQuery } from '../../../../../../../../graphql/contract.generated';
-// import {
-//     ActionRequestStatus,
-//     ActionRequestType,
-//     DataContractProposalParams,
-//     EntityType,
-// } from '../../../../../../../../types.generated';
-import { DataContractProposalDescription } from './proposal/DataContractProposalDescription';
-// import {
-//     useAcceptProposalMutation,
-//     useRejectProposalMutation,
-// } from '../../../../../../../../graphql/actionRequest.generated';
+import { Button, Typography } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+
 import { ANTD_GRAY } from '../../../../constants';
-import { FAILURE_COLOR_HEX } from '../../../Incident/incidentUtils';
-import { FreshnessContractSummary } from './FreshnessContractSummary';
-import { SchemaContractSummary } from './SchemaContractSummary';
-import { DataQualityContractSummary } from './DataQualityContractSummary';
-import analytics, { EntityActionType, EventType } from '../../../../../../analytics';
 
 const Container = styled.div``;
 
@@ -66,14 +42,6 @@ const Actions = styled.div`
     margin-right: 20px;
 `;
 
-const ApproveButton = styled(Button)`
-    margin-right: 12px;
-    background-color: ${(props) => props.theme.styles['primary-color']};
-    border-color: ${(props) => props.theme.styles['primary-color']};
-    color: white;
-    letter-spacing: 2px;
-`;
-
 const CreateButton = styled(Button)`
     margin-right: 12px;
     border-color: ${(props) => props.theme.styles['primary-color']};
@@ -86,41 +54,15 @@ const CreateButton = styled(Button)`
     }
 `;
 
-const DenyButton = styled(Button)`
-    color: ${FAILURE_COLOR_HEX};
-    border-color: ${FAILURE_COLOR_HEX};
-    letter-spacing: 2px;
-    &&:hover {
-        color: white;
-        background-color: ${FAILURE_COLOR_HEX};
-        border-color: ${FAILURE_COLOR_HEX};
-    }
-    margin-right: 12px;
-`;
-
-const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
-    margin-left: 4px;
-    font-size: 10px;
-    color: ${ANTD_GRAY[7]};
-`;
-
-const StyledEyeOutlined = styled(EyeOutlined)`
-    font-size: 24px;
-    color: ${ANTD_GRAY[7]};
-`;
-
-// type Props = {
-//     showContractBuilder: () => void;
-//     refetch: () => void;
-//     entityUrn: string;
-//     entityType?: EntityType;
-// };
+type Props = {
+    showContractBuilder: () => void;
+};
 
 /**
  *  Displaying a Data Contract proposal for an entity.
  */
 
-export const DataContractEmptyState = ({ showContractBuilder }: any) => {
+export const DataContractEmptyState = ({ showContractBuilder }: Props) => {
     return (
         <Container>
             <Summary>

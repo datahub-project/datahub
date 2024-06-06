@@ -23,22 +23,16 @@ export type DataContractBuilderState = {
         assertionUrn: string;
     }[];
 
-    // TODO check if this type is needed or not if not needed then remove it
-    dataset?: {
-        assertionUrn: string;
-    }[];
 };
 
 export const DEFAULT_BUILDER_STATE = {
     dataQuality: undefined,
     schema: undefined,
     freshness: undefined,
-    dataset: undefined,
 };
 
 export enum DataContractCategoryType {
     FRESHNESS = 'Freshness',
     SCHEMA = 'Schema',
     DATA_QUALITY = 'Data Quality',
-    DATA_SET = 'Data Set',
 }

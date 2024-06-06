@@ -11,7 +11,7 @@ import {
     Assertion,
 } from '../../../../../../../../types.generated';
 import { DataContractBuilderState, DataContractCategoryType, DEFAULT_BUILDER_STATE } from './types';
-import { buildUpsertDataContractMutationVariables, buildProposeDataContractMutationVariables } from './utils';
+import { buildUpsertDataContractMutationVariables } from './utils';
 import {
     // useProposeDataContractMutation,
     useUpsertDataContractMutation,
@@ -82,7 +82,6 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
     const freshnessAssertions =
         assertionGroups.find((group) => group.type === AssertionType.Freshness)?.assertions || [];
     const schemaAssertions = assertionGroups.find((group) => group.type === AssertionType.DataSchema)?.assertions || [];
-    const dataSetAssertions = assertionGroups.find((group) => group.type === AssertionType.Dataset)?.assertions || [];
     const dataQualityAssertions = assertionGroups
         .filter((group) => DATA_QUALITY_ASSERTION_TYPES.has(group.type))
         .flatMap((group) => group.assertions || []);
@@ -166,14 +165,6 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                     />
                 )) ||
                     undefined}
-                {dataSetAssertions.length && (
-                    <DataContractAssertionGroupSelect
-                        category={DataContractCategoryType.DATA_SET}
-                        assertions={dataSetAssertions}
-                        selectedUrns={builderState.dataset?.map((c) => c.assertionUrn) || []}
-                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'dataset')}
-                    />
-                )}
             </AssertionsSection>
             <ActionContainer>
                 <CancelButton onClick={onCancel}>Cancel</CancelButton>

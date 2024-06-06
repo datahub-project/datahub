@@ -91,7 +91,7 @@ export const DataContractTab = () => {
                                     undefined}
                             </LeftColumn>
                         )}
-                        {/* <RightColumn>
+                        <RightColumn>
                             {(hasDataQualityContract && (
                                 <DataQualityContractSummary
                                     contracts={dataQualityContracts as any}
@@ -99,17 +99,10 @@ export const DataContractTab = () => {
                                 />
                             )) ||
                                 undefined}
-                        </RightColumn> */}
+                        </RightColumn>
                     </Container>
                 </>
-            )) || (
-                <DataContractEmptyState
-                    refetch={refetch}
-                    showContractBuilder={() => setShowContractBuilder(true)}
-                    entityUrn={urn}
-                    entityType={entityType}
-                />
-            )}
+            )) || <DataContractEmptyState showContractBuilder={() => setShowContractBuilder(true)} />}
             {showContractBuilder && (
                 <DataContractBuilderModal
                     initialState={createBuilderState(data?.dataset?.contract as any)}
