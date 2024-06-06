@@ -73,7 +73,7 @@ public class KafkaEventConsumerFactory {
           Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties();
+    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties(null);
     customizedProperties.put(
         ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
     customizedProperties.put(
