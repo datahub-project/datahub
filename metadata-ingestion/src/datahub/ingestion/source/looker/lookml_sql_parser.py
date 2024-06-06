@@ -19,6 +19,27 @@ from datahub.sql_parsing.sqlglot_lineage import (
 logger = logging.getLogger(__name__)
 
 
+def _drop_hive_dot(urn: str) -> str:
+    """
+    This is special handling for hive platform where hive. is coming in urn id because of way SQL is written in lookml.
+
+    Example: urn:li:dataset:(urn:li:dataPlatform:hive,hive.my_database.my_table,PROD)
+
+    Here we need to transform hive.my_database.my_table to my_database.my_table
+    """
+    if urn.startswith("urn:li:dataset:(urn:li:dataPlatform:hive"):
+        return re.sub(r"hive\.", "", urn)
+
+    return urn
+
+
+def _drop_hive_dot_from_upstream(upstreams: List[ColumnRef]) -> List[ColumnRef]:
+    return [
+        ColumnRef(table=_drop_hive_dot(column_ref.table), column=column_ref.column)
+        for column_ref in upstreams
+    ]
+
+
 def _create_fields(spr: SqlParsingResult) -> List[ViewField]:
     fields: List[ViewField] = []
 
@@ -36,7 +57,7 @@ def _create_fields(spr: SqlParsingResult) -> List[ViewField]:
                 else "unknown",
                 description="",
                 field_type=ViewFieldType.UNKNOWN,
-                upstream_fields=cll.upstreams,
+                upstream_fields=_drop_hive_dot_from_upstream(cll.upstreams),
             )
         )
 
@@ -61,7 +82,9 @@ def _update_upstream_fields_from_spr(
         if view_field_map.get(cll.downstream.column) is None:
             continue
 
-        view_field_map[cll.downstream.column].upstream_fields = cll.upstreams
+        view_field_map[
+            cll.downstream.column
+        ].upstream_fields = _drop_hive_dot_from_upstream(cll.upstreams)
         view_updated[cll.downstream.column] = True
 
     # filter field skip in update. It might be because field is derived from measure/dimension of current view.
@@ -83,7 +106,8 @@ def _update_fields(
 
     for skip_field in skip_fields:
         upstream_fields: List[ColumnRef] = []
-        # Look for column and set ColumnRef for current view
+        # Look for column and set ColumnRef for current view as skip_filed are the field created from
+        # combination of current view field
         for column in skip_field.upstream_fields:
             if column in columns:
                 upstream_fields.append(
@@ -95,7 +119,7 @@ def _update_fields(
                 )
 
         # set the upstream to resolved upstream_fields
-        skip_field.upstream_fields = upstream_fields
+        skip_field.upstream_fields = _drop_hive_dot_from_upstream(upstream_fields)
 
     return fields
 
@@ -231,7 +255,7 @@ class ViewFieldBuilder:
             graph=ctx.graph,
         )
 
-        upstream_urns: List[str] = [urn for urn in spr.in_tables]
+        upstream_urns: List[str] = [_drop_hive_dot(urn) for urn in spr.in_tables]
 
         if self.fields:  # It is syntax1
             return (
