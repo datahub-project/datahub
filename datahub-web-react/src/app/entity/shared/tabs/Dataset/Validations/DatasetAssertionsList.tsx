@@ -1,15 +1,26 @@
 import { Button, Dropdown, Empty, Image, message, Modal, Tag, Tooltip, Typography, Checkbox } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { DeleteOutlined, DownOutlined, MoreOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
+import {
+    DeleteOutlined,
+    DownOutlined,
+    MoreOutlined,
+    RightOutlined,
+    StopOutlined,
+    AuditOutlined,
+} from '@ant-design/icons';
 import { DatasetAssertionDescription } from './DatasetAssertionDescription';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { DatasetAssertionDetails } from './DatasetAssertionDetails';
-import { Assertion, AssertionRunStatus, DataContract } from '../../../../../../types.generated';
+import { Assertion, AssertionRunStatus, DataContract, EntityType } from '../../../../../../types.generated';
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import AssertionMenu from './AssertionMenu';
+import { Link } from 'react-router-dom';
+import { REDESIGN_COLORS } from '../../../constants';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { isAssertionPartOfContract } from './contract/utils';
 
 const ResultContainer = styled.div`
     display: flex;
@@ -39,6 +50,12 @@ const AssertionSelectCheckbox = styled(Checkbox)`
     margin-right: 12px;
 `;
 
+const DataContractLogo = styled(AuditOutlined)`
+    margin-left: 8px;
+    font-size: 16px;
+    color: ${REDESIGN_COLORS.BLUE};
+`;
+
 type Props = {
     assertions: Array<Assertion>;
     onDelete?: (urn: string) => void;
@@ -64,8 +81,10 @@ export const DatasetAssertionsList = ({
     showSelect,
     onSelect,
     selectedUrns,
+    contract,
 }: Props) => {
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
+    const entityRegistry = useEntityRegistry();
 
     const deleteAssertion = async (urn: string) => {
         try {
@@ -121,6 +140,11 @@ export const DatasetAssertionsList = ({
                 const resultText = (record.lastExecResult && getResultText(record.lastExecResult)) || 'No Evaluations';
                 const resultIcon = (record.lastExecResult && getResultIcon(record.lastExecResult)) || <StopOutlined />;
                 const selected = selectedUrns?.some((selectedUrn) => selectedUrn === record.urn);
+                const isPartOfContract = contract && isAssertionPartOfContract(record, contract);
+                const assertionEntityUrn = record.urn;
+                console.log('isPartOfContract>>>>>', isPartOfContract);
+                console.log('assertionEntityUrn>>>>>', assertionEntityUrn);
+
                 const { description } = record;
                 return (
                     <ResultContainer>
@@ -143,6 +167,36 @@ export const DatasetAssertionsList = ({
                             description={description}
                             assertionInfo={record.datasetAssertionInfo}
                         />
+                        {/* TODO work on below condition to handle assertionEntityUrn */}
+                        {/* {(isPartOfContract && assertionEntityUrn && ( */}
+                        {(isPartOfContract && (
+                            <Tooltip
+                                title={
+                                    <>
+                                        Part of Data Contract{' '}
+                                        <Link
+                                            to={`${entityRegistry.getEntityUrl(
+                                                EntityType.Dataset,
+                                                assertionEntityUrn,
+                                            )}/Validation/Data Contract`}
+                                            style={{ color: REDESIGN_COLORS.BLUE }}
+                                        >
+                                            view
+                                        </Link>
+                                    </>
+                                }
+                            >
+                                <Link
+                                    to={`${entityRegistry.getEntityUrl(
+                                        EntityType.Dataset,
+                                        assertionEntityUrn,
+                                    )}/Validation/Data Contract`}
+                                >
+                                    <DataContractLogo />
+                                </Link>
+                            </Tooltip>
+                        )) ||
+                            undefined}
                     </ResultContainer>
                 );
             },
