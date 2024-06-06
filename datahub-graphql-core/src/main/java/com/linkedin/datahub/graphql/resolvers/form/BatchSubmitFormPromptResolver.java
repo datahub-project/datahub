@@ -13,6 +13,8 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -38,6 +40,8 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
     final String promptId = promptInput.getPromptId();
     final Urn formUrn = UrnUtils.getUrn(promptInput.getFormUrn());
     final String fieldPath = promptInput.getFieldPath();
+    final List<String> fieldPaths =
+        promptInput.getFieldPaths() != null ? promptInput.getFieldPaths() : new ArrayList<>();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -65,10 +69,14 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                 throw new IllegalArgumentException(
                     "Failed to provide structured property params for prompt type FIELDS_STRUCTURED_PROPERTY");
               }
-              if (fieldPath == null) {
+              if (fieldPath == null && fieldPaths.size() == 0) {
                 throw new IllegalArgumentException(
-                    "Failed to provide fieldPath for prompt type FIELDS_STRUCTURED_PROPERTY");
+                    "Failed to provide fieldPaths for prompt type FIELDS_STRUCTURED_PROPERTY");
               }
+              if (fieldPath != null) {
+                fieldPaths.add(fieldPath);
+              }
+              List<String> uniqueFieldPaths = new ArrayList<>(new HashSet<>(fieldPaths));
               final Urn structuredPropertyUrn =
                   UrnUtils.getUrn(
                       promptInput.getStructuredPropertyParams().getStructuredPropertyUrn());
@@ -82,7 +90,7 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   values,
                   formUrn,
                   promptId,
-                  fieldPath);
+                  uniqueFieldPaths);
             }
             return false;
           } catch (Exception e) {

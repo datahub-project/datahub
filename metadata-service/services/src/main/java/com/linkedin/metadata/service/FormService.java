@@ -295,14 +295,14 @@ public class FormService extends BaseService {
       @Nonnull final PrimitivePropertyValueArray values,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nonnull final String fieldPath)
+      @Nonnull final List<String> fieldPaths)
       throws Exception {
     entityUrns.forEach(
         urnStr -> {
           Urn urn = UrnUtils.getUrn(urnStr);
           try {
             submitFieldStructuredPropertyPromptResponse(
-                opContext, urn, structuredPropertyUrn, values, formUrn, formPromptId, fieldPath);
+                opContext, urn, structuredPropertyUrn, values, formUrn, formPromptId, fieldPaths);
           } catch (Exception e) {
             throw new RuntimeException(
                 "Failed to batch submit field structured property prompt", e);
@@ -320,15 +320,17 @@ public class FormService extends BaseService {
       @Nonnull final PrimitivePropertyValueArray values,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nonnull final String fieldPath)
+      @Nonnull final List<String> fieldPaths)
       throws Exception {
 
     // First, let's apply the action and add the structured property.
-    ingestSchemaFieldStructuredProperties(
-        opContext, entityUrn, structuredPropertyUrn, values, fieldPath);
+    for (String fieldPath : fieldPaths) {
+      ingestSchemaFieldStructuredProperties(
+          opContext, entityUrn, structuredPropertyUrn, values, fieldPath);
+    }
 
     // Then, let's apply the change to the entity's form status.
-    ingestCompletedFieldFormResponse(opContext, entityUrn, formUrn, formPromptId, fieldPath);
+    ingestCompletedFieldFormResponse(opContext, entityUrn, formUrn, formPromptId, fieldPaths);
 
     return true;
   }
@@ -338,7 +340,7 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nonnull final String fieldPath)
+      @Nonnull final List<String> fieldPaths)
       throws Exception {
     final Forms forms = getEntityForms(opContext, entityUrn);
     final FormAssociation formAssociation = getFormWithUrn(forms, formUrn);
@@ -350,7 +352,9 @@ public class FormService extends BaseService {
         getOrDefaultFormPromptAssociation(opContext, formAssociation, formPromptId);
 
     // update the prompt association to have this fieldFormPromptAssociation marked as complete
-    updateFieldPromptToComplete(opContext, formPromptAssociation, fieldPath);
+    for (String fieldPath : fieldPaths) {
+      updateFieldPromptToComplete(opContext, formPromptAssociation, fieldPath);
+    }
 
     formAssociation.setLastModified(opContext.getAuditStamp());
 

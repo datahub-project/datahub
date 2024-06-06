@@ -11,6 +11,7 @@ import StructuredPropertyPrompt from './StructuredPropertyPrompt/StructuredPrope
 import { useSubmitFormPromptMutation } from '../../../../../graphql/form.generated';
 import { useEntityContext, useMutationUrn } from '../../EntityContext';
 import analytics, { EventType, DocRequestView } from '../../../../analytics';
+import useColumnSelector from './useColumnSelector';
 
 export const PromptWrapper = styled.div`
     background-color: white;
@@ -18,6 +19,8 @@ export const PromptWrapper = styled.div`
     padding: 24px;
     margin-bottom: 8px;
 `;
+
+const MAX_NUM_FIELDS_TO_SUBMIT_SYNCHRONOUSLY = 10;
 
 interface Props {
     promptNumber?: number;
@@ -29,6 +32,9 @@ interface Props {
 export default function Prompt({ promptNumber, prompt, field, associatedUrn }: Props) {
     const { refetch } = useEntityContext();
     const [optimisticCompletedTimestamp, setOptimisticCompletedTimestamp] = useState<number | null>(null);
+    const columnSelectorProps = useColumnSelector();
+    const { isBulkApplyingFieldPath, selectedFieldPaths, setIsBulkApplyingFieldPath, setSelectedFieldPaths } =
+        columnSelectorProps;
     const [submitFormPrompt] = useSubmitFormPromptMutation();
     const urn = useMutationUrn();
 
@@ -45,10 +51,38 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
                     promptId: prompt.id,
                     numAssets: 1,
                 });
+                setIsBulkApplyingFieldPath(false);
+                setSelectedFieldPaths([]);
             })
             .catch(() => {
                 message.error('Unknown error while submitting form response');
             });
+    }
+
+    function handleSubmitResponse(input: SubmitFormPromptInput, onSuccess: () => void) {
+        let updatedInput = input;
+        if (isBulkApplyingFieldPath && selectedFieldPaths.length <= MAX_NUM_FIELDS_TO_SUBMIT_SYNCHRONOUSLY) {
+            updatedInput = {
+                ...input,
+                fieldPaths: selectedFieldPaths,
+            };
+        }
+        submitResponse(updatedInput, onSuccess);
+        // delay submitting many fields in a separate call for snappier response on initial submit
+        if (isBulkApplyingFieldPath && selectedFieldPaths.length > MAX_NUM_FIELDS_TO_SUBMIT_SYNCHRONOUSLY) {
+            updatedInput = {
+                ...input,
+                fieldPaths: selectedFieldPaths,
+            };
+            submitFormPrompt({ variables: { urn: associatedUrn || urn, input: updatedInput } })
+                .then(() => {
+                    onSuccess();
+                    refetch();
+                })
+                .catch(() => {
+                    message.error('Unknown error while submitting form response');
+                });
+        }
     }
 
     return (
@@ -57,7 +91,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
                 <StructuredPropertyPrompt
                     promptNumber={promptNumber}
                     prompt={prompt}
-                    submitResponse={submitResponse}
+                    submitResponse={handleSubmitResponse}
                     optimisticCompletedTimestamp={optimisticCompletedTimestamp}
                 />
             )}
@@ -65,9 +99,10 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
                 <StructuredPropertyPrompt
                     promptNumber={promptNumber}
                     prompt={prompt}
-                    submitResponse={submitResponse}
+                    submitResponse={handleSubmitResponse}
                     field={field}
                     optimisticCompletedTimestamp={optimisticCompletedTimestamp}
+                    columnSelectorProps={columnSelectorProps}
                 />
             )}
         </PromptWrapper>
