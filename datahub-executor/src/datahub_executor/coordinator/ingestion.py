@@ -80,7 +80,7 @@ class IngestionAction(Action):
             self.tp.shutdown(wait)
             self.signal_thread.join()
 
-    def act(self, event: EventEnvelope) -> None:
+    def act(self, event: EventEnvelope) -> bool:
         """This method listens for ExecutionRequest changes to execute in schedule and trigger events"""
         if event.event_type is METADATA_CHANGE_LOG_EVENT_V1_TYPE:
             orig_event = cast(MetadataChangeLogClass, event.event)
@@ -96,6 +96,8 @@ class IngestionAction(Action):
                     STATS_INGESTION_KAFKA_EXEC_EVENTS.inc()
                     logger.debug("Received execution request input. Processing...")
                     self._handle_execution_request_input(orig_event)
+                    return True
+        return False
 
     def _handle_execution_request_input(
         self, orig_event: MetadataChangeLogClass
