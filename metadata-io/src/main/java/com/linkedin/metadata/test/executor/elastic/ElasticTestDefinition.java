@@ -1,21 +1,21 @@
 package com.linkedin.metadata.test.executor.elastic;
 
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.test.definition.TestDefinition;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import java.util.List;
 
 public class ElasticTestDefinition {
 
   private final TestDefinition testDefinition;
-  private final Filter selectionFilters;
-  private final Filter passingFilters;
-  private final Filter failingFilters;
+  private final Predicate selectionFilters;
+  private final Predicate passingFilters;
+  private final Predicate failingFilters;
 
   public ElasticTestDefinition(
       TestDefinition testDefinition,
-      Filter selectionFilters,
-      Filter passingFilters,
-      Filter failingFilters) {
+      Predicate selectionFilters,
+      Predicate passingFilters,
+      Predicate failingFilters) {
     this.testDefinition = testDefinition;
     this.selectionFilters = selectionFilters;
     this.passingFilters = passingFilters;
@@ -26,15 +26,15 @@ public class ElasticTestDefinition {
     return testDefinition.getOn().getEntityTypes();
   }
 
-  public Filter getSelectionFilters(String entityType) {
+  public Predicate getSelectionFilters(String entityType) {
     return selectionFilters;
   }
 
-  public Filter getPassingFilters(String entityType) {
+  public Predicate getPassingFilters(String entityType) {
     return passingFilters;
   }
 
-  public Filter getFailingFilters(String entityType) {
+  public Predicate getFailingFilters(String entityType) {
     return failingFilters;
   }
 }

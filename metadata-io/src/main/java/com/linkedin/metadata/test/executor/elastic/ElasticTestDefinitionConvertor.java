@@ -1,13 +1,15 @@
 package com.linkedin.metadata.test.executor.elastic;
 
-import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.test.definition.TestDefinition;
 import com.linkedin.metadata.test.definition.operator.Operand;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.test.query.TestQuery;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class ElasticTestDefinitionConvertor {
 
@@ -19,48 +21,40 @@ public class ElasticTestDefinitionConvertor {
 
   public boolean canSelect(TestDefinition testDefinition) {
     for (String entityType : testDefinition.getOn().getEntityTypes()) {
-      List<SearchableFieldSpec> fieldSpecs =
-          entityRegistry.getEntitySpec(entityType).getSearchableFieldSpecs();
-      // if there are no operands, then we can convert
-      if (testDefinition.getOn().getConditions() != null
-          && testDefinition.getOn().getConditions().getOperands().size() > 0) {
-        return PredicateToFilter.canConvertPredicateToFilter(
-            testDefinition.getOn().getConditions());
+      Set<TestQuery> queries =
+          Predicate.extractQueriesForPredicate(testDefinition.getOn().getConditions());
+      Map<PathSpec, String> fieldPaths =
+          entityRegistry.getEntitySpec(entityType).getSearchableFieldPathMap();
+      if (!queries.stream()
+          .map(TestQuery::getQueryParts)
+          .map(PathSpec::new)
+          .allMatch(fieldPaths::containsKey)) {
+        return false;
       }
-      return true;
-      // Walk over all the operands and check if the field is searchable
-      //      if (!
-      // testDefinition.getOn().getConditions().getOperands().get().stream().allMatch(operand -> {
-      //        String fieldName = operand.getName();
-      //        if (fieldSpecs.stream().anyMatch(fieldSpec ->
-      // fieldSpec.getPath().toString().equals(fieldName))) {
-      //          return true;
-      //        }
-      //        return false;
-      //      })) {
-      //        return false;
-      //      };
     }
-    // All fields are searchable
     return true;
   }
 
   public boolean canEvaluate(TestDefinition testDefinition) {
-    boolean canSelect = canSelect(testDefinition);
-    boolean canEvaluate = false;
-    if ((testDefinition.getRules() == null)
-        || (testDefinition.getRules().getOperands().size() == 0)) {
-      canEvaluate = true;
-    } else {
-      canEvaluate = PredicateToFilter.canConvertPredicateToFilter(testDefinition.getRules());
+    if ((testDefinition.getRules() != null)
+        && (testDefinition.getRules().getOperands().size() != 0)) {
+      for (String entityType : testDefinition.getOn().getEntityTypes()) {
+        Set<TestQuery> queries = Predicate.extractQueriesForPredicate(testDefinition.getRules());
+        Map<PathSpec, String> fieldPaths =
+            entityRegistry.getEntitySpec(entityType).getSearchableFieldPathMap();
+        if (!queries.stream()
+            .map(TestQuery::getQueryParts)
+            .map(PathSpec::new)
+            .allMatch(fieldPaths::containsKey)) {
+          return false;
+        }
+      }
     }
-
-    return canEvaluate && canSelect;
+    return true;
   }
 
   public ElasticTestDefinition convert(TestDefinition testDefinition) {
-    Filter selectionFilters =
-        PredicateToFilter.transformPredicateToFilter(testDefinition.getOn().getConditions());
+    Predicate selectionFilters = testDefinition.getOn().getConditions();
     if (selectionFilters == null) {
       return null;
     }
@@ -73,8 +67,7 @@ public class ElasticTestDefinitionConvertor {
               List.of(
                   new Operand(0, testDefinition.getOn().getConditions()),
                   new Operand(1, testDefinition.getRules())));
-      Filter passingFilters = PredicateToFilter.transformPredicateToFilter(passingPredicate);
-      return new ElasticTestDefinition(testDefinition, selectionFilters, passingFilters, null);
+      return new ElasticTestDefinition(testDefinition, selectionFilters, passingPredicate, null);
     }
   }
 }

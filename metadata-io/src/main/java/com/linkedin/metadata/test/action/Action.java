@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.resource.ResourceReference;
+import com.linkedin.metadata.test.definition.ActionType;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import io.datahubproject.metadata.context.OperationContext;

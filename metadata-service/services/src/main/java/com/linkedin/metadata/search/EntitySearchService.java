@@ -7,6 +7,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
@@ -348,6 +349,39 @@ public interface EntitySearchService {
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
       @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets);
+
+  // SAAS Only - Support searching based on predicates
+  /**
+   * Gets a list of documents that match given search request. The results are aggregated and
+   * filters are applied to the search hits and not the aggregation results.
+   *
+   * <p>Safe for non-structured, user input, queries with an attempt to provide some advanced
+   * features <a
+   * href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html">Impl</a>
+   *
+   * <p>Uses Predicate for filters instead of Filter
+   *
+   * @param entityNames names of the entities
+   * @param input the search input text
+   * @param predicateFilter the request map with fields and values as filters to be applied to
+   *     search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
+   * @return a {@link SearchResult} that contains a list of matched documents and related search
+   *     result metadata
+   */
+  @Nonnull
+  SearchResult predicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Predicate predicateFilter,
+      @Nullable SortCriterion sortCriterion,
+      int from,
       int size,
       @Nullable List<String> facets);
 }

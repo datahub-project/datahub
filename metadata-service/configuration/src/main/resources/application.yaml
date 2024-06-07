@@ -329,6 +329,8 @@ metadataTests:
   # Flags to enable bootstrap ingestion of default policies
   bootstrap:
     enabled: ${METADATA_TESTS_BOOTSTRAP_ENABLED:false}
+  elasticSearchExecutor:
+    enabled: ${METADATA_TESTS_ELASTICSEARCH_EXECUTOR_ENABLED:true} # Will try to execute test queries through Elastic if query is supported by searchable fields
 
 # Notifications config
 notifications:

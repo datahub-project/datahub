@@ -24,13 +24,10 @@ import com.linkedin.metadata.test.eval.operator.StartsWithEvaluator;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /** Class that evaluates all {@link Predicate}s provided batched query responses */

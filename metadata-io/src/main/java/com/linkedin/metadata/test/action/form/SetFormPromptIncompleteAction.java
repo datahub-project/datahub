@@ -5,7 +5,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionParameters;
-import com.linkedin.metadata.test.action.ActionType;
+import com.linkedin.metadata.test.definition.ActionType;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import io.datahubproject.metadata.context.OperationContext;

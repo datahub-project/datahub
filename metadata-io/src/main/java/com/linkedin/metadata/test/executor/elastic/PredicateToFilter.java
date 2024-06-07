@@ -1,6 +1,6 @@
 package com.linkedin.metadata.test.executor.elastic;
 
-import static com.linkedin.metadata.test.definition.operator.OperatorType.*;
+import static com.linkedin.metadata.search.utils.ESPredicateUtils.*;
 
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
@@ -11,8 +11,6 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.test.definition.expression.Query;
-import com.linkedin.metadata.test.definition.literal.DateLiteral;
-import com.linkedin.metadata.test.definition.literal.StringListLiteral;
 import com.linkedin.metadata.test.definition.operator.Operand;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
@@ -279,21 +277,5 @@ public class PredicateToFilter {
     // Extend to handle other leaf operator types
     throw new UnsupportedOperationException(
         "Unsupported operator type: " + predicate.getOperatorType());
-  }
-
-  private static StringArray getSearchValueField(Operand valueOperand) {
-    StringArray valuesArray = new StringArray();
-    if (valueOperand.getExpression() instanceof StringListLiteral) {
-      StringListLiteral stringListLiteral = (StringListLiteral) valueOperand.getExpression();
-      valuesArray.addAll(stringListLiteral.getValues());
-      return valuesArray;
-    } else if (valueOperand.getExpression() instanceof DateLiteral) {
-      DateLiteral dateLiteral = (DateLiteral) valueOperand.getExpression();
-      valuesArray.add(dateLiteral.resolveValue());
-      return valuesArray;
-    } else {
-      throw new UnsupportedOperationException(
-          "Unsupported value type: " + valueOperand.getExpression().getClass().getName());
-    }
   }
 }

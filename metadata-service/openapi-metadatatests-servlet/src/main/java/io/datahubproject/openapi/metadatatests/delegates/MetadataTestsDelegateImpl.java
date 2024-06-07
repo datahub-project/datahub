@@ -326,7 +326,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
         predicateEvaluator,
         actionApplier,
         0,
-        0);
+        0,
+        true);
   }
 
   private static MetadataTestResultV1 toTestResult(

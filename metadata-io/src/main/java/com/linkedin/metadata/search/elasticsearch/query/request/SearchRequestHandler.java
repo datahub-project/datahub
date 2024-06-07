@@ -223,23 +223,37 @@ public class SearchRequestHandler {
       @Nullable List<String> facets) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
-    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-
-    searchSourceBuilder.from(from);
-    searchSourceBuilder.size(size);
+    SearchSourceBuilder searchSourceBuilder = constructSearchSourceBuilder(from, size);
 
     SearchRequest searchRequest = new SearchRequest();
-    searchSourceBuilder.fetchSource(DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.toArray(new String[0]), null);
-    return buildSearchRequestPageAgnostic(opContext, searchRequest, searchSourceBuilder, input, searchFlags,
-        filterQuery, facets, sortCriterion);
+    return buildSearchRequestPageAgnostic(
+        opContext,
+        searchRequest,
+        searchSourceBuilder,
+        input,
+        searchFlags,
+        filterQuery,
+        facets,
+        sortCriterion);
   }
 
-  /**
-   * Used for both searchAfter and from -> size requests
-   */
-  private SearchRequest buildSearchRequestPageAgnostic(OperationContext opContext, final SearchRequest searchRequest,
+  private SearchSourceBuilder constructSearchSourceBuilder(int from, int size) {
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.from(from);
+    searchSourceBuilder.size(size);
+    searchSourceBuilder.fetchSource(DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.toArray(new String[0]), null);
+    return searchSourceBuilder;
+  }
+
+  /** Used for both searchAfter and from -> size requests */
+  private SearchRequest buildSearchRequestPageAgnostic(
+      OperationContext opContext,
+      final SearchRequest searchRequest,
       final SearchSourceBuilder searchSourceBuilder,
-      final String input, final SearchFlags searchFlags, final QueryBuilder filterQuery, final List<String> facets,
+      final String input,
+      final SearchFlags searchFlags,
+      final QueryBuilder filterQuery,
+      final List<String> facets,
       final SortCriterion sortCriterion) {
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
@@ -304,8 +318,15 @@ public class SearchRequestHandler {
     }
     searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
 
-    return buildSearchRequestPageAgnostic(opContext, searchRequest, searchSourceBuilder, input, searchFlags, filterQuery,
-        facets, sortCriterion)
+    return buildSearchRequestPageAgnostic(
+            opContext,
+            searchRequest,
+            searchSourceBuilder,
+            input,
+            searchFlags,
+            filterQuery,
+            facets,
+            sortCriterion)
         .indicesOptions(null);
   }
 
@@ -641,11 +662,52 @@ public class SearchRequestHandler {
     return searchSuggestions;
   }
 
-
   // SAAS ONLY - Predicate support for filters
-  public BoolQueryBuilder getFilterQuery(@Nonnull OperationContext opContext, @Nullable Predicate predicate) {
-    BoolQueryBuilder filterQuery = ESPredicateUtils.buildFilterQuery(predicate, false, searchableFieldPaths,
-        searchableFieldTypes, opContext);
+
+  /**
+   * Constructs the search query based on the query request.
+   *
+   * <p>TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or
+   * later
+   *
+   * @param input the search input text
+   * @param predicate the search filter in predicate form
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
+   * @return a valid search request
+   */
+  @Nonnull
+  @WithSpan
+  public SearchRequest getPredicateSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      @Nullable SortCriterion sortCriterion,
+      int from,
+      int size,
+      @Nullable List<String> facets) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, predicate);
+    SearchSourceBuilder searchSourceBuilder = constructSearchSourceBuilder(from, size);
+
+    SearchRequest searchRequest = new SearchRequest();
+    return buildSearchRequestPageAgnostic(
+        opContext,
+        searchRequest,
+        searchSourceBuilder,
+        input,
+        searchFlags,
+        filterQuery,
+        facets,
+        sortCriterion);
+  }
+
+  public BoolQueryBuilder getFilterQuery(
+      @Nonnull OperationContext opContext, @Nullable Predicate predicate) {
+    BoolQueryBuilder filterQuery =
+        ESPredicateUtils.buildFilterQuery(
+            predicate, false, searchableFieldPaths, searchableFieldTypes, opContext);
 
     return ESPredicateUtils.applyDefaultSearchFilters(opContext, predicate, filterQuery);
   }

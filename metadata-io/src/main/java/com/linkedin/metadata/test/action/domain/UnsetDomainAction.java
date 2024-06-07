@@ -4,7 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.service.DomainService;
-import com.linkedin.metadata.test.action.ActionType;
+import com.linkedin.metadata.test.definition.ActionType;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.List;

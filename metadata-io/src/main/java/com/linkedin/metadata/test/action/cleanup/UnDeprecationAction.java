@@ -3,7 +3,7 @@ package com.linkedin.metadata.test.action.cleanup;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.test.action.ActionParameters;
-import com.linkedin.metadata.test.action.ActionType;
+import com.linkedin.metadata.test.definition.ActionType;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
