@@ -183,11 +183,6 @@ class Sheet(BaseModel):
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
-        import pprint
-
-        print("*** Sheet values Start ***")
-        pprint.pprint(values)
-        print("*** Sheet values End ***")
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDDATE], QLIK_DATETIME_FORMAT
         )
