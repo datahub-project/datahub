@@ -9,6 +9,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
 )
+from datahub.ingestion.source.looker.lookml_config import DERIVED_VIEW_PATTERN
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -125,8 +126,6 @@ def _update_fields(
 
 
 class SqlQuery:
-    LOOKER_TABLE_PATTERN: str = r"\$\{([^}]*)\}"
-
     lookml_sql_query: str
     view_name: str
     liquid_context: Dict[Any, Any]
@@ -155,8 +154,8 @@ class SqlQuery:
             sql_query = f"{sql_query} FROM {self.view_name}"
             # Get the list of tables in the query
 
-        # Replace any ${view_or_derived_table.SQL_TABLE_NAME} by view_or_derived_table
-        sql_query = re.sub(self.LOOKER_TABLE_PATTERN, r"\1", sql_query)
+        # Drop ${ and }
+        sql_query = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_query)
 
         return sql_query
 

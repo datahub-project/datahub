@@ -20,6 +20,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
     _EXPLORE_FILE_EXTENSION,
     _VIEW_FILE_EXTENSION,
+    DERIVED_VIEW_SUFFIX,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
@@ -34,10 +35,15 @@ logger = logging.getLogger(__name__)
 
 NAME: str = "name"
 
-DERIVED_TABLE_PREFIX = r".sql_table_name"
+
+def is_derived_view(view_name: str) -> bool:
+    if DERIVED_VIEW_SUFFIX in view_name.lower():
+        return True
+
+    return False
 
 
-def _get_derived_view_urn(
+def get_derived_view_urn(
     qualified_table_name: str,
     looker_view_id_cache: "LookerViewIdCache",
     base_folder_path: str,
@@ -75,8 +81,8 @@ def resolve_derived_view_urn(
 
         upstream_fields: List[ColumnRef] = []
         for col_ref in cast(List[ColumnRef], field.upstream_fields):
-            if DERIVED_TABLE_PREFIX in col_ref.table.lower():
-                view_urn: Optional[str] = _get_derived_view_urn(
+            if is_derived_view(col_ref.table.lower()):
+                view_urn: Optional[str] = get_derived_view_urn(
                     qualified_table_name=get_qualified_table_name(col_ref.table),
                     looker_view_id_cache=looker_view_id_cache,
                     base_folder_path=base_folder_path,
@@ -98,8 +104,8 @@ def resolve_derived_view_urn(
     # Regenerate upstream_urns if .sql_table_name is present
     new_upstream_urns: List[str] = []
     for urn in upstream_urns:
-        if DERIVED_TABLE_PREFIX in urn.lower():
-            view_urn = _get_derived_view_urn(
+        if is_derived_view(urn):
+            view_urn = get_derived_view_urn(
                 qualified_table_name=get_qualified_table_name(urn),
                 looker_view_id_cache=looker_view_id_cache,
                 base_folder_path=base_folder_path,
@@ -197,7 +203,7 @@ class LookerViewFileLoader:
             with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
-            self.reporter.report_failure(path, f"failed to load view file: {e}")
+            self.reporter.report_failure(path, f"failed to load view file {path}: {e}")
             return None
         try:
             logger.debug(f"Loading viewfile {path}")
@@ -223,7 +229,7 @@ class LookerViewFileLoader:
             self.viewfile_cache[path] = looker_viewfile
             return looker_viewfile
         except Exception as e:
-            self.reporter.report_failure(path, f"failed to load view file: {e}")
+            self.reporter.report_failure(path, f"failed to load view file {path}: {e}")
             return None
 
     def load_viewfile(

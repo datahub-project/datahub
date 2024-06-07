@@ -51,6 +51,7 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
     _MODEL_FILE_EXTENSION,
+    DERIVED_VIEW_PATTERN,
     VIEW_LANGUAGE_LOOKML,
     VIEW_LANGUAGE_SQL,
     LookMLSourceConfig,
@@ -62,6 +63,8 @@ from datahub.ingestion.source.looker.lookml_resolver import (
     LookerRefinementResolver,
     LookerViewFileLoader,
     LookerViewIdCache,
+    get_derived_view_urn,
+    is_derived_view,
     resolve_derived_view_urn,
 )
 from datahub.ingestion.source.looker.lookml_sql_parser import SqlQuery, ViewFieldBuilder
@@ -493,26 +496,45 @@ class LookerView:
             )
         else:
             # If not a derived table, then this view essentially wraps an existing
-            # object in the database. If sql_table_name is set, there is a single
+            # object in the database or another lookml view. If sql_table_name is set, there is a single
             # dependency in the view, on the sql_table_name.
             # Otherwise, default to the view name as per the docs:
             # https://docs.looker.com/reference/view-params/sql_table_name-for-view
 
             sql_table_name = view_name if sql_table_name is None else sql_table_name
+            view_urn: Optional[str]
+            if is_derived_view(sql_table_name):
+                extracted_view_name: str = re.sub(
+                    DERIVED_VIEW_PATTERN, r"\1", sql_table_name
+                )
 
-            # Ensure sql_table_name is in canonical form (add in db, schema names)
-            sql_table_name = _generate_fully_qualified_name(
-                sql_table_name, connection, reporter
-            )
-
-            sql_table_names = [
-                builder.make_dataset_urn_with_platform_instance(
+                view_urn = get_derived_view_urn(
+                    qualified_table_name=_generate_fully_qualified_name(
+                        extracted_view_name.lower(), connection, reporter
+                    ),
+                    looker_view_id_cache=looker_view_id_cache,
+                    base_folder_path=base_folder_path,
+                    config=config,
+                )
+            else:
+                # Ensure sql_table_name is in canonical form (add in db, schema names)
+                view_urn = builder.make_dataset_urn_with_platform_instance(
                     platform=connection.platform,
-                    name=sql_table_name.lower(),
+                    name=_generate_fully_qualified_name(
+                        sql_table_name.lower(), connection, reporter
+                    ),
                     platform_instance=connection.platform_instance,
                     env=connection.platform_env or config.env,
                 )
-            ]
+
+            if view_urn is None:
+                reporter.report_warning(
+                    f"looker-view-{view_name}",
+                    f"failed to resolve urn for derived view {view_name}.",
+                )
+            else:
+                sql_table_names = [view_urn]
+
             view_details = ViewProperties(
                 materialized=False,
                 viewLogic=view_logic,

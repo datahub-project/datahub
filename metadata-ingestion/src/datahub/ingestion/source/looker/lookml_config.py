@@ -41,6 +41,10 @@ VIEW_LANGUAGE_LOOKML: str = "lookml"
 
 VIEW_LANGUAGE_SQL: str = "sql"
 
+DERIVED_VIEW_SUFFIX = r".sql_table_name"
+
+DERIVED_VIEW_PATTERN: str = r"\$\{([^}]*)\}"
+
 
 @dataclass
 class LookMLSourceReport(StaleEntityRemovalSourceReport):
