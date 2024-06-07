@@ -437,27 +437,31 @@ public class OpenAPIV3Generator {
                   final String newDefinition =
                       definition.replaceAll("definitions", "components/schemas");
                   Schema s = Json.mapper().readValue(newDefinition, Schema.class);
-                  Set<String> requiredNames =
-                      Optional.ofNullable(s.getRequired())
-                          .map(names -> Set.copyOf(names))
-                          .orElse(new HashSet());
-                  Map<String, Schema> properties =
-                      Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
-                  properties.forEach(
-                      (name, schema) -> {
-                        String $ref = schema.get$ref();
-                        boolean isNameRequired = requiredNames.contains(name);
-                        if ($ref != null && !isNameRequired) {
-                          // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
-                          // object to allow the
-                          // property to be marked as nullable
-                          schema.setType(TYPE_OBJECT);
-                          schema.set$ref(null);
-                          schema.setAllOf(List.of(new Schema().$ref($ref)));
-                        }
-                        schema.setNullable(!isNameRequired);
-                      });
-
+                  // Set enums to "string".
+                  if (s.getEnum() != null && !s.getEnum().isEmpty()) {
+                    s.setType("string");
+                  } else {
+                    Set<String> requiredNames =
+                        Optional.ofNullable(s.getRequired())
+                            .map(names -> Set.copyOf(names))
+                            .orElse(new HashSet());
+                    Map<String, Schema> properties =
+                        Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
+                    properties.forEach(
+                        (name, schema) -> {
+                          String $ref = schema.get$ref();
+                          boolean isNameRequired = requiredNames.contains(name);
+                          if ($ref != null && !isNameRequired) {
+                            // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+                            // object to allow the
+                            // property to be marked as nullable
+                            schema.setType(TYPE_OBJECT);
+                            schema.set$ref(null);
+                            schema.setAllOf(List.of(new Schema().$ref($ref)));
+                          }
+                          schema.setNullable(!isNameRequired);
+                        });
+                  }
                   components.addSchemas(n, s);
                 } catch (Exception e) {
                   throw new RuntimeException(e);
