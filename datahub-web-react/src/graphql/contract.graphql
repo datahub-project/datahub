@@ -19,17 +19,17 @@ fragment dataContractDetails on DataContract {
     properties {
         freshness {
             assertion {
-                ...assertionDetails
+                ...assertionDetailsWithRunEvents
             }
         }
         schema {
             assertion {
-                ...assertionDetails
+                ...assertionDetailsWithRunEvents
             }
         }
         dataQuality {
             assertion {
-                ...assertionDetails
+                ...assertionDetailsWithRunEvents
             }
         }
     }
