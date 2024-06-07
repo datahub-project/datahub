@@ -84,6 +84,7 @@ class Space(BaseModel):
     type: SpaceType
     createdAt: datetime
     updatedAt: datetime
+    owner: Optional[str] = None
     ownerId: Optional[str] = None
 
     @root_validator(pre=True)
@@ -100,6 +101,7 @@ class Space(BaseModel):
 class Item(BaseModel):
     id: str
     description: str = ""
+    owner: str
     ownerId: str
     spaceId: str
     createdAt: datetime
@@ -174,12 +176,18 @@ class Sheet(BaseModel):
     title: str
     description: str
     ownerId: str
+    owner: str
     createdAt: datetime
     updatedAt: datetime
     charts: List[Chart] = []
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        import pprint
+
+        print("*** Sheet values Start ***")
+        pprint.pprint(values)
+        print("*** Sheet values End ***")
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDDATE], QLIK_DATETIME_FORMAT
         )

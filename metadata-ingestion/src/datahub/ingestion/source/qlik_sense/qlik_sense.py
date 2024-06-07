@@ -176,17 +176,19 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Qlik space to Datahub container
         """
-        owner_username: Optional[str] = None
-        if space.ownerId:
-            owner_username = self.qlik_api.get_user_name(space.ownerId)
+        owner_email: Optional[str] = None
+        if space.owner:
+            owner_email = space.owner
+        elif space.ownerId:
+            owner_email = self.qlik_api.get_user_email(space.ownerId)
         yield from gen_containers(
             container_key=self._gen_space_key(space.id),
             name=space.name,
             description=space.description,
             sub_types=[BIContainerSubTypes.QLIK_SPACE],
             extra_properties={Constant.TYPE: str(space.type)},
-            owner_urn=builder.make_user_urn(owner_username)
-            if self.config.ingest_owner and owner_username
+            owner_urn=builder.make_user_urn(owner_email)
+            if self.config.ingest_owner and owner_email
             else None,
             external_url=f"https://{self.config.tenant_hostname}/catalog?space_filter={space.id}",
             created=int(space.createdAt.timestamp() * 1000),
@@ -238,8 +240,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 for chart in sheet.charts
             ],
             lastModified=ChangeAuditStampsClass(
-                created=self._get_audit_stamp(sheet.createdAt, sheet.ownerId),
-                lastModified=self._get_audit_stamp(sheet.updatedAt, sheet.ownerId),
+                created=self._get_audit_stamp(sheet.createdAt, sheet.owner),
+                lastModified=self._get_audit_stamp(sheet.updatedAt, sheet.owner),
             ),
             customProperties=custom_properties,
             dashboardUrl=f"https://{self.config.tenant_hostname}/sense/app/{app_id}/sheet/{sheet.id}/state/analysis",
@@ -312,9 +314,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if dpi_aspect:
                 yield dpi_aspect
 
-            owner_username = self.qlik_api.get_user_name(sheet.ownerId)
-            if self.config.ingest_owner and owner_username:
-                yield self._gen_entity_owner_aspect(dashboard_urn, owner_username)
+            owner_email: Optional[str] = None
+            if sheet.owner:
+                owner_email = sheet.owner
+            elif sheet.ownerId:
+                owner_email = self.qlik_api.get_user_email(sheet.ownerId)
+            if self.config.ingest_owner and owner_email:
+                yield self._gen_entity_owner_aspect(dashboard_urn, owner_email)
 
             yield from self._gen_charts_workunit(sheet.charts, app.tables, app.id)
 
@@ -440,7 +446,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Qlik App to Datahub container
         """
-        owner_username = self.qlik_api.get_user_name(app.ownerId)
+        owner_email: Optional[str] = None
+        if app.owner:
+            owner_email = app.owner
+        elif app.ownerId:
+            owner_email = self.qlik_api.get_user_email(app.ownerId)
         yield from gen_containers(
             container_key=self._gen_app_key(app.id),
             name=app.qTitle,
@@ -448,8 +458,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             sub_types=[BIContainerSubTypes.QLIK_APP],
             parent_container_key=self._gen_space_key(app.spaceId),
             extra_properties={Constant.QRI: app.qri, Constant.USAGE: app.qUsage},
-            owner_urn=builder.make_user_urn(owner_username)
-            if self.config.ingest_owner and owner_username
+            owner_urn=builder.make_user_urn(owner_email)
+            if self.config.ingest_owner and owner_email
             else None,
             external_url=f"https://{self.config.tenant_hostname}/sense/app/{app.id}/overview",
             created=int(app.createdAt.timestamp() * 1000),
@@ -568,9 +578,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if dpi_aspect:
             yield dpi_aspect
 
-        owner_username = self.qlik_api.get_user_name(dataset.ownerId)
-        if self.config.ingest_owner and owner_username:
-            yield self._gen_entity_owner_aspect(dataset_urn, owner_username)
+        owner_email: Optional[str] = None
+        if dataset.owner:
+            owner_email = dataset.owner
+        elif dataset.ownerId:
+            owner_email = self.qlik_api.get_user_email(dataset.ownerId)
+        if self.config.ingest_owner and owner_email:
+            yield self._gen_entity_owner_aspect(dataset_urn, owner_email)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,

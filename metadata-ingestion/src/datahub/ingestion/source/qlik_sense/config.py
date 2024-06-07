@@ -30,6 +30,7 @@ class Constant:
     DATA = "data"
     ID = "id"
     NAME = "name"
+    EMAIL = "email"
     TYPE = "type"
     ITEMID = "itemId"
     NEXT = "next"
@@ -64,6 +65,7 @@ class Constant:
     LINEAGE = "lineage"
     TABLELABEL = "tableLabel"
     TABLEQRI = "tableQRI"
+    OWNER = "owner"
     OWNERID = "ownerId"
     # Websocket response key constants
     QID = "qId"

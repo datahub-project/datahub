@@ -57,6 +57,7 @@ class QlikAPI:
                 response_dict = response.json()
                 for space_dict in response_dict[Constant.DATA]:
                     space = Space.parse_obj(space_dict)
+                    space.owner = self.get_user_email(user_id=space.ownerId)
                     spaces.append(space)
                     self.spaces[space.id] = space.name
                 if Constant.NEXT in response_dict[Constant.LINKS]:
@@ -85,7 +86,9 @@ class QlikAPI:
             )
         return None
 
-    def get_user_name(self, user_id: str) -> Optional[str]:
+    def get_user_email(self, user_id: Optional[str]) -> Optional[str]:
+        if user_id is None:
+            return None
         try:
             if user_id in self.users:
                 # To avoid fetching same user details again
@@ -93,7 +96,7 @@ class QlikAPI:
             else:
                 response = self.session.get(f"{self.rest_api_url}/users/{user_id}")
                 response.raise_for_status()
-                user_name = response.json()[Constant.NAME]
+                user_name = response.json()[Constant.EMAIL]
                 self.users[user_id] = user_name
                 return user_name
         except Exception as e:
@@ -137,7 +140,7 @@ class QlikAPI:
             )
             response = websocket_connection.websocket_send_request(method="GetLayout")
             sheet_dict = response[Constant.QLAYOUT]
-            if Constant.OWNERID not in sheet_dict[Constant.QMETA]:
+            if Constant.OWNER not in sheet_dict[Constant.QMETA]:
                 # That means sheet is private sheet
                 return None
             sheet = Sheet.parse_obj(sheet_dict[Constant.QMETA])
