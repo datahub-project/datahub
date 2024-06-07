@@ -203,7 +203,10 @@ class LookerViewFileLoader:
             with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
-            self.reporter.report_failure(path, f"failed to load view file {path}: {e}")
+            logger.debug(f"An error occurred while reading path {path}", exc_info=True)
+            self.reporter.report_failure(
+                path, f"failed to load view file {path} from disk: {e}"
+            )
             return None
         try:
             logger.debug(f"Loading viewfile {path}")
@@ -229,6 +232,7 @@ class LookerViewFileLoader:
             self.viewfile_cache[path] = looker_viewfile
             return looker_viewfile
         except Exception as e:
+            logger.debug(f"An error occurred while parsing path {path}", exc_info=True)
             self.reporter.report_failure(path, f"failed to load view file {path}: {e}")
             return None
 
