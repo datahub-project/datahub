@@ -135,16 +135,6 @@ class VerticaSource(SQLAlchemySource):
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits_internal()
         sql_config = self.config
-        if logger.isEnabledFor(logging.DEBUG):
-            # If debug logging is enabled, we also want to echo each SQL query issued.
-            sql_config.options.setdefault("echo", True)
-
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled():
-            sql_config.options.setdefault(
-                "max_overflow", sql_config.profiling.max_workers
-            )
 
         for inspector in self.get_inspectors():
             profiler = None

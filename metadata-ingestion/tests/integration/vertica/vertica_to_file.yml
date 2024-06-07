@@ -4,7 +4,7 @@ source:
     host_port: 127.0.0.1:5433
     database: Vmart
     username: dbadmin
-    password: 
+    password: abc123
     include_tables: true
     include_views: true
     include_projections: true

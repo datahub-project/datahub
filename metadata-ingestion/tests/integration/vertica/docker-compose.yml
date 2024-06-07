@@ -4,6 +4,7 @@ services:
     platform: linux/amd64
     environment:
       APP_DB_USER: "dbadmin"
+      APP_DB_PASSWORD: "abc123"
     container_name: vertica-ce
     image: vertica/vertica-ce:23.4.0-0
     ports:
