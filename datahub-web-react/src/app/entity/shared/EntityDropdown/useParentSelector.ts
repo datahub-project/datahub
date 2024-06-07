@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGetSearchResultsLazyQuery } from '../../../../graphql/search.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../../graphql/search.generated';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { GenericEntityProperties } from '../types';
@@ -17,8 +17,8 @@ export default function useParentSelector({ entityType, entityData, selectedPare
     const [searchQuery, setSearchQuery] = useState('');
     const entityRegistry = useEntityRegistry();
 
-    const [search, { data }] = useGetSearchResultsLazyQuery();
-    const searchResults = data?.search?.searchResults || [];
+    const [getAutoCompleteResults, { data: autoCompleteResultsValue }] = useGetAutoCompleteResultsLazyQuery();
+    const searchResults = autoCompleteResultsValue?.autoComplete?.entities || [];
 
     useEffect(() => {
         if (entityData && selectedParentUrn === entityData.urn) {
@@ -29,23 +29,24 @@ export default function useParentSelector({ entityType, entityData, selectedPare
 
     function handleSearch(text: string) {
         setSearchQuery(text);
-        search({
-            variables: {
-                input: {
-                    type: entityType,
-                    query: text,
-                    start: 0,
-                    count: 5,
+        if (text) {
+            getAutoCompleteResults({
+                variables: {
+                    input: {
+                        type: entityType,
+                        query: text,
+                        limit: 5,
+                    },
                 },
-            },
-        });
+            });
+        };
     }
 
     function onSelectParent(parentUrn: string) {
-        const selectedParent = searchResults.find((result) => result.entity.urn === parentUrn);
+        const selectedParent = searchResults.find((result) => result.urn === parentUrn);
         if (selectedParent) {
             setSelectedParentUrn(parentUrn);
-            const displayName = entityRegistry.getDisplayName(selectedParent.entity.type, selectedParent.entity);
+            const displayName = entityRegistry.getDisplayName(selectedParent.type, selectedParent);
             setSelectedParentName(displayName);
         }
     }
