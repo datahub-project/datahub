@@ -244,6 +244,8 @@ class ViewFieldBuilder:
 
         query: str = sql_query.sql_query()
 
+        logger.debug(f"Processing query: {query} for view-urn {view_urn}")
+
         spr: SqlParsingResult = create_lineage_sql_parsed_result(
             query=query,
             default_schema=connection.default_schema,
@@ -255,6 +257,8 @@ class ViewFieldBuilder:
         )
 
         upstream_urns: List[str] = [_drop_hive_dot(urn) for urn in spr.in_tables]
+
+        logger.debug(f"SqlParsingResult({view_urn}) : {spr}")
 
         if self.fields:  # It is syntax1
             return (
