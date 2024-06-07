@@ -442,25 +442,25 @@ public class OpenAPIV3Generator {
                     s.setType("string");
                   } else {
                     Set<String> requiredNames =
-                            Optional.ofNullable(s.getRequired())
-                                    .map(names -> Set.copyOf(names))
-                                    .orElse(new HashSet());
+                        Optional.ofNullable(s.getRequired())
+                            .map(names -> Set.copyOf(names))
+                            .orElse(new HashSet());
                     Map<String, Schema> properties =
-                            Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
+                        Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
                     properties.forEach(
-                            (name, schema) -> {
-                              String $ref = schema.get$ref();
-                              boolean isNameRequired = requiredNames.contains(name);
-                              if ($ref != null && !isNameRequired) {
-                                // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
-                                // object to allow the
-                                // property to be marked as nullable
-                                schema.setType(TYPE_OBJECT);
-                                schema.set$ref(null);
-                                schema.setAllOf(List.of(new Schema().$ref($ref)));
-                              }
-                              schema.setNullable(!isNameRequired);
-                            });
+                        (name, schema) -> {
+                          String $ref = schema.get$ref();
+                          boolean isNameRequired = requiredNames.contains(name);
+                          if ($ref != null && !isNameRequired) {
+                            // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+                            // object to allow the
+                            // property to be marked as nullable
+                            schema.setType(TYPE_OBJECT);
+                            schema.set$ref(null);
+                            schema.setAllOf(List.of(new Schema().$ref($ref)));
+                          }
+                          schema.setNullable(!isNameRequired);
+                        });
                   }
                   components.addSchemas(n, s);
                 } catch (Exception e) {
