@@ -17,10 +17,12 @@ import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import AssertionMenu from './AssertionMenu';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { REDESIGN_COLORS } from '../../../constants';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { isAssertionPartOfContract } from './contract/utils';
+import { decodeUrn } from '../../../utils';
+import { useEntityData } from '../../../EntityContext';
 
 const ResultContainer = styled.div`
     display: flex;
@@ -83,6 +85,7 @@ export const DatasetAssertionsList = ({
     selectedUrns,
     contract,
 }: Props) => {
+    const entityData = useEntityData();
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
     const entityRegistry = useEntityRegistry();
 
@@ -177,7 +180,7 @@ export const DatasetAssertionsList = ({
                                         <Link
                                             to={`${entityRegistry.getEntityUrl(
                                                 EntityType.Dataset,
-                                                assertionEntityUrn,
+                                                entityData.urn,
                                             )}/Validation/Data Contract`}
                                             style={{ color: REDESIGN_COLORS.BLUE }}
                                         >
@@ -189,7 +192,7 @@ export const DatasetAssertionsList = ({
                                 <Link
                                     to={`${entityRegistry.getEntityUrl(
                                         EntityType.Dataset,
-                                        assertionEntityUrn,
+                                        entityData.urn,
                                     )}/Validation/Data Contract`}
                                 >
                                     <DataContractLogo />

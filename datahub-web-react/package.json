@@ -41,7 +41,6 @@
         "analytics": "^0.8.9",
         "antd": "4.24.7",
         "color-hash": "^2.0.1",
-        "cron-parser": "^4.8.1",
         "cronstrue": "^1.122.0",
         "d3-scale": "^4.0.2",
         "dayjs": "^1.11.7",

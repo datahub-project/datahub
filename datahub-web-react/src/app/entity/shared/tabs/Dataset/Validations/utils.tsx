@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import * as moment from 'moment-timezone';
-import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
 import {
     ClockCircleOutlined,

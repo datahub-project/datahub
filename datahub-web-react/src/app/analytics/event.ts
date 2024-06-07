@@ -312,7 +312,6 @@ export interface EntityActionEvent extends BaseEvent {
     actionType: string;
     entityType?: EntityType;
     entityUrn: string;
-    actionQualifier?: string;
 }
 
 export interface BatchEntityActionEvent extends BaseEvent {

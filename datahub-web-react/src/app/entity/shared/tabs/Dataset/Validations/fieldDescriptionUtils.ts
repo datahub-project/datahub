@@ -1,14 +1,37 @@
 import {
     AssertionStdOperator,
     AssertionStdParameters,
-    // FieldAssertionInfo,
-    // FieldAssertionType,
-    // FieldMetricType,
-    // FieldTransformType,
+    FieldAssertionInfo,
+    FieldAssertionType,
+    FieldMetricType,
+    FieldTransformType,
 } from '../../../../../../types.generated';
 import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
 import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
-// import { ASSERTION_OPERATOR_TO_DESCRIPTION } from './assertion/profile/summary/shared/constants';
+
+const ASSERTION_OPERATOR_TO_DESCRIPTION: Record<AssertionStdOperator, string | undefined> = {
+    [AssertionStdOperator.EqualTo]: 'Is equal to',
+    [AssertionStdOperator.NotEqualTo]: 'Is not equal to',
+    [AssertionStdOperator.Contain]: 'Contains',
+    [AssertionStdOperator.RegexMatch]: 'Matches',
+    [AssertionStdOperator.StartWith]: 'Starts with',
+    [AssertionStdOperator.EndWith]: 'Ends with',
+    [AssertionStdOperator.In]: 'Is in',
+    [AssertionStdOperator.NotIn]: 'Is not in',
+
+    [AssertionStdOperator.IsFalse]: 'Is False',
+    [AssertionStdOperator.IsTrue]: 'Is True',
+    [AssertionStdOperator.Null]: 'Is NULL',
+    [AssertionStdOperator.NotNull]: 'Is not NULL',
+
+    [AssertionStdOperator.GreaterThan]: 'Is greater than',
+    [AssertionStdOperator.GreaterThanOrEqualTo]: 'Is greater than or equal to',
+    [AssertionStdOperator.LessThan]: 'Is less than',
+    [AssertionStdOperator.LessThanOrEqualTo]: 'Is less than or equal to',
+    [AssertionStdOperator.Between]: 'Is within a range',
+
+    [AssertionStdOperator.Native]: undefined,
+};
 
 const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
     AssertionStdOperator.EqualTo,
@@ -27,12 +50,13 @@ const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
     AssertionStdOperator.IsTrue,
     AssertionStdOperator.IsFalse,
 ];
-// const getAssertionStdOperator = (operator: AssertionStdOperator) => {
-//     if (!ASSERTION_OPERATOR_TO_DESCRIPTION[operator] || !SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION.includes(operator)) {
-//         throw new Error(`Unknown operator ${operator}`);
-//     }
-//     return ASSERTION_OPERATOR_TO_DESCRIPTION[operator]?.toLowerCase();
-// };
+
+const getAssertionStdOperator = (operator: AssertionStdOperator) => {
+    if (!ASSERTION_OPERATOR_TO_DESCRIPTION[operator] || !SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION.includes(operator)) {
+        throw new Error(`Unknown operator ${operator}`);
+    }
+    return ASSERTION_OPERATOR_TO_DESCRIPTION[operator]?.toLowerCase();
+};
 
 export const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
     switch (metric) {
@@ -86,10 +110,16 @@ const getFieldTransformType = (transform: FieldTransformType) => {
 
 const getAssertionStdParameters = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
-        return formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value));
+        return formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value),
+        );
     }
     if (parameters.minValue && parameters.maxValue) {
-        return `${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value))} and ${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value))}`;
+        return `${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value),
+        )} and ${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value),
+        )}`;
     }
     return '';
 };
