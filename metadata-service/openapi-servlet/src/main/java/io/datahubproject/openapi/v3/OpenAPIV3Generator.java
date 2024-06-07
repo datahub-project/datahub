@@ -437,6 +437,11 @@ public class OpenAPIV3Generator {
                   final String newDefinition =
                       definition.replaceAll("definitions", "components/schemas");
                   Schema s = Json.mapper().readValue(newDefinition, Schema.class);
+                  // Set enums to "string".
+                  if (s.getEnum() != null && !s.getEnum().isEmpty()) {
+                    s.setType("string");
+                    return;
+                  }
                   Set<String> requiredNames =
                       Optional.ofNullable(s.getRequired())
                           .map(names -> Set.copyOf(names))
