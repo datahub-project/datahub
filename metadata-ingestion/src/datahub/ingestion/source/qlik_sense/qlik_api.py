@@ -140,7 +140,7 @@ class QlikAPI:
             )
             response = websocket_connection.websocket_send_request(method="GetLayout")
             sheet_dict = response[Constant.QLAYOUT]
-            if Constant.OWNER not in sheet_dict[Constant.QMETA]:
+            if Constant.OWNERID not in sheet_dict[Constant.QMETA]:
                 # That means sheet is private sheet
                 return None
             sheet = Sheet.parse_obj(sheet_dict[Constant.QMETA])
