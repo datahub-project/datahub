@@ -109,7 +109,8 @@ public interface EntitySpec {
   default Map<PathSpec, String> getSearchableFieldPathMap() {
     Function<SearchableFieldSpec, Pair<PathSpec, String>> numValuesFn =
         searchableFieldSpec -> {
-          List<String> fieldPaths = new ArrayList<>(searchableFieldSpec.getPath().getPathComponents());
+          List<String> fieldPaths =
+              new ArrayList<>(searchableFieldSpec.getPath().getPathComponents());
           fieldPaths.set(
               Math.max(fieldPaths.size() - 1, 0),
               searchableFieldSpec.getSearchableAnnotation().getNumValuesFieldName().get());
@@ -122,7 +123,8 @@ public interface EntitySpec {
         searchableFieldSpec -> {
           String fieldName =
               searchableFieldSpec.getSearchableAnnotation().getHasValuesFieldName().get();
-          List<String> fieldPaths = new ArrayList<>(searchableFieldSpec.getPath().getPathComponents());
+          List<String> fieldPaths =
+              new ArrayList<>(searchableFieldSpec.getPath().getPathComponents());
           fieldPaths.set(
               Math.max(fieldPaths.size() - 1, 0),
               searchableFieldSpec.getSearchableAnnotation().getHasValuesFieldName().get());
