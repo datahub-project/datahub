@@ -206,6 +206,18 @@ fragment assertionDetails on Assertion {
     }
 }
 
+fragment assertionDetailsWithRunEvents on Assertion {
+    ...assertionDetails
+    runEvents(status: COMPLETE, limit: 1) {
+        total
+        failed
+        succeeded
+        runEvents {
+            ...assertionRunEventDetails
+        }
+    }
+}
+
 fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
     field {
         path

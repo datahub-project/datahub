@@ -43,7 +43,7 @@ mutation updateMonitorStatus($input: UpdateMonitorStatusInput!) {
 }
 
 fragment assertionDetailsWithMonitors on Assertion {
-    ...assertionDetails
+    ...assertionDetailsWithRunEvents
     monitor: relationships(input: { types: ["Evaluates"], direction: INCOMING, start: 0, count: 1 }) {
         relationships {
             entity {
@@ -51,14 +51,6 @@ fragment assertionDetailsWithMonitors on Assertion {
                     ...monitorDetails
                 }
             }
-        }
-    }
-    runEvents(status: COMPLETE, limit: 1) {
-        total
-        failed
-        succeeded
-        runEvents {
-            ...assertionRunEventDetails
         }
     }
 }
