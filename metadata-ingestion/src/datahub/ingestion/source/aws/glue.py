@@ -895,6 +895,11 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database["Name"])
         database_container_key = self.gen_database_key(database["Name"])
+        parameters = database.get("Parameters", {})
+        if database.get('LocationUri') is not None:
+            parameters['LocationUri'] = database['LocationUri']
+        if database.get('CreateTime') is not None:
+            parameters['CreateTime'] = database.get('CreateTime').strftime('%B %-d, %y at %H:%M:%S')
         yield from gen_containers(
             container_key=database_container_key,
             name=database["Name"],
@@ -904,6 +909,7 @@ class GlueSource(StatefulIngestionSourceBase):
             qualified_name=self.get_glue_arn(
                 account_id=database["CatalogId"], database=database["Name"]
             ),
+            extra_properties=parameters,
         )
 
     def add_table_to_database_container(
