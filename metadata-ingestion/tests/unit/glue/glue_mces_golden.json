@@ -52,6 +52,58 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:110bc08849d1c1bde5fc345dab5c3ae7",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "glue",
+                "env": "PROD",
+                "database": "empty-database"
+            },
+            "name": "empty-database",
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/empty-database"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:110bc08849d1c1bde5fc345dab5c3ae7",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:110bc08849d1c1bde5fc345dab5c3ae7",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:110bc08849d1c1bde5fc345dab5c3ae7",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
@@ -232,6 +284,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -468,6 +521,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -653,6 +707,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"

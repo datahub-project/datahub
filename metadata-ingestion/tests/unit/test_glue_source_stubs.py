@@ -75,6 +75,19 @@ get_databases_response = {
             ],
             "CatalogId": "123412341234",
         },
+        {
+            "Name": "empty-database",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 13),
+            "CreateTableDefaultPermissions": [
+                {
+                    "Principal": {
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                    },
+                    "Permissions": ["ALL"],
+                }
+            ],
+            "CatalogId": "123412341234",
+        },
     ]
 }
 databases_1 = {
