@@ -233,6 +233,37 @@ You can also create a custom extractor to extract lineage from any operator. Thi
 
 See this [example PR](https://github.com/datahub-project/datahub/pull/10452) which adds a custom extractor for the `BigQueryInsertJobOperator` operator.
 
+## Cleanup obsolete pipelines and tasks from Datahub
+
+There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the Datahub, let's call such pipelines ans tasks, `obsolete pipelines and tasks`
+
+Following are the steps to cleanup them from the datahub:
+- create a DAG named `Datahub_Cleanup`, i.e.
+
+```python
+from datetime import datetime
+
+from airflow import DAG
+from airflow.operators.bash import BashOperator
+
+from datahub_airflow_plugin.entities import Dataset, Urn
+
+with DAG(
+    "Datahub_Cleanup",
+    start_date=datetime(2024, 1, 1),
+    schedule_interval=None,
+    catchup=False,
+) as dag:
+    task = BashOperator(
+        task_id="cleanup_obsolete_data",
+        dag=dag,
+        bash_command="echo 'cleaning up the obsolete data from datahub'",
+    )
+
+```
+- ingest this DAG, and it will remove all the obsolete pipelines and tasks from the Datahub based on the `cluster` value set in the `airflow.cfg`
+
+
 ## Emit Lineage Directly
 
 If you can't use the plugin or annotate inlets/outlets, you can also emit lineage using the `DatahubEmitterOperator`.

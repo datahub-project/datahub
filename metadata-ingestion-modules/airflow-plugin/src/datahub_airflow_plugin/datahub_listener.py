@@ -16,6 +16,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    DataFlowKeyClass,
+    DataJobKeyClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -549,11 +551,11 @@ class DataHubListener:
 
             logger.debug("Initiating the cleanup of obsselete data from datahub")
 
+            # get all ingested dataflow and datajob
             ingested_dataflow_urns = list(
                 self.graph.get_urns_by_filter(
                     platform="airflow",
                     entity_types=["dataFlow"],
-                    env=self.config.cluster,
                 )
             )
             ingested_datajob_urns = list(
@@ -562,6 +564,33 @@ class DataHubListener:
                 )
             )
 
+            # filter the ingested dataflow and datajob based on the cluster
+            filtered_ingested_dataflow_urns: List = []
+            filtered_ingested_datajob_urns: List = []
+
+            for ingested_dataflow_urn in ingested_dataflow_urns:
+                data_flow_aspect = self.graph.get_aspect(
+                    entity_urn=ingested_dataflow_urn, aspect_type=DataFlowKeyClass
+                )
+                if (
+                    data_flow_aspect is not None
+                    and data_flow_aspect.flowId != _DATAHUB_CLEANUP_DAG
+                    and data_flow_aspect is not None
+                    and data_flow_aspect.cluster == self.config.cluster
+                ):
+                    filtered_ingested_dataflow_urns.append(ingested_dataflow_urn)
+
+            for ingested_datajob_urn in ingested_datajob_urns:
+                data_job_aspect = self.graph.get_aspect(
+                    entity_urn=ingested_datajob_urn, aspect_type=DataJobKeyClass
+                )
+                if (
+                    data_job_aspect is not None
+                    and data_job_aspect.flow in filtered_ingested_dataflow_urns
+                ):
+                    filtered_ingested_datajob_urns.append(ingested_datajob_urn)
+
+            # get all airflow dags
             all_airflow_dags = SerializedDagModel.read_all_dags().values()
 
             airflow_flow_urns: List = []
@@ -580,8 +609,8 @@ class DataHubListener:
                         builder.make_data_job_urn_with_flow(str(flow_urn), task.task_id)
                     )
 
-            obsolete_pipelines = set(ingested_dataflow_urns) - set(airflow_flow_urns)
-            obsolete_tasks = set(ingested_datajob_urns) - set(airflow_job_urns)
+            obsolete_pipelines = set(filtered_ingested_dataflow_urns) - set(airflow_flow_urns)
+            obsolete_tasks = set(filtered_ingested_datajob_urns) - set(airflow_job_urns)
 
             obsolete_urns = obsolete_pipelines.union(obsolete_tasks)
 
