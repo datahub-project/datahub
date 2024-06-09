@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 from collections import defaultdict
@@ -896,12 +897,11 @@ class GlueSource(StatefulIngestionSourceBase):
         domain_urn = self._gen_domain_urn(database["Name"])
         database_container_key = self.gen_database_key(database["Name"])
         parameters = database.get("Parameters", {})
-        if database.get('LocationUri') is not None:
-            parameters['LocationUri'] = database['LocationUri']
-        if database.get('CreateTime') is not None:
-            parameters['CreateTime'] = database.get('CreateTime').strftime(
-                '%B %-d, %y at %H:%M:%S'
-            )
+        if database.get("LocationUri") is not None:
+            parameters["LocationUri"] = database["LocationUri"]
+        if database.get("CreateTime") is not None:
+            create_time: datetime.datetime = database["CreateTime"]
+            parameters["CreateTime"] = create_time.strftime("%B %-d, %y at %H:%M:%S")
         yield from gen_containers(
             container_key=database_container_key,
             name=database["Name"],
