@@ -609,7 +609,9 @@ class DataHubListener:
                         builder.make_data_job_urn_with_flow(str(flow_urn), task.task_id)
                     )
 
-            obsolete_pipelines = set(filtered_ingested_dataflow_urns) - set(airflow_flow_urns)
+            obsolete_pipelines = set(filtered_ingested_dataflow_urns) - set(
+                airflow_flow_urns
+            )
             obsolete_tasks = set(filtered_ingested_datajob_urns) - set(airflow_job_urns)
 
             obsolete_urns = obsolete_pipelines.union(obsolete_tasks)
