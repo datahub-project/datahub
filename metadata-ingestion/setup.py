@@ -168,6 +168,7 @@ bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
+    "google-cloud-datacatalog>=1.5.0",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
 }

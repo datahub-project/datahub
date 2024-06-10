@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterator, List, Optional
 
-from google.cloud import bigquery
+from google.cloud import bigquery, datacatalog_v1
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
@@ -31,6 +31,7 @@ class BigqueryColumn(BaseColumn):
     field_path: str
     is_partition_column: bool
     cluster_column_position: Optional[int]
+    policy_tags: Optional[List[str]] = None
 
 
 RANGE_PARTITION_NAME: str = "RANGE"
@@ -137,10 +138,14 @@ class BigqueryProject:
 
 class BigQuerySchemaApi:
     def __init__(
-        self, report: BigQuerySchemaApiPerfReport, client: bigquery.Client
+        self,
+        report: BigQuerySchemaApiPerfReport,
+        client: bigquery.Client,
+        datacatalog_client: Optional[datacatalog_v1.PolicyTagManagerClient] = None,
     ) -> None:
         self.bq_client = client
         self.report = report
+        self.datacatalog_client = datacatalog_client
 
     def get_query_result(self, query: str) -> RowIterator:
         logger.debug(f"Query : {query}")
@@ -347,12 +352,35 @@ class BigQuerySchemaApi:
             rows_count=view.get("row_count"),
         )
 
+    def get_policy_tags_for_column(
+        self, project_id: str, dataset_name: str, table_name: str, column_name: str
+    ) -> List[str]:
+        assert self.datacatalog_client
+        # Get the table schema
+        table_ref = f"{project_id}.{dataset_name}.{table_name}"
+        table = self.bq_client.get_table(table_ref)
+        schema = table.schema
+
+        # Find the specific field in the schema
+        field = next((f for f in schema if f.name == column_name), None)
+        if not field or not field.policy_tags:
+            return []
+
+        # Retrieve policy tag display names
+        policy_tag_display_names = [
+            self.datacatalog_client.get_policy_tag(name=policy_tag_name).display_name
+            for policy_tag_name in field.policy_tags.names
+        ]
+
+        return policy_tag_display_names
+
     def get_columns_for_dataset(
         self,
         project_id: str,
         dataset_name: str,
         column_limit: int,
         run_optimized_column_query: bool = False,
+        extract_policy_tags_from_catalog: bool = False,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         with self.report.get_columns_for_dataset:
@@ -397,6 +425,14 @@ class BigQuerySchemaApi:
                             comment=column.comment,
                             is_partition_column=column.is_partitioning_column == "YES",
                             cluster_column_position=column.clustering_ordinal_position,
+                            policy_tags=self.get_policy_tags_for_column(
+                                project_id,
+                                dataset_name,
+                                column.table_name,
+                                column.column_name,
+                            )
+                            if extract_policy_tags_from_catalog
+                            else [],
                         )
                     )
 

@@ -236,8 +236,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf, self.config.get_bigquery_client()
+            self.report.schema_api_perf,
+            self.config.get_bigquery_client(),
         )
+        if self.config.extract_policy_tags_from_catalog:
+            self.bigquery_data_dictionary.datacatalog_client = (
+                self.config.get_policy_tag_manager_client()
+            )
+
         self.sql_parser_schema_resolver = self._init_schema_resolver()
 
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -752,6 +758,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 dataset_name=dataset_name,
                 column_limit=self.config.column_limit,
                 run_optimized_column_query=self.config.run_optimized_column_query,
+                extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
             )
 
         if self.config.include_tables:
@@ -1275,6 +1282,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         )
                     )
 
+                if col.policy_tags:
+                    for policy_tag in col.policy_tags:
+                        tags.append(TagAssociationClass(make_tag_urn(policy_tag)))
                 field = SchemaField(
                     fieldPath=col.name,
                     type=SchemaFieldDataType(
