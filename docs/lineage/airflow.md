@@ -69,7 +69,7 @@ enabled = True  # default
 | -------------------------- | -------------------- | ---------------------------------------------------------------------------------------- |
 | enabled                    | true                 | If the plugin should be enabled.                                                         |
 | conn_id                    | datahub_rest_default | The name of the datahub rest connection.                                                 |
-| cluster                    | prod                 | name of the airflow cluster                                                              |
+| cluster                    | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance                                                            |
 | capture_ownership_info     | true                 | Extract DAG ownership.                                                                   |
 | capture_tags_info          | true                 | Extract DAG tags.                                                                        |
 | capture_executions         | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab. |

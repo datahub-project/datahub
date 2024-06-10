@@ -45,7 +45,8 @@ public class SystemRestliEntityClientTest {
     noCacheConfig.setEnabled(true);
 
     SystemRestliEntityClient noCacheTest =
-        new SystemRestliEntityClient(mockRestliClient, new ConstantBackoff(0), 0, noCacheConfig, 1);
+        new SystemRestliEntityClient(
+            mockRestliClient, new ConstantBackoff(0), 0, noCacheConfig, 1, 2);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -83,7 +84,8 @@ public class SystemRestliEntityClientTest {
         Map.of(TEST_URN.getEntityType(), Map.of(Constants.STATUS_ASPECT_NAME, 60)));
 
     SystemRestliEntityClient cacheTest =
-        new SystemRestliEntityClient(mockRestliClient, new ConstantBackoff(0), 0, cacheConfig, 1);
+        new SystemRestliEntityClient(
+            mockRestliClient, new ConstantBackoff(0), 0, cacheConfig, 1, 2);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
@@ -117,7 +119,8 @@ public class SystemRestliEntityClientTest {
     noCacheConfig.setEnabled(true);
 
     SystemRestliEntityClient noCacheTest =
-        new SystemRestliEntityClient(mockRestliClient, new ConstantBackoff(0), 0, noCacheConfig, 1);
+        new SystemRestliEntityClient(
+            mockRestliClient, new ConstantBackoff(0), 0, noCacheConfig, 1, 2);
 
     com.linkedin.entity.EntityResponse responseStatusTrue = buildStatusResponse(true);
     com.linkedin.entity.EntityResponse responseStatusFalse = buildStatusResponse(false);
@@ -155,7 +158,8 @@ public class SystemRestliEntityClientTest {
         Map.of(TEST_URN.getEntityType(), Map.of(Constants.STATUS_ASPECT_NAME, 60)));
 
     SystemRestliEntityClient cacheTest =
-        new SystemRestliEntityClient(mockRestliClient, new ConstantBackoff(0), 0, cacheConfig, 1);
+        new SystemRestliEntityClient(
+            mockRestliClient, new ConstantBackoff(0), 0, cacheConfig, 1, 2);
 
     mockResponse(mockRestliClient, responseStatusTrue);
     assertEquals(
