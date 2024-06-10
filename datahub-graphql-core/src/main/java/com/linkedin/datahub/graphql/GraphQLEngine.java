@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql;
 import static graphql.schema.idl.RuntimeWiring.*;
 
 import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler;
+import com.linkedin.datahub.graphql.instrumentation.DataHubFieldComplexityCalculator;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
@@ -80,7 +81,9 @@ public class GraphQLEngine {
     List<Instrumentation> instrumentations = new ArrayList<>(3);
     instrumentations.add(new TracingInstrumentation());
     instrumentations.add(new MaxQueryDepthInstrumentation(graphQLQueryDepthLimit));
-    instrumentations.add(new MaxQueryComplexityInstrumentation(graphQLQueryComplexityLimit));
+    instrumentations.add(
+        new MaxQueryComplexityInstrumentation(
+            graphQLQueryComplexityLimit, new DataHubFieldComplexityCalculator()));
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
     _graphQL =
         new GraphQL.Builder(graphQLSchema)

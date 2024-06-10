@@ -118,7 +118,7 @@ def get_columns(
         # information from the manifest file.
         logger.debug(f"Inferring schema info for {dbt_name} from manifest")
         catalog_columns = {
-            k: {"name": col["name"], "type": col["data_type"], "index": i}
+            k: {"name": col["name"], "type": col["data_type"] or "", "index": i}
             for i, (k, col) in enumerate(manifest_columns.items())
         }
     else:

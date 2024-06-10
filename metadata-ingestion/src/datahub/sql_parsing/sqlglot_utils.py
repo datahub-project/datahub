@@ -1,10 +1,12 @@
 import functools
 import hashlib
 import logging
+import re
 from typing import Dict, Iterable, Optional, Tuple, Union
 
 import sqlglot
 import sqlglot.errors
+import sqlglot.optimizer.eliminate_ctes
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
@@ -80,6 +82,8 @@ def parse_statement(
 
 
 def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.Expression:
+    logger.debug("Parsing SQL query: %s", sql)
+
     dialect = get_dialect(platform)
     statements = [
         expression for expression in sqlglot.parse(sql, dialect=dialect) if expression
@@ -104,6 +108,80 @@ def _expression_to_string(
     if isinstance(expression, str):
         return expression
     return expression.sql(dialect=get_dialect(platform))
+
+
+_BASIC_NORMALIZATION_RULES = {
+    # Remove /* */ comments.
+    re.compile(r"/\*.*?\*/", re.DOTALL): "",
+    # Remove -- comments.
+    re.compile(r"--.*$"): "",
+    # Replace all runs of whitespace with a single space.
+    re.compile(r"\s+"): " ",
+    # Remove leading and trailing whitespace and trailing semicolons.
+    re.compile(r"^\s+|[\s;]+$"): "",
+    # Replace anything that looks like a number with a placeholder.
+    re.compile(r"\b\d+\b"): "?",
+    # Replace anything that looks like a string with a placeholder.
+    re.compile(r"'[^']*'"): "?",
+    # Replace sequences of IN/VALUES with a single placeholder.
+    re.compile(r"\b(IN|VALUES)\s*\(\?(?:, \?)*\)", re.IGNORECASE): r"\1 (?)",
+    # Normalize parenthesis spacing.
+    re.compile(r"\( "): "(",
+    re.compile(r" \)"): ")",
+}
+_TABLE_NAME_NORMALIZATION_RULES = {
+    # Replace UUID-like strings with a placeholder (both - and _ variants).
+    re.compile(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        re.IGNORECASE,
+    ): "00000000-0000-0000-0000-000000000000",
+    re.compile(
+        r"[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}",
+        re.IGNORECASE,
+    ): "00000000_0000_0000_0000_000000000000",
+    # GE temporary table names (prefix + 8 digits of a UUIDv4)
+    re.compile(
+        r"\b(ge_tmp_|ge_temp_|gx_temp_)[0-9a-f]{8}\b", re.IGNORECASE
+    ): r"\1abcdefgh",
+    # Date-suffixed table names (e.g. _20210101)
+    re.compile(r"\b(\w+)(19|20)\d{4}\b"): r"\1YYYYMM",
+    re.compile(r"\b(\w+)(19|20)\d{6}\b"): r"\1YYYYMMDD",
+    re.compile(r"\b(\w+)(19|20)\d{8}\b"): r"\1YYYYMMDDHH",
+    re.compile(r"\b(\w+)(19|20)\d{10}\b"): r"\1YYYYMMDDHHMM",
+}
+
+
+def generalize_query_fast(
+    expression: sqlglot.exp.ExpOrStr,
+    dialect: DialectOrStr,
+    change_table_names: bool = False,
+) -> str:
+    """Variant of `generalize_query` that only does basic normalization.
+
+    Args:
+        expression: The SQL query to generalize.
+        dialect: The SQL dialect to use.
+        change_table_names: If True, replace table names with placeholders. Note
+            that this should only be used for query filtering purposes, as it
+            violates the general assumption that the queries with the same fingerprint
+            have the same lineage/usage/etc.
+
+    Returns:
+        The generalized SQL query.
+    """
+
+    if isinstance(expression, sqlglot.exp.Expression):
+        expression = expression.sql(dialect=get_dialect(dialect))
+    query_text = expression
+
+    REGEX_REPLACEMENTS = {
+        **_BASIC_NORMALIZATION_RULES,
+        **(_TABLE_NAME_NORMALIZATION_RULES if change_table_names else {}),
+    }
+
+    for pattern, replacement in REGEX_REPLACEMENTS.items():
+        query_text = pattern.sub(replacement, query_text)
+    return query_text
 
 
 def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) -> str:
@@ -169,11 +247,14 @@ def generate_hash(text: str) -> str:
 
 
 def get_query_fingerprint_debug(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
 ) -> Tuple[str, Optional[str]]:
     try:
-        dialect = get_dialect(platform)
-        expression_sql = generalize_query(expression, dialect=dialect)
+        if not fast:
+            dialect = get_dialect(platform)
+            expression_sql = generalize_query(expression, dialect=dialect)
+        else:
+            expression_sql = generalize_query_fast(expression, dialect=platform)
     except (ValueError, sqlglot.errors.SqlglotError) as e:
         if not isinstance(expression, str):
             raise
@@ -190,7 +271,7 @@ def get_query_fingerprint_debug(
 
 
 def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr
+    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -212,7 +293,7 @@ def get_query_fingerprint(
         The fingerprint for the SQL query.
     """
 
-    return get_query_fingerprint_debug(expression, platform)[0]
+    return get_query_fingerprint_debug(expression, platform, fast=fast)[0]
 
 
 @functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)
@@ -294,4 +375,22 @@ def detach_ctes(
             return node
 
     statement = statement.copy()
-    return statement.transform(replace_cte_refs, copy=False)
+    statement = statement.transform(replace_cte_refs, copy=False)
+
+    # There's a bug in eliminate_ctes that causes it to not remove all unused CTEs
+    # when there's a complex chain of dependent CTEs. As a workaround, we call the
+    # method multiple times until it no longer eliminates any CTEs.
+    max_eliminate_calls = 5
+    for iteration in range(max_eliminate_calls):
+        new_statement = sqlglot.optimizer.eliminate_ctes.eliminate_ctes(
+            statement.copy()
+        )
+        if new_statement == statement:
+            if iteration > 1:
+                logger.debug(
+                    f"Required {iteration+1} iterations to detach and eliminate all CTEs"
+                )
+            break
+        statement = new_statement
+
+    return statement

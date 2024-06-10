@@ -7,6 +7,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveV
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersInput;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersResult;
@@ -53,7 +54,7 @@ public class GetQuickFiltersResolver
     final GetQuickFiltersInput input =
         bindArgument(environment.getArgument("input"), GetQuickFiltersInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final GetQuickFiltersResult result = new GetQuickFiltersResult();
           final List<QuickFilter> quickFilters = new ArrayList<>();
@@ -73,7 +74,9 @@ public class GetQuickFiltersResolver
 
           result.setQuickFilters(quickFilters);
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

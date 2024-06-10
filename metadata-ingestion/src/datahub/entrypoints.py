@@ -25,6 +25,7 @@ from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
 from datahub.cli.specific.dataset_cli import dataset
@@ -65,7 +66,7 @@ MAX_CONTENT_WIDTH = 120
     "--log-file",
     type=click.Path(dir_okay=False),
     default=None,
-    help="Enable debug logging.",
+    help="Write debug-level logs to a file.",
 )
 @click.version_option(
     version=datahub_package.nice_version_name(),
@@ -164,6 +165,7 @@ datahub.add_command(dataset)
 datahub.add_command(properties)
 datahub.add_command(forms)
 datahub.add_command(datacontract)
+datahub.add_command(assertions)
 
 try:
     from datahub.cli.lite_cli import lite

@@ -63,7 +63,7 @@ type Props = {
 export const ViewDropdownMenu = ({
     view,
     visible,
-    isOwnedByUser,
+    isOwnedByUser = view.viewType === DataHubViewType.Personal,
     trigger = 'hover',
     onClickEdit,
     onClickPreview,

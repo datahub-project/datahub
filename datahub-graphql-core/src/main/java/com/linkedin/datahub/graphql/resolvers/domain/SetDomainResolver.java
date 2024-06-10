@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
@@ -40,7 +41,7 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
     final Urn entityUrn = Urn.createFromString(environment.getArgument("entityUrn"));
     final Urn domainUrn = Urn.createFromString(environment.getArgument("domainUrn"));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
               environment.getContext(), entityUrn)) {
@@ -77,7 +78,9 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
                     entityUrn, domainUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static Boolean validateSetDomainInput(
