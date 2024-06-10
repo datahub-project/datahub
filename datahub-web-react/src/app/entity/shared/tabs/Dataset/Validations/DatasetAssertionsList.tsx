@@ -144,9 +144,6 @@ export const DatasetAssertionsList = ({
                 const resultIcon = (record.lastExecResult && getResultIcon(record.lastExecResult)) || <StopOutlined />;
                 const selected = selectedUrns?.some((selectedUrn) => selectedUrn === record.urn);
                 const isPartOfContract = contract && isAssertionPartOfContract(record, contract);
-                const assertionEntityUrn = record.urn;
-                console.log('isPartOfContract>>>>>', isPartOfContract);
-                console.log('assertionEntityUrn>>>>>', assertionEntityUrn);
 
                 const { description } = record;
                 return (
@@ -170,9 +167,7 @@ export const DatasetAssertionsList = ({
                             description={description}
                             assertionInfo={record.datasetAssertionInfo}
                         />
-                        {/* TODO work on below condition to handle assertionEntityUrn */}
-                        {/* {(isPartOfContract && assertionEntityUrn && ( */}
-                        {(isPartOfContract && (
+                        {(isPartOfContract && entityData?.urn && (
                             <Tooltip
                                 title={
                                     <>
