@@ -1,4 +1,5 @@
 import logging
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -15,7 +16,7 @@ from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-SCHEMA_PARALLELISM = 20
+SCHEMA_PARALLELISM = int(os.getenv("DATAHUB_SNOWFLAKE_SCHEMA_PARALLELISM", 20))
 
 
 @dataclass
