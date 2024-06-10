@@ -57,8 +57,8 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
             // If we found multiple contracts for same entity, we have an invalid system state. Log
             // a warning.
             if (relationships.getTotal() > 1) {
-              // Someone created 2 contracts for the same entity. Currently we do not handle this in
-              // the UI.
+              // Someone created 2 contracts for the same entity. Currently, we do not handle this
+              // in the UI.
               log.warn(
                   String.format(
                       "Unexpectedly found multiple contracts (%s) for entity with urn %s! This may lead to inconsistent behavior.",
@@ -70,7 +70,7 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
                     .map(EntityRelationship::getEntity)
                     .collect(Collectors.toList());
 
-            if (contractUrns.size() >= 1) {
+            if (!contractUrns.isEmpty()) {
               final Urn contractUrn = contractUrns.get(0);
 
               // Step 2: Hydrate the contract entities based on the urns from step 1
@@ -89,7 +89,7 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
             // No contract found
             return null;
           } catch (URISyntaxException | RemoteInvocationException e) {
-            throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
+            throw new RuntimeException("Failed to retrieve Data Contract from GMS", e);
           }
         });
   }

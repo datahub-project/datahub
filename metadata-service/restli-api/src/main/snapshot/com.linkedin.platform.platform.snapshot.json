@@ -843,10 +843,10 @@
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
+      "RVW" : "Designates review fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
-      "UAT" : "Designates user acceptance testing fabrics",
-      "RVW" : "Designates review fabrics"
+      "UAT" : "Designates user acceptance testing fabrics"
     }
   }, {
     "type" : "record",
@@ -2795,7 +2795,13 @@
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.AuditStamp",
-                    "doc" : "Audit stamp containing who last modified the status and when."
+                    "doc" : "Audit stamp containing who last modified the status and when.",
+                    "Searchable" : {
+                      "/time" : {
+                        "fieldName" : "statusLastModifiedAt",
+                        "fieldType" : "COUNT"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "corpUserStatus"
@@ -3243,8 +3249,9 @@
                         }, {
                           "name" : "label",
                           "type" : "string",
-                          "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.",
+                          "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.\n\nNote that this field is deprecated and is not surfaced in the UI.",
                           "optional" : true,
+                          "Deprecated" : true,
                           "Searchable" : {
                             "boostScore" : 0.2,
                             "fieldName" : "fieldLabels",
@@ -5338,7 +5345,12 @@
                           "items" : "com.linkedin.common.Urn"
                         },
                         "doc" : "A specific set of users to apply the policy to (disjunctive)",
-                        "optional" : true
+                        "optional" : true,
+                        "Searchable" : {
+                          "/*" : {
+                            "fieldType" : "URN"
+                          }
+                        }
                       }, {
                         "name" : "groups",
                         "type" : {
@@ -5346,7 +5358,12 @@
                           "items" : "com.linkedin.common.Urn"
                         },
                         "doc" : "A specific set of groups to apply the policy to (disjunctive)",
-                        "optional" : true
+                        "optional" : true,
+                        "Searchable" : {
+                          "/*" : {
+                            "fieldType" : "URN"
+                          }
+                        }
                       }, {
                         "name" : "resourceOwners",
                         "type" : "boolean",
@@ -5364,12 +5381,18 @@
                         "name" : "allUsers",
                         "type" : "boolean",
                         "doc" : "Whether the filter should apply to all users.",
-                        "default" : false
+                        "default" : false,
+                        "Searchable" : {
+                          "fieldType" : "BOOLEAN"
+                        }
                       }, {
                         "name" : "allGroups",
                         "type" : "boolean",
                         "doc" : "Whether the filter should apply to all groups.",
-                        "default" : false
+                        "default" : false,
+                        "Searchable" : {
+                          "fieldType" : "BOOLEAN"
+                        }
                       }, {
                         "name" : "roles",
                         "type" : {
@@ -5382,6 +5405,11 @@
                           "/*" : {
                             "entityTypes" : [ "dataHubRole" ],
                             "name" : "IsAssociatedWithRole"
+                          }
+                        },
+                        "Searchable" : {
+                          "/*" : {
+                            "fieldType" : "URN"
                           }
                         }
                       } ]
