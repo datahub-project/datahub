@@ -35,6 +35,33 @@ This is over and above updating-datahub.md file
 
 ### Environment Variables
 
+`ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY` (default: 2) - Number of concurrent rest.li calls when the number of urns in a getBatchV2 call exceeds the batch
+size of 50. This is typical in metadata tests.
+
+#### Metadata Change Proposal Throttle
+
+`MCP_THROTTLE_UPDATE_INTERVAL_MS` (default: 60000) - How often the MAE consumer's kafka lag is sampled for throttleing MCE consumer's processing rate.
+
+Enable flags:
+`MCP_VERSIONED_THROTTLE_ENABLED` (default: false) - Enable throttling of MCP processing involving versioned aspects.
+`MCP_TIMESERIES_THROTTLE_ENABLED` (default: false) - Enable throttling of MCP processing involving timeseries aspects.
+
+Threshold flags:
+`MCP_VERSIONED_THRESHOLD` (default: 4000) - The lag threshold at which throttling should be activated for versioned aspects.
+`MCP_TIMESERIES_THRESHOLD` (default: 4000) - The lag threshold at which throttling should be activated for timeseries aspects.
+
+Max throttling attempts:
+`MCP_VERSIONED_MAX_ATTEMPTS` (default: 1000) - The number of throttling events before the versioned aspect throttle is reset.
+`MCP_TIMESERIES_MAX_ATTEMPTS` (default: 1000) - The number of throttling events before the timeseries aspect throttle is reset.
+
+Exponential backoff configuration:
+`MCP_VERSIONED_INITIAL_INTERVAL_MS` (default: 100) - The exponential backoff initial interval for versioned aspects.
+`MCP_TIMESERIES_INITIAL_INTERVAL_MS` (default: 100) - The exponential backoff initial interval for versioned aspects.
+`MCP_VERSIONED_MULTIPLIER` (default: 10) - The exponential backoff multiplier for versioned aspects.
+`MCP_TIMESERIES_MULTIPLIER` (default: 10) - The exponential backoff multiplier for timeseries aspects.
+`MCP_VERSIONED_MAX_INTERVAL_MS` (default: 30000) - The exponential backoff max interval for versioned aspects.
+`MCP_TIMESERIES_MAX_INTERVAL_MS` (default: 30000) - The exponential backoff max interval for timeseries aspects.
+
 ## v0.3.2
 
 ### Breaking Changes
