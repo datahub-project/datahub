@@ -503,6 +503,7 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
+
 @pytest.mark.integration
 def test_sigma_extract_lineage(pytestconfig, tmp_path, requests_mock):
 
@@ -546,6 +547,7 @@ def test_sigma_extract_lineage(pytestconfig, tmp_path, requests_mock):
         output_path=output_path,
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
 
 @pytest.mark.integration
 def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
