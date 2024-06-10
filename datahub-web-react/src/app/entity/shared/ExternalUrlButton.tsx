@@ -6,7 +6,7 @@ import UrlButton from './UrlButton';
 const GITHUB_LINK = 'github.com';
 const GITHUB = 'GitHub';
 const GITLAB_LINK = 'gitlab.com';
-const GITHUB = 'GitLab';
+const GITLAB = 'GitLab';
 
 interface Props {
     externalUrl: string;
