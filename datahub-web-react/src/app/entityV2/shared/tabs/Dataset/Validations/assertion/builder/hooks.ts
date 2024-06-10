@@ -29,7 +29,13 @@ export const useAssertionURNCopyLink = (urn: string) => {
         const assertionUrn = urn;
 
         // Create a URL with the assertion_urn query parameter
-        const assertionUrl = `${window.location.href}?assertion_urn=${encodeURIComponent(assertionUrn)}`;
+        const currentUrl = new URL(window.location.href);
+
+        // Add or update the assertion_urn query parameter
+        currentUrl.searchParams.set('assertion_urn', encodeURIComponent(assertionUrn));
+
+        // The updated URL with the new or modified query parameter
+        const assertionUrl = currentUrl.href;
 
         // Copy the URL to the clipboard
         navigator.clipboard.writeText(assertionUrl).then(
