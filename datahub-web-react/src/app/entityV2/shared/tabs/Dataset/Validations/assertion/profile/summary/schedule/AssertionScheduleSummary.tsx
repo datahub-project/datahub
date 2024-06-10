@@ -122,7 +122,7 @@ export const AssertionScheduleSummary = ({
                         title="Next evaluation"
                         subtitle={nextEvaluatedTimeLocal}
                         tooltip={nextEvaluatedTimeGMT}
-                        showDivider={false}
+                        showDivider={!!lastUpdatedAtTimeLocal}
                     />
                 )) ||
                     (nextEvaluatedTimeLocal && (
@@ -130,7 +130,7 @@ export const AssertionScheduleSummary = ({
                             icon={<StyledStopOutlined />}
                             title="Next evaluation"
                             subtitle="This assertion is not actively running. Start the assertion to view the next evaluation time."
-                            showDivider={false}
+                            showDivider={!!lastUpdatedAtTimeLocal}
                         />
                     )) ||
                     null}
