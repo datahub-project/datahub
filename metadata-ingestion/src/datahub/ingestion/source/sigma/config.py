@@ -26,7 +26,10 @@ class Constant:
     """
 
     # Rest API response key constants
+    REFRESH_TOKEN = "refresh_token"
+    ACCESS_TOKEN = "access_token"
     ENTRIES = "entries"
+    MEMBERID = "memberId"
     FIRSTNAME = "firstName"
     LASTNAME = "lastName"
     EDGES = "edges"
@@ -75,15 +78,29 @@ class SigmaSourceConfig(
     workspace_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workspaces in ingestion."
-        "Mention 'User Folder' if entities of 'My documents' need to ingest.",
+        "Mention 'My documents' if personal entities also need to ingest.",
     )
     ingest_owner: Optional[bool] = pydantic.Field(
         default=True,
-        description="Ingest Owner from source. This will override Owner info entered from UI",
+        description="Ingest Owner from source. This will override Owner info entered from UI.",
+    )
+    ingest_shared_entities: Optional[bool] = pydantic.Field(
+        default=False,
+        description="Weather to ingest the shared entities or not.",
+    )
+    extract_lineage: Optional[bool] = pydantic.Field(
+        default=False,
+        description="Weather to extract lineage of workbook's elements and datasets or not.",
+    )
+    workbook_lineage_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter workbook's elements and datasets lineage in ingestion."
+        "Requires extract_lineage to be enabled.",
     )
     chart_sources_platform_mapping: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
     )
-
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
+        default=None, description="Sigma Stateful Ingestion Config."
+    )
