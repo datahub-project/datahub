@@ -72,6 +72,9 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
         [timeRange, chartInnerWidth],
     );
 
+    // get x Axis for the black candle(TS Marker)
+    const tsMarkerX = maybeMountedDataPointDatasetUpdateDate ? xScale(maybeMountedDataPointDatasetUpdateDate) : 0;
+
     const yOffset = 0;
     return (
         <>
@@ -149,6 +152,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                                     strokeWidth: 1,
                                 }
                             }}
+                            opacity={1}
                         />
                         : null}
 
@@ -170,6 +174,10 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                             })
                         }
 
+
+                        // setting offset as per the x axis of black and green candle
+                        const opacity = xOffset - tsMarkerX <= PRIMARY_CANDLE_STICK_BAR_WIDTH ? 0.4 : 1;
+
                         const fillColor = getFillColor(dataPoint.result.type);
                         return (
                             <CandleStick
@@ -180,7 +188,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                                 leftOffset={xOffset}
                                 markerOverlapPx={markerOverlapPx}
                                 shape={{ type: 'circle' }}
-                                opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? 1 : 0.1)) || 1}
+                                opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? opacity : 0.1)) || 1}
                                 color={fillColor}
                                 wrapper={(children) => <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
                                     <Popover
