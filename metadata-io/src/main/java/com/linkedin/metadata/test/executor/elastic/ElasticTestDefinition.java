@@ -26,7 +26,7 @@ public class ElasticTestDefinition {
     return testDefinition.getOn().getEntityTypes();
   }
 
-  public Predicate getSelectionFilters(String entityType) {
+  public Predicate getSelectionFilters() {
     return selectionFilters;
   }
 

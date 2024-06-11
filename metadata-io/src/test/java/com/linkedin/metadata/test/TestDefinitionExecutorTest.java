@@ -5,6 +5,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
@@ -17,7 +18,9 @@ import com.linkedin.metadata.test.executor.elastic.ElasticTestDefinition;
 import com.linkedin.metadata.test.executor.elastic.ElasticTestDefinitionConvertor;
 import com.linkedin.metadata.test.executor.elastic.PredicateToFilter;
 import com.linkedin.metadata.test.query.TestQuery;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -87,7 +90,9 @@ public class TestDefinitionExecutorTest {
 
       Mockito.when(mockRegistry.getEntitySpec(Mockito.anyString())).thenReturn(mockEntitySpec);
 
-      Mockito.when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(List.of());
+      Map<PathSpec, String> fieldPaths = new HashMap<>();
+      fieldPaths.put(new PathSpec("subTypes", "typeNames"), "typeNames");
+      Mockito.when(mockEntitySpec.getSearchableFieldPathMap()).thenReturn(fieldPaths);
 
       ElasticTestDefinitionConvertor convertor = new ElasticTestDefinitionConvertor(mockRegistry);
       assertTrue(convertor.canEvaluate(result));
@@ -95,7 +100,7 @@ public class TestDefinitionExecutorTest {
       for (String entityType : elasticTestDefinition.getSelectedEntityTypes()) {
         Predicate predicate = elasticTestDefinition.getPassingFilters(entityType);
         assertNotNull(predicate);
-        predicate = elasticTestDefinition.getSelectionFilters(entityType);
+        predicate = elasticTestDefinition.getSelectionFilters();
         assertNotNull(predicate);
       }
     }

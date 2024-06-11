@@ -55,9 +55,6 @@ public class ElasticTestDefinitionConvertor {
 
   public ElasticTestDefinition convert(TestDefinition testDefinition) {
     Predicate selectionFilters = testDefinition.getOn().getConditions();
-    if (selectionFilters == null) {
-      return null;
-    }
     if (testDefinition.getRules() == null) {
       return new ElasticTestDefinition(testDefinition, selectionFilters, selectionFilters, null);
     } else {
