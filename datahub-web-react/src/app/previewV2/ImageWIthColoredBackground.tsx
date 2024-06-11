@@ -2,6 +2,7 @@ import ColorThief from 'colorthief';
 import React from 'react';
 import styled from 'styled-components';
 import { getLighterRGBColor } from '../sharedV2/icons/colorUtils';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 type Props = {
     src: string;
@@ -48,9 +49,15 @@ const ImageWithColoredBackground = ({ src, alt, imgSize, backgroundSize, borderR
                 const img = imgRef.current;
                 if (img && img.width > 0 && img.height > 0) {
                     const colorThief = new ColorThief();
-                    img.crossOrigin = 'anonymous';
                     const [r, g, b] = colorThief.getColor(img, 25);
                     setPlatformBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
+                }
+            }}
+            onError={() => {
+                const img = imgRef.current;
+                if (img) {
+                    img.removeAttribute('crossOrigin');
+                    setPlatformBackground(REDESIGN_COLORS.BACKGROUND_GREY);
                 }
             }}
         />
