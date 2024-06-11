@@ -678,12 +678,12 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_change == 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Login to AWS ECR
         uses: docker/login-action@v3
-        if: ${{ needs.setup.outputs.docker-login == 'true' && ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
@@ -770,12 +770,12 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_change == 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to AWS ECR
         uses: docker/login-action@v3
-        if: ${{ needs.setup.outputs.docker-login == 'true' && ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
