@@ -505,6 +505,7 @@ class AzureADSource(StatefulIngestionSourceBase):
                 yield json_data["value"]
             else:
                 error_str = (
+                    f"Request URL: {url}. "
                     f"Response status code: {str(response.status_code)}. "
                     f"Response content: {str(response.content)}"
                 )
