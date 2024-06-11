@@ -4,8 +4,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterator, List, Optional
 
-from google.api_core import retry
+from google.api_core import page_iterator
 from google.cloud import bigquery
+from google.cloud.bigquery.client import _item_to_project
+from google.cloud.bigquery.retry import DEFAULT_RETRY, DEFAULT_TIMEOUT
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
@@ -150,38 +152,40 @@ class BigQuerySchemaApi:
         return resp.result()
 
     def get_projects(self) -> List[BigqueryProject]:
-        def _should_retry(exc: BaseException) -> bool:
-            logger.debug(f"Exception reason: {str(exc)}. Type: {type(exc)}")
-            return True
-
         with self.report.list_projects:
             try:
                 projects: List[BigqueryProject] = []
-                page_token: Optional[str] = None
                 # Bigquery API has limit in calling project.list request i.e. 2 request per second.
                 # Also project.list returns max 50 projects per page.
                 # Assuming list_projects method internally not adding any limit in requests call,
                 # externally we are adding limit in requests call per second.
                 rate_limiter = RateLimiter(max_calls=1, period=2)
-                while True:
-                    with rate_limiter:
-                        projects_iterator = self.bq_client.list_projects(
-                            max_results=50,
-                            page_token=page_token,
-                            retry=retry.Retry(predicate=_should_retry, timeout=20),
-                        )
-                        count = 0
-                        for p in projects_iterator:
-                            projects.append(
-                                BigqueryProject(id=p.project_id, name=p.friendly_name)
-                            )
-                            count += 1
-                        logger.debug(f"Projects count per request {str(count)}")
-                    page_token = projects_iterator.next_page_token
-                    if page_token is None:
-                        break
 
-                return projects
+                def api_request(**kwargs):
+                    with rate_limiter:
+                        return self.bq_client._call_api(
+                            retry=DEFAULT_RETRY,
+                            span_name="BigQuery.listProjects",
+                            span_attributes={"path": "/projects"},
+                            timeout=DEFAULT_TIMEOUT,
+                            **kwargs,
+                        )
+
+                projects_iterator = page_iterator.HTTPIterator(
+                    client=self,
+                    api_request=api_request,
+                    path="/projects",
+                    item_to_value=_item_to_project,
+                    items_key="projects",
+                    page_size=1,
+                )
+
+                for p in projects_iterator:
+                    projects.append(
+                        BigqueryProject(id=p.project_id, name=p.friendly_name)
+                    )
+                logger.debug(f"Projects count {str(len(projects))}")
+                return []
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
                 return []
