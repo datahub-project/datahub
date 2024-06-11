@@ -115,8 +115,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
     return secondaryLabelMessage ? <Tooltip
         title={
             <>
-                {tooltipCreatedByMessage ? [tooltipCreatedByMessage, <br />] : null}
-                {tooltipLastUpdatedByMessage}
+                {tooltipLastUpdatedByMessage ? tooltipLastUpdatedByMessage :tooltipCreatedByMessage}
             </>
         }
     >
