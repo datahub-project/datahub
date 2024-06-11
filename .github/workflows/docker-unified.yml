@@ -678,7 +678,7 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_change == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
       - name: Login to AWS ECR
@@ -770,7 +770,7 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_change == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Login to AWS ECR
