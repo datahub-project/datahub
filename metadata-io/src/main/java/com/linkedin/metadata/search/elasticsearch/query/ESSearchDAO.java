@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequ
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -765,5 +766,56 @@ public class ESSearchDAO {
       log.error("Failed to explain query.", e);
       throw new IllegalStateException("Failed to explain query:", e);
     }
+  }
+
+  // SAAS ONLY - Support predicate based filters
+  /**
+   * Gets a list of documents that match given search request. The results are aggregated and
+   * filters are applied to the search hits and not the aggregation results.
+   *
+   * @param input the search input text
+   * @param predicateFilter the request map with fields and values as filters to be applied to
+   *     search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
+   * @return a {@link SearchResult} that contains a list of matched documents and related search
+   *     result metadata
+   */
+  @Nonnull
+  public SearchResult predicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Predicate predicateFilter,
+      @Nullable SortCriterion sortCriterion,
+      int from,
+      int size,
+      @Nullable List<String> facets) {
+    final String finalInput = input.isEmpty() ? "*" : input;
+    Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").time();
+    List<EntitySpec> entitySpecs =
+        entityNames.stream()
+            .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+            .collect(Collectors.toList());
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    // TODO: Support _entityType virtual field
+    // Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
+    // Step 1: construct the query
+    final SearchRequest searchRequest =
+        SearchRequestHandler.getBuilder(
+                entitySpecs,
+                searchConfiguration,
+                customSearchConfiguration,
+                opContext.getRetrieverContext().get().getAspectRetriever())
+            .getPredicateSearchRequest(
+                opContext, finalInput, predicateFilter, sortCriterion, from, size, facets);
+    searchRequest.indices(
+        entityNames.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new));
+    searchRequestTimer.stop();
+    // Step 2: execute the query and extract results, validated against document model as well
+    // TODO: Support aggregations by predicate filter
+    return executeAndExtract(opContext, entitySpecs, searchRequest, null, from, size);
   }
 }

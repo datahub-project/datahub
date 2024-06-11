@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -455,6 +456,34 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         sortCriterion,
         scrollId,
         keepAlive,
+        size,
+        facets);
+  }
+
+  // SAAS ONLY - Support predicate based filtering
+  @Nonnull
+  public SearchResult predicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      @Nullable SortCriterion sortCriterion,
+      int from,
+      int size,
+      @Nullable List<String> facets) {
+    log.debug(
+        String.format(
+            "Searching FullText Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, from: %s, size: %s",
+            entityNames, input, predicate, sortCriterion, from, size));
+
+    return esSearchDAO.predicateSearch(
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        entityNames,
+        input,
+        predicate,
+        sortCriterion,
+        from,
         size,
         facets);
   }

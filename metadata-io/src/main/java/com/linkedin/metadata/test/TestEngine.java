@@ -109,6 +109,8 @@ public class TestEngine {
 
   private final OperationContext systemOpContext;
 
+  private final boolean elasticSearchExecutorEnabled;
+
   // TODO: Make this configurable
   private static final Integer MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION = 10000;
 
@@ -153,7 +155,8 @@ public class TestEngine {
       PredicateEvaluator predicateEvaluator,
       ActionApplier actionApplier,
       final int delayIntervalSeconds,
-      final int refreshIntervalSeconds) {
+      final int refreshIntervalSeconds,
+      boolean elasticSearchExecutorEnabled) {
 
     _entityService = entityService;
     _searchService = searchService;
@@ -193,6 +196,7 @@ public class TestEngine {
             systemOpContext.getEntityRegistry(),
             systemOpContext);
     _timeseriesAspectService = timeseriesAspectService;
+    this.elasticSearchExecutorEnabled = elasticSearchExecutorEnabled;
   }
 
   /**
@@ -520,12 +524,11 @@ public class TestEngine {
 
     // Validate 'on' block queries.
     if (testDefinition.getOn().getConditions() != null) {
-      queries.addAll(
-          _predicateEvaluator.extractQueriesForPredicate(testDefinition.getOn().getConditions()));
+      queries.addAll(Predicate.extractQueriesForPredicate(testDefinition.getOn().getConditions()));
     }
 
     // Validate 'rules' block queries.
-    queries.addAll(_predicateEvaluator.extractQueriesForPredicate(testDefinition.getRules()));
+    queries.addAll(Predicate.extractQueriesForPredicate(testDefinition.getRules()));
 
     // Verify that each defined query is valid. If multiple are invalid, merge the
     // error messages
@@ -553,7 +556,7 @@ public class TestEngine {
     }
     Set<TestQuery> requiredQueries =
         rules.stream()
-            .flatMap(rule -> _predicateEvaluator.extractQueriesForPredicate(rule).stream())
+            .flatMap(rule -> Predicate.extractQueriesForPredicate(rule).stream())
             .collect(Collectors.toSet());
     return _queryEngine.batchEvaluateQueries(systemOpContext, new HashSet<>(urns), requiredQueries);
   }
@@ -1075,49 +1078,35 @@ public class TestEngine {
       TestDefinition testDefinition,
       Map<Urn, BatchTestRunResult> batchTestRunResults) {
     final Map<Urn, TestResults> results;
+    Map<Urn, TestResults> tempResults;
     // Prefer ElasticSearchTestExecutor if it can execute the test
-    if (_elasticSearchTestExecutor.canEvaluate(testDefinition)) {
-      log.info("ElasticSearchTestExecutor can execute test {}", testUrn);
-      results =
-          _elasticSearchTestExecutor.evaluate(testDefinition, batchTestRunResults.get(testUrn));
-      log.info("Test results size for test {} is {}", testUrn, results.size());
-    } else {
-      final Set<Urn> candidateUrns = new HashSet<>();
-      if (_elasticSearchTestExecutor.canSelect(testDefinition)) {
-        log.info("ElasticSearchTestExecutor can select test {}", testUrn);
-        candidateUrns.addAll(_elasticSearchTestExecutor.select(testDefinition));
+    try {
+      boolean canSelect =
+          elasticSearchExecutorEnabled && _elasticSearchTestExecutor.canSelect(testDefinition);
+      if (canSelect && _elasticSearchTestExecutor.canEvaluate(testDefinition)) {
+        log.info("ElasticSearchTestExecutor can execute test {}", testUrn);
+        tempResults =
+            _elasticSearchTestExecutor.evaluate(testDefinition, batchTestRunResults.get(testUrn));
+        log.info("Test results size for test {} is {}", testUrn, tempResults.size());
       } else {
-        log.info("ElasticSearchTestExecutor cannot select test {}", testUrn);
-        testDefinition
-            .getOn()
-            .getEntityTypes()
-            .forEach(
-                typeName ->
-                    candidateUrns.addAll(
-                        _entityService
-                            .listUrns(
-                                systemOpContext,
-                                typeName,
-                                0,
-                                MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
-                            .getEntities()));
-      }
+        final Set<Urn> candidateUrns = new HashSet<>();
+        if (canSelect) {
+          log.info("ElasticSearchTestExecutor can select test {}", testUrn);
+          candidateUrns.addAll(_elasticSearchTestExecutor.select(testDefinition));
+        } else {
+          defaultSelect(testDefinition, testUrn, candidateUrns);
+        }
 
-      if (candidateUrns.size() >= MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION) {
-        log.warn(
-            "Test {} has too many entities to evaluate: {}. Will truncate to {} entities.",
-            testUrn,
-            candidateUrns.size(),
-            MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION);
+        tempResults = defaultEvaluate(candidateUrns, testUrn, testDefinition, batchTestRunResults);
       }
-      Set<Urn> urnsToTest =
-          candidateUrns.stream()
-              .limit(MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
-              .collect(Collectors.toSet());
-
-      results = batchEvaluateTests(urnsToTest, Set.of(testDefinition), batchTestRunResults);
+    } catch (IllegalArgumentException | UnsupportedOperationException e) {
+      // If ES Test executor fails try to do default
+      Set<Urn> candidateUrns = new HashSet<>();
+      defaultSelect(testDefinition, testUrn, candidateUrns);
+      tempResults = defaultEvaluate(candidateUrns, testUrn, testDefinition, batchTestRunResults);
     }
 
+    results = tempResults;
     results.keySet().stream()
         .limit(1)
         .forEach(
@@ -1141,6 +1130,43 @@ public class TestEngine {
               log.info("Entity {} results: {}", urn, sb.toString());
             });
     return results;
+  }
+
+  private void defaultSelect(TestDefinition testDefinition, Urn testUrn, Set<Urn> candidateUrns) {
+    log.info("ElasticSearchTestExecutor cannot select test {}", testUrn);
+    testDefinition
+        .getOn()
+        .getEntityTypes()
+        .forEach(
+            typeName ->
+                candidateUrns.addAll(
+                    _entityService
+                        .listUrns(
+                            systemOpContext,
+                            typeName,
+                            0,
+                            MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
+                        .getEntities()));
+  }
+
+  private Map<Urn, TestResults> defaultEvaluate(
+      Set<Urn> candidateUrns,
+      Urn testUrn,
+      TestDefinition testDefinition,
+      Map<Urn, BatchTestRunResult> batchTestRunResults) {
+    if (candidateUrns.size() >= MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION) {
+      log.warn(
+          "Test {} has too many entities to evaluate: {}. Will truncate to {} entities.",
+          testUrn,
+          candidateUrns.size(),
+          MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION);
+    }
+    Set<Urn> urnsToTest =
+        candidateUrns.stream()
+            .limit(MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
+            .collect(Collectors.toSet());
+
+    return batchEvaluateTests(urnsToTest, Set.of(testDefinition), batchTestRunResults);
   }
 
   /**
