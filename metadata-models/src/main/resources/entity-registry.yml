@@ -539,6 +539,8 @@ entities:
     aspects:
       - incidentInfo
       - globalTags
+      - incidentNotificationDetails
+      - incidentActivityEvent
   - name: anomaly
     doc: Anomalies represent issues that were detected based on inferred or auto-generated assertions.
     category: core

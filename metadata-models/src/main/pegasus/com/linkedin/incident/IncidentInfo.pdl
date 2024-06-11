@@ -7,6 +7,8 @@ import com.linkedin.common.Urn
 
 /**
  * Information about an incident raised on an asset.
+ *
+ * NOTE: When this file is changed, update IncidentActivityEvent.pdl to remove searchable and relationship annotations.
  */
 @Aspect = {
   "name": "incidentInfo"
@@ -33,11 +35,18 @@ record IncidentInfo {
   /**
   * Optional title associated with the incident
   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "boostScore": 10.0,
+  }
   title: optional string
 
   /**
   * Optional description associated with the incident
   */
+  @Searchable = {
+    "fieldType": "TEXT",
+  }
   description: optional string
 
   /**
@@ -86,10 +95,7 @@ record IncidentInfo {
    * The time at which the incident actually started (may be before the date it was raised).
    */
   @Searchable = {
-    "/time": {
-        "fieldName": "startedAt",
-        "fieldType": "COUNT"
-      }
+    "fieldType": "COUNT"
   }
   startedAt: optional Time
 
