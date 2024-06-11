@@ -682,7 +682,7 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull String input,
       @Nullable Predicate predicate,
-      @Nullable SortCriterion sortCriterion,
+      @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
@@ -699,7 +699,7 @@ public class SearchRequestHandler {
         searchFlags,
         filterQuery,
         facets,
-        sortCriterion);
+        sortCriteria);
   }
 
   public BoolQueryBuilder getFilterQuery(

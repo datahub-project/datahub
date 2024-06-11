@@ -1,7 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch;
 
-import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
-
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
@@ -35,6 +33,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchResponse;
+
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -460,14 +460,14 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Predicate predicate,
-      @Nullable SortCriterion sortCriterion,
+      @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
     log.debug(
         String.format(
             "Searching FullText Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, from: %s, size: %s",
-            entityNames, input, predicate, sortCriterion, from, size));
+            entityNames, input, predicate, sortCriteria, from, size));
 
     return esSearchDAO.predicateSearch(
         opContext.withSearchFlags(
@@ -475,7 +475,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         entityNames,
         input,
         predicate,
-        sortCriterion,
+        sortCriteria,
         from,
         size,
         facets);

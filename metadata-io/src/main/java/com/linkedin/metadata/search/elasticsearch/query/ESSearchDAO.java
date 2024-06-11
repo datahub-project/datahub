@@ -787,7 +787,7 @@ public class ESSearchDAO {
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Predicate predicateFilter,
-      @Nullable SortCriterion sortCriterion,
+      @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets) {
@@ -808,7 +808,7 @@ public class ESSearchDAO {
                 customSearchConfiguration,
                 opContext.getRetrieverContext().get().getAspectRetriever())
             .getPredicateSearchRequest(
-                opContext, finalInput, predicateFilter, sortCriterion, from, size, facets);
+                opContext, finalInput, predicateFilter, sortCriteria, from, size, facets);
     searchRequest.indices(
         entityNames.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new));
     searchRequestTimer.stop();
