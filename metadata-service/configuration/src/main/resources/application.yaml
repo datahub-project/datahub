@@ -386,6 +386,7 @@ entityClient:
   restli:
     get:
       batchSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE:100} # limited to prevent exceeding restli URI size limit
+      batchConcurrency: ${ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY:2} # parallel threads
 
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
@@ -460,6 +461,8 @@ forms:
 businessAttribute:
   fetchRelatedEntitiesCount: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_COUNT:20000}
   fetchRelatedEntitiesBatchSize: ${BUSINESS_ATTRIBUTE_RELATED_ENTITIES_BATCH_SIZE:1000}
+  threadCount: ${BUSINESS_ATTRIBUTE_PROPAGATION_CONCURRENCY_THREAD_COUNT:-1} # Thread Pool size, default 2 * # of cores
+  keepAliveTime: ${BUSINESS_ATTRIBUTE_PROPAGATION_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
 
 metadataChangeProposal:
   throttle:
