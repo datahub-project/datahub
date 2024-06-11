@@ -55,6 +55,8 @@ class Constant:
 @dataclass
 class SigmaSourceReport(StaleEntityRemovalSourceReport):
     number_of_workspaces: int = 0
+    non_accessible_workspaces_count: int = 0
+    shared_entities_count: int = 0
 
     def report_number_of_workspaces(self, number_of_workspaces: int) -> None:
         self.number_of_workspaces = number_of_workspaces

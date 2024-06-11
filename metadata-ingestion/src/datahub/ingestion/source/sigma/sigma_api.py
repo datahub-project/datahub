@@ -5,7 +5,11 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-from datahub.ingestion.source.sigma.config import Constant, SigmaSourceConfig
+from datahub.ingestion.source.sigma.config import (
+    Constant,
+    SigmaSourceConfig,
+    SigmaSourceReport,
+)
 from datahub.ingestion.source.sigma.data_classes import (
     Element,
     File,
@@ -20,8 +24,9 @@ logger = logging.getLogger(__name__)
 
 
 class SigmaAPI:
-    def __init__(self, config: SigmaSourceConfig) -> None:
+    def __init__(self, config: SigmaSourceConfig, report: SigmaSourceReport) -> None:
         self.config = config
+        self.report = report
         self.workspaces: Dict[str, Workspace] = {}
         self.users: Dict[str, str] = {}
         self.session = requests.Session()
@@ -98,6 +103,7 @@ class SigmaAPI:
                 )
                 if response.status_code == 403:
                     logger.debug(f"Workspace {workspace_id} not accessible.")
+                    self.report.non_accessible_workspaces_count += 1
                     return None
                 response.raise_for_status()
                 workspace = Workspace.parse_obj(response.json())
@@ -221,6 +227,7 @@ class SigmaAPI:
                                     datasets.append(dataset)
                             elif self.config.ingest_shared_entities:
                                 # If no workspace for dataset we can consider it as shared entity
+                                self.report.shared_entities_count += 1
                                 datasets.append(dataset)
 
                 if response_dict[Constant.NEXTPAGE]:
@@ -372,6 +379,7 @@ class SigmaAPI:
                                     workbooks.append(workbook)
                             elif self.config.ingest_shared_entities:
                                 # If no workspace for workbook we can consider it as shared entity
+                                self.report.shared_entities_count += 1
                                 workbook.pages = self.get_workbook_pages(workbook)
                                 workbooks.append(workbook)
 
