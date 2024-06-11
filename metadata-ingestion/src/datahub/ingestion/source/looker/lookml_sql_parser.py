@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 
 def _drop_hive_dot(urn: str) -> str:
     """
-    This is special handling for hive platform where hive. is coming in urn id because of way SQL is written in lookml.
+    This is special handling for hive platform where "hive." is coming in urn's id because of the way SQL
+    is written in lookml.
 
     Example: urn:li:dataset:(urn:li:dataPlatform:hive,hive.my_database.my_table,PROD)
 
@@ -69,7 +70,6 @@ def _create_fields(spr: SqlParsingResult) -> List[ViewField]:
 
 def _update_upstream_fields_from_spr(
     fields: List[ViewField],
-    upstream_table_urn_for_skip_field: str,
     spr: SqlParsingResult,
 ) -> List[ViewField]:
     column_lineages: List[ColumnLineageInfo] = (
@@ -92,36 +92,36 @@ def _update_upstream_fields_from_spr(
         ].upstream_fields = _drop_hive_dot_from_upstream(cll.upstreams)
         view_updated[cll.downstream.column] = True
 
-    # filter field skip in update.
-    # field might get skip either because of Parser not able to identify the column from GMS
-    # in-case of "select * from look_ml_view.SQL_TABLE_NAME or extra field are defined in the looker view which is
-    # referring to upstream table
     skip_fields: List[ViewField] = [
         field for field in fields if view_updated[field.name] is False
     ]
 
-    for field in skip_fields:
-        # convert normal column name to ColumnRef
-        field.upstream_fields = [
-            ColumnRef(table=upstream_table_urn_for_skip_field, column=column)
-            for column in field.upstream_fields
-        ]
-
-    return fields
+    return skip_fields
 
 
 def _update_fields(
     fields: List[ViewField],
     spr: SqlParsingResult,
-    upstream_urns: List[str],
+    upstream_of_skip_field: str,
 ) -> List[ViewField]:
-    return _update_upstream_fields_from_spr(
+
+    skip_fields: List[ViewField] = _update_upstream_fields_from_spr(
         fields=fields,
-        upstream_table_urn_for_skip_field=upstream_urns[
-            0
-        ],  # The 0th index contains URN of table referred in from
         spr=spr,
     )
+
+    # field might get skip either because of Parser not able to identify the column from GMS
+    # in-case of "select * from look_ml_view.SQL_TABLE_NAME" or extra field are defined in the looker view which is
+    # referring to upstream table
+
+    for field in skip_fields:
+        # convert normal column name to ColumnRef
+        field.upstream_fields = [
+            ColumnRef(table=upstream_of_skip_field, column=column)
+            for column in field.upstream_fields
+        ]
+
+    return fields
 
 
 class SqlQuery:
@@ -135,7 +135,7 @@ class SqlQuery:
     ):
         """
         lookml_sql_query: This is not pure sql query,
-        It might contains liquid variable and might not have `from` clause.
+        It might contains sql fragments and might not have `from` clause.
         """
         self.lookml_sql_query = lookml_sql_query
         self.view_name = view_name
@@ -278,13 +278,19 @@ class ViewFieldBuilder:
             spr.debug_info.table_error is not None
             or spr.debug_info.column_error is not None
         ):
-            # self.reporter.report_warning(
-            #     view_urn,
-            #     f"Failed to parsed the sql query. table_error={spr.debug_info.table_error} and column_error={spr.debug_info.column_error}",
-            # )
+            self.reporter.report_warning(
+                view_urn,
+                f"Failed to parsed the sql query. table_error={spr.debug_info.table_error} and column_error={spr.debug_info.column_error}",
+            )
             return [], []
 
         upstream_urns: List[str] = [_drop_hive_dot(urn) for urn in spr.in_tables]
+
+        if len(upstream_urns) == 0:
+            logger.debug(
+                f"No table found in sql processing. Skipping CLL for {view_urn}"
+            )
+            return [], []
 
         logger.debug(f"SqlParsingResult({view_urn}) : {spr}")
 
@@ -293,7 +299,9 @@ class ViewFieldBuilder:
                 _update_fields(
                     fields=self.fields,
                     spr=spr,
-                    upstream_urns=upstream_urns,
+                    upstream_of_skip_field=upstream_urns[
+                        0
+                    ],  # The 0th index contains URN of table referred in from
                 ),
                 upstream_urns,
             )

@@ -7,7 +7,11 @@ sql:
       FROM
         order
       WHERE
-        {% condition order_region %} order.region {% endcondition %}
+        {% if order.region == "ap-south-1" %}
+            region = "AWS_AP_SOUTH_1"
+        {% else %}
+            region = "GCP_SOUTH_1"
+        {% endif %}
       GROUP BY 1
     ;;
     }

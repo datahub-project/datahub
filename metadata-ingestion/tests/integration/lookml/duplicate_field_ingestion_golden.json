@@ -167,7 +167,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD)",
                                 "type": "VIEW"
                             }
                         ],
@@ -175,7 +175,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),entity)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),entity)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -186,7 +186,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),metadata)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),metadata)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -197,7 +197,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),urn)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),urn)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -208,7 +208,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),version)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),version)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -219,7 +219,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),createdon)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),createdon)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -230,7 +230,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),count)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),count)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [

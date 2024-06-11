@@ -63,9 +63,9 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "expected_output.json"
 
-    # Note this config below is known to create "bad" lineage since the config author has not provided enough information
-    # to resolve relative table names (which are not fully qualified)
-    # We keep this check just to validate that ingestion doesn't croak on this config
+    # Note this config below is known to create "bad" lineage since the config author has not provided enough
+    # information to resolve relative table names (which are not fully qualified) We keep this check just to validate
+    # that ingestion doesn't croak on this config
 
     pipeline = Pipeline.create(
         get_default_recipe(
