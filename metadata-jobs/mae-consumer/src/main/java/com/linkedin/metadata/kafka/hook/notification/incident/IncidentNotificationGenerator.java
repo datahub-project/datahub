@@ -114,6 +114,16 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
               event.getAspect().getValue(),
               event.getAspect().getContentType(),
               IncidentInfo.class));
+
+      // Enable or disable attempting to update the state of an incident we've already broadcasted!
+      if (_featureFlags.isBroadcastNewIncidentUpdatesEnabled()) {
+        sendBroadcastNewIncidentUpdateNotification(
+            event.getEntityUrn(),
+            GenericRecordUtils.deserializeAspect(
+                event.getAspect().getValue(),
+                event.getAspect().getContentType(),
+                IncidentInfo.class));
+      }
     }
   }
 
@@ -150,72 +160,9 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
       return;
     }
 
-    final Ownership maybeOwnership = getEntityOwnership(entityUrn);
-    final List<Urn> owners =
-        maybeOwnership != null
-            ? maybeOwnership.getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())
-            : Collections.emptyList();
-    final DownstreamSummary downstreamSummary = getDownstreamSummary(entityUrn);
-    final Map<String, String> templateParams = new HashMap<>();
-    final String entityName = _entityNameProvider.getQualifiedName(systemOpContext, entityUrn);
-    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
-    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
-    final String actorName =
-        _entityNameProvider.getName(systemOpContext, info.getStatus().getLastUpdated().getActor());
-    templateParams.put("incidentUrn", urn.toString());
-    templateParams.put("entityUrn", entityUrn.toString());
-    templateParams.put("entityName", entityName);
-    templateParams.put("entityType", entityType);
-    templateParams.put("entityPath", generateEntityPath(entityUrn));
-    templateParams.put("newStatus", info.getStatus().getState().toString());
-    templateParams.put("owners", listToJSON(owners));
-    if (downstreamSummary != null) {
-      final List<Urn> downstreamOwners = downstreamSummary.getOwnerUrns();
-      final Integer downstreamAssetCount = downstreamSummary.getTotal();
-      templateParams.put("downstreamOwners", listToJSON(downstreamOwners));
-      templateParams.put("downstreamAssetCount", downstreamAssetCount.toString());
-    }
-    templateParams.put("actorUrn", info.getStatus().getLastUpdated().getActor().toString());
-    templateParams.put("actorName", actorName);
-    if (entityPlatform != null) {
-      templateParams.put("entityPlatform", entityPlatform);
-    }
-    if (info.hasTitle()) {
-      templateParams.put("incidentTitle", info.getTitle());
-    }
-    if (info.hasDescription()) {
-      templateParams.put("incidentDescription", info.getDescription());
-    }
-    if (info.hasPriority()) {
-      templateParams.put("incidentPriority", info.getPriority().toString());
-    }
-    if (info.getStatus().hasStage()) {
-      templateParams.put("incidentStage", info.getStatus().getStage().toString());
-    }
-    if (info.hasType()) {
-      if (info.hasCustomType()) {
-        templateParams.put("incidentType", info.getCustomType());
-      } else {
-        templateParams.put("incidentType", info.getType().toString());
-      }
-    }
-    if (info.hasSource()
-        && IncidentSourceType.ASSERTION_FAILURE.equals(info.getSource().getType())) {
-      Urn assertionUrn = info.getSource().getSourceUrn();
-      templateParams.put("assertionUrn", assertionUrn.toString());
-      // Attempt to populate the assertion description.
-      DataMap rawInfo = getAspectData(assertionUrn, ASSERTION_INFO_ASPECT_NAME);
-      if (rawInfo != null) {
-        AssertionInfo aspectInfo = new AssertionInfo(rawInfo);
-        templateParams.put(
-            "assertionDescription",
-            AssertionUtils.buildAssertionDescription(assertionUrn, aspectInfo));
-        templateParams.put("assertionType", aspectInfo.getType().toString());
-        if (aspectInfo.getSource() != null) {
-          templateParams.put("assertionSourceType", aspectInfo.getSource().getType().toString());
-        }
-      }
-    }
+    final Map<String, String> templateParams =
+        buildBroadcastNewIncidentTemplateParams(urn, entityUrn, info);
+
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
             NotificationTemplateType.BROADCAST_NEW_INCIDENT.name(), templateParams, recipients);
@@ -331,6 +278,121 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
     log.info(String.format("Broadcasting incident status change for entity %s...", entityUrn));
     sendNotificationRequest(notificationRequest);
+  }
+
+  /**
+   * Sends a notification of template type "BROADCAST_NEW_INCIDENT_UPDATE" when an incident's status
+   * is changed.
+   *
+   * <p>This is used to update the incident status in the destination, as opposed to sending a net
+   * new notification.
+   */
+  private void sendBroadcastNewIncidentUpdateNotification(
+      @Nonnull final Urn urn, @Nonnull final IncidentInfo newInfo) {
+
+    // Notify a specific slack channel to alert the owners of the asset.
+    final Urn entityUrn = newInfo.getEntities().get(0);
+    final Urn actorUrn = newInfo.getStatus().getLastUpdated().getActor();
+    EntityChangeType changeType = getEntityChangeType(newInfo);
+
+    // Anyone who has received broadcast new incident may be interested in this update -
+    // you do not need to specifically subscribe to receive this special broadcast type.
+    Set<NotificationRecipient> recipients =
+        new HashSet<>(
+            buildRecipients(
+                systemOpContext,
+                NotificationScenarioType.NEW_INCIDENT,
+                entityUrn,
+                changeType,
+                actorUrn));
+
+    if (recipients.isEmpty()) {
+      log.info("Skipping incident generation - no recipients");
+      return;
+    }
+
+    final Map<String, String> templateParams =
+        buildBroadcastNewIncidentTemplateParams(urn, entityUrn, newInfo);
+
+    final NotificationRequest notificationRequest =
+        buildNotificationRequest(
+            NotificationTemplateType.BROADCAST_NEW_INCIDENT_UPDATE.name(),
+            templateParams,
+            recipients);
+
+    log.info(String.format("Updating broadcasted incident for entity %s...", entityUrn));
+    sendNotificationRequest(notificationRequest);
+  }
+
+  private Map<String, String> buildBroadcastNewIncidentTemplateParams(
+      @Nonnull final Urn urn, @Nonnull Urn entityUrn, @Nonnull final IncidentInfo info) {
+    final Map<String, String> templateParams = new HashMap<>();
+    final Ownership maybeOwnership = getEntityOwnership(entityUrn);
+    final List<Urn> owners =
+        maybeOwnership != null
+            ? maybeOwnership.getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())
+            : Collections.emptyList();
+    final DownstreamSummary downstreamSummary = getDownstreamSummary(entityUrn);
+    final String entityName = _entityNameProvider.getQualifiedName(systemOpContext, entityUrn);
+    final String entityType = _entityNameProvider.getTypeName(systemOpContext, entityUrn);
+    final String entityPlatform = _entityNameProvider.getPlatformName(systemOpContext, entityUrn);
+    final String actorName =
+        _entityNameProvider.getName(systemOpContext, info.getStatus().getLastUpdated().getActor());
+    templateParams.put("incidentUrn", urn.toString());
+    templateParams.put("entityUrn", entityUrn.toString());
+    templateParams.put("entityName", entityName);
+    templateParams.put("entityType", entityType);
+    templateParams.put("entityPath", generateEntityPath(entityUrn));
+    templateParams.put("newStatus", info.getStatus().getState().toString());
+    templateParams.put("owners", listToJSON(owners));
+    if (downstreamSummary != null) {
+      final List<Urn> downstreamOwners = downstreamSummary.getOwnerUrns();
+      final Integer downstreamAssetCount = downstreamSummary.getTotal();
+      templateParams.put("downstreamOwners", listToJSON(downstreamOwners));
+      templateParams.put("downstreamAssetCount", downstreamAssetCount.toString());
+    }
+    templateParams.put("actorUrn", info.getStatus().getLastUpdated().getActor().toString());
+    templateParams.put("actorName", actorName);
+    if (entityPlatform != null) {
+      templateParams.put("entityPlatform", entityPlatform);
+    }
+    if (info.hasTitle()) {
+      templateParams.put("incidentTitle", info.getTitle());
+    }
+    if (info.hasDescription()) {
+      templateParams.put("incidentDescription", info.getDescription());
+    }
+    if (info.hasPriority()) {
+      templateParams.put("incidentPriority", info.getPriority().toString());
+    }
+    if (info.getStatus().hasStage()) {
+      templateParams.put("incidentStage", info.getStatus().getStage().toString());
+    }
+    if (info.hasType()) {
+      if (info.hasCustomType()) {
+        templateParams.put("incidentType", info.getCustomType());
+      } else {
+        templateParams.put("incidentType", info.getType().toString());
+      }
+    }
+    if (info.hasSource()
+        && IncidentSourceType.ASSERTION_FAILURE.equals(info.getSource().getType())) {
+      Urn assertionUrn = info.getSource().getSourceUrn();
+      templateParams.put("assertionUrn", assertionUrn.toString());
+      // Attempt to populate the assertion description.
+      DataMap rawInfo = getAspectData(assertionUrn, ASSERTION_INFO_ASPECT_NAME);
+      if (rawInfo != null) {
+        AssertionInfo aspectInfo = new AssertionInfo(rawInfo);
+        templateParams.put(
+            "assertionDescription",
+            AssertionUtils.buildAssertionDescription(assertionUrn, aspectInfo));
+        templateParams.put("assertionType", aspectInfo.getType().toString());
+        if (aspectInfo.getSource() != null) {
+          templateParams.put("assertionSourceType", aspectInfo.getSource().getType().toString());
+        }
+      }
+    }
+    return templateParams;
   }
 
   private EntityChangeType getEntityChangeType(@Nonnull final IncidentInfo info) {

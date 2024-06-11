@@ -16,8 +16,8 @@ from datahub_integrations.identity.identity_provider import (
     User,
 )
 from datahub_integrations.notifications.sinks.slack.template_utils import (
+    build_incident_message,
     build_incident_status_change_message,
-    build_new_incident_message,
 )
 
 
@@ -242,7 +242,7 @@ def test_build_new_incident_message_success_user_has_slack_ids(
     )
 
     # Call the function
-    text, blocks, attachments = build_new_incident_message(
+    text, blocks, attachments = build_incident_message(
         notification_request_all_args,
         identity_provider,
         mock_client,
@@ -304,7 +304,7 @@ def test_build_new_incident_message_success_user_has_email_lookup(
     )
 
     # Call the function
-    text, blocks, attachments = build_new_incident_message(
+    text, blocks, attachments = build_incident_message(
         notification_request_all_args,
         identity_provider,
         mock_client,
@@ -335,7 +335,7 @@ def test_build_new_incident_message_success_required_args_only(
 ) -> None:
 
     # Call the function
-    text, blocks, attachments = build_new_incident_message(
+    text, blocks, attachments = build_incident_message(
         notification_request_required_args,
         identity_provider,
         mock_client,

@@ -13,6 +13,7 @@ import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NA
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INCIDENT_NOTIFICATION_DETAILS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.MONITOR_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
@@ -44,6 +45,7 @@ public class AspectTemplateEngine {
               TEST_RESULTS_ASPECT_NAME,
               ASSERTION_INFERENCE_DETAILS_ASPECT_NAME,
               ASSERTIONS_SUMMARY_ASPECT_NAME,
+              INCIDENT_NOTIFICATION_DETAILS_ASPECT_NAME,
               // Saas aspects before this line
               DATASET_PROPERTIES_ASPECT_NAME,
               EDITABLE_SCHEMA_METADATA_ASPECT_NAME,

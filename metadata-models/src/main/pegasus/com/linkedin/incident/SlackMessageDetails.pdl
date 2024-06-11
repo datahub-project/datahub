@@ -10,15 +10,17 @@ namespace com.linkedin.incident
  */
 record SlackMessageDetails {
     /**
-    * The Slack channel id associated with the incident message.
+    * The original Slack channel id or user id associated with the incident message.
     */
     channelId: string
 
     /**
     * The human-readable channel name associated with the incident message.
-    * For use to display in the UI.
+    * This is attempted to be resolved by the integrations service.
+    *
+    * If it cannot be found, it will be left empty.
     */
-    channelName: string
+    channelName: optional string
 
     /**
     * The Slack message id associated with the incident.

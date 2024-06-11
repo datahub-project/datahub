@@ -311,6 +311,8 @@ public class Constants {
   // Incident
   public static final String INCIDENT_KEY_ASPECT_NAME = "incidentKey";
   public static final String INCIDENT_INFO_ASPECT_NAME = "incidentInfo";
+  public static final String INCIDENT_NOTIFICATION_DETAILS_ASPECT_NAME =
+      "incidentNotificationDetails";
 
   // DataHub Ingestion Source
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
