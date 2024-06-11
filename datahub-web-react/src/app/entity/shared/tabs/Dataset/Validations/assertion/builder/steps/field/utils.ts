@@ -15,6 +15,7 @@ import {
     SchemaFieldDataType,
     SchemaAssertionCompatibility,
     SchemaMetadata,
+    DatasetSchemaSourceType,
 } from '../../../../../../../../../../types.generated';
 import { downgradeV2FieldPath } from '../../../../../../../../dataset/profile/schema/utils/utils';
 import { HIGH_WATERMARK_FIELD_TYPES } from '../../constants';
@@ -588,6 +589,17 @@ export const getDefaultDatasetFieldAssertionParametersState = (connectionForEnti
         },
     };
 };
+
+// Default assertion parameter definition used when the selected type is Data Schema
+export const getDefaultDatasetSchemaAssertionParametersState = () => {
+    return {
+        type: AssertionEvaluationParametersType.DatasetSchema,
+        datasetSchemaParameters: {
+            sourceType: DatasetSchemaSourceType.DatahubSchema
+        },
+    };
+};
+
 
 // Display a disabled message based on the dataset profile option depending on the platform and connection.
 export const getDatasetProfileDisabledMessage = (

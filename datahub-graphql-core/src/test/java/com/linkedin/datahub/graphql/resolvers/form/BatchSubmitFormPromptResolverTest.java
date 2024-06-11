@@ -95,7 +95,7 @@ public class BatchSubmitFormPromptResolverTest {
             Mockito.eq(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("test"))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)),
             Mockito.eq(PROMPT_ID),
-            Mockito.eq("fieldPath1"));
+            Mockito.eq(ImmutableList.of("fieldPath1")));
     // ensure the other form service endpoint doesn't get called
     Mockito.verify(mockFormService, Mockito.times(0))
         .batchSubmitStructuredPropertyPromptResponse(

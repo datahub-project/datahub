@@ -78,15 +78,13 @@ const SyncedAssetSection = () => {
                         <LabelText>From: </LabelText>
                         <PlatformIcon platform={entityData?.platform} size={16} />
                         <ContentText>{platformName}</ContentText>
+                        <LabelText>on</LabelText>
+                        <ContentText>{toLocalDateString(lastUpdated)}</ContentText>
+                        <RelativeTime isRecentlyUpdated={isRecentlyUpdated}>
+                            {toRelativeTimeString(lastUpdated)}
+                        </RelativeTime>
                     </DetailRow>
                 )}
-                <DetailRow>
-                    <LabelText>Date Updated: </LabelText>
-                    <ContentText>{toLocalDateString(lastUpdated)}</ContentText>
-                    <RelativeTime isRecentlyUpdated={isRecentlyUpdated}>
-                        {toRelativeTimeString(lastUpdated)}
-                    </RelativeTime>
-                </DetailRow>
             </DetailsContainer>
         </SyncedAssetContainer>
     );

@@ -150,6 +150,7 @@ def handle_post_evaluate_assertion(
         volumeAssertion=assertion_input.assertion.volume_assertion,
         sqlAssertion=assertion_input.assertion.sql_assertion,
         fieldAssertion=assertion_input.assertion.field_assertion,
+        schemaAssertion=assertion_input.assertion.schema_assertion,
     )
 
     return _evaluate_assertion(

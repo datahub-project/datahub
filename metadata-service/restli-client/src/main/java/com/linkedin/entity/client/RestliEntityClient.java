@@ -85,8 +85,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.mail.MethodNotSupportedException;
@@ -110,14 +115,17 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   private static final RunsRequestBuilders RUNS_REQUEST_BUILDERS = new RunsRequestBuilders();
 
   private final int batchGetV2Size;
+  private final int batchGetV2Concurrency;
 
   public RestliEntityClient(
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,
       int retryCount,
-      int batchGetV2Size) {
+      int batchGetV2Size,
+      int batchGetV2Concurrency) {
     super(restliClient, backoffPolicy, retryCount);
     this.batchGetV2Size = Math.max(1, batchGetV2Size);
+    this.batchGetV2Concurrency = batchGetV2Concurrency;
   }
 
   @Override
@@ -150,7 +158,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * <p>Batch get a set of {@link Entity} objects by urn.
    *
    * @param urns the urns of the entities to batch get
-   * @param authentication the authentication to include in the request to the Metadata Service
    * @throws RemoteInvocationException when unable to execute request
    */
   @Override
@@ -216,40 +223,54 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException, URISyntaxException {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
+    ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, batchGetV2Concurrency));
 
-    Iterators.partition(urns.iterator(), batchGetV2Size)
-        .forEachRemaining(
-            batch -> {
-              try {
-                final EntitiesV2BatchGetRequestBuilder requestBuilder =
-                    ENTITIES_V2_REQUEST_BUILDERS
-                        .batchGet()
-                        .aspectsParam(aspectNames)
-                        .ids(batch.stream().map(Urn::toString).collect(Collectors.toList()));
+    try {
+      Iterable<List<Urn>> iterable = () -> Iterators.partition(urns.iterator(), batchGetV2Size);
+      List<Future<Map<Urn, EntityResponse>>> futures =
+          StreamSupport.stream(iterable.spliterator(), false)
+              .map(
+                  batch ->
+                      executor.submit(
+                          () -> {
+                            try {
+                              log.debug("Executing batchGetV2 with batch size: {}", batch.size());
+                              final EntitiesV2BatchGetRequestBuilder requestBuilder =
+                                  ENTITIES_V2_REQUEST_BUILDERS
+                                      .batchGet()
+                                      .aspectsParam(aspectNames)
+                                      .ids(
+                                          batch.stream()
+                                              .map(Urn::toString)
+                                              .collect(Collectors.toList()));
 
-                responseMap.putAll(
-                    sendClientRequest(requestBuilder, opContext.getSessionAuthentication())
-                        .getEntity()
-                        .getResults()
-                        .entrySet()
-                        .stream()
-                        .collect(
-                            Collectors.toMap(
-                                entry -> {
-                                  try {
-                                    return Urn.createFromString(entry.getKey());
-                                  } catch (URISyntaxException e) {
-                                    throw new RuntimeException(
-                                        String.format(
-                                            "Failed to bind urn string with value %s into urn",
-                                            entry.getKey()));
-                                  }
-                                },
-                                entry -> entry.getValue().getEntity())));
-              } catch (RemoteInvocationException e) {
-                throw new RuntimeException(e);
-              }
-            });
+                              return sendClientRequest(
+                                      requestBuilder, opContext.getSessionAuthentication())
+                                  .getEntity()
+                                  .getResults()
+                                  .entrySet()
+                                  .stream()
+                                  .collect(
+                                      Collectors.toMap(
+                                          entry -> UrnUtils.getUrn(entry.getKey()),
+                                          entry -> entry.getValue().getEntity()));
+                            } catch (RemoteInvocationException e) {
+                              throw new RuntimeException(e);
+                            }
+                          }))
+              .collect(Collectors.toList());
+
+      futures.forEach(
+          result -> {
+            try {
+              responseMap.putAll(result.get());
+            } catch (InterruptedException | ExecutionException e) {
+              throw new RuntimeException(e);
+            }
+          });
+    } finally {
+      executor.shutdown();
+    }
 
     return responseMap;
   }
@@ -260,7 +281,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param entityName the entity type to fetch
    * @param versionedUrns the urns of the entities to batch get
    * @param aspectNames the aspect names to batch get
-   * @param authentication the authentication to include in the request to the Metadata Service
    * @throws RemoteInvocationException when unable to execute request
    */
   @Override
@@ -272,39 +292,62 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable final Set<String> aspectNames) {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
+    ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, batchGetV2Concurrency));
 
-    Iterators.partition(versionedUrns.iterator(), batchGetV2Size)
-        .forEachRemaining(
-            batch -> {
-              final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder =
-                  ENTITIES_VERSIONED_V2_REQUEST_BUILDERS
-                      .batchGet()
-                      .aspectsParam(aspectNames)
-                      .entityTypeParam(entityName)
-                      .ids(
-                          batch.stream()
-                              .map(
-                                  versionedUrn ->
-                                      com.linkedin.common.urn.VersionedUrn.of(
-                                          versionedUrn.getUrn().toString(),
-                                          versionedUrn.getVersionStamp()))
-                              .collect(Collectors.toSet()));
+    try {
+      Iterable<List<VersionedUrn>> iterable =
+          () -> Iterators.partition(versionedUrns.iterator(), batchGetV2Size);
+      List<Future<Map<Urn, EntityResponse>>> futures =
+          StreamSupport.stream(iterable.spliterator(), false)
+              .map(
+                  batch ->
+                      executor.submit(
+                          () -> {
+                            try {
+                              log.debug(
+                                  "Executing batchGetVersionedV2 with batch size: {}",
+                                  batch.size());
+                              final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder =
+                                  ENTITIES_VERSIONED_V2_REQUEST_BUILDERS
+                                      .batchGet()
+                                      .aspectsParam(aspectNames)
+                                      .entityTypeParam(entityName)
+                                      .ids(
+                                          batch.stream()
+                                              .map(
+                                                  versionedUrn ->
+                                                      com.linkedin.common.urn.VersionedUrn.of(
+                                                          versionedUrn.getUrn().toString(),
+                                                          versionedUrn.getVersionStamp()))
+                                              .collect(Collectors.toSet()));
 
-              try {
-                responseMap.putAll(
-                    sendClientRequest(requestBuilder, opContext.getSessionAuthentication())
-                        .getEntity()
-                        .getResults()
-                        .entrySet()
-                        .stream()
-                        .collect(
-                            Collectors.toMap(
-                                entry -> UrnUtils.getUrn(entry.getKey().getUrn()),
-                                entry -> entry.getValue().getEntity())));
-              } catch (RemoteInvocationException e) {
-                throw new RuntimeException(e);
-              }
-            });
+                              return sendClientRequest(
+                                      requestBuilder, opContext.getSessionAuthentication())
+                                  .getEntity()
+                                  .getResults()
+                                  .entrySet()
+                                  .stream()
+                                  .collect(
+                                      Collectors.toMap(
+                                          entry -> UrnUtils.getUrn(entry.getKey().getUrn()),
+                                          entry -> entry.getValue().getEntity()));
+                            } catch (RemoteInvocationException e) {
+                              throw new RuntimeException(e);
+                            }
+                          }))
+              .collect(Collectors.toList());
+
+      futures.forEach(
+          result -> {
+            try {
+              responseMap.putAll(result.get());
+            } catch (InterruptedException | ExecutionException e) {
+              throw new RuntimeException(e);
+            }
+          });
+    } finally {
+      executor.shutdown();
+    }
 
     return responseMap;
   }
@@ -955,7 +998,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @param startTimeMillis the earliest desired event time of the aspect value in milliseconds.
    * @param endTimeMillis the latest desired event time of the aspect value in milliseconds.
    * @param limit the maximum number of desired aspect values.
-   * @param authentication the actor associated with the request [internal]
    * @return the list of EnvelopedAspect values satisfying the input parameters.
    * @throws RemoteInvocationException on remote request error.
    */

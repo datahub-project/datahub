@@ -116,7 +116,9 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
                   monitorUrn,
                   assertionUrn,
                   entityUrn,
-                  DEFAULT_CRON_SCHEDULE, // todo: make this event based once runAssertion API is
+                  input.getEvaluationSchedule() != null
+                      ? createCronSchedule(input.getEvaluationSchedule())
+                      : DEFAULT_CRON_SCHEDULE,
                   mapEvaluationParameters(input.getEvaluationParameters()),
                   MonitorMode.valueOf(input.getMode().toString()),
                   input.getExecutorId());

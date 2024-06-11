@@ -18,12 +18,16 @@ import {
 
 import { LargeButtonPrimary } from '../sharedComponents';
 
+import { env } from '../constants';
 import { simplifyDataForListView } from '../utils';
 
 import { AutomationsListCard } from './ListCard';
 import { AutomationModal } from './Modal';
 
 export const Automations = () => {
+	// Rollout Variables (UI only)
+	const { hideSidebar, hideMetadataTests } = env;
+
 	// Create Modal State
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -35,6 +39,7 @@ export const Automations = () => {
 				count: 10,
 			},
 		},
+		skip: hideMetadataTests
 	});
 
 	// Fetch action pipelines
@@ -87,9 +92,6 @@ export const Automations = () => {
 	// const isLoading = testsLoading || actionsLoading;
 	// const isError = testsError || actionsError;
 	// const noData = allAutomations.length === 0;
-
-	// POC Variables
-	const hideSidebar = true;
 
 	return (
 		<>

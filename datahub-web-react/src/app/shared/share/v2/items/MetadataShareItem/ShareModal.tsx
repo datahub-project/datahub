@@ -18,7 +18,7 @@ import {
     InstanceIcon,
     StyledLabel,
 } from '../../../../../entityV2/shared/containers/profile/sidebar/shared/styledComponents';
-import { StyledCheckbox, StyledShareButton } from '../../styledComponents';
+import { StyledCheckbox, StyledButton } from '../../styledComponents';
 
 export const ModalTitle = styled.span`
     display: flex;
@@ -366,9 +366,9 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         />
                         {selectedInstancesToUnshare.length > 0 && (
                             <ButtonContainer>
-                                <StyledShareButton $color={REDESIGN_COLORS.RED_ERROR} onClick={handleUnshare}>
+                                <StyledButton $color={REDESIGN_COLORS.RED_ERROR} onClick={handleUnshare}>
                                     Unshare
-                                </StyledShareButton>
+                                </StyledButton>
                             </ButtonContainer>
                         )}
                     </StyledContainer>
@@ -384,7 +384,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         value={selectedInstancesToShare}
                         placeholder="Select Instances"
                         mode="multiple"
-                        showSearch
+                        showSearch={false}
                         autoFocus
                         showArrow
                         onSelect={(option: any) => handleSelectionChange(option.value)}
@@ -412,14 +412,14 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
 
             {selectedInstancesToShare.length > 0 && (
                 <ButtonContainer>
-                    <StyledShareButton
+                    <StyledButton
                         $type="filled"
                         $color={REDESIGN_COLORS.TITLE_PURPLE}
                         $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
                         onClick={handleShare}
                     >
                         Share
-                    </StyledShareButton>
+                    </StyledButton>
                 </ButtonContainer>
             )}
 

@@ -53,7 +53,7 @@ export type SourceOption = {
 const PLATFORM_ASSERTION_CONFIGS = {
     [SNOWFLAKE_URN]: {
         freshness: {
-            defaultSourceType: DatasetFreshnessSourceType.AuditLog,
+            defaultSourceType: DatasetFreshnessSourceType.InformationSchema,
             sourceTypes: [
                 DatasetFreshnessSourceType.AuditLog,
                 DatasetFreshnessSourceType.InformationSchema,
@@ -359,7 +359,6 @@ const allSourceOptions: SourceOption[] = [
 const getSourceOptionKey = (type: DatasetFreshnessSourceType, kind?: Maybe<FreshnessFieldKind>) => {
     return `${type}.${kind || ''}`;
 };
-
 /** Map of all source options to allow constant lookup by Source Type and Field Kind */
 const sourceOptionsByKey = keyBy(allSourceOptions, ({ type, field }) => getSourceOptionKey(type, field?.kind));
 
@@ -591,9 +590,11 @@ export const builderStateToUpsertSchemaAssertionMonitorVariables = (builderState
                     onFailure: builderState.assertion?.actions?.onFailure || [],
                 }
                 : undefined,
+            evaluationSchedule: builderState.schedule,
         },
     });
 };
+
 
 export const builderStateToTestFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     return {
@@ -630,6 +631,14 @@ export const builderStateToTestFieldAssertionVariables = (builderState: Assertio
             ...builderStateToSharedFieldAssertionVariables(builderState),
         },
     };
+};
+
+export const builderStateToTestSchemaAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return removeNestedTypeNames({
+        entityUrn: builderState.entityUrn,
+        compatibility: builderState?.assertion?.schemaAssertion?.compatibility,
+        fields: builderState?.assertion?.schemaAssertion?.fields,
+    });
 };
 
 export const getAssertionTypesForEntityType = (entityType: EntityType) => {

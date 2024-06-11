@@ -11,7 +11,6 @@ import {
 	StepField,
 } from './components';
 
-import { AutomationTypes } from '../utils';
 import { getSteps } from './utils';
 
 import { TermSelector } from './fields/TermSelector';

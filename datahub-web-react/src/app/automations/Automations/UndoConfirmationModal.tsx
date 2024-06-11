@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { ModalTitle, StyledModal } from '../../shared/share/v2/items/MetadataShareItem/ShareModal';
-import { StyledShareButton } from '../../shared/share/v2/styledComponents';
+import { StyledButton } from '../../shared/share/v2/styledComponents';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const Container = styled.div`
@@ -39,30 +39,30 @@ interface Props {
 export const UndoConfirmationModal = ({ showUndoConfirmation, handleClose, handleUndo }: Props) => {
 
 	return (
-		<StyledModal
-			open={showUndoConfirmation}
-			onCancel={handleClose}
-			footer={null}
-			closeIcon={<CloseOutlinedIcon />}
-			title={<ModalTitle>Are you sure?</ModalTitle>}
-		>
-			<Container>
-				<Header>Undoing the Automation</Header>
-				<Content>Are you sure you want to undo the automation?</Content>
-				<ButtonsContainer>
-					<StyledShareButton $color={REDESIGN_COLORS.TITLE_PURPLE} onClick={handleUndo}>
-						Yes
-					</StyledShareButton>
-					<StyledShareButton
-						$type="filled"
-						$color={REDESIGN_COLORS.TITLE_PURPLE}
-						$hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
-						onClick={handleClose}
-					>
-						No
-					</StyledShareButton>
-				</ButtonsContainer>
-			</Container>
-		</StyledModal>
-	);
+        <StyledModal
+            open={showUndoConfirmation}
+            onCancel={handleClose}
+            footer={null}
+            closeIcon={<CloseOutlinedIcon />}
+            title={<ModalTitle>Are you sure?</ModalTitle>}
+        >
+            <Container>
+                <Header>Undoing the Automation</Header>
+                <Content>Are you sure you want to undo the automation?</Content>
+                <ButtonsContainer>
+                    <StyledButton $color={REDESIGN_COLORS.TITLE_PURPLE} onClick={handleUndo}>
+                        Yes
+                    </StyledButton>
+                    <StyledButton
+                        $type="filled"
+                        $color={REDESIGN_COLORS.TITLE_PURPLE}
+                        $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
+                        onClick={handleClose}
+                    >
+                        No
+                    </StyledButton>
+                </ButtonsContainer>
+            </Container>
+        </StyledModal>
+    );
 };

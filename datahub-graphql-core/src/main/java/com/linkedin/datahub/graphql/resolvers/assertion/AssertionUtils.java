@@ -190,6 +190,11 @@ public class AssertionUtils {
           return input.getFieldTestInput().getEntityUrn();
         }
         throw new RuntimeException("Field Test Input is required for Field Assertion");
+      case DATA_SCHEMA:
+        if (input.getSchemaTestInput() != null) {
+          return input.getSchemaTestInput().getEntityUrn();
+        }
+        throw new RuntimeException("Schema Test Input is required for Schema Assertion");
       default:
         throw new RuntimeException(
             String.format("Unsupported Assertion Type %s provided", input.getType()));

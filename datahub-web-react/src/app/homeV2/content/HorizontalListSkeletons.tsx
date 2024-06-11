@@ -47,14 +47,17 @@ const HeaderSkeleton = styled(Skeleton.Button)<{ width?: string }>`
 
 interface Props {
     Component: React.FC<SkeletonButtonProps>;
+    showHeader?: boolean;
 }
 
-export const HorizontalListSkeletons = ({ Component }: Props) => {
+export const HorizontalListSkeletons = ({ Component, showHeader = true }: Props) => {
     return (
         <SkeletonContainer>
-            <SectionHeader>
-                <HeaderSkeleton active size="small" shape="square" block width="10rem" />
-            </SectionHeader>
+            {showHeader && (
+                <SectionHeader>
+                    <HeaderSkeleton active size="small" shape="square" block width="10rem" />
+                </SectionHeader>
+            )}
             <HorizontalList>
                 <Component active shape="square" block />
                 <Component active shape="square" block />

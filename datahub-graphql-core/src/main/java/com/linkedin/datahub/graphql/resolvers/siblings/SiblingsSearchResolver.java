@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.siblings;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -20,8 +22,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 /** Resolver that executes a searchAcrossEntities only on an entity's siblings */
 @Slf4j

@@ -15,7 +15,7 @@ record FreshnessAssertionSchedule {
    */
   type: enum FreshnessAssertionScheduleType {
     /**
-     * An highly configurable recurring schedule which describes the times of events described
+     * A highly configurable recurring schedule which describes the times of events described
      * by a CRON schedule, with the evaluation schedule assuming to be matching the cron schedule.
      *
      * In a CRON schedule type, we compute the look-back window to be the time between the last scheduled event
@@ -45,12 +45,31 @@ record FreshnessAssertionSchedule {
      * to be evaluated each hour, we'd compute the result as follows:
      *
      *     1. Subtract the fixed interval from the current time (Evaluation time) to compute the bounds of a fixed look-back window.
-     *     2. Verify that the target event has occurred within the CRON-interval window.
+     *     2. Verify that the target event has occurred within the look-back window.
      *     3. If the target event has occurred within the time window, then assertion passes.
      *     4. If the target event has not occurred within the time window, then the assertion fails.
      *
      */
     FIXED_INTERVAL
+    /**
+     * A stateful check that takes the last time this check ran to determine the look-back window.
+     *
+     * To compute the valid look-back- window, we start at the time the monitor last evaluated this assertion,
+     * and we end at the point in time the check is currently running.
+     *
+     * For example, let's say a Freshness assertion is of type SINCE_THE_LAST_CHECK, and the monitor is configured to
+     * run every day at 12:00am. Let's assume this assertion was last evaluated yesterday at 12:04am. We'd compute
+     * the result as follows:
+     *
+     *     1. Get the timestamp for the last run of the monitor on this assertion.
+     *     2. look_back_window_start_time = latest_monitor_run.timestampMillis [ie. 12:04a yesterday]
+     *     3. look_back_window_end_time = nowMillis [ie. 12:02a today]
+     *     4. If the target event has occurred within the window [ie. 12:04a yday to 12:02a today],
+     *        then the assertion passes.
+     *     5. If the target event has not occurred within the window, then the assertion fails.
+     *
+     */
+    SINCE_THE_LAST_CHECK
   }
 
   /**

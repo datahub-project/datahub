@@ -27,11 +27,10 @@ import {
 const SelectPremadeAutomation = ({ setAutomation }: any) => {
 	return (
 		<PremadeAutomations>
-			{selectableAutomations.map((automation: any) => (
+			{selectableAutomations.map((automation: any) => !automation.isDisabled && (
 				<PremadeAutomationCard
 					key={automation.key}
 					onClick={() => setAutomation(automation.key)}
-					isDisabled={automation.isDisabled}
 				>
 					{automation.logo && <AutomationLogo src={automation.logo} alt={automation.name} />}
 					<h2>{automation.name}</h2>

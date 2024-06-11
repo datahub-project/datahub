@@ -1,4 +1,7 @@
+import { env } from '../constants';
+
 import { TEST_CATEGORY_NAME_TO_INFO } from './constants';
+
 import {
 	snowflakeTagPropagation,
 	termPropagation,
@@ -26,6 +29,8 @@ export type Step = {
 };
 
 export type Steps = Record<string, Step>;
+
+const { hideMetadataTests } = env;
 
 // Define some steps that automations can include
 const steps: Steps = {
@@ -132,12 +137,13 @@ export const selectableAutomations = [
 		description: 'This automation allows you to propagate tags from one Snowflake table to another.',
 		logo: SnowflakeLogo,
 		steps: [
-			{ ...steps.choose_terms, hasMapping: true },
-			{ ...steps.select_source },
-			{ ...steps.select_conditions },
+			{ ...steps.choose_terms },
+			// { ...steps.select_source },
+			// { ...steps.select_conditions },
 			{ ...steps.select_destination },
 			{ ...steps.details },
 		],
+		requiredFields: ['name', 'terms', 'connection'],
 		baseRecipe: snowflakeTagPropagation as any,
 		isDisabled: false,
 	},
@@ -153,6 +159,7 @@ export const selectableAutomations = [
 			// { ...steps.select_traversal },
 			{ ...steps.details },
 		],
+		requiredFields: ['name'],
 		baseRecipe: termPropagation as any,
 		isDisabled: false,
 	},
@@ -168,6 +175,7 @@ export const selectableAutomations = [
 			// { ...steps.select_conditions },
 			{ ...steps.details },
 		],
+		requiredFields: ['name'],
 		baseRecipe: documentationPropagation as any,
 		isDisabled: false,
 	},
@@ -183,8 +191,9 @@ export const selectableAutomations = [
 			{ ...steps.select_custom_actions },
 			{ ...steps.details },
 		],
+		requiredFields: ['name'],
 		baseRecipe: custom as any,
-		isDisabled: false,
+		isDisabled: hideMetadataTests,
 	},
 ];
 

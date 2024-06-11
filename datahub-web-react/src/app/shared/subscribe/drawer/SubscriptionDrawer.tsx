@@ -234,7 +234,7 @@ const SubscriptionDrawerContent = ({
             updateSinkSettings({
                 slackSettings: newSlackSettings,
                 emailSettings: newEmailSettings,
-                sinkTypes: sinkTypes || [],
+                sinkTypes: newSinkTypes || [],
             });
         }
 

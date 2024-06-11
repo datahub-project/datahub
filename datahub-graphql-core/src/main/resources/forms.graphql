@@ -295,9 +295,16 @@ input SubmitFormPromptInput {
 
     """
     The fieldPath on a schema field that this prompt submission is association with.
-    This should be provided when the prompt is type FIELDS_STRUCTURED_PROPERTY
+    This or fieldPaths should be provided when the prompt is type FIELDS_STRUCTURED_PROPERTY.
+    Deprecated in favor of using fieldPaths.
     """
-    fieldPath: String
+    fieldPath: String @deprecated(reason: "Use `fieldPaths`")
+
+    """
+    The fieldPaths on a schema field that this prompt submission is association with.
+    This or fieldPath should be provided when the prompt is type FIELDS_STRUCTURED_PROPERTY
+    """
+    fieldPaths: [String!]
 
     """
     The structured property required for the prompt on this entity

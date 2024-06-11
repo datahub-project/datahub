@@ -363,6 +363,7 @@ public class SearchUtils {
       String scrollId,
       String inputKeepAlive,
       String className) {
+    
     final List<EntityType> entityTypes =
         (inputEntityTypes == null || inputEntityTypes.isEmpty())
             ? SEARCHABLE_ENTITY_TYPES

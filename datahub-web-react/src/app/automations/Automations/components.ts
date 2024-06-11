@@ -258,7 +258,7 @@ export const PremadeAutomations = styled.div`
     gap: 16px;
 `;
 
-export const PremadeAutomationCard = styled.div<{ isDisabled: boolean }>`
+export const PremadeAutomationCard = styled.div`
     padding: 16px;
     border-radius: 8px;
     border: 1px solid ${sharedStyles.borderColor};
@@ -281,19 +281,6 @@ export const PremadeAutomationCard = styled.div<{ isDisabled: boolean }>`
         font-weight: 500;
         line-height: 20px;
     }
-
-    ${({ isDisabled }) =>
-		isDisabled &&
-		`
-		opacity: 0.5;
-		pointer-events: none;
-		cursor: not-allowed;
-
-		&:hover {
-			border-color: ${sharedStyles.borderColor};
-			cursor: not-allowed;
-		}
-	`}
 `;
 
 export const AutomationsModalHeader = styled.div`

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
@@ -12,7 +14,6 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 /** Resolver responsible for resolving 'searchAcrossEntities' field of the Query type */
 @Slf4j
@@ -27,6 +28,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
     final QueryContext context = environment.getContext();
     final ScrollAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), ScrollAcrossEntitiesInput.class);
+
     return SearchUtils.scrollAcrossEntities(
         context,
         _entityClient,

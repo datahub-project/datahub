@@ -43,10 +43,14 @@ export const StyledCheckbox = styled(Checkbox)<{ $color?: string }>`
     }
 `;
 
-export const StyledShareButton = styled(Button)<{ $type?: string; $color?: string; $hoverColor?: string }>`
+export const StyledButton = styled(Button)<{ $type?: string; $color?: string; $hoverColor?: string }>`
     && {
         border-radius: 6px;
         height: auto;
+        width: max-content;
+        display: flex;
+        align-items: center;
+        gap: 5px;
         box-shadow: 0px 1px 2px 0px rgba(0, 0, 0, 0.05);
         border-color: ${(props) => props.$color};
         color: ${(props) => (props.$type === 'filled' ? 'white' : props.$color)};

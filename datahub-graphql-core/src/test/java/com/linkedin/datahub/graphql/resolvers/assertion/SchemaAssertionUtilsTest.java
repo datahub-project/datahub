@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import com.linkedin.assertion.SchemaAssertionInfo;
+import com.linkedin.datahub.graphql.generated.CreateSchemaAssertionInput;
 import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParametersInput;
 import com.linkedin.datahub.graphql.generated.SchemaAssertionCompatibility;
 import com.linkedin.datahub.graphql.generated.SchemaAssertionFieldInput;
-import com.linkedin.datahub.graphql.generated.SchemaAssertionInput;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.DatasetSchemaSourceType;
@@ -73,15 +73,18 @@ public class SchemaAssertionUtilsTest {
     fieldInput.setPath("testPath");
     fieldInput.setType(com.linkedin.datahub.graphql.generated.SchemaFieldDataType.STRING);
 
-    SchemaAssertionInput input = new SchemaAssertionInput();
+    CreateSchemaAssertionInput input = new CreateSchemaAssertionInput();
     input.setFields(Collections.singletonList(fieldInput));
     input.setCompatibility(SchemaAssertionCompatibility.EXACT_MATCH);
+    input.setEntityUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
 
     SchemaAssertionInfo info = SchemaAssertionUtils.createDataSchemaAssertionInfo(input);
 
     Assert.assertNotNull(info);
     Assert.assertEquals(
         info.getCompatibility(), com.linkedin.assertion.SchemaAssertionCompatibility.EXACT_MATCH);
+    Assert.assertEquals(
+        info.getEntity().toString(), "urn:li:dataset:(urn:li:dataPlatform:snowflake,test,PROD)");
     Assert.assertEquals(info.getSchema().getFields().size(), 1);
     Assert.assertEquals(info.getSchema().getFields().get(0).getFieldPath(), "testPath");
     Assert.assertEquals(

@@ -9,6 +9,8 @@ import { useEntityFormContext } from '../../EntityFormContext';
 import BulkSubmissionButton from './BulkSubmissionButton';
 import usePromptCompletionInfo from '../usePromptCompletionInfo';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
+import { ColumnSelectorProps } from '../types';
+import ColumnSelector from '../ColumnSelector';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
@@ -67,6 +69,7 @@ interface Props {
     submitResponse: (input: SubmitFormPromptInput, onSuccess: () => void) => void;
     field?: SchemaField;
     optimisticCompletedTimestamp?: number | null;
+    columnSelectorProps?: ColumnSelectorProps;
 }
 
 export default function StructuredPropertyPrompt({
@@ -75,6 +78,7 @@ export default function StructuredPropertyPrompt({
     submitResponse,
     field,
     optimisticCompletedTimestamp,
+    columnSelectorProps,
 }: Props) {
     const {
         hasEdited,
@@ -130,6 +134,9 @@ export default function StructuredPropertyPrompt({
                             />
                         )}
                     </InputSection>
+                    {field && columnSelectorProps && (showSaveButton || showConfirmButton) && (
+                        <ColumnSelector field={field} {...columnSelectorProps} />
+                    )}
                 </PromptInputWrapper>
                 {isComplete && !hasEdited && !displayBulkPromptStyles && (
                     <CompletedPromptAuditStamp completedByName={completedByName} completedByTime={completedByTime} />

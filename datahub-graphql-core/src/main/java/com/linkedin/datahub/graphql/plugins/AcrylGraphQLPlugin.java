@@ -19,19 +19,16 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
-import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
 import com.linkedin.datahub.graphql.generated.FormForActor;
-import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.QueryUsageFeatures;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.RowResult;
-import com.linkedin.datahub.graphql.generated.SchemaContract;
 import com.linkedin.datahub.graphql.generated.ShareResult;
 import com.linkedin.datahub.graphql.generated.SystemMonitor;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
@@ -60,6 +57,7 @@ import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionMetadataR
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFieldAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFreshnessAssertionMonitorResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSchemaAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSqlAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetVolumeAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.DeleteConnectionResolver;
@@ -68,8 +66,6 @@ import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolve
 import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.DataContractResultResolver;
-import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver;
-import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchSubmitFormPromptResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchVerifyFormResolver;
@@ -280,7 +276,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         INTEGRATIONS_SCHEMA_FILE,
         NOTIFICATIONS_SCHEMA_FILE,
         SUBSCRIPTIONS_SCHEMA_FILE,
-        CONTRACTS_SCHEMA_FILE,
         AI_SCHEMA_FILE,
         SHARE_SCHEMA_FILE,
         FORMS_ACRYL_SCHEMA_FILE,
@@ -321,7 +316,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureGlobalSettingsResolvers(builder);
     configureTestResolvers(builder);
     configureProposalResolvers(builder);
-    configureContractResolvers(builder, baseEngine);
+    configureContractResolvers(builder);
     configureShareResolvers(builder, baseEngine);
     configureFormsForActorResolver(builder);
     configureExecutorResolvers(builder, baseEngine);
@@ -375,6 +370,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "upsertDatasetFieldAssertionMonitor",
                     new UpsertDatasetFieldAssertionMonitorResolver(
+                        assertionService, monitorService, graphClient))
+                .dataFetcher(
+                    "upsertDatasetSchemaAssertionMonitor",
+                    new UpsertDatasetSchemaAssertionMonitorResolver(
                         assertionService, monitorService, graphClient))
                 .dataFetcher(
                     "createVolumeAssertion", new CreateVolumeAssertionResolver(assertionService))
@@ -885,52 +884,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 "assertions", new EntityAssertionsResolver(entityClient, graphClient)));
   }
 
-  private void configureContractResolvers(
-      final RuntimeWiring.Builder builder, final GmsGraphQLEngine baseEngine) {
-    builder.type(
-        "Dataset",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "contract", new EntityDataContractResolver(this.entityClient, this.graphClient)));
-    builder.type(
-        "FreshnessContract",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "assertion",
-                new LoadableTypeResolver<>(
-                    baseEngine.getAssertionType(),
-                    (env) -> {
-                      final FreshnessContract contract = env.getSource();
-                      return contract.getAssertion() != null
-                          ? contract.getAssertion().getUrn()
-                          : null;
-                    })));
-    builder.type(
-        "DataQualityContract",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "assertion",
-                new LoadableTypeResolver<>(
-                    baseEngine.getAssertionType(),
-                    (env) -> {
-                      final DataQualityContract contract = env.getSource();
-                      return contract.getAssertion() != null
-                          ? contract.getAssertion().getUrn()
-                          : null;
-                    })));
-    builder.type(
-        "SchemaContract",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "assertion",
-                new LoadableTypeResolver<>(
-                    baseEngine.getAssertionType(),
-                    (env) -> {
-                      final SchemaContract contract = env.getSource();
-                      return contract.getAssertion() != null
-                          ? contract.getAssertion().getUrn()
-                          : null;
-                    })));
+  private void configureContractResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "DataContract",
         typeWiring ->
@@ -938,12 +892,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 "result",
                 new DataContractResultResolver(
                     this.monitorService, this.assertionService, this.dataContractService)));
-    builder.type(
-        "Mutation",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "upsertDataContract",
-                new UpsertDataContractResolver(this.entityClient, this.graphClient)));
   }
 
   private void configureFormsForActorResolver(final RuntimeWiring.Builder builder) {

@@ -15,7 +15,6 @@ public class AcrylConstants {
   public static final String ASSERTIONS_SCHEMA_FILE = "assertions.graphql";
   public static final String NOTIFICATIONS_SCHEMA_FILE = "notifications.graphql";
   public static final String SUBSCRIPTIONS_SCHEMA_FILE = "subscriptions.graphql";
-  public static final String CONTRACTS_SCHEMA_FILE = "contract.graphql";
   public static final String AI_SCHEMA_FILE = "ai.graphql";
   public static final String SHARE_SCHEMA_FILE = "share.graphql";
   public static final String FORMS_ACRYL_SCHEMA_FILE = "forms.acryl.graphql";
