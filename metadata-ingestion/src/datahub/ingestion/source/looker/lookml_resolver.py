@@ -508,7 +508,7 @@ class LookerViewIdCache:
     of registration_daily_phasing in this cache to generate the lineage between registration_monthly_phasing
     and registration_daily_phasing
 
-    This cache can be used for any other use case.
+    This cache can be used for many other use case.
     """
 
     looker_model: LookerModel

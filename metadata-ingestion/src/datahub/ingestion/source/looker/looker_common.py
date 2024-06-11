@@ -139,6 +139,34 @@ def remove_suffix(original: str, suffix: str) -> str:
     return original
 
 
+def deduplicate_fields(fields: List["ViewField"]) -> List["ViewField"]:
+    # Remove duplicates filed from self.fields
+    # Logic is: If more than a field has same ViewField.name then keep only one filed where ViewField.field_type
+    # is DIMENSION_GROUP.
+    # Looker Constraint:
+    #   - Any field declared as dimension or measure can be redefined as dimension_group.
+    #   - Any field declared in dimension can't be redefined in measure and vice-versa.
+
+    dimension_group_field_names: List[str] = [
+        field.name
+        for field in fields
+        if field.field_type == ViewFieldType.DIMENSION_GROUP
+    ]
+
+    new_fields: List[ViewField] = []
+
+    for field in fields:
+        if (
+            field.name in dimension_group_field_names
+            and field.field_type != ViewFieldType.DIMENSION_GROUP
+        ):
+            continue
+
+        new_fields.append(field)
+
+    return new_fields
+
+
 @dataclass
 class LookerViewId:
     project_name: str
@@ -253,6 +281,91 @@ class ViewField:
     upstream_fields: Union[List[str], List[ColumnRef]] = cast(
         List[str], dataclasses_field(default_factory=list)
     )
+
+    @classmethod
+    def view_fields_from_dict(
+        cls,
+        field_list: List[Dict],
+        type_cls: ViewFieldType,
+        extract_column_level_lineage: bool,
+        populate_sql_logic_in_descriptions: bool,
+    ) -> List["ViewField"]:
+        fields = []
+        for field_dict in field_list:
+            is_primary_key = field_dict.get("primary_key", "no") == "yes"
+            name = field_dict["name"]
+            native_type = field_dict.get("type", "string")
+            default_description = (
+                f"sql:{field_dict['sql']}"
+                if "sql" in field_dict and populate_sql_logic_in_descriptions
+                else ""
+            )
+
+            description = field_dict.get("description", default_description)
+            label = field_dict.get("label", "")
+            upstream_fields = []
+            if extract_column_level_lineage:
+                if field_dict.get("sql") is not None:
+                    for upstream_field_match in re.finditer(
+                        r"\${TABLE}\.[\"]*([\.\w]+)", field_dict["sql"]
+                    ):
+                        matched_field = upstream_field_match.group(1)
+                        # Remove quotes from field names
+                        matched_field = (
+                            matched_field.replace('"', "").replace("`", "").lower()
+                        )
+                        upstream_fields.append(matched_field)
+                else:
+                    # If no SQL is specified, we assume this is referencing an upstream field
+                    # with the same name. This commonly happens for extends and derived tables.
+                    upstream_fields.append(name)
+
+            upstream_fields = sorted(list(set(upstream_fields)))
+
+            field = ViewField(
+                name=name,
+                type=native_type,
+                label=label,
+                description=description,
+                is_primary_key=is_primary_key,
+                field_type=type_cls,
+                upstream_fields=upstream_fields,
+            )
+            fields.append(field)
+        return fields
+
+    @classmethod
+    def all_view_fields_from_dict(
+        cls,
+        looker_view: dict,
+        extract_column_level_lineage: bool,
+        populate_sql_logic_in_descriptions: bool,
+    ) -> List["ViewField"]:
+
+        dimensions = ViewField.view_fields_from_dict(
+            looker_view.get("dimensions", []),
+            ViewFieldType.DIMENSION,
+            extract_column_level_lineage,
+            populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
+        )
+        dimension_groups = ViewField.view_fields_from_dict(
+            looker_view.get("dimension_groups", []),
+            ViewFieldType.DIMENSION_GROUP,
+            extract_column_level_lineage,
+            populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
+        )
+        measures = ViewField.view_fields_from_dict(
+            looker_view.get("measures", []),
+            ViewFieldType.MEASURE,
+            extract_column_level_lineage,
+            populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
+        )
+
+        fields: List[ViewField] = dimensions + dimension_groups + measures
+
+        fields = deduplicate_fields(fields)
+
+        return fields
 
 
 @dataclass

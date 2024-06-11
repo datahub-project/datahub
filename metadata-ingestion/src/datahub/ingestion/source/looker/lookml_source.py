@@ -100,34 +100,6 @@ from datahub.utilities.sql_parser import SQLParser
 logger = logging.getLogger(__name__)
 
 
-def deduplicate_fields(fields: List[ViewField]) -> List[ViewField]:
-    # Remove duplicates filed from self.fields
-    # Logic is: If more than a field has same ViewField.name then keep only one filed where ViewField.field_type
-    # is DIMENSION_GROUP.
-    # Looker Constraint:
-    #   - Any field declared as dimension or measure can be redefined as dimension_group.
-    #   - Any field declared in dimension can't be redefined in measure and vice-versa.
-
-    dimension_group_field_names: List[str] = [
-        field.name
-        for field in fields
-        if field.field_type == ViewFieldType.DIMENSION_GROUP
-    ]
-
-    new_fields: List[ViewField] = []
-
-    for field in fields:
-        if (
-            field.name in dimension_group_field_names
-            and field.field_type != ViewFieldType.DIMENSION_GROUP
-        ):
-            continue
-
-        new_fields.append(field)
-
-    return new_fields
-
-
 def _platform_names_have_2_parts(platform: str) -> bool:
     return platform in {"hive", "mysql", "athena"}
 
@@ -396,27 +368,11 @@ class LookerView:
             reporter=reporter,
         )
 
-        dimensions = cls._get_fields(
-            looker_view.get("dimensions", []),
-            ViewFieldType.DIMENSION,
+        fields = ViewField.all_view_fields_from_dict(
+            looker_view,
             extract_col_level_lineage,
             populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
         )
-        dimension_groups = cls._get_fields(
-            looker_view.get("dimension_groups", []),
-            ViewFieldType.DIMENSION_GROUP,
-            extract_col_level_lineage,
-            populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
-        )
-        measures = cls._get_fields(
-            looker_view.get("measures", []),
-            ViewFieldType.MEASURE,
-            extract_col_level_lineage,
-            populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
-        )
-        fields: List[ViewField] = dimensions + dimension_groups + measures
-
-        fields = deduplicate_fields(fields)
 
         # Prep "default" values for the view, which will be overridden by the logic below.
         view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
@@ -571,9 +527,8 @@ class LookerView:
         upstream_urns: List[str] = []
         # TODO: also support ${EXTENDS} and ${TABLE}
         try:
-            view_field_builder: ViewFieldBuilder = ViewFieldBuilder(fields=fields)
-
-            fields, upstream_urns = view_field_builder.create_or_update_fields(
+            view_field_builder: ViewFieldBuilder = ViewFieldBuilder(
+                fields=fields,
                 sql_query=SqlQuery(
                     lookml_sql_query=sql_query,
                     liquid_variable=liquid_variable,
@@ -581,9 +536,13 @@ class LookerView:
                     if sql_table_name is not None
                     else view_name,
                 ),
+                reporter=reporter,
+                ctx=ctx,
+            )
+
+            fields, upstream_urns = view_field_builder.create_or_update_fields(
                 view_urn=view_urn,
                 connection=connection,
-                ctx=ctx,
             )
 
         except Exception as e:
@@ -1034,7 +993,8 @@ class LookMLSource(StatefulIngestionSourceBase):
             return model.project_name
         except SDKError:
             raise ValueError(
-                f"Could not locate a project name for model {model_name}. Consider configuring a static project name in your config file"
+                f"Could not locate a project name for model {model_name}. Consider configuring a static project name "
+                f"in your config file"
             )
 
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:

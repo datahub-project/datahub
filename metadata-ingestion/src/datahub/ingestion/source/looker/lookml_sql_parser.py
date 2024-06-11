@@ -1,15 +1,17 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, cast
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.looker.looker_common import (
     LookerConnectionDefinition,
-    LookerUtil,
     ViewField,
     ViewFieldType,
 )
-from datahub.ingestion.source.looker.lookml_config import DERIVED_VIEW_PATTERN
+from datahub.ingestion.source.looker.lookml_config import (
+    DERIVED_VIEW_PATTERN,
+    LookMLSourceReport,
+)
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -66,7 +68,9 @@ def _create_fields(spr: SqlParsingResult) -> List[ViewField]:
 
 
 def _update_upstream_fields_from_spr(
-    fields: List[ViewField], spr: SqlParsingResult
+    fields: List[ViewField],
+    upstream_table_urn_for_skip_field: str,
+    spr: SqlParsingResult,
 ) -> List[ViewField]:
     column_lineages: List[ColumnLineageInfo] = (
         spr.column_lineage if spr.column_lineage is not None else []
@@ -88,44 +92,40 @@ def _update_upstream_fields_from_spr(
         ].upstream_fields = _drop_hive_dot_from_upstream(cll.upstreams)
         view_updated[cll.downstream.column] = True
 
-    # filter field skip in update. It might be because field is derived from measure/dimension of current view.
+    # filter field skip in update.
+    # field might get skip either because of Parser not able to identify the column from GMS
+    # in-case of "select * from look_ml_view.SQL_TABLE_NAME or extra field are defined in the looker view which is
+    # referring to upstream table
     skip_fields: List[ViewField] = [
         field for field in fields if view_updated[field.name] is False
     ]
 
-    return skip_fields
-
-
-def _update_fields(
-    view_urn: str, fields: List[ViewField], spr: SqlParsingResult
-) -> List[ViewField]:
-    skip_fields: List[ViewField] = _update_upstream_fields_from_spr(
-        fields=fields, spr=spr
-    )
-
-    columns: List[str] = [field.name for field in fields]
-
-    for skip_field in skip_fields:
-        upstream_fields: List[ColumnRef] = []
-        # Look for column and set ColumnRef for current view as skip_filed are the field created from
-        # combination of current view field
-        for column in skip_field.upstream_fields:
-            if column in columns:
-                upstream_fields.append(
-                    ColumnRef(
-                        table=view_urn,
-                        column=column,
-                        type=LookerUtil.get_field_type(skip_field.type),
-                    )
-                )
-
-        # set the upstream to resolved upstream_fields
-        skip_field.upstream_fields = _drop_hive_dot_from_upstream(upstream_fields)
+    for field in skip_fields:
+        # convert normal column name to ColumnRef
+        field.upstream_fields = [
+            ColumnRef(table=upstream_table_urn_for_skip_field, column=column)
+            for column in field.upstream_fields
+        ]
 
     return fields
 
 
+def _update_fields(
+    fields: List[ViewField],
+    spr: SqlParsingResult,
+    upstream_urns: List[str],
+) -> List[ViewField]:
+    return _update_upstream_fields_from_spr(
+        fields=fields,
+        upstream_table_urn_for_skip_field=upstream_urns[
+            0
+        ],  # The 0th index contains URN of table referred in from
+        spr=spr,
+    )
+
+
 class SqlQuery:
+    SELECT_STAR_PATTERN: ClassVar[str] = r"\bSELECT\s+\*\s+FROM\b"
     lookml_sql_query: str
     view_name: str
     liquid_context: Dict[Any, Any]
@@ -159,19 +159,37 @@ class SqlQuery:
 
         return sql_query
 
+    def is_select_star_query(self) -> bool:
+        return (
+            re.search(
+                SqlQuery.SELECT_STAR_PATTERN, self.lookml_sql_query, re.IGNORECASE
+            )
+            is not None
+        )
+
 
 class ViewFieldBuilder:
     fields: Optional[List[ViewField]]
+    sql_query: SqlQuery
+    reporter: LookMLSourceReport
+    ctx: PipelineContext
 
-    def __init__(self, fields: Optional[List[ViewField]]):
+    def __init__(
+        self,
+        fields: Optional[List[ViewField]],
+        sql_query: SqlQuery,
+        reporter: LookMLSourceReport,
+        ctx: PipelineContext,
+    ):
         self.fields = fields
+        self.sql_query = sql_query
+        self.reporter = reporter
+        self.ctx = ctx
 
     def create_or_update_fields(
         self,
-        sql_query: SqlQuery,
         connection: LookerConnectionDefinition,
         view_urn: str,
-        ctx: PipelineContext,
     ) -> Tuple[List[ViewField], List[str]]:
         """
         There are two syntax to define lookml view using sql.
@@ -242,7 +260,7 @@ class ViewFieldBuilder:
         if `self.fields` is None that means view is defined as per Syntax2.
         """
 
-        query: str = sql_query.sql_query()
+        query: str = self.sql_query.sql_query()
 
         logger.debug(f"Processing query: {query} for view-urn {view_urn}")
 
@@ -253,8 +271,18 @@ class ViewFieldBuilder:
             platform=connection.platform,
             platform_instance=connection.platform_instance,
             env=cast(str, connection.platform_env),  # It's never going to be None
-            graph=ctx.graph,
+            graph=self.ctx.graph,
         )
+
+        if (
+            spr.debug_info.table_error is not None
+            or spr.debug_info.column_error is not None
+        ):
+            # self.reporter.report_warning(
+            #     view_urn,
+            #     f"Failed to parsed the sql query. table_error={spr.debug_info.table_error} and column_error={spr.debug_info.column_error}",
+            # )
+            return [], []
 
         upstream_urns: List[str] = [_drop_hive_dot(urn) for urn in spr.in_tables]
 
@@ -262,7 +290,11 @@ class ViewFieldBuilder:
 
         if self.fields:  # It is syntax1
             return (
-                _update_fields(view_urn=view_urn, fields=self.fields, spr=spr),
+                _update_fields(
+                    fields=self.fields,
+                    spr=spr,
+                    upstream_urns=upstream_urns,
+                ),
                 upstream_urns,
             )
 

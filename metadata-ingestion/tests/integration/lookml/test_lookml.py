@@ -40,7 +40,7 @@ def get_default_recipe(output_file_path, base_folder_path):
             "type": "lookml",
             "config": {
                 "base_folder": base_folder_path,
-                "connection_to_platform_map": {"my_connection": "conn"},
+                "connection_to_platform_map": {"my_connection": "postgres"},
                 "parse_table_names_from_sql": True,
                 "tag_measures_and_dimensions": False,
                 "project_name": "lkml_samples",
