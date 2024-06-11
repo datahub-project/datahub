@@ -41,8 +41,7 @@ If you have multiple projects in your BigQuery setup, the role should be granted
 | `logging.logEntries.list`         | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled.    | Lineage Extraction/Usage Extraction | [roles/logging.privateLogViewer](https://cloud.google.com/logging/docs/access-control#logging.privateLogViewer) |
 | `logging.privateLogEntries.list`  | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled.    | Lineage Extraction/Usage Extraction | [roles/logging.privateLogViewer](https://cloud.google.com/logging/docs/access-control#logging.privateLogViewer) |
 | `bigquery.tables.getData`         | Access table data to extract storage size, last updated at, data profiles etc.                                   | Profiling                           |                                                                           |
-| `datacatalog.policyTags.get`      | Get policy tags for columns with associated policy tags.                                                        | Policy Tag Extraction               | [roles/datacatalog.viewer](https://cloud.google.com/iam/docs/understanding-roles#datacatalog.viewer)    |
-| `datacatalog.taxonomies.list`     | List taxonomies and policy tags.                                                                                 | Policy Tag Extraction               | [roles/datacatalog.viewer](https://cloud.google.com/iam/docs/understanding-roles#datacatalog.viewer)    |
+| `datacatalog.policyTags.get`      | *Optional* Get policy tags for columns with associated policy tags. This permission is required only if `extract_policy_tags_from_catalog` is enabled.       | Policy Tag Extraction               | [roles/datacatalog.viewer](https://cloud.google.com/data-catalog/docs/access-control#permissions-and-roles)    |
 
 
 #### Create a service account in the Extractor Project
