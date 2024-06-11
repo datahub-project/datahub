@@ -128,4 +128,4 @@ test-models/bin/
 
 datahub-executor/
 datahub-integrations-service/
-metadata-ingestion-modules/
+metadata-ingestion-modules/acryl-cloud
