@@ -4,10 +4,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterator, List, Optional
 
-from google.api_core import page_iterator
+from google.api_core import page_iterator, retry
 from google.cloud import bigquery
 from google.cloud.bigquery.client import _item_to_project
-from google.cloud.bigquery.retry import DEFAULT_RETRY, DEFAULT_TIMEOUT
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
@@ -152,6 +151,10 @@ class BigQuerySchemaApi:
         return resp.result()
 
     def get_projects(self) -> List[BigqueryProject]:
+        def _should_retry(exc: BaseException) -> bool:
+            logger.debug(f"Exception reason: {str(exc)}. Type: {type(exc)}")
+            return True
+
         with self.report.list_projects:
             try:
                 projects: List[BigqueryProject] = []
@@ -165,10 +168,9 @@ class BigQuerySchemaApi:
                     with rate_limiter:
                         logger.debug("Calling API Request BigQuery.listProjects")
                         return self.bq_client._call_api(
-                            retry=DEFAULT_RETRY,
+                            retry=retry.Retry(predicate=_should_retry, timeout=600),
                             span_name="BigQuery.listProjects",
                             span_attributes={"path": "/projects"},
-                            timeout=DEFAULT_TIMEOUT,
                             **kwargs,
                         )
 
