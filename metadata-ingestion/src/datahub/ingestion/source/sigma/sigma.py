@@ -110,7 +110,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter = SigmaSourceReport()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
         try:
-            self.sigma_api = SigmaAPI(self.config)
+            self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
             raise ConfigurationError(f"Unable to connect sigma API. Exception: {e}")
 
@@ -118,7 +118,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            SigmaAPI(SigmaSourceConfig.parse_obj_allow_extras(config_dict))
+            SigmaAPI(
+                SigmaSourceConfig.parse_obj_allow_extras(config_dict),
+                SigmaSourceReport(),
+            )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
