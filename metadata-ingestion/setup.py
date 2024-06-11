@@ -259,7 +259,8 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
-    "deltalake>=0.6.3, != 0.6.4",
+    "deltalake>=0.6.3, != 0.6.4, < 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
