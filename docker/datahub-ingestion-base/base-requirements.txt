@@ -185,7 +185,7 @@ mlflow-skinny==2.12.1
 mmhash3==3.0.1
 more-itertools==10.2.0
 moto==4.2.14
-msal==1.22.0
+msal==1.28.0
 multidict==6.0.5
 murmurhash==1.0.10
 mypy-extensions==1.0.0
