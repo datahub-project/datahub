@@ -167,6 +167,12 @@ public class PoliciesConfig {
           "Manage Documentation Forms",
           "Manage forms assigned to assets to assist in documentation efforts.");
 
+  public static final Privilege MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_STRUCTURED_PROPERTIES",
+          "Manage Structured Properties",
+          "Manage structured properties in your instance.");
+
   // Acryl-Main only.
   public static final Privilege MANAGE_MONITORS =
       Privilege.of(
@@ -203,7 +209,8 @@ public class PoliciesConfig {
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_CONNECTIONS_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
-          MANAGE_MONITORS);
+          MANAGE_MONITORS,
+          MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -219,7 +226,7 @@ public class PoliciesConfig {
       Privilege.of(
           "EXISTS_ENTITY", "Entity Exists", "The ability to determine whether the entity exists.");
 
-  static final Privilege CREATE_ENTITY_PRIVILEGE =
+  public static final Privilege CREATE_ENTITY_PRIVILEGE =
       Privilege.of(
           "CREATE_ENTITY", "Create Entity", "The ability to create an entity if it doesn't exist.");
 

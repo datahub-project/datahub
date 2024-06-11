@@ -40,7 +40,8 @@
         "CREATE_CONSTRAINTS",
         "MANAGE_CONNECTIONS",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_MONITORS"
+        "MANAGE_MONITORS",
+        "MANAGE_STRUCTURED_PROPERTIES"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants all platform privileges to root user.",
@@ -236,7 +237,8 @@
         "APPLY_RETENTION_PRIVILEGE",
         "MANAGE_CONNECTIONS",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_MONITORS"
+        "MANAGE_MONITORS",
+        "MANAGE_STRUCTURED_PROPERTIES"
       ],
       "displayName":"Admins - Platform Policy",
       "description":"Admins have all platform privileges.",
@@ -337,7 +339,8 @@
         "MANAGE_TESTS",
         "CREATE_CONSTRAINTS",
         "MANAGE_DOCUMENTATION_FORMS",
-        "VIEW_METADATA_PROPOSALS"
+        "VIEW_METADATA_PROPOSALS",
+        "MANAGE_STRUCTURED_PROPERTIES"
       ],
       "displayName":"Editors - Platform Policy",
       "description":"Editors can manage ingestion and view analytics.",
