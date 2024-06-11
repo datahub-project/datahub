@@ -97,8 +97,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
             const prefix = assertionInfo?.source?.created?.time === assertionInfo?.lastUpdated?.time ? `Created by` : `Last updated by`;
             secondaryLabelMessage = `${prefix} ${entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)}`;
         } else {
-            const updatedByStr = `Last updated by ${entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)}`;
-            secondaryLabelMessage = updatedByStr? updatedByStr: secondaryLabelMessage ? secondaryLabelMessage : '';
+            secondaryLabelMessage = `Last updated by ${entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)}`;
         }
 
         // Show tooltip label for last updated if either the updater != creator OR if updatedTime != createdTime
