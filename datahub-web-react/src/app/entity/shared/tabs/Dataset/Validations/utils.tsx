@@ -261,7 +261,6 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
     return assertionGroups;
 };
 
-// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
 export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) => {
     if (summary.total === 0) {
         return null;
@@ -275,7 +274,6 @@ export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) =>
     return <StyledCloseOutlined />;
 };
 
-// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
 export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary) => {
     if (summary.total === 0) {
         return 'No assertions have run';
@@ -297,28 +295,4 @@ export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsC
         ...type,
         enabled: type.enabled && (!type.requiresConnectionSupportedByMonitors || monitorsConnectionForEntityExists),
     }));
-};
-
-// export const getEntityUrnForAssertion = (assertion: Assertion) => {
-export const getEntityUrnForAssertion = (assertion: any) => {
-    if (assertion.info?.type === AssertionType.Dataset) {
-        return assertion.info?.datasetAssertion?.datasetUrn;
-    }
-    if (assertion.info?.type === AssertionType.Freshness) {
-        return assertion.info?.freshnessAssertion?.entityUrn;
-    }
-    if (assertion.info?.type === AssertionType.Volume) {
-        return assertion.info?.volumeAssertion?.entityUrn;
-    }
-    if (assertion.info?.type === AssertionType.Field) {
-        return assertion.info?.fieldAssertion?.entityUrn;
-    }
-    if (assertion.info?.type === AssertionType.Sql) {
-        return assertion.info?.sqlAssertion?.entityUrn;
-    }
-    if (assertion.info?.type === AssertionType.DataSchema) {
-        return assertion.info?.schemaAssertion?.entityUrn;
-    }
-    console.error(`Unable to extract entity urn from unrecognized assertion with type ${assertion.info?.type}`);
-    return undefined;
 };

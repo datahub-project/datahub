@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import EditIcon from '@mui/icons-material/Edit';
+import { EditFilled } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import { DataContractState } from '../../../../../../../types.generated';
 import { AssertionStatusSummary } from '../types';
@@ -57,9 +57,9 @@ const CreateButton = styled(Button)`
     }
 `;
 
-const EditIconStyle = styled(EditIcon)`
+const EditIconStyle = styled(EditFilled)`
     && {
-        font-size: 16px;
+        font-size: 12px;
     }
 `;
 

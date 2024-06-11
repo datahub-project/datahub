@@ -203,44 +203,42 @@ export const DatasetAssertionsList = ({
             title: '',
             dataIndex: '',
             key: '',
-            render: (_, record: any) => {
-                return (
-                    <>
-                        {showMenu && (
-                            <ActionButtonContainer>
-                                <Tooltip
-                                    title={
-                                        record.platform.properties?.displayName ||
-                                        capitalizeFirstLetterOnly(record.platform.name)
-                                    }
-                                >
-                                    <PlatformContainer>
-                                        {(record.platform.properties?.logoUrl && (
-                                            <Image
-                                                preview={false}
-                                                height={20}
-                                                width={20}
-                                                src={record.platform.properties?.logoUrl}
-                                            />
-                                        )) || (
-                                            <Typography.Text>
-                                                {record.platform.properties?.displayName ||
-                                                    capitalizeFirstLetterOnly(record.platform.name)}
-                                            </Typography.Text>
-                                        )}
-                                    </PlatformContainer>
-                                </Tooltip>
-                                <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
-                                    <DeleteOutlined />
-                                </Button>
-                                <Dropdown overlay={<AssertionMenu urn={record.urn} />} trigger={['click']}>
-                                    <StyledMoreOutlined />
-                                </Dropdown>
-                            </ActionButtonContainer>
-                        )}
-                    </>
-                );
-            },
+            render: (_, record: any) => (
+                <>
+                    {showMenu && (
+                        <ActionButtonContainer>
+                            <Tooltip
+                                title={
+                                    record.platform.properties?.displayName ||
+                                    capitalizeFirstLetterOnly(record.platform.name)
+                                }
+                            >
+                                <PlatformContainer>
+                                    {(record.platform.properties?.logoUrl && (
+                                        <Image
+                                            preview={false}
+                                            height={20}
+                                            width={20}
+                                            src={record.platform.properties?.logoUrl}
+                                        />
+                                    )) || (
+                                        <Typography.Text>
+                                            {record.platform.properties?.displayName ||
+                                                capitalizeFirstLetterOnly(record.platform.name)}
+                                        </Typography.Text>
+                                    )}
+                                </PlatformContainer>
+                            </Tooltip>
+                            <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
+                                <DeleteOutlined />
+                            </Button>
+                            <Dropdown overlay={<AssertionMenu urn={record.urn} />} trigger={['click']}>
+                                <StyledMoreOutlined />
+                            </Dropdown>
+                        </ActionButtonContainer>
+                    )}
+                </>
+            ),
         },
     ];
 

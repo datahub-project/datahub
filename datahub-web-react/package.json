@@ -11,7 +11,6 @@
         "@apollo/client": "^3.3.19",
         "@graphql-codegen/fragment-matcher": "^5.0.0",
         "@monaco-editor/react": "^4.3.1",
-        "@mui/icons-material": "^5.15.2",
         "@react-hook/window-size": "^3.0.7",
         "@react-spring/web": "^9.7.3",
         "@remirror/pm": "^2.0.3",

@@ -81,25 +81,25 @@ export const ValidationsTab = () => {
         },
     ];
 
-    // if (appConfig.config.featureFlags?.dataContractsEnabled) {
-    // If contracts feature is enabled, add to list.
+    if (appConfig.config.featureFlags?.dataContractsEnabled) {
+        // If contracts feature is enabled, add to list.
 
-    tabs.push({
-        title: (
-            <>
-                <AuditOutlined />
+        tabs.push({
+            title: (
+                <>
+                    <AuditOutlined />
 
-                <TabTitle>Data Contract</TabTitle>
-            </>
-        ),
+                    <TabTitle>Data Contract</TabTitle>
+                </>
+            ),
 
-        path: TabPaths.DATA_CONTRACT,
+            path: TabPaths.DATA_CONTRACT,
 
-        content: <DataContractTab />,
+            content: <DataContractTab />,
 
-        disabled: false,
-    });
-    // }
+            disabled: false,
+        });
+    }
 
     return (
         <>

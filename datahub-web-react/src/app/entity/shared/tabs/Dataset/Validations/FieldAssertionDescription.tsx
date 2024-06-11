@@ -1,6 +1,5 @@
 import React from 'react';
 import { Typography } from 'antd';
-// import { FieldAssertionInfo } from '../../../../../../types.generated';
 import {
     getFieldDescription,
     getFieldOperatorDescription,
