@@ -163,6 +163,7 @@ class BigQuerySchemaApi:
 
                 def api_request(**kwargs):
                     with rate_limiter:
+                        logger.debug("Calling API Request BigQuery.listProjects")
                         return self.bq_client._call_api(
                             retry=DEFAULT_RETRY,
                             span_name="BigQuery.listProjects",
