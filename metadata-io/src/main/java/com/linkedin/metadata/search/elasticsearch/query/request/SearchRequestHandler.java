@@ -233,7 +233,7 @@ public class SearchRequestHandler {
         searchFlags,
         filterQuery,
         facets,
-        sortCriterion);
+        sortCriteria);
   }
 
   private SearchSourceBuilder constructSearchSourceBuilder(int from, int size) {
