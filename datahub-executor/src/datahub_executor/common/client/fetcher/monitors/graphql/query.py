@@ -23,7 +23,3 @@ GRAPHQL_GET_ASSERTION_QUERY = (
 GRAPHQL_GET_DATASET_QUERY = (
     pathlib.Path(__file__).parent / "get_dataset.gql"
 ).read_text()
-
-GRAPHQL_GET_SIGNAL_REQUEST_LIST_QUERY = (
-    pathlib.Path(__file__).parent / "signal_request_list.gql"
-).read_text()

@@ -2,7 +2,7 @@ import json
 import logging
 import time
 import uuid
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from acryl.executor.execution.reporting_executor import (
     ReportingExecutor,
@@ -18,14 +18,15 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     ExecutionRequestInputClass,
     ExecutionRequestKeyClass,
+    ExecutionRequestSignalClass,
     ExecutionRequestSourceClass,
     MetadataChangeLogClass,
 )
 
-from datahub_executor.common.client.fetcher.monitors.graphql.query import (
-    GRAPHQL_GET_SIGNAL_REQUEST_LIST_QUERY,
+from datahub_executor.common.constants import (
+    DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
+    RUN_INGEST_TASK_NAME,
 )
-from datahub_executor.common.constants import RUN_INGEST_TASK_NAME
 from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.common.monitoring.metrics import (
     STATS_EXECUTION_FETCH_SIGNAL_ERRORS,
@@ -123,62 +124,20 @@ def extract_execution_request(
     return execution_request
 
 
+def exec_id_to_urn(exec_id: str) -> str:
+    return f"urn:li:{DATAHUB_EXECUTION_REQUEST_ENTITY_NAME}:{exec_id}"
+
+
 @STATS_EXECUTION_FETCH_SIGNAL_REQUESTS.time()
 def fetch_execution_signal_requests(
-    graph: DataHubGraph,
-    ingestion_exec_ids: List[str],
-) -> List[SignalRequest]:
-    # convert the exec_id strings to dataHubExecutionRequest urns
-    ingestion_entity_urns = [
-        f"urn:li:dataHubExecutionRequest:{exec_id}" for exec_id in ingestion_exec_ids
-    ]
-
-    # hit the GMS endpoint to see if any Signal Requests exists on these urns.
-    result = graph.execute_graphql(
-        GRAPHQL_GET_SIGNAL_REQUEST_LIST_QUERY,
-        variables={"input": {"urns": ingestion_entity_urns}},
+    graph: DataHubGraph, exec_ids: List[str]
+) -> Dict[str, Any]:
+    exec_id_urns = list(map(exec_id_to_urn, exec_ids))
+    return graph.get_entities_v2(
+        entity_name=DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
+        urns=exec_id_urns,
+        aspects=[ExecutionRequestSignalClass.ASPECT_NAME],
     )
-
-    if "error" in result and result["error"] is not None:
-        STATS_EXECUTION_FETCH_SIGNAL_ERRORS.labels("GmsError").inc()
-        logger.error(
-            f"Received error while fetching signal requests from GMS! {result.get('error')}"
-        )
-        return []
-
-    if (
-        "listSignalRequests" not in result
-        or "signalRequests" not in result["listSignalRequests"]
-    ):
-        STATS_EXECUTION_FETCH_SIGNAL_ERRORS.labels("IncompleteResults").inc()
-        logger.error(
-            "Found incomplete search results when fetching signal requests from GMS!"
-        )
-        return []
-
-    signal_requests = []
-    for signal_request in result["listSignalRequests"]["signalRequests"]:
-        try:
-            signal = SignalRequest.parse_obj(
-                {
-                    "exec_id": signal_request["execId"],
-                    "executor_id": signal_request["executorId"],
-                    "signal": signal_request["signal"],
-                }
-            )
-        except Exception:
-            STATS_EXECUTION_FETCH_SIGNAL_ERRORS.labels("ParseError").inc()
-            logger.error(
-                f"Failed to convert Signal Request object to Python object. {signal_request}"
-            )
-        else:
-            # convert urns back to exec_id to process the signal request.
-            signal.exec_id = signal.exec_id.replace(
-                "urn:li:dataHubExecutionRequest:", ""
-            )
-            signal_requests.append(signal)
-
-    return signal_requests
 
 
 def handle_ingestion_signal_requests(
@@ -195,13 +154,35 @@ def handle_ingestion_signal_requests(
     # if we have an ingestion task running, this is the only time
     # we poll GMS for any signals related to these tasks.
     if len(ingestion_exec_ids) > 0:
-        signal_requests = fetch_execution_signal_requests(graph, ingestion_exec_ids)
-        for signal_request in signal_requests:
-            STATS_INGESTION_HANDLER_CANCEL_REQUESTS.inc()
-            logger.info(
-                f"Got {signal_request.exec_id} signal for task {signal_request.exec_id}"
-            )
-            ingestion_executor.signal(signal_request)
+        try:
+            entities = fetch_execution_signal_requests(graph, ingestion_exec_ids)
+
+            for exec_id in ingestion_exec_ids:
+                signal_aspect = (
+                    entities.get(exec_id_to_urn(exec_id), {})
+                    .get(ExecutionRequestSignalClass.ASPECT_NAME, {})
+                    .get("value", None)
+                )
+
+                if signal_aspect is None:
+                    continue
+
+                signal = ExecutionRequestSignalClass.from_obj(signal_aspect)
+                signal_request = SignalRequest.parse_obj(
+                    {
+                        "exec_id": exec_id,
+                        "executor_id": signal.executorId,
+                        "signal": signal.signal,
+                    }
+                )
+                ingestion_executor.signal(signal_request)
+
+                STATS_INGESTION_HANDLER_CANCEL_REQUESTS.inc()
+                logger.info(f"Got {signal.signal} signal for task {exec_id}")
+        except Exception as e:
+            STATS_EXECUTION_FETCH_SIGNAL_ERRORS.labels("Exception").inc()
+            logger.error(f"Failed to fetch signal requests: {e}")
+            return
 
 
 def emit_execution_request_input(
