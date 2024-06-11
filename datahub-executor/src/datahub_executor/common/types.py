@@ -105,6 +105,7 @@ class FreshnessAssertionScheduleType(Enum):
 
     CRON = "CRON"
     FIXED_INTERVAL = "FIXED_INTERVAL"
+    SINCE_THE_LAST_CHECK = "SINCE_THE_LAST_CHECK"
 
 
 class FieldAssertionType(Enum):

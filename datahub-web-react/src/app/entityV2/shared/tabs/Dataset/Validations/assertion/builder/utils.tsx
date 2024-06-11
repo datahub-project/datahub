@@ -306,19 +306,19 @@ const allSourceOptions: SourceOption[] = [
         type: DatasetFreshnessSourceType.AuditLog,
         name: 'Audit Log',
         description: 'Use operations logged in platform audit logs to determine whether the asset has changed',
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
     },
     {
         type: DatasetFreshnessSourceType.InformationSchema,
         name: 'Information Schema',
         description: 'Use the information schema or system metadata tables to determine whether the asset has changed',
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
     },
     {
         type: DatasetFreshnessSourceType.FileMetadata,
         name: 'File Metadata',
         description: "Use the underlying file system's metadata to determine whether the asset has changed",
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
     },
     {
         type: DatasetFreshnessSourceType.FieldValue,
@@ -331,7 +331,7 @@ const allSourceOptions: SourceOption[] = [
             kind: FreshnessFieldKind.LastModified,
             dataTypes: LAST_MODIFIED_FIELD_TYPES,
         },
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
     },
     {
         type: DatasetFreshnessSourceType.FieldValue,
@@ -344,14 +344,14 @@ const allSourceOptions: SourceOption[] = [
             kind: FreshnessFieldKind.HighWatermark,
             dataTypes: HIGH_WATERMARK_FIELD_TYPES,
         },
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
     },
     {
         type: DatasetFreshnessSourceType.DatahubOperation,
         name: 'DataHub Operation',
         description:
             'Use the DataHub "Operation" Aspect to determine whether the table has changed. This avoids the requirement to contact your data platform to determine evaluate Freshness Assertions. Note that this relies on operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (reportOperation).',
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
     },
 ];
 

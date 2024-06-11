@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List, cast
+from typing import List, Optional, cast
 
 from datahub.metadata.schema_classes import OperationClass
 
@@ -51,6 +51,19 @@ logger = logging.getLogger(__name__)
 STATEFUL_ASSERTION_EVALUATION_BUFFER = 5 * 60 * 1000
 
 
+class InternalAssertionEvaluationResult:
+    result: AssertionEvaluationResult
+    next_assertion_state: Optional[AssertionState]
+
+    def __init__(
+        self,
+        result: AssertionEvaluationResult,
+        next_assertion_state: Optional[AssertionState] = None,
+    ):
+        self.result = result
+        self.next_assertion_state = next_assertion_state
+
+
 class FreshnessAssertionEvaluator(AssertionEvaluator):
     """Evaluator for FRESHNESS assertions."""
 
@@ -67,13 +80,28 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             ),
         )
 
+    def _hydrate_window_event_result_with_window_parameters(
+        self, internal_result: InternalAssertionEvaluationResult, window: List[int]
+    ) -> InternalAssertionEvaluationResult:
+        if internal_result.result is None:
+            return internal_result
+        if len(window) == 0:
+            return internal_result
+        if internal_result.result.parameters is None:
+            internal_result.result.parameters = {}
+        internal_result.result.parameters["window_start_time"] = str(window[0])
+        if len(window) == 2:
+            internal_result.result.parameters["window_end_time"] = str(window[1])
+        return internal_result
+
     def _evaluate_internal_window_event(
         self,
         window: List[int],
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
-    ) -> AssertionEvaluationResult:
+        maybe_previous_state: Optional[AssertionState] = None,
+    ) -> InternalAssertionEvaluationResult:
         assert assertion.connection_urn
         entity_urn = assertion.entity.urn
 
@@ -83,10 +111,13 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         )
 
         if event_type == EntityEventType.DATAHUB_OPERATION:
-            return self._evaluate_datahub_operation_assertion(
-                entity_urn,
+            return self._hydrate_window_event_result_with_window_parameters(
+                self._evaluate_datahub_operation_assertion(
+                    entity_urn,
+                    window,
+                    source_params,
+                ),
                 window,
-                source_params,
             )
 
         connection = self.connection_provider.get_connection(
@@ -110,23 +141,30 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             and parameters.dataset_freshness_parameters.field.kind
             == FreshnessFieldKind.HIGH_WATERMARK
         ):
-            return self._evaluate_high_watermark_assertion(
+            return self._hydrate_window_event_result_with_window_parameters(
+                self._evaluate_high_watermark_assertion(
+                    source,
+                    assertion,
+                    entity_urn,
+                    event_type,
+                    window,
+                    source_params,
+                    context,
+                    maybe_previous_state,
+                ),
+                window,
+            )
+
+        return self._hydrate_window_event_result_with_window_parameters(
+            self._evaluate_assertion(
                 source,
                 assertion,
                 entity_urn,
                 event_type,
                 window,
                 source_params,
-                context,
-            )
-
-        return self._evaluate_assertion(
-            source,
-            assertion,
-            entity_urn,
-            event_type,
+            ),
             window,
-            source_params,
         )
 
     def _evaluate_assertion(
@@ -137,7 +175,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         event_type: EntityEventType,
         window: List[int],
         source_params: dict,
-    ) -> AssertionEvaluationResult:
+    ) -> InternalAssertionEvaluationResult:
         maybe_events = source.get_entity_events(
             entity_urn,
             event_type,
@@ -151,16 +189,20 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             logger.debug(
                 "Found matching events within the provided window! Assertion is passing."
             )
-            return AssertionEvaluationResult(
-                AssertionResultType.SUCCESS, {"events": maybe_events}
+            return InternalAssertionEvaluationResult(
+                result=AssertionEvaluationResult(
+                    AssertionResultType.SUCCESS, {"events": maybe_events}
+                )
             )
         else:
             # No events are found. The assertion is failing!
             logger.info(
                 "No matching events found within the provided window! Assertion is failing."
             )
-            return AssertionEvaluationResult(
-                AssertionResultType.FAILURE, parameters=None
+            return InternalAssertionEvaluationResult(
+                result=AssertionEvaluationResult(
+                    AssertionResultType.FAILURE, parameters=None
+                )
             )
 
     def _evaluate_high_watermark_freshness(
@@ -214,17 +256,22 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         window: List[int],
         source_params: dict,
         context: AssertionEvaluationContext,
-    ) -> AssertionEvaluationResult:
+        maybe_previous_state: Optional[AssertionState],
+    ) -> InternalAssertionEvaluationResult:
         [start_time, _] = window
         start_time = start_time - STATEFUL_ASSERTION_EVALUATION_BUFFER
 
-        previous_state = (
-            self.state_provider.get_state(
-                context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
+        previous_state: AssertionState | None
+        if maybe_previous_state is not None:
+            previous_state = maybe_previous_state
+        else:
+            previous_state = (
+                self.state_provider.get_state(
+                    context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
+                )
+                if context.monitor_urn
+                else None
             )
-            if context.monitor_urn
-            else None
-        )
 
         if (
             previous_state
@@ -320,28 +367,27 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 else "0"
             )
 
-        if context.monitor_urn:
-            self.state_provider.save_state(
-                context.monitor_urn,
-                AssertionState(
-                    type=AssertionStateType.MONITOR_TIMESERIES_STATE,
-                    timestamp=time_now,
-                    properties={
-                        "field_value": current_field_value,
-                        "row_count": str(current_row_count),
-                        "last_state_change": last_state_change_str,
-                    },
-                ),
-            )
+        next_assertion_state = AssertionState(
+            type=AssertionStateType.MONITOR_TIMESERIES_STATE,
+            timestamp=time_now,
+            properties={
+                "field_value": current_field_value,
+                "row_count": str(current_row_count),
+                "last_state_change": last_state_change_str,
+            },
+        )
 
-        return assertion_evaluation_result
+        return InternalAssertionEvaluationResult(
+            result=assertion_evaluation_result,
+            next_assertion_state=next_assertion_state,
+        )
 
     def _evaluate_datahub_operation_assertion(
         self,
         entity_urn: str,
         window: List[int],
         source_params: dict,
-    ) -> AssertionEvaluationResult:
+    ) -> InternalAssertionEvaluationResult:
         assert isinstance(
             self.connection_provider, DataHubIngestionSourceConnectionProvider
         )
@@ -378,18 +424,24 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 )
                 for operation in operation_aspects
             ]
-            return AssertionEvaluationResult(
-                AssertionResultType.SUCCESS, {"events": entity_events}
+            return InternalAssertionEvaluationResult(
+                result=AssertionEvaluationResult(
+                    AssertionResultType.SUCCESS, {"events": entity_events}
+                )
             )
 
-        return AssertionEvaluationResult(AssertionResultType.FAILURE, parameters=None)
+        return InternalAssertionEvaluationResult(
+            result=AssertionEvaluationResult(
+                AssertionResultType.FAILURE, parameters=None
+            )
+        )
 
     def _evaluate_internal_cron(
         self,
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
-    ) -> AssertionEvaluationResult:
+    ) -> InternalAssertionEvaluationResult:
         assert assertion.freshness_assertion is not None
         assert assertion.freshness_assertion.schedule.cron is not None
 
@@ -428,7 +480,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         assertion: Assertion,
         parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
-    ) -> AssertionEvaluationResult:
+    ) -> InternalAssertionEvaluationResult:
         assert assertion.freshness_assertion is not None
         assert assertion.freshness_assertion.schedule.fixed_interval is not None
 
@@ -449,6 +501,52 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             validation_window, assertion, parameters, context
         )
 
+    def _evaluate_internal_since_last_check(
+        self,
+        assertion: Assertion,
+        parameters: AssertionEvaluationParameters,
+        context: AssertionEvaluationContext,
+    ) -> InternalAssertionEvaluationResult:
+        assert assertion.freshness_assertion is not None
+
+        # 1. Get previous monitor state
+        previous_state = (
+            self.state_provider.get_state(
+                context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
+            )
+            if context.monitor_urn
+            else None
+        )
+
+        # 2. Initialize variables
+        # 2.1 default result to an INIT run event (ie. if no previous_state)
+        assertion_evaluation_result = InternalAssertionEvaluationResult(
+            result=AssertionEvaluationResult(AssertionResultType.INIT)
+        )
+        # 2.2 get the current ts in millis
+        now_millis = int(time.time() * 1000)
+
+        # 3. If there's a valid previous state, evaluate freshness from last monitor run time to now
+        if previous_state and previous_state.timestamp is not None:
+            # check for freshness within window
+            start_time = previous_state.timestamp
+            end_time = now_millis
+            validation_window = [start_time, end_time]
+            assertion_evaluation_result = self._evaluate_internal_window_event(
+                validation_window, assertion, parameters, context, previous_state
+            )
+
+        # 4. Ensure we store the timestamp of this run in the monitorTimeseriesState aspect
+        if assertion_evaluation_result.next_assertion_state is None:
+            assertion_evaluation_result.next_assertion_state = AssertionState(
+                type=AssertionStateType.MONITOR_TIMESERIES_STATE,
+                timestamp=now_millis,
+                properties={},
+            )
+
+        # 5. Return the result
+        return assertion_evaluation_result
+
     def _evaluate_internal(
         self,
         assertion: Assertion,
@@ -462,12 +560,21 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
 
         freshness_assertion = cast(FreshnessAssertion, assertion.freshness_assertion)
         if freshness_assertion.schedule.type == FreshnessAssertionScheduleType.CRON:
-            return self._evaluate_internal_cron(assertion, parameters, context)
+            internal_result = self._evaluate_internal_cron(
+                assertion, parameters, context
+            )
         elif (
             freshness_assertion.schedule.type
             == FreshnessAssertionScheduleType.FIXED_INTERVAL
         ):
-            return self._evaluate_internal_fixed_interval(
+            internal_result = self._evaluate_internal_fixed_interval(
+                assertion, parameters, context
+            )
+        elif (
+            freshness_assertion.schedule.type
+            == FreshnessAssertionScheduleType.SINCE_THE_LAST_CHECK
+        ):
+            internal_result = self._evaluate_internal_since_last_check(
                 assertion, parameters, context
             )
         else:
@@ -475,3 +582,8 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 message=f"Failed to evaluate FRESHNESS Assertion. Unsupported FRESHNESS Schedule Type {assertion.freshness_assertion.schedule.type} provided.",
                 parameters=parameters.__dict__,
             )
+        if internal_result.next_assertion_state and context.monitor_urn:
+            self.state_provider.save_state(
+                context.monitor_urn, internal_result.next_assertion_state
+            )
+        return internal_result.result

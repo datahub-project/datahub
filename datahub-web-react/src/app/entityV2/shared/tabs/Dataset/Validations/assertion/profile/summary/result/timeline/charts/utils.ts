@@ -4,6 +4,8 @@ import { AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionType, F
 import { INTERVAL_TO_MS } from "../../../../../../../../../../../shared/time/timeUtils";
 import { tryGetExpectedRangeFromAssertionRunEvent } from "../../../shared/resultExtractionUtils";
 import { AssertionChartType, AssertionDataPoint } from "./types";
+import { getPreviousScheduleEvaluationTimeMs } from '../../../../../../acrylUtils';
+import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from '../../../shared/constants';
 
 export const ACCENT_COLOR_HEX = '#222222';
 export const EXTRA_HIGHLIGHT_COLOR_HEX = '#4050E7';
@@ -149,16 +151,33 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
     if (mountedDataPoint.result.type === AssertionResultType.Error) {
         return undefined;
     }
+    // 2. Get the end of the window
+    // NOTE: assertion run time is the end of the window
+    const windowEndDate = new Date(mountedDataPoint.time);
 
-    // 2. Get the start of the window
+    // 3. If window details exist in native results, use those
+    const nativeResults = mountedDataPoint.relatedRunEvent.result?.nativeResults
+    if (nativeResults) {
+        let maybeStartTime = nativeResults[
+            ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FRESHNESS_ASSERTIONS.EVALUATION_WINDOW_START_TIME
+        ]
+        if (typeof maybeStartTime === 'string') {
+            maybeStartTime = parseInt(maybeStartTime, 10)
+        }
+        if (typeof maybeStartTime === 'number' && !Number.isNaN(maybeStartTime)) {
+            return [new Date(maybeStartTime), windowEndDate]
+        }
+    }
+
+    // 4. Get the start of the window
     let windowStartDate: Date | undefined;
     switch (assertionInfo.freshnessAssertion.schedule.type) {
-        case FreshnessAssertionScheduleType.Cron: {
+        case FreshnessAssertionScheduleType.SinceTheLastCheck: {
             // Get the ts of the data point before this one
             const orderedDataPoints = _.sortBy(allDataPoints, DATA_POINTS_TEMPORAL_ORDER_BY_KEY)
             const thisDataPointIndex = orderedDataPoints.findIndex(point => point.time === mountedDataPoint.time)
             const lastDataPoint: AssertionDataPoint | undefined = orderedDataPoints[thisDataPointIndex - 1];
-            windowStartDate = lastDataPoint?.time ? new Date(lastDataPoint.time) : undefined
+            windowStartDate = typeof lastDataPoint?.time === 'number' ? new Date(lastDataPoint.time) : undefined
             break;
         }
         case FreshnessAssertionScheduleType.FixedInterval: {
@@ -170,6 +189,43 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
             windowStartDate = windowStartMillis > 0 ? new Date(windowStartMillis) : undefined;
             break;
         }
+        case FreshnessAssertionScheduleType.Cron: {
+            // Compute the previous cron iteration of this data point
+            const cron = mountedDataPoint.relatedRunEvent.result?.assertion?.freshnessAssertion?.schedule.cron
+            if (!cron) break;
+            let lastExpectedRunTS = getPreviousScheduleEvaluationTimeMs({
+                cron: cron.cron,
+                timezone: cron.timezone
+            }, mountedDataPoint.time)
+
+            if (typeof lastExpectedRunTS !== 'number') {
+                break;
+            }
+
+            // If lastExpectedRunTS is actually the scheduled run time of this data point, correct it
+            // NOTE: in some cases a slight delay in running the assertion can cause mountedDataPoint.time to be...
+            // ...slightly after the cron run time. So, we need to take one more step back on the cron schedule...
+            // ...in order to get the actual time of the last window
+            const oneSchedulePriorTS = getPreviousScheduleEvaluationTimeMs({
+                cron: cron.cron,
+                timezone: cron.timezone
+            }, lastExpectedRunTS) || 0
+
+            // ie. let's say the assertion ran 3min after it was scheduled to run, then below value would be 3min as MS
+            const distanceOfDataPointFromLastScheduledTime = mountedDataPoint.time - lastExpectedRunTS
+            // ie. let's say the cron schedules this to run every 24h, then below value would be 24h as MS
+            const distanceBetweenScheduledTimes = lastExpectedRunTS - oneSchedulePriorTS;
+
+            // If the distance between runs (ie. 24h) is greater than...
+            // ...the distance between this data point and the cron schedule prior to it,
+            // ...then we should start the window at the prior schedule (24h3m ago)
+            if (distanceOfDataPointFromLastScheduledTime < distanceBetweenScheduledTimes) {
+                lastExpectedRunTS = oneSchedulePriorTS
+            }
+
+            windowStartDate = typeof lastExpectedRunTS === 'number' ? new Date(lastExpectedRunTS) : undefined
+            break;
+        }
         default:
             break;
     }
@@ -177,10 +233,7 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
         return undefined;
     }
 
-    // 3. Get the end of the window
-    const windowEndDate = new Date(mountedDataPoint.time); // assert run time is the end of the window
-
-    // 4. Return the values
+    // 5. Return the values
     return [windowStartDate, windowEndDate]
 }
 

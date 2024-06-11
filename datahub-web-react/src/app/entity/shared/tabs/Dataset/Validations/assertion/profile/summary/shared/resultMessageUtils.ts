@@ -125,7 +125,7 @@ const getFormattedReasonTextForSchemaAssertion = (run: AssertionRunEvent) => {
     const extraFieldsInExpected = tryGetExtraFieldsInExpected(run.result) || [];
     const mismatchedTypeFields = tryGetMismatchedTypeFields(run.result) || [];
 
-    let reasonMessage = ''; 
+    let reasonMessage = '';
 
     if (extraFieldsInActual.length > 0) {
         reasonMessage += `Found unexpected columns: ${extraFieldsInActual.join(', ')}. `
@@ -141,7 +141,7 @@ const getFormattedReasonTextForSchemaAssertion = (run: AssertionRunEvent) => {
         return 'The actual columns do not match the expected columns!'
     }
 
-    return reasonMessage; 
+    return reasonMessage;
 };
 
 const getFormattedReasonTextForFreshnessAssertion = (run: AssertionRunEvent) => {
@@ -440,7 +440,10 @@ const getFormattedExpectedTextForFreshnessAssertion = (run: AssertionRunEvent): 
             const humanReadableCronStr = getCronAsText(info.schedule.cron.cron, { verbose: true }).text
             const maybeTimeZoneStr = info.schedule.cron.timezone ? ` (${info.schedule.cron.timezone})` : ``;
             const maybeWindowOffsetStr = info.schedule.cron.windowStartOffsetMs ? ` with a window offset of ${info.schedule.cron.windowStartOffsetMs} millis` : ``;
-            return `Table should have updated since the previous check. This check was set to run ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
+            return `Table should have updated between the scheduled cron windows. The cron set the check to run ${humanReadableCronStr}${maybeTimeZoneStr}${maybeWindowOffsetStr}`;
+        }
+        case FreshnessAssertionScheduleType.SinceTheLastCheck: {
+            return `Table should have updated since the last time this check was run.`;
         }
         case FreshnessAssertionScheduleType.FixedInterval: {
             if (!info.schedule.fixedInterval) return undefined;

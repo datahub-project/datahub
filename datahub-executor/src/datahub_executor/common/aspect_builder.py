@@ -258,6 +258,13 @@ def _freshness_parameters_to_native_results(
             results["events"] = events_str
     if "prev_row_count" in parameters and parameters["prev_row_count"] is not None:
         results["Previous Row Count"] = parameters["prev_row_count"]
+    if (
+        "window_start_time" in parameters
+        and parameters["window_start_time"] is not None
+    ):
+        results["Window Start Time"] = str(parameters["window_start_time"])
+    if "window_end_time" in parameters and parameters["window_end_time"] is not None:
+        results["Window End Time"] = str(parameters["window_end_time"])
     return results
 
 
