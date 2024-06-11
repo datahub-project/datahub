@@ -177,7 +177,6 @@ class BigQuerySchemaApi:
                     path="/projects",
                     item_to_value=_item_to_project,
                     items_key="projects",
-                    page_size=1,
                 )
 
                 for p in projects_iterator:
@@ -185,7 +184,7 @@ class BigQuerySchemaApi:
                         BigqueryProject(id=p.project_id, name=p.friendly_name)
                     )
                 logger.debug(f"Projects count {str(len(projects))}")
-                return []
+                return projects
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
                 return []
