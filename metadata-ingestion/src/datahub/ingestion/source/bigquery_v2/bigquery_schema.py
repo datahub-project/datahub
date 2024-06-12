@@ -51,9 +51,9 @@ class PartitionInfo:
         cls, time_partitioning: TimePartitioning
     ) -> "PartitionInfo":
         return cls(
-            field=time_partitioning.field
-            if time_partitioning.field
-            else "_PARTITIONTIME",
+            field=(
+                time_partitioning.field if time_partitioning.field else "_PARTITIONTIME"
+            ),
             type=time_partitioning.type_,
             expiration_ms=time_partitioning.expiration_ms,
             require_partition_filter=time_partitioning.require_partition_filter,
@@ -104,6 +104,7 @@ class BigqueryTable(BaseTable):
 class BigqueryView(BaseView):
     columns: List[BigqueryColumn] = field(default_factory=list)
     materialized: bool = False
+    labels: Optional[Dict[str, str]] = None
 
 
 @dataclass
@@ -219,9 +220,11 @@ class BigQuerySchemaApi:
                     BigqueryQuery.tables_for_dataset.format(
                         project_id=project_id,
                         dataset_name=dataset_name,
-                        table_filter=f" and t.table_name in ({filter_clause})"
-                        if filter_clause
-                        else "",
+                        table_filter=(
+                            f" and t.table_name in ({filter_clause})"
+                            if filter_clause
+                            else ""
+                        ),
                     ),
                 )
             else:
@@ -231,9 +234,11 @@ class BigQuerySchemaApi:
                     BigqueryQuery.tables_for_dataset_without_partition_data.format(
                         project_id=project_id,
                         dataset_name=dataset_name,
-                        table_filter=f" and t.table_name in ({filter_clause})"
-                        if filter_clause
-                        else "",
+                        table_filter=(
+                            f" and t.table_name in ({filter_clause})"
+                            if filter_clause
+                            else ""
+                        ),
                     ),
                 )
 
@@ -271,20 +276,22 @@ class BigQuerySchemaApi:
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
-            last_altered=datetime.fromtimestamp(
-                table.get("last_altered") / 1000, tz=timezone.utc
-            )
-            if table.get("last_altered") is not None
-            else None,
+            last_altered=(
+                datetime.fromtimestamp(
+                    table.get("last_altered") / 1000, tz=timezone.utc
+                )
+                if table.get("last_altered") is not None
+                else None
+            ),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
             ddl=table.ddl,
             expires=expiration,
             labels=table_basic.labels if table_basic else None,
-            partition_info=PartitionInfo.from_table_info(table_basic)
-            if table_basic
-            else None,
+            partition_info=(
+                PartitionInfo.from_table_info(table_basic) if table_basic else None
+            ),
             clustering_fields=table_basic.clustering_fields if table_basic else None,
             max_partition_id=table.get("max_partition_id"),
             max_shard_id=shard,
@@ -335,16 +342,17 @@ class BigQuerySchemaApi:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
-            last_altered=datetime.fromtimestamp(
-                view.get("last_altered") / 1000, tz=timezone.utc
-            )
-            if view.get("last_altered") is not None
-            else None,
+            last_altered=(
+                datetime.fromtimestamp(view.get("last_altered") / 1000, tz=timezone.utc)
+                if view.get("last_altered") is not None
+                else None
+            ),
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
             size_in_bytes=view.get("size_bytes"),
             rows_count=view.get("row_count"),
+            labels=view.labels if hasattr(view, "labels") else None,
         )
 
     def get_columns_for_dataset(
@@ -358,14 +366,16 @@ class BigQuerySchemaApi:
         with self.report.get_columns_for_dataset:
             try:
                 cur = self.get_query_result(
-                    BigqueryQuery.columns_for_dataset.format(
-                        project_id=project_id, dataset_name=dataset_name
-                    )
-                    if not run_optimized_column_query
-                    else BigqueryQuery.optimized_columns_for_dataset.format(
-                        project_id=project_id,
-                        dataset_name=dataset_name,
-                        column_limit=column_limit,
+                    (
+                        BigqueryQuery.columns_for_dataset.format(
+                            project_id=project_id, dataset_name=dataset_name
+                        )
+                        if not run_optimized_column_query
+                        else BigqueryQuery.optimized_columns_for_dataset.format(
+                            project_id=project_id,
+                            dataset_name=dataset_name,
+                            column_limit=column_limit,
+                        )
                     ),
                 )
             except Exception as e:
@@ -483,11 +493,13 @@ class BigQuerySchemaApi:
         return BigqueryTableSnapshot(
             name=snapshot.table_name,
             created=snapshot.created,
-            last_altered=datetime.fromtimestamp(
-                snapshot.get("last_altered") / 1000, tz=timezone.utc
-            )
-            if snapshot.get("last_altered") is not None
-            else None,
+            last_altered=(
+                datetime.fromtimestamp(
+                    snapshot.get("last_altered") / 1000, tz=timezone.utc
+                )
+                if snapshot.get("last_altered") is not None
+                else None
+            ),
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,

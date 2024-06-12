@@ -1049,13 +1049,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         tags_to_add = None
-        if table.labels and self.config.capture_table_label_as_tag:
+        if table.labels and self.config.capture_view_label_as_tag:
             tags_to_add = []
             tags_to_add.extend(
                 [
                     make_tag_urn(f"""{k}:{v}""")
                     for k, v in table.labels.items()
-                    if is_tag_allowed(self.config.capture_table_label_as_tag, k)
+                    if is_tag_allowed(self.config.capture_view_label_as_tag, k)
                 ]
             )
         yield from self.gen_dataset_workunits(
