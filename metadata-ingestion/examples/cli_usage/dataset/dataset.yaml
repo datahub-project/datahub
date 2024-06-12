@@ -1,0 +1,23 @@
+id: dataset_id1
+domain: DatasetDomain1
+display_name: Dataset ID Name 1
+description: |-
+  This dataset is id 1.
+
+owners:
+  - id: urn:li:corpuser:jdoe
+    type: BUSINESS_OWNER
+
+# Tags associated with this Data Product
+tags:
+  - urn:li:tag:tag1
+
+# Custom Properties
+properties:
+  lifecycle: production
+  sla: 7am every day
+
+schemaMetadata:
+  fields:
+    fieldPath: column1
+
