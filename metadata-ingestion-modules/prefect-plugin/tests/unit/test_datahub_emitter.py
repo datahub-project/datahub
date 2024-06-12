@@ -14,7 +14,7 @@ from prefect.server.schemas.core import Flow
 from prefect.task_runners import SequentialTaskRunner
 from requests.models import Response
 
-from prefect_datahub.datahub_emitter import DatahubEmitterConfig, DatahubEmitter
+from prefect_datahub.datahub_emitter import DatahubEmitter
 from prefect_datahub.entities import Dataset, _Entity
 
 mock_transform_task_json: Dict = {
@@ -23,6 +23,7 @@ mock_transform_task_json: Dict = {
     "task_key": "__main__.transform",
     "tags": ["etl flow task"],
 }
+
 mock_extract_task_run_json: Dict = {
     "id": "fa14a52b-d271-4c41-99cb-6b42ca7c070b",
     "created": "2023-06-06T05:51:54.822707+00:00",
@@ -77,6 +78,7 @@ mock_extract_task_run_json: Dict = {
         },
     },
 }
+
 mock_transform_task_run_json: Dict = {
     "id": "dd15ee83-5d28-4bf1-804f-f84eab9f9fb7",
     "created": "2023-06-06T05:51:55.160372+00:00",
@@ -503,8 +505,7 @@ def mock_prefect_cloud_client():
 
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
 def test_entities_to_urn_list(mock_emit):
-    config = DatahubEmitterConfig()
-    dataset_urn_list = DatahubEmitter(config=config)._entities_to_urn_list(
+    dataset_urn_list = DatahubEmitter()._entities_to_urn_list(
         [Dataset("snowflake", "mydb.schema.tableA")]
     )
     for dataset_urn in dataset_urn_list:
@@ -513,17 +514,15 @@ def test_entities_to_urn_list(mock_emit):
 
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
 def test_get_flow_run_graph(mock_emit, mock_prefect_client):
-    config = DatahubEmitterConfig()
     graph_json = asyncio.run(
-        DatahubEmitter(config=config)._get_flow_run_graph("c3b947e5-3fa1-4b46-a2e2-58d50c938f2e")
+        DatahubEmitter()._get_flow_run_graph("c3b947e5-3fa1-4b46-a2e2-58d50c938f2e")
     )
     assert isinstance(graph_json, list)
 
 
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
 def test__get_workspace(mock_emit, mock_prefect_cloud_client):
-    config = DatahubEmitterConfig()
-    workspace_name = DatahubEmitter(config=config)._get_workspace()
+    workspace_name = DatahubEmitter()._get_workspace()
     assert workspace_name == "datahub"
 
 
@@ -532,8 +531,7 @@ def test_add_task(mock_emit, mock_run_context):
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
 
-    config = DatahubEmitterConfig()
-    datahub_emitter = DatahubEmitter(config=config)
+    datahub_emitter = DatahubEmitter()
     inputs: Optional[List[_Entity]] = [Dataset("snowflake", "mydb.schema.tableA")]
     outputs: Optional[List[_Entity]] = [Dataset("snowflake", "mydb.schema.tableC")]
     datahub_emitter.add_task(
@@ -576,8 +574,7 @@ def test_emit_flow(
 
     platform_instance = "datahub_workspace"
 
-    config = DatahubEmitterConfig(platform_instance=platform_instance)
-    datahub_emitter = DatahubEmitter(config=config)
+    datahub_emitter = DatahubEmitter(platform_instance=platform_instance)
     datahub_emitter.add_task()
     datahub_emitter.emit_flow()
 

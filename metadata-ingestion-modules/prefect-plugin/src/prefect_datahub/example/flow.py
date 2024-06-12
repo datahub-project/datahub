@@ -3,7 +3,7 @@ from prefect import flow, task
 from prefect_datahub.datahub_emitter import DatahubEmitter
 from prefect_datahub.entities import Dataset
 
-datahub_emitter = DatahubEmitter.load("datahub-block")
+datahub_emitter = DatahubEmitter().load("datahub-block")
 
 
 @task(name="Extract", description="Extract the data")
@@ -16,8 +16,8 @@ def extract():
 def transform(data):
     data = data.split(" ")
     datahub_emitter.add_task(
-        inputs=[Dataset("snowflake", "mydb.schema.tableA")],
-        outputs=[Dataset("snowflake", "mydb.schema.tableC")],
+        inputs=[Dataset("snowflake", "mydb.schema.tableX")],
+        outputs=[Dataset("snowflake", "mydb.schema.tableY")],
     )
     return data
 
