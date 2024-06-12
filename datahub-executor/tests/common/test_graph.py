@@ -40,6 +40,7 @@ class TestDataHubAssertionGraph:
             entity_urn="urn:li:dataset:test",
             aspect_type=Mock(),
             filter={},
+            limit=1,
         )
 
         assert result is None
@@ -57,6 +58,7 @@ class TestDataHubAssertionGraph:
             entity_urn="urn:li:dataset:test",
             aspect_type=Mock(),
             filter={},
+            limit=1,
         )
 
         assert result == []
@@ -76,6 +78,7 @@ class TestDataHubAssertionGraph:
             entity_urn="urn:li:dataset:test",
             aspect_type=Mock(),
             filter={},
+            limit=1,
         )
 
         assert result is not None

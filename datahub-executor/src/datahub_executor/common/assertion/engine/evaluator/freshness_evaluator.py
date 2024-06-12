@@ -415,6 +415,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                     }
                 ]
             },
+            limit=1,
         )
 
         if operation_aspects is not None and len(operation_aspects) > 0:
