@@ -11,7 +11,7 @@ if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
 }
 
-def pip_install_command = "${venv_name}/bin/pip install -e ../../metadata-ingestion"
+def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion"
 
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
@@ -35,6 +35,7 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
   // See https://github.com/yaml/pyyaml/issues/601#issuecomment-1638509577.
   // and https://github.com/datahub-project/datahub/pull/8435.
   commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
     "${pip_install_command} install 'Cython<3.0' 'PyYAML<6' --no-build-isolation && " +
     "${pip_install_command} -e . ${extra_pip_requirements} &&" +
     "touch ${sentinel_file}"
@@ -47,6 +48,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.file("${sentinel_file}")
   commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
     "${pip_install_command} -e .[dev]  ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
@@ -105,7 +107,7 @@ task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
-task buildWheel(type: Exec, dependsOn: [install]) {
+task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
