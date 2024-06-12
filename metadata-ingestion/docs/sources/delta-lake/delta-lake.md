@@ -115,19 +115,35 @@ df.show()
 #### Step 3
 Create a datahub ingestion yaml file (delta.s3.dhub.yaml) to ingest metadata from the delta table you just created.
 
+Example 1: Using base_path
+This example demonstrates how to use base_path to specify the location of the delta table.
+
 ```yml
 source:
   type: "delta-lake"
   config:
     base_path:  "s3://my-bucket/my-folder/sales-table" 
-    or
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+
+Example 2: Using path_spec
+This example demonstrates how to use path_spec to include specific files within the delta table.
+
+```yml
+source:
+  type: "delta-lake"
+  config:
     path_spec:
       include: "s3://my-bucket/my-folder/sales-table/part-00000-821c9c6c-4b0a-4386-8df7-b9dac7d1f9ee-c000.snappy.parquet"
     s3:
       aws_config:
         aws_access_key_id: <<Access key>>
         aws_secret_access_key: <<secret key>>
-    
+
 sink:
   type: "datahub-rest"
   config:

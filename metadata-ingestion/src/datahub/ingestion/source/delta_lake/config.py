@@ -127,6 +127,14 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
             return None
         return v
 
+    @pydantic.root_validator(pre=True)
+    def validate_paths(cls, values):
+        base_path = values.get("base_path")
+        path_spec = values.get("path_spec")
+        if not base_path and not path_spec:
+            raise ValueError("Either base_path or path_spec must be provided.")
+        return values
+
     @pydantic.validator("path_spec", always=True)
     def check_path_specs_and_infer_platform(
         cls, path_spec: PathSpec, values: Dict
