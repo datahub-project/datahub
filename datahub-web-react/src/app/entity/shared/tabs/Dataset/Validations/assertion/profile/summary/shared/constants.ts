@@ -27,6 +27,10 @@ export const ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE = {
         EXTRA_FIELDS_IN_EXPECTED_KEY_NAME: 'Extra Fields in Expected',
         MISMATCHED_FIELD_TYPES_KEY_NAMES: 'Mismatched Type Fields'
     },
+    FRESHNESS_ASSERTIONS: {
+        EVALUATION_WINDOW_START_TIME: 'Window Start Time',
+        EVALUATION_WINDOW_END_TIME: 'Window End Time',
+    },
 }
 
 export const ASSERTION_OPERATOR_DESCRIPTIONS_REQUIRING_SUFFIX = [

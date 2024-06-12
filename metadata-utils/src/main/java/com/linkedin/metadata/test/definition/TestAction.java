@@ -1,6 +1,5 @@
 package com.linkedin.metadata.test.definition;
 
-import com.linkedin.metadata.test.action.ActionType;
 import java.util.List;
 import java.util.Map;
 import lombok.Data;

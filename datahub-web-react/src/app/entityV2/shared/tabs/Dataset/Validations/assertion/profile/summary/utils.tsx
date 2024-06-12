@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Tooltip, Typography } from "antd";
 import { Maybe } from "graphql/jsutils/Maybe";
-import { AssertionInfo, AssertionType, DatasetAssertionInfo, EntityType, FieldAssertionInfo, FreshnessAssertionInfo, SchemaAssertionInfo, VolumeAssertionInfo } from "../../../../../../../../../types.generated";
+import { AssertionInfo, AssertionType, CronSchedule, DatasetAssertionInfo, EntityType, FieldAssertionInfo, FreshnessAssertionInfo, SchemaAssertionInfo, VolumeAssertionInfo } from "../../../../../../../../../types.generated";
 import { DatasetAssertionDescription } from "../../../DatasetAssertionDescription";
 import { FreshnessAssertionDescription } from "../../../FreshnessAssertionDescription";
 import { VolumeAssertionDescription } from "../../../VolumeAssertionDescription";
@@ -18,9 +18,10 @@ import { ANTD_GRAY_V2 } from "../../../../../../constants";
  * If the assertion has a user-defined assertion, it'll prioritize displaying that.
  * Else it'll infer a description.
  * @param assertionInfo 
+ * @param monitorSchedule
  * @returns {JSX.Element}
  */
-const useBuildPrimaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Element => {
+const useBuildPrimaryLabel = (assertionInfo?: Maybe<AssertionInfo>, monitorSchedule?: Maybe<CronSchedule>): JSX.Element => {
     let primaryLabel = <Typography.Text>No description found</Typography.Text>;
     if (assertionInfo?.description) {
         primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
@@ -30,7 +31,7 @@ const useBuildPrimaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Element
                 primaryLabel = <DatasetAssertionDescription assertionInfo={assertionInfo.datasetAssertion as DatasetAssertionInfo} />
                 break;
             case AssertionType.Freshness:
-                primaryLabel = <FreshnessAssertionDescription assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo} />
+                primaryLabel = <FreshnessAssertionDescription assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo} monitorSchedule={monitorSchedule} />
                 break;
             case AssertionType.Volume:
                 primaryLabel = <VolumeAssertionDescription assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo} />
@@ -97,8 +98,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
             const prefix = assertionInfo?.source?.created?.time === assertionInfo?.lastUpdated?.time ? `Created by` : `Last updated by`;
             secondaryLabelMessage = `${prefix} ${entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)}`;
         } else {
-            const updatedByStr = `Last updated by ${entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)}`;
-            secondaryLabelMessage = secondaryLabelMessage ? `${secondaryLabelMessage}, ${updatedByStr}` : updatedByStr;
+            secondaryLabelMessage = `Last updated by ${entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)}`;
         }
 
         // Show tooltip label for last updated if either the updater != creator OR if updatedTime != createdTime
@@ -125,13 +125,14 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
 }
 
 export const useBuildAssertionDescriptionLabels = (
-    assertionInfo?: Maybe<AssertionInfo>
+    assertionInfo?: Maybe<AssertionInfo>,
+    monitorSchedule?: Maybe<CronSchedule>
 ): {
     primaryLabel: JSX.Element,
     secondaryLabel: JSX.Element | null,
 } => {
     // ------- Primary label with assertion description ------ //
-    const primaryLabel = useBuildPrimaryLabel(assertionInfo)
+    const primaryLabel = useBuildPrimaryLabel(assertionInfo, monitorSchedule)
 
     // ----------- Try displaying secondary label showing creator/updater context ------------ //
     const secondaryLabel = useBuildSecondaryLabel(assertionInfo);

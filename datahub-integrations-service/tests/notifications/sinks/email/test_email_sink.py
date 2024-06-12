@@ -149,6 +149,5 @@ def test_send_function_unsupported_template(
 ) -> None:
     # Change the template to an unsupported one
     notification_request_custom.message.template = "UNSUPPORTED_TEMPLATE"
-    with pytest.raises(Exception) as exc_info:
-        notification_sink.send(notification_request_custom, notification_context)
-    assert "Unsupported template type" in str(exc_info.value)
+    # Just a warning is logged.
+    notification_sink.send(notification_request_custom, notification_context)

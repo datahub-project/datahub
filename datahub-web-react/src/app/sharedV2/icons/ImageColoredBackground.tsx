@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 import ColorThief from 'colorthief';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const Wrapper = styled.div<{ background?: string }>`
     align-items: center;
@@ -33,9 +34,13 @@ export default function ImageColoredBackground({ children, className }: Props): 
                         if (background !== undefined) {
                             return;
                         }
-                        image.crossOrigin = 'anonymous';
                         const [r, g, b] = colorThief.getColor(image, 25);
                         setBackground(`rgb(${r}, ${g}, ${b}, .1)`);
+                        image.crossOrigin = 'anonymous';
+                    };
+                    image.onerror = () => {
+                        image.removeAttribute('crossOrigin');
+                        setBackground(REDESIGN_COLORS.BACKGROUND_GREY);
                     };
                 }
             }

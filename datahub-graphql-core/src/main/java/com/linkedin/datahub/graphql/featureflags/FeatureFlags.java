@@ -34,4 +34,5 @@ public class FeatureFlags {
   private boolean documentationFormsEnabled = false;
   private boolean emailNotificationsEnabled = false;
   private boolean runAssertionsEnabled = false;
+  private boolean broadcastNewIncidentUpdatesEnabled = false;
 }

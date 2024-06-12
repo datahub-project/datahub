@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import static com.linkedin.metadata.search.api.SearchDocFieldFetchConfig.*;
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
@@ -7,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -32,7 +34,9 @@ import com.linkedin.metadata.search.SearchSuggestionArray;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
+import com.linkedin.metadata.search.utils.ESPredicateUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -53,6 +57,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.unit.TimeValue;
@@ -82,6 +87,7 @@ public class SearchRequestHandler {
   private final SearchQueryBuilder searchQueryBuilder;
   private final AggregationQueryBuilder aggregationQueryBuilder;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
+  private final Map<PathSpec, String> searchableFieldPaths;
 
   private SearchRequestHandler(
       @Nonnull EntitySpec entitySpec,
@@ -116,6 +122,19 @@ public class SearchRequestHandler {
                     (set1, set2) -> {
                       set1.addAll(set2);
                       return set1;
+                    }));
+    searchableFieldPaths =
+        this.entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getSearchableFieldPathMap().entrySet().stream())
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (s1, s2) -> {
+                      if (!StringUtils.equals(s1, s2)) {
+                        log.error("Merging values {} and {}, field paths should be unique", s1, s2);
+                      }
+                      return s1;
                     }));
   }
 
@@ -202,19 +221,40 @@ public class SearchRequestHandler {
       int from,
       int size,
       @Nullable List<String> facets) {
-
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    SearchRequest searchRequest = new SearchRequest();
-    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    SearchSourceBuilder searchSourceBuilder = constructSearchSourceBuilder(from, size);
 
+    SearchRequest searchRequest = new SearchRequest();
+    return buildSearchRequestPageAgnostic(
+        opContext,
+        searchRequest,
+        searchSourceBuilder,
+        input,
+        searchFlags,
+        filterQuery,
+        facets,
+        sortCriterion);
+  }
+
+  private SearchSourceBuilder constructSearchSourceBuilder(int from, int size) {
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(size);
-    String[] fieldsToFetch =
-        new String[SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.size()];
-    searchSourceBuilder.fetchSource(
-        SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.toArray(fieldsToFetch), null);
+    searchSourceBuilder.fetchSource(DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.toArray(new String[0]), null);
+    return searchSourceBuilder;
+  }
 
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+  /** Used for both searchAfter and from -> size requests */
+  private SearchRequest buildSearchRequestPageAgnostic(
+      OperationContext opContext,
+      final SearchRequest searchRequest,
+      final SearchSourceBuilder searchSourceBuilder,
+      final String input,
+      final SearchFlags searchFlags,
+      final QueryBuilder filterQuery,
+      final List<String> facets,
+      final SortCriterion sortCriterion) {
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
             .must(getQuery(opContext, input, Boolean.TRUE.equals(searchFlags.isFulltext())))
@@ -235,7 +275,6 @@ public class SearchRequestHandler {
 
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
-
     return searchRequest;
   }
 
@@ -265,6 +304,7 @@ public class SearchRequestHandler {
       @Nullable List<String> facets,
       @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     SearchRequest searchRequest = new PITAwareSearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -272,30 +312,22 @@ public class SearchRequestHandler {
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
 
     searchSourceBuilder.size(size);
+
     if (fieldFetchConfig == null) {
       fieldFetchConfig = new SearchDocFieldFetchConfig();
     }
     searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
 
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
-    searchSourceBuilder.query(
-        QueryBuilders.boolQuery()
-            .must(getQuery(opContext, input, Boolean.TRUE.equals(searchFlags.isFulltext())))
-            .filter(filterQuery));
-    if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
-      aggregationQueryBuilder
-          .getAggregations(opContext, facets)
-          .forEach(searchSourceBuilder::aggregation);
-    }
-    if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
-      searchSourceBuilder.highlighter(highlights);
-    }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
-    searchRequest.source(searchSourceBuilder);
-    log.debug("Search request is: " + searchRequest);
-    searchRequest.indicesOptions(null);
-
-    return searchRequest;
+    return buildSearchRequestPageAgnostic(
+            opContext,
+            searchRequest,
+            searchSourceBuilder,
+            input,
+            searchFlags,
+            filterQuery,
+            facets,
+            sortCriterion)
+        .indicesOptions(null);
   }
 
   /**
@@ -323,41 +355,6 @@ public class SearchRequestHandler {
     searchSourceBuilder.from(from).size(size);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
     searchRequest.source(searchSourceBuilder);
-
-    return searchRequest;
-  }
-
-  /**
-   * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion
-   * to be applied to search results with scrolling capabilities
-   *
-   * @param filters {@link Filter} list of conditions with fields and values
-   * @param sortCriterion {@link SortCriterion} to be applied to the search results
-   * @param size the number of search hits to return
-   * @param keepAliveDuration duration the search context should be kept alive i.e. 10s, 1m
-   * @return {@link SearchRequest} that contains the filtered query
-   */
-  @Nonnull
-  public SearchRequest getScrollRequest(
-      @Nonnull OperationContext opContext,
-      @Nullable Filter filters,
-      @Nullable SortCriterion sortCriterion,
-      int size,
-      String keepAliveDuration,
-      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
-    SearchRequest searchRequest = new SearchRequest();
-
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters);
-    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.query(filterQuery);
-    searchSourceBuilder.size(size);
-    if (fieldFetchConfig == null) {
-      fieldFetchConfig = new SearchDocFieldFetchConfig();
-    }
-    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, entitySpecs);
-    searchRequest.source(searchSourceBuilder);
-    searchRequest.scroll(keepAliveDuration);
 
     return searchRequest;
   }
@@ -663,5 +660,55 @@ public class SearchRequestHandler {
       }
     }
     return searchSuggestions;
+  }
+
+  // SAAS ONLY - Predicate support for filters
+
+  /**
+   * Constructs the search query based on the query request.
+   *
+   * <p>TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or
+   * later
+   *
+   * @param input the search input text
+   * @param predicate the search filter in predicate form
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
+   * @return a valid search request
+   */
+  @Nonnull
+  @WithSpan
+  public SearchRequest getPredicateSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      @Nullable SortCriterion sortCriterion,
+      int from,
+      int size,
+      @Nullable List<String> facets) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, predicate);
+    SearchSourceBuilder searchSourceBuilder = constructSearchSourceBuilder(from, size);
+
+    SearchRequest searchRequest = new SearchRequest();
+    return buildSearchRequestPageAgnostic(
+        opContext,
+        searchRequest,
+        searchSourceBuilder,
+        input,
+        searchFlags,
+        filterQuery,
+        facets,
+        sortCriterion);
+  }
+
+  public BoolQueryBuilder getFilterQuery(
+      @Nonnull OperationContext opContext, @Nullable Predicate predicate) {
+    BoolQueryBuilder filterQuery =
+        ESPredicateUtils.buildFilterQuery(
+            predicate, false, searchableFieldPaths, searchableFieldTypes, opContext);
+
+    return ESPredicateUtils.applyDefaultSearchFilters(opContext, predicate, filterQuery);
   }
 }

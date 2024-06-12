@@ -102,7 +102,9 @@ class EmailNotificationSink(NotificationSink):
         if template_type in action_map:
             action_map[template_type]()
         else:
-            raise Exception(f"Unsupported template type {template_type} provided.")
+            logger.warning(
+                f"Unsupported template type {template_type} provided. Not sending notification."
+            )
 
     def _send_custom_notification(self, request: NotificationRequestClass) -> None:
         if request.message.parameters is None:

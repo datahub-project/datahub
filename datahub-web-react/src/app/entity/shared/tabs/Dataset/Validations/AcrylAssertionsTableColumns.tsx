@@ -103,7 +103,7 @@ export function DetailsColumn({
                     <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
                 </Result>
             </AssertionResultPopover>
-            <AssertionDescription assertion={assertion} />
+            <AssertionDescription assertion={assertion} monitor={monitor} />
             {isSmartAssertionStale ? <Tooltip title={<><b>This Smart Assertion may be outdated.</b><br />This is likely related to insufficient training data for this asset. Training data is obtained during ingestion syncs.</>}>
                 <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
             </Tooltip> : null}

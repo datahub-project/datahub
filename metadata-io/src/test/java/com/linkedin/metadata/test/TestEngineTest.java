@@ -129,6 +129,7 @@ public class TestEngineTest {
         spyPredicateEvaluator,
         mockActionApplier,
         0,
-        0);
+        0,
+        true);
   }
 }

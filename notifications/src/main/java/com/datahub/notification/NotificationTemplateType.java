@@ -25,6 +25,16 @@ public enum NotificationTemplateType {
           "actorName",
           "entityOwners",
           "downstreamEntityOwners")),
+  /** Broadcast that a new incident that was previously broadcasted was updated. */
+  BROADCAST_NEW_INCIDENT_UPDATE(
+      ImmutableSet.of("incidentUrn", "entityUrn", "entityPath", "newStatus"),
+      ImmutableSet.of(
+          "incidentTitle",
+          "incidentDescription",
+          "actorUrn",
+          "actorName",
+          "entityOwners",
+          "downstreamEntityOwners")),
   /** Broadcast that a incident's status has changed. */
   BROADCAST_INCIDENT_STATUS_CHANGE(
       ImmutableSet.of("incidentUrn", "entityUrn", "entityPath", "newStatus"),

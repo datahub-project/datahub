@@ -13,6 +13,7 @@ public class Constants {
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
+  public static final String SYSTEM_ACTOR_NAME = "DataHub System";
   public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
   public static final String METATDATA_TEST_ACTOR = "urn:li:corpuser:metadatatest";
   public static final Long ASPECT_LATEST_VERSION = 0L;
@@ -311,6 +312,8 @@ public class Constants {
   // Incident
   public static final String INCIDENT_KEY_ASPECT_NAME = "incidentKey";
   public static final String INCIDENT_INFO_ASPECT_NAME = "incidentInfo";
+  public static final String INCIDENT_NOTIFICATION_DETAILS_ASPECT_NAME =
+      "incidentNotificationDetails";
 
   // DataHub Ingestion Source
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";

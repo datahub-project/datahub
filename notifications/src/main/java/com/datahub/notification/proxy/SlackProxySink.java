@@ -19,6 +19,7 @@ public class SlackProxySink extends IntegrationsServiceProxySink {
   private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES =
       ImmutableList.of(
           NotificationTemplateType.BROADCAST_NEW_INCIDENT,
+          NotificationTemplateType.BROADCAST_NEW_INCIDENT_UPDATE,
           NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE);
 
   /** A list of recipient types that can be handled by the sink */

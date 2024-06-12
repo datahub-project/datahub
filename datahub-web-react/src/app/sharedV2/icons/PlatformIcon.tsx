@@ -1,10 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import styled, { css, CSSObject } from 'styled-components/macro';
 import ColorThief from 'colorthief';
 import { DataPlatform, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entityV2/Entity';
 import { getLighterRGBColor } from './colorUtils';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 type PlatformIconProps = {
     platform: DataPlatform | null | undefined;
@@ -55,6 +56,16 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     const imgRef = useRef<HTMLImageElement>(null);
     const entityRegistry = useEntityRegistry();
     const logoUrl = platform?.properties?.logoUrl;
+
+    const handleError = useCallback(() => {
+        const img = imgRef.current;
+        if (img) {
+            img.removeAttribute('crossOrigin');
+            setBackground(REDESIGN_COLORS.BACKGROUND_GREY);
+        }
+        onError?.();
+    }, [onError, setBackground]);
+
     return (
         <IconContainer background={background} styles={styles} title={title} className={className}>
             {logoUrl ? (
@@ -69,12 +80,11 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
                         const img = imgRef.current;
                         if (img && img.width > 0 && img.height > 0) {
                             const colorThief = new ColorThief();
-                            img.crossOrigin = 'anonymous';
                             const [r, g, b] = colorThief.getColor(img, 25);
                             setBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
                         }
                     }}
-                    onError={onError}
+                    onError={handleError}
                 />
             ) : (
                 entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)

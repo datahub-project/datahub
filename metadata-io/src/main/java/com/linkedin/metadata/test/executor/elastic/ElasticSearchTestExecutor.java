@@ -3,11 +3,11 @@ package com.linkedin.metadata.test.executor.elastic;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.test.definition.TestDefinition;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.test.BatchTestRunResult;
 import com.linkedin.test.TestResult;
@@ -61,11 +61,11 @@ public class ElasticSearchTestExecutor {
         .flatMap(
             entityType ->
                 searchService
-                    .search(
+                    .predicateSearch(
                         opContext,
                         Collections.singletonList(entityType),
                         "*",
-                        elasticTestDefinition.getSelectionFilters(entityType),
+                        elasticTestDefinition.getSelectionFilters(),
                         null,
                         0,
                         1000,
@@ -101,14 +101,14 @@ public class ElasticSearchTestExecutor {
               .setTestDefinitionMd5(testDefinition.getMd5())
               .setType(TestResultType.SUCCESS)
               .setLastComputed(currentTime));
-      Filter passingFilters = elasticTestDefinition.getPassingFilters(entityType);
+      Predicate passingFilters = elasticTestDefinition.getPassingFilters(entityType);
       log.info(
           "Evaluating test {} for entity type {} with filters {}",
           testDefinition.getUrn(),
           entityType,
           passingFilters);
       SearchResult passingSearchResult =
-          searchService.search(
+          searchService.predicateSearch(
               opContext,
               Collections.singletonList(entityType),
               "*",
@@ -138,7 +138,7 @@ public class ElasticSearchTestExecutor {
       if (elasticTestDefinition.getFailingFilters(entityType) != null) {
         failingEntities =
             searchService
-                .search(
+                .predicateSearch(
                     opContext,
                     Collections.singletonList(entityType),
                     "*",
@@ -150,13 +150,12 @@ public class ElasticSearchTestExecutor {
                 .getEntities()
                 .stream();
       } else {
-        Filter selectionFilter = elasticTestDefinition.getSelectionFilters(entityType);
         SearchResult selectionSearchResult =
-            searchService.search(
+            searchService.predicateSearch(
                 opContext,
                 Collections.singletonList(entityType),
                 "*",
-                elasticTestDefinition.getSelectionFilters(entityType),
+                elasticTestDefinition.getSelectionFilters(),
                 null,
                 0,
                 1000,

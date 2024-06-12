@@ -267,7 +267,9 @@ import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSet
 import com.linkedin.datahub.graphql.resolvers.siblings.SiblingsSearchResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.CreateStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.RemoveStructuredPropertiesResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpdateStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
@@ -1331,7 +1333,13 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "createForm", new CreateFormResolver(this.entityClient, this.formService))
               .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
-              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient));
+              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
+              .dataFetcher(
+                  "createStructuredProperty",
+                  new CreateStructuredPropertyResolver(this.entityClient))
+              .dataFetcher(
+                  "updateStructuredProperty",
+                  new UpdateStructuredPropertyResolver(this.entityClient));
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(

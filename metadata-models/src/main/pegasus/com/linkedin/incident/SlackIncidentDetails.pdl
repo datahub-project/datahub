@@ -1,0 +1,12 @@
+namespace com.linkedin.incident
+
+
+/**
+ * Slack-specific details about incident notifications
+ */
+record SlackIncidentDetails {
+    /**
+     * The Slack messages that contain the incident information
+     */
+     messages: array[SlackMessageDetails] = []
+}

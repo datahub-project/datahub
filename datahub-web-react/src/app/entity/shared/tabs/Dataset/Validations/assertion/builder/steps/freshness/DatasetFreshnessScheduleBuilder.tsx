@@ -62,10 +62,8 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled }: P
         onChange({
             ...value,
             type: newScheduleType,
-            // If we are switching to fixed interval assertion, set the default interval!
-            fixedInterval: newScheduleType === FreshnessAssertionScheduleType.FixedInterval
-                ? DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE.schedule?.fixedInterval
-                : null,
+            // If we are switching to fixed interval assertion, be sure to set a default interval!
+            fixedInterval: value.fixedInterval ?? DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE.schedule?.fixedInterval,
         });
     };
 
@@ -85,7 +83,7 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled }: P
                 disabled={disabled}
             >
                 <RadioContainer>
-                    <StyledRadio value={FreshnessAssertionScheduleType.Cron}>
+                    <StyledRadio value={FreshnessAssertionScheduleType.SinceTheLastCheck}>
                         <TextContainer>
                             <Typography.Text strong>Since the previous check</Typography.Text>
                             <Typography.Text type="secondary">

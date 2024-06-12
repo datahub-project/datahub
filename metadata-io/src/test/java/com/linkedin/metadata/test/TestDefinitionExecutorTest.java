@@ -5,18 +5,23 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.test.definition.TestDefinition;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
+import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.executor.elastic.ElasticTestDefinition;
 import com.linkedin.metadata.test.executor.elastic.ElasticTestDefinitionConvertor;
 import com.linkedin.metadata.test.executor.elastic.PredicateToFilter;
+import com.linkedin.metadata.test.query.TestQuery;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -85,16 +90,18 @@ public class TestDefinitionExecutorTest {
 
       Mockito.when(mockRegistry.getEntitySpec(Mockito.anyString())).thenReturn(mockEntitySpec);
 
-      Mockito.when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(List.of());
+      Map<PathSpec, String> fieldPaths = new HashMap<>();
+      fieldPaths.put(new PathSpec("subTypes", "typeNames"), "typeNames");
+      Mockito.when(mockEntitySpec.getSearchableFieldPathMap()).thenReturn(fieldPaths);
 
       ElasticTestDefinitionConvertor convertor = new ElasticTestDefinitionConvertor(mockRegistry);
       assertTrue(convertor.canEvaluate(result));
       ElasticTestDefinition elasticTestDefinition = convertor.convert(result);
       for (String entityType : elasticTestDefinition.getSelectedEntityTypes()) {
-        Filter filter = elasticTestDefinition.getPassingFilters(entityType);
-        assertNotNull(filter);
-        filter = elasticTestDefinition.getSelectionFilters(entityType);
-        assertNotNull(filter);
+        Predicate predicate = elasticTestDefinition.getPassingFilters(entityType);
+        assertNotNull(predicate);
+        predicate = elasticTestDefinition.getSelectionFilters();
+        assertNotNull(predicate);
       }
     }
     //    String expectedPassingFilter = "{or=[{and=[{condition=EQUAL, field=platform,
@@ -122,18 +129,22 @@ public class TestDefinitionExecutorTest {
 
       ElasticTestDefinitionConvertor convertor = new ElasticTestDefinitionConvertor(mockRegistry);
       assertTrue(convertor.canEvaluate(result));
-      long millis = System.currentTimeMillis();
       ElasticTestDefinition elasticTestDefinition = convertor.convert(result);
-      long millis7daysago = millis - 7 * 24 * 60 * 60 * 1000;
-      long millis6daysago = millis - 6 * 24 * 60 * 60 * 1000;
       for (String entityType : elasticTestDefinition.getSelectedEntityTypes()) {
-        Filter filter = elasticTestDefinition.getPassingFilters(entityType);
-        assertNotNull(filter);
-        assertEquals(filter.getOr().get(0).getAnd().get(0).getCondition(), Condition.GREATER_THAN);
-        long computedMillis = Long.parseLong(filter.getOr().get(0).getAnd().get(0).getValue());
-        assertTrue(computedMillis < millis6daysago);
-        assertTrue(computedMillis >= millis7daysago); // computedMillis is between 6 and 7 days ago
-        assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "lastOperationTime");
+        Predicate predicate = elasticTestDefinition.getPassingFilters(entityType);
+        assertNotNull(predicate);
+        assertEquals(
+            ((Predicate)
+                    ((Predicate) predicate.getOperands().get().get(0).getExpression())
+                        .getOperands()
+                        .get()
+                        .get(0)
+                        .getExpression())
+                .operatorType(),
+            OperatorType.GREATER_THAN);
+        Set<TestQuery> testQueries = Predicate.extractQueriesForPredicate(predicate);
+        TestQuery testQuery = new TestQuery("operation.lastUpdatedTimestamp");
+        assertTrue(testQueries.contains(testQuery));
       }
     }
   }

@@ -57,7 +57,7 @@ public class ESUtils {
   public static final int MAX_RESULT_SIZE = 10000;
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
-  private static final String REMOVED = "removed";
+  public static final String REMOVED = "removed";
 
   // Field types
   public static final String KEYWORD_FIELD_TYPE = "keyword";

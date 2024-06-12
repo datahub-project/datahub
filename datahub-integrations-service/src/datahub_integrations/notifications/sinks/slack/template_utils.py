@@ -324,7 +324,7 @@ def extract_incident_details(
     return incident_details
 
 
-def build_new_incident_message(
+def build_incident_message(
     request: NotificationRequestClass,
     identity_provider: IdentityProvider,
     slack_client: WebClient,
@@ -346,6 +346,7 @@ def build_new_incident_message(
     # Ensure URN is a string, even if None (fallback to empty string)
     urn = incident_details.get("urn", "")
     stage = incident_details.get("stage")
+    status = incident_details.get("new_status")
 
     incident_context = IncidentContext(urn=urn, stage=stage)
 
@@ -359,15 +360,27 @@ def build_new_incident_message(
         incident_context,
     )
 
+    # Mark as resolved button
+    mark_as_resolved = {
+        "type": "button",
+        "text": {"type": "plain_text", "text": "Mark as Resolved"},
+        "style": "primary",
+        "value": json.dumps(dataclasses.asdict(incident_context)),
+        "action_id": "resolve_incident",
+    }
+
+    # Mark as reopened button
+    mark_as_reopened = {
+        "type": "button",
+        "text": {"type": "plain_text", "text": "Reopen Incident"},
+        "style": "primary",
+        "value": json.dumps(dataclasses.asdict(incident_context)),
+        "action_id": "reopen_incident",
+    }
+
     # Define action buttons for the Slack message
     action_buttons: List[Dict[str, Any]] = [
-        {
-            "type": "button",
-            "text": {"type": "plain_text", "text": "Mark as Resolved"},
-            "style": "primary",
-            "value": json.dumps(dataclasses.asdict(incident_context)),
-            "action_id": "resolve_incident",
-        },
+        mark_as_resolved if status == "ACTIVE" else mark_as_reopened,
         {
             "type": "button",
             "text": {"type": "plain_text", "text": "View Details"},
@@ -375,6 +388,10 @@ def build_new_incident_message(
             "action_id": "external_redirect",
         },
     ]
+
+    status_color = (
+        ACTIVE_INCIDENT_COLOR if status == "ACTIVE" else RESOLVED_INCIDENT_COLOR
+    )
 
     # Create incident attachment for the Slack message
     attachments = create_incident_attachment(
@@ -387,7 +404,7 @@ def build_new_incident_message(
         initial_priority_option=initial_priority_option,
         initial_stage_option=initial_stage_option,
         action_buttons=action_buttons,
-        color=ACTIVE_INCIDENT_COLOR,
+        color=status_color,
         context=incident_context,
     )
 

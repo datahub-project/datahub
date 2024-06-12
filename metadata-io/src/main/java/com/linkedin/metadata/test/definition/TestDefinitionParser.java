@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.test.action.ActionType;
 import com.linkedin.metadata.test.definition.expression.Expression;
 import com.linkedin.metadata.test.definition.expression.Query;
 import com.linkedin.metadata.test.definition.literal.DateLiteral;

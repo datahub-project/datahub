@@ -44,10 +44,17 @@ task yarnInstall(type: YarnTask) {
   environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
   args = ['install', '--cwd', "${project.rootDir}/smoke-test/tests/cypress"]
 }
+
 task cypressLint(type: YarnTask, dependsOn: yarnInstall) {
   environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
   // TODO: Run a full lint instead of just format.
   args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format']
+}
+
+task cypressLintFix(type: YarnTask, dependsOn: yarnInstall) {
+  environment = ['NODE_OPTIONS': '--openssl-legacy-provider']
+  // TODO: Run a full lint instead of just format.
+  args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format', '--write']
 }
 
 task installDev(type: Exec) {

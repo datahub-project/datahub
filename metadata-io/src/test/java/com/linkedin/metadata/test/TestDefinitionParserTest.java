@@ -292,7 +292,7 @@ public class TestDefinitionParserTest {
         TestDefinitionParsingException.class, () -> PARSER.deserialize(TEST_URN, jsonTest));
   }
 
-  static String loadTest(String resourceName) throws Exception {
+  public static String loadTest(String resourceName) throws Exception {
     URL url = Resources.getResource(resourceName);
     return convertYamlToJson(Resources.toString(url, StandardCharsets.UTF_8));
   }

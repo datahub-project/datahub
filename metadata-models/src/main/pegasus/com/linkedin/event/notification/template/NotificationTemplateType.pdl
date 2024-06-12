@@ -18,6 +18,10 @@ enum NotificationTemplateType {
     */
     CUSTOM
     BROADCAST_NEW_INCIDENT
+    /**
+     * Updates the broadcasted incident if possible.
+     */
+    BROADCAST_NEW_INCIDENT_UPDATE
     BROADCAST_INCIDENT_STATUS_CHANGE
     BROADCAST_ENTITY_CHANGE
     BROADCAST_INGESTION_RUN_CHANGE

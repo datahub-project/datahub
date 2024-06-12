@@ -1,6 +1,7 @@
 package com.linkedin.metadata.test.action;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.test.definition.ActionType;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;

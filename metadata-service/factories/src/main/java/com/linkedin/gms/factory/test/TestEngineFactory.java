@@ -56,8 +56,10 @@ public class TestEngineFactory {
   @Nonnull
   protected TestEngine getInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
-      @Nonnull @Value("${metadataTests.hook.enabled:false}") Boolean isEnabled,
-      @Nonnull @Value("${metadataTests.enabled:false}") Boolean isHookEnabled) {
+      @Nonnull @Value("${metadataTests.hook.enabled:false}") Boolean isHookEnabled,
+      @Nonnull @Value("${metadataTests.enabled:false}") Boolean isEnabled,
+      @Nonnull @Value("${metadataTests.elasticSearchExecutor.enabled:true}")
+          Boolean isESExecutorEnabled) {
 
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
     return new TestEngine(
@@ -72,6 +74,7 @@ public class TestEngineFactory {
         predicateEvaluator,
         this.actionApplier,
         10,
-        testCacheRefreshIntervalSeconds);
+        testCacheRefreshIntervalSeconds,
+        isESExecutorEnabled);
   }
 }

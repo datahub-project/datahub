@@ -324,7 +324,7 @@ export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary)
 };
 
 /**
- * Returns the next scheduled run of a cron schedule, in the local timezone of teh user.
+ * Returns the next scheduled run of a cron schedule, in the local timezone of the user.
  *
  * @param schedule a cron schedule
  */
@@ -336,6 +336,30 @@ export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
         const nextDateInUserTz = moment.tz(nextDate, userTimezone); // Convert to user's timezone
         return nextDateInUserTz.valueOf();
     } catch (e) {
+        console.log('Failed to parse cron expression', e)
+        return undefined;
+    }
+};
+
+
+/**
+ * Returns the previously scheduled run of a cron schedule, in the local timezone of the user.
+ *
+ * @param schedule a cron schedule
+ * @param maybeFromDateTS
+ */
+export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, maybeFromDateTS?: number) => {
+    try {
+        const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
+        if (typeof maybeFromDateTS !== 'undefined') {
+            interval.reset(maybeFromDateTS)
+        }
+        const prevDate = interval.prev().toDate(); // Get prev date as JavaScript Date object
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const prevDateInUserTz = moment.tz(prevDate, userTimezone); // Convert to user's timezone
+        return prevDateInUserTz.valueOf();
+    } catch (e) {
+        console.log('Failed to parse cron expression', e)
         return undefined;
     }
 };

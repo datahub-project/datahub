@@ -12,6 +12,8 @@ import java.util.List;
 
 public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template<T> {
 
+  static final String UNIT_SEPARATOR_DELIMITER = "␟";
+
   /**
    * Takes an Array field on the {@link RecordTemplate} subtype along with a set of key fields to
    * transform into a map Avoids producing side effects by copying nodes, use resulting node and not
@@ -39,7 +41,15 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
                 JsonNode nodeClone = node.deepCopy();
                 if (!keyFields.isEmpty()) {
                   for (String keyField : keyFields) {
-                    String key = node.get(keyField).asText();
+                    String key;
+                    // if the keyField has a unit separator, we are working with a nested key
+                    if (keyField.contains(UNIT_SEPARATOR_DELIMITER)) {
+                      String[] keyParts = keyField.split(UNIT_SEPARATOR_DELIMITER);
+                      JsonNode keyObject = node.get(keyParts[0]);
+                      key = keyObject.get(keyParts[1]).asText();
+                    } else {
+                      key = node.get(keyField).asText();
+                    }
                     keyValue =
                         keyValue.get(key) == null
                             ? (ObjectNode) keyValue.set(key, instance.objectNode()).get(key)
