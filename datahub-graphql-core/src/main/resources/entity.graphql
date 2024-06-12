@@ -7659,6 +7659,16 @@ enum AssertionStdOperator {
     EQUAL_TO
 
     """
+    Value being asserted is not equal to value
+    """
+    NOT_EQUAL_TO
+
+    """
+    Value being asserted is null
+    """
+    NULL
+
+    """
     Value being asserted is not null
     """
     NOT_NULL
@@ -7694,12 +7704,12 @@ enum AssertionStdOperator {
     NOT_IN
 
     """
-    Value being asserted is true.
+    Value being asserted is true
     """
     IS_TRUE
 
     """
-    Value being asserted is false.
+    Value being asserted is false
     """
     IS_FALSE
 
