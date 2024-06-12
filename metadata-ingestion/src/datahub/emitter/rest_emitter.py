@@ -311,11 +311,3 @@ class DataHubRestEmitter(Closeable, Emitter):
 
 """This class exists as a pass-through for backwards compatibility"""
 DatahubRestEmitter = DataHubRestEmitter
-
-
-def get_server_config(host: str, token: str) -> dict:
-    emitter = DataHubRestEmitter(
-        gms_server=host,
-        token=token,
-    )
-    return emitter.get_server_config()

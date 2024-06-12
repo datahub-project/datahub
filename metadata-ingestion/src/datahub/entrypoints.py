@@ -11,7 +11,6 @@ from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     fixup_gms_url,
     generate_access_token,
-    get_url_and_token,
     make_shim_command,
 )
 from datahub.cli.config_utils import (
@@ -38,7 +37,7 @@ from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
-from datahub.emitter.rest_emitter import get_server_config
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.logging_manager import configure_logging
@@ -113,8 +112,7 @@ def version(include_server: bool = False) -> None:
     click.echo(f"Models: {model_version_name()}")
     click.echo(f"Python version: {sys.version}")
     if include_server:
-        host, token = get_url_and_token()
-        server_config = get_server_config(host=host, token=token)
+        server_config = get_default_graph().get_config()
         click.echo(f"Server config: {server_config}")
 
 
