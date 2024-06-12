@@ -323,10 +323,7 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_fivetran_bigquery_config():
-    with mock.patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
-    ) as mock_create_engine:
-
+    with mock.patch("datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"):
         # Simply test that the config is parsed and the source is initialized without an error.
         assert FivetranSource.create(
             {
