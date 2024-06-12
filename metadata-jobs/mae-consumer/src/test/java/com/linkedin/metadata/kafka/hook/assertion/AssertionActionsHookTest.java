@@ -1,12 +1,5 @@
 package com.linkedin.metadata.kafka.hook.assertion;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -58,7 +51,6 @@ import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -70,9 +62,15 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
+import java.util.List;
 import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
+
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 public class AssertionActionsHookTest {
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
@@ -245,7 +243,7 @@ public class AssertionActionsHookTest {
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
-            Mockito.any(SortCriterion.class),
+            Mockito.any(List.class),
             Mockito.anyInt(),
             Mockito.anyInt());
 
@@ -644,7 +642,7 @@ public class AssertionActionsHookTest {
             Mockito.eq(INCIDENT_ENTITY_NAME),
             Mockito.eq("*"),
             Mockito.any(Filter.class),
-            Mockito.any(SortCriterion.class),
+            Mockito.any(List.class),
             Mockito.anyInt(),
             Mockito.anyInt());
 
