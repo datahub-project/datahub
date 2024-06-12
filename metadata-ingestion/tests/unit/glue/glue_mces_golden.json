@@ -65,7 +65,8 @@
             "customProperties": {
                 "platform": "glue",
                 "env": "PROD",
-                "database": "empty-database"
+                "database": "empty-database",
+                "CreateTime": "June 1, 2021 at 14:55:13"
             },
             "name": "empty-database",
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/empty-database"
