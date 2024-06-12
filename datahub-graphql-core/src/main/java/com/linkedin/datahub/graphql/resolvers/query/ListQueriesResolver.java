@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -27,10 +31,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 @RequiredArgsConstructor

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.plugins;
 
+import static com.linkedin.datahub.graphql.AcrylConstants.*;
+
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.proposal.ProposalService;
 import com.google.common.collect.ImmutableList;
@@ -157,8 +159,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import static com.linkedin.datahub.graphql.AcrylConstants.*;
 
 public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
@@ -483,8 +483,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
             typeWiring
                 // Proposals not in OSS
                 .dataFetcher(
-                    "proposals",
-                    new ProposalsResolver((env) -> ((Entity) env.getSource()).getUrn(), entityClient)));
+                "proposals",
+                new ProposalsResolver((env) -> ((Entity) env.getSource()).getUrn(), entityClient)));
   }
 
   private void configureActionRequestResolvers(final RuntimeWiring.Builder builder) {
@@ -557,8 +557,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     (env) ->
                         ((EntityAnomaliesResult) env.getSource())
                             .getAnomalies().stream()
-                            .map(Anomaly::getUrn)
-                            .collect(Collectors.toList()))));
+                                .map(Anomaly::getUrn)
+                                .collect(Collectors.toList()))));
     builder.type(
         "Dataset",
         typeWiring ->
@@ -860,8 +860,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                         (env) ->
                             ((EntitySubscriptionSummary) env.getSource())
                                 .getExampleGroups().stream()
-                                .map(group -> (Entity) group)
-                                .collect(Collectors.toList()))));
+                                    .map(group -> (Entity) group)
+                                    .collect(Collectors.toList()))));
     builder.type(
         "ChartStatsSummary",
         typeWiring ->
@@ -873,8 +873,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                       ChartStatsSummary summary = ((ChartStatsSummary) env.getSource());
                       return summary.getTopUsersLast30Days() != null
                           ? summary.getTopUsersLast30Days().stream()
-                          .map(CorpUser::getUrn)
-                          .collect(Collectors.toList())
+                              .map(CorpUser::getUrn)
+                              .collect(Collectors.toList())
                           : null;
                     })));
     builder.type(

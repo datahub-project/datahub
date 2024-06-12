@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.query;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -31,8 +33,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
