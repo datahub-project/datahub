@@ -150,27 +150,29 @@ class BigQuerySchemaApi:
 
     def get_projects(self) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
-            logger.debug(f"Exception reason: {str(exc)}. Type: {type(exc)}")
+            logger.debug(
+                f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
+            )
+            self.report.num_list_projects_retry_request += 1
             return True
 
         with self.report.list_projects:
             try:
-                projects: List[BigqueryProject] = []
                 # Bigquery API has limit in calling project.list request i.e. 2 request per second.
-                # Also project.list returns max 50 projects per page.
-                # Assuming list_projects method internally not adding any limit in requests call,
-                # externally we are adding limit in requests call per second.
+                # https://cloud.google.com/bigquery/quotas#api_request_quotas
+                # Whenever this limit reached an exception occur with msg
+                # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
+                # Hence, added the api request retry of 15 min.
                 projects_iterator = self.bq_client.list_projects(
                     retry=retry.Retry(
                         predicate=_should_retry, initial=10, maximum=180, timeout=900
                     )
                 )
-
-                for p in projects_iterator:
-                    projects.append(
-                        BigqueryProject(id=p.project_id, name=p.friendly_name)
-                    )
-                logger.debug(f"Projects count {len(projects)}")
+                projects: List[BigqueryProject] = [
+                    BigqueryProject(id=p.project_id, name=p.friendly_name)
+                    for p in projects_iterator
+                ]
+                self.report.num_list_projects = len(projects)
                 return projects
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
