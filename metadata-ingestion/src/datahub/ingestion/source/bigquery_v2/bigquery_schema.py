@@ -4,9 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterator, List, Optional
 
-from google.api_core import page_iterator, retry
+from google.api_core import retry
 from google.cloud import bigquery
-from google.cloud.bigquery.client import _item_to_project
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
@@ -24,7 +23,6 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryTableType,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
-from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -162,31 +160,17 @@ class BigQuerySchemaApi:
                 # Also project.list returns max 50 projects per page.
                 # Assuming list_projects method internally not adding any limit in requests call,
                 # externally we are adding limit in requests call per second.
-                rate_limiter = RateLimiter(max_calls=1, period=2)
-
-                def api_request(**kwargs):
-                    with rate_limiter:
-                        logger.debug("Calling API Request BigQuery.listProjects")
-                        return self.bq_client._call_api(
-                            retry=retry.Retry(predicate=_should_retry, timeout=600),
-                            span_name="BigQuery.listProjects",
-                            span_attributes={"path": "/projects"},
-                            **kwargs,
-                        )
-
-                projects_iterator = page_iterator.HTTPIterator(
-                    client=self,
-                    api_request=api_request,
-                    path="/projects",
-                    item_to_value=_item_to_project,
-                    items_key="projects",
+                projects_iterator = self.bq_client.list_projects(
+                    retry=retry.Retry(
+                        predicate=_should_retry, initial=10, maximum=180, timeout=900
+                    )
                 )
 
                 for p in projects_iterator:
                     projects.append(
                         BigqueryProject(id=p.project_id, name=p.friendly_name)
                     )
-                logger.debug(f"Projects count {str(len(projects))}")
+                logger.debug(f"Projects count {len(projects)}")
                 return projects
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
