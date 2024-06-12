@@ -80,8 +80,8 @@ public class OnBootApplicationListener {
   @EventListener(ContextRefreshedEvent.class)
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
 
-    if (SCHEMA_REGISTRY_SERVLET_NAME.equals(event.getApplicationContext().getId())) {
-      log.info("Loading servlet {} without interruption.", SCHEMA_REGISTRY_SERVLET_NAME);
+    if (!ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
+      log.info("Loading servlet {} without interruption.", event.getApplicationContext().getId());
       return;
     }
 

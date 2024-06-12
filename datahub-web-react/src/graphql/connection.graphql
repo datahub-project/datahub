@@ -28,6 +28,10 @@ mutation updateConnection($input: UpdateDataHubConnectionInput!) {
     }
 }
 
+mutation deleteConnection($input: DeleteDataHubConnectionInput!) {
+    deleteConnection(input: $input)
+}
+
 query connection($urn: String!) {
     connection(urn: $urn) {
         urn

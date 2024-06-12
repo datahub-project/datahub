@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 
-import { Empty, Form, Modal, Select, Tag, message } from 'antd';
+import { Empty, Form, Select, Tag, message } from 'antd';
 import styled from 'styled-components';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { DataHubConnection, EntityType } from '../../../../../../types.generated';
@@ -18,16 +18,7 @@ import {
     InstanceIcon,
     StyledLabel,
 } from '../../../../../entityV2/shared/containers/profile/sidebar/shared/styledComponents';
-import { StyledCheckbox, StyledButton } from '../../styledComponents';
-
-export const ModalTitle = styled.span`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 22px;
-    font-weight: 700;
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
-`;
+import { StyledCheckbox, StyledButton, StyledModal, ModalTitle } from '../../styledComponents';
 
 const StyledShareIcon = styled(ShareIcon)`
     height: 28px;
@@ -43,44 +34,6 @@ const StyledContainer = styled.div`
     }
 `;
 
-export const StyledModal = styled(Modal)`
-    font-family: Mulish;
-    max-width: 480px;
-
-    &&& .ant-modal-content {
-        background-color: #eeecfa;
-        box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25), 0px 4px 8px 3px rgba(0, 0, 0, 0.15);
-        border-radius: 12px;
-    }
-
-    .ant-modal-header {
-        background-color: #eeecfa;
-        border-bottom: 0;
-        padding-top: 24px;
-        border-radius: 12px !important;
-    }
-
-    .ant-modal-footer {
-        border-top: 0;
-    }
-
-    .ant-modal-body {
-        padding: 12px 24px;
-    }
-
-    .ant-modal-close-x {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding-right: 9px;
-        padding-top: 20px;
-
-        :hover {
-            stroke: ${REDESIGN_COLORS.TITLE_PURPLE};
-        }
-    }
-`;
 
 const StyledSelect = styled(Select)`
     padding-top: 8px;
