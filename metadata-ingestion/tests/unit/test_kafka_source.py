@@ -334,7 +334,9 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
 
     mock_kafka_consumer.assert_called_once()
     mock_kafka_instance.list_topics.assert_called_once()
-    assert len(workunits) == 8
+    # Along with with 4 topics(3 with schema and 1 schemaless) which constitutes to 8 workunits,
+    #   there will be 6 schemas (1 key and 1 value schema for 3 topics) which constitutes to 12 workunits
+    assert len(workunits) == 20
     i: int = -1
     for wu in workunits:
         assert isinstance(wu, MetadataWorkUnit)
@@ -343,6 +345,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         mce: MetadataChangeEvent = wu.metadata
         i += 1
 
+        # Only topic (named schema_less_topic) does not have schema metadata but other workunits (that are created
+        #   for schema) will have corresponding SchemaMetadata aspect
         if i < len(topic_subject_schema_map.keys()):
             # First 3 workunits (topics) must have schemaMetadata aspect
             assert isinstance(mce.proposedSnapshot.aspects[1], SchemaMetadataClass)
@@ -380,11 +384,18 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             )
             # Make sure we have 2 fields, one from the key schema & one from the value schema.
             assert len(schemaMetadataAspect.fields) == 2
-        else:
+        elif i == len(topic_subject_schema_map.keys()):
             # Last topic('schema_less_topic') has no schema defined in the registry.
             # The schemaMetadata aspect should not be present for this.
             for aspect in mce.proposedSnapshot.aspects:
                 assert not isinstance(aspect, SchemaMetadataClass)
+        else:
+            # Last 2 workunits (schemas) must have schemaMetadata aspect
+            assert isinstance(mce.proposedSnapshot.aspects[1], SchemaMetadataClass)
+            schemaMetadataAspectObj: SchemaMetadataClass = mce.proposedSnapshot.aspects[
+                1
+            ]
+            assert isinstance(schemaMetadataAspectObj.platformSchema, KafkaSchemaClass)
 
 
 @pytest.mark.parametrize(
@@ -465,7 +476,7 @@ def test_kafka_ignore_warnings_on_schema_type(
 
     workunits = list(kafka_source.get_workunits())
 
-    assert len(workunits) == 2
+    assert len(workunits) == 6
     if ignore_warnings_on_schema_type:
         assert not kafka_source.report.warnings
     else:
@@ -643,8 +654,10 @@ def test_kafka_source_topic_meta_mappings(
         },
         ctx,
     )
+    # Along with with 1 topics(and 5 meta mapping) it constitutes to 6 workunits,
+    #   there will be 2 schemas which constitutes to 4 workunits (1 mce and 1 mcp each)
     workunits = [w for w in kafka_source.get_workunits()]
-    assert len(workunits) == 6
+    assert len(workunits) == 10
     mce = workunits[0].metadata
     assert isinstance(mce, MetadataChangeEvent)
 
@@ -677,11 +690,49 @@ def test_kafka_source_topic_meta_mappings(
             "urn:li:glossaryTerm:double_meta_property",
         ]
     )
-    assert isinstance(workunits[2].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[1].metadata, MetadataChangeProposalWrapper)
+    mce = workunits[2].metadata
+    assert isinstance(mce, MetadataChangeEvent)
     assert isinstance(workunits[3].metadata, MetadataChangeProposalWrapper)
-    assert isinstance(workunits[4].metadata, MetadataChangeProposalWrapper)
+
+    mce = workunits[4].metadata
+    assert isinstance(mce, MetadataChangeEvent)
+    ownership_aspect = [
+        asp for asp in mce.proposedSnapshot.aspects if isinstance(asp, OwnershipClass)
+    ][0]
+    assert ownership_aspect == make_ownership_aspect_from_urn_list(
+        [
+            make_owner_urn("charles", OwnerType.USER),
+            make_owner_urn("jdoe.last@gmail.com", OwnerType.USER),
+        ],
+        "SERVICE",
+    )
+
+    tags_aspect = [
+        asp for asp in mce.proposedSnapshot.aspects if isinstance(asp, GlobalTagsClass)
+    ][0]
+    assert tags_aspect == make_global_tag_aspect_with_tag_list(
+        ["has_pii_test", "int_meta_property"]
+    )
+
+    terms_aspect = [
+        asp
+        for asp in mce.proposedSnapshot.aspects
+        if isinstance(asp, GlossaryTermsClass)
+    ][0]
+    assert terms_aspect == make_glossary_terms_aspect_from_urn_list(
+        [
+            "urn:li:glossaryTerm:Finance_test",
+            "urn:li:glossaryTerm:double_meta_property",
+        ]
+    )
+
     assert isinstance(workunits[5].metadata, MetadataChangeProposalWrapper)
-    assert workunits[2].metadata.aspectName == "glossaryTermKey"
-    assert workunits[3].metadata.aspectName == "glossaryTermKey"
-    assert workunits[4].metadata.aspectName == "tagKey"
-    assert workunits[5].metadata.aspectName == "tagKey"
+    assert isinstance(workunits[6].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[7].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[8].metadata, MetadataChangeProposalWrapper)
+    assert isinstance(workunits[9].metadata, MetadataChangeProposalWrapper)
+    assert workunits[6].metadata.aspectName == "glossaryTermKey"
+    assert workunits[7].metadata.aspectName == "glossaryTermKey"
+    assert workunits[8].metadata.aspectName == "tagKey"
+    assert workunits[9].metadata.aspectName == "tagKey"

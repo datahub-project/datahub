@@ -169,7 +169,7 @@ If you're interested in looking at the Kafka emitter code, it is available [here
 
 ## File Emitter
 
-The File emitter writes metadata change proposal events (MCPs) into a JSON file that can be later handed off to the Python [File source](docs/generated/ingestion/sources/file.md) for ingestion. This works analogous to the [File sink](../../metadata-ingestion/sink_docs/file.md) in Python. This mechanism can be used when the system producing metadata events doesn't have direct connection to DataHub's REST server or Kafka brokers. The generated JSON file can be transferred later and then ingested into DataHub using the [File source](docs/generated/ingestion/sources/file.md).
+The File emitter writes metadata change proposal events (MCPs) into a JSON file that can be later handed off to the Python [Metadata File source](docs/generated/ingestion/sources/metadata-file.md) for ingestion. This works analogous to the [Metadata File sink](../../metadata-ingestion/sink_docs/metadata-file.md) in Python. This mechanism can be used when the system producing metadata events doesn't have direct connection to DataHub's REST server or Kafka brokers. The generated JSON file can be transferred later and then ingested into DataHub using the [Metadata File source](docs/generated/ingestion/sources/metadata-file.md).
 
 ### Usage
 
@@ -223,5 +223,3 @@ The File emitter only supports writing to the local filesystem currently. If you
 
 Emitter API-s are also supported for:
 - [Python](../../metadata-ingestion/as-a-library.md)
-
-

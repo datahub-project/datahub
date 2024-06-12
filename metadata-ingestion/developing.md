@@ -34,7 +34,30 @@ cd metadata-ingestion-modules/airflow-plugin
 ../../gradlew :metadata-ingestion-modules:airflow-plugin:installDev
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+
+# start the airflow web server
+export AIRFLOW_HOME=~/airflow
+airflow webserver --port 8090 -d
+
+# start the airflow scheduler
+airflow scheduler
+
+# access the airflow service and run any of the DAG
+# open http://localhost:8090/
+# select any DAG and click on the `play arrow` button to start the DAG
+
+# add the debug lines in the codebase, i.e. in ./src/datahub_airflow_plugin/datahub_listener.py
+logger.debug("this is the sample debug line")
+
+# run the DAG again and you can see the debug lines in the task_run log at,
+#1. click on the `timestamp` in the `Last Run` column
+#2. select the task
+#3. click on the `log` option
 ```
+
+
+> **P.S. if you are not able to see the log lines, then restart the `airflow scheduler` and rerun the DAG**
+
 ### (Optional) Set up your Python environment for developing on Dagster Plugin
 
 From the repository root:

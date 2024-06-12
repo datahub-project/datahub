@@ -1,41 +1,46 @@
-package io.datahubproject.openapi.v2.models;
+package io.datahubproject.openapi.v3.models;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import io.swagger.v3.oas.annotations.media.Schema;
+import io.datahubproject.openapi.models.GenericEntity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-import lombok.AccessLevel;
+import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.EqualsAndHashCode;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@NoArgsConstructor(force = true, access = AccessLevel.PRIVATE)
 @AllArgsConstructor
-public class GenericEntity {
-  @JsonProperty("urn")
-  @Schema(description = "Urn of the entity")
-  private String urn;
+public class GenericEntityV3 extends LinkedHashMap<String, Object> implements GenericEntity {
 
-  @JsonProperty("aspects")
-  @Schema(description = "Map of aspect name to aspect")
-  private Map<String, Object> aspects;
+  public GenericEntityV3(Map<? extends String, ?> m) {
+    super(m);
+  }
 
-  public static class GenericEntityBuilder {
+  @Override
+  public Map<String, Object> getAspects() {
+    return this;
+  }
 
-    public GenericEntity build(
-        ObjectMapper objectMapper, Map<String, Pair<RecordTemplate, SystemMetadata>> aspects) {
+  public static class GenericEntityV3Builder {
+
+    public GenericEntityV3 build(
+        ObjectMapper objectMapper,
+        @Nonnull Urn urn,
+        Map<String, Pair<RecordTemplate, SystemMetadata>> aspects) {
       Map<String, Object> jsonObjectMap =
           aspects.entrySet().stream()
               .map(
@@ -63,7 +68,10 @@ public class GenericEntity {
                   })
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-      return new GenericEntity(urn, jsonObjectMap);
+      GenericEntityV3 genericEntityV3 = new GenericEntityV3();
+      genericEntityV3.put("urn", urn.toString());
+      genericEntityV3.putAll(jsonObjectMap);
+      return genericEntityV3;
     }
   }
 }

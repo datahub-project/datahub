@@ -17,6 +17,9 @@ outputs:
   ingestion-change:
     description: "Ingestion code has changed"
     value: ${{ steps.filter.outputs.ingestion == 'true' }}
+  ingestion-base-change:
+    description: "Ingestion base image docker image has changed"
+    value: ${{ steps.filter.outputs.ingestion-base == 'true' }}
   frontend-change:
     description: "Frontend code has changed"
     value: ${{ steps.filter.outputs.frontend == 'true' }}
@@ -56,6 +59,8 @@ runs:
             - "metadata-models/**"
             - "smoke-test/**"
             - "docker/datahub-ingestion**"
+          ingestion-base:
+            - "docker/datahub-ingestion-base/**"
           docker:
             - "docker/**"
           backend:
