@@ -25,6 +25,7 @@ import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRolesStep;
 import com.linkedin.metadata.boot.steps.IngestRootUserStep;
 import com.linkedin.metadata.boot.steps.MigrateAssertionsSummaryStep;
+import com.linkedin.metadata.boot.steps.MigrateFreshnessAssertionCronToSinceTheLastCheck;
 import com.linkedin.metadata.boot.steps.MigrateIncidentsSummaryStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
@@ -173,6 +174,10 @@ public class BootstrapManagerFactory {
             _configurationProvider);
     final MigrateIncidentsSummaryStep incidentsSummaryStep =
         new MigrateIncidentsSummaryStep(_entityService, _entitySearchService, _incidentService);
+    final MigrateFreshnessAssertionCronToSinceTheLastCheck
+        migrateFreshnessAssertionCronToSinceTheLastCheckStep =
+            new MigrateFreshnessAssertionCronToSinceTheLastCheck(
+                _entityService, _searchService, _assertionService);
 
     final List<BootstrapStep> finalSteps =
         Stream.of(
@@ -194,6 +199,7 @@ public class BootstrapManagerFactory {
                 ingestEntityTypesStep,
                 assertionsSummaryStep,
                 incidentsSummaryStep,
+                migrateFreshnessAssertionCronToSinceTheLastCheckStep,
                 // Saas-only
                 _ingestMetadataTestsStep,
                 ingestDefaultTagsStep)
