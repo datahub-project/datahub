@@ -1,0 +1,58 @@
+namespace com.linkedin.common
+
+/**
+ * Info about the results from sharing metadata for a given entity
+ */
+record ShareFromResult {
+ /**
+  * Urn of the DataHubConnection related to another Acryl instance
+  */
+  source: Urn
+
+ /**
+  * Name of the source connection that this entity was shared from
+  */
+  sourceName: optional string
+
+  /**
+   * If this share happened implicitly due to another entity being shared, this field
+   * will be populated with that entity urn. Example: if a dataset is shared, its containers
+   * will also be shared. The share result for the container will have the dataset urn here.
+   */
+  implicitShareEntity: optional Urn
+
+ /**
+  * Audit stamp for when the first share from result for the given destination occurred.
+  */
+  created: AuditStamp
+
+ /**
+  * When did we get this share result and who requested the share. This will be the time
+  * that we try and execute the share on the backend, regardless of success.
+  */
+  lastAttempt: optional AuditStamp
+
+ /**
+  * Audit stamp for the last time a share from this above source successfully occurred
+  */
+  lastSuccess: optional AuditStamp
+
+ /**
+  * Status for this share result - whether or not it succeeded
+  */
+  status: enum SharedFromResultState {
+    /**
+    * The share was successful
+    */
+    SUCCESS
+    /**
+    * The share was partially successful. Some, but not all, aspects were shared.
+    */
+    PARTIAL_SUCCESS
+   }
+
+ /**
+  * Optional message for this shared from result. Error messages will be stored here.
+  */
+  message: optional string
+}
