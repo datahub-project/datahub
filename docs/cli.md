@@ -655,8 +655,8 @@ We use a plugin architecture so that you can install only the dependencies you a
 Please see our [Integrations page](https://datahubproject.io/integrations) if you want to filter on the features offered by each source.
 
 | Plugin Name                                                                                    | Install Command                                            | Provides                                |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |
-| [file](./generated/ingestion/sources/file.md)                                                  | _included by default_                                      | File source and sink                    |
+|------------------------------------------------------------------------------------------------| ---------------------------------------------------------- | --------------------------------------- |
+| [metadata-file](./generated/ingestion/sources/metadata-file.md)                                | _included by default_                                      | File source and sink                    |
 | [athena](./generated/ingestion/sources/athena.md)                                              | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                       |
 | [bigquery](./generated/ingestion/sources/bigquery.md)                                          | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                         |
 | [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)                    | _no additional dependencies_                               | Lineage File source                     |
@@ -696,12 +696,12 @@ Please see our [Integrations page](https://datahubproject.io/integrations) if yo
 
 ### Sinks
 
-| Plugin Name                                                 | Install Command                              | Provides                   |
-| ----------------------------------------------------------- | -------------------------------------------- | -------------------------- |
-| [file](../metadata-ingestion/sink_docs/file.md)             | _included by default_                        | File source and sink       |
-| [console](../metadata-ingestion/sink_docs/console.md)       | _included by default_                        | Console sink               |
-| [datahub-rest](../metadata-ingestion/sink_docs/datahub.md)  | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
-| [datahub-kafka](../metadata-ingestion/sink_docs/datahub.md) | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
+| Plugin Name                                                       | Install Command                              | Provides                   |
+|-------------------------------------------------------------------| -------------------------------------------- | -------------------------- |
+| [metadata-file](../metadata-ingestion/sink_docs/metadata-file.md) | _included by default_                        | File source and sink       |
+| [console](../metadata-ingestion/sink_docs/console.md)             | _included by default_                        | Console sink               |
+| [datahub-rest](../metadata-ingestion/sink_docs/datahub.md)        | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
+| [datahub-kafka](../metadata-ingestion/sink_docs/datahub.md)       | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
 
 These plugins can be mixed and matched as desired. For example:
 

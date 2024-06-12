@@ -83,5 +83,10 @@ public class OpenAPIV3GeneratorTest {
         List.of(new Schema().$ref("#/components/schemas/SystemMetadata")),
         systemMetadata.getAllOf());
     assertTrue(systemMetadata.getNullable());
+
+    // Assert enum property is string.
+    Schema fabricType = openAPI.getComponents().getSchemas().get("FabricType");
+    assertEquals("string", fabricType.getType());
+    assertFalse(fabricType.getEnum().isEmpty());
   }
 }
