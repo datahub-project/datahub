@@ -16,6 +16,7 @@ const getAssertionsStatusSummary = (assertions: Array<Assertion>) => {
         failedRuns: 0,
         succeededRuns: 0,
         totalRuns: 0,
+        erroredRuns: 0,
         totalAssertions: assertions.length,
     };
     assertions.forEach((assertion) => {
@@ -28,7 +29,12 @@ const getAssertionsStatusSummary = (assertions: Array<Assertion>) => {
             if (AssertionResultType.Failure === resultType) {
                 summary.failedRuns++;
             }
-            summary.totalRuns++; // only count assertions for which there is one completed run event!
+            if (AssertionResultType.Error === resultType) {
+                summary.erroredRuns++;
+            }
+            if (AssertionResultType.Init !== resultType) {
+                summary.totalRuns++; // only count assertions for which there is one completed run event, ignoring INIT statuses!
+            }
         }
     });
     return summary;

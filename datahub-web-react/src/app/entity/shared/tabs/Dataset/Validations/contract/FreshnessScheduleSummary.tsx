@@ -12,7 +12,7 @@ type Props = {
     evaluationSchedule?: CronSchedule; // When the assertion is run.
 };
 
-export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: any) => {
+export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: Props) => {
     const scheduleText =
         definition.type === FreshnessAssertionScheduleType.Cron
             ? `${capitalizeFirstLetter(cronstrue.toString(definition.cron?.cron as string))}.`

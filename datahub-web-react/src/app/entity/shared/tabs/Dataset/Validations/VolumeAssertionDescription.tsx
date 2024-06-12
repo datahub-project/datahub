@@ -16,13 +16,13 @@ type Props = {
     assertionInfo: VolumeAssertionInfo;
 };
 
-export type VolumeTypeField =
+type VolumeTypeField =
     | 'rowCountTotal'
     | 'rowCountChange'
     | 'incrementingSegmentRowCountTotal'
     | 'incrementingSegmentRowCountChange';
 
-export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
+const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
     switch (type) {
         case VolumeAssertionType.RowCountTotal:
             return 'rowCountTotal' as VolumeTypeField;
@@ -37,7 +37,7 @@ export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
     }
 };
 
-export const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
+const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
     const result = volumeAssertion[getPropertyFromVolumeType(volumeAssertion.type)];
     if (!result) {
         return undefined;
@@ -45,7 +45,7 @@ export const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
     return result;
 };
 
-export const getIsRowCountChange = (type: VolumeAssertionType) => {
+const getIsRowCountChange = (type: VolumeAssertionType) => {
     return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);
 };
 
