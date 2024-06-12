@@ -29,7 +29,8 @@ public class CorpUserEditableInfoMutator extends MutationHook {
   @Nonnull private AspectPluginConfig config;
 
   /*
-    TODO: Ideally we are sending in patches that don't overwrite
+    TODO: Ideally we are sending in patches that don't overwrite, this mutator should be removed once this logic is in
+          place
   */
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
@@ -65,6 +66,11 @@ public class CorpUserEditableInfoMutator extends MutationHook {
     if (next.getPersona() == null && previous.getPersona() != null) {
       next.setPersona(previous.getPersona());
       mutated = true;
+      log.error(
+          "Invalid change detected for CorpUserEditableInfo for urn: {}, metadata: {}. "
+              + "Persona should not be removed.",
+          item.getUrn(),
+          item.getSystemMetadata());
     }
     return mutated;
   }
