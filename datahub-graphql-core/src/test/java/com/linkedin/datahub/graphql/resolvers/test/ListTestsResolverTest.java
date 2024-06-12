@@ -1,10 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -13,16 +8,21 @@ import com.linkedin.datahub.graphql.generated.ListTestsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 public class ListTestsResolverTest {
 
@@ -51,7 +51,7 @@ public class ListTestsResolverTest {
                 Mockito.eq(Constants.TEST_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.any(Filter.class),
-                any(SortCriterion.class),
+                any(List.class),
                 Mockito.eq(0),
                 Mockito.eq(20)))
         .thenReturn(

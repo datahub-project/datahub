@@ -1,10 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
-import static com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.testng.Assert.*;
-
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,11 +36,17 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
+
+import static com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 public class EntityIncidentsResolverTest {
   @Test
@@ -99,7 +100,7 @@ public class EntityIncidentsResolverTest {
                 Mockito.any(),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(expectedFilter),
-                Mockito.eq(expectedSort),
+                Mockito.eq(Collections.singletonList(expectedSort)),
                 Mockito.eq(0),
                 Mockito.eq(10)))
         .thenReturn(
@@ -240,7 +241,7 @@ public class EntityIncidentsResolverTest {
                 Mockito.any(),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(expectedFilter),
-                Mockito.eq(expectedSort),
+                Mockito.eq(Collections.singletonList(expectedSort)),
                 Mockito.eq(0),
                 Mockito.eq(10)))
         .thenReturn(

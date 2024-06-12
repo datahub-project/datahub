@@ -1,8 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.anomaly;
 
-import static com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver.*;
-import static org.testng.Assert.*;
-
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.anomaly.AnomalyInfo;
@@ -25,10 +22,14 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
+
+import static com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver.*;
+import static org.testng.Assert.*;
 
 public class EntityAnomaliesResolverTest {
 
@@ -80,7 +81,7 @@ public class EntityAnomaliesResolverTest {
                 Mockito.any(),
                 Mockito.eq(Constants.ANOMALY_ENTITY_NAME),
                 Mockito.eq(expectedFilter),
-                Mockito.eq(expectedSort),
+                Mockito.eq(Collections.singletonList(expectedSort)),
                 Mockito.eq(0),
                 Mockito.eq(10)))
         .thenReturn(
