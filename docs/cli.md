@@ -344,10 +344,16 @@ datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccou
 ### dataset (Dataset Entity)
 
 The `dataset` command allows you to interact with the dataset entity.
-It currently supports the `upsert` operation, which can be used to create a new user or update an existing one.
+
+The `get` operation can be used to read in a dataset into a yaml file.
+```shell
+datahub dataset get --urn "$URN" --to-file "$FILE_NAME"
+```
+
+The `upsert` operation can be used to create a new user or update an existing one.
 
 ```shell
-datahub dataset upsert -f dataset.yaml
+datahub dataset upsert -f "$FILE_NAME"
 ```
 
 An example of `users.yaml` would look like the following. You can refer to the [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/dataset/dataset.yaml) file for the complete code.

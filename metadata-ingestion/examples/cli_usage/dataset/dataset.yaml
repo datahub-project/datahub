@@ -1,23 +1,14 @@
-id: dataset_id1
-domain: DatasetDomain1
-display_name: Dataset ID Name 1
-description: |-
-  This dataset is id 1.
-
-owners:
-  - id: urn:li:corpuser:jdoe
-    type: BUSINESS_OWNER
-
-# Tags associated with this Data Product
-tags:
-  - urn:li:tag:tag1
-
-# Custom Properties
-properties:
-  lifecycle: production
-  sla: 7am every day
-
-schemaMetadata:
+urn: urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.actuating,PROD)
+name: ACTUATING
+schema_metadata:
   fields:
-    fieldPath: column1
+    - id: pk
+      urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.actuating,PROD),pk)
+      type: "SchemaFieldDataTypeClass({'type': NumberTypeClass({})})"
+      nativeDataType: NUMBER(1,0)
+      nullable: true
+      recursive: false
+properties: {}
+subtypes:
+  - Table
 
