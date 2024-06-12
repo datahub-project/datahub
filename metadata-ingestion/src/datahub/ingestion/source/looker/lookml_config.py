@@ -165,8 +165,9 @@ class LookMLSourceConfig(
 
     liquid_variable: Dict[Any, Any] = Field(
         {},
-        description="A dictionary of Liquid variables and their corresponding values used in derived views defined "
-        "with SQL. Defaults to an empty dictionary.",
+        description="A dictionary containing Liquid variables and their corresponding values, utilized in SQL-defined "
+        "derived views. The Liquid template will be resolved in view.derived_table.sql and "
+        "view.sql_table_name. Defaults to an empty dictionary.",
     )
 
     @validator("connection_to_platform_map", pre=True)
