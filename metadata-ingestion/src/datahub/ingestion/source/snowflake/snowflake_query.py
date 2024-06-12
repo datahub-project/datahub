@@ -1019,7 +1019,6 @@ class SnowflakeQuery:
 
     @staticmethod
     def dmf_assertion_results(start_time_millis: int, end_time_millis: int) -> str:
-
         pattern = r"datahub\\_\\_%"
         escape_pattern = r"\\"
         return f"""

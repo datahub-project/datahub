@@ -315,8 +315,8 @@ def try_format_query(
 
     try:
         dialect = get_dialect(platform)
-        expression = parse_statement(expression, dialect=dialect)
-        return expression.sql(dialect=dialect, pretty=True)
+        parsed_expression = parse_statement(expression, dialect=dialect)
+        return parsed_expression.sql(dialect=dialect, pretty=True)
     except Exception as e:
         if raises:
             raise
