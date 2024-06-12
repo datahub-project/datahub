@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
+import static com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,11 +47,6 @@ import java.util.List;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
 
 public class EntityIncidentsResolverTest {
   @Test

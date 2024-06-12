@@ -1,5 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.testng.Assert.*;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -29,10 +33,6 @@ import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.testng.Assert.*;
 
 public class ListQueriesResolverTest {
 
@@ -69,9 +69,10 @@ public class ListQueriesResolverTest {
                         : input.getQuery()),
                 Mockito.eq(buildFilter(input.getSource(), input.getDatasetUrn())),
                 Mockito.eq(
-                    Collections.singletonList(new SortCriterion()
-                        .setField(ListQueriesResolver.CREATED_AT_FIELD)
-                        .setOrder(SortOrder.DESCENDING))),
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(ListQueriesResolver.CREATED_AT_FIELD)
+                            .setOrder(SortOrder.DESCENDING))),
                 Mockito.eq(input.getStart()),
                 Mockito.eq(input.getCount())))
         .thenReturn(

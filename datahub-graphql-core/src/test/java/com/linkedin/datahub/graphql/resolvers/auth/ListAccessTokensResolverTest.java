@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static org.mockito.ArgumentMatchers.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -16,9 +19,6 @@ import java.util.Collections;
 import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static org.mockito.ArgumentMatchers.*;
 
 public class ListAccessTokensResolverTest {
 

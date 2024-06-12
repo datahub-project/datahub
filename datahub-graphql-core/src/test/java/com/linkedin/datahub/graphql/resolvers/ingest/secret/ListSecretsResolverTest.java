@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
+import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -21,11 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
 
 public class ListSecretsResolverTest {
 

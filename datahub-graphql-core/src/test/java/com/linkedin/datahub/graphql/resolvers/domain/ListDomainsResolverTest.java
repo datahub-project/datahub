@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.testng.Assert.*;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -18,11 +23,6 @@ import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.testng.Assert.*;
 
 public class ListDomainsResolverTest {
 
@@ -46,9 +46,11 @@ public class ListDomainsResolverTest {
                 Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
                 Mockito.eq(""),
                 Mockito.eq(DomainUtils.buildParentDomainFilter(TEST_PARENT_DOMAIN_URN)),
-                Mockito.eq(Collections.singletonList(new SortCriterion()
-                        .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
-                        .setOrder(SortOrder.DESCENDING))),
+                Mockito.eq(
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                            .setOrder(SortOrder.DESCENDING))),
                 Mockito.eq(0),
                 Mockito.eq(20)))
         .thenReturn(
@@ -89,9 +91,10 @@ public class ListDomainsResolverTest {
                 Mockito.eq(""),
                 Mockito.eq(DomainUtils.buildParentDomainFilter(null)),
                 Mockito.eq(
-                    Collections.singletonList(new SortCriterion()
-                        .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
-                        .setOrder(SortOrder.DESCENDING))),
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
+                            .setOrder(SortOrder.DESCENDING))),
                 Mockito.eq(0),
                 Mockito.eq(20)))
         .thenReturn(

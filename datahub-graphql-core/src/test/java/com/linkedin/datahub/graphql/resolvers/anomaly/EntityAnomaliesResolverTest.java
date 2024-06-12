@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.anomaly;
 
+import static com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver.*;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.anomaly.AnomalyInfo;
@@ -27,9 +30,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
-
-import static com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver.*;
-import static org.testng.Assert.*;
 
 public class EntityAnomaliesResolverTest {
 
