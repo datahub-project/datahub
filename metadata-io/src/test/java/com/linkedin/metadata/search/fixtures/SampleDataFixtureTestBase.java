@@ -1,16 +1,5 @@
 package com.linkedin.metadata.search.fixtures;
 
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
-import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
-import static io.datahubproject.test.search.SearchTestUtils.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -67,6 +56,12 @@ import org.opensearch.search.sort.SortBuilder;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
+
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.*;
+import static com.linkedin.metadata.utils.SearchUtil.*;
+import static io.datahubproject.test.search.SearchTestUtils.*;
+import static org.testng.Assert.*;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
 
@@ -1984,7 +1979,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                 SEARCHABLE_ENTITIES,
                 query,
                 null,
-                criterion,
+                Collections.singletonList(criterion),
                 0,
                 100,
                 null);
