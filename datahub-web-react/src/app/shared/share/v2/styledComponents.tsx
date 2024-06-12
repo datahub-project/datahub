@@ -1,5 +1,6 @@
-import { Button, Checkbox, Menu } from 'antd';
+import { Button, Checkbox, Menu, Modal } from 'antd';
 import styled from 'styled-components';
+import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 
 export const StyledMenuItem = styled(Menu.Item)`
     min-width: 120px;
@@ -62,4 +63,52 @@ export const StyledButton = styled(Button)<{ $type?: string; $color?: string; $h
             color: ${(props) => !(props.$type === 'filled') && 'white'};
         }
     }
+`;
+
+export const StyledModal = styled(Modal)`
+    font-family: Mulish;
+    max-width: 480px;
+
+    &&& .ant-modal-content {
+        background-color: #eeecfa;
+        box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25), 0px 4px 8px 3px rgba(0, 0, 0, 0.15);
+        border-radius: 12px;
+    }
+
+    .ant-modal-header {
+        background-color: #eeecfa;
+        border-bottom: 0;
+        padding-top: 24px;
+        border-radius: 12px !important;
+    }
+
+    .ant-modal-footer {
+        border-top: 0;
+    }
+
+    .ant-modal-body {
+        padding: 12px 24px;
+    }
+
+    .ant-modal-close-x {
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-right: 9px;
+        padding-top: 20px;
+
+        :hover {
+            stroke: ${REDESIGN_COLORS.TITLE_PURPLE};
+        }
+    }
+`;
+
+export const ModalTitle = styled.span`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 22px;
+    font-weight: 700;
+    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
 `;

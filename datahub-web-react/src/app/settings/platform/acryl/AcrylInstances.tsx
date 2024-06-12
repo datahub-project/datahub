@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import { Button, Divider, Empty, Skeleton } from 'antd';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
 import { DataHubConnection, EntityType } from '../../../../types.generated';
@@ -13,6 +14,9 @@ import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { BackButton } from '../../../sharedV2/buttons/BackButton';
 import { HorizontalListSkeletons } from '../../../homeV2/content/HorizontalListSkeletons';
 import ImageWithColoredBackground from '../../../previewV2/ImageWIthColoredBackground';
+import { useDeleteConnectionMutation } from '../../../../graphql/connection.generated';
+import { ToastType, showToastMessage } from '../../../sharedV2/toastMessageUtils';
+import { ConfirmationModal } from '../../../sharedV2/modals/ConfirmationModal';
 
 const Container = styled.div`
     display: flex;
@@ -63,6 +67,14 @@ const Header = styled.div`
     flex-direction: column;
 `;
 
+const DeleteIcon = styled(DeleteOutlinedIcon)`
+    position: absolute;
+    height: 18px !important;
+    right: 2px;
+    top: 12px;
+    display: none !important;
+`;
+
 const Instance = styled.div`
     display: flex;
     align-items: center;
@@ -70,6 +82,10 @@ const Instance = styled.div`
     font-size: 20px;
     font-weight: 700;
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    border-radius: 18px;
+    padding: 12px;
+    border: 1px solid transparent;
+    position: relative;
 
     svg {
         height: 45px;
@@ -78,6 +94,11 @@ const Instance = styled.div`
 
     :hover {
         cursor: pointer;
+        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+
+        ${DeleteIcon} {
+            display: block !important;
+        }
     }
 `;
 
@@ -130,6 +151,7 @@ const StyledEmpty = styled(Empty)`
 
 const AcrylInstances = () => {
     const history = useHistory();
+    const [deleteConnection] = useDeleteConnectionMutation();
 
     // Execute search
     const {
@@ -156,6 +178,8 @@ const AcrylInstances = () => {
     const [openNewInstance, setOpenNewInstance] = useState<boolean>(false);
     const [isEditForm, setIsEditForm] = useState<boolean>(false);
     const [currentInstance, setCurrentInstance] = useState<DataHubConnection | undefined>();
+    const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
+    const [instanceToDelete, setInstanceToDelete] = useState<string>('');
 
     const addButtonClick = () => {
         setIsEditForm(false);
@@ -172,6 +196,34 @@ const AcrylInstances = () => {
 
     const goBack = () => {
         (history as any).goBack();
+    };
+
+    const deleteInstance = async () => {
+        deleteConnection({
+            variables: {
+                input: {
+                    urn: instanceToDelete,
+                },
+            },
+        })
+            .then(() => {
+                showToastMessage(ToastType.SUCCESS, 'Connection deleted successfully!', 3);
+                refetch?.();
+                setInstanceToDelete('');
+            })
+            .catch(() => {
+                showToastMessage(ToastType.ERROR, 'Failed to delete the connection', 3);
+                setInstanceToDelete('');
+            });
+    };
+
+    const handleDeleteConfirm = () => {
+        deleteInstance();
+        setShowConfirmDelete(false);
+    };
+
+    const handleDeleteClose = () => {
+        setShowConfirmDelete(false);
     };
 
     return (
@@ -217,6 +269,13 @@ const AcrylInstances = () => {
                                             borderRadius={16}
                                         />
                                         {entity.details?.name || entity.urn}
+                                        <DeleteIcon
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setInstanceToDelete(entity.urn);
+                                                setShowConfirmDelete(true);
+                                            }}
+                                        />
                                     </Instance>
                                 );
                             })}
@@ -225,6 +284,14 @@ const AcrylInstances = () => {
                     )}
                 </>
             )}
+            <ConfirmationModal
+                isOpen={showConfirmDelete}
+                handleClose={handleDeleteClose}
+                handleConfirm={handleDeleteConfirm}
+                modalTitle="Confirm Delete"
+                modalText="Are you sure you want to delete the connection?"
+                isDeleteModal
+            />
         </Container>
     );
 };
