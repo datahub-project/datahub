@@ -4,6 +4,8 @@ import static com.datahub.notification.NotificationUtils.*;
 import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR_NAME;
 
 import com.datahub.notification.NotificationContext;
 import com.datahub.notification.NotificationSink;
@@ -1005,6 +1007,9 @@ public class SlackNotificationSink implements NotificationSink {
   @Nullable
   private String getUserName(@Nonnull OperationContext opContext, final String userUrnStr) {
     try {
+      if (userUrnStr.equals(SYSTEM_ACTOR)) {
+        return SYSTEM_ACTOR_NAME;
+      }
       Urn userUrn = Urn.createFromString(userUrnStr);
       IdentityProvider.User user = this.identityProvider.getUser(opContext, userUrn);
       return user != null ? user.getResolvedDisplayName() : null;
