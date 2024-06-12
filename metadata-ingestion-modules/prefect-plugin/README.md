@@ -42,12 +42,21 @@ env | `str` | *PROD* | The environment that all assets produced by this orchestr
 platform_instance | `str` | *None* | The instance of the platform that all assets produced by this recipe belong to. For more detail please refer [here](https://datahubproject.io/docs/platform-instances/).
 
 ```python
+import asyncio
 from prefect_datahub.datahub_emitter import DatahubEmitter
-DatahubEmitter(
-    datahub_rest_url="http://localhost:8080",
-    env="PROD",
-    platform_instance="local_prefect"
-).save("BLOCK-NAME-PLACEHOLDER")
+
+
+async def save_datahub_emitter():
+    datahub_emitter = DatahubEmitter(
+        datahub_rest_url="http://localhost:8080",
+        env="PROD",
+        platform_instance="local_prefect",
+    )
+
+    await datahub_emitter.save("datahub-block-7", overwrite=True)
+
+
+asyncio.run(save_datahub_emitter())
 ```
 
 Congrats! You can now load the saved block to use your configurations in your Flow code:
@@ -72,25 +81,44 @@ DatahubEmitter.load("BLOCK-NAME-PLACEHOLDER")
 After installing `prefect-datahub` and [saving the configution](#saving-configurations-to-a-block), you can easily use it within your prefect workflows to help you emit metadata event as show below!
 
 ```python
-from prefect import flow, task
-from prefect_datahub.dataset import Dataset
-from prefect_datahub.datahub_emitter import DatahubEmitter
+import asyncio
 
-datahub_emitter = DatahubEmitter.load("MY_BLOCK_NAME")
+from prefect import flow, task
+
+from prefect_datahub.datahub_emitter import DatahubEmitter
+from prefect_datahub.entities import Dataset
+
+
+async def load_datahub_emitter():
+    datahub_emitter = DatahubEmitter()
+    return datahub_emitter.load("datahub-block-7")
+
+
+@task(name="Extract", description="Extract the data")
+def extract():
+    data = "This is data"
+    return data
+
 
 @task(name="Transform", description="Transform the data")
-def transform(data):
+def transform(data, datahub_emitter):
     data = data.split(" ")
     datahub_emitter.add_task(
-        inputs=[Dataset("snowflake", "mydb.schema.tableA")],
-        outputs=[Dataset("snowflake", "mydb.schema.tableC")],
+        inputs=[Dataset("snowflake", "mydb.schema.tableX")],
+        outputs=[Dataset("snowflake", "mydb.schema.tableY")],
     )
     return data
 
-@flow(name="ETL flow", description="Extract transform load flow")
+
+@flow(name="ETL", description="Extract transform load flow")
 def etl():
-    data = transform("This is data")
+    datahub_emitter = asyncio.run(load_datahub_emitter())
+    data = extract()
+    data = transform(data, datahub_emitter)
     datahub_emitter.emit_flow()
+
+
+etl()
 ```
 
 **Note**: To emit the tasks, user compulsory need to emit flow. Otherwise nothing will get emit.

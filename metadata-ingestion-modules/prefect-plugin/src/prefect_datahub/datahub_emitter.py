@@ -1,11 +1,11 @@
 """Datahub Emitter classes used to emit prefect metadata to Datahub REST."""
 
 import asyncio
-import datahub.emitter.mce_builder as builder
 import traceback
 from typing import Any, Dict, List, Optional, cast
 from uuid import UUID
 
+import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -21,7 +21,6 @@ from prefect import get_run_logger
 from prefect.blocks.core import Block
 from prefect.client import cloud, orchestration
 from prefect.client.schemas import FlowRun, TaskRun, Workspace
-
 from prefect.client.schemas.objects import Flow
 from prefect.context import FlowRunContext, TaskRunContext
 from prefect.settings import PREFECT_API_URL
@@ -128,16 +127,16 @@ class DatahubEmitter(Block):
                 "command 'prefect cloud login'."
             )
             return None
-        
+
         current_workspace_id = PREFECT_API_URL.value().split("/")[-1]
         workspaces: List[Workspace] = asyncio.run(
             cloud.get_cloud_client().read_workspaces()
         )
-        
+
         for workspace in workspaces:
             if str(workspace.workspace_id) == current_workspace_id:
                 return workspace.workspace_name
-        
+
         return None
 
     async def _get_flow_run_graph(self, flow_run_id: str) -> Optional[List[Dict]]:
@@ -285,8 +284,10 @@ class DatahubEmitter(Block):
             name=flow_run_ctx.flow.name,
             platform_instance=self.platform_instance,
         )
+
         dataflow.description = flow_run_ctx.flow.description
         dataflow.tags = set(flow.tags)
+
         flow_property_bag: Dict[str, str] = {}
         flow_property_bag[ID] = str(flow.id)
         flow_property_bag[CREATED] = str(flow.created)
@@ -305,12 +306,14 @@ class DatahubEmitter(Block):
             ON_CANCELLATION,
             ON_CRASHED,
         ]
+
         for key in allowed_flow_keys:
             if (
                 hasattr(flow_run_ctx.flow, key)
                 and getattr(flow_run_ctx.flow, key) is not None
             ):
                 flow_property_bag[key] = repr(getattr(flow_run_ctx.flow, key))
+
         dataflow.properties = flow_property_bag
 
         return dataflow
@@ -331,13 +334,16 @@ class DatahubEmitter(Block):
             workspace_name Optional(str): The prefect cloud workpace name.
         """
         assert flow_run_ctx.flow_run
+
         graph_json = asyncio.run(
             self._get_flow_run_graph(str(flow_run_ctx.flow_run.id))
         )
+
         if graph_json is None:
             return
 
         task_run_key_map: Dict[str, str] = {}
+
         for prefect_future in flow_run_ctx.task_run_futures:
             if prefect_future.task_run is not None:
                 task_run_key_map[
@@ -351,13 +357,16 @@ class DatahubEmitter(Block):
                 data_flow_urn=str(dataflow.urn),
                 job_id=task_run_key_map[node[ID]],
             )
+
             datajob: Optional[DataJob] = None
+
             if str(datajob_urn) in self.datajobs_to_emit:
                 datajob = cast(DataJob, self.datajobs_to_emit[str(datajob_urn)])
             else:
                 datajob = self._generate_datajob(
                     flow_run_ctx=flow_run_ctx, task_key=task_run_key_map[node[ID]]
                 )
+
             if datajob is not None:
                 for each in node[UPSTREAM_DEPENDENCIES]:
                     upstream_task_urn = DataJobUrn.create_from_ids(
@@ -390,8 +399,10 @@ class DatahubEmitter(Block):
 
         async def get_flow_run(flow_run_id: UUID) -> FlowRun:
             client = orchestration.get_client()
+
             if not hasattr(client, "read_flow_run"):
                 raise ValueError("Client does not support async read_flow_run method")
+
             response = client.read_flow_run(flow_run_id=flow_run_id)
 
             if asyncio.iscoroutine(response):
@@ -407,9 +418,11 @@ class DatahubEmitter(Block):
             dpi_id = f"{self.platform_instance}.{flow_run.name}"
         else:
             dpi_id = flow_run.name
+
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dpi_id)
 
         dpi_property_bag: Dict[str, str] = {}
+
         allowed_flow_run_keys = [
             ID,
             CREATED,
@@ -423,9 +436,11 @@ class DatahubEmitter(Block):
             TAGS,
             RUN_COUNT,
         ]
+
         for key in allowed_flow_run_keys:
             if hasattr(flow_run, key) and getattr(flow_run, key) is not None:
                 dpi_property_bag[key] = str(getattr(flow_run, key))
+
         dpi.properties.update(dpi_property_bag)
 
         if flow_run.start_time is not None:
@@ -451,8 +466,10 @@ class DatahubEmitter(Block):
 
         async def get_task_run(task_run_id: UUID) -> TaskRun:
             client = orchestration.get_client()
+
             if not hasattr(client, "read_task_run"):
                 raise ValueError("Client does not support async read_task_run method")
+
             response = client.read_task_run(task_run_id=task_run_id)
 
             if asyncio.iscoroutine(response):
@@ -468,6 +485,7 @@ class DatahubEmitter(Block):
             dpi_id = f"{self.platform_instance}.{flow_run_name}.{task_run.name}"
         else:
             dpi_id = f"{flow_run_name}.{task_run.name}"
+
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
             id=dpi_id,
@@ -476,6 +494,7 @@ class DatahubEmitter(Block):
         )
 
         dpi_property_bag: Dict[str, str] = {}
+
         allowed_task_run_keys = [
             ID,
             FLOW_RUN_ID,
@@ -489,9 +508,11 @@ class DatahubEmitter(Block):
             TAGS,
             RUN_COUNT,
         ]
+
         for key in allowed_task_run_keys:
             if hasattr(task_run, key) and getattr(task_run, key) is not None:
                 dpi_property_bag[key] = str(getattr(task_run, key))
+
         dpi.properties.update(dpi_property_bag)
 
         state_result_map: Dict[str, InstanceRunResult] = {
@@ -564,13 +585,14 @@ class DatahubEmitter(Block):
         """
         flow_run_ctx = FlowRunContext.get()
         task_run_ctx = TaskRunContext.get()
-        
+
         assert flow_run_ctx
         assert task_run_ctx
 
         datajob = self._generate_datajob(
             flow_run_ctx=flow_run_ctx, task_run_ctx=task_run_ctx
         )
+
         if datajob is not None:
             if inputs is not None:
                 datajob.inlets.extend(self._entities_to_urn_list(inputs))
@@ -604,7 +626,7 @@ class DatahubEmitter(Block):
         """
         try:
             flow_run_ctx = FlowRunContext.get()
-            
+
             assert flow_run_ctx
             assert flow_run_ctx.flow_run
 

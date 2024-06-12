@@ -55,7 +55,7 @@ task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "black --check --diff src/ tests/ && " +
-    // "isort --check --diff src/ tests/ && " +
+    "isort --check --diff src/ tests/ && " +
     "flake8 --count --statistics src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
@@ -63,7 +63,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && " +
     "black src/ tests/ && " +
-    // "isort src/ tests/ && " +
+    "isort src/ tests/ && " +
     "flake8 src/ tests/ && " +
     "mypy src/ tests/ "
 }
