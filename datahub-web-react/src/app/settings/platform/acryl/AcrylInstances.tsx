@@ -17,6 +17,7 @@ import ImageWithColoredBackground from '../../../previewV2/ImageWIthColoredBackg
 import { useDeleteConnectionMutation } from '../../../../graphql/connection.generated';
 import { ToastType, showToastMessage } from '../../../sharedV2/toastMessageUtils';
 import { ConfirmationModal } from '../../../sharedV2/modals/ConfirmationModal';
+import { removeFromInstancesList } from './cacheUtils';
 
 const Container = styled.div`
     display: flex;
@@ -153,24 +154,24 @@ const AcrylInstances = () => {
     const history = useHistory();
     const [deleteConnection] = useDeleteConnectionMutation();
 
+    const inputs = {
+        types: [EntityType.DatahubConnection],
+        query: '*',
+        start: 0,
+        count: 50,
+        orFilters: [{ and: [{ field: PLATFORM_FILTER_NAME, values: [PLATFORM_CONNECTION_URN] }] }],
+    };
+
     // Execute search
     const {
         data: searchData,
         loading: isLoading,
-        refetch,
+        client,
     } = useGetSearchResultsForMultipleQuery({
         variables: {
-            input: {
-                types: [EntityType.DatahubConnection],
-                query: '*',
-                start: 0,
-                count: 50,
-                orFilters: [{ and: [{ field: PLATFORM_FILTER_NAME, values: [PLATFORM_CONNECTION_URN] }] }],
-                searchFlags: {
-                    skipCache: true,
-                },
-            },
+            input: inputs,
         },
+        fetchPolicy: 'cache-first',
     });
 
     const searchAcrossEntities = searchData?.searchAcrossEntities;
@@ -208,8 +209,8 @@ const AcrylInstances = () => {
         })
             .then(() => {
                 showToastMessage(ToastType.SUCCESS, 'Connection deleted successfully!', 3);
-                refetch?.();
                 setInstanceToDelete('');
+                removeFromInstancesList(client, inputs, instanceToDelete, searchAcrossEntities);
             })
             .catch(() => {
                 showToastMessage(ToastType.ERROR, 'Failed to delete the connection', 3);
@@ -233,7 +234,8 @@ const AcrylInstances = () => {
                     setOpenNewInstance={setOpenNewInstance}
                     isEditForm={isEditForm}
                     selectedInstance={currentInstance}
-                    refetch={refetch}
+                    inputs={inputs}
+                    searchAcrossEntities={searchAcrossEntities}
                 />
             ) : (
                 <>

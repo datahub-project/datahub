@@ -3,6 +3,7 @@ import styled from 'styled-components';
 // import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import { Divider, Form, Input, Typography, message } from 'antd';
 import { useHistory } from 'react-router';
+import { useApolloClient } from '@apollo/client';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
 import { DataHubConnection, DataHubConnectionDetailsType } from '../../../../types.generated';
@@ -10,6 +11,7 @@ import { BackButton } from '../../../sharedV2/buttons/BackButton';
 import { StyledButton } from '../../../shared/share/v2/styledComponents';
 import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
 import { ACRYL_PLATFORM_URN, getConnectionBlob, getURLfromJson } from './utils';
+import { updateInstancesList } from './cacheUtils';
 
 const Container = styled.div`
     display: flex;
@@ -95,16 +97,17 @@ interface Props {
     setOpenNewInstance: React.Dispatch<React.SetStateAction<boolean>>;
     isEditForm: boolean;
     selectedInstance?: DataHubConnection;
-    refetch?: () => void;
+    inputs: object;
+    searchAcrossEntities?: object | null;
 }
 
-const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, refetch }: Props) => {
+const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inputs, searchAcrossEntities }: Props) => {
     const [form] = Form.useForm();
     const history = useHistory();
 
     const [upsertConnection] = useUpsertConnectionMutation();
     const [updateConnection] = useUpdateConnectionMutation();
-
+    const client = useApolloClient();
     const hasHistory = (history as any)?.length > 2;
 
     const instanceURL = isEditForm ? getURLfromJson(selectedInstance?.details?.json?.blob) : '';
@@ -122,24 +125,23 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, ref
     };
 
     const addInstance = async (formData: any) => {
+        const newInstance = {
+            name: formData.name,
+            platformUrn: ACRYL_PLATFORM_URN,
+            type: DataHubConnectionDetailsType.Json,
+            json: {
+                blob: getConnectionBlob(formData.url, formData.token),
+            },
+        };
         upsertConnection({
             variables: {
-                input: {
-                    name: formData.name,
-                    platformUrn: ACRYL_PLATFORM_URN,
-                    type: DataHubConnectionDetailsType.Json,
-                    json: {
-                        blob: getConnectionBlob(formData.url, formData.token),
-                    },
-                },
+                input: newInstance,
             },
         })
-            .then(() => {
+            .then((res) => {
                 showSuccessMessage();
                 setOpenNewInstance(false);
-                setTimeout(() => {
-                    refetch?.();
-                }, 3000);
+                updateInstancesList(client, inputs, newInstance, res.data?.upsertConnection.urn, searchAcrossEntities);
             })
             .catch(() => {
                 showErrorMessage();
@@ -148,23 +150,31 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, ref
 
     const updateInstance = async (formData: any) => {
         if (selectedInstance?.urn) {
+            const updatedInstance = {
+                urn: selectedInstance?.urn,
+                name: formData.name,
+                platformUrn: ACRYL_PLATFORM_URN,
+                type: DataHubConnectionDetailsType.Json,
+                json: {
+                    blob: selectedInstance?.details?.json?.blob || '',
+                },
+            };
+
             updateConnection({
                 variables: {
-                    input: {
-                        urn: selectedInstance?.urn,
-                        name: formData.name,
-                        platformUrn: ACRYL_PLATFORM_URN,
-                        type: DataHubConnectionDetailsType.Json,
-                        json: {
-                            blob: selectedInstance?.details?.json?.blob || '',
-                        },
-                    },
+                    input: updatedInstance,
                 },
             })
-                .then(() => {
+                .then((res) => {
                     showSuccessMessage();
                     setOpenNewInstance(false);
-                    refetch?.();
+                    updateInstancesList(
+                        client,
+                        inputs,
+                        updatedInstance,
+                        res.data?.updateConnection.urn,
+                        searchAcrossEntities,
+                    );
                 })
                 .catch(() => {
                     showErrorMessage();
