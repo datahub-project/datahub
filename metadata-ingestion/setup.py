@@ -55,6 +55,8 @@ framework_common = {
     "ruamel.yaml",
 }
 
+acryl_datahub_cloud = {"acryl-datahub-cloud"}
+
 pydantic_no_v2 = {
     # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
     # Tags sources that require the pydantic v2 API.
@@ -266,7 +268,7 @@ delta_lake = {
 
 powerbi_report_server = {"requests", "requests_ntlm"}
 
-slack = {"slack-sdk==3.18.1"}
+slack = {"slack-sdk==3.18.1"} | acryl_datahub_cloud
 
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
@@ -812,7 +814,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
                 ]
             )
         ),
-        "cloud": ["acryl-datahub-cloud"],
+        "cloud": list(acryl_datahub_cloud),
         "dev": list(dev_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
