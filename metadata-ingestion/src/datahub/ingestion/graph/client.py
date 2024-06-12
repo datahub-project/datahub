@@ -1445,6 +1445,51 @@ class DataHubGraph(DatahubRestEmitter):
 
         return res["runAssertionsForAsset"]
 
+    def get_entities_v2(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: List[Type[Aspect]],
+        with_system_metadata: bool = True,
+    ) -> Optional[Dict]:
+        payload = {
+            "urns": urns,
+            "aspectNames": list(map(lambda x: x.ASPECT_NAME, aspects)),
+            "withSystemMetadata": with_system_metadata,
+        }
+        headers: Dict[str, Any] = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        url = f"{self.config.server}/openapi/v2/entity/batch/{entity_name}"
+        try:
+            response = self._session.post(
+                url, data=json.dumps(payload), headers=headers
+            )
+            if response.status_code != 200:
+                logger.debug(
+                    f"Non 200 status found while fetching entities - {response.status_code}"
+                )
+                return None
+            json_resp = response.json()
+            entities = json_resp.get("entities", [])
+            retval: Dict[str, Any] = {}
+            for entity in entities:
+                for aspect in aspects:
+                    entity_aspects = entity.get("aspects", {})
+                    entity_urn = entity.get("urn", None)
+                    if entity_urn is not None and aspect.ASPECT_NAME in entity_aspects:
+                        aspect_raw_value = entity_aspects.get(aspect.ASPECT_NAME).get(
+                            "value"
+                        )
+                        aspect_value = aspect.from_obj(aspect_raw_value)
+                        retval.setdefault(entity_urn, {})
+                        retval[entity_urn].setdefault(aspect.ASPECT_NAME, aspect_value)
+            return retval
+        except Exception as e:
+            logger.error("Error while getting entities.", e)
+        return None
+
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()
         super().close()
