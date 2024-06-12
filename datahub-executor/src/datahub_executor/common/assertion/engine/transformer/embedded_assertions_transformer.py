@@ -4,12 +4,12 @@ import time
 from typing import Optional, Tuple
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import AssertionInfoClass, SystemMetadataClass
 
 from datahub_executor.common.assertion.engine.transformer.transformer import (
     AssertionTransformer,
 )
-from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.types import (
     Assertion,
     AssertionEvaluationContext,
@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 
 class EmbeddedAssertionsTransformer(AssertionTransformer):
     @classmethod
-    def create(cls, graph: DataHubAssertionGraph) -> "AssertionTransformer":
+    def create(cls, graph: DataHubGraph) -> "AssertionTransformer":
         return EmbeddedAssertionsTransformer(graph)
 
-    def __init__(self, graph: DataHubAssertionGraph) -> None:
+    def __init__(self, graph: DataHubGraph) -> None:
         self.graph = graph
 
     def transform(

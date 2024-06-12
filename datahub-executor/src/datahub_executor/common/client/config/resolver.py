@@ -2,13 +2,13 @@ import datetime
 import logging
 from typing import Callable, List, Optional, Tuple, Type, TypeVar
 
+from datahub.ingestion.graph.client import DataHubGraph
 from tenacity import retry, wait_exponential
 from tenacity.before_sleep import before_sleep_log
 
 from datahub_executor.common.client.config.graphql.query import (
     GRAPHQL_FETCH_EXECUTOR_CONFIGS,
 )
-from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.common.monitoring.metrics import (
     STATS_CONFIG_FETCHER_ERRORS,
@@ -40,10 +40,10 @@ def singleton(cls: Type[T]) -> Callable[..., T]:
 class ExecutorConfigResolver:
     """Resolver class responsible for resolving/fetching executor configuration"""
 
-    graph: DataHubAssertionGraph
+    graph: DataHubGraph
     executor_configs: List[ExecutorConfig]
 
-    def __init__(self, graph: Optional[DataHubAssertionGraph] = None) -> None:
+    def __init__(self, graph: Optional[DataHubGraph] = None) -> None:
         if graph:
             self.graph = graph
         else:

@@ -1,7 +1,8 @@
 from abc import abstractmethod
 from typing import Tuple
 
-from datahub_executor.common.graph import DataHubAssertionGraph
+from datahub.ingestion.graph.client import DataHubGraph
+
 from datahub_executor.common.types import (
     Assertion,
     AssertionEvaluationContext,
@@ -27,5 +28,5 @@ class AssertionTransformer:
 
     @classmethod
     @abstractmethod
-    def create(cls, graph: DataHubAssertionGraph) -> "AssertionTransformer":
+    def create(cls, graph: DataHubGraph) -> "AssertionTransformer":
         pass

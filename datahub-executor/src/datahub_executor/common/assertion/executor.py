@@ -1,9 +1,9 @@
 import logging
 
 from acryl.executor.request.execution_request import ExecutionRequest
+from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_executor.common.assertion.engine.engine import AssertionEngine
-from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.helpers import (
     create_assertion_engine,
     create_datahub_graph,
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class AssertionExecutor:
-    graph: DataHubAssertionGraph
+    graph: DataHubGraph
     engine: AssertionEngine
     tp: ThreadPoolExecutorWithQueueSizeLimit
 

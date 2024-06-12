@@ -1,13 +1,14 @@
 import datetime
 from unittest.mock import Mock
 
+from datahub.ingestion.graph.client import DataHubGraph
+
 from datahub_executor.common.client.config.resolver import ExecutorConfigResolver
-from datahub_executor.common.graph import DataHubAssertionGraph
 
 
 class TestRemoteResolver:
     def setup_method(self) -> None:
-        self.graph = Mock(spec=DataHubAssertionGraph)
+        self.graph = Mock(spec=DataHubGraph)
 
         self.resolver = ExecutorConfigResolver(self.graph)
         self.resolver.executor_configs = []
