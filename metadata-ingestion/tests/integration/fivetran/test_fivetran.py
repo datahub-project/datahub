@@ -89,7 +89,7 @@ def default_query_results(
                 "destination_column_name": "name",
             },
         ]
-    elif query == fivetran_log_query.get_user_query("reapply_phone"):
+    elif query == fivetran_log_query.get_users_query():
         return [
             {
                 "user_id": "reapply_phone",
@@ -98,7 +98,9 @@ def default_query_results(
                 "email": "abc.xyz@email.com",
             }
         ]
-    elif query == fivetran_log_query.get_sync_logs_query():
+    elif query == fivetran_log_query.get_sync_logs_query().format(
+        db_clause=fivetran_log_query.db_clause, syncs_interval=7
+    ):
         return [
             {
                 "connector_id": "calendar_elected",
