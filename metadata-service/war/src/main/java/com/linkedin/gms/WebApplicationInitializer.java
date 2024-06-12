@@ -43,8 +43,9 @@ public class WebApplicationInitializer
     // Auth filter
     List<String> servletNames = new ArrayList<>();
 
-    // Independent dispatcher
+    // Independent dispatchers
     schemaRegistryServlet(container);
+    servletNames.add(grafanaDashboardServlet(container));
 
     // Non-Spring servlets
     healthCheckServlet(container);
@@ -58,7 +59,6 @@ public class WebApplicationInitializer
     servletNames.add(authServlet(rootContext, dispatcherServlet, container));
     servletNames.add(graphQLServlet(rootContext, dispatcherServlet, container));
     servletNames.add(openAPIServlet(rootContext, dispatcherServlet, container));
-    servletNames.add(grafanaDashboardServlet(rootContext, dispatcherServlet, container));
 
     FilterRegistration.Dynamic filterRegistration =
         container.addFilter("authenticationFilter", AuthenticationFilter.class);
@@ -167,12 +167,12 @@ public class WebApplicationInitializer
     registration2.setAsyncSupported(true);
   }
 
-  private String grafanaDashboardServlet(
-      AnnotationConfigWebApplicationContext rootContext,
-      DispatcherServlet dispatcherServlet,
-      ServletContext container) {
-    rootContext.register(AcrylGrafanaServletConfig.class);
+  private String grafanaDashboardServlet(ServletContext container) {
+    AnnotationConfigWebApplicationContext webContext = new AnnotationConfigWebApplicationContext();
+    webContext.setId(GRAFANA_SERVLET_NAME);
+    webContext.register(AcrylGrafanaServletConfig.class);
 
+    DispatcherServlet dispatcherServlet = new DispatcherServlet(webContext);
     ServletRegistration.Dynamic registration =
         container.addServlet(GRAFANA_SERVLET_NAME, dispatcherServlet);
     registration.addMapping("/admin/dashboard/*");
