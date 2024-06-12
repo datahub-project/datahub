@@ -502,6 +502,7 @@ class DBTNode:
     dbt_adapter: str
     dbt_name: str
     dbt_file_path: Optional[str]
+    dbt_package_name: Optional[str]  # this is pretty much always present
 
     node_type: str  # source, model, snapshot, seed, test, etc
     max_loaded_at: Optional[datetime]
@@ -644,6 +645,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
         "catalog_type": node.catalog_type,
         "language": node.language,
         "dbt_unique_id": node.dbt_name,
+        "dbt_package_name": node.dbt_package_name,
     }
 
     for attribute, node_attribute_value in node_attributes.items():
