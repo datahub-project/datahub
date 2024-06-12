@@ -79,6 +79,18 @@ module.exports = {
               id: "docs/managed-datahub/observe/volume-assertions",
               className: "saasOnly",
             },
+            {
+              label: "Open Assertions Specification",
+              type: "category",
+              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
+            },
           ],
         },
         {
