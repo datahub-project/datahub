@@ -65,7 +65,9 @@ public class KafkaProducerThrottle {
   @VisibleForTesting
   public void refresh() {
     medianLag.putAll(getMedianLag());
-    log.info("MCL medianLag: {}", medianLag);
+    if (medianLag.keySet().stream().anyMatch(this::isThrottled)) {
+      log.warn("MCL medianLag: {}", medianLag);
+    }
   }
 
   @VisibleForTesting
@@ -143,7 +145,7 @@ public class KafkaProducerThrottle {
           return;
         } else {
           // no throttle or exceeded configuration limits
-          log.info("MCE consumer throttle exponential backoff reset.");
+          log.debug("MCE consumer {} throttle exponential backoff reset.", mclType);
           backoffMap.remove(mclType);
           MetricUtils.gauge(
               this.getClass(),
@@ -152,7 +154,7 @@ public class KafkaProducerThrottle {
         }
       } else {
         // not throttled, remove backoff tracking
-        log.info("MCE consumer throttle exponential backoff reset.");
+        log.debug("MCE consumer {} throttle exponential backoff reset.", mclType);
         backoffMap.remove(mclType);
         MetricUtils.gauge(
             this.getClass(),
