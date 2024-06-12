@@ -14,7 +14,6 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-
 /** Resolver responsible for resolving 'searchAcrossEntities' field of the Query type */
 @Slf4j
 @RequiredArgsConstructor

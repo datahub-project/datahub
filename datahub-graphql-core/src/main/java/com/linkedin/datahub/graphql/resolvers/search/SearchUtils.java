@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -43,8 +45,6 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.codehaus.plexus.util.CollectionUtils;
-
-import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class SearchUtils {
@@ -363,7 +363,7 @@ public class SearchUtils {
       String scrollId,
       String inputKeepAlive,
       String className) {
-    
+
     final List<EntityType> entityTypes =
         (inputEntityTypes == null || inputEntityTypes.isEmpty())
             ? SEARCHABLE_ENTITY_TYPES
