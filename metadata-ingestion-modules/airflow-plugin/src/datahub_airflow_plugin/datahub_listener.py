@@ -408,13 +408,12 @@ class DataHubListener:
         if self.config.capture_executions:
             dpi = AirflowGenerator.run_datajob(
                 emitter=self.emitter,
-                cluster=self.config.cluster,
+                config=self.config,
                 ti=task_instance,
                 dag=dag,
                 dag_run=dagrun,
                 datajob=datajob,
                 emit_templates=False,
-                config=self.config,
             )
             logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
 
@@ -530,10 +529,8 @@ class DataHubListener:
             return
 
         dataflow = AirflowGenerator.generate_dataflow(
-            cluster=self.config.cluster,
+            config=self.config,
             dag=dag,
-            capture_tags=self.config.capture_tags_info,
-            capture_owner=self.config.capture_ownership_info,
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
 

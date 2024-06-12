@@ -37,10 +37,8 @@ def send_lineage_to_datahub(
     emitter = hook.make_emitter()
 
     dataflow = AirflowGenerator.generate_dataflow(
-        cluster=config.cluster,
+        config=config,
         dag=dag,
-        capture_tags=config.capture_tags_info,
-        capture_owner=config.capture_ownership_info,
     )
     dataflow.emit(emitter)
     operator.log.info(f"Emitted from Lineage: {dataflow}")
@@ -68,7 +66,7 @@ def send_lineage_to_datahub(
 
         dpi = AirflowGenerator.run_datajob(
             emitter=emitter,
-            cluster=config.cluster,
+            config=config,
             ti=ti,
             dag=dag,
             dag_run=dag_run,
