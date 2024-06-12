@@ -130,6 +130,7 @@ from datahub.utilities.hive_schema_to_avro import (
 )
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -748,6 +749,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         columns = None
 
+        rate_limiter: Optional[RateLimiter] = None
+        if self.config.rate_limit:
+            rate_limiter = RateLimiter(
+                max_calls=self.config.requests_per_min, period=60
+            )
+
         if (
             self.config.include_tables
             or self.config.include_views
@@ -759,6 +766,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 column_limit=self.config.column_limit,
                 run_optimized_column_query=self.config.run_optimized_column_query,
                 extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
+                report=self.report,
+                rate_limiter=rate_limiter,
             )
 
         if self.config.include_tables:
