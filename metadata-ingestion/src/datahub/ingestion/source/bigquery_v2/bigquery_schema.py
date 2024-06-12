@@ -163,6 +163,8 @@ class BigQuerySchemaApi:
                 # Whenever this limit reached an exception occur with msg
                 # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
                 # Hence, added the api request retry of 15 min.
+                # We already tried adding rate_limit externally, proving max_result and page_size
+                # to restrict the request calls inside list_project but issue still occured.
                 projects_iterator = self.bq_client.list_projects(
                     retry=retry.Retry(
                         predicate=_should_retry, initial=10, maximum=180, timeout=900
