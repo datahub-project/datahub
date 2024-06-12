@@ -84,9 +84,9 @@ class Entities(ConfigModel):
 
 
 class Actors(ConfigModel):
-    owners: Optional[bool]
-    users: Optional[List[str]]  # can be user IDs or urns
-    groups: Optional[List[str]]  # can be group IDs or urns
+    owners: Optional[bool] = None
+    users: Optional[List[str]] = None  # can be user IDs or urns
+    groups: Optional[List[str]] = None  # can be group IDs or urns
 
 
 class Forms(ConfigModel):
@@ -100,7 +100,7 @@ class Forms(ConfigModel):
     entities: Optional[Entities] = None
     owners: Optional[List[str]] = None  # can be user IDs or urns
     group_owners: Optional[List[str]] = None  # can be group IDs or urns
-    actors: Optional[Actors]
+    actors: Optional[Actors] = None
 
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
