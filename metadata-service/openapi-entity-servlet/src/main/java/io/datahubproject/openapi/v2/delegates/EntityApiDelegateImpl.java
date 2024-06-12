@@ -1,5 +1,8 @@
 package io.datahubproject.openapi.v2.delegates;
 
+import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static io.datahubproject.openapi.util.ReflectionCache.*;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
@@ -70,9 +73,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-
-import static com.linkedin.metadata.authorization.ApiOperation.*;
-import static io.datahubproject.openapi.util.ReflectionCache.*;
 
 @Slf4j
 public class EntityApiDelegateImpl<I, O, S> {
