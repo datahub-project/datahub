@@ -148,8 +148,12 @@ clean {
   delete 'tmp'
   delete 'build'
   delete 'just'
+  delete 'sphinx/venv'
+  delete 'sphinx/_build'
+  delete 'versioned_docs'
   delete fileTree(dir: 'genDocs', exclude: '.gitignore')
   delete fileTree(dir: 'docs', exclude: '.gitignore')
+  delete fileTree(dir: 'genStatic', exclude: '.gitignore')
   delete 'graphql/combined.graphql'
   yarnClear
 }
