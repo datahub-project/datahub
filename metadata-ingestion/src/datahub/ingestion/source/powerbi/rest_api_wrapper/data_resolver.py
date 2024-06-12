@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from datetime import datetime, time, timedelta, timezone
 from time import sleep
-from typing import Any, Dict, List, Optional
+from typing import Any, DefaultDict, Dict, List, Optional
 
 import msal
 import requests
@@ -24,7 +24,6 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     PowerBiEntityUsage,
     Report,
     Tile,
-    UsageStat,
     User,
     UserUsageStat,
     Workspace,
@@ -311,12 +310,16 @@ class DataResolverBase(ABC):
 
     def get_entities_usage_stats_from_result(
         self, results: List[Dict], user_stats_key_as_guid: bool
-    ) -> Dict[str, PowerBiEntityUsage]:
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
         """
         Return entity level usage stats from result
         """
-        entities_usage_stats: Dict[str, PowerBiEntityUsage] = defaultdict()
+        entities_usage_stats: DefaultDict[str, PowerBiEntityUsage] = defaultdict(
+            PowerBiEntityUsage
+        )
         for row in results:
+            # As result contain uppercase IDs and other API response contains lowercase IDs
+            # Hence lowercasing all IDs to have proper mapping
             entity_id = row[Constant.ENTITY_ID].lower()
             date = datetime.strptime(
                 row[Constant.DATE], POWERBI_USAGE_DATETIME_FORMAT
@@ -324,29 +327,14 @@ class DataResolverBase(ABC):
             user_id = row[Constant.USER_ID].lower()
             views_count = row[Constant.VIEWS_COUNT]
 
-            entities_usage_stats.setdefault(
-                entity_id,
-                PowerBiEntityUsage(
-                    overall_usage={
-                        date: UsageStat(
-                            user_stats_key_as_guid,
-                            {user_id: UserUsageStat(views_count)},
-                        )
-                    },
-                    sub_entity_usage={},
-                ),
-            )
-
-            entities_usage_stats[entity_id].overall_usage.setdefault(
-                date,
-                UsageStat(
-                    user_stats_key_as_guid, {user_id: UserUsageStat(views_count)}
-                ),
-            )
-
-            entities_usage_stats[entity_id].overall_usage[
-                date
-            ].userUsageStats.setdefault(user_id, UserUsageStat(views_count))
+            if user_stats_key_as_guid:
+                entities_usage_stats[entity_id].overall_usage[date].userGuidUsageStats[
+                    user_id
+                ] = UserUsageStat(views_count)
+            else:
+                entities_usage_stats[entity_id].overall_usage[date].userIdUsageStats[
+                    user_id
+                ] = UserUsageStat(views_count)
 
         return entities_usage_stats
 
@@ -354,12 +342,14 @@ class DataResolverBase(ABC):
         self,
         results: List[Dict],
         user_stats_key_as_guid: bool,
-        entities_usage_stats: Dict[str, PowerBiEntityUsage],
-    ) -> Dict[str, PowerBiEntityUsage]:
+        entities_usage_stats: DefaultDict[str, PowerBiEntityUsage],
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
         """
         fill sub entity level usage stats from result.
         """
         for row in results:
+            # As result contain uppercase IDs and other API response contains lowercase IDs
+            # Hence lowercasing all IDs to have proper mapping
             entity_id = row[Constant.ENTITY_ID].lower()
             sub_entity_id = row[Constant.SUB_ENTITY_ID].lower()
             date = datetime.strptime(
@@ -368,40 +358,14 @@ class DataResolverBase(ABC):
             user_id = row[Constant.USER_ID].lower()
             views_count = row[Constant.VIEWS_COUNT]
 
-            entities_usage_stats.setdefault(
-                entity_id,
-                PowerBiEntityUsage(
-                    overall_usage={},
-                    sub_entity_usage={
-                        sub_entity_id: {
-                            date: UsageStat(
-                                user_stats_key_as_guid,
-                                {user_id: UserUsageStat(views_count)},
-                            )
-                        }
-                    },
-                ),
-            )
-
-            entities_usage_stats[entity_id].sub_entity_usage.setdefault(
-                sub_entity_id,
-                {
-                    date: UsageStat(
-                        user_stats_key_as_guid, {user_id: UserUsageStat(views_count)}
-                    )
-                },
-            )
-
-            entities_usage_stats[entity_id].sub_entity_usage[sub_entity_id].setdefault(
-                date,
-                UsageStat(
-                    user_stats_key_as_guid, {user_id: UserUsageStat(views_count)}
-                ),
-            )
-
-            entities_usage_stats[entity_id].sub_entity_usage[sub_entity_id][
-                date
-            ].userUsageStats.setdefault(user_id, UserUsageStat(views_count))
+            if user_stats_key_as_guid:
+                entities_usage_stats[entity_id].sub_entity_usage[sub_entity_id][
+                    date
+                ].userGuidUsageStats[user_id] = UserUsageStat(views_count)
+            else:
+                entities_usage_stats[entity_id].sub_entity_usage[sub_entity_id][
+                    date
+                ].userIdUsageStats[user_id] = UserUsageStat(views_count)
 
         return entities_usage_stats
 
@@ -426,10 +390,11 @@ class DataResolverBase(ABC):
 
     def get_report_new_usage_stats(
         self, workspace: Workspace, usage_stats_interval: int
-    ) -> Dict[str, PowerBiEntityUsage]:
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
         """
         Fetch the reports and reports pages usage stats from semantic model/dataset
-        used by new usage metrics report
+        used by new usage metrics report.
+        Returns DefaultDict[<report_id>, PowerBiEntityUsage]
         """
         usage_metrics_dataset_id: Optional[str] = self.get_dataset_id_from_workspace(
             workspace=workspace,
@@ -437,7 +402,7 @@ class DataResolverBase(ABC):
         )
         if usage_metrics_dataset_id is None:
             logger.debug("New report usage metrics report is not yet created")
-            return {}
+            return defaultdict(PowerBiEntityUsage)
 
         dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
         # get report pages view count for per date and per user
@@ -456,21 +421,25 @@ class DataResolverBase(ABC):
         )
 
         reports_usage_stats = self.get_entities_usage_stats_from_result(
-            reports_views_result, False
+            results=reports_views_result,
+            user_stats_key_as_guid=False,  # New Usage metrics report contains UserID as User identifier
         )
 
         reports_usage_stats = self.fill_sub_entities_usage_stats_from_result(
-            reports_pages_views_result, False, reports_usage_stats
+            results=reports_pages_views_result,
+            user_stats_key_as_guid=False,
+            entities_usage_stats=reports_usage_stats,
         )
 
         return reports_usage_stats
 
     def get_report_old_usage_stats(
         self, workspace: Workspace, usage_stats_interval: int
-    ) -> Dict[str, PowerBiEntityUsage]:
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
         """
         Fetch the reports and reports pages usage stats from semantic model/dataset
-        used by old report usage metrics report
+        used by old report usage metrics report.
+        Returns DefaultDict[<report_id>, PowerBiEntityUsage]
         """
         usage_metrics_dataset_id: Optional[str] = self.get_dataset_id_from_workspace(
             workspace=workspace,
@@ -478,7 +447,7 @@ class DataResolverBase(ABC):
         )
         if usage_metrics_dataset_id is None:
             logger.debug("Report usage metrics report is not yet created")
-            return {}
+            return defaultdict(PowerBiEntityUsage)
 
         dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
         # get report view count for per date and per user
@@ -490,21 +459,25 @@ class DataResolverBase(ABC):
         )
 
         reports_usage_stats = self.get_entities_usage_stats_from_result(
-            entities_views_result, True
+            results=entities_views_result,
+            user_stats_key_as_guid=True,  # Old Report usage metrics report contains UserGuid as User identifier
         )
 
         reports_usage_stats = self.fill_sub_entities_usage_stats_from_result(
-            entities_views_result, True, reports_usage_stats
+            results=entities_views_result,
+            user_stats_key_as_guid=True,
+            entities_usage_stats=reports_usage_stats,
         )
 
         return reports_usage_stats
 
     def get_dashboard_usage_stats(
         self, workspace: Workspace, usage_stats_interval: int
-    ) -> Dict[str, PowerBiEntityUsage]:
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
         """
         Fetch the dashboard usage stats from semantic model/dataset
-        used by old dashboard usage metrics report
+        used by old dashboard usage metrics report.
+        Returns DefaultDict[<dashboard_id>, PowerBiEntityUsage]
         """
         usage_metrics_dataset_id: Optional[str] = self.get_dataset_id_from_workspace(
             workspace=workspace,
@@ -512,7 +485,7 @@ class DataResolverBase(ABC):
         )
         if usage_metrics_dataset_id is None:
             logger.debug("Dashboard usage metrics report is not yet created")
-            return {}
+            return defaultdict(PowerBiEntityUsage)
 
         dataset_execute_query_endpoint = f"{self.BASE_URL}/{workspace.id}/datasets/{usage_metrics_dataset_id}/executeQueries"
         # get dashboard view count for per date and per user
@@ -524,14 +497,19 @@ class DataResolverBase(ABC):
         )
 
         dashboards_usage_stats = self.get_entities_usage_stats_from_result(
-            entities_views_result, True
+            results=entities_views_result,
+            user_stats_key_as_guid=True,  # Old dashboard usage metrics report contains UserGuid as User identifier
         )
 
         return dashboards_usage_stats
 
     def get_report_usage_stats_from_activity_events(
         self, usage_stats_interval: int
-    ) -> Dict[str, PowerBiEntityUsage]:
+    ) -> DefaultDict[str, PowerBiEntityUsage]:
+        """
+        Fetch the report usage stats from ActivityEvents REST API.
+        Returns DefaultDict[<report_id>, PowerBiEntityUsage]
+        """
         current_date = datetime.combine(datetime.now(timezone.utc), time(0, 0, 0))
         start_date = current_date - timedelta(days=usage_stats_interval)
         end_date = start_date + timedelta(hours=23, minutes=59, seconds=59)
@@ -563,7 +541,9 @@ class DataResolverBase(ABC):
             start_date = start_date + timedelta(days=1)
             end_date = end_date + timedelta(days=1)
 
-        reports_usage_stats: Dict[str, PowerBiEntityUsage] = defaultdict()
+        reports_usage_stats: DefaultDict[str, PowerBiEntityUsage] = defaultdict(
+            PowerBiEntityUsage
+        )
         for activity_event in view_report_activity_events:
             report_id = activity_event[Constant.ACTIVITY_REPORT_ID]
             date = datetime.combine(
@@ -574,30 +554,23 @@ class DataResolverBase(ABC):
                 time(0, 0, 0),
             ).replace(tzinfo=timezone.utc)
             user_id = activity_event[Constant.ACTIVITY_USER_ID]
-            if report_id not in reports_usage_stats:
-                reports_usage_stats[report_id] = PowerBiEntityUsage(
-                    overall_usage={date: UsageStat(False, {user_id: UserUsageStat(1)})},
-                    sub_entity_usage={},
-                )
 
-            elif date not in reports_usage_stats[report_id].overall_usage:
-                reports_usage_stats[report_id].overall_usage[date] = UsageStat(
-                    False, {user_id: UserUsageStat(1)}
-                )
-            elif (
+            if (
                 user_id
-                not in reports_usage_stats[report_id].overall_usage[date].userUsageStats
+                not in reports_usage_stats[report_id]
+                .overall_usage[date]
+                .userIdUsageStats
             ):
-                reports_usage_stats[report_id].overall_usage[date].userUsageStats[
+                reports_usage_stats[report_id].overall_usage[date].userIdUsageStats[
                     user_id
                 ] = UserUsageStat(1)
             else:
-                reports_usage_stats[report_id].overall_usage[date].userUsageStats[
+                reports_usage_stats[report_id].overall_usage[date].userIdUsageStats[
                     user_id
                 ].viewsCount = (
                     reports_usage_stats[report_id]
                     .overall_usage[date]
-                    .userUsageStats[user_id]
+                    .userIdUsageStats[user_id]
                     .viewsCount
                     + 1
                 )

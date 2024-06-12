@@ -2,7 +2,7 @@ import json
 import logging
 import sys
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, DefaultDict, Dict, Iterable, List, Optional, cast
 
 import requests
 
@@ -189,13 +189,30 @@ class PowerBiAPI:
                 report.tags = workspace.report_endorsements.get(report.id, [])
 
         def fill_usage_stats() -> None:
+            """
+            Method to fill reports and its pages usage stats.
+            Reports Usage stats can be extracted from three different options:
+            1. New Usage Metrics Report Semantic Model
+            2. Old Report Usage Metrics Semantic Model
+            3. ActivityEvents REST API using Operation 'ViewReport'
+            (https://learn.microsoft.com/en-us/power-bi/enterprise/service-admin-auditing)
+
+
+            Reports Pages Usage stats can be extracted from two different options:
+            1. New Usage Metrics Report Semantic Model
+            2. Old Report Usage Metrics Semantic Model
+            ActivityEvents REST API response with Operation 'ViewReport' don't have any attribute to map with pages of report.
+            Neither they have any operation related to View Page.
+            """
             if self.__config.extract_usage_stats is False:
                 logger.info(
-                    "Skipping usage metrics retrieval for reports as extract_usage_stats is set to false"
+                    "Skipping usage stats retrieval for reports as extract_usage_stats is set to false"
                 )
                 return
-            # Get all reports and reports pages usage metrics
-            reports_usage_stats: Dict[str, PowerBiEntityUsage] = defaultdict()
+            # Get all reports and reports pages usage stats
+            reports_usage_stats: DefaultDict[str, PowerBiEntityUsage] = defaultdict(
+                PowerBiEntityUsage
+            )
             try:
                 reports_usage_stats = self._get_resolver().get_report_new_usage_stats(
                     workspace=workspace,
@@ -221,7 +238,7 @@ class PowerBiAPI:
                         )
             except Exception as e:
                 self.log_http_error(
-                    message=f"Unable to fetch reports usage metrics for workspace {workspace.name}. Exception: {e}"
+                    message=f"Unable to fetch reports usage stats for workspace {workspace.name}. Exception: {e}"
                 )
             if reports_usage_stats:
                 for report in reports:
@@ -232,6 +249,12 @@ class PowerBiAPI:
                         continue
                     report.usageStats = reports_usage_stats[report.id].overall_usage
                     for page in report.pages:
+                        # sub_entity_usage contains usage stats of pages with key as page display name because
+                        # identifier for already fetched pages is in format <report_id>.<page_name>.
+                        # Eg: '1902c899-3a0c-4b82-ab02-a4635178af59.ReportSection03fa40d30cea0f236e95’
+                        # and page usage stats metadata contain a proper page id or page display name.
+                        # Here page name is different that page display name.
+                        # Hence we remain with only page display name to use as mapping key of page and its usage stats metadata
                         if (
                             page.displayName.lower()
                             not in reports_usage_stats[report.id].sub_entity_usage
@@ -532,13 +555,24 @@ class PowerBiAPI:
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
         def fill_dashboard_usage_stats() -> None:
+            """
+            Method to fill dashboards usage stats.
+            Dashboards Usage stats can be extracted only from Old Dashboard Usage Metrics Semantic Model.
+            As of now Dashboard usage metrics in not present in New Usage Metrics Report.
+            And from ActivityEvents REST API we identified no response for 'ViewDashboard' operation.
+
+            Dashboards Tiles Usage stats are not present in Old Dashboard Usage Metrics Semantic Model.
+            And from ActivityEvents REST API we identified no response for 'ViewTile' operation.
+            """
             if self.__config.extract_usage_stats is False:
                 logger.info(
-                    "Skipping usage metrics retrieval for dashboards as extract_usage_stats is set to false"
+                    "Skipping usage stats retrieval for dashboards as extract_usage_stats is set to false"
                 )
                 return
-            # Get all dashboards usage metrics
-            dashboards_usage_stats: Dict[str, PowerBiEntityUsage] = defaultdict()
+            # Get all dashboards usage stats
+            dashboards_usage_stats: DefaultDict[str, PowerBiEntityUsage] = defaultdict(
+                PowerBiEntityUsage
+            )
             try:
                 dashboards_usage_stats = self._get_resolver().get_dashboard_usage_stats(
                     workspace=workspace,
@@ -549,7 +583,7 @@ class PowerBiAPI:
                 )
             except Exception as e:
                 self.log_http_error(
-                    message=f"Unable to fetch dashboard usage metrics for workspace {workspace.name}. Exception: {e}"
+                    message=f"Unable to fetch dashboard usage stats for workspace {workspace.name}. Exception: {e}"
                 )
             if dashboards_usage_stats:
                 for dashboard in workspace.dashboards:

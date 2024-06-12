@@ -1,8 +1,8 @@
-import dataclasses
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, DefaultDict, Dict, List, Optional, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.metadata.schema_classes import (
@@ -107,7 +107,7 @@ class Measure:
     dataType: str = "measure"
     datahubDataType: Union[
         BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
-    ] = dataclasses.field(default_factory=NullTypeClass)
+    ] = field(default_factory=NullTypeClass)
     description: Optional[str] = None
 
 
@@ -166,17 +166,19 @@ class UserUsageStat:
 
 @dataclass
 class UsageStat:
-    key_as_guid: bool  # True if userUsageStats key as user_guid else False for key as user_id
-    userUsageStats: Dict[str, UserUsageStat]
+    userGuidUsageStats: Dict[str, UserUsageStat] = field(default_factory=dict)
+    userIdUsageStats: Dict[str, UserUsageStat] = field(default_factory=dict)
 
 
-DateWiseUsage = Dict[datetime, UsageStat]
+DateWiseUsage = DefaultDict[datetime, UsageStat]
 
 
 @dataclass
 class PowerBiEntityUsage:
-    overall_usage: DateWiseUsage
-    sub_entity_usage: Dict[str, DateWiseUsage]
+    overall_usage: DateWiseUsage = field(default_factory=lambda: defaultdict(UsageStat))
+    sub_entity_usage: DefaultDict[str, DateWiseUsage] = field(
+        default_factory=lambda: defaultdict(lambda: defaultdict(UsageStat))
+    )  # Key as sub_entity_id
 
 
 @dataclass

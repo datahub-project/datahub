@@ -776,8 +776,17 @@ class Mapper:
             for date, usage_stat in page.usageStats.items():
                 chart_user_usage_counts: List[ChartUserUsageCountsClass] = []
                 total_views_count = 0
-                for user_id, user_usage_stat in usage_stat.userUsageStats.items():
-                    if usage_stat.key_as_guid:
+                if usage_stat.userGuidUsageStats:
+                    users_usage_stats = usage_stat.userGuidUsageStats
+                    key_as_guid = True
+                    unique_user_count = len(usage_stat.userGuidUsageStats)
+                else:
+                    users_usage_stats = usage_stat.userIdUsageStats
+                    key_as_guid = False
+                    unique_user_count = len(usage_stat.userIdUsageStats)
+
+                for user_id, user_usage_stat in users_usage_stats.items():
+                    if key_as_guid:
                         user = self.get_user_by_guid(report.users, user_id)
                     else:
                         user = self.get_user_by_id(report.users, user_id)
@@ -802,7 +811,7 @@ class Mapper:
                             unit=CalendarIntervalClass.DAY
                         ),
                         viewsCount=total_views_count,
-                        uniqueUserCount=len(usage_stat.userUsageStats),
+                        uniqueUserCount=unique_user_count,
                         userCounts=chart_user_usage_counts,
                     )
                 )
@@ -849,8 +858,17 @@ class Mapper:
         for date, usage_stat in entity_object.usageStats.items():
             dashboard_user_usage_counts: List[DashboardUserUsageCountsClass] = []
             total_views_count = 0
-            for user_id, user_usage_stat in usage_stat.userUsageStats.items():
-                if usage_stat.key_as_guid:
+            if usage_stat.userGuidUsageStats:
+                users_usage_stats = usage_stat.userGuidUsageStats
+                key_as_guid = True
+                unique_user_count = len(usage_stat.userGuidUsageStats)
+            else:
+                users_usage_stats = usage_stat.userIdUsageStats
+                key_as_guid = False
+                unique_user_count = len(usage_stat.userIdUsageStats)
+
+            for user_id, user_usage_stat in users_usage_stats.items():
+                if key_as_guid:
                     user = self.get_user_by_guid(entity_object.users, user_id)
                 else:
                     user = self.get_user_by_id(entity_object.users, user_id)
@@ -876,7 +894,7 @@ class Mapper:
                         unit=CalendarIntervalClass.DAY
                     ),
                     viewsCount=total_views_count,
-                    uniqueUserCount=len(usage_stat.userUsageStats),
+                    uniqueUserCount=unique_user_count,
                     userCounts=dashboard_user_usage_counts,
                 )
             )
