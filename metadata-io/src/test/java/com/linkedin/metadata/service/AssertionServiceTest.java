@@ -1,5 +1,10 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.service.AssertionService.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -82,11 +87,6 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.service.AssertionService.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 public class AssertionServiceTest {
 

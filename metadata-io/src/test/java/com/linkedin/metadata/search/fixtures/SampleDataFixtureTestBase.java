@@ -1,5 +1,11 @@
 package com.linkedin.metadata.search.fixtures;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.*;
+import static com.linkedin.metadata.utils.SearchUtil.*;
+import static io.datahubproject.test.search.SearchTestUtils.*;
+import static org.testng.Assert.*;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -56,12 +62,6 @@ import org.opensearch.search.sort.SortBuilder;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.AssertJUnit;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.*;
-import static com.linkedin.metadata.utils.SearchUtil.*;
-import static io.datahubproject.test.search.SearchTestUtils.*;
-import static org.testng.Assert.*;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
 
