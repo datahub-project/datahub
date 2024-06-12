@@ -102,7 +102,6 @@ def auto_status_aspect(
     """
     all_urns: Set[str] = set()
     status_urns: Set[str] = set()
-    skip_urns: Set[str] = set()
     for wu in stream:
         urn = wu.get_urn()
         all_urns.add(urn)
@@ -127,14 +126,13 @@ def auto_status_aspect(
 
         yield wu
 
-    for urn in sorted(all_urns - status_urns - skip_urns):
+    for urn in sorted(all_urns - status_urns):
         entity_type = guess_entity_type(urn)
         if not entity_supports_aspect(entity_type, StatusClass):
             # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
             # Example like dataProcessInstance doesn't suppport status aspect.
             # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
             continue
-
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=StatusClass(removed=False),
