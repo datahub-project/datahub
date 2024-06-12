@@ -887,3 +887,37 @@ def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "vv_lineage_liquid_template_golden.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/vv-lineage-and-liquid-templates",
+    )
+
+    new_recipe["source"]["config"]["liquid_variable"] = {
+        "_user_attributes": {
+            "looker_env": "dev",
+            "dev_database_prefix": "employee",
+            "dev_schema_prefix": "public",
+        },
+        "dw_eff_dt_date": {
+            "_is_selected": True,
+        },
+    }
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "vv_lineage_liquid_template_golden.json.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )

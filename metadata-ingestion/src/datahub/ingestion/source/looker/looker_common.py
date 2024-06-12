@@ -139,6 +139,14 @@ def remove_suffix(original: str, suffix: str) -> str:
     return original
 
 
+def remove_extra_spaces_and_newlines(original: str) -> str:
+    """
+    python-liquid library is not removing extra spaces and new lines from template and hence spaces and newlines
+    are appearing in urn. This function can be used to remove such characters from urn or text.
+    """
+    return re.sub(r"\s*\n\s*", "", original)
+
+
 def deduplicate_fields(fields: List["ViewField"]) -> List["ViewField"]:
     # Remove duplicates filed from self.fields
     # Logic is: If more than a field has same ViewField.name then keep only one filed where ViewField.field_type

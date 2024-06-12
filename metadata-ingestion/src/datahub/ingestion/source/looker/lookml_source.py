@@ -412,7 +412,6 @@ class LookerView:
                         fields=fields,
                         liquid_variable=config.liquid_variable,
                     )
-
                     # resolve view name ${<view-name>.SQL_TABLE_NAME} to urn used in derived_table
                     # https://cloud.google.com/looker/docs/derived-tables
                     (fields, sql_table_names,) = resolve_derived_view_urn(

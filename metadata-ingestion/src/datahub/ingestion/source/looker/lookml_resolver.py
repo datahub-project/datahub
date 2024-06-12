@@ -1,8 +1,8 @@
-import ast
 import copy
 import itertools
 import logging
 import pathlib
+import re
 from dataclasses import replace
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, cast
 
@@ -15,6 +15,7 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerViewId,
     ViewField,
     ViewFieldValue,
+    remove_extra_spaces_and_newlines,
 )
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
@@ -49,10 +50,15 @@ def get_derived_view_urn(
     base_folder_path: str,
     config: LookMLSourceConfig,
 ) -> Optional[str]:
-
-    view_name: str = qualified_table_name.split(".")[
-        1
-    ]  # it is in format of part1.view_name.sql_table_name
+    # qualified_table_name can be in either of below format
+    # 1) db.schema.employee_income_source.sql_table_name
+    # 2) db.employee_income_source.sql_table_name
+    # 3) employee_income_source.sql_table_name
+    # In any of the form we need the text coming before ".sql_table_name" and after last "."
+    parts: List[str] = re.split(
+        DERIVED_VIEW_SUFFIX, qualified_table_name, flags=re.IGNORECASE
+    )
+    view_name: str = parts[0].split(".")[-1]
 
     looker_view_id: Optional[LookerViewId] = looker_view_id_cache.get_looker_view_id(
         view_name=view_name,
@@ -72,6 +78,7 @@ def resolve_derived_view_urn(
     fields: List[ViewField],
     upstream_urns: List[str],
 ) -> Tuple[List[ViewField], List[str]]:
+
     for field in fields:
         # if list is not list of ColumnRef then continue
         if field.upstream_fields and not isinstance(
@@ -158,6 +165,27 @@ def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
     return text
 
 
+def resolve_liquid_variable_in_view_dict(
+    raw_view: dict, liquid_variable: Dict[Any, Any]
+) -> None:
+    if "views" not in raw_view:
+        return
+
+    for view in raw_view["views"]:
+        if "sql_table_name" in view:
+            view["sql_table_name"] = resolve_liquid_variable(
+                text=remove_extra_spaces_and_newlines(view["sql_table_name"]),
+                liquid_variable=liquid_variable,
+            )
+
+        if "derived_table" in view and "sql" in view["derived_table"]:
+            # In sql we don't need to remove the extra spaces as sql parser takes care of extra spaces and \n
+            # while generating URN from sql
+            view["derived_table"]["sql"] = resolve_liquid_variable(
+                text=view["derived_table"]["sql"], liquid_variable=liquid_variable
+            )
+
+
 class LookerViewFileLoader:
     """
     Loads the looker viewfile at a :path and caches the LookerViewFile in memory
@@ -210,14 +238,13 @@ class LookerViewFileLoader:
             return None
         try:
             logger.debug(f"Loading viewfile {path}")
+
             parsed = load_lkml(path)
 
-            # replace any liquid variable
-            parsed_text: str = resolve_liquid_variable(
-                text=str(parsed),
+            resolve_liquid_variable_in_view_dict(
+                raw_view=parsed,
                 liquid_variable=self.liquid_variable,
             )
-            parsed = ast.literal_eval(parsed_text)
 
             looker_viewfile = LookerViewFile.from_looker_dict(
                 absolute_file_path=path,
