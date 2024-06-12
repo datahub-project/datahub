@@ -78,6 +78,7 @@ cd metadata-ingestion-modules/prefect-plugin
 ../../gradlew :metadata-ingestion-modules:prefect-plugin:installDev
 source venv/bin/activate
 datahub version   # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
 
 ### Common setup issues
 
