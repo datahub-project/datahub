@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Tooltip } from 'antd';
 import { useEntityRegistryV2 } from '../../../useEntityRegistry';
 import { EntityType, Owner } from '../../../../types.generated';
 import CustomAvatar from '../../../shared/avatar/CustomAvatar';
@@ -12,6 +13,13 @@ const Details = styled.div`
     color: ${REDESIGN_COLORS.SUBTITLE};
     font-size: 14px;
     font-weight: 500;
+`;
+
+const OwnerName = styled.div`
+    width: 110px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 `;
 
 interface Props {
@@ -34,8 +42,10 @@ const OwnerDetail = ({ owner }: Props) => {
             {!!ownerName && (
                 <>
                     <Details>
-                        {avatar}
-                        {ownerName}
+                        <div>{avatar}</div>
+                        <Tooltip title={ownerName}>
+                            <OwnerName>{ownerName}</OwnerName>
+                        </Tooltip>
                     </Details>
                 </>
             )}

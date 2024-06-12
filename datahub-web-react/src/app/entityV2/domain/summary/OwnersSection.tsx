@@ -19,6 +19,7 @@ const OwnersContainer = styled.div`
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
+    gap: 8px;
 `;
 
 const OwnershipContainer = styled.div`
