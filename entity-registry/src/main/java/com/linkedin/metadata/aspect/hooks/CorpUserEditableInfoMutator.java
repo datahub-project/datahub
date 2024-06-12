@@ -1,7 +1,5 @@
 package com.linkedin.metadata.aspect.hooks;
 
-import static com.linkedin.metadata.Constants.*;
-
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.aspect.ReadItem;
@@ -20,6 +18,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 @Setter
@@ -63,7 +63,7 @@ public class CorpUserEditableInfoMutator extends MutationHook {
     boolean mutated = false;
     final CorpUserEditableInfo previous = item.getPreviousAspect(CorpUserEditableInfo.class);
     final CorpUserEditableInfo next = item.getAspect(CorpUserEditableInfo.class);
-    if (next.getPersona() == null && previous.getPersona() != null) {
+    if (next != null && next.getPersona() == null && previous != null && previous.getPersona() != null) {
       next.setPersona(previous.getPersona());
       mutated = true;
       log.error(
