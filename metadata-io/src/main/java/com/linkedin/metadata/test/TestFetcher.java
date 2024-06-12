@@ -85,7 +85,7 @@ public class TestFetcher {
             List.of(TEST_ENTITY_NAME),
             query,
             null,
-            SORT_CRITERION,
+            Collections.singletonList(SORT_CRITERION),
             start,
             count);
     List<Urn> testUrns =

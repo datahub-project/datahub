@@ -1,15 +1,10 @@
 package com.linkedin.metadata.search.fixtures;
 
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
-import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.*;
+import static com.linkedin.metadata.utils.SearchUtil.*;
 import static io.datahubproject.test.search.SearchTestUtils.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -221,7 +216,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     SearchSourceBuilder builder = new SearchSourceBuilder();
     SortCriterion sortCriterion =
         new SortCriterion().setOrder(SortOrder.DESCENDING).setField(dateFieldName);
-    ESUtils.buildSortOrder(builder, sortCriterion, entitySpecs);
+    ESUtils.buildSortOrder(builder, Collections.singletonList(sortCriterion), entitySpecs);
     List<SortBuilder<?>> sorts = builder.sorts();
     assertEquals(sorts.size(), 2); // sort by last modified and then by urn
     for (SortBuilder sort : sorts) {
@@ -240,7 +235,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
     SearchSourceBuilder nameBuilder = new SearchSourceBuilder();
     SortCriterion nameCriterion =
         new SortCriterion().setOrder(SortOrder.ASCENDING).setField(entityNameField);
-    ESUtils.buildSortOrder(nameBuilder, nameCriterion, entitySpecs);
+    ESUtils.buildSortOrder(nameBuilder, Collections.singletonList(nameCriterion), entitySpecs);
     sorts = nameBuilder.sorts();
     assertEquals(sorts.size(), 2);
     for (SortBuilder sort : sorts) {
@@ -1984,7 +1979,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                 SEARCHABLE_ENTITIES,
                 query,
                 null,
-                criterion,
+                Collections.singletonList(criterion),
                 0,
                 100,
                 null);

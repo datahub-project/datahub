@@ -70,13 +70,13 @@ public class EntityIncidentsResolver
             final Filter filter =
                 buildIncidentsFilter(
                     entityUrn, maybeState, maybeStage, maybePriority, maybeAssigneeUrns);
-            final SortCriterion sortCriterion = buildIncidentsSortCriterion();
+            final List<SortCriterion> sortCriteria = buildIncidentsSortCriteria();
             final SearchResult searchResult =
                 _entityClient.filter(
                     context.getOperationContext(),
                     Constants.INCIDENT_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
 
@@ -146,10 +146,10 @@ public class EntityIncidentsResolver
     return QueryUtils.newListsFilter(criterionMap);
   }
 
-  private SortCriterion buildIncidentsSortCriterion() {
+  private List<SortCriterion> buildIncidentsSortCriteria() {
     final SortCriterion sortCriterion = new SortCriterion();
     sortCriterion.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
     sortCriterion.setOrder(SortOrder.DESCENDING);
-    return sortCriterion;
+    return Collections.singletonList(sortCriterion);
   }
 }

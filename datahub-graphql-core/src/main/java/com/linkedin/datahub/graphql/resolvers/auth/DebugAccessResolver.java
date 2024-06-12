@@ -32,6 +32,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -178,7 +179,7 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
             Constants.POLICY_ENTITY_NAME,
             "",
             buildFilterToGetPolicies(user, groups, roles),
-            sortCriterion,
+            Collections.singletonList(sortCriterion),
             0,
             10000)
         .getEntities()

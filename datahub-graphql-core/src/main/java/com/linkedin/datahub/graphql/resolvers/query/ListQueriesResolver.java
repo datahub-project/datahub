@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapSortCriterion;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
@@ -60,10 +60,14 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            SortCriterion sortCriterion =
+            List<SortCriterion> sortCriteria =
                 input.getSortInput() != null
-                    ? mapSortCriterion(input.getSortInput().getSortCriterion())
-                    : new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
+                    ? Collections.singletonList(
+                        mapSortCriterion(input.getSortInput().getSortCriterion()))
+                    : Collections.singletonList(
+                        new SortCriterion()
+                            .setField(CREATED_AT_FIELD)
+                            .setOrder(SortOrder.DESCENDING));
 
             // First, get all Query Urns.
             final SearchResult gmsResult =
@@ -75,7 +79,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                     QUERY_ENTITY_NAME,
                     query,
                     buildFilters(input),
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
 

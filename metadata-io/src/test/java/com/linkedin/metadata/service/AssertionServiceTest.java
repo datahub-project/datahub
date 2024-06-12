@@ -1,12 +1,9 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.service.AssertionService.ENTITY_TYPES_WITH_ASSERTION_SUMMARIES;
-import static com.linkedin.metadata.service.AssertionService.FAILING_ASSERTIONS_INDEX_FIELD_NAME;
-import static com.linkedin.metadata.service.AssertionService.MAX_ENTITIES_TO_LIST;
-import static com.linkedin.metadata.service.AssertionService.PASSING_ASSERTIONS_INDEX_FIELD_NAME;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
+import static com.linkedin.metadata.service.AssertionService.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -1187,7 +1184,7 @@ public class AssertionServiceTest {
                 Mockito.eq(expectedFilter),
                 Mockito.eq(0),
                 Mockito.eq(MAX_ENTITIES_TO_LIST),
-                Mockito.eq(null)))
+                Mockito.eq(Collections.emptyList())))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)

@@ -333,7 +333,7 @@ public class AssertionService extends BaseService {
               buildFilterForAssertionSummary(assertionUrn),
               0,
               MAX_ENTITIES_TO_LIST,
-              null);
+              Collections.emptyList());
       if (result == null || !result.hasEntities()) {
         return Collections.emptyList();
       }

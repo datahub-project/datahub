@@ -18,6 +18,9 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
+import java.util.List;
+import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -56,7 +59,7 @@ public class SearchResolverTest {
         Constants.DATASET_ENTITY_NAME, // Verify that merged entity types were used.
         "",
         null,
-        null,
+        Collections.emptyList(),
         0,
         10,
         setConvertSchemaFieldsToDatasets(
@@ -97,7 +100,7 @@ public class SearchResolverTest {
         Constants.DATASET_ENTITY_NAME, // Verify that merged entity types were used.
         "",
         null,
-        null,
+        Collections.emptyList(),
         1,
         11,
         setConvertSchemaFieldsToDatasets(
@@ -129,7 +132,7 @@ public class SearchResolverTest {
         Constants.DATASET_ENTITY_NAME, // Verify that merged entity types were used.
         "not a wildcard",
         null, // Verify that view filter was used.
-        null,
+        Collections.emptyList(),
         0,
         10,
         setConvertSchemaFieldsToDatasets(
@@ -170,7 +173,7 @@ public class SearchResolverTest {
       String entityName,
       String query,
       Filter filter,
-      SortCriterion sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       int start,
       int limit,
       com.linkedin.metadata.query.SearchFlags searchFlags)
@@ -181,7 +184,7 @@ public class SearchResolverTest {
             Mockito.eq(entityName),
             Mockito.eq(query),
             Mockito.eq(filter),
-            Mockito.eq(sortCriterion),
+            Mockito.eq(sortCriteria),
             Mockito.eq(start),
             Mockito.eq(limit));
   }

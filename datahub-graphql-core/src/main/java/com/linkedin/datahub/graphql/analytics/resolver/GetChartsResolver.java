@@ -1,8 +1,7 @@
 package com.linkedin.datahub.graphql.analytics.resolver;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.ADMIN_USER_URN;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -161,9 +160,10 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
                                             .setValue(
                                                 String.valueOf(
                                                     trailingMonthDateRange.getStart())))))))),
-        new SortCriterion()
-            .setField(CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME)
-            .setOrder(SortOrder.DESCENDING),
+        Collections.singletonList(
+            new SortCriterion()
+                .setField(CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME)
+                .setOrder(SortOrder.DESCENDING)),
         0,
         100);
   }

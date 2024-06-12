@@ -332,7 +332,7 @@ public class AggregateAcrossEntitiesResolverTest {
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
-                Mockito.eq(null),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(null)))
         .thenThrow(new RemoteInvocationException());
 
@@ -405,7 +405,7 @@ public class AggregateAcrossEntitiesResolverTest {
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.eq(null),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(facets)))
         .thenReturn(result);
     return client;
@@ -428,7 +428,7 @@ public class AggregateAcrossEntitiesResolverTest {
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
-            Mockito.eq(null),
+            Mockito.eq(Collections.emptyList()),
             Mockito.eq(facets));
   }
 

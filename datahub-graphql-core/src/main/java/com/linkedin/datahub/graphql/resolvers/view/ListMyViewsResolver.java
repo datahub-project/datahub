@@ -74,7 +74,7 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
                     buildFilters(viewType, context.getActorUrn()),
-                    DEFAULT_SORT_CRITERION,
+                    Collections.singletonList(DEFAULT_SORT_CRITERION),
                     start,
                     count);
 
