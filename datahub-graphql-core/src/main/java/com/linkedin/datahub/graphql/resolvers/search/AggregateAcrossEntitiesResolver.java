@@ -1,9 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -21,6 +19,7 @@ import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -98,7 +97,7 @@ public class AggregateAcrossEntitiesResolver
                         : baseFilter,
                     0,
                     0, // 0 entity count because we don't want resolved entities
-                    null,
+                    Collections.emptyList(),
                     facets));
           } catch (Exception e) {
             log.error(

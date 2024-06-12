@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.SearchInput;
@@ -19,6 +19,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -85,7 +86,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                     entityName,
                     sanitizedQuery,
                     ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
-                    null,
+                    Collections.emptyList(),
                     start,
                     count));
           } catch (Exception e) {

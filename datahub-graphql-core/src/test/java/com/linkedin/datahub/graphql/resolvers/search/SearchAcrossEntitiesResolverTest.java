@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -500,7 +500,7 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.eq(null)))
+                Mockito.eq(Collections.emptyList())))
         .thenReturn(result);
     return client;
   }
@@ -521,7 +521,7 @@ public class SearchAcrossEntitiesResolverTest {
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
-            Mockito.eq(null));
+            Mockito.eq(Collections.emptyList()));
   }
 
   private static void verifyMockViewService(ViewService mockService, Urn viewUrn) {
