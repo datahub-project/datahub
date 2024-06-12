@@ -68,7 +68,7 @@ export const DataContractTab = () => {
 
     return (
         <>
-            {(data?.dataset?.contract && (
+            {data?.dataset?.contract ? (
                 <>
                     <DataContractSummary
                         state={contractState}
@@ -92,17 +92,18 @@ export const DataContractTab = () => {
                             </LeftColumn>
                         )}
                         <RightColumn>
-                            {(hasDataQualityContract && (
+                            {hasDataQualityContract ? (
                                 <DataQualityContractSummary
                                     contracts={dataQualityContracts as any}
                                     showAction={false}
                                 />
-                            )) ||
-                                undefined}
+                            ) : undefined}
                         </RightColumn>
                     </Container>
                 </>
-            )) || <DataContractEmptyState showContractBuilder={() => setShowContractBuilder(true)} />}
+            ) : (
+                <DataContractEmptyState showContractBuilder={() => setShowContractBuilder(true)} />
+            )}
             {showContractBuilder && (
                 <DataContractBuilderModal
                     initialState={createBuilderState(data?.dataset?.contract as any)}

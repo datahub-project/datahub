@@ -2,26 +2,15 @@ import React, { useState } from 'react';
 import { message, Button, Tooltip } from 'antd';
 import styled from 'styled-components';
 import lodash from 'lodash';
-import {
-    DataContract,
-    AssertionType,
-    // DataContractProposalOperationType,
-    // ActionRequestType,
-    EntityType,
-    Assertion,
-} from '../../../../../../../../types.generated';
+import { DataContract, AssertionType, EntityType, Assertion } from '../../../../../../../../types.generated';
 import { DataContractBuilderState, DataContractCategoryType, DEFAULT_BUILDER_STATE } from './types';
 import { buildUpsertDataContractMutationVariables } from './utils';
-import {
-    // useProposeDataContractMutation,
-    useUpsertDataContractMutation,
-} from '../../../../../../../../graphql/contract.generated';
+import { useUpsertDataContractMutation } from '../../../../../../../../graphql/contract.generated';
 import { createAssertionGroups } from '../../utils';
 import { DataContractAssertionGroupSelect } from './DataContractAssertionGroupSelect';
 import { ANTD_GRAY } from '../../../../../constants';
 import { DATA_QUALITY_ASSERTION_TYPES } from '../utils';
 import { useGetDatasetAssertionsQuery } from '../../../../../../../../graphql/dataset.generated';
-// import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 
 const AssertionsSection = styled.div`
     border: 0.5px solid ${ANTD_GRAY[4]};
@@ -69,7 +58,6 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
     const isEdit = !!initialState;
     const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
-    // const [proposeDataContractMutation] = useProposeDataContractMutation();
 
     // note that for contracts, we do not allow the use of sibling node assertions, for clarity.
     const { data } = useGetDatasetAssertionsQuery({

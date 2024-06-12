@@ -53,7 +53,7 @@ export const DEFAULT_APP_CONFIG = {
         nestedDomainsEnabled: true,
         platformBrowseV2: false,
         businessAttributeEntityEnabled: false,
-        dataContractsEnabled: true,
+        dataContractsEnabled: false,
     },
 };
 

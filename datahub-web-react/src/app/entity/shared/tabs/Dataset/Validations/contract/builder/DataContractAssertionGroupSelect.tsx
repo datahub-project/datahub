@@ -40,7 +40,7 @@ export const DataContractAssertionGroupSelect = ({
     return (
         <>
             <Category>
-                {category} <Hint> {!multiple && `(Choose 1)`}</Hint>
+                {category} <Hint> {!multiple ? `(Choose 1)` : ''}</Hint>
             </Category>
             <DatasetAssertionsList
                 assertions={assertions}
@@ -48,9 +48,6 @@ export const DataContractAssertionGroupSelect = ({
                 showSelect
                 selectedUrns={selectedUrns}
                 onSelect={onSelect}
-                // canEditAssertions={false}
-                // canEditMonitors={false}
-                // canEditSqlAssertions={false}
             />
         </>
     );

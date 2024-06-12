@@ -9,12 +9,44 @@ import {
     VolumeAssertionInfo,
     VolumeAssertionType,
 } from '../../../../../../types.generated';
-import { getIsRowCountChange, getVolumeTypeInfo } from './assertion/builder/steps/volume/utils';
 import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
 import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;
+};
+
+export type VolumeTypeField =
+    | 'rowCountTotal'
+    | 'rowCountChange'
+    | 'incrementingSegmentRowCountTotal'
+    | 'incrementingSegmentRowCountChange';
+
+export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
+    switch (type) {
+        case VolumeAssertionType.RowCountTotal:
+            return 'rowCountTotal' as VolumeTypeField;
+        case VolumeAssertionType.RowCountChange:
+            return 'rowCountChange' as VolumeTypeField;
+        case VolumeAssertionType.IncrementingSegmentRowCountTotal:
+            return 'incrementingSegmentRowCountTotal' as VolumeTypeField;
+        case VolumeAssertionType.IncrementingSegmentRowCountChange:
+            return 'incrementingSegmentRowCountChange' as VolumeTypeField;
+        default:
+            throw new Error(`Unknown volume assertion type: ${type}`);
+    }
+};
+
+export const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
+    const result = volumeAssertion[getPropertyFromVolumeType(volumeAssertion.type)];
+    if (!result) {
+        return undefined;
+    }
+    return result;
+};
+
+export const getIsRowCountChange = (type: VolumeAssertionType) => {
+    return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);
 };
 
 const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
@@ -56,10 +88,16 @@ const getValueChangeTypeDescription = (valueChangeType: AssertionValueChangeType
 
 const getParameterDescription = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
-        return formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value));
+        return formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value),
+        );
     }
     if (parameters.minValue && parameters.maxValue) {
-        return `${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value))} and ${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value))}`;
+        return `${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value),
+        )} and ${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value),
+        )}`;
     }
     throw new Error('Invalid assertion parameters provided');
 };

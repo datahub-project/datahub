@@ -1,5 +1,6 @@
 import React from 'react';
 import { Typography } from 'antd';
+import { FieldAssertionInfo } from '../../../../../../types.generated';
 import {
     getFieldDescription,
     getFieldOperatorDescription,
@@ -8,7 +9,7 @@ import {
 } from './fieldDescriptionUtils';
 
 type Props = {
-    assertionInfo: any;
+    assertionInfo: FieldAssertionInfo;
 };
 
 /**

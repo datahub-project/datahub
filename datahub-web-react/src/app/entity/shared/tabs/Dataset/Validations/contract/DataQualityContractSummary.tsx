@@ -8,7 +8,7 @@ import { DataContractSummaryFooter } from './DataContractSummaryFooter';
 import { DatasetAssertionDescription } from '../DatasetAssertionDescription';
 import { FieldAssertionDescription } from '../FieldAssertionDescription';
 import { SqlAssertionDescription } from '../SqlAssertionDescription';
-// import { VolumeAssertionDescription } from '../VolumeAssertionDescription';
+import { VolumeAssertionDescription } from '../VolumeAssertionDescription';
 
 const TitleText = styled.div`
     color: ${ANTD_GRAY[7]};
@@ -54,9 +54,9 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                             assertionInfo={assertion.info?.datasetAssertion as DatasetAssertionInfo}
                         />
                     )}
-                    {/* {assertion.info?.volumeAssertion && (
+                    {assertion.info?.volumeAssertion && (
                         <VolumeAssertionDescription assertionInfo={assertion.info?.volumeAssertion} />
-                    )} */}
+                    )}
                     {assertion.info?.fieldAssertion && (
                         <FieldAssertionDescription assertionInfo={assertion.info?.fieldAssertion} />
                     )}

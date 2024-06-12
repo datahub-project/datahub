@@ -58,9 +58,6 @@ type Props = {
     showContractBuilder: () => void;
 };
 
-/**
- *  Displaying a Data Contract proposal for an entity.
- */
 
 export const DataContractEmptyState = ({ showContractBuilder }: Props) => {
     return (

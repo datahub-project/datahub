@@ -209,20 +209,6 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
     return summary;
 };
 
-/**
- * TODO: We will remove this mapping code once we replace the OSS legacy assertions summary with the new
- * format.
- */
-export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
-    const newSummary = getAssertionsSummary(assertions);
-    return {
-        failedRuns: newSummary.failing,
-        succeededRuns: newSummary.passing,
-        erroredRuns: newSummary.erroring,
-        totalRuns: newSummary.total,
-        totalAssertions: newSummary.totalAssertions,
-    };
-};
 
 // /**
 //  * Returns a list of assertion groups, where assertions are grouped

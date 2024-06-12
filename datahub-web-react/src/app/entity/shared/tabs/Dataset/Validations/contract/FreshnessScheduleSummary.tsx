@@ -1,20 +1,20 @@
 import React from 'react';
 import cronstrue from 'cronstrue';
-// import {
-//     FreshnessAssertionSchedule,
-//     FreshnessAssertionScheduleType,
-//     CronSchedule,
-// } from '../../../../../../../types.generated';
+import {
+    FreshnessAssertionSchedule,
+    FreshnessAssertionScheduleType,
+    CronSchedule,
+} from '../../../../../../../types.generated';
 import { capitalizeFirstLetter } from '../../../../../../shared/textUtil';
 
-// type Props = {
-//     definition: FreshnessAssertionSchedule;
-//     evaluationSchedule?: CronSchedule; // When the assertion is run.
-// };
+type Props = {
+    definition: FreshnessAssertionSchedule;
+    evaluationSchedule?: CronSchedule; // When the assertion is run.
+};
 
 export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: any) => {
     const scheduleText =
-        definition.type === 'CRON' //FreshnessAssertionScheduleType.Cron
+        definition.type === FreshnessAssertionScheduleType.Cron
             ? `${capitalizeFirstLetter(cronstrue.toString(definition.cron?.cron as string))}.`
             : `In the past ${
                   definition.fixedInterval?.multiple
