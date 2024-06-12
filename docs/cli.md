@@ -353,10 +353,10 @@ datahub dataset get --urn "$URN" --to-file "$FILE_NAME"
 The `upsert` operation can be used to create a new user or update an existing one.
 
 ```shell
-datahub dataset upsert -f "$FILE_NAME"
+datahub dataset upsert -f dataset.yaml
 ```
 
-An example of `users.yaml` would look like the following. You can refer to the [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/dataset/dataset.yaml) file for the complete code.
+An example of `dataset.yaml` would look like in [dataset.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/dataset/dataset.yaml).
 
 
 ### user (User Entity)
@@ -369,7 +369,7 @@ For detailed information, please refer to [Creating Users and Groups with Datahu
 datahub user upsert -f users.yaml
 ```
 
-An example of `users.yaml` would look like the following. You can refer to the [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
+An example of `users.yaml` would look like in [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
 
 ```yaml
 - id: bar@acryl.io
@@ -397,7 +397,7 @@ For more information, please refer to [Creating Users and Groups with Datahub CL
 datahub group upsert -f group.yaml
 ```
 
-An example of `group.yaml` would look like the following. You can refer to the [foo.group.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/group/foo.group.dhub.yaml) file for the complete code.
+An example of `group.yaml` would look like in [foo.group.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/group/foo.group.dhub.yaml) file for the complete code.
 
 ```yaml
 id: foogroup@acryl.io
