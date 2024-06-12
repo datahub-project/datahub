@@ -39,9 +39,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   @Nonnull
   protected abstract RestHighLevelClient getSearchClient();
 
-  private static IndicesClient _indexClient;
+  private IndicesClient _indexClient;
   private static final String TEST_INDEX_NAME = "esindex_builder_test";
-  private static ESIndexBuilder testDefaultBuilder;
+  private ESIndexBuilder testDefaultBuilder;
 
   @BeforeClass
   public void setup() {
@@ -62,7 +62,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   }
 
   @BeforeMethod
-  public static void wipe() throws Exception {
+  public void wipe() throws Exception {
     try {
       _indexClient
           .getAlias(new GetAliasesRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
@@ -85,7 +85,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     }
   }
 
-  public static GetIndexResponse getTestIndex() throws IOException {
+  public GetIndexResponse getTestIndex() throws IOException {
     return _indexClient.get(
         new GetIndexRequest(TEST_INDEX_NAME).includeDefaults(true), RequestOptions.DEFAULT);
   }

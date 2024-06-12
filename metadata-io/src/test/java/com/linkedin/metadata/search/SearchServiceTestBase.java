@@ -107,6 +107,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(operationContext);
     syncAfterWrite(getBulkProcessor());
   }

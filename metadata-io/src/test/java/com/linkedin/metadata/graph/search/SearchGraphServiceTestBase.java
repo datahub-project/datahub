@@ -12,7 +12,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
-import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
@@ -41,6 +40,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.junit.Assert;
@@ -64,19 +65,18 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   private final IndexConvention _indexConvention = IndexConventionImpl.NO_PREFIX;
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
-  private boolean _enableMultiPathSearch =
-      GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch();
 
   private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void setup() {
-    _client = buildService(_enableMultiPathSearch);
+    _client = buildService(_graphQueryConfiguration.isEnableMultiPathSearch());
     _client.configure();
   }
 
   @BeforeMethod
   public void wipe() throws Exception {
+    syncAfterWrite();
     _client.clear();
     syncAfterWrite();
   }
@@ -97,14 +97,10 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     } catch (EntityRegistryException e) {
       throw new RuntimeException(e);
     }
-    GraphQueryConfiguration configuration = GraphQueryConfiguration.testDefaults;
-    configuration.setEnableMultiPathSearch(enableMultiPathSearch);
+    _graphQueryConfiguration.setEnableMultiPathSearch(enableMultiPathSearch);
     ESGraphQueryDAO readDAO =
         new ESGraphQueryDAO(
-            getSearchClient(),
-            lineageRegistry,
-            _indexConvention,
-            GraphQueryConfiguration.testDefaults);
+            getSearchClient(), lineageRegistry, _indexConvention, _graphQueryConfiguration);
     ESGraphWriteDAO writeDAO = new ESGraphWriteDAO(_indexConvention, getBulkProcessor(), 1);
     return new ElasticSearchGraphService(
         lineageRegistry,
@@ -118,8 +114,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   @Nonnull
   protected GraphService getGraphService(boolean enableMultiPathSearch) {
-    if (enableMultiPathSearch != _enableMultiPathSearch) {
-      _enableMultiPathSearch = enableMultiPathSearch;
+    if (enableMultiPathSearch != _graphQueryConfiguration.isEnableMultiPathSearch()) {
       _client = buildService(enableMultiPathSearch);
       _client.configure();
     }
@@ -129,7 +124,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   @Nonnull
   protected GraphService getGraphService() {
-    return getGraphService(GraphQueryConfiguration.testDefaults.isEnableMultiPathSearch());
+    return getGraphService(_graphQueryConfiguration.isEnableMultiPathSearch());
   }
 
   @Override
@@ -305,26 +300,15 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     assertEquals(result.getTotal(), 0);
   }
 
-  @Test
-  @Override
-  public void testConcurrentAddEdge() {
-    // https://github.com/datahub-project/datahub/issues/3124
-    throw new SkipException(
-        "This test is flaky for ElasticSearchGraphService, ~5% of the runs fail on a race condition");
-  }
-
-  @Test
-  @Override
-  public void testConcurrentRemoveEdgesFromNode() {
-    // https://github.com/datahub-project/datahub/issues/3118
-    throw new SkipException("ElasticSearchGraphService produces duplicates");
-  }
-
-  @Test
-  @Override
-  public void testConcurrentRemoveNodes() {
-    // https://github.com/datahub-project/datahub/issues/3118
-    throw new SkipException("ElasticSearchGraphService produces duplicates");
+  // ElasticSearchGraphService produces duplicates
+  // https://github.com/datahub-project/datahub/issues/3118
+  protected Set<RelatedEntity> deduplicateRelatedEntitiesByRelationshipTypeAndDestination(
+      RelatedEntitiesResult relatedEntitiesResult) {
+    return relatedEntitiesResult.getEntities().stream()
+        .map(
+            relatedEntity ->
+                new RelatedEntity(relatedEntity.getRelationshipType(), relatedEntity.getUrn()))
+        .collect(Collectors.toSet());
   }
 
   @Test
