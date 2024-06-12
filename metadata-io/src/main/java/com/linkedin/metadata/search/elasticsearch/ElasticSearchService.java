@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch;
 
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
@@ -33,8 +35,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchResponse;
-
-import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 @Slf4j
 @RequiredArgsConstructor

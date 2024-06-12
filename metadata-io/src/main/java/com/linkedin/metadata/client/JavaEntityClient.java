@@ -1,5 +1,8 @@
 package com.linkedin.metadata.client;
 
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
+
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -71,9 +74,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 @Slf4j
 @RequiredArgsConstructor

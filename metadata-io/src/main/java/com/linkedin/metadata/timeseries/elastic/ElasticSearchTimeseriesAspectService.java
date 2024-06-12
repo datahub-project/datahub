@@ -1,5 +1,7 @@
 package com.linkedin.metadata.timeseries.elastic;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ESQueryException;
@@ -75,8 +77,6 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortBuilders;
 import org.opensearch.search.sort.SortOrder;
-
-import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class ElasticSearchTimeseriesAspectService

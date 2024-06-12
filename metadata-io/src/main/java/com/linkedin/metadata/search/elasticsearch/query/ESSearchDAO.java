@@ -1,5 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
+import static com.linkedin.metadata.utils.SearchUtil.*;
+
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -60,10 +64,6 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.SearchModule;
 import org.opensearch.search.builder.SearchSourceBuilder;
-
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
-import static com.linkedin.metadata.utils.SearchUtil.*;
 
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
@@ -370,7 +370,9 @@ public class ESSearchDAO {
     Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
-                entitySpec, searchConfiguration, customSearchConfiguration,
+                entitySpec,
+                searchConfiguration,
+                customSearchConfiguration,
                 opContext.getRetrieverContext().get().getAspectRetriever())
             .getFilterRequest(opContext, transformedFilters, sortCriteria, from, size);
 

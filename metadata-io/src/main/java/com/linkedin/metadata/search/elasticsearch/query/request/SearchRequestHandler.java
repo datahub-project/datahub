@@ -1,5 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import static com.linkedin.metadata.search.api.SearchDocFieldFetchConfig.*;
+import static com.linkedin.metadata.search.utils.ESUtils.*;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -67,9 +70,6 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightField;
 import org.opensearch.search.suggest.term.TermSuggestion;
-
-import static com.linkedin.metadata.search.api.SearchDocFieldFetchConfig.*;
-import static com.linkedin.metadata.search.utils.ESUtils.*;
 
 @Slf4j
 public class SearchRequestHandler {
