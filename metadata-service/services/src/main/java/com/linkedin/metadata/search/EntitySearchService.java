@@ -367,7 +367,7 @@ public interface EntitySearchService {
    * @param input the search input text
    * @param predicateFilter the request map with fields and values as filters to be applied to
    *     search hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param facets list of facets we want aggregations for
@@ -380,7 +380,7 @@ public interface EntitySearchService {
       @Nonnull List<String> entityNames,
       @Nonnull String input,
       @Nullable Predicate predicateFilter,
-      @Nullable SortCriterion sortCriterion,
+      @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
       @Nullable List<String> facets);
