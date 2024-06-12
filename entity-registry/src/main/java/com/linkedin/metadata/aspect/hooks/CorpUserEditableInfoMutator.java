@@ -1,5 +1,7 @@
 package com.linkedin.metadata.aspect.hooks;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.metadata.aspect.ReadItem;
@@ -19,9 +21,6 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-
-
 @Slf4j
 @Setter
 @Getter
@@ -30,8 +29,8 @@ public class CorpUserEditableInfoMutator extends MutationHook {
   @Nonnull private AspectPluginConfig config;
 
   /*
-  TODO: Ideally we are sending in patches that don't overwrite
-*/
+    TODO: Ideally we are sending in patches that don't overwrite
+  */
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
       @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
@@ -40,7 +39,7 @@ public class CorpUserEditableInfoMutator extends MutationHook {
 
     for (ChangeMCP item : changeMCPS) {
       if (changeTypeFilter(item) && aspectFilter(item)) {
-          results.add(Pair.of(item, processEditableCorpUserInfoAspect(item)));
+        results.add(Pair.of(item, processEditableCorpUserInfoAspect(item)));
       } else {
         // no op
         results.add(Pair.of(item, false));

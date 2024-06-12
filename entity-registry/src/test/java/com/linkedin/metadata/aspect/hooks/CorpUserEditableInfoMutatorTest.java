@@ -1,5 +1,9 @@
 package com.linkedin.metadata.aspect.hooks;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -22,10 +26,6 @@ import java.util.stream.Collectors;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
-
 public class CorpUserEditableInfoMutatorTest {
 
   private EntityRegistry entityRegistry;
@@ -36,9 +36,7 @@ public class CorpUserEditableInfoMutatorTest {
 
   @BeforeTest
   public void init() throws URISyntaxException {
-    testCorpUserUrn =
-        CorpuserUrn.createFromUrn(
-            UrnUtils.getUrn("urn:li:corpuser:someuser"));
+    testCorpUserUrn = CorpuserUrn.createFromUrn(UrnUtils.getUrn("urn:li:corpuser:someuser"));
 
     entityRegistry = new TestEntityRegistry();
     AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
@@ -81,16 +79,17 @@ public class CorpUserEditableInfoMutatorTest {
   @Test
   public void testValidatePersonaNonNull() {
     Urn persona = UrnUtils.getUrn("urn:li:dataHubPersona:123456");
-    CorpUserEditableInfo oldAspect = new CorpUserEditableInfo()
-        .setPersona(persona);
+    CorpUserEditableInfo oldAspect = new CorpUserEditableInfo().setPersona(persona);
     CorpUserEditableInfo newAspect = new CorpUserEditableInfo();
 
-    List<Pair<ChangeMCP, Boolean>> result = test.writeMutation(
-            TestMCP.ofOneMCP(testCorpUserUrn, oldAspect, newAspect, entityRegistry), mockRetrieverContext)
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(
+                TestMCP.ofOneMCP(testCorpUserUrn, oldAspect, newAspect, entityRegistry),
+                mockRetrieverContext)
             .collect(Collectors.toList());
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
-    assertEquals(result.get(0).getFirst().getAspect(CorpUserEditableInfo.class).getPersona(), persona);
+    assertEquals(
+        result.get(0).getFirst().getAspect(CorpUserEditableInfo.class).getPersona(), persona);
   }
-
 }
