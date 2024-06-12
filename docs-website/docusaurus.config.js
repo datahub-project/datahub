@@ -182,6 +182,10 @@ module.exports = {
                 },
             ],
         },
+        {
+          type: "docsVersionDropdown",
+          docsPluginId: "docs-acryl",
+       }
       ],
     },
     footer: {
@@ -310,6 +314,15 @@ module.exports = {
     ],
   ],
   plugins: [
+      [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'docs-acryl',
+        path: 'genDocs',
+        sidebarPath: './sidebarsAcryl.js',
+        // ... other options
+      },
+    ],
     [
       '@docusaurus/plugin-client-redirects',
       {
