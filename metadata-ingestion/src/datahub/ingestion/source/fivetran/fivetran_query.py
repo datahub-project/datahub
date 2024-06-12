@@ -1,4 +1,7 @@
 class FivetranLogQuery:
+    # Note: All queries are written in Snowflake SQL.
+    # They will be transpiled to the target database's SQL dialect at runtime.
+
     def __init__(self) -> None:
         # Select query db clause
         self.db_clause: str = ""
@@ -10,16 +13,19 @@ class FivetranLogQuery:
         return f"use database {db_name}"
 
     def get_connectors_query(self) -> str:
-        return f"""
-        SELECT connector_id,
-        connecting_user_id,
-        connector_type_id,
-        connector_name,
-        paused,
-        sync_frequency,
-        destination_id
-        FROM {self.db_clause}connector
-        WHERE _fivetran_deleted = FALSE"""
+        return f"""\
+SELECT
+  connector_id,
+  connecting_user_id,
+  connector_type_id,
+  connector_name,
+  paused,
+  sync_frequency,
+  destination_id
+FROM {self.db_clause}connector
+WHERE
+  _fivetran_deleted = FALSE\
+"""
 
     def get_users_query(self) -> str:
         return f"""
