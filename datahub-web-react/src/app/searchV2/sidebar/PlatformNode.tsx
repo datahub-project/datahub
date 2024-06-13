@@ -85,11 +85,14 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
     const color = REDESIGN_COLORS.TEXT_HEADING;
 
     const nodeStyle = {
-        padding: '7px',
+        padding: '4px',
         margin: '0px',
         background: collapsed ? '#fff' : isOpen && REDESIGN_COLORS.BACKGROUND_GRAY_4,
         borderLeft: isOpen && '1px solid #fff',
         borderRight: isOpen && '1px solid #fff',
+        justifyContent: collapsed ? 'center' : 'start',
+        display: 'flex',
+        flexDirection: 'column',
     };
 
     const onClick = () => {
@@ -107,6 +110,7 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
                     $isSelected={isPlatformOnlySelected}
                     showBorder
                     onClick={onClick}
+                    style={{ justifyContent: collapsed ? 'center' : 'start' }}
                 >
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
@@ -116,21 +120,15 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
                             dataTestId={`browse-platform-${label}`}
                             style={{
                                 marginRight: 4,
-                                transform:
-                                    collapsed ? 'translateX(-100%)' :
-                                        isOpen && 'rotate(90deg) translateX(0)'
-                                        || 'translateX(0)',
+                                transform: isOpen && 'rotate(90deg)',
                                 transition: 'transform 200ms ease',
+                                ...(collapsed && { display: 'none' }),
                             }}
                         />
                         <PlatformIcon
                             platform={platformAggregation.entity as DataPlatform}
                             size={iconSize}
                             color={REDESIGN_COLORS.BORDER_1}
-                            styles={{
-                                transform: collapsed ? 'translateX(-65%)' : 'translateX(0)',
-                                transition: 'transform 200ms ease',
-                            }}
                         />
                         {!collapsed && (
                             <ExpandableNode.Title

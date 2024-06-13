@@ -81,7 +81,11 @@ const ThinDivider = styled(Divider)`
 
 const SidebarBody = styled.div`
     height: calc(100% - 47px);
+    overflow: auto;
     white-space: nowrap;
+    scrollbar-gutter: stable;
+    -moz-scrollbar-gutter: stable;
+    -webkit-scrollbar-gutter: stable;
 `;
 
 const StyledSidebarBackArrow = styled(SidebarBackArrow)<{ direction: 'left' | 'right' }>`

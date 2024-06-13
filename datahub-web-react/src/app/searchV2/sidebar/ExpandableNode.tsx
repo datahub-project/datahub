@@ -41,9 +41,7 @@ ExpandableNode.Header = styled.div<{
     justify-content: start;
     cursor: pointer;
     user-select: none;
-    padding-top: 2px;
-    padding-bottom: 2px;
-    padding-right: 2px;
+    padding: 4px;
     gap: 4px;
     border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
 `;
