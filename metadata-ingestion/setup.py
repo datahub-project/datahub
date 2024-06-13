@@ -67,6 +67,10 @@ plugin_common = {
     *pydantic_no_v2,
 }
 
+debug_requirements = {
+    "memray",
+}
+
 rest_common = {"requests", "requests_file"}
 
 kafka_common = {
@@ -197,6 +201,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
+    *debug_requirements,
 } | classification_lib
 
 trino = {
@@ -485,10 +490,6 @@ mypy_stubs = {
 pytest_dep = "pytest>=6.2.2"
 deepdiff_dep = "deepdiff"
 test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
-
-debug_requirements = {
-    "memray",
-}
 
 base_dev_requirements = {
     *base_requirements,
