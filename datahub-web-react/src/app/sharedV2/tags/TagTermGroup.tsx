@@ -79,13 +79,17 @@ const ProposedTermContainer = styled.div`
     }
 `;
 
-const ProposedTerm = styled(AntTag)`
-    opacity: 0.7;
+export const ProposedTerm = styled(AntTag)`
     padding: 3px 8px;
     font-size: 12px;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
     position: relative;
     overflow: hidden;
+    border: 1px dashed;
+`;
+
+export const ProposedTag = styled(StyledTag)`
+    border: 1px dashed;
 `;
 
 const ProposedTermText = styled.span`
@@ -381,7 +385,7 @@ export default function TagTermGroup({
             })}
             {proposedTags?.map((actionRequest) => (
                 <Tooltip overlay="Pending approval from owners">
-                    <StyledTag
+                    <ProposedTag
                         data-testid={`proposed-tag-${actionRequest?.params?.tagProposal?.tag?.properties?.name}`}
                         $colorHash={actionRequest?.params?.tagProposal?.tag?.urn}
                         $color={actionRequest?.params?.tagProposal?.tag?.properties?.colorHex}
@@ -402,7 +406,7 @@ export default function TagTermGroup({
                             />
                             <ClockCircleOutlined style={{ color: 'orange', marginLeft: '3%' }} />
                         </span>
-                    </StyledTag>
+                    </ProposedTag>
                 </Tooltip>
             ))}
             {showEmptyMessage && canAddTag && tagsEmpty && (

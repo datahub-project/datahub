@@ -26,6 +26,7 @@ import useDescriptionRenderer from './utils/useDescriptionRenderer';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import useKeyboardControls from './useKeyboardControls';
+import { ProposedTag, ProposedTerm } from '../../../../../sharedV2/tags/TagTermGroup';
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;
@@ -102,6 +103,9 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& .selected-row {
         background: ${REDESIGN_COLORS.BACKGROUND_PURPLE} !important;
+        ${ProposedTerm}, ${ProposedTag} {
+            background-color: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_2}!important;
+        }
     }
 
     &&& .level-0 td .row-icon-container .row-icon {
