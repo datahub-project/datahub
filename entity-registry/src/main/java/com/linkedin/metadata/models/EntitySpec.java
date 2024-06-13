@@ -20,6 +20,9 @@ import org.apache.commons.lang.StringUtils;
 
 /** A specification of a DataHub Entity */
 public interface EntitySpec {
+
+  String ARRAY_WILDCARD = "*";
+
   String getName();
 
   EntityAnnotation getEntityAnnotation();
@@ -148,7 +151,11 @@ public interface EntitySpec {
           List<String> paths = new ArrayList<>();
           paths.add(aspectSpec.getName());
           paths.addAll(searchableFieldSpec.getPath().getPathComponents());
-          PathSpec pathSpec = new PathSpec(paths);
+          PathSpec pathSpec =
+              new PathSpec(
+                  paths.stream()
+                      .filter(str -> !ARRAY_WILDCARD.equals(str))
+                      .collect(Collectors.toList()));
           return new Pair<>(pathSpec, fieldName);
         };
     BinaryOperator<String> mergeFn =

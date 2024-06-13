@@ -1099,8 +1099,9 @@ public class TestEngine {
 
         tempResults = defaultEvaluate(candidateUrns, testUrn, testDefinition, batchTestRunResults);
       }
-    } catch (IllegalArgumentException | UnsupportedOperationException e) {
+    } catch (Exception e) {
       // If ES Test executor fails try to do default
+      log.warn("Unable to use ElasticSearchExecutor.", e);
       Set<Urn> candidateUrns = new HashSet<>();
       defaultSelect(testDefinition, testUrn, candidateUrns);
       tempResults = defaultEvaluate(candidateUrns, testUrn, testDefinition, batchTestRunResults);
