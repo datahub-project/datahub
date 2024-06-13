@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class SnowflakeUsageConfig(BaseUsageConfig):
     email_domain: Optional[str] = pydantic.Field(
         default=None,
-        description="Email domain of your organisation so users can be displayed on UI appropriately.",
+        description="Email domain of your organization so users can be displayed on UI appropriately.",
     )
     apply_view_usage_to_tables: bool = pydantic.Field(
         default=False,
