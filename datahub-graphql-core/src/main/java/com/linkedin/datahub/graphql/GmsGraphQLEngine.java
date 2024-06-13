@@ -480,7 +480,7 @@ public class GmsGraphQLEngine {
   private final GlossaryTermType glossaryTermType;
   private final GlossaryNodeType glossaryNodeType;
   private final AspectType aspectType;
-  private final DataHubConnectionType connectionType;
+  public final DataHubConnectionType connectionType;
   private final ContainerType containerType;
   private final DomainType domainType;
   private final NotebookType notebookType;
