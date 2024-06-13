@@ -35,4 +35,5 @@ public class FeatureFlags {
   private boolean emailNotificationsEnabled = false;
   private boolean runAssertionsEnabled = false;
   private boolean broadcastNewIncidentUpdatesEnabled = false;
+  private boolean separateSiblingsLineageByDefault = false;
 }

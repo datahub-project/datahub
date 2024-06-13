@@ -478,6 +478,7 @@ featureFlags:
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:false} # Enables the documentation forms feature and shows/hides everything for it in the UI
   emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
   broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true} # Enables stateful updating of active incidents in 3rd party destinations.
+  separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false} # Whether siblings lineage should be separate from each other or not
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

@@ -303,12 +303,8 @@ fragment lineageFields on EntityWithRelationships {
     ... on Dataset {
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-            }
         }
-        siblingsSearch(input: { query: "*" }) {
+        siblingsSearch(input: { query: "*", count: 5 }) {
             count
             total
             searchResults {
@@ -425,12 +421,8 @@ fragment entityLineage on Entity {
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-            }
         }
-        siblingsSearch(input: { query: "*" }) {
+        siblingsSearch(input: { query: "*", count: 5 }) {
             count
             total
             searchResults {

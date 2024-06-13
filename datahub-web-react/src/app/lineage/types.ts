@@ -18,6 +18,7 @@ import {
     MlModelGroup,
     MlPrimaryKey,
     SchemaMetadata,
+    ScrollResults,
     SiblingProperties,
     Status,
 } from '../../types.generated';
@@ -54,6 +55,7 @@ export type FetchedEntity = {
     siblingPlatforms?: Maybe<DataPlatform[]>;
     fineGrainedLineages?: FineGrainedLineage[];
     siblings?: Maybe<SiblingProperties>;
+    siblingsSearch?: Maybe<ScrollResults>;
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;

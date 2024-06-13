@@ -11,6 +11,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -43,14 +44,17 @@ public class EntityLineageResultResolver
   private final SiblingGraphService _siblingGraphService;
   private final RestrictedService _restrictedService;
   private final AuthorizationConfiguration _authorizationConfiguration;
+  private final FeatureFlags _featureFlags;
 
   public EntityLineageResultResolver(
       final SiblingGraphService siblingGraphService,
       final RestrictedService restrictedService,
-      final AuthorizationConfiguration authorizationConfiguration) {
+      final AuthorizationConfiguration authorizationConfiguration,
+      final FeatureFlags featureFlags) {
     _siblingGraphService = siblingGraphService;
     _restrictedService = restrictedService;
     _authorizationConfiguration = authorizationConfiguration;
+    _featureFlags = featureFlags;
   }
 
   @Override
@@ -92,7 +96,9 @@ public class EntityLineageResultResolver
                     start != null ? start : 0,
                     count != null ? count : 100,
                     1,
-                    separateSiblings != null ? input.getSeparateSiblings() : false,
+                    separateSiblings != null
+                        ? input.getSeparateSiblings()
+                        : _featureFlags.isSeparateSiblingsLineageByDefault(),
                     new HashSet<>());
 
             Set<Urn> restrictedUrns = new HashSet<>();

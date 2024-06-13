@@ -26,12 +26,8 @@ fragment autoCompleteFields on Entity {
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-            }
         }
-        siblingsSearch(input: { query: "*" }) {
+        siblingsSearch(input: { query: "*", count: 1 }) {
             count
             total
             searchResults {
@@ -416,12 +412,8 @@ fragment searchResultsWithoutSchemaField on Entity {
         ...nonSiblingsDatasetSearchFields
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-            }
         }
-        siblingsSearch(input: { query: "*" }) {
+        siblingsSearch(input: { query: "*", count: 1 }) {
             count
             total
             searchResults {
@@ -937,10 +929,10 @@ fragment searchResultFieldsNoLineage on Entity {
 fragment searchResultFields on Entity {
     ...searchResultFieldsNoLineage
     ... on EntityWithRelationships {
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100, separateSiblings: false }) {
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 0 }) {
             total
         }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: false }) {
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 0 }) {
             total
         }
     }

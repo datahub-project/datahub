@@ -34,12 +34,8 @@ fragment incidentsFields on EntityIncidentsResult {
 fragment datasetSiblingIncidents on Dataset {
     siblings {
         isPrimary
-        siblings {
-            urn
-            type
-        }
     }
-    siblingsSearch(input: { query: "*" }) {
+    siblingsSearch(input: { query: "*", count: 5 }) {
         count
         total
         searchResults {

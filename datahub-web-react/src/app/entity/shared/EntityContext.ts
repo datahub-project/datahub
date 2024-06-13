@@ -22,17 +22,17 @@ export function useEntityContext() {
     return useContext(EntityContext);
 }
 
-export const useBaseEntity = <T,>(): T => {
+export const useBaseEntity = <T>(): T => {
     const { baseEntity } = useContext(EntityContext);
     return baseEntity as T;
 };
 
-export const useDataNotCombinedWithSiblings = <T,>(): T => {
+export const useDataNotCombinedWithSiblings = <T>(): T => {
     const { dataNotCombinedWithSiblings } = useContext(EntityContext);
     return dataNotCombinedWithSiblings as T;
 };
 
-export const useEntityUpdate = <U,>(): UpdateEntityType<U> | null | undefined => {
+export const useEntityUpdate = <U>(): UpdateEntityType<U> | null | undefined => {
     const { updateEntity } = useContext(EntityContext);
     return updateEntity;
 };
@@ -60,8 +60,8 @@ export const useLineageData = () => {
 export const useMutationUrn = () => {
     const { urn, entityData } = useContext(EntityContext);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
-    if (!entityData?.siblings || shouldEntityBeTreatedAsPrimary(entityData) || isHideSiblingMode) {
+    if (!entityData?.siblingsSearch?.searchResults || shouldEntityBeTreatedAsPrimary(entityData) || isHideSiblingMode) {
         return urn;
     }
-    return entityData?.siblings?.siblings?.[0]?.urn || urn;
+    return entityData?.siblingsSearch?.searchResults?.[0].entity.urn || urn;
 };

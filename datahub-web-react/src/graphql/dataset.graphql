@@ -31,12 +31,8 @@ query getDataset($urn: String!) {
         ...nonSiblingDatasetFields
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-            }
         }
-        siblingsSearch(input: { query: "*" }) {
+        siblingsSearch(input: { query: "*", count: 5 }) {
             count
             total
             searchResults {
@@ -327,12 +323,8 @@ query getDatasetAssertions($urn: String!) {
         ...assertionsQuery
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-            }
         }
-        siblingsSearch(input: { query: "*" }) {
+        siblingsSearch(input: { query: "*", count: 5 }) {
             count
             total
             searchResults {
@@ -359,12 +351,8 @@ query getDatasetSchema($urn: String!) {
         ...datasetSchema
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-            }
         }
-        siblingsSearch(input: { query: "*" }) {
+        siblingsSearch(input: { query: "*", count: 5 }) {
             count
             total
             searchResults {
@@ -405,12 +393,8 @@ query getIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentSt
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-            }
         }
-        siblingsSearch(input: { query: "*" }) {
+        siblingsSearch(input: { query: "*", count: 5 }) {
             count
             total
             searchResults {
