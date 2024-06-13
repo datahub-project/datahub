@@ -120,7 +120,6 @@ SELECT
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl as view_definition,
-  t.labels,
   ts.row_count,
   ts.size_bytes
 FROM
