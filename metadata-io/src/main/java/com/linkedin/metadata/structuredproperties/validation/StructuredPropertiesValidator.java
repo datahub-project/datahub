@@ -1,7 +1,9 @@
-package com.linkedin.metadata.aspect.validation;
+package com.linkedin.metadata.structuredproperties.validation;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
-import static com.linkedin.metadata.aspect.validation.PropertyDefinitionValidator.softDeleteCheck;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getValueTypeId;
+import static com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator.softDeleteCheck;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -65,23 +67,6 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
               LogicalValueType.RICH_TEXT,
               LogicalValueType.DATE,
               LogicalValueType.URN));
-
-  public static LogicalValueType getLogicalValueType(Urn valueType) {
-    String valueTypeId = getValueTypeId(valueType);
-    if (valueTypeId.equals("string")) {
-      return LogicalValueType.STRING;
-    } else if (valueTypeId.equals("date")) {
-      return LogicalValueType.DATE;
-    } else if (valueTypeId.equals("number")) {
-      return LogicalValueType.NUMBER;
-    } else if (valueTypeId.equals("urn")) {
-      return LogicalValueType.URN;
-    } else if (valueTypeId.equals("rich_text")) {
-      return LogicalValueType.RICH_TEXT;
-    }
-
-    return LogicalValueType.UNKNOWN;
-  }
 
   @Nonnull private AspectPluginConfig config;
 
@@ -410,14 +395,6 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     }
 
     return Optional.empty();
-  }
-
-  private static String getValueTypeId(@Nonnull final Urn valueType) {
-    String valueTypeId = valueType.getId();
-    if (valueTypeId.startsWith("datahub.")) {
-      valueTypeId = valueTypeId.split("\\.")[1];
-    }
-    return valueTypeId;
   }
 
   private static Map<Urn, Map<String, Aspect>> fetchPropertyAspects(

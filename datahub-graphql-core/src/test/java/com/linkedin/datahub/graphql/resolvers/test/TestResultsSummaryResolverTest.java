@@ -45,7 +45,7 @@ public class TestResultsSummaryResolverTest {
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(PASSING_TESTS_FIELD),
-                Mockito.eq(buildTestPassingFilter(TEST_URN, null)),
+                Mockito.eq(buildTestPassingFilter(TEST_URN, null, null)),
                 Mockito.eq(MAX_AGGREGATION_LIMIT)))
         .thenReturn(ImmutableMap.of(TEST_URN.toString(), 50L));
 
@@ -55,7 +55,7 @@ public class TestResultsSummaryResolverTest {
                 Mockito.any(),
                 Mockito.eq(null),
                 Mockito.eq(FAILING_TESTS_FIELD),
-                Mockito.eq(buildTestFailingFilter(TEST_URN, null)),
+                Mockito.eq(buildTestFailingFilter(TEST_URN, null, null)),
                 Mockito.eq(MAX_AGGREGATION_LIMIT)))
         .thenReturn(ImmutableMap.of(TEST_URN.toString(), 20L));
 
@@ -124,7 +124,7 @@ public class TestResultsSummaryResolverTest {
 
   private static Filter buildFilter(@Nonnull final String fieldName) {
     final Filter result = new Filter();
-    final String fieldNameWithSuffix = ESUtils.toKeywordField(fieldName, false);
+    final String fieldNameWithSuffix = ESUtils.toKeywordField(fieldName, false, null);
     result.setOr(
         new ConjunctiveCriterionArray(
             ImmutableList.of(

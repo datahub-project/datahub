@@ -151,7 +151,11 @@ public class ListDataProductAssetsResolver
             filters.removeIf(f -> f.getField().equals(OUTPUT_PORTS_FILTER_FIELD));
           }
           // add urns from the aspect to our filters
-          final Filter baseFilter = ResolverUtils.buildFilter(filters, input.getOrFilters());
+          final Filter baseFilter =
+              ResolverUtils.buildFilter(
+                  filters,
+                  input.getOrFilters(),
+                  context.getOperationContext().getAspectRetriever());
           final Filter finalFilter = buildFilterWithUrns(new HashSet<>(urnsToFilterOn), baseFilter);
 
           final SearchFlags searchFlags;

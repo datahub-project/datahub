@@ -1,4 +1,4 @@
-package com.linkedin.metadata.aspect.validators;
+package com.linkedin.metadata.structuredproperties.validators;
 
 import static org.testng.Assert.assertEquals;
 
@@ -7,8 +7,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
-import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.PropertyValue;

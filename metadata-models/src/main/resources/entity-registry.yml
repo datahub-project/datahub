@@ -712,7 +712,9 @@ events:
   - name: notificationRequest
 plugins:
   aspectPayloadValidators:
-    - className: 'com.linkedin.metadata.aspect.validation.PropertyDefinitionValidator'
+    - className: 'com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator'
+      packageScan:
+        - 'com.linkedin.metadata.structuredproperties.validation'
       enabled: true
       supportedOperations:
         - UPSERT
@@ -722,7 +724,9 @@ plugins:
           aspectName: propertyDefinition
         - entityName: structuredProperty
           aspectName: structuredPropertyKey
-    - className: 'com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator'
+    - className: 'com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator'
+      packageScan:
+        - 'com.linkedin.metadata.structuredproperties.validation'
       enabled: true
       supportedOperations:
         - CREATE
@@ -739,8 +743,22 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
+  mcpSideEffects:
+    - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
+      packageScan:
+        - 'com.linkedin.metadata.structuredproperties.hooks'
+      enabled: true
+      supportedOperations:
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: structuredProperty
+          aspectName: propertyDefinition
+        - entityName: structuredProperty
+          aspectName: structuredPropertyKey
   mutationHooks:
-    - className: 'com.linkedin.metadata.aspect.hooks.StructuredPropertiesSoftDelete'
+    - className: 'com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete'
+      packageScan:
+        - 'com.linkedin.metadata.structuredproperties.hooks'
       enabled: true
       supportedEntityAspectNames:
         - entityName: '*'

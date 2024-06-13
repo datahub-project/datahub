@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -67,7 +68,10 @@ public class AssertionRunEventResolver
                     maybeStartTimeMillis,
                     maybeEndTimeMillis,
                     maybeLimit,
-                    buildFilter(maybeFilters, maybeStatus));
+                    buildFilter(
+                        maybeFilters,
+                        maybeStatus,
+                        context.getOperationContext().getAspectRetriever()));
 
             // Step 2: Bind profiles into GraphQL strong types.
             List<AssertionRunEvent> runEvents =
@@ -120,7 +124,9 @@ public class AssertionRunEventResolver
 
   @Nullable
   public static Filter buildFilter(
-      @Nullable FilterInput filtersInput, @Nullable final String status) {
+      @Nullable FilterInput filtersInput,
+      @Nullable final String status,
+      @Nullable AspectRetriever aspectRetriever) {
     if (filtersInput == null && status == null) {
       return null;
     }
@@ -141,7 +147,7 @@ public class AssertionRunEventResolver
                     .setAnd(
                         new CriterionArray(
                             facetFilters.stream()
-                                .map(filter -> criterionFromFilter(filter, true))
+                                .map(filter -> criterionFromFilter(filter, true, aspectRetriever))
                                 .collect(Collectors.toList())))));
   }
 }

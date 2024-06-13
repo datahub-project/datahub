@@ -102,6 +102,7 @@ dependencies {
   testImplementation 'net.datafaker:datafaker:1.9.0'
 
   testImplementation project(':metadata-test-util:java')
+  testImplementation(testFixtures(project(":entity-registry")))
 
   testAnnotationProcessor externalDependency.lombok
 

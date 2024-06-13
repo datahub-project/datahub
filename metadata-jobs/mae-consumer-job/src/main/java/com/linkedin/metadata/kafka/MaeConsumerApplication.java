@@ -26,6 +26,7 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.monitor",
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entity.update.indices",
+      "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.entityclient",
       "com.linkedin.gms.factory.form",
       "com.linkedin.gms.factory.timeline.eventgenerator",

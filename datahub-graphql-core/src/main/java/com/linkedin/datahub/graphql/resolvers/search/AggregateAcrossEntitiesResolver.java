@@ -62,7 +62,9 @@ public class AggregateAcrossEntitiesResolver
                       UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
-          final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+          final Filter inputFilter =
+              ResolverUtils.buildFilter(
+                  null, input.getOrFilters(), context.getOperationContext().getAspectRetriever());
           final Filter formFilter =
               SearchUtils.getFormFilter(
                   context.getOperationContext(), input.getFormFilter(), _formService);

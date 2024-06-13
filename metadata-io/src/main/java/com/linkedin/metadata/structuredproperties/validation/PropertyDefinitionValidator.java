@@ -1,13 +1,13 @@
-package com.linkedin.metadata.aspect.validation;
+package com.linkedin.metadata.structuredproperties.validation;
 
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.structured.PropertyCardinality.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -25,7 +25,6 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -52,25 +51,7 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
   protected Stream<AspectValidationException> validateProposedAspects(
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-    final String entityKeyAspect =
-        retrieverContext
-            .getAspectRetriever()
-            .getEntityRegistry()
-            .getEntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME)
-            .getKeyAspectName();
-
-    return mcpItems.stream()
-        .filter(i -> ChangeType.DELETE.equals(i.getChangeType()))
-        .map(
-            i -> {
-              if (ImmutableSet.of(entityKeyAspect, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-                  .contains(i.getAspectSpec().getName())) {
-                return AspectValidationException.forItem(
-                    i, "Hard delete of Structured Property Definitions is not supported.");
-              }
-              return null;
-            })
-        .filter(Objects::nonNull);
+    return Stream.empty();
   }
 
   @Override
@@ -112,12 +93,14 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
         StructuredPropertyDefinition newDefinition =
             item.getAspect(StructuredPropertyDefinition.class);
 
-        if (!newDefinition.getValueType().equals(previousDefinition.getValueType())) {
+        if (!newDefinition.getValueType().equals(previousDefinition.getValueType())
+            && !allowBreakingWithVersion(previousDefinition, newDefinition, item, exceptions)) {
           exceptions.addException(
               item, "Value type cannot be changed as this is a backwards incompatible change");
         }
         if (newDefinition.getCardinality().equals(SINGLE)
-            && previousDefinition.getCardinality().equals(MULTIPLE)) {
+            && previousDefinition.getCardinality().equals(MULTIPLE)
+            && !allowBreakingWithVersion(previousDefinition, newDefinition, item, exceptions)) {
           exceptions.addException(
               item, "Property definition cardinality cannot be changed from MULTI to SINGLE");
         }
@@ -127,10 +110,12 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
         }
         // Assure new definition has only added allowed values, not removed them
         if (newDefinition.getAllowedValues() != null) {
-          if (!previousDefinition.hasAllowedValues()
-              || previousDefinition.getAllowedValues() == null) {
+          if ((!previousDefinition.hasAllowedValues()
+                  || previousDefinition.getAllowedValues() == null)
+              && !allowBreakingWithVersion(previousDefinition, newDefinition, item, exceptions)) {
             exceptions.addException(item, "Cannot restrict values that were previously allowed");
-          } else {
+          } else if (!allowBreakingWithVersion(
+              previousDefinition, newDefinition, item, exceptions)) {
             Set<PrimitivePropertyValue> newAllowedValues =
                 newDefinition.getAllowedValues().stream()
                     .map(PropertyValue::getValue)
@@ -162,5 +147,34 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
       return Optional.of(AspectValidationException.forItem(item, message));
     }
     return Optional.empty();
+  }
+
+  /**
+   * Allow new version if monotonically increasing
+   *
+   * @param oldDefinition previous version
+   * @param newDefinition next version
+   * @return whether version increase should allow breaking change
+   */
+  private static boolean allowBreakingWithVersion(
+      @Nonnull StructuredPropertyDefinition oldDefinition,
+      @Nonnull StructuredPropertyDefinition newDefinition,
+      @Nonnull ChangeMCP item,
+      @Nonnull ValidationExceptionCollection exceptions) {
+    final String oldVersion = oldDefinition.getVersion(GetMode.NULL);
+    final String newVersion = newDefinition.getVersion(GetMode.NULL);
+
+    if (newVersion != null && newVersion.contains(".")) {
+      exceptions.addException(
+          item,
+          String.format("Invalid version `%s` cannot contain the `.` character.", newVersion));
+    }
+
+    if (oldVersion == null && newVersion != null) {
+      return true;
+    } else if (newVersion != null) {
+      return oldVersion.compareToIgnoreCase(newVersion) > 0;
+    }
+    return false;
   }
 }

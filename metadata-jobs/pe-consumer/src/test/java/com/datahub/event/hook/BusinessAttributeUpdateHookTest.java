@@ -153,7 +153,7 @@ public class BusinessAttributeUpdateHookTest {
 
     // verify
     Mockito.verifyNoInteractions(opContext.getRetrieverContext().get().getGraphRetriever());
-    Mockito.verifyNoInteractions(opContext.getRetrieverContext().get().getAspectRetriever());
+    Mockito.verifyNoInteractions(opContext.getAspectRetrieverOpt().get());
     Mockito.verifyNoInteractions(mockUpdateIndicesService);
   }
 
@@ -232,7 +232,7 @@ public class BusinessAttributeUpdateHookTest {
         TestOperationContexts.systemContextNoSearchAuthorization(mockRetrieverContext);
 
     // reset mock for test
-    reset(opContext.getRetrieverContext().get().getAspectRetriever());
+    reset(opContext.getAspectRetrieverOpt().get());
 
     if (!graphEdges.isEmpty()) {
 

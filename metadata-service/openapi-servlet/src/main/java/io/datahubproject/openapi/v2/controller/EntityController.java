@@ -468,7 +468,7 @@ public class EntityController {
     AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName);
     ChangeMCP upsert =
         toUpsertItem(
-            opContext.getRetrieverContext().get().getAspectRetriever(),
+            opContext.getAspectRetrieverOpt().get(),
             urn,
             aspectSpec,
             createIfNotExists,
@@ -548,7 +548,7 @@ public class EntityController {
             .build();
     ChangeMCP upsert =
         toUpsertItem(
-            opContext.getRetrieverContext().get().getAspectRetriever(),
+            opContext.getAspectRetrieverOpt().get(),
             UrnUtils.getUrn(entityUrn),
             aspectSpec,
             currentValue,
@@ -747,7 +747,7 @@ public class EntityController {
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 
-            items.add(builder.build(opContext.getRetrieverContext().get().getAspectRetriever()));
+            items.add(builder.build(opContext.getAspectRetrieverOpt().get()));
           }
         }
       }

@@ -42,6 +42,7 @@ import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -906,6 +907,7 @@ public class ESAccessControlUtilTest {
                 RetrieverContext.builder()
                     .aspectRetriever(mock(AspectRetriever.class))
                     .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(mock(SearchRetriever.class))
                     .build())
             .build(USER_A_AUTH);
 

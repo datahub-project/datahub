@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.transformer;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.StructuredPropertyUtils.sanitizeStructuredPropertyFQN;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.SYSTEM_CREATED_FIELD;
 
@@ -19,7 +19,6 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.aspect.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -27,6 +26,7 @@ import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -394,19 +394,18 @@ public class SearchDocumentTransformer {
                           .get(propertyEntry.getKey())
                           .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
                           .data());
+
+              LogicalValueType logicalValueType =
+                  StructuredPropertyUtils.getLogicalValueType(definition);
               String fieldName =
                   String.join(
                       ".",
                       List.of(
-                          STRUCTURED_PROPERTY_MAPPING_FIELD,
-                          sanitizeStructuredPropertyFQN(definition.getQualifiedName())));
+                          STRUCTURED_PROPERTY_MAPPING_FIELD, toElasticsearchFieldName(definition)));
 
               if (forDelete) {
                 searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
               } else {
-                LogicalValueType logicalValueType =
-                    StructuredPropertiesValidator.getLogicalValueType(definition.getValueType());
-
                 ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
 
                 propertyEntry
@@ -487,7 +486,7 @@ public class SearchDocumentTransformer {
       final Object fieldValue,
       final FieldType fieldType) {
     EntityRegistry entityRegistry = opContext.getEntityRegistry();
-    AspectRetriever aspectRetriever = opContext.getRetrieverContext().get().getAspectRetriever();
+    AspectRetriever aspectRetriever = opContext.getAspectRetriever();
 
     if (depth == 0) {
       if (fieldValue.toString().isEmpty()) {

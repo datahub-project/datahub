@@ -10,7 +10,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.StringMap;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -140,8 +139,7 @@ public class SearchRequestHandler {
   public static SearchRequestHandler getBuilder(
       @Nonnull EntitySpec entitySpec,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
         ImmutableList.of(entitySpec),
         k -> new SearchRequestHandler(entitySpec, configs, customSearchConfiguration));
@@ -150,8 +148,7 @@ public class SearchRequestHandler {
   public static SearchRequestHandler getBuilder(
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull SearchConfiguration configs,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
         ImmutableList.copyOf(entitySpecs),
         k -> new SearchRequestHandler(entitySpecs, configs, customSearchConfiguration));
@@ -190,10 +187,7 @@ public class SearchRequestHandler {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            filter,
-            false,
-            searchableFieldTypes,
-            opContext.getRetrieverContext().get().getAspectRetriever());
+            filter, false, searchableFieldTypes, opContext.getAspectRetriever());
     return applyDefaultSearchFilters(opContext, filter, filterQuery);
   }
 
@@ -418,7 +412,9 @@ public class SearchRequestHandler {
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(0);
     searchSourceBuilder.aggregation(
-        AggregationBuilders.terms(field).field(ESUtils.toKeywordField(field, false)).size(limit));
+        AggregationBuilders.terms(field)
+            .field(ESUtils.toKeywordField(field, false, opContext.getAspectRetriever()))
+            .size(limit));
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -629,7 +625,8 @@ public class SearchRequestHandler {
 
     if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
       final List<AggregationMetadata> aggregationMetadataList =
-          aggregationQueryBuilder.extractAggregationMetadata(searchResponse, filter);
+          aggregationQueryBuilder.extractAggregationMetadata(
+              searchResponse, filter, opContext.getAspectRetriever());
       searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
     }
 

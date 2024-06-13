@@ -104,13 +104,17 @@ public class TestResultsSummaryResolver
                     context.getOperationContext(),
                     testUrn,
                     PASSING_TESTS_FIELD,
-                    () -> TestUtils.buildTestPassingFilter(testUrn, md5));
+                    () ->
+                        TestUtils.buildTestPassingFilter(
+                            testUrn, md5, context.getOperationContext().getAspectRetriever()));
             failingCount =
                 getResultsCount(
                     context.getOperationContext(),
                     testUrn,
                     FAILING_TESTS_FIELD,
-                    () -> TestUtils.buildTestFailingFilter(testUrn, md5));
+                    () ->
+                        TestUtils.buildTestFailingFilter(
+                            testUrn, md5, context.getOperationContext().getAspectRetriever()));
           }
           final TestResultsSummary result = new TestResultsSummary();
           result.setPassingCount(passingCount);

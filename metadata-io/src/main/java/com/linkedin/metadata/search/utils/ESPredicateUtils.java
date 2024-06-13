@@ -82,7 +82,12 @@ public class ESPredicateUtils {
     ESPredicateUtils.validatePredicate(
         predicate, opContext.getRetrieverContext().get().getAspectRetriever());
     processPredicate(
-        predicate, finalQueryBuilder, isTimeSeries, searchableFieldTypes, searchableFieldPaths);
+        predicate,
+        finalQueryBuilder,
+        isTimeSeries,
+        searchableFieldTypes,
+        searchableFieldPaths,
+        opContext.getAspectRetriever());
     return finalQueryBuilder;
   }
 
@@ -115,60 +120,126 @@ public class ESPredicateUtils {
       final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     OperatorType operatorType = predicate.getOperatorType();
     switch (operatorType) {
       case OR:
         evaluateOrPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case AND:
         evaluateAndPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case ANY_EQUALS:
         evaluateAnyEqualsPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case STARTS_WITH:
         evaluateStartsWithPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case CONTAINS_ANY:
         evaluateContainsAnyPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case CONTAINS_STR:
         evaluateContainsStringPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case REGEX_MATCH:
         evaluateRegexMatchPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case GREATER_THAN:
         evaluateGreaterThanPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case LESS_THAN:
         evaluateLessThanPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case EXISTS:
         evaluateExistsPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case IS_FALSE:
         evaluateIsFalsePredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case IS_TRUE:
         evaluateIsTruePredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case NOT:
         evaluateNotPredicate(
-            predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+            predicate,
+            queryBuilder,
+            isTimeseries,
+            searchableFieldTypes,
+            searchableFieldPaths,
+            aspectRetriever);
         break;
       case QUERY:
         evaluateQueryPredicate(predicate);
@@ -184,12 +255,18 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.operands().get();
     operands.forEach(
         operand ->
             processSubQuery(
-                queryBuilder, operand, isTimeseries, searchableFieldTypes, searchableFieldPaths));
+                queryBuilder,
+                operand,
+                isTimeseries,
+                searchableFieldTypes,
+                searchableFieldPaths,
+                aspectRetriever));
     queryBuilder.minimumShouldMatch(1);
   }
 
@@ -198,12 +275,18 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.operands().get();
     operands.forEach(
         operand ->
             processSubQuery(
-                queryBuilder, operand, isTimeseries, searchableFieldTypes, searchableFieldPaths));
+                queryBuilder,
+                operand,
+                isTimeseries,
+                searchableFieldTypes,
+                searchableFieldPaths,
+                aspectRetriever));
     queryBuilder.minimumShouldMatch(operands.size());
   }
 
@@ -213,14 +296,16 @@ public class ESPredicateUtils {
       @Nonnull final Operand operand,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     BoolQueryBuilder subQueryBuilder = QueryBuilders.boolQuery();
     processPredicate(
         (Predicate) operand.getExpression(),
         subQueryBuilder,
         isTimeseries,
         searchableFieldTypes,
-        searchableFieldPaths);
+        searchableFieldPaths,
+        aspectRetriever);
     queryBuilder.should(subQueryBuilder);
   }
 
@@ -232,12 +317,14 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.operands().get();
     Query query = (Query) operands.get(0).getExpression();
     String resolvedField = resolveField(query, searchableFieldPaths);
     Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName = determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries);
+    String finalFieldName =
+        determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries, aspectRetriever);
     StringArray values = getSearchValueField(operands.get(1));
     TermsQueryBuilder termsQueryBuilder =
         QueryBuilders.termsQuery(
@@ -304,14 +391,17 @@ public class ESPredicateUtils {
   }
 
   private static String determineKeyword(
-      String fieldName, Set<String> fieldTypes, boolean isTimeseries) {
+      String fieldName,
+      Set<String> fieldTypes,
+      boolean isTimeseries,
+      @Nullable AspectRetriever aspectRetriever) {
     if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)
         || fieldTypes.contains(LONG_FIELD_TYPE)
         || fieldTypes.contains(DATE_FIELD_TYPE)
         || fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
       return fieldName;
     }
-    return toKeywordField(fieldName, isTimeseries);
+    return toKeywordField(fieldName, isTimeseries, aspectRetriever);
   }
 
   // Starts With must be a Query followed by a StringListLiteral of values to match the query value
@@ -322,14 +412,16 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.getOperands().get();
     // Starts With must be a Query followed by a StringListLiteral of values to match the query
     // value to, always has exactly 2 ops
     Query query = (Query) operands.get(0).getExpression();
     String resolvedField = resolveField(query, searchableFieldPaths);
     Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName = determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries);
+    String finalFieldName =
+        determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries, aspectRetriever);
     StringArray values = getSearchValueField(operands.get(1));
     queryBuilder.minimumShouldMatch(1);
     // We don't resolve values here, must be treated as a string
@@ -344,9 +436,15 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     evaluateAnyEqualsPredicate(
-        predicate, queryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+        predicate,
+        queryBuilder,
+        isTimeseries,
+        searchableFieldTypes,
+        searchableFieldPaths,
+        aspectRetriever);
   }
 
   // Contains String must be a Query followed by a StringListLiteral of values to check if the
@@ -358,14 +456,16 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.getOperands().get();
     // Contains String must be a Query followed by a StringListLiteral of values to match the query
     // value to, always has exactly 2 ops
     Query query = (Query) operands.get(0).getExpression();
     String resolvedField = resolveField(query, searchableFieldPaths);
     Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName = determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries);
+    String finalFieldName =
+        determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries, aspectRetriever);
     StringArray values = getSearchValueField(operands.get(1));
     queryBuilder.minimumShouldMatch(1);
     // We don't resolve values here, must be treated as string
@@ -381,14 +481,16 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.getOperands().get();
     // Regex Match must be a Query followed by a StringListLiteral of values to match the query
     // value to, always has exactly 2 ops
     Query query = (Query) operands.get(0).getExpression();
     String resolvedField = resolveField(query, searchableFieldPaths);
     Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName = determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries);
+    String finalFieldName =
+        determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries, aspectRetriever);
     StringArray values = getSearchValueField(operands.get(1));
     queryBuilder.minimumShouldMatch(1);
     // We don't resolve values here, must be treated as a string
@@ -403,7 +505,8 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
 
     List<Operand> operands = predicate.getOperands().get();
     // Greater Than must be a Query followed by a StringListLiteral of values to match the query
@@ -411,7 +514,8 @@ public class ESPredicateUtils {
     Query query = (Query) operands.get(0).getExpression();
     String resolvedField = resolveField(query, searchableFieldPaths);
     Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName = determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries);
+    String finalFieldName =
+        determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries, aspectRetriever);
     StringArray values = getSearchValueField(operands.get(1));
     queryBuilder.minimumShouldMatch(1);
     values.forEach(
@@ -428,7 +532,8 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
 
     List<Operand> operands = predicate.getOperands().get();
     // Greater Than must be a Query followed by a StringListLiteral of values to match the query
@@ -436,7 +541,8 @@ public class ESPredicateUtils {
     Query query = (Query) operands.get(0).getExpression();
     String resolvedField = resolveField(query, searchableFieldPaths);
     Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName = determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries);
+    String finalFieldName =
+        determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries, aspectRetriever);
     StringArray values = getSearchValueField(operands.get(1));
     queryBuilder.minimumShouldMatch(1);
     values.forEach(
@@ -451,13 +557,15 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.getOperands().get();
 
     Query query = (Query) operands.get(0).getExpression();
     String resolvedField = resolveField(query, searchableFieldPaths);
     Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName = determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries);
+    String finalFieldName =
+        determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries, aspectRetriever);
     queryBuilder.must(QueryBuilders.existsQuery(finalFieldName));
   }
 
@@ -467,13 +575,15 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.getOperands().get();
 
     Query query = (Query) operands.get(0).getExpression();
     String resolvedField = resolveField(query, searchableFieldPaths);
     Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName = determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries);
+    String finalFieldName =
+        determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries, aspectRetriever);
     queryBuilder.must(QueryBuilders.termQuery(finalFieldName, Boolean.FALSE));
   }
 
@@ -483,13 +593,15 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.getOperands().get();
 
     Query query = (Query) operands.get(0).getExpression();
     String resolvedField = resolveField(query, searchableFieldPaths);
     Set<String> resolvedFieldTypes = resolveFieldTypes(resolvedField, searchableFieldTypes);
-    String finalFieldName = determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries);
+    String finalFieldName =
+        determineKeyword(resolvedField, resolvedFieldTypes, isTimeseries, aspectRetriever);
     queryBuilder.must(QueryBuilders.termQuery(finalFieldName, Boolean.TRUE));
   }
 
@@ -498,13 +610,19 @@ public class ESPredicateUtils {
       @Nonnull final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      Map<PathSpec, String> searchableFieldPaths) {
+      Map<PathSpec, String> searchableFieldPaths,
+      @Nullable AspectRetriever aspectRetriever) {
     List<Operand> operands = predicate.getOperands().get();
     // Not always has one predicate type op
     Predicate subPredicate = (Predicate) operands.get(0).getExpression();
     BoolQueryBuilder subQueryBuilder = QueryBuilders.boolQuery();
     processPredicate(
-        subPredicate, subQueryBuilder, isTimeseries, searchableFieldTypes, searchableFieldPaths);
+        subPredicate,
+        subQueryBuilder,
+        isTimeseries,
+        searchableFieldTypes,
+        searchableFieldPaths,
+        aspectRetriever);
     queryBuilder.mustNot(subQueryBuilder);
   }
 

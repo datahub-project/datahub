@@ -12,6 +12,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.patch.builder.TestResultsPatchBuilder;
 import com.linkedin.metadata.entity.EntityService;
@@ -854,9 +855,12 @@ public class TestEngine {
   private Map<Urn, TestResults> getMaterializedResults(
       Urn testUrn,
       TestDefinition testDefinition,
-      Map<Urn, BatchTestRunResult> oldBatchTestRunResults) {
-    Filter passingFilter = TestUtils.buildTestPassingFilter(testUrn, testDefinition.getMd5());
-    Filter failingFilter = TestUtils.buildTestFailingFilter(testUrn, testDefinition.getMd5());
+      Map<Urn, BatchTestRunResult> oldBatchTestRunResults,
+      @Nonnull AspectRetriever aspectRetriever) {
+    Filter passingFilter =
+        TestUtils.buildTestPassingFilter(testUrn, testDefinition.getMd5(), aspectRetriever);
+    Filter failingFilter =
+        TestUtils.buildTestFailingFilter(testUrn, testDefinition.getMd5(), aspectRetriever);
     Map<Urn, TestResults> results = new HashMap<>();
     ScrollResult scrollResult =
         this._searchService.scroll(
@@ -1028,7 +1032,12 @@ public class TestEngine {
                 .setFailingCount(0)
                 .setTestDefinition(oldTestDefinition.getRawDefinition()));
         log.info("Fetching old results");
-        oldResults = getMaterializedResults(testUrn, oldTestDefinition, oldBatchTestRunResults);
+        oldResults =
+            getMaterializedResults(
+                testUrn,
+                oldTestDefinition,
+                oldBatchTestRunResults,
+                opContext.getAspectRetrieverOpt().get());
         log.info("Old results size for test {} = {}", testUrn, oldResults.size());
         oldResults.forEach(
             (urn, testResults) -> {

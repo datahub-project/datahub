@@ -50,7 +50,9 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
             .setOr(
                 new ConjunctiveCriterionArray(
                     new ConjunctiveCriterion().setAnd(new CriterionArray(siblingsFilter))));
-    final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+    final Filter inputFilter =
+        ResolverUtils.buildFilter(
+            null, input.getOrFilters(), context.getOperationContext().getAspectRetriever());
 
     return SearchUtils.scrollAcrossEntities(
         context,

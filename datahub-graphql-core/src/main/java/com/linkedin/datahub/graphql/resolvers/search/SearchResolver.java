@@ -86,7 +86,10 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     entityName,
                     sanitizedQuery,
-                    ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
+                    ResolverUtils.buildFilter(
+                        input.getFilters(),
+                        input.getOrFilters(),
+                        context.getOperationContext().getAspectRetriever()),
                     Collections.emptyList(),
                     start,
                     count));

@@ -26,6 +26,7 @@ import com.linkedin.metadata.recommendation.SearchRequestContext;
 import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,7 +64,7 @@ public class ListRecommendationsResolver
             List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
                 _recommendationsService.listRecommendations(
                     context.getOperationContext(),
-                    mapRequestContext(input.getRequestContext()),
+                    mapRequestContext(context.getOperationContext(), input.getRequestContext()),
                     viewFilter(context.getOperationContext(), _viewService, input.getViewUrn()),
                     input.getLimit());
             return ListRecommendationsResult.builder()
@@ -83,7 +85,7 @@ public class ListRecommendationsResolver
   }
 
   private com.linkedin.metadata.recommendation.RecommendationRequestContext mapRequestContext(
-      RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, RecommendationRequestContext requestContext) {
     com.linkedin.metadata.recommendation.ScenarioType mappedScenarioType;
     try {
       mappedScenarioType =
@@ -103,7 +105,9 @@ public class ListRecommendationsResolver
         searchRequestContext.setFilters(
             new CriterionArray(
                 requestContext.getSearchRequestContext().getFilters().stream()
-                    .map(facetField -> criterionFromFilter(facetField))
+                    .map(
+                        facetField ->
+                            criterionFromFilter(facetField, opContext.getAspectRetriever()))
                     .collect(Collectors.toList())));
       }
       mappedRequestContext.setSearchRequestContext(searchRequestContext);

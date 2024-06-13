@@ -17,6 +17,7 @@ import com.linkedin.datahub.upgrade.propagate.comparator.EntityMatcher;
 import com.linkedin.datahub.upgrade.propagate.comparator.SchemaBasedMatcher;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -107,11 +108,11 @@ public class PropagateTermsStep implements UpgradeStep {
                 "Missing required arguments. This job requires at least one instance of SOURCE_FILTER argument");
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
-      Filter sourceFilter = buildFilter(sourceFiltersStr);
+      Filter sourceFilter = buildFilter(sourceFiltersStr, systemOpContext.getAspectRetriever());
 
       List<String> destFiltersStr =
           UpgradeUtils.parseListArgs(context.args(), "DESTINATION_FILTER");
-      Filter destinationFilter = buildFilter(destFiltersStr);
+      Filter destinationFilter = buildFilter(destFiltersStr, systemOpContext.getAspectRetriever());
 
       Optional<String> allowedNodesStr =
           context.parsedArgs().getOrDefault("ALLOWED_GLOSSARY_NODES", Optional.empty());
@@ -197,7 +198,7 @@ public class PropagateTermsStep implements UpgradeStep {
   // Each source filter is combined conjunctively (or operation)
   // Each filter needs to be of format key1-value1;key2-value2 (each key-value pair is applied with
   // an and operation)
-  private Filter buildFilter(List<String> orFilters) {
+  private Filter buildFilter(List<String> orFilters, @Nullable AspectRetriever aspectRetriever) {
     ConjunctiveCriterionArray conjunctiveCriteria = new ConjunctiveCriterionArray();
     for (String sourceFilter : orFilters) {
       List<String> criteriaStr = Arrays.asList(sourceFilter.split(CRITERIA_DELIMITER));
@@ -215,7 +216,8 @@ public class PropagateTermsStep implements UpgradeStep {
         } else {
           criteria.add(
               QueryUtils.newCriterion(
-                  ESUtils.toKeywordField(keyValue.get(0), false), keyValue.get(1)));
+                  ESUtils.toKeywordField(keyValue.get(0), false, aspectRetriever),
+                  keyValue.get(1)));
         }
       }
       conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(criteria));

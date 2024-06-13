@@ -573,28 +573,6 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
     assert actual_property_values == [property_value_other]
 
 
-def test_dataset_structured_property_hard_delete(ingest_cleanup_data, graph, caplog):
-    property_name = f"hardDeleteTest{randint(10, 10000)}Property"
-    value_type = "string"
-    property_urn = f"urn:li:structuredProperty:{default_namespace}.{property_name}"
-
-    create_property_definition(
-        property_name=property_name, graph=graph, value_type=value_type
-    )
-
-    test_property = StructuredProperties.from_datahub(graph=graph, urn=property_urn)
-    assert test_property is not None
-
-    try:
-        graph.hard_delete_entity(urn=property_urn)
-        raise AssertionError("Should not be able to HARD delete structured property")
-    except Exception as e:
-        if "Hard delete of Structured Property Definitions is not supported" in str(e):
-            pass
-        else:
-            raise e
-
-
 def test_dataset_structured_property_soft_delete_validation(
     ingest_cleanup_data, graph, caplog
 ):

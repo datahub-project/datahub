@@ -13,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.hooks.OwnerTypeMap;
 import com.linkedin.metadata.aspect.models.graph.Edge;
@@ -47,6 +48,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -185,7 +187,10 @@ public class ESAccessControlUtil {
                 PolicyMatchCriterionArray criteriaArray =
                     policy.getResources().getFilter().getCriteria();
                 // Cannot apply policy if we can't map every field
-                if (!criteriaArray.stream().allMatch(criteria -> toESField(criteria).isPresent())) {
+                if (!criteriaArray.stream()
+                    .allMatch(
+                        criteria ->
+                            toESField(criteria, opContext.getAspectRetriever()).isPresent())) {
                   log.error("Returning deny all due to unknown policy filter field.");
                   return null;
                 }
@@ -257,7 +262,9 @@ public class ESAccessControlUtil {
         if (!hasResourceOwnersType(actorFilter)) {
           // owners without owner type restrictions
           return QueryBuilders.termsQuery(
-              ESUtils.toKeywordField(MappingsBuilder.OWNERS_FIELD, false), actorAndGroupUrns);
+              ESUtils.toKeywordField(
+                  MappingsBuilder.OWNERS_FIELD, false, opContext.getAspectRetriever()),
+              actorAndGroupUrns);
         } else {
           // owners with type restrictions
           BoolQueryBuilder orQuery = QueryBuilders.boolQuery();
@@ -298,19 +305,24 @@ public class ESAccessControlUtil {
         .map(
             criteria ->
                 QueryBuilders.termsQuery(
-                    toESField(criteria).get(), toESValues(opContext, criteria)));
+                    toESField(criteria, opContext.getAspectRetriever()).get(),
+                    toESValues(opContext, criteria)));
   }
 
-  private static Optional<String> toESField(PolicyMatchCriterion criterion) {
+  private static Optional<String> toESField(
+      PolicyMatchCriterion criterion, @Nullable AspectRetriever aspectRetriever) {
     switch (criterion.getField()) {
       case "TYPE":
         return Optional.of(ES_INDEX_FIELD);
       case "URN":
-        return Optional.of(ESUtils.toKeywordField(MappingsBuilder.URN_FIELD, false));
+        return Optional.of(
+            ESUtils.toKeywordField(MappingsBuilder.URN_FIELD, false, aspectRetriever));
       case "TAG":
-        return Optional.of(ESUtils.toKeywordField(MappingsBuilder.TAGS_FIELD, false));
+        return Optional.of(
+            ESUtils.toKeywordField(MappingsBuilder.TAGS_FIELD, false, aspectRetriever));
       case "DOMAIN":
-        return Optional.of(ESUtils.toKeywordField(MappingsBuilder.DOMAINS_FIELD, false));
+        return Optional.of(
+            ESUtils.toKeywordField(MappingsBuilder.DOMAINS_FIELD, false, aspectRetriever));
       default:
         return Optional.empty();
     }

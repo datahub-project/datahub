@@ -7,6 +7,7 @@ import com.datahub.test.TestRefEntity;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
@@ -178,6 +179,7 @@ public class MappingsBuilderTest {
     // Test that a structured property that does not apply to the entity does not alter the mappings
     StructuredPropertyDefinition structPropNotForThisEntity =
         new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
             .setQualifiedName("propNotForThis")
             .setDisplayName("propNotForThis")
             .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
@@ -191,6 +193,7 @@ public class MappingsBuilderTest {
     String fqnOfRelatedProp = "propForThis";
     StructuredPropertyDefinition structPropForThisEntity =
         new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
             .setQualifiedName(fqnOfRelatedProp)
             .setDisplayName("propForThis")
             .setEntityTypes(
@@ -236,9 +239,78 @@ public class MappingsBuilderTest {
   }
 
   @Test
+  public void testGetMappingsWithStructuredPropertyV1() throws URISyntaxException {
+    // Baseline comparison: Mappings with no structured props
+    Map<String, Object> resultWithoutStructuredProps =
+        MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
+
+    // Test that a structured property that does not apply to the entity does not alter the mappings
+    StructuredPropertyDefinition structPropNotForThisEntity =
+        new StructuredPropertyDefinition()
+            .setVersion("v1")
+            .setQualifiedName("propNotForThis")
+            .setDisplayName("propNotForThis")
+            .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    Map<String, Object> resultWithOnlyUnrelatedStructuredProp =
+        MappingsBuilder.getMappings(
+            TestEntitySpecBuilder.getSpec(), List.of(structPropNotForThisEntity));
+    assertEquals(resultWithOnlyUnrelatedStructuredProp, resultWithoutStructuredProps);
+
+    // Test that a structured property that does apply to this entity is included in the mappings
+    String fqnOfRelatedProp = "propForThis";
+    StructuredPropertyDefinition structPropForThisEntity =
+        new StructuredPropertyDefinition()
+            .setVersion("v1")
+            .setQualifiedName(fqnOfRelatedProp)
+            .setDisplayName("propForThis")
+            .setEntityTypes(
+                new UrnArray(
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    Map<String, Object> resultWithOnlyRelatedStructuredProp =
+        MappingsBuilder.getMappings(
+            TestEntitySpecBuilder.getSpec(), List.of(structPropForThisEntity));
+    assertNotEquals(resultWithOnlyRelatedStructuredProp, resultWithoutStructuredProps);
+    Map<String, Object> fieldsBefore =
+        (Map<String, Object>) resultWithoutStructuredProps.get("properties");
+    Map<String, Object> fieldsAfter =
+        (Map<String, Object>) resultWithOnlyRelatedStructuredProp.get("properties");
+    assertEquals(fieldsAfter.size(), fieldsBefore.size() + 1);
+
+    Map<String, Object> structProps = (Map<String, Object>) fieldsAfter.get("structuredProperties");
+    fieldsAfter = (Map<String, Object>) structProps.get("properties");
+
+    String newField =
+        fieldsAfter.keySet().stream()
+            .filter(field -> !fieldsBefore.containsKey(field))
+            .findFirst()
+            .get();
+    assertEquals(newField, fqnOfRelatedProp + ".v1.string");
+    assertEquals(
+        fieldsAfter.get(newField),
+        Map.of(
+            "normalizer",
+            "keyword_normalizer",
+            "type",
+            "keyword",
+            "fields",
+            Map.of("keyword", Map.of("type", "keyword"))));
+
+    // Test that only structured properties that apply are included
+    Map<String, Object> resultWithBothStructuredProps =
+        MappingsBuilder.getMappings(
+            TestEntitySpecBuilder.getSpec(),
+            List.of(structPropForThisEntity, structPropNotForThisEntity));
+    assertEquals(resultWithBothStructuredProps, resultWithOnlyRelatedStructuredProp);
+  }
+
+  @Test
   public void testGetMappingsForStructuredProperty() throws URISyntaxException {
     StructuredPropertyDefinition testStructProp =
         new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
             .setQualifiedName("testProp")
             .setDisplayName("exampleProp")
             .setEntityTypes(
@@ -251,6 +323,7 @@ public class MappingsBuilderTest {
     assertEquals(structuredPropertyFieldMappings.size(), 1);
     String keyInMap = structuredPropertyFieldMappings.keySet().stream().findFirst().get();
     assertEquals(keyInMap, "testProp");
+
     Object mappings = structuredPropertyFieldMappings.get(keyInMap);
     assertEquals(
         mappings,
@@ -264,6 +337,7 @@ public class MappingsBuilderTest {
 
     StructuredPropertyDefinition propWithNumericType =
         new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
             .setQualifiedName("testPropNumber")
             .setDisplayName("examplePropNumber")
             .setEntityTypes(
@@ -276,6 +350,54 @@ public class MappingsBuilderTest {
     assertEquals(structuredPropertyFieldMappingsNumber.size(), 1);
     keyInMap = structuredPropertyFieldMappingsNumber.keySet().stream().findFirst().get();
     assertEquals("testPropNumber", keyInMap);
+    mappings = structuredPropertyFieldMappingsNumber.get(keyInMap);
+    assertEquals(Map.of("type", "double"), mappings);
+  }
+
+  @Test
+  public void testGetMappingsForStructuredPropertyV1() throws URISyntaxException {
+    StructuredPropertyDefinition testStructProp =
+        new StructuredPropertyDefinition()
+            .setVersion("v1")
+            .setQualifiedName("testProp")
+            .setDisplayName("exampleProp")
+            .setEntityTypes(
+                new UrnArray(
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    Map<String, Object> structuredPropertyFieldMappings =
+        MappingsBuilder.getMappingsForStructuredProperty(List.of(testStructProp));
+    assertEquals(structuredPropertyFieldMappings.size(), 1);
+    String keyInMap = structuredPropertyFieldMappings.keySet().stream().findFirst().get();
+    assertEquals(keyInMap, "testProp.v1.string");
+
+    Object mappings = structuredPropertyFieldMappings.get(keyInMap);
+    assertEquals(
+        mappings,
+        Map.of(
+            "type",
+            "keyword",
+            "normalizer",
+            "keyword_normalizer",
+            "fields",
+            Map.of("keyword", Map.of("type", "keyword"))));
+
+    StructuredPropertyDefinition propWithNumericType =
+        new StructuredPropertyDefinition()
+            .setVersion("v1")
+            .setQualifiedName("testPropNumber")
+            .setDisplayName("examplePropNumber")
+            .setEntityTypes(
+                new UrnArray(
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:NUMBER"));
+    Map<String, Object> structuredPropertyFieldMappingsNumber =
+        MappingsBuilder.getMappingsForStructuredProperty(List.of(propWithNumericType));
+    assertEquals(structuredPropertyFieldMappingsNumber.size(), 1);
+    keyInMap = structuredPropertyFieldMappingsNumber.keySet().stream().findFirst().get();
+    assertEquals("testPropNumber.v1.number", keyInMap);
     mappings = structuredPropertyFieldMappingsNumber.get(keyInMap);
     assertEquals(Map.of("type", "double"), mappings);
   }

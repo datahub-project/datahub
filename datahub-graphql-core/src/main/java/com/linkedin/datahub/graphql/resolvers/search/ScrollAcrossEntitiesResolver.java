@@ -34,7 +34,8 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
         _viewService,
         input.getTypes(),
         input.getQuery(),
-        ResolverUtils.buildFilter(null, input.getOrFilters()),
+        ResolverUtils.buildFilter(
+            null, input.getOrFilters(), context.getOperationContext().getAspectRetriever()),
         input.getViewUrn(),
         input.getSearchFlags(),
         input.getCount(),

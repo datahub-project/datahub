@@ -138,7 +138,10 @@ public class SearchAcrossLineageResolver
                 count);
 
             final Filter filter =
-                ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+                ResolverUtils.buildFilter(
+                    input.getFilters(),
+                    input.getOrFilters(),
+                    context.getOperationContext().getAspectRetriever());
             final SearchFlags searchFlags;
             com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
             if (inputFlags != null) {

@@ -63,7 +63,10 @@ public class ListActionPipelineResolver
                           .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.ACTIONS_PIPELINE_ENTITY_NAME,
                       query,
-                      buildFilter(filters, Collections.emptyList()),
+                      buildFilter(
+                          filters,
+                          Collections.emptyList(),
+                          context.getOperationContext().getAspectRetriever()),
                       null,
                       start,
                       count);

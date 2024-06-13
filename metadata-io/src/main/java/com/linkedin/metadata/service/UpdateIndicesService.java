@@ -130,8 +130,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
       MCLItemImpl batch =
-          MCLItemImpl.builder()
-              .build(event, opContext.getRetrieverContext().get().getAspectRetriever());
+          MCLItemImpl.builder().build(event, opContext.getAspectRetrieverOpt().get());
 
       Stream<MCLItem> sideEffects =
           AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext().get());

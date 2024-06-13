@@ -9,6 +9,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
@@ -76,22 +77,29 @@ public class TestUtils {
   }
 
   public static Filter buildTestPassingFilter(
-      @Nonnull final Urn testUrn, @Nullable String testDefinitionMd5) {
-    return buildFilter(testUrn, PASSING_TESTS_FIELD, testDefinitionMd5, PASSING_TESTS_MD5_FIELD);
+      @Nonnull final Urn testUrn,
+      @Nullable String testDefinitionMd5,
+      @Nullable AspectRetriever aspectRetriever) {
+    return buildFilter(
+        testUrn, PASSING_TESTS_FIELD, testDefinitionMd5, PASSING_TESTS_MD5_FIELD, aspectRetriever);
   }
 
   public static Filter buildTestFailingFilter(
-      @Nonnull final Urn testUrn, @Nullable String testDefinitionMd5) {
-    return buildFilter(testUrn, FAILING_TESTS_FIELD, testDefinitionMd5, FAILING_TESTS_MD5_FIELD);
+      @Nonnull final Urn testUrn,
+      @Nullable String testDefinitionMd5,
+      @Nullable AspectRetriever aspectRetriever) {
+    return buildFilter(
+        testUrn, FAILING_TESTS_FIELD, testDefinitionMd5, FAILING_TESTS_MD5_FIELD, aspectRetriever);
   }
 
   private static Filter buildFilter(
       @Nonnull final Urn testUrn,
       @Nonnull final String fieldName,
       @Nullable String testDefinitionMd5,
-      @Nonnull String md5FieldName) {
+      @Nonnull String md5FieldName,
+      @Nullable AspectRetriever aspectRetriever) {
     final Filter result = new Filter();
-    final String fieldNameWithSuffix = ESUtils.toKeywordField(fieldName, false);
+    final String fieldNameWithSuffix = ESUtils.toKeywordField(fieldName, false, aspectRetriever);
     final Criterion urnCriterion =
         new Criterion()
             .setNegated(false)
@@ -104,7 +112,7 @@ public class TestUtils {
             ? null
             : new Criterion()
                 .setNegated(false)
-                .setField(ESUtils.toKeywordField(md5FieldName, false))
+                .setField(ESUtils.toKeywordField(md5FieldName, false, aspectRetriever))
                 .setValue(testDefinitionMd5) // :-(
                 .setCondition(Condition.EQUAL);
     CriterionArray criterionArray = new CriterionArray(urnCriterion);

@@ -82,7 +82,32 @@ public class PluginFactory {
     this.mutationHooks = buildMutationHooks(this.pluginConfiguration);
     this.mclSideEffects = buildMCLSideEffects(this.pluginConfiguration);
     this.mcpSideEffects = buildMCPSideEffects(this.pluginConfiguration);
+    logSummary(
+        Stream.of(
+                this.aspectPayloadValidators,
+                this.mutationHooks,
+                this.mclSideEffects,
+                this.mcpSideEffects)
+            .flatMap(List::stream)
+            .collect(Collectors.toList()));
     return this;
+  }
+
+  private void logSummary(List<PluginSpec> pluginSpecs) {
+    if (!pluginSpecs.isEmpty()) {
+      log.info(
+          "Enabled {} plugins. {}",
+          pluginSpecs.size(),
+          pluginSpecs.stream()
+              .map(
+                  v ->
+                      String.join(
+                          ", ",
+                          Collections.singletonList(
+                              String.format("%s", v.getConfig().getClassName()))))
+              .sorted()
+              .collect(Collectors.toList()));
+    }
   }
 
   /**

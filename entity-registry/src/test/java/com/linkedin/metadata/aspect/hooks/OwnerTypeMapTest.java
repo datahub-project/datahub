@@ -16,6 +16,7 @@ import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
@@ -38,6 +39,11 @@ public class OwnerTypeMapTest {
         @Override
         public AspectRetriever getAspectRetriever() {
           return mock(AspectRetriever.class);
+        }
+
+        @Override
+        public SearchRetriever getSearchRetriever() {
+          return mock(SearchRetriever.class);
         }
       };
   private static final EntityRegistry ENTITY_REGISTRY = new TestEntityRegistry();

@@ -165,7 +165,7 @@ public class BusinessAttributeUpdateHookService {
     return () -> {
       StopWatch stopWatch = new StopWatch();
       stopWatch.start();
-      AspectRetriever aspectRetriever = opContext.getRetrieverContext().get().getAspectRetriever();
+      AspectRetriever aspectRetriever = opContext.getAspectRetrieverOpt().get();
       log.info("Batch {} for BA:{} started", batchNumber, entityKey);
       ExecutionResult executionResult = new ExecutionResult();
       executionResult.setBatchNumber(batchNumber);
