@@ -111,7 +111,7 @@ public class ESPredicateUtils {
   }
 
   private static void processPredicate(
-      Predicate predicate,
+      @Nonnull Predicate predicate,
       final BoolQueryBuilder queryBuilder,
       boolean isTimeseries,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,

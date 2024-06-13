@@ -10,7 +10,9 @@ import com.linkedin.metadata.test.query.TestQuery;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class ElasticTestDefinitionConvertor {
 
   private final EntityRegistry entityRegistry;
@@ -21,6 +23,9 @@ public class ElasticTestDefinitionConvertor {
 
   public boolean canSelect(TestDefinition testDefinition) {
     for (String entityType : testDefinition.getOn().getEntityTypes()) {
+      if (testDefinition.getOn().getConditions() == null) {
+        continue;
+      }
       Set<TestQuery> queries =
           Predicate.extractQueriesForPredicate(testDefinition.getOn().getConditions());
       Map<PathSpec, String> fieldPaths =
@@ -29,6 +34,11 @@ public class ElasticTestDefinitionConvertor {
           .map(TestQuery::getQueryParts)
           .map(PathSpec::new)
           .allMatch(fieldPaths::containsKey)) {
+        log.warn(
+            "Unable to select for queries: {}, available fieldPaths: {} for entity {}",
+            queries,
+            fieldPaths,
+            entityType);
         return false;
       }
     }
@@ -46,6 +56,11 @@ public class ElasticTestDefinitionConvertor {
             .map(TestQuery::getQueryParts)
             .map(PathSpec::new)
             .allMatch(fieldPaths::containsKey)) {
+          log.warn(
+              "Unable to evaluate for queries: {}, available fieldPaths: {} for entity {}",
+              queries,
+              fieldPaths,
+              entityType);
           return false;
         }
       }
@@ -57,6 +72,8 @@ public class ElasticTestDefinitionConvertor {
     Predicate selectionFilters = testDefinition.getOn().getConditions();
     if (testDefinition.getRules() == null) {
       return new ElasticTestDefinition(testDefinition, selectionFilters, selectionFilters, null);
+    } else if (selectionFilters == null) {
+      return new ElasticTestDefinition(testDefinition, null, testDefinition.getRules(), null);
     } else {
       Predicate passingPredicate =
           new Predicate(
