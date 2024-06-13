@@ -13,6 +13,7 @@ from google.cloud.bigquery.table import (
 )
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQuerySchemaApiPerfReport,
     BigQueryV2Report,
@@ -354,7 +355,7 @@ class BigQuerySchemaApi:
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
             size_in_bytes=view.get("size_bytes"),
             rows_count=view.get("row_count"),
-            labels=view.labels if hasattr(view, "labels") else None,
+            labels=parse_labels(view.labels) if hasattr(view, "labels") else None,
         )
 
     def get_columns_for_dataset(
