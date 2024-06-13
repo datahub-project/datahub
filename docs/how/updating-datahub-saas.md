@@ -38,6 +38,8 @@ This is over and above updating-datahub.md file
 `ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY` (default: 2) - Number of concurrent rest.li calls when the number of urns in a getBatchV2 call exceeds the batch
 size of 50. This is typical in metadata tests.
 
+`SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT` (default: false) - Whether we should separate siblings when fetching lineage data in search results by default. Typically this is false, but for Apple, we need this to be set to true.
+
 #### Metadata Change Proposal Throttle
 
 `MCP_THROTTLE_UPDATE_INTERVAL_MS` (default: 60000) - How often the MAE consumer's kafka lag is sampled for throttleing MCE consumer's processing rate.
