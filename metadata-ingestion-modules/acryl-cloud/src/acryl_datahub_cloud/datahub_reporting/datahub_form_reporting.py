@@ -115,6 +115,7 @@ class DataHubFormReportingData(FormData):
         owners: List[str] = []
         completedForms: List[str] = []
         incompleteForms: List[str] = []
+        verifiedForms: List[str] = []
         completedFormsIncompletePromptIds: List[str] = []
         completedFormsIncompletePromptResponseTimes: List[str] = []
         completedFormsCompletedPromptIds: List[str] = []
@@ -367,6 +368,12 @@ class DataHubFormReportingData(FormData):
                 if self.allowed_forms
                 else search_row.completedForms
             )
+            verified_forms_list = (
+                [x for x in search_row.verifiedForms if x in self.allowed_forms]
+                if self.allowed_forms
+                else search_row.verifiedForms
+            )
+            verified_forms = set(verified_forms_list)
             for form_id in complete_forms:
                 if form_id not in forms_scanned:
                     if on_form_scanned:
@@ -378,6 +385,13 @@ class DataHubFormReportingData(FormData):
                     FormType.DOCUMENTATION
                     if form_info.type == FormTypeClass.COMPLETION
                     else FormType.VERIFICATION
+                )
+                is_verification_form = form_type == FormType.VERIFICATION
+                is_form_verified = form_id in verified_forms
+                form_status = (
+                    FormStatus.COMPLETED
+                    if is_form_verified or not is_verification_form
+                    else FormStatus.IN_PROGRESS
                 )
                 assignees = self.get_assignees(form_info, search_row.owners)
                 form_prompts = [x.id for x in form_info.prompts]
@@ -392,7 +406,7 @@ class DataHubFormReportingData(FormData):
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=form_completed_dates[form_id],
-                            form_status=FormStatus.COMPLETED,
+                            form_status=form_status,
                             form_type=form_type,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
@@ -401,7 +415,9 @@ class DataHubFormReportingData(FormData):
                             domain_urn=domain,
                             parent_domain_urn=parent_domain,
                             asset_verified=(
-                                True if form_type == FormType.VERIFICATION else None
+                                True
+                                if is_verification_form and is_form_verified
+                                else None
                             ),
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.NOT_STARTED,
@@ -421,7 +437,7 @@ class DataHubFormReportingData(FormData):
                             form_urn=form_id,
                             form_assigned_date=form_assigned_dates[form_id],
                             form_completed_date=form_completed_dates[form_id],
-                            form_status=FormStatus.COMPLETED,
+                            form_status=form_status,
                             form_type=form_type,
                             assignee_urn=owner,
                             asset_urn=search_row.urn,
@@ -430,7 +446,9 @@ class DataHubFormReportingData(FormData):
                             domain_urn=domain,
                             parent_domain_urn=parent_domain,
                             asset_verified=(
-                                True if form_type == FormType.VERIFICATION else None
+                                True
+                                if is_verification_form and is_form_verified
+                                else None
                             ),
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.COMPLETED,
