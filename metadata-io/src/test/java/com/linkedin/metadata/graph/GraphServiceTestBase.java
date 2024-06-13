@@ -1,5 +1,8 @@
 package com.linkedin.metadata.graph;
 
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static org.testng.Assert.*;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
@@ -44,9 +47,6 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static org.testng.Assert.*;
 
 /**
  * Base class for testing any GraphService implementation. Derive the test class from this base and
