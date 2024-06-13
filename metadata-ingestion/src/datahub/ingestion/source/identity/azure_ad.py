@@ -9,6 +9,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional
 import click
 import requests
 from pydantic.fields import Field
+from requests.adapters import HTTPAdapter, Retry
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -268,6 +269,14 @@ class AzureADSource(StatefulIngestionSourceBase):
         self.report = AzureADSourceReport(
             filtered_tracking=self.config.filtered_tracking
         )
+        session = requests.Session()
+        retries = Retry(
+            total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        self.session = session
         self.token_data = {
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
@@ -494,7 +503,7 @@ class AzureADSource(StatefulIngestionSourceBase):
         while True:
             if not url:
                 break
-            response = requests.get(url, headers=headers)
+            response = self.session.get(url, headers=headers)
             if response.status_code == 200:
                 json_data = json.loads(response.text)
                 try:
@@ -505,13 +514,14 @@ class AzureADSource(StatefulIngestionSourceBase):
                 yield json_data["value"]
             else:
                 error_str = (
+                    f"Request URL: {url}. "
                     f"Response status code: {str(response.status_code)}. "
                     f"Response content: {str(response.content)}"
                 )
                 logger.debug(f"URL = {url}")
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_ad_data_", error_str)
-                continue
+                raise Exception(f"Unable to get {url}, error {response.status_code}")
 
     def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
         result, error_str = None, None

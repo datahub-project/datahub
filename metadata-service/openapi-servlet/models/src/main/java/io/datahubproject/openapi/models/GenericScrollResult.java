@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.v2.models;
+package io.datahubproject.openapi.models;
 
 import java.util.List;
 import lombok.Builder;

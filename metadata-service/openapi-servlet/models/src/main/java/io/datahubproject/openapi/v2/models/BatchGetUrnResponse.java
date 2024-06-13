@@ -16,5 +16,5 @@ import lombok.Value;
 public class BatchGetUrnResponse implements Serializable {
   @JsonProperty("entities")
   @Schema(description = "List of entity responses")
-  List<GenericEntity> entities;
+  List<GenericEntityV2> entities;
 }

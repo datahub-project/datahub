@@ -80,6 +80,18 @@ module.exports = {
               id: "docs/managed-datahub/observe/volume-assertions",
               className: "saasOnly",
             },
+            {
+              label: "Open Assertions Specification",
+              type: "category",
+              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
+            },
           ],
         },
         {
@@ -755,7 +767,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Datahub Actions",
+      label: "DataHub Actions",
       link: { type: "doc", id: "docs/act-on-metadata" },
       items: [
         "docs/actions/README",
@@ -804,6 +816,11 @@ module.exports = {
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
+        "docs/api/tutorials/custom-properties",
+        "docs/api/tutorials/assertions",
+        "docs/api/tutorials/incidents",
+        "docs/api/tutorials/operations",
+        "docs/api/tutorials/data-contracts",
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",

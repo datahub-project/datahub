@@ -59,7 +59,6 @@ class SnowflakeAssertionsHandler(
     def get_assertion_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -80,7 +79,6 @@ class SnowflakeAssertionsHandler(
                     yield self._gen_platform_instance_wu(mcp.entityUrn)
 
     def _gen_platform_instance_wu(self, urn: str) -> MetadataWorkUnit:
-
         # Construct a MetadataChangeProposalWrapper object for assertion platform
         return MetadataChangeProposalWrapper(
             entityUrn=urn,

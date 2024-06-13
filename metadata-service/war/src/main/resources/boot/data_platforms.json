@@ -188,6 +188,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:db2",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "db2",
+      "displayName": "DB2",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/db2logo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:mariadb",
     "aspect": {
       "datasetNameDelimiter": ".",

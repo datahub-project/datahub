@@ -93,6 +93,39 @@ You can view and manage the group’s subscriptions on the group’s page on Dat
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscriptions.png"/>
 </p>
 
+### Subscribing to Assertions
+You can always subscribe to _all assertion status changes_ on a table using the steps outlined in the earlier sections. However, in some cases you may want to only be notified about specific assertions on a table. For instance, a table may contain several subsets of information, segmented by a category column - so there may be several different checks for each category. As a consumer, you may only care about the freshness check that runs on one specific category of this larger table.
+
+You can subscribe to individual assertions by clicking the bell button on the assertion itself - either in the list view:
+<p align="center">
+  <img width="70%" alt="1" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-1.jpg" />
+</p>
+
+Or on the assertion's profile page:
+<p align="center">
+  <img width="70%" alt="2" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-2.jpg" />
+</p>
+
+
+Note: if you are subscribed to all assertions at the dataset level, then you will not be able to **Unsubscribe** from an individual assertion.
+<p align="center">
+  <img width="70%" alt="3" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-unsub-1.jpg" />
+</p>
+
+You must first remove your dataset-level subscription:
+<p align="center">
+  <img width="70%" alt="4" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-unsub-2.jpg" />
+  <img width="70%" alt="5" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-unsub-3.jpg" />
+</p>
+
+
+Then select individual assertions you'd like to subscribe to:
+<p align="center">
+  <img width="70%" alt="7" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-resub-1.jpg" />
+</p>
+
+
+
 ## FAQ
 
 <details>
