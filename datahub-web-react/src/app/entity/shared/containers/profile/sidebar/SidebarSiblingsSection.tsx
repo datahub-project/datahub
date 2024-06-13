@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { ANTD_GRAY } from '../../../constants';
 import { useDataNotCombinedWithSiblings, useEntityData } from '../../../EntityContext';
 import { SidebarHeader } from './SidebarHeader';
 import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
@@ -8,7 +9,17 @@ import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSibl
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 
 const EntityListContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    flex-wrap: wrap;
+
     margin-left: -8px;
+`;
+
+const AndMoreWrapper = styled.div`
+    margin-left: 4px;
+    color: ${ANTD_GRAY[8]};
 `;
 
 export const SidebarSiblingsSection = () => {
@@ -46,6 +57,8 @@ export const SidebarSiblingsSection = () => {
         return <></>;
     }
 
+    const numSiblingsNotShown = (entityData?.siblingsSearch?.total || 0) - allSiblingsInGroup.length + 1;
+
     return (
         <div>
             <SidebarHeader title="Composed Of" />
@@ -55,6 +68,7 @@ export const SidebarSiblingsSection = () => {
                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
                     showTooltips
                 />
+                {numSiblingsNotShown > 0 && <AndMoreWrapper>and {numSiblingsNotShown} more</AndMoreWrapper>}
             </EntityListContainer>
         </div>
     );
