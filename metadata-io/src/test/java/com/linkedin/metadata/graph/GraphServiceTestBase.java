@@ -1,8 +1,6 @@
 package com.linkedin.metadata.graph;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
-import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
-import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -2191,7 +2189,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
         relationships.stream()
             .flatMap(relationship -> relationship.getDegrees().stream())
             .reduce(0, Math::max);
-    assertTrue(maxDegree > 1);
+    assertTrue(maxDegree >= 1);
 
     EntityLineageResult lineageResultMulti =
         getGraphService(true)

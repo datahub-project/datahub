@@ -772,3 +772,11 @@ plugins:
       supportedEntityAspectNames:
         - entityName: 'test'
           aspectName: testInfo
+    - className: 'com.linkedin.metadata.aspect.hooks.CorpUserEditableInfoMutator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - UPDATE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: 'corpUserEditableInfo'
