@@ -76,7 +76,7 @@ class Architectures(Enum):
     m2 = "m2"
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def _docker_subprocess_env() -> Dict[str, str]:
     # platform.machine() is equivalent to `uname -m`, as per https://stackoverflow.com/a/45124927/5004662
     DOCKER_COMPOSE_PLATFORM: str = "linux/" + platform.machine()
@@ -316,7 +316,7 @@ def _restore(
         assert os.path.exists(
             resolved_restore_file
         ), f"File {resolved_restore_file} does not exist"
-        with open(resolved_restore_file, "r") as fp:
+        with open(resolved_restore_file) as fp:
             result = subprocess.run(
                 [
                     "bash",
@@ -324,8 +324,7 @@ def _restore(
                     f"docker exec -i {DOCKER_COMPOSE_PROJECT_NAME}-mysql-1 bash -c 'mysql -uroot -pdatahub datahub '",
                 ],
                 stdin=fp,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
             )
         if result.returncode != 0:
             logger.error("Failed to run MySQL restore")
@@ -381,7 +380,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
             )
             env_fp.flush()
             if logger.isEnabledFor(logging.DEBUG):
-                with open(env_fp.name, "r") as env_fp_reader:
+                with open(env_fp.name) as env_fp_reader:
                     logger.debug(f"Env file contents: {env_fp_reader.read()}")
 
             # continue to issue the restore indices command
@@ -401,8 +400,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
                     + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
                     + " -u RestoreIndices -a clean",
                 ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                capture_output=True,
             )
             logger.info(
                 f"Index restore command finished with status {result.returncode}"

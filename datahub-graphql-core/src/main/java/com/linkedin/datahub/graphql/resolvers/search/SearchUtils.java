@@ -1,25 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FormFilter;
@@ -374,7 +361,9 @@ public class SearchUtils {
       com.linkedin.datahub.graphql.generated.SearchFlags inputSearchFlags,
       Integer inputCount,
       String scrollId,
-      String inputKeepAlive) {
+      String inputKeepAlive,
+      String className) {
+
     final List<EntityType> entityTypes =
         (inputEntityTypes == null || inputEntityTypes.isEmpty())
             ? SEARCHABLE_ENTITY_TYPES
@@ -396,7 +385,7 @@ public class SearchUtils {
     final int count = Optional.ofNullable(inputCount).orElse(DEFAULT_SCROLL_COUNT);
     final String keepAlive = Optional.ofNullable(inputKeepAlive).orElse(DEFAULT_SCROLL_KEEP_ALIVE);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final OperationContext baseContext = inputContext.getOperationContext();
           final Optional<DataHubViewInfo> maybeResolvedView =
@@ -443,6 +432,8 @@ public class SearchUtils {
                         finalEntityNames, query, finalFilters, scrollId, count),
                 e);
           }
-        });
+        },
+        className,
+        "scrollAcrossEntities");
   }
 }

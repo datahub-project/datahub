@@ -1,11 +1,10 @@
 import dataclasses
 import os
 import re
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, ClassVar, Dict, List, Optional, Union, cast
 
 import pydantic
 from pydantic import Field, validator
-from typing_extensions import ClassVar
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern

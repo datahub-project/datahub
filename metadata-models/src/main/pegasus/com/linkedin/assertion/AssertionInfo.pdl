@@ -69,7 +69,6 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     volumeAssertion: optional VolumeAssertionInfo
 
     /**
-    * An schema Assertion definition. This field is populated when the type is DATASET_SCHEMA
     * A SQL Assertion definition. This field is populated when the type is SQL.
     */
     sqlAssertion: optional SqlAssertionInfo

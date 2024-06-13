@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ExtraProperty;
@@ -130,7 +131,7 @@ public class ListDataProductAssetsResolver
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
     Set<String> finalOutputPorts = outputPorts;
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // if no assets in data product properties, exit early before search and return empty
           // results
@@ -212,7 +213,9 @@ public class ListDataProductAssetsResolver
                         input.getTypes(), input.getQuery(), input.getOrFilters(), start, count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

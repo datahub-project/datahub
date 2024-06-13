@@ -9,6 +9,7 @@ cat ../../datahub-graphql-core/src/main/resources/app.graphql >> combined.graphq
 cat ../../datahub-graphql-core/src/main/resources/auth.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/constraints.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/entity.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/assertions.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/ingestion.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/recommendation.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/search.graphql >> combined.graphql
@@ -19,12 +20,11 @@ cat ../../datahub-graphql-core/src/main/resources/lineage.graphql >> combined.gr
 cat ../../datahub-graphql-core/src/main/resources/properties.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/forms.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/forms.acryl.graphql >> combined.graphql
-cat ../../datahub-graphql-core/src/main/resources/assertions.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/incident.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/anomaly.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/monitor.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/contract.graphql >> combined.graphql
-cat ../../datahub-graphql-core/src/main/resources/connection.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/share.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/query.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/common.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/connection.graphql >> combined.graphql

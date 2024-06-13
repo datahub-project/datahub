@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAssignFormInput;
 import com.linkedin.metadata.service.FormService;
@@ -37,7 +38,7 @@ public class BatchAssignFormResolver implements DataFetcher<CompletableFuture<Bo
     final List<String> entityUrns = input.getEntityUrns();
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canManageForms(context)) {
             throw new AuthorizationException(
@@ -54,6 +55,8 @@ public class BatchAssignFormResolver implements DataFetcher<CompletableFuture<Bo
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

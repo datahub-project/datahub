@@ -5,12 +5,12 @@ import pprint
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, runtime_checkable
 
 import humanfriendly
 import pydantic
 from pydantic import BaseModel
-from typing_extensions import Literal, Protocol, runtime_checkable
+from typing_extensions import Literal, Protocol
 
 from datahub.ingestion.api.report_helpers import format_datetime_relative
 from datahub.utilities.lossy_collections import LossyList
@@ -41,7 +41,7 @@ class Report(SupportsAsObj):
         if isinstance(some_val, SupportsAsObj):
             return some_val.as_obj()
         elif isinstance(some_val, pydantic.BaseModel):
-            return some_val.dict()
+            return Report.to_pure_python_obj(some_val.dict())
         elif dataclasses.is_dataclass(some_val):
             return dataclasses.asdict(some_val)
         elif isinstance(some_val, list):

@@ -30,6 +30,8 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
     OwnershipClass as Ownership,
+    SchemaFieldClass,
+    SchemaMetadataClass,
     StatusClass,
     TimeWindowSizeClass,
 )
@@ -123,17 +125,16 @@ def auto_status_aspect(
         else:
             raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
-        if not isinstance(
-            wu.metadata, MetadataChangeEventClass
-        ) and not entity_supports_aspect(wu.metadata.entityType, StatusClass):
-            # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
-            # Example like dataProcessInstance doesn't suppport status aspect.
-            # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
-            skip_urns.add(urn)
-
         yield wu
 
     for urn in sorted(all_urns - status_urns - skip_urns):
+        entity_type = guess_entity_type(urn)
+        if not entity_supports_aspect(entity_type, StatusClass):
+            # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
+            # Example like dataProcessInstance doesn't suppport status aspect.
+            # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
+            continue
+
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=StatusClass(removed=False),
@@ -376,6 +377,54 @@ def auto_browse_path_v2(
             "num_out_of_order": num_out_of_order,
         }
         telemetry.telemetry_instance.ping("incorrect_browse_path_v2", properties)
+
+
+def auto_fix_duplicate_schema_field_paths(
+    stream: Iterable[MetadataWorkUnit],
+    *,
+    platform: Optional[str] = None,
+) -> Iterable[MetadataWorkUnit]:
+    """Count schema metadata aspects with duplicate field paths and emit telemetry."""
+
+    total_schema_aspects = 0
+    schemas_with_duplicates = 0
+    duplicated_field_paths = 0
+
+    for wu in stream:
+        schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
+        if schema_metadata:
+            total_schema_aspects += 1
+
+            seen_fields = set()
+            dropped_fields = []
+            updated_fields: List[SchemaFieldClass] = []
+            for field in schema_metadata.fields:
+                if field.fieldPath in seen_fields:
+                    dropped_fields.append(field.fieldPath)
+                else:
+                    seen_fields.add(field.fieldPath)
+                    updated_fields.append(field)
+
+            if dropped_fields:
+                logger.info(
+                    f"Fixing duplicate field paths in schema aspect for {wu.get_urn()} by dropping fields: {dropped_fields}"
+                )
+                schema_metadata.fields = updated_fields
+                schemas_with_duplicates += 1
+                duplicated_field_paths += len(dropped_fields)
+
+        yield wu
+
+    if schemas_with_duplicates:
+        properties = {
+            "platform": platform,
+            "total_schema_aspects": total_schema_aspects,
+            "schemas_with_duplicates": schemas_with_duplicates,
+            "duplicated_field_paths": duplicated_field_paths,
+        }
+        telemetry.telemetry_instance.ping(
+            "ingestion_duplicate_schema_field_paths", properties
+        )
 
 
 def auto_empty_dataset_usage_statistics(

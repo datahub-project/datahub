@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -52,7 +53,7 @@ public class DatasetStatsSummaryResolver
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (!AuthorizationUtils.isViewDatasetUsageAuthorized(context, resourceUrn)) {
@@ -97,7 +98,9 @@ public class DatasetStatsSummaryResolver
                 e);
             return null; // Do not throw when loading usage summary fails.
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void addUsageFeatures(

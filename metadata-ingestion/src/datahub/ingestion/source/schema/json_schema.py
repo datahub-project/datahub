@@ -212,7 +212,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         """Loads the given schema file"""
         path = Path(filename).resolve()
         base_path = dirname(str(path))
-        base_uri = "file://{}/".format(base_path)
+        base_uri = f"file://{base_path}/"
 
         with open(path) as schema_file:
             logger.info(f"Opening file {path}")
@@ -243,7 +243,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         return jsonref.jsonloader(uri, **kwargs)
 
     def __init__(self, ctx: PipelineContext, config: JsonSchemaSourceConfig):
-        super(JsonSchemaSource, self).__init__(ctx=ctx, config=config)
+        super().__init__(ctx=ctx, config=config)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
 

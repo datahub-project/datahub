@@ -4,7 +4,7 @@ description: This page provides an overview of working with the DataHub Incident
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 
-# About Incidents
+# Incidents
 
 <FeatureAvailability/>
 
@@ -14,8 +14,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 A couple scenarios in which incidents can be useful are
 
-1**Communicating Assets with Ongoing Issues**: You can mark a known-bad data asset as under an ongoing incident so consumers and stakeholders can be informed about the health status of a data asset via the DataHub UI. Moreover, they can follow the incident as it progresses toward resolution.
-2**Pipeline Circuit Breaking (advanced):** You can use Incidents as a basis for orchestrating and blocking data pipelines that have inputs with active issues to avoid propagating bad data downstream.
+1. **Communicating Assets with Ongoing Issues**: You can mark a known-bad data asset as under an ongoing incident so consumers and stakeholders can be informed about the health status of a data asset via the DataHub UI. Moreover, they can follow the incident as it progresses toward resolution.
+2. **Pipeline Circuit Breaking (advanced):** You can use Incidents as a basis for orchestrating and blocking data pipelines that have inputs with active issues to avoid propagating bad data downstream.
 
 In the next section, we'll walk through how to
 

@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, Iterable, List
+from typing import Dict, Iterable, List
 from urllib.parse import urlparse
 
 from deltalake import DeltaTable
@@ -51,6 +51,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -126,46 +127,12 @@ class DeltaLakeSource(Source):
         config = DeltaLakeSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def delta_type_to_hive_type(self, field_type: Any) -> str:
-        if isinstance(field_type, str):
-            """
-            return the field type
-            """
-            return field_type
-        else:
-            if field_type.get("type") == "array":
-                """
-                if array is of complex type, recursively parse the
-                fields and create the native datatype
-                """
-                return (
-                    "array<"
-                    + self.delta_type_to_hive_type(field_type.get("elementType"))
-                    + ">"
-                )
-            elif field_type.get("type") == "struct":
-                parsed_struct = ""
-                for field in field_type.get("fields"):
-                    """
-                    if field is of complex type, recursively parse
-                    and create the native datatype
-                    """
-                    parsed_struct += (
-                        "{0}:{1}".format(
-                            field.get("name"),
-                            self.delta_type_to_hive_type(field.get("type")),
-                        )
-                        + ","
-                    )
-                return "struct<" + parsed_struct.rstrip(",") + ">"
-            return ""
-
     def _parse_datatype(self, raw_field_json_str: str) -> List[SchemaFieldClass]:
         raw_field_json = json.loads(raw_field_json_str)
 
         # get the parent field name and type
         field_name = raw_field_json.get("name")
-        field_type = self.delta_type_to_hive_type(raw_field_json.get("type"))
+        field_type = delta_type_to_hive_type(raw_field_json.get("type"))
 
         return get_schema_fields_for_hive_column(field_name, field_type)
 
@@ -343,8 +310,7 @@ class DeltaLakeSource(Source):
         delta_table = read_delta_table(path, self.storage_options, self.source_config)
         if delta_table:
             logger.debug(f"Delta table found at: {path}")
-            for wu in self.ingest_table(delta_table, path.rstrip("/")):
-                yield wu
+            yield from self.ingest_table(delta_table, path.rstrip("/"))
         else:
             for folder in self.get_folders(path):
                 yield from self.process_folder(folder)

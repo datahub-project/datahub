@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     RowCountTotalClass,
@@ -12,7 +13,6 @@ from datahub_executor.common.aspect_builder import get_assertion_std_parameters
 from datahub_executor.common.assertion.engine.transformer.assertion_adjustment_transformer import (
     AssertionAdjustmentTransformer,
 )
-from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.types import (
     Assertion,
     AssertionAdjustmentAlgorithm,
@@ -171,7 +171,7 @@ def get_raw_info_aspect_for_volume_assertion(
 
 
 def test_assertion_tranformer_no_adjustment(assertion_no_adjustment: Assertion) -> None:
-    graph = MagicMock(spec=DataHubAssertionGraph)
+    graph = MagicMock(spec=DataHubGraph)
     transformer = AssertionAdjustmentTransformer(graph)
     new_assertion, parameters, context = transformer.transform(
         assertion_no_adjustment, eval_parameters, assertion_context
@@ -186,7 +186,7 @@ def test_assertion_tranformer_no_adjustment(assertion_no_adjustment: Assertion) 
 def test_assertion_tranformer_default_adjustment(
     assertion_default_adjustment: Assertion,
 ) -> None:
-    graph = MagicMock(spec=DataHubAssertionGraph)
+    graph = MagicMock(spec=DataHubGraph)
     transformer = AssertionAdjustmentTransformer(graph)
     new_assertion, parameters, context = transformer.transform(
         assertion_default_adjustment, eval_parameters, assertion_context
@@ -213,7 +213,7 @@ def test_assertion_tranformer_default_adjustment(
 def test_assertion_tranformer_custom_adjustment(
     assertion_custom_adjustment: Assertion,
 ) -> None:
-    graph = MagicMock(spec=DataHubAssertionGraph)
+    graph = MagicMock(spec=DataHubGraph)
     transformer = AssertionAdjustmentTransformer(graph)
     new_assertion, parameters, context = transformer.transform(
         assertion_custom_adjustment, eval_parameters, assertion_context
@@ -241,7 +241,7 @@ def test_assertion_tranformer_custom_adjustment(
 def test_assertion_tranformer_malformed_adjustment(
     assertion_malformed_custom_adjustment: Assertion,
 ) -> None:
-    graph = MagicMock(spec=DataHubAssertionGraph)
+    graph = MagicMock(spec=DataHubGraph)
     transformer = AssertionAdjustmentTransformer(graph)
     new_assertion, parameters, context = transformer.transform(
         assertion_malformed_custom_adjustment, eval_parameters, assertion_context

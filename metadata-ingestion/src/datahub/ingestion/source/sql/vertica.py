@@ -123,7 +123,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "vertica")
+        super().__init__(config, ctx, "vertica")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.config: VerticaConfig = config
 

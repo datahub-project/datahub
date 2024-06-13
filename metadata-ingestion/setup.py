@@ -98,8 +98,8 @@ usage_common = {
 
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
-    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
-    "acryl-sqlglot[rs]==23.11.2.dev2",
+    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
+    "acryl-sqlglot[rs]==24.0.1.dev7",
 }
 
 classification_lib = {
@@ -225,11 +225,7 @@ microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "pyiceberg~=0.4",
-    # We currently pin to pydantic v1, since we only test against pydantic v1 in CI.
-    # However, we should remove this once we fix compatibility with newer versions
-    # of pyiceberg, which depend on pydantic v2.
-    *pydantic_no_v2,
+    "pyiceberg>=0.4,<0.7",
 }
 
 mssql_common = {
@@ -708,6 +704,7 @@ entry_points = {
         "pattern_add_dataset_dataproduct = datahub.ingestion.transformer.add_dataset_dataproduct:PatternAddDatasetDataProduct",
         "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl",
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
+        "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -796,6 +793,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
                         "datahub-kafka",
                         "sync-file-emitter",
                         "sql-parser",
+                        "iceberg",
                     }
                     else set()
                 )

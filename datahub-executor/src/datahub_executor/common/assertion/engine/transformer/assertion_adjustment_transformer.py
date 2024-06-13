@@ -1,6 +1,8 @@
 import logging
 from typing import Optional, Tuple
 
+from datahub.ingestion.graph.client import DataHubGraph
+
 from datahub_executor.common.aspect_builder import (
     get_assertion_info,
     get_assertion_std_parameters,
@@ -13,7 +15,6 @@ from datahub_executor.common.assertion.engine.transformer.assertion_adjustment.a
 from datahub_executor.common.assertion.engine.transformer.transformer import (
     AssertionTransformer,
 )
-from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.types import (
     Assertion,
     AssertionAdjustmentSettings,
@@ -32,10 +33,10 @@ class AssertionAdjustmentTransformer(AssertionTransformer):
     """
 
     @classmethod
-    def create(cls, graph: DataHubAssertionGraph) -> "AssertionTransformer":
+    def create(cls, graph: DataHubGraph) -> "AssertionTransformer":
         return AssertionAdjustmentTransformer(graph)
 
-    def __init__(self, graph: DataHubAssertionGraph) -> None:
+    def __init__(self, graph: DataHubGraph) -> None:
         self.graph = graph
 
     def transform(

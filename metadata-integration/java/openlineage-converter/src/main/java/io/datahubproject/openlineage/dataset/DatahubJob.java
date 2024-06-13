@@ -174,7 +174,7 @@ public class DatahubJob {
       List<MetadataChangeProposal> mcps) {
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     log.info("Adding DataJob edges to {}", jobUrn);
-    if (config.isUsePatch()) {
+    if (config.isUsePatch() && (!parentJobs.isEmpty() || !inSet.isEmpty() || !outSet.isEmpty())) {
       DataJobInputOutputPatchBuilder dataJobInputOutputPatchBuilder =
           new DataJobInputOutputPatchBuilder().urn(jobUrn);
       for (DatahubDataset dataset : inSet) {
@@ -263,39 +263,38 @@ public class DatahubJob {
 
           if (dataset.getLineage() != null) {
             if (config.isUsePatch()) {
-              UpstreamLineagePatchBuilder upstreamLineagePatchBuilder =
-                  new UpstreamLineagePatchBuilder().urn(dataset.getUrn());
-              for (Upstream upstream : dataset.getLineage().getUpstreams()) {
-                upstreamLineagePatchBuilder.addUpstream(upstream.getDataset(), upstream.getType());
-              }
+              if (!dataset.getLineage().getUpstreams().isEmpty()) {
+                UpstreamLineagePatchBuilder upstreamLineagePatchBuilder =
+                    new UpstreamLineagePatchBuilder().urn(dataset.getUrn());
+                for (Upstream upstream : dataset.getLineage().getUpstreams()) {
+                  upstreamLineagePatchBuilder.addUpstream(
+                      upstream.getDataset(), upstream.getType());
+                }
 
-              log.info("Adding FineGrainedLineage to {}", dataset.getUrn());
-              for (FineGrainedLineage fineGrainedLineage :
-                  Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())) {
-                for (Urn upstream : Objects.requireNonNull(fineGrainedLineage.getUpstreams())) {
-                  upstreamLineagePatchBuilder.addFineGrainedUpstreamField(
-                      upstream,
-                      fineGrainedLineage.getConfidenceScore(),
-                      StringUtils.defaultIfEmpty(
-                          fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
-                      fineGrainedLineage.getUpstreamType());
+                log.info("Adding FineGrainedLineage to {}", dataset.getUrn());
+                for (FineGrainedLineage fineGrainedLineage :
+                    Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())) {
+                  for (Urn upstream : Objects.requireNonNull(fineGrainedLineage.getUpstreams())) {
+                    for (Urn downstream :
+                        Objects.requireNonNull(fineGrainedLineage.getDownstreams())) {
+                      upstreamLineagePatchBuilder.addFineGrainedUpstreamField(
+                          downstream,
+                          fineGrainedLineage.getConfidenceScore(),
+                          StringUtils.defaultIfEmpty(
+                              fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
+                          upstream,
+                          null);
+                    }
+                  }
                 }
-                for (Urn downstream : Objects.requireNonNull(fineGrainedLineage.getDownstreams())) {
-                  upstreamLineagePatchBuilder.addFineGrainedDownstreamField(
-                      downstream,
-                      fineGrainedLineage.getConfidenceScore(),
-                      StringUtils.defaultIfEmpty(
-                          fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
-                      fineGrainedLineage.getDownstreamType());
-                }
+                MetadataChangeProposal mcp = upstreamLineagePatchBuilder.build();
+                log.info(
+                    "upstreamLineagePatch: {}",
+                    mcp.getAspect().getValue().asString(Charset.defaultCharset()));
+                mcps.add(mcp);
+              } else {
+                addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getLineage(), mcps);
               }
-              MetadataChangeProposal mcp = upstreamLineagePatchBuilder.build();
-              log.info(
-                  "upstreamLineagePatch: {}",
-                  mcp.getAspect().getValue().asString(Charset.defaultCharset()));
-              mcps.add(mcp);
-            } else {
-              addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getLineage(), mcps);
             }
           }
         });
@@ -361,7 +360,7 @@ public class DatahubJob {
       DatahubOpenlineageConfig config,
       List<MetadataChangeProposal> mcps) {
     if (flowGlobalTags != null) {
-      if (config.isUsePatch()) {
+      if ((config.isUsePatch() && (!flowGlobalTags.getTags().isEmpty()))) {
         GlobalTagsPatchBuilder globalTagsPatchBuilder = new GlobalTagsPatchBuilder().urn(flowUrn);
         for (TagAssociation tag : flowGlobalTags.getTags()) {
           globalTagsPatchBuilder.addTag(tag.getTag(), null);

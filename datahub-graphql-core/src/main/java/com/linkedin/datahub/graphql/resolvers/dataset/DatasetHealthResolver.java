@@ -7,6 +7,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
@@ -79,7 +80,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
   public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment)
       throws Exception {
     final Dataset parent = environment.getSource();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final CachedHealth cachedStatus =
@@ -91,7 +92,9 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
           } catch (Exception e) {
             throw new RuntimeException("Failed to resolve dataset's health status.", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

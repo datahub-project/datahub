@@ -79,36 +79,33 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         cls,
         config_dict: Dict[str, Any],
         ctx: PipelineContext,
+        sink: Sink,
     ) -> PipelineRunListener:
-        sink_config_holder: Optional[DynamicTypedConfig] = None
-
         reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
             config_dict or {}
         )
         if reporter_config.sink:
-            sink_config_holder = reporter_config.sink
-
-        if sink_config_holder is None:
-            # Populate sink from global recipe
-            assert ctx.pipeline_config
-            sink_config_holder = ctx.pipeline_config.sink
-            # Global instances are safe to use only if the types are datahub-rest and datahub-kafka
-            # Re-using a shared file sink will result in clobbering the events
-            if sink_config_holder.type not in ["datahub-rest", "datahub-kafka"]:
+            sink_class = sink_registry.get(reporter_config.sink.type)
+            sink_config = reporter_config.sink.config or {}
+            sink = sink_class.create(sink_config, ctx)
+        else:
+            if not isinstance(
+                sink,
+                tuple(
+                    [
+                        kls
+                        for kls in [
+                            sink_registry.get_optional("datahub-rest"),
+                            sink_registry.get_optional("datahub-kafka"),
+                        ]
+                        if kls
+                    ]
+                ),
+            ):
                 raise IgnorableError(
-                    f"Datahub ingestion reporter will be disabled because sink type {sink_config_holder.type} is not supported"
+                    f"Datahub ingestion reporter will be disabled because sink type {type(sink)} is not supported"
                 )
 
-        sink_type = sink_config_holder.type
-        sink_class = sink_registry.get(sink_type)
-        sink_config = sink_config_holder.dict().get("config") or {}
-        if sink_type == "datahub-rest":
-            # for the rest emitter we want to use sync mode to emit
-            # regardless of the default sink config since that makes it
-            # immune to process shutdown related failures
-            sink_config["mode"] = "SYNC"
-
-        sink: Sink = sink_class.create(sink_config, ctx)
         return cls(sink, reporter_config.report_recipe, ctx)
 
     def __init__(self, sink: Sink, report_recipe: bool, ctx: PipelineContext) -> None:

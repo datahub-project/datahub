@@ -28,34 +28,39 @@ public class SpringPluginFactory extends PluginFactory {
       @Nonnull List<ClassLoader> classLoaders) {
     super(pluginConfiguration, classLoaders);
 
-    String[] packageScan =
-        extractPackageScan(
-                Optional.ofNullable(pluginConfiguration)
-                    .map(PluginConfiguration::streamAll)
-                    .orElse(Stream.of()))
-            .toArray(String[]::new);
+    try {
+      String[] packageScan =
+          extractPackageScan(
+                  Optional.ofNullable(pluginConfiguration)
+                      .map(PluginConfiguration::streamAll)
+                      .orElse(Stream.of()))
+              .toArray(String[]::new);
 
-    if (springApplicationContext != null || packageScan.length == 0) {
-      this.springApplicationContext = springApplicationContext;
-    } else {
-      AnnotationConfigApplicationContext rootContext = null;
+      if (springApplicationContext != null || packageScan.length == 0) {
+        this.springApplicationContext = springApplicationContext;
+      } else {
+        AnnotationConfigApplicationContext rootContext = null;
 
-      for (ClassLoader classLoader : classLoaders) {
-        AnnotationConfigApplicationContext applicationContext =
-            new AnnotationConfigApplicationContext();
-        applicationContext.setId("custom-plugin");
-        if (rootContext != null) {
-          applicationContext.setParent(rootContext);
+        for (ClassLoader classLoader : classLoaders) {
+          AnnotationConfigApplicationContext applicationContext =
+              new AnnotationConfigApplicationContext();
+          applicationContext.setId("custom-plugin");
+          if (rootContext != null) {
+            applicationContext.setParent(rootContext);
+          }
+          applicationContext.setClassLoader(classLoader);
+          applicationContext.scan(packageScan);
+          rootContext = applicationContext;
         }
-        applicationContext.setClassLoader(classLoader);
-        applicationContext.scan(packageScan);
-        rootContext = applicationContext;
+        rootContext.refresh();
+        this.springApplicationContext = rootContext;
       }
-      rootContext.refresh();
-      this.springApplicationContext = rootContext;
-    }
 
-    loadPlugins();
+      loadPlugins();
+    } catch (Exception e) {
+      log.error("Error loading Spring Plugins!", e);
+      throw e;
+    }
   }
 
   private static Stream<String> extractPackageScan(Stream<AspectPluginConfig> configStream) {

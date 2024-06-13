@@ -307,7 +307,7 @@ public class SparkConfigParser {
 
   public static boolean isPatchEnabled(Config datahubConfig) {
     if (!datahubConfig.hasPath(PATCH_ENABLED)) {
-      return false;
+      return true;
     }
     return datahubConfig.hasPath(PATCH_ENABLED) && datahubConfig.getBoolean(PATCH_ENABLED);
   }

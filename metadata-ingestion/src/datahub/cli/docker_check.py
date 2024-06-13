@@ -203,7 +203,7 @@ def check_docker_quickstart() -> QuickstartStatus:
 
         all_containers = set()
         for config_file in config_files:
-            with open(config_file, "r") as config_file:
+            with open(config_file) as config_file:
                 all_containers.update(
                     yaml.safe_load(config_file).get("services", {}).keys()
                 )

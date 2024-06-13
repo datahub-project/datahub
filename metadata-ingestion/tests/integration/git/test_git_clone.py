@@ -123,15 +123,13 @@ def test_git_clone_private(tmp_path):
         branch="d380a2b777ec6f4653626f39c68dba85893faa74",
     )
     assert checkout_dir.exists()
-    assert set(os.listdir(checkout_dir)) == set(
-        [
-            ".datahub",
-            "models",
-            "README.md",
-            ".github",
-            ".git",
-            "views",
-            "manifest_lock.lkml",
-            "manifest.lkml",
-        ]
-    )
+    assert set(os.listdir(checkout_dir)) == {
+        ".datahub",
+        "models",
+        "README.md",
+        ".github",
+        ".git",
+        "views",
+        "manifest_lock.lkml",
+        "manifest.lkml",
+    }

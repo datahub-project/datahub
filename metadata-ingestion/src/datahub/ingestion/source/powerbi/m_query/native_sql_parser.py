@@ -9,7 +9,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 
-SPECIAL_CHARACTERS = ["#(lf)", "(lf)"]
+SPECIAL_CHARACTERS = ["#(lf)", "(lf)", "#(tab)"]
 
 logger = logging.getLogger(__name__)
 

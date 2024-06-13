@@ -23,7 +23,8 @@ public class UrnUtils {
   @Nonnull
   public static DatasetUrn toDatasetUrn(
       @Nonnull String platformName, @Nonnull String datasetName, @Nonnull String origin) {
-    return new DatasetUrn(new DataPlatformUrn(platformName), datasetName, toFabricType(origin));
+    return new DatasetUrn(
+        new DataPlatformUrn(platformName), datasetName, FabricType.valueOf(origin.toUpperCase()));
   }
 
   /**

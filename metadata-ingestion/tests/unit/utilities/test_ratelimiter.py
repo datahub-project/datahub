@@ -8,7 +8,7 @@ from datahub.utilities.ratelimiter import RateLimiter
 def test_rate_is_limited():
     MAX_CALLS_PER_SEC = 5
     TOTAL_CALLS = 18
-    actual_calls: Dict[float, int] = defaultdict(lambda: 0)
+    actual_calls: Dict[float, int] = defaultdict(int)
 
     ratelimiter = RateLimiter(max_calls=MAX_CALLS_PER_SEC, period=1)
     for _ in range(TOTAL_CALLS):

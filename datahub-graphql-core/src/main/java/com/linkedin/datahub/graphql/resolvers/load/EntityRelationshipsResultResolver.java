@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
 import com.linkedin.datahub.graphql.generated.RelationshipsInput;
@@ -46,13 +47,15 @@ public class EntityRelationshipsResultResolver
     final Integer count = input.getCount(); // Optional!
     final RelationshipDirection resolvedDirection =
         RelationshipDirection.valueOf(relationshipDirection.toString());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () ->
             mapEntityRelationships(
                 context,
                 fetchEntityRelationships(
                     urn, relationshipTypes, resolvedDirection, start, count, context.getActorUrn()),
-                resolvedDirection));
+                resolvedDirection),
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private EntityRelationships fetchEntityRelationships(

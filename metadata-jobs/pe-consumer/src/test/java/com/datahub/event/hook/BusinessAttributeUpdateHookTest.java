@@ -76,7 +76,7 @@ public class BusinessAttributeUpdateHookTest {
     mockUpdateIndicesService = mock(UpdateIndicesService.class);
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
     businessAttributeServiceHook =
-        new BusinessAttributeUpdateHookService(mockUpdateIndicesService, 100, 1);
+        new BusinessAttributeUpdateHookService(mockUpdateIndicesService, 100, 1, 10, 60);
     businessAttributeUpdateHook =
         new BusinessAttributeUpdateHook(businessAttributeServiceHook, true);
   }

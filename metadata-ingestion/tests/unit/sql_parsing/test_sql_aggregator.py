@@ -11,7 +11,11 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, ColumnRef
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
@@ -432,15 +436,15 @@ def test_add_known_query_lineage(pytestconfig: pytest.Config) -> None:
         upstreams=[upstream_urn],
         column_lineage=[
             ColumnLineageInfo(
-                downstream=ColumnRef(table=downstream_urn, column="a"),
+                downstream=DownstreamColumnRef(table=downstream_urn, column="a"),
                 upstreams=[ColumnRef(table=upstream_urn, column="a")],
             ),
             ColumnLineageInfo(
-                downstream=ColumnRef(table=downstream_urn, column="b"),
+                downstream=DownstreamColumnRef(table=downstream_urn, column="b"),
                 upstreams=[ColumnRef(table=upstream_urn, column="b")],
             ),
             ColumnLineageInfo(
-                downstream=ColumnRef(table=downstream_urn, column="c"),
+                downstream=DownstreamColumnRef(table=downstream_urn, column="c"),
                 upstreams=[ColumnRef(table=upstream_urn, column="c")],
             ),
         ],

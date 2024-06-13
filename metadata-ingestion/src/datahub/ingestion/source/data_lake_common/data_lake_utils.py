@@ -58,8 +58,7 @@ class ContainerWUCreator:
             )
             self.processed_containers.append(container_key.guid())
             logger.debug(f"Creating container with key: {container_key}")
-            for wu in container_wus:
-                yield wu
+            yield from container_wus
 
     def gen_folder_key(self, abs_path):
         return FolderKey(

@@ -92,6 +92,7 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     TagSnapshotClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
 
@@ -669,6 +670,7 @@ class LookerExplore:
     joins: Optional[List[str]] = None
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
     source_file: Optional[str] = None
+    tags: List[str] = dataclasses_field(default_factory=list)
 
     @validator("name")
     def remove_quotes(cls, v):
@@ -770,6 +772,7 @@ class LookerExplore:
             # This method is getting called from lookml_source's get_internal_workunits method
             # & upstream_views_file_path is not in use in that code flow
             upstream_views_file_path={},
+            tags=cast(List, dict.get("tags")) if dict.get("tags") is not None else [],
         )
 
     @classmethod  # noqa: C901
@@ -786,7 +789,6 @@ class LookerExplore:
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
-
             lkml_fields: List[
                 LookmlModelExploreField
             ] = explore_field_set_to_lkml_fields(explore)
@@ -956,6 +958,7 @@ class LookerExplore:
                 ),
                 upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
+                tags=list(explore.tags) if explore.tags is not None else [],
             )
         except SDKError as e:
             if "<title>Looker Not Found (404)</title>" in str(e):
@@ -1132,6 +1135,20 @@ class LookerExplore:
             mce,
             mcp,
         ]
+
+        # Add tags
+        explore_tag_urns: List[TagAssociationClass] = []
+        for tag in self.tags:
+            tag_urn = TagUrn(tag)
+            explore_tag_urns.append(TagAssociationClass(tag_urn.urn()))
+            proposals.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=tag_urn.urn(),
+                    aspect=tag_urn.to_key_aspect(),
+                )
+            )
+        if explore_tag_urns:
+            dataset_snapshot.aspects.append(GlobalTagsClass(explore_tag_urns))
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if extract_embed_urls:
@@ -1367,6 +1384,7 @@ class LookerDashboardElement:
     input_fields: Optional[List[InputFieldElement]] = None
     folder_path: Optional[str] = None  # for independent looks.
     folder: Optional[LookerFolder] = None
+    owner: Optional[LookerUser] = None
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore

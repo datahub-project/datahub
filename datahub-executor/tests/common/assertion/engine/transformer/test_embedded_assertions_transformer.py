@@ -1,9 +1,10 @@
 from unittest.mock import MagicMock
 
+from datahub.ingestion.graph.client import DataHubGraph
+
 from datahub_executor.common.assertion.engine.transformer.embedded_assertions_transformer import (
     EmbeddedAssertionsTransformer,
 )
-from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.types import (
     Assertion,
     AssertionEntity,
@@ -105,7 +106,7 @@ smart_assertion_context = AssertionEvaluationContext(
 
 
 def test_assertion_tranformer_no_change() -> None:
-    graph = MagicMock(spec=DataHubAssertionGraph)
+    graph = MagicMock(spec=DataHubGraph)
     transformer = EmbeddedAssertionsTransformer(graph)
     new_assertion, parameters, context = transformer.transform(
         assertion_spec.assertion, assertion_spec.parameters, assertion_context
@@ -118,7 +119,7 @@ def test_assertion_tranformer_no_change() -> None:
 
 
 def test_assertion_transformer_assertion_updated() -> None:
-    graph = MagicMock(spec=DataHubAssertionGraph)
+    graph = MagicMock(spec=DataHubGraph)
     transformer = EmbeddedAssertionsTransformer(graph)
 
     new_assertion, parameters, context = transformer.transform(

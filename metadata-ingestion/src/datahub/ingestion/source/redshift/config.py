@@ -49,6 +49,11 @@ class S3LineageProviderConfig(ConfigModel):
         description="Strip filename from s3 url. It only applies if path_specs are not specified.",
     )
 
+    ignore_non_path_spec_path: bool = Field(
+        default=False,
+        description="Ignore paths that are not match in path_specs. It only applies if path_specs are specified.",
+    )
+
 
 class S3DatasetLineageProviderConfigBase(ConfigModel):
     """

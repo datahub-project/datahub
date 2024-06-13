@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
@@ -42,7 +43,7 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
     final List<String> fieldPaths =
         input.getFieldPaths() != null ? input.getFieldPaths() : new ArrayList<>();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // ensure the user is assigned to this form/entity before letting them submit a prompt
@@ -97,7 +98,9 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void checkUserIsAssigned(

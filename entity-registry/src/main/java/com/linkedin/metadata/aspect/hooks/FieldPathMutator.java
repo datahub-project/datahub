@@ -29,7 +29,9 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Setter
 @Getter
 @Accessors(chain = true)
@@ -128,6 +130,9 @@ public class FieldPathMutator extends MutationHook {
                 Collectors.groupingBy(fieldPathExtractor, LinkedHashMap::new, Collectors.toList()));
 
     if (grouped.values().stream().anyMatch(v -> v.size() > 1)) {
+      log.warn(
+          "Duplicate field path(s) detected. Dropping duplicates: {}",
+          grouped.values().stream().filter(v -> v.size() > 1).collect(Collectors.toList()));
       // return first
       return grouped.values().stream().map(l -> l.get(0)).collect(Collectors.toList());
     }

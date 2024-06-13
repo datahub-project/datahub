@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
@@ -32,7 +33,7 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
     Objects.requireNonNull(entityUrnString, "Entity urn must not be null!");
 
     final Urn entityUrn = Urn.createFromString(entityUrnString);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             return _entityService
@@ -42,6 +43,8 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
             throw new RuntimeException(
                 String.format("Failed to check whether entity %s exists", entityUrn.toString()));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

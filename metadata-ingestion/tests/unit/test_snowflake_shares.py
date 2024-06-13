@@ -284,7 +284,7 @@ def test_snowflake_shares_workunit_outbound_share(
         ]
         entity_urns.add(wu.get_urn())
 
-    assert len((entity_urns)) == 6
+    assert len(entity_urns) == 6
 
 
 def test_snowflake_shares_workunit_inbound_and_outbound_share(

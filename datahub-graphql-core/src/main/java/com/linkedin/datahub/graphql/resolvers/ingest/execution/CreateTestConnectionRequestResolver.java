@@ -9,6 +9,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTestConnectionRequestInput;
 import com.linkedin.entity.client.EntityClient;
@@ -48,7 +49,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canManageIngestion(context)) {
             throw new AuthorizationException(
@@ -97,6 +98,8 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                     "Failed to create new test ingestion connection request %s", input.toString()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

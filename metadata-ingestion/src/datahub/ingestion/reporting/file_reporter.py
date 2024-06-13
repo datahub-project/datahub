@@ -7,6 +7,7 @@ from pydantic import validator
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
+from datahub.ingestion.api.sink import Sink
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ class FileReporter(PipelineRunListener):
         cls,
         config_dict: Dict[str, Any],
         ctx: PipelineContext,
+        sink: Sink,
     ) -> PipelineRunListener:
         reporter_config = FileReporterConfig.parse_obj(config_dict)
         return cls(reporter_config)

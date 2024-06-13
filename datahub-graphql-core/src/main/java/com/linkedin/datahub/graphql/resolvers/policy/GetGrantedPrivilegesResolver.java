@@ -6,6 +6,7 @@ import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetGrantedPrivilegesInput;
 import com.linkedin.datahub.graphql.generated.Privileges;
@@ -44,8 +45,10 @@ public class GetGrantedPrivilegesResolver implements DataFetcher<CompletableFutu
       DataHubAuthorizer dataHubAuthorizer =
           ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer();
       List<String> privileges = dataHubAuthorizer.getGrantedPrivileges(actor, resourceSpec);
-      return CompletableFuture.supplyAsync(
-          () -> Privileges.builder().setPrivileges(privileges).build());
+      return GraphQLConcurrencyUtils.supplyAsync(
+          () -> Privileges.builder().setPrivileges(privileges).build(),
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new UnsupportedOperationException(
         String.format(

@@ -14,7 +14,7 @@ from acryl.executor.request.signal_request import SignalRequest
 from acryl.executor.secret.datahub_secret_store import DataHubSecretStoreConfig
 from acryl.executor.secret.secret_store import SecretStoreConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     ExecutionRequestInputClass,
     ExecutionRequestKeyClass,
@@ -26,7 +26,6 @@ from datahub_executor.common.client.fetcher.monitors.graphql.query import (
     GRAPHQL_GET_SIGNAL_REQUEST_LIST_QUERY,
 )
 from datahub_executor.common.constants import RUN_INGEST_TASK_NAME
-from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.common.monitoring.metrics import (
     STATS_EXECUTION_FETCH_SIGNAL_ERRORS,
@@ -126,7 +125,7 @@ def extract_execution_request(
 
 @STATS_EXECUTION_FETCH_SIGNAL_REQUESTS.time()
 def fetch_execution_signal_requests(
-    graph: DataHubAssertionGraph,
+    graph: DataHubGraph,
     ingestion_exec_ids: List[str],
 ) -> List[SignalRequest]:
     # convert the exec_id strings to dataHubExecutionRequest urns
@@ -183,7 +182,7 @@ def fetch_execution_signal_requests(
 
 
 def handle_ingestion_signal_requests(
-    graph: DataHubAssertionGraph,
+    graph: DataHubGraph,
     ingestion_executor: ReportingExecutor,
 ) -> None:
     ingestion_exec_ids = []

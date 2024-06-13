@@ -65,8 +65,9 @@ class AutoMlJobInfo(SageMakerJobInfo):
     list_key: Final = "AutoMLJobSummaries"
     list_name_key: Final = "AutoMLJobName"
     list_arn_key: Final = "AutoMLJobArn"
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_auto_ml_job
-    describe_command: Final = "describe_auto_ml_job"
+    # DescribeAutoMLJobV2 are new versions of CreateAutoMLJob and DescribeAutoMLJob which offer backward compatibility.
+    # https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DescribeAutoMLJobV2.html
+    describe_command: Final = "describe_auto_ml_job_v2"
     describe_name_key: Final = "AutoMLJobName"
     describe_arn_key: Final = "AutoMLJobArn"
     describe_status_key: Final = "AutoMLJobStatus"
@@ -101,28 +102,6 @@ class CompilationJobInfo(SageMakerJobInfo):
         "STOPPED": JobStatusClass.STOPPED,
     }
     processor = "process_compilation_job"
-
-
-class EdgePackagingJobInfo(SageMakerJobInfo):
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_edge_packaging_jobs
-    list_command: Final = "list_edge_packaging_jobs"
-    list_key: Final = "EdgePackagingJobSummaries"
-    list_name_key: Final = "EdgePackagingJobName"
-    list_arn_key: Final = "EdgePackagingJobArn"
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_edge_packaging_job
-    describe_command: Final = "describe_edge_packaging_job"
-    describe_name_key: Final = "EdgePackagingJobName"
-    describe_arn_key: Final = "EdgePackagingJobArn"
-    describe_status_key: Final = "EdgePackagingJobStatus"
-    status_map = {
-        "INPROGRESS": JobStatusClass.IN_PROGRESS,
-        "COMPLETED": JobStatusClass.COMPLETED,
-        "FAILED": JobStatusClass.FAILED,
-        "STARTING": JobStatusClass.STARTING,
-        "STOPPING": JobStatusClass.STOPPING,
-        "STOPPED": JobStatusClass.STOPPED,
-    }
-    processor = "process_edge_packaging_job"
 
 
 class HyperParameterTuningJobInfo(SageMakerJobInfo):

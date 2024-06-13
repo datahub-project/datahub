@@ -11,6 +11,8 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
@@ -27,6 +29,7 @@ import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.test.TestEngineFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
+import com.linkedin.metadata.config.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
@@ -57,11 +60,16 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -225,10 +233,6 @@ public class GraphQLEngineFactory {
   private IntegrationsService _integrationsService;
 
   @Autowired
-  @Qualifier("connectionService")
-  private ConnectionService _connectionService;
-
-  @Autowired
   @Qualifier("subscriptionService")
   private SubscriptionService _subscriptionService;
 
@@ -245,6 +249,10 @@ public class GraphQLEngineFactory {
 
   @Value("${LINEAGE_DEFAULT_LAST_DAYS_FILTER:#{null}}")
   private Integer defaultLineageLastDaysFilter;
+
+  @Autowired
+  @Qualifier("connectionService")
+  private ConnectionService _connectionService;
 
   @Bean(name = "graphQLEngine")
   @Nonnull
@@ -297,6 +305,8 @@ public class GraphQLEngineFactory {
     args.setDataProductService(dataProductService);
     args.setGraphQLQueryComplexityLimit(
         configProvider.getGraphQL().getQuery().getComplexityLimit());
+    args.setGraphQLQueryIntrospectionEnabled(
+        configProvider.getGraphQL().getQuery().isIntrospectionEnabled());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     args.setBusinessAttributeService(businessAttributeService);
     args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
@@ -314,6 +324,37 @@ public class GraphQLEngineFactory {
     args.setShareService(_shareService);
     args.setExecutorConfiguration(configProvider.getExecutors());
     args.setDataContractService(_dataContractService);
+    args.setConnectionService(_connectionService);
     return new GmsGraphQLEngine(args).builder().build();
+  }
+
+  @Bean(name = "graphQLWorkerPool")
+  @ConditionalOnProperty("graphQL.concurrency.separateThreadPool")
+  protected ExecutorService graphQLWorkerPool() {
+    GraphQLConcurrencyConfiguration concurrencyConfig =
+        configProvider.getGraphQL().getConcurrency();
+    GraphQLWorkerPoolThreadFactory threadFactory =
+        new GraphQLWorkerPoolThreadFactory(concurrencyConfig.getStackSize());
+    int corePoolSize =
+        concurrencyConfig.getCorePoolSize() < 0
+            ? Runtime.getRuntime().availableProcessors() * 5
+            : concurrencyConfig.getCorePoolSize();
+    int maxPoolSize =
+        concurrencyConfig.getMaxPoolSize() <= 0
+            ? Runtime.getRuntime().availableProcessors() * 100
+            : concurrencyConfig.getMaxPoolSize();
+
+    ThreadPoolExecutor graphQLWorkerPool =
+        new ThreadPoolExecutor(
+            corePoolSize,
+            maxPoolSize,
+            concurrencyConfig.getKeepAlive(),
+            TimeUnit.SECONDS,
+            new SynchronousQueue(),
+            threadFactory,
+            new ThreadPoolExecutor.CallerRunsPolicy());
+    GraphQLConcurrencyUtils.setExecutorService(graphQLWorkerPool);
+
+    return graphQLWorkerPool;
   }
 }

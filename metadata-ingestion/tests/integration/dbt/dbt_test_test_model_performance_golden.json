@@ -7,8 +7,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
         }
     },
@@ -337,9 +336,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
         }
     },
@@ -565,7 +562,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1643871600000,
+                "time": 1663355198240,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -685,8 +682,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
         }
     },
@@ -1020,7 +1016,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an_aliased_view_for_payments,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1643871600000,
+                "time": 1663355198240,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1144,9 +1140,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
         }
     },
@@ -1349,7 +1343,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1643871600000,
+                "time": 1663355198240,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1468,8 +1462,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Snapshot",
-                "View"
+                "Snapshot"
             ]
         }
     },
@@ -1873,7 +1866,7 @@
             "name": "just-some-random-id_urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_snapshot,PROD)",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1643871600000,
+                "time": 1663355198240,
                 "actor": "urn:li:corpuser:datahub"
             }
         }

@@ -226,13 +226,13 @@ class OracleInspectorObjectWrapper:
                 col.default_on_null,
                 (
                     SELECT id.generation_type || ',' || id.IDENTITY_OPTIONS
-                    FROM DBA_TAB_IDENTITY_COLS%(dblink)s id
+                    FROM DBA_TAB_IDENTITY_COLS{dblink} id
                     WHERE col.table_name = id.table_name
                     AND col.column_name = id.column_name
                     AND col.owner = id.owner
-                ) AS identity_options""" % {
-                "dblink": dblink
-            }
+                ) AS identity_options""".format(
+                dblink=dblink
+            )
         else:
             identity_cols = "NULL as default_on_null, NULL as identity_options"
 

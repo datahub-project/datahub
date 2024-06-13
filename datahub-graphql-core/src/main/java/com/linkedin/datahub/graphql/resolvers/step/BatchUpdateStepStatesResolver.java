@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchUpdateStepStatesInput;
 import com.linkedin.datahub.graphql.generated.BatchUpdateStepStatesResult;
 import com.linkedin.datahub.graphql.generated.StepStateInput;
@@ -47,7 +48,7 @@ public class BatchUpdateStepStatesResolver
     final List<StepStateInput> states = input.getStates();
     final String actorUrnStr = authentication.getActor().toUrnStr();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Urn actorUrn = UrnUtils.getUrn(actorUrnStr);
           final AuditStamp auditStamp =
@@ -62,7 +63,9 @@ public class BatchUpdateStepStatesResolver
           final BatchUpdateStepStatesResult result = new BatchUpdateStepStatesResult();
           result.setResults(results);
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private UpdateStepStateResult buildUpdateStepStateResult(

@@ -62,6 +62,7 @@ query getMe {
             manageSecrets
             manageTokens
             manageDomains
+            viewTests
             manageTests
             manageGlossaries
             manageUserCredentials

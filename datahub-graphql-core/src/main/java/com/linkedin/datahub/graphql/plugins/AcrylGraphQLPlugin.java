@@ -17,7 +17,6 @@ import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
 import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
-import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
@@ -60,9 +59,6 @@ import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFreshnessAs
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSchemaAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSqlAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetVolumeAssertionMonitorResolver;
-import com.linkedin.datahub.graphql.resolvers.connection.DeleteConnectionResolver;
-import com.linkedin.datahub.graphql.resolvers.connection.UpdateConnectionResolver;
-import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
 import com.linkedin.datahub.graphql.resolvers.datacontract.DataContractResultResolver;
@@ -126,7 +122,6 @@ import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.action.ActionPipelineType;
 import com.linkedin.datahub.graphql.types.anomaly.AnomalyType;
-import com.linkedin.datahub.graphql.types.connection.DataHubConnectionType;
 import com.linkedin.datahub.graphql.types.datacontract.DataContractType;
 import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
@@ -138,7 +133,6 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ActionPipelineConfiguration;
 import com.linkedin.metadata.config.ExecutorConfiguration;
-import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.integration.IntegrationsService;
@@ -169,7 +163,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private FormType formType;
 
   // Acryl Types
-  private DataHubConnectionType connectionType; // Saas-ONLY
   private ActionPipelineType actionPipelineType; // Saas-ONLY
   private MonitorType monitorType; // SaaS only
   private AnomalyType anomalyType;
@@ -178,7 +171,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private List<EntityType<?, ?>> entityTypes;
 
   private EntityService<?> entityService;
-  private ConnectionService connectionService;
   private SecretService secretService;
   private IntegrationsService integrationsService;
   private ProposalService proposalService;
@@ -221,7 +213,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.entityService = args.getEntityService();
     this.entityRegistry = args.getEntityRegistry();
     this.usageClient = args.getUsageClient();
-    this.connectionService = args.getConnectionService();
     this.assertionService = args.getAssertionService();
     this.dataContractService = args.getDataContractService();
     this.secretService = args.getSecretService();
@@ -242,8 +233,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.tagType = new TagType(args.getEntityClient());
     this.formType = new FormType(args.getEntityClient());
 
-    this.connectionType =
-        new DataHubConnectionType(args.getEntityClient(), args.getSecretService()); // SaaS only
     this.actionPipelineType = new ActionPipelineType(args.getEntityClient()); // SaaS only
     this.monitorType = new MonitorType(args.getEntityClient()); // SaaS only
     this.anomalyType = new AnomalyType(args.getEntityClient()); // SaaS only
@@ -252,11 +241,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     // New saas types
     this.entityTypes =
         ImmutableList.of(
-            this.connectionType,
-            this.actionPipelineType,
-            this.monitorType,
-            this.anomalyType,
-            this.dataContractType);
+            this.actionPipelineType, this.monitorType, this.anomalyType, this.dataContractType);
     this.executorConfiguration = args.getExecutorConfiguration();
     this.actionConfiguration = args.getActionPipelineConfiguration();
 
@@ -269,8 +254,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         ACTIONS_SCHEMA_FILE,
         ACTIONS_PIPELINE_SCHEMA_FILE,
         CONSTRAINTS_SCHEMA_FILE,
-        ASSERTIONS_SCHEMA_FILE,
-        CONNECTIONS_SCHEMA_FILE,
         MONITORS_SCHEMA_FILE,
         ANOMALY_SCHEMA_FILE,
         INTEGRATIONS_SCHEMA_FILE,
@@ -287,7 +270,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   public Collection<? extends LoadableType<?, ?>> getLoadableTypes() {
     assert initialized;
     return ImmutableList.of(
-        connectionType, // Saas only
         actionPipelineType, // Saas only
         monitorType, // SaaS only
         anomalyType, // SaaS only
@@ -309,7 +291,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureActionRequestResolvers(builder);
     configureActionPipelineResolvers(builder, baseEngine);
     configureAnomalyResolvers(builder, baseEngine);
-    configureConnectionResolvers(builder, baseEngine);
     configureIntegrationResolvers(builder);
     configureMonitorResolvers(builder, baseEngine);
     configureResolvedAuditStampResolvers(builder, baseEngine);
@@ -578,37 +559,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 "monitor", new AssertionMonitorResolver(this.entityClient, this.graphClient)));
   }
 
-  private void configureConnectionResolvers(
-      final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
-    builder.type(
-        "Mutation",
-        typeWiring ->
-            typeWiring
-                .dataFetcher(
-                    "upsertConnection",
-                    new UpsertConnectionResolver(connectionService, secretService))
-                .dataFetcher(
-                    "updateConnection",
-                    new UpdateConnectionResolver(connectionService, secretService))
-                .dataFetcher("deleteConnection", new DeleteConnectionResolver(connectionService)));
-    builder.type(
-        "Query",
-        typeWiring -> typeWiring.dataFetcher("connection", baseEngine.getResolver(connectionType)));
-    builder.type(
-        "DataHubConnection",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "platform",
-                new LoadableTypeResolver<>(
-                    baseEngine.getDataPlatformType(),
-                    (env) -> {
-                      final DataHubConnection connection = env.getSource();
-                      return connection.getPlatform() != null
-                          ? connection.getPlatform().getUrn()
-                          : null;
-                    })));
-  }
-
   private void configureActionPipelineResolvers(
       final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
     builder.type(
@@ -649,7 +599,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "destination",
                     new LoadableTypeResolver<>(
-                        connectionType,
+                        baseEngine.connectionType,
                         (env) -> {
                           final ShareResult shareResult = env.getSource();
                           return shareResult.getDestination().getUrn();

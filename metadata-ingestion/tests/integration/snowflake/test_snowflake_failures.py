@@ -169,7 +169,7 @@ def test_snowflake_list_columns_error_causes_pipeline_warning(
             default_query_results,
             [
                 SnowflakeQuery.columns_for_table(
-                    "TABLE_{}".format(tbl_idx), "TEST_SCHEMA", "TEST_DB"
+                    f"TABLE_{tbl_idx}", "TEST_SCHEMA", "TEST_DB"
                 )
                 for tbl_idx in range(1, NUM_TABLES + 1)
             ],

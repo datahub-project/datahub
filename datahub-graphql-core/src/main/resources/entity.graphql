@@ -1204,7 +1204,7 @@ enum EntityType {
     MONITOR
 
     """
-    A DataHub incident
+    A DataHub incident - SaaS only
     """
     INCIDENT
 
@@ -8244,12 +8244,12 @@ enum AssertionStdOperator {
     NOT_IN
 
     """
-    Value being asserted is true
+    Value being asserted is true.
     """
     IS_TRUE
 
     """
-    Value being asserted is false
+    Value being asserted is false.
     """
     IS_FALSE
 

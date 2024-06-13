@@ -34,7 +34,6 @@ from datahub_executor.common.assertion.result.assertion_run_event_handler import
 from datahub_executor.common.connection.datahub_ingestion_source_connection_provider import (
     DataHubIngestionSourceConnectionProvider,
 )
-from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.state.datahub_monitor_state_provider import (
     DataHubMonitorStateProvider,
@@ -42,9 +41,9 @@ from datahub_executor.common.state.datahub_monitor_state_provider import (
 from datahub_executor.config import DATAHUB_GMS_TOKEN, DATAHUB_GMS_URL
 
 
-def create_datahub_graph() -> DataHubAssertionGraph:
+def create_datahub_graph() -> DataHubGraph:
     """Create a DataHub client based on environment variables."""
-    return DataHubAssertionGraph(
+    return DataHubGraph(
         DatahubClientConfig(
             server=DATAHUB_GMS_URL,
             # When token is not set, the client will automatically try to use
@@ -92,7 +91,7 @@ def paginate_datahub_query_results(
     return results
 
 
-def create_assertion_engine(graph: DataHubAssertionGraph) -> AssertionEngine:
+def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
     # Create secret store for resolving recipe credentials
     datahub_secret_store = DataHubSecretStore.create({"graph_client": graph})
 

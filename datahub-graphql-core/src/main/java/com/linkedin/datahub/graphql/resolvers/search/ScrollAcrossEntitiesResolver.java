@@ -39,6 +39,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
         input.getSearchFlags(),
         input.getCount(),
         input.getScrollId(),
-        input.getKeepAlive());
+        input.getKeepAlive(),
+        this.getClass().getSimpleName());
   }
 }

@@ -4,7 +4,7 @@ title: Business Glossary
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Business Glossary
+# Business Glossary
 
 <FeatureAvailability/>
 

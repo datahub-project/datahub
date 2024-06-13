@@ -2,6 +2,7 @@ import logging
 import time
 from typing import List, Optional, cast
 
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import OperationClass
 
 from datahub_executor.common.assertion.engine.evaluator.evaluator import (
@@ -23,7 +24,6 @@ from datahub_executor.common.exceptions import (
     InvalidParametersException,
     SourceConnectionErrorException,
 )
-from datahub_executor.common.graph import DataHubAssertionGraph
 from datahub_executor.common.source.source import Source
 from datahub_executor.common.types import (
     Assertion,
@@ -391,7 +391,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         assert isinstance(
             self.connection_provider, DataHubIngestionSourceConnectionProvider
         )
-        assert isinstance(self.connection_provider.graph, DataHubAssertionGraph)
+        assert isinstance(self.connection_provider.graph, DataHubGraph)
 
         [start_timestamp, end_timestamp] = window
         operation_aspects = self.connection_provider.graph.get_timeseries_values(
@@ -415,6 +415,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                     }
                 ]
             },
+            limit=1,
         )
 
         if operation_aspects is not None and len(operation_aspects) > 0:

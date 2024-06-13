@@ -80,9 +80,9 @@ class DataFlow:
         )
 
     def generate_ownership_aspect(self):
-        owners = set([builder.make_user_urn(owner) for owner in self.owners]) | set(
-            [builder.make_group_urn(owner) for owner in self.group_owners]
-        )
+        owners = {builder.make_user_urn(owner) for owner in self.owners} | {
+            builder.make_group_urn(owner) for owner in self.group_owners
+        }
         ownership = OwnershipClass(
             owners=[
                 OwnerClass(
