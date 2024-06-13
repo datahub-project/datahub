@@ -19,6 +19,10 @@ query getIngestion($input: ListIngestionSourcesInput!) {
         executorId
         version
         debugMode
+        extraArgs {
+          key,
+          value
+        }
       }
     }
   }
