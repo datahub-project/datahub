@@ -65,6 +65,7 @@ def ingestion_sources_to_execution_requests(
                 if ingestion_source.config.version
                 else "latest",
                 "debug_mode": ingestion_source.config.debug_mode,
+                **ingestion_source.config.extra_args,
             },
         )
         if ingestion_source.schedule:
