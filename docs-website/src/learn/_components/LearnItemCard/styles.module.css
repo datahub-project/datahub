@@ -1,4 +1,3 @@
-
 .featureCol {
   display: flex;
 }
@@ -12,15 +11,15 @@
   transform: translate(-50%, -50%);
   color: white;
   font-style: italic;
-
 }
 
 .card_date {
-    padding: 1rem;
-    font-size: 0.8rem;
-    font-style: italic;
-    text-align: right;
-    color: gray;
+  padding: 1rem;
+  font-size: 0.8rem;
+  font-style: italic;
+  text-align: right;
+  color: gray;
+  margin-top: auto;
 }
 
 .card_feature {
@@ -28,13 +27,13 @@
   font-weight: 700;
 }
 
-
-.feature {
+.card {
   color: var(--ifm-text-color);
   text-decoration: none !important;
   padding: 0rem;
   margin-bottom: 2rem;
   align-self: stretch;
+  flex-grow: 1;
   &:hover {
     border-color: var(--ifm-color-primary);
   }
@@ -52,11 +51,9 @@
   padding: 1rem 2rem;
 }
 
-
 .featureBody {
   padding: 1rem 2rem;
 }
-
 
 .card_image {
   margin: 0;
@@ -67,7 +64,6 @@
   display: flex;
   position: relative;
   text-align: center;
-
 
   img {
     width: 100%;
