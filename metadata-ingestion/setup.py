@@ -259,7 +259,9 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
-    "deltalake>=0.6.3, != 0.6.4",
+    # Version 0.18.0 broken on ARM Macs: https://github.com/delta-io/delta-rs/issues/2577
+    "deltalake>=0.6.3, != 0.6.4, < 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
@@ -651,6 +653,7 @@ entry_points = {
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
+        "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
