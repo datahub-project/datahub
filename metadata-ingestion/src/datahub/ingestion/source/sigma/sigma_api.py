@@ -53,7 +53,6 @@ class SigmaAPI:
         )
 
     def _log_http_error(self, message: str) -> Any:
-        logger.warning(message)
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
             logger.warning(f"HTTP status-code = {e.response.status_code}")
@@ -94,6 +93,7 @@ class SigmaAPI:
         return get_response
 
     def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
+        logger.debug(f"Fetching workspace metadata with id '{workspace_id}'")
         try:
             if workspace_id in self.workspaces:
                 return self.workspaces[workspace_id]
@@ -111,12 +111,13 @@ class SigmaAPI:
                 return workspace
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch workspace {workspace_id}. Exception: {e}"
+                message=f"Unable to fetch workspace '{workspace_id}'. Exception: {e}"
             )
         return None
 
     def fill_workspaces(self) -> None:
-        url = f"{self.config.api_url}/workspaces?limit=50"
+        logger.debug("Fetching all accessible workspaces metadata.")
+        workspace_url = url = f"{self.config.api_url}/workspaces?limit=50"
         try:
             while True:
                 response = self._get_api_call(url)
@@ -127,7 +128,7 @@ class SigmaAPI:
                         workspace_dict[Constant.WORKSPACEID]
                     ] = Workspace.parse_obj(workspace_dict)
                 if response_dict[Constant.NEXTPAGE]:
-                    url = f"{url}&page={response_dict[Constant.NEXTPAGE]}"
+                    url = f"{workspace_url}&page={response_dict[Constant.NEXTPAGE]}"
                 else:
                     break
         except Exception as e:
@@ -135,19 +136,21 @@ class SigmaAPI:
 
     @functools.lru_cache()
     def _get_users(self) -> Dict[str, str]:
-        users: Dict[str, str] = {}
+        logger.debug("Fetching all accessible users metadata.")
         try:
+            users: Dict[str, str] = {}
             response = self._get_api_call(f"{self.config.api_url}/members")
             response.raise_for_status()
             for user_dict in response.json():
                 users[
                     user_dict[Constant.MEMBERID]
                 ] = f"{user_dict[Constant.FIRSTNAME]}_{user_dict[Constant.LASTNAME]}"
+            return users
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch users details. Exception: {e}"
             )
-        return users
+            return {}
 
     def get_user_name(self, user_id: str) -> Optional[str]:
         return self._get_users().get(user_id)
@@ -174,9 +177,10 @@ class SigmaAPI:
 
     @functools.lru_cache
     def _get_files_metadata(self, file_type: str) -> Dict[str, File]:
-        files_metadata: Dict[str, File] = {}
-        url = f"{self.config.api_url}/files?typeFilters={file_type}"
+        logger.debug(f"Fetching file metadata with type {file_type}.")
+        file_url = url = f"{self.config.api_url}/files?typeFilters={file_type}"
         try:
+            files_metadata: Dict[str, File] = {}
             while True:
                 response = self._get_api_call(url)
                 response.raise_for_status()
@@ -188,20 +192,23 @@ class SigmaAPI:
                     )
                     files_metadata[file_dict[Constant.ID]] = file
                 if response_dict[Constant.NEXTPAGE]:
-                    url = f"{url}?page={response_dict[Constant.NEXTPAGE]}"
+                    url = f"{file_url}&page={response_dict[Constant.NEXTPAGE]}"
                 else:
                     break
+            self.report.number_of_files_metadata[file_type] = len(files_metadata)
+            return files_metadata
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch files metadata. Exception: {e}"
             )
-        return files_metadata
+            return {}
 
     def get_sigma_datasets(self) -> List[SigmaDataset]:
-        datasets: List[SigmaDataset] = []
-        url = f"{self.config.api_url}/datasets"
+        logger.debug("Fetching all accessible datasets metadata.")
+        dataset_url = url = f"{self.config.api_url}/datasets"
         dataset_files_metadata = self._get_files_metadata(file_type=Constant.DATASET)
         try:
+            datasets: List[SigmaDataset] = []
             while True:
                 response = self._get_api_call(url)
                 response.raise_for_status()
@@ -213,7 +220,6 @@ class SigmaAPI:
                         dataset.path = dataset_files_metadata[dataset.datasetId].path
                         dataset.badge = dataset_files_metadata[dataset.datasetId].badge
 
-                        # Get workspace for dataset
                         workspace_id = dataset_files_metadata[
                             dataset.datasetId
                         ].workspaceId
@@ -231,34 +237,36 @@ class SigmaAPI:
                                 datasets.append(dataset)
 
                 if response_dict[Constant.NEXTPAGE]:
-                    url = f"{url}?page={response_dict[Constant.NEXTPAGE]}"
+                    url = f"{dataset_url}?page={response_dict[Constant.NEXTPAGE]}"
                 else:
                     break
+            self.report.number_of_datasets = len(datasets)
+            return datasets
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch sigma datasets. Exception: {e}"
             )
-        return datasets
+            return []
 
     def _get_element_upstream_sources(
-        self, element: Element, page: Page, workbook: Workbook
+        self, element: Element, workbook: Workbook
     ) -> Dict[str, str]:
         """
         Returns upstream dataset sources with keys as id and values as name of that dataset
         """
-        upstream_sources: Dict[str, str] = {}
         try:
+            upstream_sources: Dict[str, str] = {}
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/lineage/elements/{element.elementId}"
             )
             if response.status_code == 500:
                 logger.debug(
-                    f"Lineage metadata not present for element {element.name} of page {page.name} in workbook {workbook.name}"
+                    f"Lineage metadata not present for element {element.name} of workbook '{workbook.name}'"
                 )
                 return upstream_sources
             if response.status_code == 403:
                 logger.debug(
-                    f"Lineage metadata not accessible for element {element.name} of page {page.name} in workbook {workbook.name}"
+                    f"Lineage metadata not accessible for element {element.name} of workbook '{workbook.name}'"
                 )
                 return upstream_sources
 
@@ -272,38 +280,38 @@ class SigmaAPI:
                     upstream_sources[edge[Constant.SOURCE]] = response_dict[
                         Constant.DEPENDENCIES
                     ][edge[Constant.SOURCE]][Constant.NAME]
+            return upstream_sources
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch lineage for element {element.name} of page {page.name} from workbook {workbook.name}. Exception: {e}"
+                message=f"Unable to fetch lineage for element {element.name} of workbook '{workbook.name}'. Exception: {e}"
             )
-        return upstream_sources
+            return {}
 
     def _get_element_sql_query(
-        self, element: Element, page: Page, workbook: Workbook
+        self, element: Element, workbook: Workbook
     ) -> Optional[str]:
-        query: Optional[str] = None
         try:
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/elements/{element.elementId}/query"
             )
             if response.status_code == 404:
                 logger.debug(
-                    f"Query not present for element {element.name} of page {page.name} in workbook {workbook.name}"
+                    f"Query not present for element {element.name} of workbook '{workbook.name}'"
                 )
-                return query
+                return None
             response.raise_for_status()
             response_dict = response.json()
             if "sql" in response_dict:
-                query = response_dict["sql"]
+                return response_dict["sql"]
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch sql query for element {Element.elementId} of page {page.name} in workbook {workbook.name}. Exception: {e}"
+                message=f"Unable to fetch sql query for element {element.name} of workbook '{workbook.name}'. Exception: {e}"
             )
-        return query
+        return None
 
     def get_page_elements(self, workbook: Workbook, page: Page) -> List[Element]:
-        elements: List[Element] = []
         try:
+            elements: List[Element] = []
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages/{page.pageId}/elements"
             )
@@ -320,19 +328,20 @@ class SigmaAPI:
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
                 ):
                     element.upstream_sources = self._get_element_upstream_sources(
-                        element, page, workbook
+                        element, workbook
                     )
-                    element.query = self._get_element_sql_query(element, page, workbook)
+                    element.query = self._get_element_sql_query(element, workbook)
                 elements.append(element)
+            return elements
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch elements of page {page.pageId}, workbook {workbook.workbookId}. Exception: {e}"
+                message=f"Unable to fetch elements of page '{page.name}', workbook '{workbook.name}'. Exception: {e}"
             )
-        return elements
+            return []
 
     def get_workbook_pages(self, workbook: Workbook) -> List[Page]:
-        pages: List[Page] = []
         try:
+            pages: List[Page] = []
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages"
             )
@@ -341,17 +350,19 @@ class SigmaAPI:
                 page = Page.parse_obj(page_dict)
                 page.elements = self.get_page_elements(workbook, page)
                 pages.append(page)
+            return pages
         except Exception as e:
             self._log_http_error(
-                message=f"Unable to fetch pages of workbook {workbook.workbookId}. Exception: {e}"
+                message=f"Unable to fetch pages of workbook '{workbook.name}'. Exception: {e}"
             )
-        return pages
+            return []
 
     def get_sigma_workbooks(self) -> List[Workbook]:
-        workbooks: List[Workbook] = []
-        url = f"{self.config.api_url}/workbooks"
+        logger.debug("Fetching all accessible workbooks metadata.")
+        workbook_url = url = f"{self.config.api_url}/workbooks"
         workbook_files_metadata = self._get_files_metadata(file_type=Constant.WORKBOOK)
         try:
+            workbooks: List[Workbook] = []
             while True:
                 response = self._get_api_call(url)
                 response.raise_for_status()
@@ -364,7 +375,6 @@ class SigmaAPI:
                             workbook.workbookId
                         ].badge
 
-                        # Get workspace for workbook
                         workspace_id = workbook_files_metadata[
                             workbook.workbookId
                         ].workspaceId
@@ -384,11 +394,13 @@ class SigmaAPI:
                                 workbooks.append(workbook)
 
                 if response_dict[Constant.NEXTPAGE]:
-                    url = f"{url}?page={response_dict[Constant.NEXTPAGE]}"
+                    url = f"{workbook_url}?page={response_dict[Constant.NEXTPAGE]}"
                 else:
                     break
+            self.report.number_of_workbooks = len(workbooks)
+            return workbooks
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch sigma workbooks. Exception: {e}"
             )
-        return workbooks
+            return []

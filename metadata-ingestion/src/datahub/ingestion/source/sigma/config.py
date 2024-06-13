@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 import pydantic
@@ -57,6 +57,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     number_of_workspaces: int = 0
     non_accessible_workspaces_count: int = 0
     shared_entities_count: int = 0
+    number_of_datasets: int = 0
+    number_of_workbooks: int = 0
+    number_of_files_metadata: Dict[str, int] = field(default_factory=dict)
 
     def report_number_of_workspaces(self, number_of_workspaces: int) -> None:
         self.number_of_workspaces = number_of_workspaces
