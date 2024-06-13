@@ -66,9 +66,15 @@ module.exports = {
       },
       items: [
         {
-          to: "docs/",
-          activeBasePath: "docs",
+          type: "docSidebar",
+          sidebarId: "overviewSidebar",
           label: "Docs",
+          position: "right",
+        },
+        {
+          type: "docSidebar",
+          sidebarId: "acrylSidebar",
+          label: "Managed DataHub",
           position: "right",
         },
         {
