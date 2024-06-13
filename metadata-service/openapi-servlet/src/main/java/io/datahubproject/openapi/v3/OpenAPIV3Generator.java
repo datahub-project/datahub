@@ -539,14 +539,23 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
+    // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+    // object to allow the
+    // property to be marked as nullable
     final Schema result = new Schema<>();
+
+    result.setType(TYPE_OBJECT);
+    result.set$ref(null);
+    result.setNullable(true);
+    final String internalRef;
     if (withSystemMetadata) {
-      result.set$ref(
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_RESPONSE_SUFFIX));
+      internalRef =
+          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_RESPONSE_SUFFIX);
     } else {
-      result.set$ref(
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX));
+      internalRef =
+          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
+    result.setAllOf(List.of(new Schema().$ref(internalRef)));
     return result;
   }
 
