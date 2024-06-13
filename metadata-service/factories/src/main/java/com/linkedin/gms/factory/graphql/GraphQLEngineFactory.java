@@ -249,7 +249,7 @@ public class GraphQLEngineFactory {
 
   @Value("${LINEAGE_DEFAULT_LAST_DAYS_FILTER:#{null}}")
   private Integer defaultLineageLastDaysFilter;
-  
+
   @Autowired
   @Qualifier("connectionService")
   private ConnectionService _connectionService;
