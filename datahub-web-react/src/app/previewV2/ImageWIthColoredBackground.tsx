@@ -20,6 +20,7 @@ export const Icon = styled.div<{ background?: string; size: number; borderRadius
     align-items: center;
     justify-content: center;
     border-radius: ${({ borderRadius }) => borderRadius}px;
+    flex-shrink: 0;
 `;
 
 const PreviewImage = styled.img<{ size: number }>`

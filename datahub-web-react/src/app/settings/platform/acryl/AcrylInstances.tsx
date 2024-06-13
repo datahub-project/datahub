@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { useHistory } from 'react-router';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import { Button, Divider, Empty, Skeleton } from 'antd';
+import { Button, Divider, Skeleton } from 'antd';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
 import { DataHubConnection, EntityType } from '../../../../types.generated';
 import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
@@ -17,6 +17,7 @@ import ImageWithColoredBackground from '../../../previewV2/ImageWIthColoredBackg
 import { useDeleteConnectionMutation } from '../../../../graphql/connection.generated';
 import { ToastType, showToastMessage } from '../../../sharedV2/toastMessageUtils';
 import { ConfirmationModal } from '../../../sharedV2/modals/ConfirmationModal';
+import { Body, Layout, PrimaryHeading } from '../../../govern/Dashboard/components';
 import { removeFromInstancesList } from './cacheUtils';
 
 const Container = styled.div`
@@ -56,11 +57,12 @@ const LeftContainer = styled.div`
     align-items: center;
 `;
 
-const InstancesList = styled.div`
+const InstancesList = styled.div<{ isEmptyState?: boolean }>`
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: ${(props) => !props.isEmptyState && 'repeat(3, minmax(250px, 1fr))'};
     grid-gap: 40px;
-    margin: 40px;
+    margin: ${(props) => !props.isEmptyState && '40px'};
+    height: ${(props) => props.isEmptyState && '100%'};
 `;
 
 const Header = styled.div`
@@ -101,6 +103,12 @@ const Instance = styled.div`
             display: block !important;
         }
     }
+`;
+
+const InstanceName = styled.div`
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 `;
 
 const PrimaryButton = styled(Button)`
@@ -144,11 +152,33 @@ const SkeletonContainer = styled.div`
     margin: 20px;
 `;
 
-const StyledEmpty = styled(Empty)`
-    color: ${REDESIGN_COLORS.TEXT_GREY};
-    padding-top: 80px;
-    width: 100%;
+const FlexWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+
+    p:not(:first-child) {
+        font-size: 16px;
+        margin-bottom: 0;
+    }
 `;
+
+const InstancesListEmptyState = () => (
+    <Layout>
+        <Body>
+            <FlexWrapper>
+                <div style={{ textAlign: 'center', fontSize: '18px' }}>
+                    <PrimaryHeading>Your Acryl Instances</PrimaryHeading>
+                    <p style={{ marginTop: '1rem' }}>
+                        {` Looks like you haven't set up any connections to other Acryl Instances.`}
+                    </p>
+                    <p>Add a new connection using the button on the top right of this page!</p>
+                </div>
+            </FlexWrapper>
+        </Body>
+    </Layout>
+);
 
 const AcrylInstances = () => {
     const history = useHistory();
@@ -259,7 +289,7 @@ const AcrylInstances = () => {
                             <HorizontalListSkeletons Component={SkeletonCard} showHeader={false} />
                         </SkeletonContainer>
                     ) : (
-                        <InstancesList>
+                        <InstancesList isEmptyState={searchAcrossEntities?.searchResults.length === 0}>
                             {searchAcrossEntities?.searchResults.map((result) => {
                                 const entity = result?.entity as DataHubConnection;
                                 return (
@@ -270,7 +300,7 @@ const AcrylInstances = () => {
                                             backgroundSize={72}
                                             borderRadius={16}
                                         />
-                                        {entity.details?.name || entity.urn}
+                                        <InstanceName>{entity.details?.name || entity.urn}</InstanceName>
                                         <DeleteIcon
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -281,7 +311,7 @@ const AcrylInstances = () => {
                                     </Instance>
                                 );
                             })}
-                            {searchAcrossEntities?.searchResults.length === 0 && <StyledEmpty />}
+                            {searchAcrossEntities?.searchResults.length === 0 && <InstancesListEmptyState />}
                         </InstancesList>
                     )}
                 </>
