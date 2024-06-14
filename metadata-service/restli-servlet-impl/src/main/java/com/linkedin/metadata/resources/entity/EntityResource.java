@@ -208,7 +208,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               aspectNames == null
                   ? Collections.emptySet()
                   : new HashSet<>(Arrays.asList(aspectNames));
-          final Entity entity = entityService.getEntity(opContext, urn, projectedAspects);
+          final Entity entity = entityService.getEntity(opContext, urn, projectedAspects, true);
           if (entity == null) {
             throw RestliUtil.resourceNotFoundException(String.format("Did not find %s", urnStr));
           }
@@ -248,7 +248,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               aspectNames == null
                   ? Collections.emptySet()
                   : new HashSet<>(Arrays.asList(aspectNames));
-          return entityService.getEntities(opContext, urns, projectedAspects).entrySet().stream()
+          return entityService.getEntities(opContext, urns, projectedAspects, true).entrySet().stream()
               .collect(
                   Collectors.toMap(
                       entry -> entry.getKey().toString(),

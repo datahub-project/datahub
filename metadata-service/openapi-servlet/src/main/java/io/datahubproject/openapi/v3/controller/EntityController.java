@@ -5,7 +5,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
@@ -25,6 +24,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
+import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
 import io.datahubproject.openapi.v3.models.GenericEntityV3;
 import java.net.URISyntaxException;
@@ -83,16 +83,15 @@ public class EntityController
               urnsSet,
               resolveAspectNames(urnsSet, aspectNames).stream()
                   .map(AspectSpec::getName)
-                  .collect(Collectors.toSet()));
+                  .collect(Collectors.toSet()),
+              false);
 
       return urns.stream()
+          .filter(urn -> aspects.containsKey(urn) && !aspects.get(urn).isEmpty())
           .map(
               u ->
                   GenericEntityV3.builder()
-                      .build(
-                          objectMapper,
-                          u,
-                          toAspectMap(u, aspects.getOrDefault(u, List.of()), withSystemMetadata)))
+                      .build(objectMapper, u, toAspectMap(u, aspects.get(u), withSystemMetadata)))
           .collect(Collectors.toList());
     }
   }
@@ -153,7 +152,7 @@ public class EntityController
   @Override
   protected AspectsBatch toMCPBatch(
       @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
-      throws JsonProcessingException {
+      throws JsonProcessingException, InvalidUrnException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
 
     List<BatchItem> items = new LinkedList<>();
@@ -164,7 +163,7 @@ public class EntityController
         if (!entity.has("urn")) {
           throw new IllegalArgumentException("Missing `urn` field");
         }
-        Urn entityUrn = UrnUtils.getUrn(entity.get("urn").asText());
+        Urn entityUrn = validatedUrn(entity.get("urn").asText());
 
         Iterator<Map.Entry<String, JsonNode>> aspectItr = entity.fields();
         while (aspectItr.hasNext()) {
