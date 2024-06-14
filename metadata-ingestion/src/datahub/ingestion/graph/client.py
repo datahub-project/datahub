@@ -1445,6 +1445,44 @@ class DataHubGraph(DatahubRestEmitter):
 
         return res["runAssertionsForAsset"]
 
+    def get_entities_v2(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: List[str] = [],
+        with_system_metadata: bool = False,
+    ) -> Dict[str, Any]:
+        payload = {
+            "urns": urns,
+            "aspectNames": aspects,
+            "withSystemMetadata": with_system_metadata,
+        }
+        headers: Dict[str, Any] = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        url = f"{self.config.server}/openapi/v2/entity/batch/{entity_name}"
+        response = self._session.post(url, data=json.dumps(payload), headers=headers)
+        response.raise_for_status()
+
+        json_resp = response.json()
+        entities = json_resp.get("entities", [])
+        aspects_set = set(aspects)
+        retval: Dict[str, Any] = {}
+
+        for entity in entities:
+            entity_aspects = entity.get("aspects", {})
+            entity_urn = entity.get("urn", None)
+
+            if entity_urn is None:
+                continue
+            for aspect_key, aspect_value in entity_aspects.items():
+                # Include all aspects if aspect filter is empty
+                if len(aspects) == 0 or aspect_key in aspects_set:
+                    retval.setdefault(entity_urn, {})
+                    retval[entity_urn][aspect_key] = aspect_value
+        return retval
+
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()
         super().close()
