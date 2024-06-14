@@ -252,7 +252,7 @@ If successful, you should see `Update succeeded for urn:li:dataset:...`
 </TabItem>
 <TabItem value="OpenAPI" label="OpenAPI">
 
-Following command will set structured properties `retentionTime` as `90` to a dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
+Following command will set structured properties `retentionTime` as `60.0` to a dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
 Please note that the structured property and the dataset must exist before executing this command. (You can create sample datasets using the `datahub docker ingest-sample-data`)
 
 ```commandline
@@ -265,7 +265,7 @@ curl -X 'POST' -v \
     {
       "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
       "values": [
-        {"string": "90"}
+        {"double": 60.0}
       ]
     }
   ]
@@ -331,7 +331,7 @@ curl -X 'POST' -v \
 ```
 
 This command will attach one of each of the two properties to our test dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
-Specically, this will set `io.acryl.privacy.retentionTime` as `90` and `io.acryl.privacy.retentionTime02` as `bar2`.
+Specically, this will set `io.acryl.privacy.retentionTime` as `60.0` and `io.acryl.privacy.retentionTime02` as `bar2`.
 
 
 ```
@@ -344,7 +344,7 @@ curl -X 'POST' -v \
     {
       "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
       "values": [
-        {"string": "90"}
+        {"double": 60.0}
       ]
     },
     {
@@ -452,7 +452,7 @@ curl -X 'PATCH' -v \
                     "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime",
                     "values": [
                         {
-                            "string": "365"
+                            "double": 365.0
                         }
                     ]
                 }
@@ -485,7 +485,7 @@ Below is the expected response:
           {
             "values": [
               {
-                "string": "365"
+                "double": 365.0
               }
             ],
             "propertyUrn": "urn:li:structuredProperty:io.acryl.privacy.retentionTime"
