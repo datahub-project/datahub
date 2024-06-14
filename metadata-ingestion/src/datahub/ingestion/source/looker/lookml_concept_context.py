@@ -1,5 +1,6 @@
 import itertools
 import logging
+import re
 from typing import Any, Dict, Optional
 
 from datahub.ingestion.source.looker.looker_common import (
@@ -8,7 +9,12 @@ from datahub.ingestion.source.looker.looker_common import (
 )
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
-from datahub.ingestion.source.looker.lookml_config import NAME, LookMLSourceReport
+from datahub.ingestion.source.looker.lookml_config import (
+    DERIVED_VIEW_PATTERN,
+    DERIVED_VIEW_SUFFIX,
+    NAME,
+    LookMLSourceReport,
+)
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
 
 logger = logging.getLogger(__name__)
@@ -53,6 +59,15 @@ class LookerViewContext:
 
         Pattern3:
             view: view_name {
+                sql_table_name: "<view-name>.SQL_TABLE_NAME"
+
+                ... measure and dimension definition i.e. fields of a view
+            }
+
+        In Pattern3 the fields' upstream is another view in same looker project.
+
+        Pattern4:
+            view: view_name {
                 derived_table:
                     sql:
                         ... SQL select query
@@ -60,9 +75,9 @@ class LookerViewContext:
                 ... measure and dimension definition i.e. fields of a view
             }
 
-        In Pattern3 the fields' upstream dataset is the output of sql mentioned in derived_table.sql.
+        In Pattern4 the fields' upstream dataset is the output of sql mentioned in derived_table.sql.
 
-        Pattern4:
+        Pattern5:
             view: view_name {
                 derived_table:
                     explore_source:
@@ -71,7 +86,7 @@ class LookerViewContext:
                 ... measure and dimension definition i.e. fields of a view
             }
 
-        In Pattern4 the fields' upstream dataset is the output of LookML native query mentioned in
+        In Pattern5 the fields' upstream dataset is the output of LookML native query mentioned in
         derived_table.explore_source.
 
         In all patterns the "sql_table_name" or "derived_table" field might present in parent view instead of current
@@ -177,13 +192,90 @@ class LookerViewContext:
 
         # if sql_table_name field is not set then the table name is equal to view-name
         if sql_table_name is None:
-            sql_table_name = self.raw_view[NAME]
+            return self.raw_view[NAME].lower()
+
+        # sql_table_name is in the format "${view-name}.SQL_TABLE_NAME"
+        # remove extra characters
+        if self.is_sql_table_name_referring_to_view():
+            sql_table_name = re.sub(
+                DERIVED_VIEW_PATTERN, r"\1", self.raw_view[NAME].lower()
+            )
 
         # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
-        return sql_table_name.replace('"', "").replace("`", "")
+        return sql_table_name.replace('"', "").replace("`", "").lower()
 
-    def derived_table(self) -> Optional[Dict[Any, Any]]:
-        return self.get_including_extends(field="derived_table")
+    def derived_table(self) -> Dict[Any, Any]:
+        """
+        This function should only be called if is_native_derived_case return true
+        """
+        derived_table = self.get_including_extends(field="derived_table")
+
+        assert derived_table, "derived_table should not be None"
+
+        return derived_table
+
+    def explore_source(self) -> Dict[Any, Any]:
+        """
+        This function should only be called if is_native_derived_case return true
+        """
+        derived_table = self.derived_table()
+
+        assert derived_table.get("explore_source"), "explore_source should not be None"
+
+        return derived_table["explore_source"]
+
+    def sql(self) -> str:
+        """
+        This function should only be called if is_sql_based_derived_case return true
+        """
+        derived_table = self.derived_table()
+
+        return derived_table["sql"]
 
     def name(self) -> str:
         return self.raw_view[NAME]
+
+    def is_derived_view(self) -> bool:
+        if DERIVED_VIEW_SUFFIX in self.raw_view[NAME].lower():
+            return True
+
+        return False
+
+    def is_materialized_derived_view(self) -> bool:
+        for k in self.derived_table():
+            if k in ["datagroup_trigger", "sql_trigger_value", "persist_for"]:
+                return True
+
+        if "materialized_view" in self.derived_table():
+            return self.derived_table()["materialized_view"] == "yes"
+
+        return False
+
+    def is_regular_case(self) -> bool:
+        # regular-case is pattern1 and 2 where upstream table is either view-name or
+        # table name mentioned in sql_table_name attribute
+        if not self.is_derived_view():
+            return True
+
+        return False
+
+    def is_sql_table_name_referring_to_view(self) -> bool:
+        # It is pattern3
+        if DERIVED_VIEW_SUFFIX in self.sql_table_name():
+            return True
+
+        return False
+
+    def is_sql_based_derived_case(self) -> bool:
+        # It is pattern 5
+        if "derived" in self.raw_view and "sql" in self.raw_view["derived"]:
+            return True
+
+        return False
+
+    def is_native_derived_case(self) -> bool:
+        # It is pattern 5
+        if "derived" in self.raw_view and "explore_source" in self.raw_view["derived"]:
+            return True
+
+        return False

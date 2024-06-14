@@ -1,6 +1,5 @@
 import logging
 import pathlib
-import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -50,7 +49,6 @@ from datahub.ingestion.source.looker.lookml_concept_context import LookerViewCon
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
     _MODEL_FILE_EXTENSION,
-    DERIVED_VIEW_PATTERN,
     VIEW_LANGUAGE_LOOKML,
     VIEW_LANGUAGE_SQL,
     LookMLSourceConfig,
@@ -62,7 +60,6 @@ from datahub.ingestion.source.looker.lookml_resolver import (
     LookerViewFileLoader,
     LookerViewIdCache,
     get_derived_view_urn,
-    is_derived_view,
     resolve_derived_view_urn,
 )
 from datahub.ingestion.source.looker.lookml_sql_parser import SqlQuery, ViewFieldBuilder
@@ -259,20 +256,11 @@ class LookerView:
 
         logger.debug(f"Handling view {view_name} in model {model_name}")
 
-        sql_table_name: str = view_context.sql_table_name()
-
-        derived_table = view_context.derived_table()
-
         fields = ViewField.all_view_fields_from_dict(
             looker_view,
             extract_col_level_lineage,
             populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
         )
-
-        # Prep "default" values for the view, which will be overridden by the logic below.
-        view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
-        sql_table_names: List[str] = []
-        upstream_explores: List[str] = []
 
         file_path = LookerView.determine_view_file_path(
             base_folder_path, looker_viewfile.absolute_file_path
@@ -285,104 +273,13 @@ class LookerView:
             file_path=file_path,
         )
 
-        if derived_table is not None:
-            # Derived tables can either be a SQL query or a LookML explore.
-            # See https://cloud.google.com/looker/docs/derived-tables.
-            if "sql" in derived_table:
-                view_logic = derived_table["sql"]
-                view_lang = VIEW_LANGUAGE_SQL
-                # Parse SQL to extract dependencies.
-                if parse_table_names_from_sql:
-                    (
-                        fields,
-                        sql_table_names,
-                    ) = cls._extract_metadata_from_derived_table_sql(
-                        reporter=reporter,
-                        connection=connection,
-                        ctx=ctx,
-                        view_name=view_name,
-                        view_urn=looker_view_id.get_urn(config=config),
-                        sql_table_name=sql_table_name,
-                        sql_query=view_logic,
-                        fields=fields,
-                        liquid_variable=config.liquid_variable,
-                    )
-                    # resolve view name ${<view-name>.SQL_TABLE_NAME} to urn used in derived_table
-                    # https://cloud.google.com/looker/docs/derived-tables
-                    (fields, sql_table_names,) = resolve_derived_view_urn(
-                        base_folder_path=base_folder_path,
-                        looker_view_id_cache=looker_view_id_cache,
-                        fields=fields,
-                        upstream_urns=sql_table_names,
-                        config=config,
-                    )
-            elif "explore_source" in derived_table:
-                # This is called a "native derived table".
-                # See https://cloud.google.com/looker/docs/creating-ndts.
-                explore_source = derived_table["explore_source"]
+        # Prep "default" values for the view, which will be overridden by the logic below.
+        view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
 
-                # We want this to render the full lkml block
-                # e.g. explore_source: source_name { ... }
-                # As such, we use the full derived_table instead of the explore_source.
-                view_logic = str(lkml.dump(derived_table))[:max_file_snippet_length]
-                view_lang = VIEW_LANGUAGE_LOOKML
-
-                (
-                    fields,
-                    upstream_explores,
-                ) = cls._extract_metadata_from_derived_table_explore(
-                    reporter, view_name, explore_source, fields
-                )
-
-            materialized = False
-            for k in derived_table:
-                if k in ["datagroup_trigger", "sql_trigger_value", "persist_for"]:
-                    materialized = True
-            if "materialized_view" in derived_table:
-                materialized = derived_table["materialized_view"] == "yes"
-
-            view_details = ViewProperties(
-                materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
-            )
-        else:
-            # If not a derived table, then this view essentially wraps an existing
-            # object in the database or another lookml view. If sql_table_name is set, there is a single
-            # dependency in the view, on the sql_table_name.
-            # Otherwise, default to the view name as per the docs:
-            # https://docs.looker.com/reference/view-params/sql_table_name-for-view
-
-            view_urn: Optional[str]
-            if is_derived_view(sql_table_name):
-                extracted_view_name: str = re.sub(
-                    DERIVED_VIEW_PATTERN, r"\1", sql_table_name
-                )
-
-                view_urn = get_derived_view_urn(
-                    qualified_table_name=_generate_fully_qualified_name(
-                        extracted_view_name.lower(), connection, reporter
-                    ),
-                    looker_view_id_cache=looker_view_id_cache,
-                    base_folder_path=base_folder_path,
-                    config=config,
-                )
-            else:
-                # Ensure sql_table_name is in canonical form (add in db, schema names)
-                view_urn = builder.make_dataset_urn_with_platform_instance(
-                    platform=connection.platform,
-                    name=_generate_fully_qualified_name(
-                        sql_table_name.lower(), connection, reporter
-                    ),
-                    platform_instance=connection.platform_instance,
-                    env=connection.platform_env or config.env,
-                )
-
-            if view_urn is None:
-                reporter.report_warning(
-                    f"looker-view-{view_name}",
-                    f"failed to resolve urn for derived view {view_name}.",
-                )
-            else:
-                sql_table_names = [view_urn]
+        if (
+            view_context.is_regular_case()
+            or view_context.is_sql_table_name_referring_to_view()
+        ):
 
             view_details = ViewProperties(
                 materialized=False,
@@ -390,16 +287,130 @@ class LookerView:
                 viewLanguage=VIEW_LANGUAGE_LOOKML,
             )
 
-        return LookerView(
-            id=looker_view_id,
-            absolute_file_path=looker_viewfile.absolute_file_path,
-            connection=connection,
-            sql_table_names=sql_table_names,
-            upstream_explores=upstream_explores,
-            fields=fields,
-            raw_file_content=looker_viewfile.raw_file_content,
-            view_details=view_details,
-        )
+            view_urn: Optional[str] = None
+            if view_context.is_regular_case():
+                # Ensure sql_table_name is in canonical form (add in db, schema names)
+                view_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=connection.platform,
+                    name=_generate_fully_qualified_name(
+                        view_context.sql_table_name(), connection, reporter
+                    ),
+                    platform_instance=connection.platform_instance,
+                    env=connection.platform_env or config.env,
+                )
+            else:
+                # sql_table_name is referring to a view in project
+                view_urn = get_derived_view_urn(
+                    qualified_table_name=_generate_fully_qualified_name(
+                        view_context.sql_table_name(), connection, reporter
+                    ),
+                    looker_view_id_cache=looker_view_id_cache,
+                    base_folder_path=base_folder_path,
+                    config=config,
+                )
+
+            if view_urn is None:
+                reporter.report_warning(
+                    view_context.name(), "Failed to generate upstream view urn"
+                )
+
+            return LookerView(
+                id=looker_view_id,
+                fields=fields,
+                absolute_file_path=looker_viewfile.absolute_file_path,
+                connection=connection,
+                sql_table_names=[view_urn] if view_urn is not None else [],
+                raw_file_content=looker_viewfile.raw_file_content,
+                view_details=view_details,
+                upstream_explores=[],
+            )
+
+        sql_table_names: List[str] = []
+        if view_context.is_sql_based_derived_case():
+            view_logic = view_context.sql()
+            # Parse SQL to extract dependencies.
+            if parse_table_names_from_sql:
+                (
+                    fields,
+                    sql_table_names,
+                ) = cls._extract_metadata_from_derived_table_sql(
+                    reporter=reporter,
+                    connection=connection,
+                    ctx=ctx,
+                    view_name=view_name,
+                    view_urn=looker_view_id.get_urn(config=config),
+                    sql_table_name=view_context.sql_table_name(),
+                    sql_query=view_logic,
+                    fields=fields,
+                    liquid_variable=config.liquid_variable,
+                )
+                # resolve view name ${<view-name>.SQL_TABLE_NAME} to urn used in derived_table
+                # https://cloud.google.com/looker/docs/derived-tables
+                (fields, sql_table_names,) = resolve_derived_view_urn(
+                    base_folder_path=base_folder_path,
+                    looker_view_id_cache=looker_view_id_cache,
+                    fields=fields,
+                    upstream_urns=sql_table_names,
+                    config=config,
+                )
+
+                view_details = ViewProperties(
+                    materialized=False,
+                    viewLogic=view_logic,
+                    viewLanguage=VIEW_LANGUAGE_SQL,
+                )
+
+                return LookerView(
+                    id=looker_view_id,
+                    absolute_file_path=looker_viewfile.absolute_file_path,
+                    connection=connection,
+                    sql_table_names=sql_table_names,
+                    upstream_explores=[],
+                    fields=fields,
+                    raw_file_content=looker_viewfile.raw_file_content,
+                    view_details=view_details,
+                )
+
+        if view_context.is_native_derived_case():
+            upstream_explores: List[str] = []
+            # This is called a "native derived table".
+            # See https://cloud.google.com/looker/docs/creating-ndts.
+            explore_source = view_context.explore_source()
+            (
+                fields,
+                upstream_explores,
+            ) = cls._extract_metadata_from_derived_table_explore(
+                reporter, view_name, explore_source, fields
+            )
+
+            # We want this to render the full lkml block
+            # e.g. explore_source: source_name { ... }
+            # As such, we use the full derived_table instead of the explore_source.
+            view_logic = str(lkml.dump(view_context.derived_table()))[
+                :max_file_snippet_length
+            ]
+            view_lang = VIEW_LANGUAGE_LOOKML
+
+            materialized = view_context.is_materialized_derived_view()
+
+            view_details = ViewProperties(
+                materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
+            )
+
+            return LookerView(
+                id=looker_view_id,
+                absolute_file_path=looker_viewfile.absolute_file_path,
+                connection=connection,
+                sql_table_names=[],
+                upstream_explores=upstream_explores,
+                fields=fields,
+                raw_file_content=looker_viewfile.raw_file_content,
+                view_details=view_details,
+            )
+
+        logger.debug(f"view {view_context.name()} is unsupported")
+
+        return None
 
     @classmethod
     def _extract_metadata_from_derived_table_sql(
