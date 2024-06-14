@@ -40,6 +40,8 @@ from tests.unit.test_glue_source_stubs import (
     get_dataflow_graph_response_2,
     get_delta_tables_response_1,
     get_delta_tables_response_2,
+    get_glue_databases_response,
+    get_glue_tables_response_1,
     get_jobs_response,
     get_jobs_response_empty,
     get_object_body_1,
@@ -66,6 +68,7 @@ def glue_source(
     use_s3_bucket_tags: bool = True,
     use_s3_object_tags: bool = True,
     extract_delta_schema_from_parameters: bool = False,
+    include_env_on_container_key: bool = False,
 ) -> GlueSource:
     return GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
@@ -76,6 +79,7 @@ def glue_source(
             use_s3_bucket_tags=use_s3_bucket_tags,
             use_s3_object_tags=use_s3_object_tags,
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
+            include_env_on_container_key=include_env_on_container_key,
         ),
     )
 
@@ -419,4 +423,42 @@ def test_glue_with_malformed_delta_schema_ingest(
         pytestconfig,
         output_path=tmp_path / "glue_malformed_delta_mces.json",
         golden_path=test_resources_dir / "glue_malformed_delta_mces_golden.json",
+    )
+
+
+def test_glue_with_include_env_on_container_key(
+    tmp_path: Path,
+    pytestconfig: PytestConfig,
+) -> None:
+    glue_source_instance = glue_source(
+        platform_instance="platform_instance",
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+        include_env_on_container_key=True,
+    )
+
+    with Stubber(glue_source_instance.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_glue_databases_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            get_glue_tables_response_1,
+            {"DatabaseName": "glue-database"},
+        )
+        glue_stubber.add_response("get_jobs", get_jobs_response_empty, {})
+
+        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+
+        glue_stubber.assert_no_pending_responses()
+
+        write_metadata_file(
+            tmp_path / "glue_with_env_on_container_key_mces_golden.json", mce_objects
+        )
+
+    # Verify the output.
+    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "glue_with_env_on_container_key_mces_golden.json",
+        golden_path=test_resources_dir
+        / "glue_with_env_on_container_key_mces_golden.json",
     )

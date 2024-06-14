@@ -51,6 +51,14 @@ class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
     # to flatten our config inheritance hierarchies.
 
 
+class ContainerSourceConfig(ConfigModel):
+    """
+    Any source that is a primary producer of Container metadata may inherit this class
+    """
+
+    include_env_on_container_key: bool = Field(default=False, exclude=True)
+
+
 class LowerCaseDatasetUrnConfigMixin(ConfigModel):
     convert_urns_to_lowercase: bool = Field(
         default=False,
