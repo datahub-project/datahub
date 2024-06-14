@@ -8,8 +8,6 @@ from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
 from typing import (
-    TYPE_CHECKING,
-    Any,
     Dict,
     Iterable,
     Iterator,
@@ -24,18 +22,14 @@ from typing import (
 
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import (
-    DBConnection,
     LookmlModelExplore,
     LookmlModelExploreField,
     User,
     WriteQuery,
 )
-from pydantic import Field
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel, ConfigurationError
-from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
@@ -47,8 +41,13 @@ from datahub.ingestion.source.looker.looker_config import (
     NamingPatternMapping,
     ViewNamingPatternMapping,
 )
+from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_constant import IMPORTED_PROJECTS
+from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
+from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.lookml_config import LookMLSourceReport
+from datahub.ingestion.source.looker.str_functions import remove_suffix
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
@@ -104,12 +103,6 @@ from datahub.utilities.url_util import remove_port_from_url
 
 CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 
-if TYPE_CHECKING:
-    from datahub.ingestion.source.looker.lookml_source import (
-        LookerViewFileLoader,
-        LookMLSourceReport,
-    )
-
 logger = logging.getLogger(__name__)
 
 
@@ -130,21 +123,6 @@ class LookMLModelKey(ContainerKey):
 
 class LookerFolderKey(ContainerKey):
     folder_id: str
-
-
-def remove_suffix(original: str, suffix: str) -> str:
-    # This can be removed in favour of original.removesuffix for python>3.8
-    if original.endswith(suffix):
-        return original[: -len(suffix)]
-    return original
-
-
-def remove_extra_spaces_and_newlines(original: str) -> str:
-    """
-    python-liquid library is not removing extra spaces and new lines from template and hence spaces and newlines
-    are appearing in urn. This function can be used to remove such characters from urn or text.
-    """
-    return re.sub(r"\s*\n\s*", "", original)
 
 
 def deduplicate_fields(fields: List["ViewField"]) -> List["ViewField"]:
@@ -173,6 +151,33 @@ def deduplicate_fields(fields: List["ViewField"]) -> List["ViewField"]:
         new_fields.append(field)
 
     return new_fields
+
+
+def find_view_from_resolved_includes(
+    connection: Optional[LookerConnectionDefinition],
+    resolved_includes: List["ProjectInclude"],
+    looker_viewfile_loader: LookerViewFileLoader,
+    target_view_name: str,
+    reporter: LookMLSourceReport,
+) -> Optional[Tuple["ProjectInclude", dict]]:
+    # It could live in one of the included files. We do not know which file the base view
+    # lives in, so we try them all!
+    for include in resolved_includes:
+        included_looker_viewfile = looker_viewfile_loader.load_viewfile(
+            include.include,
+            include.project,
+            connection,
+            reporter,
+        )
+        if not included_looker_viewfile:
+            continue
+        for raw_view in included_looker_viewfile.views:
+            raw_view_name = raw_view["name"]
+            # Make sure to skip loading view we are currently trying to resolve
+            if raw_view_name == target_view_name:
+                return include, raw_view
+
+    return None
 
 
 @dataclass
@@ -776,12 +781,6 @@ class LookerUtil:
         )
 
 
-@dataclass(frozen=True, order=True)
-class ProjectInclude:
-    project: str
-    include: str
-
-
 @dataclass
 class LookerExplore:
     name: str
@@ -817,8 +816,8 @@ class LookerExplore:
         model_name: str,
         dict: Dict,
         resolved_includes: List[ProjectInclude],
-        looker_viewfile_loader: "LookerViewFileLoader",
-        reporter: "LookMLSourceReport",
+        looker_viewfile_loader: LookerViewFileLoader,
+        reporter: LookMLSourceReport,
         model_explores_map: Dict[str, dict],
     ) -> "LookerExplore":
         view_names: Set[str] = set()
@@ -841,12 +840,6 @@ class LookerExplore:
                 if sql_on is not None:
                     fields = cls._get_fields_from_sql_equality(sql_on)
                     joins = fields
-
-        # HACK: We shouldn't be doing imports here. We also have
-        # circular imports that don't belong.
-        from datahub.ingestion.source.looker.lookml_source import (
-            _find_view_from_resolved_includes,
-        )
 
         upstream_views: List[ProjectInclude] = []
         # create the list of extended explores
@@ -874,7 +867,7 @@ class LookerExplore:
         else:
             # we only fallback to the view_names list if this is not an extended explore
             for view_name in view_names:
-                info = _find_view_from_resolved_includes(
+                info = find_view_from_resolved_includes(
                     None,
                     resolved_includes,
                     looker_viewfile_loader,
@@ -1603,79 +1596,3 @@ class LookerUserRegistry:
 
         looker_user = LookerUser.create_looker_user(raw_user)
         return looker_user
-
-
-def _get_bigquery_definition(
-    looker_connection: DBConnection,
-) -> Tuple[str, Optional[str], Optional[str]]:
-    platform = "bigquery"
-    # bigquery project ids are returned in the host field
-    db = looker_connection.host
-    schema = looker_connection.database
-    return (platform, db, schema)
-
-
-def _get_generic_definition(
-    looker_connection: DBConnection, platform: Optional[str] = None
-) -> Tuple[str, Optional[str], Optional[str]]:
-    if platform is None:
-        # We extract the platform from the dialect name
-        dialect_name = looker_connection.dialect_name
-        assert dialect_name is not None
-        # generally the first part of the dialect name before _ is the name of the platform
-        # versions are encoded as numbers and can be removed
-        # e.g. spark1 or hive2 or druid_18
-        platform = re.sub(r"[0-9]+", "", dialect_name.split("_")[0])
-
-    assert (
-        platform is not None
-    ), f"Failed to extract a valid platform from connection {looker_connection}"
-    db = looker_connection.database
-    schema = looker_connection.schema  # ok for this to be None
-    return (platform, db, schema)
-
-
-class LookerConnectionDefinition(ConfigModel):
-    platform: str
-    default_db: str
-    default_schema: Optional[str]  # Optional since some sources are two-level only
-    platform_instance: Optional[str] = None
-    platform_env: Optional[str] = Field(
-        default=None,
-        description="The environment that the platform is located in. Leaving this empty will inherit defaults from "
-        "the top level Looker configuration",
-    )
-
-    @validator("platform_env")
-    def platform_env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            return EnvConfigMixin.env_must_be_one_of(v)
-        return v
-
-    @validator("platform", "default_db", "default_schema")
-    def lower_everything(cls, v):
-        """We lower case all strings passed in to avoid casing issues later"""
-        if v is not None:
-            return v.lower()
-
-    @classmethod
-    def from_looker_connection(
-        cls, looker_connection: DBConnection
-    ) -> "LookerConnectionDefinition":
-        """Dialect definitions are here: https://docs.looker.com/setup-and-management/database-config"""
-        extractors: Dict[str, Any] = {
-            "^bigquery": _get_bigquery_definition,
-            ".*": _get_generic_definition,
-        }
-
-        if looker_connection.dialect_name is None:
-            raise ConfigurationError(
-                f"Unable to fetch a fully filled out connection for {looker_connection.name}. Please check your API permissions."
-            )
-        for extractor_pattern, extracting_function in extractors.items():
-            if re.match(extractor_pattern, looker_connection.dialect_name):
-                (platform, db, schema) = extracting_function(looker_connection)
-                return cls(platform=platform, default_db=db, default_schema=schema)
-        raise ConfigurationError(
-            f"Could not find an appropriate platform for looker_connection: {looker_connection.name} with dialect: {looker_connection.dialect_name}"
-        )

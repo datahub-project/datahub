@@ -1,4 +1,3 @@
-import itertools
 import logging
 import pathlib
 import re
@@ -41,13 +40,13 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerExplore,
     LookerUtil,
     LookerViewId,
-    ProjectInclude,
     ViewField,
-    ViewFieldType,
     ViewFieldValue,
     gen_project_key,
 )
+from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.lookml_concept_context import LookerViewContext
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
     _MODEL_FILE_EXTENSION,
@@ -57,10 +56,9 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceConfig,
     LookMLSourceReport,
 )
-from datahub.ingestion.source.looker.lookml_dataclasses import LookerViewFile
+from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
 from datahub.ingestion.source.looker.lookml_resolver import (
     LookerModel,
-    LookerRefinementResolver,
     LookerViewFileLoader,
     LookerViewIdCache,
     get_derived_view_urn,
@@ -155,33 +153,6 @@ class SQLInfo:
     column_names: List[str]
 
 
-def _find_view_from_resolved_includes(
-    connection: Optional[LookerConnectionDefinition],
-    resolved_includes: List[ProjectInclude],
-    looker_viewfile_loader: LookerViewFileLoader,
-    target_view_name: str,
-    reporter: LookMLSourceReport,
-) -> Optional[Tuple[ProjectInclude, dict]]:
-    # It could live in one of the included files. We do not know which file the base view
-    # lives in, so we try them all!
-    for include in resolved_includes:
-        included_looker_viewfile = looker_viewfile_loader.load_viewfile(
-            include.include,
-            include.project,
-            connection,
-            reporter,
-        )
-        if not included_looker_viewfile:
-            continue
-        for raw_view in included_looker_viewfile.views:
-            raw_view_name = raw_view["name"]
-            # Make sure to skip loading view we are currently trying to resolve
-            if raw_view_name == target_view_name:
-                return include, raw_view
-
-    return None
-
-
 _SQL_FUNCTIONS = ["UNNEST"]
 
 
@@ -247,58 +218,6 @@ class LookerView:
         return SQLInfo(table_names=sql_table_names, column_names=column_names)
 
     @classmethod
-    def _get_fields(
-        cls,
-        field_list: List[Dict],
-        type_cls: ViewFieldType,
-        extract_column_level_lineage: bool,
-        populate_sql_logic_in_descriptions: bool,
-    ) -> List[ViewField]:
-        fields = []
-        for field_dict in field_list:
-            is_primary_key = field_dict.get("primary_key", "no") == "yes"
-            name = field_dict["name"]
-            native_type = field_dict.get("type", "string")
-            default_description = (
-                f"sql:{field_dict['sql']}"
-                if "sql" in field_dict and populate_sql_logic_in_descriptions
-                else ""
-            )
-
-            description = field_dict.get("description", default_description)
-            label = field_dict.get("label", "")
-            upstream_fields = []
-            if extract_column_level_lineage:
-                if field_dict.get("sql") is not None:
-                    for upstream_field_match in re.finditer(
-                        r"\${TABLE}\.[\"]*([\.\w]+)", field_dict["sql"]
-                    ):
-                        matched_field = upstream_field_match.group(1)
-                        # Remove quotes from field names
-                        matched_field = (
-                            matched_field.replace('"', "").replace("`", "").lower()
-                        )
-                        upstream_fields.append(matched_field)
-                else:
-                    # If no SQL is specified, we assume this is referencing an upstream field
-                    # with the same name. This commonly happens for extends and derived tables.
-                    upstream_fields.append(name)
-
-            upstream_fields = sorted(list(set(upstream_fields)))
-
-            field = ViewField(
-                name=name,
-                type=native_type,
-                label=label,
-                description=description,
-                is_primary_key=is_primary_key,
-                field_type=type_cls,
-                upstream_fields=upstream_fields,
-            )
-            fields.append(field)
-        return fields
-
-    @classmethod
     def determine_view_file_path(
         cls, base_folder_path: str, absolute_file_path: str
     ) -> str:
@@ -322,11 +241,10 @@ class LookerView:
         project_name: str,
         base_folder_path: str,
         model_name: str,
+        view_context: LookerViewContext,
         looker_view: dict,
         connection: LookerConnectionDefinition,
         looker_viewfile: LookerViewFile,
-        looker_viewfile_loader: LookerViewFileLoader,
-        looker_refinement_resolver: LookerRefinementResolver,
         looker_view_id_cache: LookerViewIdCache,
         reporter: LookMLSourceReport,
         max_file_snippet_length: int,
@@ -336,37 +254,14 @@ class LookerView:
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
     ) -> Optional["LookerView"]:
-        view_name = looker_view["name"]
-        logger.debug(f"Handling view {view_name} in model {model_name}")
-        # The sql_table_name might be defined in another view and this view is extending that view,
-        # so we resolve this field while taking that into account.
-        sql_table_name: Optional[str] = LookerView.get_including_extends(
-            view_name=view_name,
-            looker_view=looker_view,
-            connection=connection,
-            looker_viewfile=looker_viewfile,
-            looker_viewfile_loader=looker_viewfile_loader,
-            looker_refinement_resolver=looker_refinement_resolver,
-            field="sql_table_name",
-            reporter=reporter,
-        )
 
-        # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
-        sql_table_name = (
-            sql_table_name.replace('"', "").replace("`", "")
-            if sql_table_name is not None
-            else None
-        )
-        derived_table = LookerView.get_including_extends(
-            view_name=view_name,
-            looker_view=looker_view,
-            connection=connection,
-            looker_viewfile=looker_viewfile,
-            looker_viewfile_loader=looker_viewfile_loader,
-            looker_refinement_resolver=looker_refinement_resolver,
-            field="derived_table",
-            reporter=reporter,
-        )
+        view_name = view_context.name()
+
+        logger.debug(f"Handling view {view_name} in model {model_name}")
+
+        sql_table_name: str = view_context.sql_table_name()
+
+        derived_table = view_context.derived_table()
 
         fields = ViewField.all_view_fields_from_dict(
             looker_view,
@@ -456,7 +351,6 @@ class LookerView:
             # Otherwise, default to the view name as per the docs:
             # https://docs.looker.com/reference/view-params/sql_table_name-for-view
 
-            sql_table_name = view_name if sql_table_name is None else sql_table_name
             view_urn: Optional[str]
             if is_derived_view(sql_table_name):
                 extracted_view_name: str = re.sub(
@@ -585,80 +479,6 @@ class LookerView:
                         break
 
         return fields, upstream_explores
-
-    @classmethod
-    def resolve_extends_view_name(
-        cls,
-        connection: LookerConnectionDefinition,
-        looker_viewfile: LookerViewFile,
-        looker_viewfile_loader: LookerViewFileLoader,
-        looker_refinement_resolver: LookerRefinementResolver,
-        target_view_name: str,
-        reporter: LookMLSourceReport,
-    ) -> Optional[dict]:
-        # The view could live in the same file.
-        for raw_view in looker_viewfile.views:
-            raw_view_name = raw_view["name"]
-            if raw_view_name == target_view_name:
-                return looker_refinement_resolver.apply_view_refinement(raw_view)
-
-        # Or, it could live in one of the imports.
-        view = _find_view_from_resolved_includes(
-            connection,
-            looker_viewfile.resolved_includes,
-            looker_viewfile_loader,
-            target_view_name,
-            reporter,
-        )
-        if view:
-            return looker_refinement_resolver.apply_view_refinement(view[1])
-        else:
-            logger.warning(
-                f"failed to resolve view {target_view_name} included from {looker_viewfile.absolute_file_path}"
-            )
-            return None
-
-    @classmethod
-    def get_including_extends(
-        cls,
-        view_name: str,
-        looker_view: dict,
-        connection: LookerConnectionDefinition,
-        looker_viewfile: LookerViewFile,
-        looker_viewfile_loader: LookerViewFileLoader,
-        looker_refinement_resolver: LookerRefinementResolver,
-        field: str,
-        reporter: LookMLSourceReport,
-    ) -> Optional[Any]:
-        extends = list(
-            itertools.chain.from_iterable(
-                looker_view.get("extends", looker_view.get("extends__all", []))
-            )
-        )
-
-        # First, check the current view.
-        if field in looker_view:
-            return looker_view[field]
-
-        # Then, check the views this extends, following Looker's precedence rules.
-        for extend in reversed(extends):
-            assert extend != view_name, "a view cannot extend itself"
-            extend_view = LookerView.resolve_extends_view_name(
-                connection,
-                looker_viewfile,
-                looker_viewfile_loader,
-                looker_refinement_resolver,
-                extend,
-                reporter,
-            )
-            if not extend_view:
-                raise NameError(
-                    f"failed to resolve extends view {extend} in view {view_name} of file {looker_viewfile.absolute_file_path}"
-                )
-            if field in extend_view:
-                return extend_view[field]
-
-        return None
 
 
 @dataclass
@@ -1218,7 +1038,8 @@ class LookMLSource(StatefulIngestionSourceBase):
             if connectionDefinition is None:
                 self.reporter.report_warning(
                     f"model-{model_name}",
-                    f"Failed to load connection {model.connection}. Check your API key permissions and/or connection_to_platform_map configuration.",
+                    f"Failed to load connection {model.connection}. Check your API key permissions and/or "
+                    f"connection_to_platform_map configuration.",
                 )
                 self.reporter.report_models_dropped(model_name)
                 continue
@@ -1330,15 +1151,23 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 )
                             )
 
+                            view_context: LookerViewContext = LookerViewContext(
+                                raw_view=raw_view,
+                                view_file=looker_viewfile,
+                                view_connection=connectionDefinition,
+                                view_file_loader=viewfile_loader,
+                                looker_refinement_resolver=looker_refinement_resolver,
+                                reporter=self.reporter,
+                            )
+
                             maybe_looker_view = LookerView.from_looker_dict(
                                 project_name=current_project_name,
                                 base_folder_path=base_folder_path,
                                 model_name=model_name,
+                                view_context=view_context,
                                 looker_view=raw_view,
                                 connection=connectionDefinition,
                                 looker_viewfile=looker_viewfile,
-                                looker_viewfile_loader=viewfile_loader,
-                                looker_refinement_resolver=looker_refinement_resolver,
                                 looker_view_id_cache=looker_view_id_cache,
                                 reporter=self.reporter,
                                 max_file_snippet_length=self.source_config.max_file_snippet_length,

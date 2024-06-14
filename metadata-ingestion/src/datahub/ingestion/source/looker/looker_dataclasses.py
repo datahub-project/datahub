@@ -5,10 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
 from datahub.ingestion.source.looker.lkml_patched import load_lkml
-from datahub.ingestion.source.looker.looker_common import (
-    LookerConnectionDefinition,
-    ProjectInclude,
-)
+from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
     _EXPLORE_FILE_EXTENSION,
@@ -16,6 +13,20 @@ from datahub.ingestion.source.looker.lookml_config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, order=True)
+class ProjectInclude:
+    project: str
+    include: str
+
+
+@dataclass
+class LookerField:
+    name: str
+    primary_key: str  # possible values yes and no
+    type: str
+    sql: Optional[str]
 
 
 @dataclass
