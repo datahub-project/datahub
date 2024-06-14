@@ -1449,12 +1449,12 @@ class DataHubGraph(DatahubRestEmitter):
         self,
         entity_name: str,
         urns: List[str],
-        aspects: List[Type[Aspect]],
-        with_system_metadata: bool = True,
-    ) -> Optional[Dict]:
+        aspects: List[str] = [],
+        with_system_metadata: bool = False,
+    ) -> Dict[str, Any]:
         payload = {
             "urns": urns,
-            "aspectNames": list(map(lambda x: x.ASPECT_NAME, aspects)),
+            "aspectNames": aspects,
             "withSystemMetadata": with_system_metadata,
         }
         headers: Dict[str, Any] = {
@@ -1462,33 +1462,26 @@ class DataHubGraph(DatahubRestEmitter):
             "Content-Type": "application/json",
         }
         url = f"{self.config.server}/openapi/v2/entity/batch/{entity_name}"
-        try:
-            response = self._session.post(
-                url, data=json.dumps(payload), headers=headers
-            )
-            if response.status_code != 200:
-                logger.debug(
-                    f"Non 200 status found while fetching entities - {response.status_code}"
-                )
-                return None
-            json_resp = response.json()
-            entities = json_resp.get("entities", [])
-            retval: Dict[str, Any] = {}
-            for entity in entities:
-                for aspect in aspects:
-                    entity_aspects = entity.get("aspects", {})
-                    entity_urn = entity.get("urn", None)
-                    if entity_urn is not None and aspect.ASPECT_NAME in entity_aspects:
-                        aspect_raw_value = entity_aspects.get(aspect.ASPECT_NAME).get(
-                            "value"
-                        )
-                        aspect_value = aspect.from_obj(aspect_raw_value)
-                        retval.setdefault(entity_urn, {})
-                        retval[entity_urn].setdefault(aspect.ASPECT_NAME, aspect_value)
-            return retval
-        except Exception as e:
-            logger.error("Error while getting entities.", e)
-        return None
+        response = self._session.post(url, data=json.dumps(payload), headers=headers)
+        response.raise_for_status()
+
+        json_resp = response.json()
+        entities = json_resp.get("entities", [])
+        aspects_set = set(aspects)
+        retval: Dict[str, Any] = {}
+
+        for entity in entities:
+            entity_aspects = entity.get("aspects", {})
+            entity_urn = entity.get("urn", None)
+
+            if entity_urn is None:
+                continue
+            for aspect_key, aspect_value in entity_aspects.items():
+                # Include all aspects if aspect filter is empty
+                if len(aspects) == 0 or aspect_key in aspects_set:
+                    retval.setdefault(entity_urn, {})
+                    retval[entity_urn][aspect_key] = aspect_value
+        return retval
 
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()
