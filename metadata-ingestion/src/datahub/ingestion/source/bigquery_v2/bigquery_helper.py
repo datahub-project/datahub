@@ -23,8 +23,5 @@ def unquote_and_decode_unicode_escape_seq(
 def parse_labels(labels_str: str) -> Dict[str, str]:
     pattern = r'STRUCT\("([^"]+)", "([^"]+)"\)'
 
-    # Find all matches in the labels string
-    matches = re.findall(pattern, labels_str)
-
-    labels_dict = {key: value for key, value in matches}
-    return labels_dict
+    # Map of BigQuery label keys to label values
+    return dict(re.findall(pattern, labels_str))
