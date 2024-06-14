@@ -244,10 +244,11 @@ class SnowflakeQuery:
         limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
         view_pagination_marker: Optional[str] = None,
     ) -> str:
-        # This command can return a maximum of 10000 rows. We paginate through the results
-        # using the from clause.
+        # This command can return a maximum of 10000 rows.
+        # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
         assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
 
+        # To work around this, we paginate through the results using the FROM clause.
         from_clause = (
             f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
         )
