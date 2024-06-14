@@ -42,6 +42,7 @@ public class OpenAPIV3Generator {
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
   private static final String NAME_ASYNC = "async";
   private static final String NAME_SCROLL_ID = "scrollId";
+  private static final String NAME_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
   private static final String PROPERTY_PATCH = "patch";
@@ -208,7 +209,12 @@ public class OpenAPIV3Generator {
                         .in(NAME_PATH)
                         .name("urn")
                         .description("The entity's unique URN id.")
-                        .schema(new Schema().type(TYPE_STRING))))
+                        .schema(new Schema().type(TYPE_STRING)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_INCLUDE_SOFT_DELETE)
+                        .description("If enabled, soft deleted items will exist.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .tags(List.of(entity.getName() + " Entity"))
             .responses(
                 new ApiResponses()
@@ -274,6 +280,7 @@ public class OpenAPIV3Generator {
             .summary(String.format("Scroll/List %s.", upperFirst))
             .parameters(parameters)
             .tags(List.of(entity.getName() + " Entity"))
+            .description("Scroll indexed entities. Will not include soft deleted entities.")
             .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
 
     // Post Operation
@@ -631,6 +638,13 @@ public class OpenAPIV3Generator {
         new Operation()
             .summary(String.format("%s on %s existence.", aspect, upperFirstEntity))
             .tags(tags)
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_INCLUDE_SOFT_DELETE)
+                        .description("If enabled, soft deleted items will exist.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .responses(
                 new ApiResponses()
                     .addApiResponse("200", successHeadResponse)

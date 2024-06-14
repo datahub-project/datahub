@@ -15,7 +15,6 @@ import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
@@ -46,6 +45,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericEntity;
 import io.datahubproject.openapi.models.GenericEntityScrollResult;
@@ -77,6 +77,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 public abstract class GenericEntitiesController<
     E extends GenericEntity, S extends GenericEntityScrollResult<E>> {
+  public static final String NOT_FOUND_HEADER = "Not-Found-Reason";
   protected static final SearchFlags DEFAULT_SEARCH_FLAGS =
       new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
 
@@ -125,7 +126,7 @@ public abstract class GenericEntitiesController<
 
   protected abstract AspectsBatch toMCPBatch(
       @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
-      throws JsonProcessingException, URISyntaxException;
+      throws JsonProcessingException, InvalidUrnException;
 
   @Tag(name = "Generic Entities", description = "API for interacting with generic entities.")
   @GetMapping(value = "/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -203,7 +204,7 @@ public abstract class GenericEntitiesController<
           Boolean withSystemMetadata)
       throws URISyntaxException {
 
-    Urn urn = UrnUtils.getUrn(entityUrn);
+    Urn urn = validatedUrn(entityUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
         authentication, authorizationChain, READ, List.of(urn))) {
@@ -218,20 +219,24 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    return ResponseEntity.of(
-        buildEntityList(opContext, List.of(urn), aspectNames, withSystemMetadata).stream()
-            .findFirst());
+    return buildEntityList(opContext, List.of(urn), aspectNames, withSystemMetadata).stream()
+        .findFirst()
+        .map(ResponseEntity::ok)
+        .orElse(ResponseEntity.notFound().header(NOT_FOUND_HEADER, "ENTITY").build());
   }
 
   @Tag(name = "Generic Entities")
   @RequestMapping(
-      value = "/{entityName}/{entityUrn}",
+      value = "/{entityName}/{entityUrn:urn:li:.+}",
       method = {RequestMethod.HEAD})
   @Operation(summary = "Entity exists")
   public ResponseEntity<Object> headEntity(
-      @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn) {
+      @PathVariable("entityName") String entityName,
+      @PathVariable("entityUrn") String entityUrn,
+      @PathVariable(value = "includeSoftDelete", required = false) Boolean includeSoftDelete)
+      throws InvalidUrnException {
 
-    Urn urn = UrnUtils.getUrn(entityUrn);
+    Urn urn = validatedUrn(entityUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
         authentication, authorizationChain, EXISTS, List.of(urn))) {
@@ -246,14 +251,14 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    return exists(opContext, urn, null)
+    return exists(opContext, urn, null, includeSoftDelete)
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
   }
 
   @Tag(name = "Generic Aspects", description = "API for generic aspects.")
   @GetMapping(
-      value = "/{entityName}/{entityUrn}/{aspectName}",
+      value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}",
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get an entity's generic aspect.")
   public ResponseEntity<Object> getAspect(
@@ -264,7 +269,7 @@ public abstract class GenericEntitiesController<
           Boolean withSystemMetadata)
       throws URISyntaxException {
 
-    Urn urn = UrnUtils.getUrn(entityUrn);
+    Urn urn = validatedUrn(entityUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
         authentication, authorizationChain, READ, List.of(urn))) {
@@ -279,30 +284,32 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    return ResponseEntity.of(
-        buildEntityList(opContext, List.of(urn), Set.of(aspectName), withSystemMetadata).stream()
-            .findFirst()
-            .flatMap(
-                e ->
-                    e.getAspects().entrySet().stream()
-                        .filter(
-                            entry ->
-                                entry.getKey().equals(lookupAspectSpec(urn, aspectName).getName()))
-                        .map(Map.Entry::getValue)
-                        .findFirst()));
+    return buildEntityList(opContext, List.of(urn), Set.of(aspectName), withSystemMetadata).stream()
+        .findFirst()
+        .flatMap(
+            e ->
+                e.getAspects().entrySet().stream()
+                    .filter(
+                        entry -> entry.getKey().equals(lookupAspectSpec(urn, aspectName).getName()))
+                    .map(Map.Entry::getValue)
+                    .findFirst())
+        .map(ResponseEntity::ok)
+        .orElse(ResponseEntity.notFound().header(NOT_FOUND_HEADER, "ENTITY").build());
   }
 
   @Tag(name = "Generic Aspects")
   @RequestMapping(
-      value = "/{entityName}/{entityUrn}/{aspectName}",
+      value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}",
       method = {RequestMethod.HEAD})
   @Operation(summary = "Whether an entity aspect exists.")
   public ResponseEntity<Object> headAspect(
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
-      @PathVariable("aspectName") String aspectName) {
+      @PathVariable("aspectName") String aspectName,
+      @PathVariable(value = "includeSoftDelete", required = false) Boolean includeSoftDelete)
+      throws InvalidUrnException {
 
-    Urn urn = UrnUtils.getUrn(entityUrn);
+    Urn urn = validatedUrn(entityUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
         authentication, authorizationChain, EXISTS, List.of(urn))) {
@@ -317,19 +324,20 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    return exists(opContext, urn, lookupAspectSpec(urn, aspectName).getName())
+    return exists(opContext, urn, lookupAspectSpec(urn, aspectName).getName(), includeSoftDelete)
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
   }
 
   @Tag(name = "Generic Entities")
-  @DeleteMapping(value = "/{entityName}/{entityUrn}")
+  @DeleteMapping(value = "/{entityName}/{entityUrn:urn:li:.+}")
   @Operation(summary = "Delete an entity")
   public void deleteEntity(
-      @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn) {
+      @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn)
+      throws InvalidUrnException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-    Urn urn = UrnUtils.getUrn(entityUrn);
+    Urn urn = validatedUrn(entityUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
         authentication, authorizationChain, DELETE, List.of(urn))) {
@@ -356,7 +364,7 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
       @RequestBody @Nonnull String jsonEntityList)
-      throws URISyntaxException, JsonProcessingException {
+      throws InvalidUrnException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
 
@@ -385,14 +393,15 @@ public abstract class GenericEntitiesController<
   }
 
   @Tag(name = "Generic Aspects")
-  @DeleteMapping(value = "/{entityName}/{entityUrn}/{aspectName}")
+  @DeleteMapping(value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}")
   @Operation(summary = "Delete an entity aspect.")
   public void deleteAspect(
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
-      @PathVariable("aspectName") String aspectName) {
+      @PathVariable("aspectName") String aspectName)
+      throws InvalidUrnException {
 
-    Urn urn = UrnUtils.getUrn(entityUrn);
+    Urn urn = validatedUrn(entityUrn);
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
         authentication, authorizationChain, DELETE, List.of(urn))) {
@@ -413,7 +422,7 @@ public abstract class GenericEntitiesController<
 
   @Tag(name = "Generic Aspects")
   @PostMapping(
-      value = "/{entityName}/{entityUrn}/{aspectName}",
+      value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}",
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Create an entity aspect.")
   public ResponseEntity<E> createAspect(
@@ -427,7 +436,7 @@ public abstract class GenericEntitiesController<
       @RequestBody @Nonnull String jsonAspect)
       throws URISyntaxException {
 
-    Urn urn = UrnUtils.getUrn(entityUrn);
+    Urn urn = validatedUrn(entityUrn);
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Authentication authentication = AuthenticationContext.getAuthentication();
 
@@ -472,7 +481,7 @@ public abstract class GenericEntitiesController<
 
   @Tag(name = "Generic Aspects")
   @PatchMapping(
-      value = "/{entityName}/{entityUrn}/{aspectName}",
+      value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}",
       consumes = "application/json-patch+json",
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Patch an entity aspect. (Experimental)")
@@ -483,13 +492,13 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
       @RequestBody @Nonnull GenericJsonPatch patch)
-      throws URISyntaxException,
+      throws InvalidUrnException,
           NoSuchMethodException,
           InvocationTargetException,
           InstantiationException,
           IllegalAccessException {
 
-    Urn urn = UrnUtils.getUrn(entityUrn);
+    Urn urn = validatedUrn(entityUrn);
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (!AuthUtil.isAPIAuthorizedEntityUrns(
@@ -518,7 +527,7 @@ public abstract class GenericEntitiesController<
     ChangeMCP upsert =
         toUpsertItem(
             opContext.getRetrieverContext().get().getAspectRetriever(),
-            UrnUtils.getUrn(entityUrn),
+            validatedUrn(entityUrn),
             aspectSpec,
             currentValue,
             genericPatchTemplate,
@@ -534,16 +543,23 @@ public abstract class GenericEntitiesController<
             true,
             true);
 
-    return ResponseEntity.of(
-        results.stream()
-            .findFirst()
-            .map(result -> buildGenericEntity(aspectSpec.getName(), result, withSystemMetadata)));
+    return results.stream()
+        .findFirst()
+        .map(result -> buildGenericEntity(aspectSpec.getName(), result, withSystemMetadata))
+        .map(ResponseEntity::ok)
+        .orElse(ResponseEntity.notFound().header(NOT_FOUND_HEADER, "ENTITY").build());
   }
 
-  protected Boolean exists(@Nonnull OperationContext opContext, Urn urn, @Nullable String aspect) {
+  protected Boolean exists(
+      @Nonnull OperationContext opContext,
+      Urn urn,
+      @Nullable String aspect,
+      @Nullable Boolean includeSoftDelete) {
     return aspect == null
-        ? entityService.exists(opContext, urn, true)
-        : entityService.exists(opContext, urn, aspect, true);
+        ? entityService.exists(
+            opContext, urn, includeSoftDelete != null ? includeSoftDelete : false)
+        : entityService.exists(
+            opContext, urn, aspect, includeSoftDelete != null ? includeSoftDelete : false);
   }
 
   protected Set<AspectSpec> resolveAspectNames(Set<Urn> urns, Set<String> requestedAspectNames) {
@@ -637,5 +653,13 @@ public abstract class GenericEntitiesController<
             .filter(aspec -> aspec.getName().toLowerCase().equals(aspectName))
             .findFirst()
             .get();
+  }
+
+  protected static Urn validatedUrn(String urn) throws InvalidUrnException {
+    try {
+      return Urn.createFromString(urn);
+    } catch (URISyntaxException e) {
+      throw new InvalidUrnException(urn, "Invalid urn!");
+    }
   }
 }
