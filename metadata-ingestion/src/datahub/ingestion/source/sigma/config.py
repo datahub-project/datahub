@@ -91,11 +91,11 @@ class SigmaSourceConfig(
     )
     ingest_shared_entities: Optional[bool] = pydantic.Field(
         default=False,
-        description="Weather to ingest the shared entities or not.",
+        description="Whether to ingest the shared entities or not.",
     )
     extract_lineage: Optional[bool] = pydantic.Field(
-        default=False,
-        description="Weather to extract lineage of workbook's elements and datasets or not.",
+        default=True,
+        description="Whether to extract lineage of workbook's elements and datasets or not.",
     )
     workbook_lineage_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

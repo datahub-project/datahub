@@ -838,11 +838,15 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": []
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:sigma,49HFLTr6xytgrPly3PFsNC,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718005767921,
+        "lastObserved": 1718348048900,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1159,11 +1163,18 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": []
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:sigma,49HFLTr6xytgrPly3PFsNC,PROD)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.adoptions,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718005767935,
+        "lastObserved": 1718348048975,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1595,11 +1606,15 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": []
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.adoptions,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718005767914,
+        "lastObserved": 1718348048836,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1782,6 +1797,31 @@
     },
     "systemMetadata": {
         "lastObserved": 1713795619454,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,49HFLTr6xytgrPly3PFsNC,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.pets,PROD)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1718348048990,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

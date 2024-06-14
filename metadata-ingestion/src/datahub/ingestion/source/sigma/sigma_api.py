@@ -59,37 +59,39 @@ class SigmaAPI:
         logger.debug(msg=message, exc_info=e)
         return e
 
+    def _refresh_access_token(self):
+        try:
+            data = {
+                "grant_type": Constant.REFRESH_TOKEN,
+                "refresh_token": self.refresh_token,
+                "client_id": self.config.client_id,
+                "client_secret": self.config.client_secret,
+            }
+            post_response = self.session.post(
+                f"{self.config.api_url}/auth/token",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data=data,
+            )
+            post_response.raise_for_status()
+            response_dict = post_response.json()
+            self.refresh_token = response_dict[Constant.REFRESH_TOKEN]
+            self.session.headers.update(
+                {
+                    "Authorization": f"Bearer {response_dict[Constant.ACCESS_TOKEN]}",
+                    "Content-Type": "application/json",
+                }
+            )
+        except Exception as e:
+            self._log_http_error(
+                message=f"Unable to refresh access token. Exception: {e}"
+            )
+
     def _get_api_call(self, url: str) -> requests.Response:
         get_response = self.session.get(url)
-
         if get_response.status_code == 401 and self.refresh_token:
             logger.debug("Access token might expired. Refreshing access token.")
-            try:
-                data = {
-                    "grant_type": Constant.REFRESH_TOKEN,
-                    "refresh_token": self.refresh_token,
-                    "client_id": self.config.client_id,
-                    "client_secret": self.config.client_secret,
-                }
-                post_response = self.session.post(
-                    f"{self.config.api_url}/auth/token",
-                    headers={"Content-Type": "application/x-www-form-urlencoded"},
-                    data=data,
-                )
-                post_response.raise_for_status()
-                response_dict = post_response.json()
-                self.refresh_token = response_dict[Constant.REFRESH_TOKEN]
-                self.session.headers.update(
-                    {
-                        "Authorization": f"Bearer {response_dict[Constant.ACCESS_TOKEN]}",
-                        "Content-Type": "application/json",
-                    }
-                )
-                get_response = self.session.get(url)
-            except Exception as e:
-                self._log_http_error(
-                    message=f"Unable to refresh access token. Exception: {e}"
-                )
+            self._refresh_access_token()
+            get_response = self.session.get(url)
         return get_response
 
     def get_workspace(self, workspace_id: str) -> Optional[Workspace]:

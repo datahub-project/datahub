@@ -505,51 +505,6 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
 
 
 @pytest.mark.integration
-def test_sigma_extract_lineage(pytestconfig, tmp_path, requests_mock):
-
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
-
-    register_mock_api(request_mock=requests_mock)
-
-    output_path: str = f"{tmp_path}/sigma_extract_lineage_mces.json"
-
-    pipeline = Pipeline.create(
-        {
-            "run_id": "sigma-test",
-            "source": {
-                "type": "sigma",
-                "config": {
-                    "client_id": "CLIENTID",
-                    "client_secret": "CLIENTSECRET",
-                    "extract_lineage": True,
-                    "chart_sources_platform_mapping": {
-                        "Acryl Data/Acryl Workbook": {
-                            "data_source_platform": "snowflake"
-                        },
-                    },
-                },
-            },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": output_path,
-                },
-            },
-        }
-    )
-
-    pipeline.run()
-    pipeline.raise_from_status()
-    golden_file = "golden_test_sigma_extract_lineage.json"
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=output_path,
-        golden_path=f"{test_resources_dir}/{golden_file}",
-    )
-
-
-@pytest.mark.integration
 def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"

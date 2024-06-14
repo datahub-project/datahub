@@ -612,11 +612,15 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": []
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev_instance.long_tail_companions.adoption.adoptions,DEV)"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275264,
+        "lastObserved": 1718348049212,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1078,11 +1082,15 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": []
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:sigma,cloud_instance.49HFLTr6xytgrPly3PFsNC,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275270,
+        "lastObserved": 1718348049268,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1222,11 +1230,18 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": []
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:sigma,cloud_instance.49HFLTr6xytgrPly3PFsNC,PROD)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev_instance.long_tail_companions.adoption.adoptions,DEV)"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275285,
+        "lastObserved": 1718348049351,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1895,6 +1910,31 @@
     },
     "systemMetadata": {
         "lastObserved": 1713794496190,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,cloud_instance.49HFLTr6xytgrPly3PFsNC,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev_instance.long_tail_companions.adoption.pets,DEV)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1718348049380,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
