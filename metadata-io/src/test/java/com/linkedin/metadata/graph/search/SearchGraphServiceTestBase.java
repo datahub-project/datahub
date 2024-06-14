@@ -72,7 +72,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @BeforeClass
   public void setup() {
     _client = buildService(_enableMultiPathSearch);
-    _client.configure();
+    _client.reindexAll(Collections.emptySet());
   }
 
   @BeforeMethod
@@ -121,7 +121,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     if (enableMultiPathSearch != _enableMultiPathSearch) {
       _enableMultiPathSearch = enableMultiPathSearch;
       _client = buildService(enableMultiPathSearch);
-      _client.configure();
+      _client.reindexAll(Collections.emptySet());
     }
     return _client;
   }

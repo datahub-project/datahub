@@ -443,12 +443,18 @@ public interface EntityService<U extends ChangeMCP> {
 
   void setRetentionService(RetentionService<U> retentionService);
 
-  RollbackResult deleteAspect(
+  default RollbackResult deleteAspect(
       @Nonnull OperationContext opContext,
       String urn,
       String aspectName,
       @Nonnull Map<String, String> conditions,
-      boolean hardDelete);
+      boolean hardDelete) {
+    AspectRowSummary aspectRowSummary =
+        new AspectRowSummary().setUrn(urn).setAspectName(aspectName);
+    return rollbackWithConditions(opContext, List.of(aspectRowSummary), conditions, hardDelete)
+        .getRollbackResults()
+        .get(0);
+  }
 
   RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn);
 

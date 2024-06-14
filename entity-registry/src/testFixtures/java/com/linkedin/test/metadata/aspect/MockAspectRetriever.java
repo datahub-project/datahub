@@ -1,7 +1,5 @@
 package com.linkedin.test.metadata.aspect;
 
-import static org.mockito.Mockito.mock;
-
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -17,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import org.mockito.Mockito;
 
 public class MockAspectRetriever implements AspectRetriever {
   private final Map<Urn, Map<String, Aspect>> data;
@@ -64,6 +63,6 @@ public class MockAspectRetriever implements AspectRetriever {
   @Nonnull
   @Override
   public EntityRegistry getEntityRegistry() {
-    return mock(EntityRegistry.class);
+    return Mockito.mock(EntityRegistry.class);
   }
 }
