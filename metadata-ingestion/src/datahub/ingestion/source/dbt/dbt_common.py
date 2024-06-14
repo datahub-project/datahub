@@ -45,7 +45,6 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
@@ -503,6 +502,7 @@ class DBTNode:
     dbt_adapter: str
     dbt_name: str
     dbt_file_path: Optional[str]
+    dbt_package_name: Optional[str]  # this is pretty much always present
 
     node_type: str  # source, model, snapshot, seed, test, etc
     max_loaded_at: Optional[datetime]
@@ -645,6 +645,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
         "catalog_type": node.catalog_type,
         "language": node.language,
         "dbt_unique_id": node.dbt_name,
+        "dbt_package_name": node.dbt_package_name,
     }
 
     for attribute, node_attribute_value in node_attributes.items():
@@ -1445,7 +1446,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     yield MetadataChangeProposalWrapper(
                         entityUrn=node_datahub_urn,
                         aspect=upstreams_lineage_class,
-                    ).as_workunit()
+                    ).as_workunit(is_primary_source=False)
 
     def extract_query_tag_aspects(
         self,
@@ -1739,12 +1740,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return None
 
         subtypes: List[str] = [node.node_type.capitalize()]
-        if node.materialization == "table":
-            subtypes.append(DatasetSubTypes.TABLE)
-
-        if node.node_type == "model" or node.node_type == "snapshot":
-            # We need to add the view subtype so that the view properties tab shows up in the UI.
-            subtypes.append(DatasetSubTypes.VIEW)
 
         return MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,

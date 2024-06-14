@@ -7,9 +7,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
         }
     },
@@ -49,6 +47,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.customers",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -233,9 +232,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
         }
     },
@@ -275,6 +272,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.orders",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -478,8 +476,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
         }
     },
@@ -519,6 +516,7 @@
                             "catalog_type": "view",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.stg_customers",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -633,8 +631,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
         }
     },
@@ -674,6 +671,7 @@
                             "catalog_type": "view",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.stg_orders",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -800,8 +798,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
         }
     },
@@ -841,6 +838,7 @@
                             "catalog_type": "view",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.stg_payments",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -1007,6 +1005,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "seed.jaffle_shop.raw_customers",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -1139,6 +1138,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "seed.jaffle_shop.raw_orders",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -1283,6 +1283,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "seed.jaffle_shop.raw_payments",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",

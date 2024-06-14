@@ -108,6 +108,11 @@ type Incident implements Entity {
   created: AuditStamp!
 
   """
+  The standard tags for the Incident
+  """
+  tags: GlobalTags
+
+  """
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -131,6 +136,36 @@ enum IncidentState {
 A specific type of incident
 """
 enum IncidentType {
+  """
+  A Freshness Assertion has failed, triggering the incident.
+  Raised on assets where assertions are configured to generate incidents.
+  """
+  FRESHNESS
+
+  """
+  A Volume Assertion has failed, triggering the incident.
+  Raised on assets where assertions are configured to generate incidents.
+  """
+  VOLUME
+
+  """
+  A Field Assertion has failed, triggering the incident.
+  Raised on assets where assertions are configured to generate incidents.
+  """
+  FIELD
+
+  """
+  A SQL Assertion has failed, triggering the incident.
+  Raised on assets where assertions are configured to generate incidents.
+  """
+  SQL
+
+  """
+  A Schema has failed, triggering the incident.
+  Raised on assets where assertions are configured to generate incidents.
+  """
+  DATA_SCHEMA
+
   """
   An operational incident, e.g. failure to materialize a dataset, or failure to execute a task / pipeline.
   """
@@ -169,6 +204,11 @@ enum IncidentSourceType {
   The incident was created manually, from either the API or the UI.
   """
   MANUAL
+
+  """
+  An assertion has failed, triggering the incident.
+  """
+  ASSERTION_FAILURE
 }
 
 """

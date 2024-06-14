@@ -116,7 +116,11 @@ class RedshiftSqlLineageV2:
                     default_schema=self.config.default_schema,
                     session_id=temp_row.session_id,
                     query_timestamp=temp_row.start_time,
-                    is_known_temp_table=True,
+                    # The "temp table" query actually returns all CREATE TABLE statements, even if they
+                    # aren't explicitly a temp table. As such, setting is_known_temp_table=True
+                    # would not be correct. We already have mechanisms to autodetect temp tables,
+                    # so we won't lose anything by not setting it.
+                    is_known_temp_table=False,
                 )
 
         populate_calls: List[Tuple[LineageCollectorType, str, Callable]] = []

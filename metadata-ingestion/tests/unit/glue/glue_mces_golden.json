@@ -9,7 +9,11 @@
             "customProperties": {
                 "platform": "glue",
                 "env": "PROD",
-                "database": "flights-database"
+                "database": "flights-database",
+                "param1": "value1",
+                "param2": "value2",
+                "LocationUri": "s3://test-bucket/test-prefix",
+                "CreateTime": "June 9, 2021 at 14:14:19"
             },
             "name": "flights-database",
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database"
@@ -288,7 +292,8 @@
             "customProperties": {
                 "platform": "glue",
                 "env": "PROD",
-                "database": "test-database"
+                "database": "test-database",
+                "CreateTime": "June 1, 2021 at 14:55:02"
             },
             "name": "test-database",
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/test-database"
