@@ -1,6 +1,7 @@
 import os
 
 SHARED_ASPECTS_ENV_VAR = "SHARED_ASPECTS"
+EXTRA_SHARED_ASPECTS_ENV_VAR = "EXTRA_SHARED_ASPECTS"
 
 # TODO: This hardcoded list of aspect names is not ideal - we're going to need
 # something better here long-term.
@@ -105,3 +106,9 @@ if SHARED_ASPECTS_ENV_VAR in os.environ:
     assert "share" not in SHARED_ASPECTS, "Cannot share the share aspect"
 else:
     SHARED_ASPECTS = _DEFAULT_SHARED_ASPECTS.copy()
+
+if EXTRA_SHARED_ASPECTS_ENV_VAR in os.environ:
+    # Allow to add extra shared aspects via an environment variable.
+    EXTRA_SHARED_ASPECTS = set(os.environ[EXTRA_SHARED_ASPECTS_ENV_VAR].split(","))
+    assert "share" not in EXTRA_SHARED_ASPECTS, "Cannot share the share aspect"
+    SHARED_ASPECTS.update(EXTRA_SHARED_ASPECTS)

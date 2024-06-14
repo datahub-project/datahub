@@ -52,6 +52,13 @@ def determine_entities_to_sync(graph: DataHubGraph, root_entity: str) -> set[str
             for nested_urn in list_urns(container_aspect):
                 _recursive_check_entity(nested_urn)
 
+        structured_properties = graph.get_aspect(
+            entity_urn, models.StructuredPropertiesClass
+        )
+        if structured_properties:
+            for nested_urn in list_urns(structured_properties):
+                _recursive_check_entity(nested_urn)
+
     _recursive_check_entity(root_entity)
     return entities_to_sync
 
