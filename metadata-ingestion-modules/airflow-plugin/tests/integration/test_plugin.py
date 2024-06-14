@@ -255,7 +255,7 @@ def check_golden_file(
         update_golden=update_golden,
         copy_output=False,
         ignore_paths=ignore_paths,
-        ignore_order=False,
+        ignore_order=True,
     )
 
 

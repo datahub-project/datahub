@@ -486,4 +486,4 @@ metadataChangeProposal:
       maxAttempts: ${MCP_TIMESERIES_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
-      maxIntervalMs: ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+      maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}

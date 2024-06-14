@@ -25,7 +25,7 @@ When configuring ingestion for DataHub, you're likely to be sending the metadata
 
 For debugging purposes or troubleshooting, the following sinks can be useful:
 
-- [File](sink_docs/file.md)
+- [Metadata File](sink_docs/metadata-file.md)
 - [Console](sink_docs/console.md)
 
 ## Default Sink
