@@ -887,16 +887,13 @@ class BigQuerySinkConnector:
     def apply_transformations(
         self, topic: str, transforms: List[Dict[str, str]]
     ) -> str:
-        from java.util.regex import Pattern
-
         for transform in transforms:
             if transform["type"] == "org.apache.kafka.connect.transforms.RegexRouter":
                 regex = transform["regex"]
                 replacement = transform["replacement"]
-                pattern = Pattern.compile(regex)
-                matcher = pattern.matcher(topic)
-                if matcher.matches():
-                    topic = str(matcher.replaceFirst(replacement))
+                pattern = re.compile(regex)
+                if pattern.match(topic):
+                    topic = pattern.sub(replacement, topic, count=1)
         return topic
 
     def _extract_lineages(self):

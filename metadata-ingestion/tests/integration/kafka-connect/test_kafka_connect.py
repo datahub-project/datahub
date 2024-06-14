@@ -673,7 +673,6 @@ def test_kafka_connect_bigquery_sink_ingest(
     ).resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
-    print(f"tmp_path : {tmp_path}")
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
