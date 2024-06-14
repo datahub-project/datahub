@@ -52,9 +52,7 @@ class PartitionInfo:
         cls, time_partitioning: TimePartitioning
     ) -> "PartitionInfo":
         return cls(
-            field=(
-                time_partitioning.field if time_partitioning.field else "_PARTITIONTIME"
-            ),
+            field=time_partitioning.field or "_PARTITIONTIME",
             type=time_partitioning.type_,
             expiration_ms=time_partitioning.expiration_ms,
             require_partition_filter=time_partitioning.require_partition_filter,
