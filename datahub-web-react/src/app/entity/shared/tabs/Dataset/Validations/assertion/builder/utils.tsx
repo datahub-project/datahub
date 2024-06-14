@@ -5,10 +5,17 @@ import { UpdateAssertionMetadataMutationVariables } from '../../../../../../../.
 import {
     Assertion,
     AssertionActionType,
+    AssertionEvaluationParametersInput,
     AssertionEvaluationParametersType,
     AssertionStdOperator,
     AssertionStdParameters,
+    AssertionType,
     AssertionValueChangeType,
+    CreateFieldAssertionInput,
+    CreateFreshnessAssertionInput,
+    CreateSchemaAssertionInput,
+    CreateSqlAssertionInput,
+    CreateVolumeAssertionInput,
     DataPlatform,
     DatasetFilterType,
     DatasetFreshnessSourceType,
@@ -34,7 +41,7 @@ import {
 } from '../../../../../../../ingest/source/builder/constants';
 import { ASSERTION_TYPES, HIGH_WATERMARK_FIELD_TYPES, LAST_MODIFIED_FIELD_TYPES } from './constants';
 import { AssertionActionsFormState, AssertionMonitorBuilderState } from './types';
-import { removeNestedTypeNames } from '../../../../../../../shared/subscribe/drawer/utils';
+import { cleanAssertionDescription, removeNestedTypeNames } from '../../../../../../../shared/subscribe/drawer/utils';
 
 /** Configuration object used to display each source option */
 export type SourceOption = {
@@ -823,4 +830,62 @@ export const createAssertionMonitorBuilderState = (
         // @ts-ignore TODO(@jjoyce0510): same as l784
         parameters: monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters,
     };
+};
+
+export const getAssertionInput = (builderStateData, urn: string) => {
+    const { type, newBuilderStateData } = cleanAssertionDescription(builderStateData);
+
+    switch (type) {
+        case AssertionType.Field:
+            return {
+                type,
+                connectionUrn: urn,
+                fieldTestInput: builderStateToTestFieldAssertionVariables(newBuilderStateData)
+                    .input as CreateFieldAssertionInput,
+                parameters: removeNestedTypeNames(
+                    newBuilderStateData?.parameters,
+                ) as AssertionEvaluationParametersInput,
+            };
+        case AssertionType.Freshness:
+            return {
+                type,
+                connectionUrn: urn,
+                freshnessTestInput: builderStateToTestFreshnessAssertionVariables(newBuilderStateData)
+                    .input as CreateFreshnessAssertionInput,
+                parameters: removeNestedTypeNames(
+                    newBuilderStateData?.parameters,
+                ) as AssertionEvaluationParametersInput,
+            };
+        case AssertionType.Volume:
+            return {
+                type,
+                connectionUrn: urn,
+                volumeTestInput: builderStateToTestVolumeAssertionVariables(newBuilderStateData)
+                    .input as CreateVolumeAssertionInput,
+                parameters: removeNestedTypeNames(
+                    newBuilderStateData?.parameters,
+                ) as AssertionEvaluationParametersInput,
+            };
+        case AssertionType.Sql:
+            return {
+                type,
+                connectionUrn: urn,
+                sqlTestInput: builderStateToTestSqlAssertionVariables(newBuilderStateData)
+                    .input as CreateSqlAssertionInput,
+            };
+        case AssertionType.DataSchema:
+            return {
+                type,
+                connectionUrn: urn,
+                schemaTestInput: builderStateToTestSchemaAssertionVariables(
+                    newBuilderStateData,
+                ) as CreateSchemaAssertionInput,
+                parameters: removeNestedTypeNames(newBuilderStateData.parameters) as AssertionEvaluationParametersInput,
+            };
+        default:
+            return {
+                type,
+                connectionUrn: urn,
+            };
+    }
 };

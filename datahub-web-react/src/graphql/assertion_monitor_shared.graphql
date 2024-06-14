@@ -25,4 +25,7 @@ fragment assertionEvaluationParameters on AssertionEvaluationParameters {
             kind
         }
     }
+    datasetSchemaParameters {
+        sourceType
+    }
 }
