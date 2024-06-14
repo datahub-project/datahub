@@ -406,6 +406,10 @@ Cypress.Commands.add("mouseover", (selector) =>
   cy.get(selector).trigger("mouseover", { force: true }),
 );
 
+Cypress.Commands.add("mouseHoverOnFirstElement", (selector) =>
+  cy.get(selector).first().trigger("mouseover", { force: true }),
+);
+
 Cypress.Commands.add("createUser", (name, password, email) => {
   cy.visit("/settings/identities/users");
   cy.clickOptionWithText("Invite Users");
@@ -540,7 +544,7 @@ Cypress.Commands.add("rejectProposalInbox", () => {
 
 Cypress.Commands.add("handleIntroducePage", () => {
   cy.url().then((url) => {
-    let myUrl = url;
+    const myUrl = url;
     if (myUrl.includes("/introduce")) {
       cy.get(".ant-select ").first().click();
       cy.get(".ant-select-item-option-content")
