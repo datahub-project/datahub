@@ -13,6 +13,7 @@ import com.linkedin.util.Pair;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonValue;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class TemplateUtil {
@@ -73,7 +74,11 @@ public class TemplateUtil {
     JsonNode transformedNodeClone = transformedNode.deepCopy();
     List<Pair<PatchOperationType, String>> paths = getPaths(jsonPatch);
     for (Pair<PatchOperationType, String> operationPath : paths) {
-      String[] keys = operationPath.getSecond().split("/");
+      // a JsonPatch will have `~` encoded as `~0` and `/` encoded as `~1`
+      String[] keys =
+          Arrays.stream(operationPath.getSecond().split("/"))
+              .map(k -> k.replace("~0", "~").replace("~1", "/"))
+              .toArray(String[]::new);
       JsonNode parent = transformedNodeClone;
 
       // if not remove, skip last key as we only need to populate top level
