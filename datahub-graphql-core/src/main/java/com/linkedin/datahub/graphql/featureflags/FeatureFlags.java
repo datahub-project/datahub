@@ -20,4 +20,5 @@ public class FeatureFlags {
   private boolean nestedDomainsEnabled = false;
   private boolean schemaFieldEntityFetchEnabled = false;
   private boolean businessAttributeEntityEnabled = false;
+  private boolean dataContractsEnabled = false;
 }
