@@ -5,6 +5,8 @@ from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
 
+SHOW_VIEWS_MAX_PAGE_SIZE = 10000
+
 
 def create_deny_regex_sql_filter(
     deny_pattern: List[str], filter_cols: List[str]
@@ -237,13 +239,22 @@ class SnowflakeQuery:
         order by table_schema, table_name"""
 
     @staticmethod
-    def show_views_for_database(db_name: str) -> str:
-        return f"""show views in database "{db_name}";"""
+    def show_views_for_database(
+        db_name: str,
+        limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
+        view_pagination_marker: Optional[str] = None,
+    ) -> str:
+        # This command can return a maximum of 10000 rows. We paginate through the results
+        # using the from clause.
+        assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
 
-    @staticmethod
-    def show_views_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""show views in schema {db_clause}"{schema_name}";"""
+        from_clause = (
+            f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
+        )
+        return f"""\
+SHOW VIEWS IN DATABASE "{db_name}"
+LIMIT {limit} {from_clause};
+"""
 
     @staticmethod
     def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:
