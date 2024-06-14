@@ -316,12 +316,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     tryIndexRunId(opContext, resultUrn, result.getRequest().getSystemMetadata(), entitySearchService);
                 }
             }
+
+            // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
+            return "success";
           } catch (ValidationException e) {
             throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
           }
-
-                // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it?
-                return "success";
         },
         MetricRegistry.name(this.getClass(), "ingestProposal"));
   }
