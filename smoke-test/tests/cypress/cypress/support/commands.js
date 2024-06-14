@@ -44,7 +44,7 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
   }
   cy.contains("Sign In").click();
-  cy.get('[data-testid="manage-account-menu"]').should("be.visible");
+  cy.get(".ant-avatar-circle").should("be.visible");
 });
 
 Cypress.Commands.add("deleteUrn", (urn) => {
@@ -522,6 +522,22 @@ Cypress.Commands.add("rejectProposalInbox", () => {
   cy.doInInbox("Decline");
 });
 
+Cypress.Commands.add("doInInbox", (action) => {
+  cy.contains("Inbox").click({ force: true });
+  cy.get(".action-request-test-id").should("have.length", 1);
+  cy.contains(action).first().click({ force: true });
+  cy.contains("Yes").click({ force: true });
+  cy.get(".action-request-test-id").should("have.length", 0);
+});
+
+Cypress.Commands.add("acceptProposalInbox", () => {
+  cy.doInInbox("Approve");
+});
+
+Cypress.Commands.add("rejectProposalInbox", () => {
+  cy.doInInbox("Decline");
+});
+
 Cypress.Commands.add("handleIntroducePage", () => {
   cy.url().then((url) => {
     let myUrl = url;
@@ -536,7 +552,7 @@ Cypress.Commands.add("handleIntroducePage", () => {
       cy.get("body").click();
       cy.get(".ant-btn-primary").click();
     } else {
-      cy.get('[class^="NavLinksMenu__LinksWrapper').should("be.visible");
+      cy.waitTextVisible("Discover");
     }
   });
 });
