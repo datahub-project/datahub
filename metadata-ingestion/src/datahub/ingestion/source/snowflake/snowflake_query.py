@@ -204,47 +204,17 @@ class SnowflakeQuery:
         FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', '{SnowflakeObjectDomain.TABLE}'));
         """
 
-    # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
-    # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
-    @staticmethod
-    def views_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        created AS "CREATED",
-        last_altered AS "LAST_ALTERED",
-        comment AS "COMMENT",
-        view_definition AS "VIEW_DEFINITION"
-        FROM {db_clause}information_schema.views t
-        WHERE table_schema != 'INFORMATION_SCHEMA'
-        order by table_schema, table_name"""
-
-    # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
-    # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
-    @staticmethod
-    def views_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        created AS "CREATED",
-        last_altered AS "LAST_ALTERED",
-        comment AS "COMMENT",
-        view_definition AS "VIEW_DEFINITION"
-        FROM {db_clause}information_schema.views t
-        where table_schema='{schema_name}'
-        order by table_schema, table_name"""
-
     @staticmethod
     def show_views_for_database(
         db_name: str,
         limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
         view_pagination_marker: Optional[str] = None,
     ) -> str:
-        # This command can return a maximum of 10000 rows.
+        # While there is an information_schema.views view, that only shows the view definition if the role
+        # is an owner of the view. That doesn't work for us.
+        # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
+
+        # SHOW VIEWS can return a maximum of 10000 rows.
         # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
         assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
 
