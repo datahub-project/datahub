@@ -246,9 +246,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.config.get_bigquery_client()
             )
 
-        redundant_lineage_run_skip_handler: Optional[
-            RedundantLineageRunSkipHandler
-        ] = None
+        redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
+            None
+        )
         if self.config.enable_stateful_lineage_ingestion:
             redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,
@@ -1049,7 +1049,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         tags_to_add = None
-        logger.debug(f"view labels: {table.labels}")
         if table.labels and self.config.capture_view_label_as_tag:
             tags_to_add = []
             tags_to_add.extend(

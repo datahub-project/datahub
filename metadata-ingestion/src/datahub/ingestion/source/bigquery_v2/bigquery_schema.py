@@ -340,8 +340,6 @@ class BigQuerySchemaApi:
 
     @staticmethod
     def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
-        if view.labels:
-            logger.debug(f"Labels for view: {view.labels}")
         return BigqueryView(
             name=view.table_name,
             created=view.created,
