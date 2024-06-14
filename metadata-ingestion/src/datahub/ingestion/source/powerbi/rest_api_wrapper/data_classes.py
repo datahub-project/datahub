@@ -166,6 +166,8 @@ class UserUsageStat:
 
 @dataclass
 class UsageStat:
+    # From below two usage stats only one needs to populated
+    # If both are set, only UserGUID usage stats will get populate
     userGuidUsageStats: Dict[str, UserUsageStat] = field(default_factory=dict)
     userIdUsageStats: Dict[str, UserUsageStat] = field(default_factory=dict)
 

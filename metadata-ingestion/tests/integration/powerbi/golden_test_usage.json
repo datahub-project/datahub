@@ -1989,7 +1989,12 @@
             },
             "viewsCount": 2,
             "uniqueUserCount": 1,
-            "userCounts": []
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:users.User1@foo.com",
+                    "viewsCount": 2
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2034,7 +2039,12 @@
             },
             "viewsCount": 3,
             "uniqueUserCount": 1,
-            "userCounts": []
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:users.User1@foo.com",
+                    "viewsCount": 3
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2061,7 +2071,12 @@
             },
             "viewsCount": 1,
             "uniqueUserCount": 1,
-            "userCounts": []
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:users.User1@foo.com",
+                    "viewsCount": 1
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2169,7 +2184,13 @@
             },
             "viewsCount": 5,
             "uniqueUserCount": 1,
-            "userCounts": []
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:users.User1@foo.com",
+                    "viewsCount": 5,
+                    "userEmail": "User1@foo.com"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2196,7 +2217,13 @@
             },
             "viewsCount": 1,
             "uniqueUserCount": 1,
-            "userCounts": []
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:users.User1@foo.com",
+                    "viewsCount": 1,
+                    "userEmail": "User1@foo.com"
+                }
+            ]
         }
     },
     "systemMetadata": {

@@ -749,7 +749,7 @@ class Mapper:
         self, owners: List[powerbi_data_classes.User], user_id: str
     ) -> Optional[powerbi_data_classes.User]:
         for user in owners:
-            if user_id == user.id:
+            if user_id == user.id.lower():
                 return user
         return None
 
@@ -1091,7 +1091,7 @@ class Mapper:
         dashboard_mcps = self.to_datahub_dashboard_mcp(
             dashboard, workspace, chart_mcps, user_mcps
         )
-        # generate report usgae stats mcps
+        # generate report usage stats mcps
         dashboard_usage_stats_mcps = self.to_dashboard_usage_stats_mcp(dashboard)
 
         # Now add MCPs in sequence

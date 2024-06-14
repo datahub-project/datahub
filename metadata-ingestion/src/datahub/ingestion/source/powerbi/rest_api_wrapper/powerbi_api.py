@@ -221,7 +221,7 @@ class PowerBiAPI:
                 self.__reporter.reports_usage_stats_source = (
                     UsageStatsSource.NEW_USAGE_METRICS_REPORT
                 )
-                if reports_usage_stats:
+                if not reports_usage_stats:
                     reports_usage_stats = self._get_resolver().get_report_old_usage_stats(
                         workspace=workspace,
                         usage_stats_interval=self.__config.extract_usage_stats_for_interval,
@@ -229,13 +229,13 @@ class PowerBiAPI:
                     self.__reporter.reports_usage_stats_source = (
                         UsageStatsSource.OLD_USAGE_METRICS_REPORT
                     )
-                    if not reports_usage_stats:
-                        reports_usage_stats = self._get_resolver().get_report_usage_stats_from_activity_events(
-                            usage_stats_interval=self.__config.extract_usage_stats_for_interval,
-                        )
-                        self.__reporter.reports_usage_stats_source = (
-                            UsageStatsSource.ACTIVITY_EVENTS_API
-                        )
+                if not reports_usage_stats:
+                    reports_usage_stats = self._get_resolver().get_report_usage_stats_from_activity_events(
+                        usage_stats_interval=self.__config.extract_usage_stats_for_interval,
+                    )
+                    self.__reporter.reports_usage_stats_source = (
+                        UsageStatsSource.ACTIVITY_EVENTS_API
+                    )
             except Exception as e:
                 self.log_http_error(
                     message=f"Unable to fetch reports usage stats for workspace {workspace.name}. Exception: {e}"
