@@ -327,9 +327,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
         return tables
 
     @serialized_lru_cache(maxsize=1)
-    def get_views_for_database(
-        self, db_name: str
-    ) -> Optional[Dict[str, List[SnowflakeView]]]:
+    def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
         page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
