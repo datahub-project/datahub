@@ -31,7 +31,7 @@ Once you've found the connectors you care about, simply install them using `pip 
 For example, to install the `mysql` connector, you can run
 
 ```shell
-pip install --upgrade acryl-datahub[mysql]
+pip install --upgrade 'acryl-datahub[mysql]'
 ```
 Check out the [alternative installation options](../docs/cli.md#alternate-installation-options) for more reference.
 
