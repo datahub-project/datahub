@@ -3,7 +3,7 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
-from google.cloud import bigquery
+from google.cloud import bigquery, datacatalog_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
@@ -69,6 +69,9 @@ class BigQueryConnectionConfig(ConfigModel):
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
         return bigquery.Client(self.project_on_behalf, **client_options)
+
+    def get_policy_tag_manager_client(self) -> datacatalog_v1.PolicyTagManagerClient:
+        return datacatalog_v1.PolicyTagManagerClient()
 
     def make_gcp_logging_client(
         self, project_id: Optional[str] = None
@@ -224,6 +227,16 @@ class BigQueryV2Config(
     enable_legacy_sharded_table_support: bool = Field(
         default=True,
         description="Use the legacy sharded table urn suffix added.",
+    )
+
+    extract_policy_tags_from_catalog: bool = Field(
+        default=False,
+        description=(
+            "This flag enables the extraction of policy tags from the Google Data Catalog API. "
+            "When enabled, the extractor will fetch policy tags associated with BigQuery table columns. "
+            "For more information about policy tags and column-level security, refer to the documentation: "
+            "https://cloud.google.com/bigquery/docs/column-level-security-intro"
+        ),
     )
 
     scheme: str = "bigquery"

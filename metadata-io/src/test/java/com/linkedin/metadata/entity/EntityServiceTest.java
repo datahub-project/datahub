@@ -160,7 +160,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     // 2. Retrieve Entity
     com.linkedin.entity.Entity readEntity =
-        _entityServiceImpl.getEntity(opContext, entityUrn, Collections.emptySet());
+        _entityServiceImpl.getEntity(opContext, entityUrn, Collections.emptySet(), true);
 
     // 3. Compare Entity Objects
     assertEquals(
@@ -206,7 +206,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     // 2. Retrieve Entity
     com.linkedin.entity.Entity readEntity =
-        _entityServiceImpl.getEntity(opContext, entityUrn, Collections.emptySet());
+        _entityServiceImpl.getEntity(opContext, entityUrn, Collections.emptySet(), true);
 
     // 3. Compare Entity Objects
     assertEquals(
@@ -261,7 +261,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     // 2. Retrieve Entities
     Map<Urn, Entity> readEntities =
         _entityServiceImpl.getEntities(
-            opContext, ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet());
+            opContext, ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet(), true);
 
     // 3. Compare Entity Objects
 
