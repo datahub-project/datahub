@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Iterator, List, Optional
 
+from google.api_core import retry
 from google.cloud import bigquery, datacatalog_v1
 from google.cloud.bigquery.table import (
     RowIterator,
@@ -154,14 +155,33 @@ class BigQuerySchemaApi:
         return resp.result()
 
     def get_projects(self) -> List[BigqueryProject]:
+        def _should_retry(exc: BaseException) -> bool:
+            logger.debug(
+                f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
+            )
+            self.report.num_list_projects_retry_request += 1
+            return True
+
         with self.report.list_projects:
             try:
-                projects = self.bq_client.list_projects()
-
-                return [
+                # Bigquery API has limit in calling project.list request i.e. 2 request per second.
+                # https://cloud.google.com/bigquery/quotas#api_request_quotas
+                # Whenever this limit reached an exception occur with msg
+                # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
+                # Hence, added the api request retry of 15 min.
+                # We already tried adding rate_limit externally, proving max_result and page_size
+                # to restrict the request calls inside list_project but issue still occured.
+                projects_iterator = self.bq_client.list_projects(
+                    retry=retry.Retry(
+                        predicate=_should_retry, initial=10, maximum=180, timeout=900
+                    )
+                )
+                projects: List[BigqueryProject] = [
                     BigqueryProject(id=p.project_id, name=p.friendly_name)
-                    for p in projects
+                    for p in projects_iterator
                 ]
+                self.report.num_list_projects = len(projects)
+                return projects
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
                 return []
