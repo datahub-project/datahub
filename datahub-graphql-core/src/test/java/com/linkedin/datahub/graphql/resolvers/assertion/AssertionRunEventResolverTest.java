@@ -18,6 +18,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.SystemMetadata;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -58,7 +59,9 @@ public class AssertionRunEventResolverTest {
                         null, AssertionRunStatus.COMPLETE.toString()))))
         .thenReturn(
             ImmutableList.of(
-                new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(gmsRunEvent))));
+                new EnvelopedAspect()
+                    .setAspect(GenericRecordUtils.serializeAspect(gmsRunEvent))
+                    .setSystemMetadata(new SystemMetadata().setLastObserved(12L))));
 
     AssertionRunEventResolver resolver = new AssertionRunEventResolver(mockClient);
 
@@ -108,6 +111,7 @@ public class AssertionRunEventResolverTest {
         graphqlRunEvent.getStatus(),
         com.linkedin.datahub.graphql.generated.AssertionRunStatus.COMPLETE);
     assertEquals((float) graphqlRunEvent.getTimestampMillis(), 12L);
+    assertEquals((float) graphqlRunEvent.getLastObservedMillis(), 12L);
     assertEquals((float) graphqlRunEvent.getResult().getActualAggValue(), 10);
     assertEquals((long) graphqlRunEvent.getResult().getMissingCount(), 0L);
     assertEquals((long) graphqlRunEvent.getResult().getRowCount(), 1L);
