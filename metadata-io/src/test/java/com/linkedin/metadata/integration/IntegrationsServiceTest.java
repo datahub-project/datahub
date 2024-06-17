@@ -48,7 +48,7 @@ public class IntegrationsServiceTest {
     MockitoAnnotations.openMocks(this);
     integrationsService =
         new IntegrationsService(
-            "localhost", 8080, false, systemAuthentication, httpClient, backoffPolicy, 3);
+            "localhost", 8080, false, systemAuthentication, httpClient, backoffPolicy, 3, 30);
   }
 
   @Test

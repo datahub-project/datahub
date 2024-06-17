@@ -1,0 +1,1384 @@
+import json
+from typing import Any, Optional
+from unittest.mock import MagicMock, Mock, patch
+
+import datahub.metadata.schema_classes as models
+import pytest
+from datahub.metadata._schema_classes import ShareClass, ShareResultClass
+from freezegun import freeze_time
+
+from datahub_integrations.share import share_router
+from datahub_integrations.share.share_agent import LineageDirection, ShareAgent
+from datahub_integrations.share.share_settings import (
+    RESTRICTED_SHARED_ASPECTS,
+    SHARED_ASPECTS,
+)
+
+
+def test_determine_entities_to_sync_has_container() -> None:
+    test_urn = "urn:li:dataset:1"
+    test_container_urn = "urn:li:container:199e66d51aeb64f24dbf5a0af94baf7e"
+    graph_mock = Mock()
+    graph_mock.get_aspect.return_value = models.ContainerClass(
+        container=test_container_urn
+    )
+    share_config = {
+        "connection": {
+            "details": {"type": "JSON", "json": {"blob": '{"connection": {}}'}}
+        }
+    }
+
+    graph_mock.execute_graphql.return_value = share_config
+    share_agent = ShareAgent(graph_mock, "dummy_connection")
+    entities = share_agent.determine_entities_to_sync(test_urn)
+    assert len(entities) == 2
+    assert "urn:li:container:199e66d51aeb64f24dbf5a0af94baf7e" in entities
+    assert test_urn in entities
+
+
+def test_determine_entities_to_sync_without_container() -> None:
+    share_config = {
+        "connection": {
+            "details": {"type": "JSON", "json": {"blob": '{"connection": {}}'}}
+        }
+    }
+
+    graph_mock = Mock()
+    graph_mock.execute_graphql.return_value = share_config
+
+    test_urn = "urn:li:dataset:1"
+    graph_mock.get_aspect.return_value = None
+    share_agent = ShareAgent(graph_mock, "dummy_connection")
+    entities = share_agent.determine_entities_to_sync(test_urn)
+    assert len(entities) == 1
+    assert test_urn in entities
+
+
+def test_determine_entities_to_sync_has_container_in_container() -> None:
+    # share_config = {
+    #     "connection": {
+    #         "details": {"type": "JSON", "json": {"blob": '{"connection": {}}'}}
+    #     }
+    # }
+    test_urn = "urn:li:dataset:1"
+    test_container_urn = "urn:li:container:199e66d51aeb64f24dbf5a0af94baf7e"
+    test_container_2_urn = "urn:li:container:another_container"
+
+    graph_mock = Mock()
+
+    def get_aspect_side_effect(urn: str, model_class: Any) -> Any:
+        if urn == test_urn and model_class == models.ContainerClass:
+            return models.ContainerClass(container=test_container_urn)
+        elif urn == test_container_urn and model_class == models.ContainerClass:
+            return models.ContainerClass(container=test_container_2_urn)
+        elif urn == test_container_2_urn and model_class == models.ContainerClass:
+            return None
+        return None
+
+    graph_mock.get_aspect.side_effect = get_aspect_side_effect
+
+    share_agent = ShareAgent(
+        source_graph=graph_mock,
+        share_connection_urn="dummy_connection",
+        destination_graph=Mock(),
+    )
+
+    entities = share_agent.determine_entities_to_sync(test_urn)
+    assert len(entities) == 3
+    assert test_container_urn in entities
+    assert test_container_2_urn in entities
+    assert test_urn in entities
+
+
+def test_share_non_restricted() -> None:
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+    response = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+
+    sharer = "urn:li:corpuser:test_user"
+    test_urn = "urn:li:dataset:1"
+    destination_urn = "urn:li:datahub:destination_datahub_urn"
+
+    source_graph.get_entity_raw.return_value = response
+    source_graph.get_aspect.return_value = None
+    share_agent = ShareAgent(
+        source_graph, destination_urn, destination_graph=destination_graph_mock
+    )
+
+    share_agent.share_one_entity(
+        test_urn,
+        test_urn,
+        sharer,
+        False,
+    )
+
+    assert len(destination_graph_mock.method_calls) == 9
+
+    for method_call in destination_graph_mock.method_calls:
+        mcp = method_call.args[0]
+        assert mcp.aspectName in SHARED_ASPECTS
+        if mcp.aspectName == "upstreamLineage":
+            upstreamClass = json.loads(mcp.aspect.value)
+            # FinegrainedLineage should be an empty list if upstreamLineage shared in restricted mode
+            assert len(upstreamClass.get("fineGrainedLineages")) > 0
+
+    source_graph.emit.assert_called_once()
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].destination
+        == destination_urn
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].created.actor
+        == "urn:li:corpuser:test_user"
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].implicitShareEntity
+        is None
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].status == "SUCCESS"
+    )
+
+
+def test_share_explicit_share_should_not_remove_implicit_shares() -> None:
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+    response = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+
+    sharer = "urn:li:corpuser:test_user"
+    test_urn = "urn:li:dataset:1"
+    destination_urn = "urn:li:datahub:destination_datahub_urn"
+    referenced_entity = "urn:li:dataset:referenced"
+    referenced_entity2 = "urn:li:dataset:referenced2"
+
+    source_graph.get_entity_raw.return_value = response
+    source_graph.get_aspect.return_value = ShareClass(
+        lastShareResults=[
+            ShareResultClass(
+                destination=destination_urn,
+                status="SUCCESS",
+                implicitShareEntity=referenced_entity,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+            ShareResultClass(
+                destination=destination_urn,
+                status="SUCCESS",
+                implicitShareEntity=referenced_entity2,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+        ]
+    )
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_urn,
+        destination_graph=destination_graph_mock,
+    )
+
+    share_agent.share_one_entity(
+        test_urn,
+        test_urn,
+        sharer,
+        False,
+    )
+
+    assert len(destination_graph_mock.method_calls) == 9
+
+    for method_call in destination_graph_mock.method_calls:
+        mcp = method_call.args[0]
+        assert mcp.aspectName in SHARED_ASPECTS
+        if mcp.aspectName == "upstreamLineage":
+            upstreamClass = json.loads(mcp.aspect.value)
+            # FinegrainedLineage should be an empty list if upstreamLineage shared in restricted mode
+            assert len(upstreamClass.get("fineGrainedLineages")) > 0
+
+    source_graph.emit.assert_called_once()
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].destination
+        == destination_urn
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].created.actor
+        == "urn:li:corpuser:test_user"
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].implicitShareEntity
+        == referenced_entity
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].status == "SUCCESS"
+    )
+
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].destination
+        == destination_urn
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].created.actor
+        == "urn:li:corpuser:test_user"
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].implicitShareEntity
+        == referenced_entity2
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].status == "SUCCESS"
+    )
+
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[2].destination
+        == destination_urn
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[2].created.actor
+        == "urn:li:corpuser:test_user"
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[2].implicitShareEntity
+        is None
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[2].status == "SUCCESS"
+    )
+
+
+def test_share_implict_share_should_add_to_implicit_shares() -> None:
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+    response = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+
+    sharer = "urn:li:corpuser:test_user"
+    test_urn = "urn:li:dataset:1"
+    destination_urn = "urn:li:datahub:destination_datahub_urn"
+    referenced_entity = "urn:li:dataset:referenced"
+    referenced_entity2 = "urn:li:dataset:referenced2"
+    referenced_entity3 = "urn:li:dataset:referenced3"
+
+    source_graph.get_entity_raw.return_value = response
+    source_graph.get_aspect.return_value = ShareClass(
+        lastShareResults=[
+            ShareResultClass(
+                destination=destination_urn,
+                status="SUCCESS",
+                implicitShareEntity=referenced_entity,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+            ShareResultClass(
+                destination=destination_urn,
+                status="SUCCESS",
+                implicitShareEntity=referenced_entity2,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+        ]
+    )
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_urn,
+        destination_graph=destination_graph_mock,
+    )
+
+    share_agent.share_one_entity(
+        test_urn,
+        referenced_entity3,
+        sharer,
+        False,
+    )
+
+    assert len(destination_graph_mock.method_calls) == 9
+
+    for method_call in destination_graph_mock.method_calls:
+        mcp = method_call.args[0]
+        assert mcp.aspectName in SHARED_ASPECTS
+        if mcp.aspectName == "upstreamLineage":
+            upstreamClass = json.loads(mcp.aspect.value)
+            # FinegrainedLineage should be an empty list if upstreamLineage shared in restricted mode
+            assert len(upstreamClass.get("fineGrainedLineages")) > 0
+
+    source_graph.emit.assert_called_once()
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].destination
+        == destination_urn
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].created.actor
+        == "urn:li:corpuser:test_user"
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].implicitShareEntity
+        == referenced_entity
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].implicitShareEntity
+        == referenced_entity2
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[2].implicitShareEntity
+        == referenced_entity3
+    )
+
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].status == "SUCCESS"
+    )
+
+
+def test_share_implict_share_should_be_added_if_earlier_it_was_explicitly_shared() -> (
+    None
+):
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+    response = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+
+    sharer = "urn:li:corpuser:test_user"
+    test_urn = "urn:li:dataset:1"
+    destination_urn = "urn:li:datahub:destination_datahub_urn"
+    referenced_entity = "urn:li:dataset:referenced"
+
+    source_graph.get_entity_raw.return_value = response
+    source_graph.get_aspect.return_value = ShareClass(
+        lastShareResults=[
+            ShareResultClass(
+                destination=destination_urn,
+                status="SUCCESS",
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+        ]
+    )
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_urn,
+        destination_graph=destination_graph_mock,
+    )
+
+    share_agent.share_one_entity(
+        test_urn,
+        referenced_entity,
+        sharer,
+        False,
+    )
+
+    assert len(destination_graph_mock.method_calls) == 9
+
+    for method_call in destination_graph_mock.method_calls:
+        mcp = method_call.args[0]
+        assert mcp.aspectName in SHARED_ASPECTS
+        if mcp.aspectName == "upstreamLineage":
+            upstreamClass = json.loads(mcp.aspect.value)
+            # FinegrainedLineage should be an empty list if upstreamLineage shared in restricted mode
+            assert len(upstreamClass.get("fineGrainedLineages")) > 0
+
+    source_graph.emit.assert_called_once()
+    assert len(source_graph.emit.call_args[0][0].aspect.lastShareResults) == 2
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].destination
+        == destination_urn
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].created.actor
+        == "urn:li:corpuser:test_user"
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].implicitShareEntity
+        is None
+    )
+
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].status == "SUCCESS"
+    )
+
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].destination
+        == destination_urn
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].created.actor
+        == "urn:li:corpuser:test_user"
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].implicitShareEntity
+        == referenced_entity
+    )
+
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[1].status == "SUCCESS"
+    )
+
+
+def test_restricted_share_should_only_share_certain_aspects() -> None:
+    response = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+
+    sharer = "urn:li:corpuser:test_user"
+    test_urn = "urn:li:dataset:1"
+    destination_urn = "urn:li:datahub:destination_datahub_urn"
+
+    source_graph.get_entity_raw.return_value = response
+
+    source_graph.get_aspect.return_value = None
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_urn,
+        destination_graph=destination_graph_mock,
+    )
+    share_agent.share_one_entity(
+        test_urn,
+        test_urn,
+        sharer,
+        True,
+    )
+
+    assert len(destination_graph_mock.method_calls) == 2
+
+    for method_call in destination_graph_mock.method_calls:
+        mcp = method_call.args[0]
+        assert mcp.aspectName in RESTRICTED_SHARED_ASPECTS
+        if mcp.aspectName == "upstreamLineage":
+            upstreamClass = json.loads(mcp.aspect.value)
+            # FinegrainedLineage should be an empty list if upstreamLineage shared in restricted mode
+            assert upstreamClass.get("fineGrainedLineages") == []
+
+    source_graph.emit.assert_called_once()
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].destination
+        == destination_urn
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].created.actor
+        == "urn:li:corpuser:test_user"
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].implicitShareEntity
+        is None
+    )
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastShareResults[0].status == "SUCCESS"
+    )
+
+
+def test_unshare() -> None:
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+    response = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+
+    urn_to_unshare = "urn:li:dataset:1"
+    another_destination_darahub_instance = "urn:li:datahub:another_destination_datahub"
+    destination_datahub_instance = "urn:li:datahub:destination_datahub"
+    source_graph.get_entity_raw.return_value = response
+    source_graph.get_aspect.return_value = ShareClass(
+        lastShareResults=[
+            ShareResultClass(
+                destination=another_destination_darahub_instance,
+                status="SUCCESS",
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+            ShareResultClass(
+                destination=destination_datahub_instance,
+                status="SUCCESS",
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+        ]
+    )
+
+    destination_graph_mock.exists.return_value = True
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_datahub_instance,
+        destination_graph=destination_graph_mock,
+    )
+    with (
+        patch.object(
+            share_agent,
+            "determine_entities_to_sync",
+            return_value={urn_to_unshare},
+        ),
+    ):
+        share_agent.unshare(
+            urn_to_unshare,
+        )
+
+    destination_graph_mock.emit.assert_called_once()
+
+    for method_call in destination_graph_mock.emit.call_args_list:
+        mcp = method_call[0][0]
+        assert mcp.aspectName == "status"
+
+    assert source_graph.get_aspect.call_count == 1
+
+    assert source_graph.get_aspect.call_args[0][0] == urn_to_unshare
+    assert source_graph.get_aspect.call_args[0][1] == ShareClass
+
+    call_arg = source_graph.emit.call_args_list[0]
+    share_results = call_arg[0][0].aspect.lastShareResults
+    assert len(share_results) == 1
+    assert share_results[0].destination == another_destination_darahub_instance
+
+
+def test_execute_share() -> None:
+    urn_to_unshare = "urn:li:dataset:1"
+    sharer_urn = "urn:li:corpuser:dummy_user"
+    lineage = LineageDirection.DOWNSTREAM
+    downstream_urn = "urn:li:dataset:2"
+
+    share_mock = MagicMock(return_value=None)
+    get_entities_across_lineage_mock = MagicMock(return_value={downstream_urn})
+
+    source_graph = Mock()
+    source_graph.get_ownership.return_value = None
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn="dummy_connection_url",
+        destination_graph=Mock(),
+    )
+
+    with (
+        patch.object(
+            share_router, "get_or_create_share_agent", return_value=share_agent
+        ),
+        patch.object(share_agent, "share_one_entity", share_mock),
+        patch.object(
+            share_agent,
+            "get_entities_across_lineage",
+            get_entities_across_lineage_mock,
+        ),
+        patch.object(
+            share_agent,
+            "determine_entities_to_sync",
+            return_value={urn_to_unshare},
+        ),
+    ):
+
+        share_agent.share(urn_to_unshare, sharer_urn, lineage)
+    # share_agent_mock.share_one_entity = share_mock
+    # share_agent_mock.get_entities_across_lineage = get_entities_across_lineage_mock
+    # determine_entities_to_sync = MagicMock(return_value={urn_to_unshare})
+    # share_agent_mock.determine_entities_to_sync = determine_entities_to_sync
+
+    # share_router.execute_share(
+    #     "dummy_connection_url", urn_to_unshare, sharer_urn, lineage
+    # )
+
+    assert share_mock.call_count == 2
+    assert share_mock.call_args_list[0].kwargs.get("restricted") is False
+    assert share_mock.call_args_list[1].kwargs.get("restricted") is False
+
+
+def test_execute_share_when_owner_matches_and_share_is_non_restricted() -> None:
+    source_graph = Mock()
+    urn_to_unshare = "urn:li:dataset:1"
+    sharer_urn = "urn:li:corpuser:dummy_user"
+    lineage = LineageDirection.DOWNSTREAM
+    downstream_urn = "urn:li:dataset:2"
+
+    share_mock = MagicMock(return_value=None)
+    get_entities_across_lineage_mock = MagicMock(return_value={downstream_urn})
+
+    source_graph.get_ownership.return_value = models.OwnershipClass(
+        owners=[
+            models.OwnerClass(owner="not_the_sharer_urn", type="DATAOWNER"),
+            models.OwnerClass(owner=sharer_urn, type="DATAOWNER"),
+        ]
+    )
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn="dummy_connection_url",
+        destination_graph=Mock(),
+    )
+
+    with (
+        patch.object(
+            share_router, "get_or_create_share_agent", return_value=share_agent
+        ),
+        patch.object(share_agent, "share_one_entity", share_mock),
+        patch.object(
+            share_agent,
+            "get_entities_across_lineage",
+            get_entities_across_lineage_mock,
+        ),
+        patch.object(
+            share_agent,
+            "determine_entities_to_sync",
+            return_value={urn_to_unshare},
+        ),
+    ):
+
+        share_agent.share(urn_to_unshare, sharer_urn, lineage)
+
+    assert share_mock.call_count == 2
+    assert not share_mock.call_args_list[0].kwargs.get("restricted")
+    assert not share_mock.call_args_list[1].kwargs.get("restricted")
+
+
+def test_execute_share_when_owner_does_not_matches_and_share_is_restricted() -> None:
+    source_graph = Mock()
+    urn_to_unshare = "urn:li:dataset:1"
+    sharer_urn = "urn:li:corpuser:dummy_user"
+    lineage = LineageDirection.DOWNSTREAM
+    downstream_urn = "urn:li:dataset:2"
+
+    share_mock = MagicMock(return_value=None)
+    get_entities_across_lineage_mock = MagicMock(return_value={downstream_urn})
+
+    source_graph.get_ownership.return_value = models.OwnershipClass(
+        owners=[
+            models.OwnerClass(owner="not_the_sharer_urn", type="DATAOWNER"),
+            models.OwnerClass(owner="anonther_owner", type="DATAOWNER"),
+        ]
+    )
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn="dummy_connection_url",
+        destination_graph=Mock(),
+    )
+
+    with (
+        patch.object(
+            share_router, "get_or_create_share_agent", return_value=share_agent
+        ),
+        patch.object(share_agent, "share_one_entity", share_mock),
+        patch.object(
+            share_agent,
+            "get_entities_across_lineage",
+            get_entities_across_lineage_mock,
+        ),
+        patch.object(
+            share_agent,
+            "determine_entities_to_sync",
+            return_value={urn_to_unshare},
+        ),
+    ):
+
+        share_agent.share(urn_to_unshare, sharer_urn, lineage)
+
+    assert share_mock.call_count == 2
+    assert share_mock.call_args_list[0].kwargs.get("restricted") is True
+    assert share_mock.call_args_list[1].kwargs.get("restricted") is True
+
+
+def test_unshare_implicit_unshare_should_not_remove_entity_if_there_is_another_reference() -> (
+    None
+):
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+    response = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+
+    urn_to_unshare = "urn:li:dataset:1"
+    another_destination_datahub_instance = "urn:li:datahub:another_destination_datahub"
+    destination_datahub_instance = "urn:li:datahub:destination_datahub"
+
+    referenced_entity = "urn:li:dataset:root"
+    referenced_entity2 = "urn:li:dataset:root2"
+
+    source_graph.get_entity_raw.return_value = response
+    source_graph.get_aspect.return_value = ShareClass(
+        lastShareResults=[
+            ShareResultClass(
+                destination=destination_datahub_instance,
+                status="SUCCESS",
+                implicitShareEntity=referenced_entity,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+            ShareResultClass(
+                destination=destination_datahub_instance,
+                status="SUCCESS",
+                implicitShareEntity=referenced_entity2,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+            ShareResultClass(
+                destination=another_destination_datahub_instance,
+                status="SUCCESS",
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+        ]
+    )
+
+    destination_graph_mock.exists.return_value = True
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_datahub_instance,
+        destination_graph=destination_graph_mock,
+    )
+    share_agent.unshare_one_entity(
+        urn_to_unshare,
+        referenced_entity,
+    )
+
+    assert (
+        not destination_graph_mock.emit.called
+    ), "method should not have been called as it should not do soft-delete if there are still references"
+
+    assert source_graph.get_aspect.call_count == 1
+
+    assert source_graph.get_aspect.call_args[0][0] == urn_to_unshare
+    assert source_graph.get_aspect.call_args[0][1] == ShareClass
+
+    call_arg = source_graph.emit.call_args_list[0]
+    share_results = call_arg[0][0].aspect.lastShareResults
+    assert len(share_results) == 2
+    assert share_results[0].destination == destination_datahub_instance
+    assert share_results[0].implicitShareEntity == referenced_entity2
+    assert share_results[1].destination == another_destination_datahub_instance
+
+
+def test_unshare_complex_explicit_share_should_force_unshare_the_entity() -> None:
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+    response = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+
+    urn_to_unshare = "urn:li:dataset:1"
+    another_destination_datahub_instance = "urn:li:datahub:another_destination_datahub"
+    destination_datahub_instance = "urn:li:datahub:destination_datahub"
+
+    referenced_entity = "urn:li:dataset:root"
+    referenced_entity2 = "urn:li:dataset:root2"
+
+    source_graph.get_entity_raw.return_value = response
+    source_graph.get_aspect.return_value = ShareClass(
+        lastShareResults=[
+            ShareResultClass(
+                destination=destination_datahub_instance,
+                status="SUCCESS",
+                implicitShareEntity=referenced_entity,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+            ShareResultClass(
+                destination=destination_datahub_instance,
+                status="SUCCESS",
+                implicitShareEntity=referenced_entity2,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+            ShareResultClass(
+                destination=another_destination_datahub_instance,
+                status="SUCCESS",
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+        ]
+    )
+
+    destination_graph_mock.exists.return_value = True
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_datahub_instance,
+        destination_graph=destination_graph_mock,
+    )
+
+    with (
+        patch.object(
+            share_agent,
+            "determine_entities_to_sync",
+            return_value={urn_to_unshare},
+        ),
+    ):
+        share_agent.unshare(
+            urn_to_unshare,
+        )
+
+    destination_graph_mock.emit.assert_called_once()
+
+    for method_call in destination_graph_mock.emit.call_args_list:
+        mcp = method_call[0][0]
+        assert mcp.aspectName == "status"
+
+    assert source_graph.get_aspect.call_count == 1
+
+    assert source_graph.get_aspect.call_args[0][0] == urn_to_unshare
+    assert source_graph.get_aspect.call_args[0][1] == ShareClass
+
+    call_arg = source_graph.emit.call_args_list[0]
+    share_results = call_arg[0][0].aspect.lastShareResults
+    assert len(share_results) == 1
+    assert share_results[0].destination == another_destination_datahub_instance
+
+
+def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_unshare() -> (
+    None
+):
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+    response = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+
+    urn_to_unshare = "urn:li:dataset:1"
+    destination_datahub_instance = "urn:li:datahub:destination_datahub"
+    referenced_entity = "urn:li:dataset:root"
+
+    source_graph.get_entity_raw.return_value = response
+    source_graph.get_aspect.return_value = ShareClass(
+        lastShareResults=[
+            ShareResultClass(
+                destination=destination_datahub_instance,
+                status="SUCCESS",
+                implicitShareEntity=None,
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+        ]
+    )
+
+    destination_graph_mock.exists.return_value = True
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_datahub_instance,
+        destination_graph=destination_graph_mock,
+    )
+    share_agent.unshare_one_entity(
+        urn_to_unshare,
+        referenced_entity,
+    )
+
+    assert not destination_graph_mock.emit.called
+
+    assert source_graph.get_aspect.call_count == 1
+
+    assert source_graph.get_aspect.call_args[0][0] == urn_to_unshare
+    assert source_graph.get_aspect.call_args[0][1] == ShareClass
+
+
+@pytest.mark.parametrize(
+    "scenario, shared_urn, existing_share_aspect, source_share_connection_urn, sharer_urn, implicit_share_entity, status, share_config, expected_result_share",
+    [
+        (
+            "new aspect getting added",
+            "urn:li:dataset:1",
+            None,
+            "urn:li:dataHubConnection:1",
+            "urn:li:corpuser:testUser",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.SUCCESS,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    )
+                ]
+            ),
+        ),
+        (
+            "update from running to success",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastSuccess=None,
+                        status=models.ShareResultStateClass.RUNNING,
+                        implicitShareEntity="urn:li:dataset:2",
+                    )
+                ]
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:corpuser:testUser",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.SUCCESS,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    )
+                ]
+            ),
+        ),
+        (
+            "update to existing implicit",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastSuccess=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                    )
+                ]
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:corpuser:testUser",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.SUCCESS,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    )
+                ]
+            ),
+        ),
+        (
+            "upgrade from implicit to explicit",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastSuccess=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                    )
+                ]
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:corpuser:testUser",
+            None,
+            models.ShareResultStateClass.SUCCESS,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                        lastSuccess=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    ),
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity=None,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    ),
+                ]
+            ),
+        ),
+        (
+            "downgrade from explicit to implicit",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastSuccess=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity=None,
+                    )
+                ]
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:corpuser:testUser",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.SUCCESS,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity=None,
+                        lastSuccess=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    ),
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    ),
+                ]
+            ),
+        ),
+        (
+            "multiple implicits",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastSuccess=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                    )
+                ]
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:corpuser:testUser",
+            "urn:li:dataset:3",
+            models.ShareResultStateClass.SUCCESS,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                        lastSuccess=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    ),
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:3",
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    ),
+                ]
+            ),
+        ),
+        (
+            "different destination",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastSuccess=models.AuditStampClass(
+                            time=1600080800000,  # earlier than frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                    )
+                ]
+            ),
+            "urn:li:dataHubConnection:2",
+            "urn:li:corpuser:testUser",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.SUCCESS,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                        lastSuccess=models.AuditStampClass(
+                            time=1600080800000,  # earlier frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    ),
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:2",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        implicitShareEntity="urn:li:dataset:2",
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                    ),
+                ]
+            ),
+        ),
+    ],
+)
+@freeze_time("2022-04-15")
+def test_update_share_aspect(
+    scenario: str,
+    shared_urn: str,
+    existing_share_aspect: Optional[ShareClass],
+    source_share_connection_urn: str,
+    sharer_urn: str,
+    implicit_share_entity: str,
+    status: models.ShareResultStateClass,
+    share_config: Optional[Any],
+    expected_result_share: ShareClass,
+) -> None:
+    source_graph = Mock()
+    destination_graph = Mock()
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=source_share_connection_urn,
+        destination_graph=destination_graph,
+    )
+    result_share = share_agent.update_share_aspect(
+        shared_urn=shared_urn,
+        existing_share_aspect=existing_share_aspect,
+        source_share_connection_urn=source_share_connection_urn,
+        sharer_urn=sharer_urn,
+        implicit_share_entity=implicit_share_entity,
+        status=status,
+        share_config=share_config,
+    )
+    try:
+        assert result_share == expected_result_share
+    except AssertionError as e:
+        print(f"Results Differ on scenario {scenario}!")
+        print(result_share)
+        print("Expected")
+        print(expected_result_share)
+        raise e

@@ -99,6 +99,13 @@ _DEFAULT_SHARED_ASPECTS = {
     "dataContractStatus",
 }
 
+RESTRICTED_SHARED_ASPECTS = {
+    "dataJobInputOutput",
+    "inputFields",
+    "status",
+    "upstreamLineage",
+}
+
 
 if SHARED_ASPECTS_ENV_VAR in os.environ:
     # Allow an override of the shared aspects via an environment variable.

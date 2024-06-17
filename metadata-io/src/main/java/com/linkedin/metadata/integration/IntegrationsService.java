@@ -22,6 +22,7 @@ import io.datahubproject.integrations.invoker.ApiResponse;
 import io.datahubproject.integrations.invoker.ServerConfiguration;
 import io.datahubproject.integrations.model.ExecuteShareResult;
 import io.datahubproject.integrations.model.ExecuteUnshareResult;
+import io.datahubproject.integrations.model.LineageDirection;
 import io.datahubproject.integrations.model.SuggestedDescription;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -67,6 +68,7 @@ public class IntegrationsService {
   private final String protocol;
   private final BackoffPolicy backoffPolicy;
   private final int retryCount;
+  private final int timeoutSeconds;
 
   private final ActionsApi actionsApi;
   private final AiApi aiApi;
@@ -86,7 +88,8 @@ public class IntegrationsService {
         systemAuthentication,
         HttpClients.createDefault(),
         new ExponentialBackoff(DEFAULT_RETRY_INTERVAL),
-        3);
+        3,
+        30);
   }
 
   public IntegrationsService(
@@ -96,7 +99,8 @@ public class IntegrationsService {
       @Nonnull final Authentication systemAuthentication,
       @Nonnull final CloseableHttpClient httpClient,
       @Nonnull final BackoffPolicy backoffPolicy,
-      final int retryCount) {
+      final int retryCount,
+      @Nonnull final Integer timeoutSeconds) {
     this.integrationsServiceHost = Objects.requireNonNull(integrationsServiceHost);
     this.integrationsServicePort = Objects.requireNonNull(integrationsServicePort);
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
@@ -104,6 +108,7 @@ public class IntegrationsService {
     this.protocol = useSsl ? "https" : "http";
     this.backoffPolicy = backoffPolicy;
     this.retryCount = retryCount;
+    this.timeoutSeconds = Objects.requireNonNull(timeoutSeconds);
     ApiClient okHttpClient = new ApiClient(); // TODO: configure retries, backoff, etc.
     okHttpClient.setServers(
         ImmutableList.of(
@@ -113,6 +118,7 @@ public class IntegrationsService {
                     this.protocol, this.integrationsServiceHost, this.integrationsServicePort),
                 "",
                 Collections.EMPTY_MAP)));
+    okHttpClient.setReadTimeout(timeoutSeconds * 1000);
     this.actionsApi = new ActionsApi(okHttpClient);
     this.aiApi = new AiApi(okHttpClient);
     this.analyticsApi = new AnalyticsApi(okHttpClient);
@@ -454,10 +460,18 @@ public class IntegrationsService {
   }
 
   public ExecuteShareResult shareEntity(
-      @Nonnull final Urn connectionUrn, @Nonnull final Urn entityUrn) {
+      @Nonnull final Urn connectionUrn,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn sharerUrn,
+      LineageDirection lineageDirection) {
     try {
+      // LineageDirection is always null now because we are not using it yet.
       ApiResponse<ExecuteShareResult> response =
-          this.shareApi.executeShareWithHttpInfo(connectionUrn.toString(), entityUrn.toString());
+          this.shareApi.executeShareWithHttpInfo(
+              connectionUrn.toString(),
+              entityUrn.toString(),
+              sharerUrn.toString(),
+              lineageDirection);
       if (response.getStatusCode() != HttpStatus.SC_OK) {
         log.error(
             String.format(
@@ -466,7 +480,6 @@ public class IntegrationsService {
         log.error(String.valueOf(response.getData().toString()));
         return null;
       }
-
       return response.getData();
     } catch (ApiException e) {
       log.error("Failed to share entity with urn: " + entityUrn, e);
@@ -475,10 +488,14 @@ public class IntegrationsService {
   }
 
   public ExecuteUnshareResult unshareEntity(
-      @Nonnull final Urn connectionUrn, @Nonnull final Urn entityUrn) {
+      @Nonnull final Urn connectionUrn,
+      @Nonnull final Urn entityUrn,
+      LineageDirection lineageDirection) {
     try {
+      // LineageDirection is always null now because we are not using it yet.
       ApiResponse<ExecuteUnshareResult> response =
-          this.shareApi.executeUnshareWithHttpInfo(connectionUrn.toString(), entityUrn.toString());
+          this.shareApi.executeUnshareWithHttpInfo(
+              connectionUrn.toString(), entityUrn.toString(), lineageDirection);
       if (response.getStatusCode() != HttpStatus.SC_OK) {
         log.error(
             String.format(

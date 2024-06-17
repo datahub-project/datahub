@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 import { Typography, Button, Tooltip, message, Checkbox } from 'antd';
-import { SyncOutlined, LoadingOutlined } from '@ant-design/icons';
+import { SyncOutlined, LoadingOutlined, PartitionOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
 import { useEntityContext } from '../../../EntityContext';
@@ -84,6 +84,11 @@ export const ResyncBytton = styled(Button)`
 export const ViewLink = styled(Typography.Link)`
     display: block;
     margin-bottom: 1rem;
+`;
+
+const LineageIcon = styled(PartitionOutlined)`
+    font-size: 14px;
+    padding-left: 6px;
 `;
 
 interface Props {
@@ -185,13 +190,18 @@ export const SharedEntityInfo = ({
             <Instances>
                 {sortedResults.slice(0, shownCount).map((result) => {
                     const lastSuccessTime = result.lastSuccess?.time || 0;
+                    const hasSharedLineage =
+                        result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
                     const name = result.destination.details.name || result.destination.urn;
                     return (
                         <StyledContainer>
                             <TitleContainer>
                                 <SharedWith>
                                     <StyledTitle level={5}>
-                                        Shared with&nbsp;<span>{name}</span>
+                                        Shared with&nbsp;
+                                        <span>
+                                            {name} {hasSharedLineage && <SharedLineageIcon result={result} />}
+                                        </span>
                                     </StyledTitle>
                                     <ResyncBytton
                                         type="text"
@@ -229,3 +239,25 @@ export const SharedEntityInfo = ({
         </>
     );
 };
+
+function SharedLineageIcon({ result }: { result: ShareResult }) {
+    const isSharingUpstream = result.shareConfig?.enableUpstreamLineage;
+    const isSharingDownstream = result.shareConfig?.enableDownstreamLineage;
+
+    let tooltipText = '';
+    if (isSharingUpstream && isSharingDownstream) {
+        tooltipText = 'Sharing assets upstream and downstream of this asset';
+    } else if (isSharingUpstream) {
+        tooltipText = 'Sharing assets upstream of this asset';
+    } else if (isSharingDownstream) {
+        tooltipText = 'Sharing assets downstream of this asset';
+    }
+
+    if (!isSharingDownstream && !isSharingDownstream) return null;
+
+    return (
+        <Tooltip title={tooltipText} overlayStyle={{ maxWidth: 260 }}>
+            <LineageIcon />
+        </Tooltip>
+    );
+}

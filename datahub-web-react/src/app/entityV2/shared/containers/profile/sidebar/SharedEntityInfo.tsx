@@ -14,6 +14,7 @@ import { useShareEntityMutation } from '../../../../../../graphql/share.generate
 import { EntityType, ShareResult } from '../../../../../../types.generated';
 import { InstanceIcon, StyledLabel } from './shared/styledComponents';
 import { StyledCheckbox, StyledButton } from '../../../../../shared/share/v2/styledComponents';
+import SharedLineageIcon from './shared/SharedLineageIcon';
 
 const SharingInfoContainer = styled.div`
     margin-bottom: 12px;
@@ -205,6 +206,8 @@ export const SharedEntityInfo = ({
             <SharingList>
                 {sortedResults.map((result, index) => {
                     const lastSuccessTime = result.lastSuccess?.time || 0;
+                    const hasSharedLineage =
+                        result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
                     const name = result.destination.details.name || result.destination.urn;
                     const isLastItemInList = index === sortedResults.length - 1;
                     return (
@@ -217,6 +220,7 @@ export const SharedEntityInfo = ({
                                             <AcrylIcon />
                                         </InstanceIcon>
                                         {name}
+                                        {hasSharedLineage && <SharedLineageIcon result={result} />}
                                     </StyledTitle>
                                     <ResyncButton
                                         type="text"

@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.share;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.Share;
 import com.linkedin.common.ShareResultState;
 import com.linkedin.common.urn.Urn;
@@ -12,12 +11,14 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ShareEntityInput;
 import com.linkedin.datahub.graphql.generated.ShareEntityResult;
+import com.linkedin.datahub.graphql.generated.ShareLineageDirection;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.service.ShareService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.integrations.model.ExecuteShareResult;
+import io.datahubproject.integrations.model.LineageDirection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -39,8 +40,8 @@ public class ShareEntityResolver implements DataFetcher<CompletableFuture<ShareE
     final QueryContext context = environment.getContext();
     final ShareEntityInput input =
         bindArgument(environment.getArgument("input"), ShareEntityInput.class);
-    final Authentication authentication = context.getAuthentication();
     final Urn entityUrn = UrnUtils.getUrn(input.getEntityUrn());
+    final ShareLineageDirection lineageDirection = input.getLineageDirection();
     final Urn connectionUrn =
         input.getConnectionUrn() != null ? UrnUtils.getUrn(input.getConnectionUrn()) : null;
     final List<Urn> connectionUrns =
@@ -63,9 +64,19 @@ public class ShareEntityResolver implements DataFetcher<CompletableFuture<ShareE
           }
           try {
             boolean succeeded = true;
+            LineageDirection shareLineageDirection = null;
+            if (lineageDirection != null) {
+              shareLineageDirection = LineageDirection.valueOf(lineageDirection.toString());
+            }
+
             for (Urn connection : connectionUrns) {
               // integrations service will update the share aspect of all entities if successful
-              ExecuteShareResult result = _integrationsService.shareEntity(connection, entityUrn);
+              ExecuteShareResult result =
+                  _integrationsService.shareEntity(
+                      connection,
+                      entityUrn,
+                      UrnUtils.getUrn(context.getActorUrn()),
+                      shareLineageDirection);
               // if the result is null, we know the integrations service failed to share
               if (result == null) {
                 succeeded = false;

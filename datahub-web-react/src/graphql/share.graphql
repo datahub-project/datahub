@@ -6,6 +6,10 @@ mutation shareEntity($input: ShareEntityInput!) {
                 created {
                     time
                 }
+                shareConfig {
+                    enableUpstreamLineage
+                    enableDownstreamLineage
+                }
             }
         }
     }
@@ -18,6 +22,10 @@ mutation unshareEntity($input: UnshareEntityInput!) {
             lastShareResults {
                 created {
                     time
+                }
+                shareConfig {
+                    enableUpstreamLineage
+                    enableDownstreamLineage
                 }
             }
         }

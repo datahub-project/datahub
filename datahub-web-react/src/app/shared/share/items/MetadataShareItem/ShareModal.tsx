@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Form, Modal, Select, Divider, message, Empty, Checkbox, Button } from 'antd';
 import styled from 'styled-components';
 
-import { DataHubConnection, EntityType } from '../../../../../types.generated';
+import { DataHubConnection, EntityType, ShareLineageDirection } from '../../../../../types.generated';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../graphql/search.generated';
 import { PLATFORM_FILTER_NAME } from '../../../../search/utils/constants';
 import { PLATFORM_CONNECTION_URN } from '../../../constants';
@@ -12,7 +12,8 @@ import analytics, { EventType } from '../../../../analytics';
 import { useEntityContext } from '../../../../entity/shared/EntityContext';
 
 import { SharedEntityInfo } from '../../../../entity/shared/containers/profile/sidebar/SharedEntityInfo';
-import { REDESIGN_COLORS } from '../../../../entity/shared/constants';
+import { ANTD_GRAY_V2, REDESIGN_COLORS } from '../../../../entity/shared/constants';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
 
 const ModalTitle = styled.span`
     font-size: 20px;
@@ -81,6 +82,14 @@ const ButtonContainer = styled.div`
     }
 `;
 
+const LineageBoxWrapper = styled.div`
+    color: ${ANTD_GRAY_V2[10]};
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    align-self: baseline;
+`;
+
 interface Props {
     isModalVisible: boolean;
     closeModal: () => void;
@@ -89,8 +98,10 @@ interface Props {
 export default function ShareModal({ isModalVisible, closeModal }: Props) {
     const [selectedInstances, setSelectedInstances] = useState<string[]>([]);
     const [selectedInstancesToUnshare, setSelectedInstancesToUnshare] = useState<string[]>([]);
+    const [shouldShareLineage, setShouldShareLineage] = useState(false);
 
-    const { urn, entityData, refetch } = useEntityContext();
+    const entityRegistry = useEntityRegistry();
+    const { urn, entityType, entityData, refetch } = useEntityContext();
     const [shareEntityMutation, { loading }] = useShareEntityMutation();
     const [unshareEntityMutation] = useUnshareEntityMutation();
 
@@ -202,6 +213,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                     input: {
                         entityUrn: urn,
                         connectionUrns: selectedInstances,
+                        lineageDirection: shouldShareLineage ? ShareLineageDirection.Both : undefined,
                     },
                 },
             })
@@ -302,6 +314,15 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         )}
                     />
                 </Form.Item>
+                {selectedInstances.length > 0 && (
+                    <LineageBoxWrapper>
+                        <Checkbox
+                            checked={shouldShareLineage}
+                            onChange={() => setShouldShareLineage(!shouldShareLineage)}
+                        />
+                        Share assets upstream and downstream of {entityRegistry.getDisplayName(entityType, entityData)}
+                    </LineageBoxWrapper>
+                )}
             </Form>
         </Modal>
     );

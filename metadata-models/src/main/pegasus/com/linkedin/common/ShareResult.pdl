@@ -28,6 +28,21 @@ record ShareResult {
   lastAttempt: AuditStamp
 
  /**
+  * The config for this particular share result
+  */
+  shareConfig: optional record ShareConfig {
+    /**
+    * Upstream lineage was shared
+    */
+    enableUpstreamLineage: optional boolean
+
+    /**
+    * Downstream lineage was shared
+    */
+    enableDownstreamLineage: optional boolean
+  }
+
+ /**
   * Audit stamp for the last time a share to this above destination successfully occurred
   */
   lastSuccess: optional AuditStamp
@@ -36,6 +51,10 @@ record ShareResult {
   * Status for this share result - whether or not it succeeded
   */
   status: enum ShareResultState {
+    /**
+    * The share request is still in progress
+    */
+    RUNNING
     /**
     * The share was successful
     */

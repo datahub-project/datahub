@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ShareEntityResult;
+import com.linkedin.datahub.graphql.generated.ShareLineageDirection;
 import com.linkedin.datahub.graphql.generated.UnshareEntityInput;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.metadata.integration.IntegrationsService;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.service.ShareService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.integrations.model.ExecuteUnshareResult;
+import io.datahubproject.integrations.model.LineageDirection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -39,6 +41,7 @@ public class UnshareEntityResolver implements DataFetcher<CompletableFuture<Shar
         bindArgument(environment.getArgument("input"), UnshareEntityInput.class);
     final Authentication authentication = context.getAuthentication();
     final Urn entityUrn = UrnUtils.getUrn(input.getEntityUrn());
+    final ShareLineageDirection lineageDirection = input.getLineageDirection();
     final List<Urn> connectionUrns =
         input.getConnectionUrns().stream()
             .map(urn -> UrnUtils.getUrn(urn))
@@ -53,9 +56,15 @@ public class UnshareEntityResolver implements DataFetcher<CompletableFuture<Shar
           try {
             // integrations service will update the share aspect of all entities if successful
             boolean succeeded = true;
+            LineageDirection shareLineageDirection = null;
+            if (lineageDirection != null) {
+              shareLineageDirection = LineageDirection.valueOf(lineageDirection.toString());
+            }
+
             for (Urn connectionUrn : connectionUrns) {
               ExecuteUnshareResult result =
-                  _integrationsService.unshareEntity(connectionUrn, entityUrn);
+                  _integrationsService.unshareEntity(
+                      connectionUrn, entityUrn, shareLineageDirection);
               // if the result is null, we know the integrations service failed to unshare
               if (result == null) {
                 succeeded = false;
