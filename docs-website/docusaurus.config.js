@@ -104,6 +104,10 @@ module.exports = {
               to: "/champions",
               label: "Champions",
             },
+            {
+              label: "Share Your Journey",
+              href: "/customer-stories-survey",
+            },
           ],
         },
         {
