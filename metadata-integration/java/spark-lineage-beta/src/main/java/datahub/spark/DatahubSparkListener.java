@@ -26,7 +26,6 @@ import io.openlineage.spark.agent.Versions;
 import io.openlineage.spark.agent.lifecycle.ContextFactory;
 import io.openlineage.spark.agent.util.ScalaConversionUtils;
 import io.openlineage.spark.api.SparkOpenLineageConfig;
-import io.openlineage.spark.api.Vendors;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.HashMap;
