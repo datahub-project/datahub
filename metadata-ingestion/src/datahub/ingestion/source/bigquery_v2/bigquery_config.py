@@ -127,6 +127,11 @@ class BigQueryV2Config(
         description="Capture BigQuery table labels as DataHub tag",
     )
 
+    capture_view_label_as_tag: Union[bool, AllowDenyPattern] = Field(
+        default=False,
+        description="Capture BigQuery view labels as DataHub tag",
+    )
+
     capture_dataset_label_as_tag: Union[bool, AllowDenyPattern] = Field(
         default=False,
         description="Capture BigQuery dataset labels as DataHub tag",
