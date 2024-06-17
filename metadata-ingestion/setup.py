@@ -316,7 +316,8 @@ plugins: Dict[str, Set[str]] = {
     # sqlalchemy-bigquery is included here since it provides an implementation of
     # a SQLalchemy-conform STRUCT type definition
     "athena": sql_common
-    | {"PyAthena[SQLAlchemy]>=2.6.0,<3.0.0", "sqlalchemy-bigquery>=1.4.1"},
+    # We need to add tenacity as the build missing it
+    | {"PyAthena[SQLAlchemy]>=2.6.0,<3.0.0", "sqlalchemy-bigquery>=1.4.1", "tenacity"},
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
