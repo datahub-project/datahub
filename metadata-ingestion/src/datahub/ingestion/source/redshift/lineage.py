@@ -53,6 +53,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_utils import parse_statement
 from datahub.utilities import memory_footprint
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -128,7 +129,7 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
     Parses an ALTER TABLE ... RENAME TO ... query and returns the schema, previous table name, and new table name.
     """
 
-    parsed_query = sqlglot.parse_one(query, dialect="redshift")
+    parsed_query = parse_statement(query, dialect="redshift")
     assert isinstance(parsed_query, sqlglot.exp.AlterTable)
     prev_name = parsed_query.this.name
     rename_clause = parsed_query.args["actions"][0]
