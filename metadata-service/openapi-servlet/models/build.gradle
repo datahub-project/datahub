@@ -6,14 +6,6 @@ dependencies {
   implementation project(':entity-registry')
   implementation project(':metadata-operation-context')
   implementation project(':metadata-auth:auth-api')
-  implementation project(':metadata-service:auth-impl')
-  implementation project(':metadata-io')
-
-  implementation externalDependency.springWeb
-  implementation(externalDependency.springDocUI) {
-    exclude group: 'org.springframework.boot'
-  }
-  implementation externalDependency.swaggerAnnotations
 
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.httpClient

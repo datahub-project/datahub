@@ -88,6 +88,18 @@
       } ],
       "returns" : "string"
     }, {
+      "name" : "ingestProposalBatch",
+      "javaMethodName" : "ingestProposalBatch",
+      "parameters" : [ {
+        "name" : "proposals",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.mxe.MetadataChangeProposal\" }"
+      }, {
+        "name" : "async",
+        "type" : "string",
+        "default" : "unset"
+      } ],
+      "returns" : "string"
+    }, {
       "name" : "restoreIndices",
       "javaMethodName" : "restoreIndices",
       "parameters" : [ {

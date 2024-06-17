@@ -3,6 +3,8 @@ import contextlib
 import dataclasses
 import functools
 import logging
+import os
+import threading
 import uuid
 from enum import auto
 from typing import Optional, Union
@@ -14,7 +16,7 @@ from datahub.configuration.common import (
     OperationalError,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
@@ -34,6 +36,10 @@ from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_REST_SINK_MAX_THREADS = int(
+    os.getenv("DATAHUB_REST_SINK_DEFAULT_MAX_THREADS", 15)
+)
+
 
 class SyncOrAsync(ConfigEnum):
     SYNC = auto()
@@ -44,7 +50,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     mode: SyncOrAsync = SyncOrAsync.ASYNC
 
     # These only apply in async mode.
-    max_threads: int = 15
+    max_threads: int = DEFAULT_REST_SINK_MAX_THREADS
     max_pending_requests: int = 2000
 
 
@@ -82,22 +88,12 @@ def _get_partition_key(record_envelope: RecordEnvelope) -> str:
 
 
 class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
-    emitter: DatahubRestEmitter
+    _emitter_thread_local: threading.local
     treat_errors_as_warnings: bool = False
 
     def __post_init__(self) -> None:
-        self.emitter = DatahubRestEmitter(
-            self.config.server,
-            self.config.token,
-            connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
-            read_timeout_sec=self.config.timeout_sec,
-            retry_status_codes=self.config.retry_status_codes,
-            retry_max_times=self.config.retry_max_times,
-            extra_headers=self.config.extra_headers,
-            ca_certificate_path=self.config.ca_certificate_path,
-            client_certificate_path=self.config.client_certificate_path,
-            disable_ssl_verification=self.config.disable_ssl_verification,
-        )
+        self._emitter_thread_local = threading.local()
+
         try:
             gms_config = self.emitter.get_server_config()
         except Exception as exc:
@@ -119,6 +115,32 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             max_workers=self.config.max_threads,
             max_pending=self.config.max_pending_requests,
         )
+
+    @classmethod
+    def _make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
+        return DataHubRestEmitter(
+            config.server,
+            config.token,
+            connect_timeout_sec=config.timeout_sec,  # reuse timeout_sec for connect timeout
+            read_timeout_sec=config.timeout_sec,
+            retry_status_codes=config.retry_status_codes,
+            retry_max_times=config.retry_max_times,
+            extra_headers=config.extra_headers,
+            ca_certificate_path=config.ca_certificate_path,
+            client_certificate_path=config.client_certificate_path,
+            disable_ssl_verification=config.disable_ssl_verification,
+        )
+
+    @property
+    def emitter(self) -> DataHubRestEmitter:
+        # While this is a property, it actually uses one emitter per thread.
+        # Since emitter is one-to-one with request sessions, using a separate
+        # emitter per thread should improve correctness and performance.
+        # https://github.com/psf/requests/issues/1871#issuecomment-32751346
+        thread_local = self._emitter_thread_local
+        if not hasattr(thread_local, "emitter"):
+            thread_local.emitter = DatahubRestSink._make_emitter(self.config)
+        return thread_local.emitter
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         if isinstance(workunit, MetadataWorkUnit):

@@ -30,6 +30,10 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object> implements Ge
     super(m);
   }
 
+  public String getUrn() {
+    return (String) get("urn");
+  }
+
   @Override
   public Map<String, Object> getAspects() {
     return this;

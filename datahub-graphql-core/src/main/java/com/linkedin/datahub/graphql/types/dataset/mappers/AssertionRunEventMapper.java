@@ -42,7 +42,6 @@ public class AssertionRunEventMapper
         new com.linkedin.datahub.graphql.generated.AssertionRunEvent();
 
     assertionRunEvent.setLastObservedMillis(envelopedAspect.getSystemMetadata().getLastObserved());
-
     assertionRunEvent.setTimestampMillis(gmsAssertionRunEvent.getTimestampMillis());
     assertionRunEvent.setAssertionUrn(gmsAssertionRunEvent.getAssertionUrn().toString());
     assertionRunEvent.setAsserteeUrn(gmsAssertionRunEvent.getAsserteeUrn().toString());

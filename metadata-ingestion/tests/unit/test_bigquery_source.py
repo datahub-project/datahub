@@ -820,6 +820,7 @@ def bigquery_view_1() -> BigqueryView:
         comment="comment1",
         view_definition="CREATE VIEW 1",
         materialized=False,
+        labels=None,
     )
 
 
@@ -833,6 +834,7 @@ def bigquery_view_2() -> BigqueryView:
         comment="comment2",
         view_definition="CREATE VIEW 2",
         materialized=True,
+        labels=None,
     )
 
 

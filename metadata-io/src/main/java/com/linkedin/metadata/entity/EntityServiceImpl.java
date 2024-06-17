@@ -214,7 +214,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Map<Urn, List<RecordTemplate>> getLatestAspects(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) {
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect) {
 
     Map<EntityAspectIdentifier, EntityAspect> batchGetResults =
         getLatestAspect(opContext, urns, aspectNames);
@@ -227,15 +228,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       urnToAspects.putIfAbsent(urn, new ArrayList<>());
     }
 
-    // Add "key" aspects for each urn. TODO: Replace this with a materialized key aspect.
-    urnToAspects
-        .keySet()
-        .forEach(
-            key -> {
-              final RecordTemplate keyAspect =
-                  EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), key);
-              urnToAspects.get(key).add(keyAspect);
-            });
+    if (alwaysIncludeKeyAspect) {
+      // Add "key" aspects for each urn. TODO: Replace this with a materialized key aspect.
+      urnToAspects
+          .keySet()
+          .forEach(
+              key -> {
+                final RecordTemplate keyAspect =
+                    EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), key);
+                urnToAspects.get(key).add(keyAspect);
+              });
+    }
 
     List<SystemAspect> systemAspects =
         EntityUtils.toSystemAspects(
@@ -332,9 +335,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final Urn urn,
-      @Nonnull final Set<String> aspectNames)
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
-    return getEntitiesV2(opContext, entityName, Collections.singleton(urn), aspectNames).get(urn);
+    return getEntitiesV2(
+            opContext, entityName, Collections.singleton(urn), aspectNames, alwaysIncludeKeyAspect)
+        .get(urn);
   }
 
   /**
@@ -352,9 +358,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames)
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
-    return getLatestEnvelopedAspects(opContext, urns, aspectNames).entrySet().stream()
+    return getLatestEnvelopedAspects(opContext, urns, aspectNames, alwaysIncludeKeyAspect)
+        .entrySet()
+        .stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -374,9 +383,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Map<Urn, EntityResponse> getEntitiesVersionedV2(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<VersionedUrn> versionedUrns,
-      @Nonnull final Set<String> aspectNames)
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
-    return getVersionedEnvelopedAspects(opContext, versionedUrns, aspectNames).entrySet().stream()
+    return getVersionedEnvelopedAspects(
+            opContext, versionedUrns, aspectNames, alwaysIncludeKeyAspect)
+        .entrySet()
+        .stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -392,7 +405,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   @Override
   public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
 
     final Set<EntityAspectIdentifier> dbKeys =
@@ -408,7 +424,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .flatMap(List::stream)
             .collect(Collectors.toSet());
 
-    return getCorrespondingAspects(opContext, dbKeys, urns);
+    return getCorrespondingAspects(opContext, dbKeys, urns, alwaysIncludeKeyAspect);
   }
 
   /**
@@ -423,7 +439,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
       @Nonnull OperationContext opContext,
       @Nonnull Set<VersionedUrn> versionedUrns,
-      @Nonnull Set<String> aspectNames)
+      @Nonnull Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
 
     Map<String, Map<String, Long>> urnAspectVersionMap =
@@ -470,11 +487,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         versionedUrns.stream()
             .map(versionedUrn -> versionedUrn.getUrn().toString())
             .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet()));
+            .collect(Collectors.toSet()),
+        alwaysIncludeKeyAspect);
   }
 
   private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(
-      @Nonnull OperationContext opContext, Set<EntityAspectIdentifier> dbKeys, Set<Urn> urns) {
+      @Nonnull OperationContext opContext,
+      Set<EntityAspectIdentifier> dbKeys,
+      Set<Urn> urns,
+      boolean alwaysIncludeKeyAspect) {
 
     final Map<EntityAspectIdentifier, EnvelopedAspect> envelopedAspectMap =
         getEnvelopedAspects(opContext, dbKeys);
@@ -491,11 +512,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     for (Urn urn : urns) {
       List<EnvelopedAspect> aspects =
           urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
+
       EnvelopedAspect keyAspect =
           EntityUtils.getKeyEnvelopedAspect(urn, opContext.getEntityRegistry());
       // Add key aspect if it does not exist in the returned aspects
-      if (aspects.isEmpty()
-          || aspects.stream().noneMatch(aspect -> keyAspect.getName().equals(aspect.getName()))) {
+      if (alwaysIncludeKeyAspect
+          && (aspects.isEmpty()
+              || aspects.stream()
+                  .noneMatch(aspect -> keyAspect.getName().equals(aspect.getName())))) {
         result.put(
             urn, ImmutableList.<EnvelopedAspect>builder().addAll(aspects).add(keyAspect).build());
       } else {
@@ -1577,8 +1601,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Entity getEntity(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
-      @Nonnull final Set<String> aspectNames) {
-    return getEntities(opContext, Collections.singleton(urn), aspectNames).values().stream()
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect) {
+    return getEntities(opContext, Collections.singleton(urn), aspectNames, alwaysIncludeKeyAspect)
+        .values()
+        .stream()
         .findFirst()
         .orElse(null);
   }
@@ -1597,12 +1624,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Map<Urn, Entity> getEntities(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<Urn> urns,
-      @Nonnull Set<String> aspectNames) {
+      @Nonnull Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect) {
     log.debug("Invoked getEntities with urns {}, aspects {}", urns, aspectNames);
     if (urns.isEmpty()) {
       return Collections.emptyMap();
     }
-    return getSnapshotUnions(opContext, urns, aspectNames).entrySet().stream()
+    return getSnapshotUnions(opContext, urns, aspectNames, alwaysIncludeKeyAspect)
+        .entrySet()
+        .stream()
         .collect(
             Collectors.toMap(Map.Entry::getKey, entry -> EntityUtils.toEntity(entry.getValue())));
   }
@@ -1753,8 +1783,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   protected Map<Urn, Snapshot> getSnapshotUnions(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) {
-    return getSnapshotRecords(opContext, urns, aspectNames).entrySet().stream()
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect) {
+    return getSnapshotRecords(opContext, urns, aspectNames, alwaysIncludeKeyAspect)
+        .entrySet()
+        .stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey, entry -> EntityUtils.toSnapshotUnion(entry.getValue())));
@@ -1764,8 +1797,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   protected Map<Urn, RecordTemplate> getSnapshotRecords(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) {
-    return getLatestAspectUnions(opContext, urns, aspectNames).entrySet().stream()
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect) {
+    return getLatestAspectUnions(opContext, urns, aspectNames, alwaysIncludeKeyAspect)
+        .entrySet()
+        .stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -1776,8 +1812,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) {
-    return this.getLatestAspects(opContext, urns, aspectNames).entrySet().stream()
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect) {
+    return this.getLatestAspects(opContext, urns, aspectNames, alwaysIncludeKeyAspect)
+        .entrySet()
+        .stream()
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -2046,7 +2085,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     } else {
       // Additionally exclude status.removed == true
       Map<Urn, List<RecordTemplate>> statusResult =
-          getLatestAspects(opContext, existing, Set.of(STATUS_ASPECT_NAME));
+          getLatestAspects(opContext, existing, Set.of(STATUS_ASPECT_NAME), false);
       return existing.stream()
           .filter(
               urn ->

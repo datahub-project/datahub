@@ -1,18 +1,22 @@
 import logging
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from snowflake.connector import SnowflakeConnection
 
+from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+SCHEMA_PARALLELISM = int(os.getenv("DATAHUB_SNOWFLAKE_SCHEMA_PARALLELISM", 20))
 
 
 @dataclass
@@ -176,7 +180,7 @@ class _SnowflakeTagCache:
         )
 
 
-class SnowflakeDataDictionary(SnowflakeQueryMixin):
+class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
     def __init__(self) -> None:
         self.logger = logger
         self.connection: Optional[SnowflakeConnection] = None
@@ -188,6 +192,26 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         # Connection is already present by the time this is called
         assert self.connection is not None
         return self.connection
+
+    def as_obj(self) -> Dict[str, Dict[str, int]]:
+        # TODO: Move this into a proper report type that gets computed.
+
+        # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
+        # which occurs when we occur a different database / schema.
+        # Should not be more than the number of databases / schemas scanned.
+        # Maps (function name) -> (stat_name) -> (stat_value)
+        lru_cache_functions: List[Callable] = [
+            self.get_tables_for_database,
+            self.get_views_for_database,
+            self.get_columns_for_schema,
+            self.get_pk_constraints_for_schema,
+            self.get_fk_constraints_for_schema,
+        ]
+
+        report = {}
+        for func in lru_cache_functions:
+            report[func.__name__] = func.cache_info()._asdict()  # type: ignore
+        return report
 
     def show_databases(self) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
@@ -241,7 +265,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             snowflake_schemas.append(snowflake_schema)
         return snowflake_schemas
 
-    @lru_cache(maxsize=1)
+    @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
@@ -299,7 +323,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             )
         return tables
 
-    @lru_cache(maxsize=1)
+    @serialized_lru_cache(maxsize=1)
     def get_views_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
@@ -349,7 +373,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             )
         return views
 
-    @lru_cache(maxsize=1)
+    @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_columns_for_schema(
         self, schema_name: str, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeColumn]]]:
@@ -405,7 +429,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             )
         return columns
 
-    @lru_cache(maxsize=1)
+    @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_pk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, SnowflakePK]:
@@ -422,7 +446,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             constraints[row["table_name"]].column_names.append(row["column_name"])
         return constraints
 
-    @lru_cache(maxsize=1)
+    @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_fk_constraints_for_schema(
         self, schema_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeFK]]:

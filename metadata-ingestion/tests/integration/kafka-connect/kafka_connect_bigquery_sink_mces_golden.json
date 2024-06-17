@@ -1,0 +1,48 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.bigquery-sink-connector,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connector.class": "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector",
+                "autoCreateTables": "true",
+                "transforms.TableNameTransformation.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.TableNameTransformation.replacement": "my_dest_table_name",
+                "topics": "kafka-topic-name",
+                "transforms.TableNameTransformation.regex": ".*",
+                "transforms": "TableNameTransformation",
+                "name": "bigquery-sink-connector",
+                "project": "my-gcp-project",
+                "datasets": "kafka-topic-name=mybqdataset",
+                "defaultDataset": "mybqdataset"
+            },
+            "name": "bigquery-sink-connector",
+            "description": "Sink connector using `com.wepay.kafka.connect.bigquery.BigQuerySinkConnector` plugin."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,connect-instance-1.bigquery-sink-connector,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

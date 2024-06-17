@@ -468,7 +468,7 @@ public class SearchQueryBuilder {
     if (customQueryConfig != null) {
       executeStructuredQuery = customQueryConfig.isStructuredQuery();
     } else {
-      executeStructuredQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
+      executeStructuredQuery = true;
     }
 
     if (executeStructuredQuery) {

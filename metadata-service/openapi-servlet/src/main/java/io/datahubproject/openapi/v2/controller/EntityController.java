@@ -30,6 +30,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
+import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
 import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
@@ -40,7 +41,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -121,7 +121,7 @@ public class EntityController
   @Override
   protected AspectsBatch toMCPBatch(
       @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
-      throws JsonProcessingException {
+      throws JsonProcessingException, InvalidUrnException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
 
     List<BatchItem> items = new LinkedList<>();
@@ -132,7 +132,7 @@ public class EntityController
         if (!entity.has("urn")) {
           throw new IllegalArgumentException("Missing `urn` field");
         }
-        Urn entityUrn = UrnUtils.getUrn(entity.get("urn").asText());
+        Urn entityUrn = validatedUrn(entity.get("urn").asText());
 
         if (!entity.has("aspects")) {
           throw new IllegalArgumentException("Missing `aspects` field");
