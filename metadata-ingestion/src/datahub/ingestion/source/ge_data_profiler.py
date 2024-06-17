@@ -1404,8 +1404,6 @@ def create_athena_temp_table(
             )
             temp_view = f"{schema_part_quoted}_{temp_view}"
 
-        # for item in schema_part:
-        # temp_view = f"`{schema}`.`ge_{uuid.uuid4()}`"
         temp_view = f"ge_{uuid.uuid4()}"
         cursor.execute(f'create or replace view "{temp_view}" as {sql}')
     except Exception as e:
