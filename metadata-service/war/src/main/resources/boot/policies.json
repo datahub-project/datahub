@@ -386,7 +386,9 @@
           "urn:li:dataHubRole:Reader"
         ]
       },
-      "privileges":[],
+      "privileges":[
+        "VIEW_ANALYTICS"
+      ],
       "displayName":"Readers - Platform Policy",
       "description":"Readers can view analytics.",
       "state":"ACTIVE",
