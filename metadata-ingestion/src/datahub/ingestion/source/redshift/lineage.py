@@ -865,9 +865,13 @@ class RedshiftLineageExtractor:
         for rename_row in RedshiftDataDictionary.get_alter_table_commands(
             connection, query
         ):
+            # Redshift's system table has some issues where it encodes newlines as \n instead a proper
+            # newline character. This can cause issues in our parser.
+            query_text = rename_row.query_text.replace("\\n", "\n")
+
             schema, prev_name, new_name = parse_alter_table_rename(
                 default_schema=self.config.default_schema,
-                query=rename_row.query_text,
+                query=query_text,
             )
 
             prev_urn = make_dataset_urn_with_platform_instance(
