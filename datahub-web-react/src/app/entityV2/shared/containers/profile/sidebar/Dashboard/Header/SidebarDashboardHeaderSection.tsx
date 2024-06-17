@@ -2,13 +2,13 @@ import React from 'react';
 import styled from 'styled-components';
 import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
 import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
-import SidebarPopularityHeaderSection from '../../shared/SidebarPopularityHeaderSection';
 import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';
-import { isValuePresent, userExists } from '../../shared/utils';
+import { getDashboardPopularityTier, userExists } from '../../shared/utils';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { formatNumber } from '../../../../../../../shared/formatNumber';
 import { getDashboardLastUpdatedMs } from '../../../../../utils';
 import Freshness, { getFreshnessTitle } from '../../../../../../../previewV2/Freshness';
+import { getPopularityColumn, SidebarStatsColumn } from '../../../utils';
 
 const StatContent = styled.div`
     color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};
@@ -20,21 +20,21 @@ const SidebarDashboardHeaderSection = () => {
     const { entityData } = useEntityData();
     const dashboard = entityData as any;
 
-    const columns: any = [];
+    const columns: SidebarStatsColumn[] = [];
 
     const timeData = getDashboardLastUpdatedMs(dashboard?.properties);
 
     /**
      * Popularity tab
      */
-    if (
-        isValuePresent(dashboard?.statsSummary?.viewCountPercentileLast30Days) &&
-        isValuePresent(dashboard?.statsSummary?.uniqueUserPercentileLast30Days)
-    ) {
-        columns.push({
-            title: 'Popularity',
-            content: <SidebarPopularityHeaderSection />,
-        });
+    const popularityColumn = getPopularityColumn(
+        getDashboardPopularityTier(
+            dashboard?.statsSummary?.viewCountPercentileLast30Days,
+            dashboard?.statsSummary?.uniqueUserPercentileLast30Days,
+        ),
+    );
+    if (popularityColumn) {
+        columns.push(popularityColumn);
     }
 
     /**

@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
 import { REDESIGN_COLORS } from '../../../constants';
+import { SidebarStatsColumn } from '../utils';
 
 const ColumnsContainer = styled(HorizontalScroller)`
     display: flex;
@@ -45,15 +46,9 @@ const Title = styled.div`
     color: ${REDESIGN_COLORS.TEXT_HEADING};
 `;
 
-type SidebarStatsColumn = {
-    title: React.ReactNode;
-    content: React.ReactNode;
-    icon: React.ReactNode;
-};
-
-type Props = {
+interface Props {
     columns: SidebarStatsColumn[];
-};
+}
 
 export const SidebarHeaderSectionColumns = ({ columns }: Props) => {
     if (!columns.length) return null;

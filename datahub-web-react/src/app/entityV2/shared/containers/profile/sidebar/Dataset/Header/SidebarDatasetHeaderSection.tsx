@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
+import { getPopularityColumn, SidebarStatsColumn } from '../../../utils';
 import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
-import SidebarPopularityHeaderSection from '../../shared/SidebarPopularityHeaderSection';
 import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';
-import { isValuePresent, userExists } from '../../shared/utils';
+import { getDatasetPopularityTier, userExists } from '../../shared/utils';
 import CompactContext from '../../../../../../../shared/CompactContext';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { formatNumber } from '../../../../../../../shared/formatNumber';
@@ -23,23 +23,23 @@ const SidebarDatasetHeaderSection = () => {
 
     const isCompact = React.useContext(CompactContext);
 
-    const columns: any = [];
+    const columns: SidebarStatsColumn[] = [];
 
-    const lastOp = dataset?.lastOperation
-        || dataset?.operations?.length && dataset?.operations[0]?.lastUpdatedTimestamp;
+    const lastOp =
+        dataset?.lastOperation || (dataset?.operations?.length && dataset?.operations[0]?.lastUpdatedTimestamp);
     const timeData = getDatasetLastUpdatedMs(dataset?.properties, lastOp);
 
     /**
      * Popularity tab
      */
-    if (
-        isValuePresent(dataset?.statsSummary?.queryCountPercentileLast30Days) &&
-        isValuePresent(dataset?.statsSummary?.uniqueUserPercentileLast30Days)
-    ) {
-        columns.push({
-            title: 'Popularity',
-            content: <SidebarPopularityHeaderSection />,
-        });
+    const popularityColumn = getPopularityColumn(
+        getDatasetPopularityTier(
+            dataset?.statsSummary?.queryCountPercentileLast30Days,
+            dataset?.statsSummary?.uniqueUserPercentileLast30Days,
+        ),
+    );
+    if (popularityColumn) {
+        columns.push(popularityColumn);
     }
 
     /**
