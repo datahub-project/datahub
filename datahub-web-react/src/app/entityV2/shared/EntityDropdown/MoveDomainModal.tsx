@@ -6,8 +6,8 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
 import DomainParentSelect from './DomainParentSelect';
 import { useHandleMoveDomainComplete } from './useHandleMoveDomainComplete';
-import { useDomainsContext } from '../../../domain/DomainsContext';
 import { EntityType } from '../../../../types.generated';
+import { useDomainsContext } from '../../../domainV2/DomainsContext';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;

@@ -9,7 +9,6 @@ import DomainsTitle from './DomainsTitle';
 import { PageRoutes } from '../../../conf/Global';
 import CreateDomainModal from '../CreateDomainModal';
 import { updateListDomainsCache } from '../utils';
-import { useDomainsContext as useDomainsContextV2 }  from '../DomainsContext';
 
 const HeaderWrapper = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
@@ -34,7 +33,6 @@ const StyledLink = styled(Link)`
 `;
 
 export default function DomainsSidebarHeader() {
-    const { setParentDomainsToUpdate } = useDomainsContextV2();
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const client = useApolloClient();
 
@@ -49,7 +47,6 @@ export default function DomainsSidebarHeader() {
                     onClose={() => setIsCreatingDomain(false)}
                     onCreate={(urn, id, name, description, parentDomain) => {
                         updateListDomainsCache(client, urn, id, name, description, parentDomain);
-                        if (parentDomain) setParentDomainsToUpdate([parentDomain]);
                     }}
                 />
             )}
