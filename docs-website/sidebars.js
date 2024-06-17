@@ -80,6 +80,18 @@ module.exports = {
               id: "docs/managed-datahub/observe/volume-assertions",
               className: "saasOnly",
             },
+            {
+              label: "Open Assertions Specification",
+              type: "category",
+              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
+            },
           ],
         },
         {
@@ -755,7 +767,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Datahub Actions",
+      label: "DataHub Actions",
       link: { type: "doc", id: "docs/act-on-metadata" },
       items: [
         "docs/actions/README",
@@ -797,19 +809,28 @@ module.exports = {
     },
     {
       "API & SDK Guides": [
-        "docs/advanced/patch",
+        "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/datasets",
-        "docs/api/tutorials/lineage",
-        "docs/api/tutorials/tags",
-        "docs/api/tutorials/terms",
-        "docs/api/tutorials/owners",
-        "docs/api/tutorials/domains",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
-        "docs/api/tutorials/ml",
-        "docs/api/tutorials/structured-properties",
+        "docs/api/tutorials/assertions",
+        "docs/api/tutorials/incidents",
+        "docs/api/tutorials/operations",
+        "docs/api/tutorials/data-contracts",
+        "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
+        "docs/api/tutorials/lineage",
+        "docs/api/tutorials/ml",
+        "docs/api/tutorials/owners",
+        "docs/api/tutorials/structured-properties",
+        "docs/api/tutorials/tags",
+        "docs/api/tutorials/terms",
+        {
+          type: "doc",
+          id: "docs/advanced/patch",
+          label: "Patch",
+        },
       ],
     },
     {

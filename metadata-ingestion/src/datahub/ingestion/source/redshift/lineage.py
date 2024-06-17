@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -264,12 +264,22 @@ class RedshiftLineageExtractor:
         # TODO: Remove this method.
         self.report.warning(key, reason)
 
-    def _get_s3_path(self, path: str) -> str:
+    def _get_s3_path(self, path: str) -> Optional[str]:
         if self.config.s3_lineage_config:
             for path_spec in self.config.s3_lineage_config.path_specs:
                 if path_spec.allowed(path):
                     _, table_path = path_spec.extract_table_name_and_path(path)
                     return table_path
+
+            if (
+                self.config.s3_lineage_config.ignore_non_path_spec_path
+                and len(self.config.s3_lineage_config.path_specs) > 0
+            ):
+                self.report.num_lineage_dropped_s3_path += 1
+                logger.debug(
+                    f"Skipping s3 path {path} as it does not match any path spec."
+                )
+                return None
 
             if self.config.s3_lineage_config.strip_urls:
                 if "/" in urlparse(path).path:
@@ -323,13 +333,14 @@ class RedshiftLineageExtractor:
             ),
         )
 
-    def _build_s3_path_from_row(self, filename: str) -> str:
+    def _build_s3_path_from_row(self, filename: str) -> Optional[str]:
         path = filename.strip()
         if urlparse(path).scheme != "s3":
             raise ValueError(
                 f"Only s3 source supported with copy/unload. The source was: {path}"
             )
-        return strip_s3_prefix(self._get_s3_path(path))
+        s3_path = self._get_s3_path(path)
+        return strip_s3_prefix(s3_path) if s3_path else None
 
     def _get_sources(
         self,
@@ -369,7 +380,11 @@ class RedshiftLineageExtractor:
                     )
                     self.report.num_lineage_dropped_not_support_copy_path += 1
                     return [], None
-                path = strip_s3_prefix(self._get_s3_path(path))
+                s3_path = self._get_s3_path(path)
+                if s3_path is None:
+                    return [], None
+
+                path = strip_s3_prefix(s3_path)
                 urn = make_dataset_urn_with_platform_instance(
                     platform=platform.value,
                     name=path,
@@ -539,6 +554,8 @@ class RedshiftLineageExtractor:
                 target_platform = LineageDatasetPlatform.S3
                 # Following call requires 'filename' key in lineage_row
                 target_path = self._build_s3_path_from_row(lineage_row.filename)
+                if target_path is None:
+                    return None
                 urn = make_dataset_urn_with_platform_instance(
                     platform=target_platform.value,
                     name=target_path,
@@ -644,7 +661,7 @@ class RedshiftLineageExtractor:
         if self.config.resolve_temp_table_in_lineage:
             self._init_temp_table_schema(
                 database=database,
-                temp_tables=self.get_temp_tables(connection=connection),
+                temp_tables=list(self.get_temp_tables(connection=connection)),
             )
 
         populate_calls: List[Tuple[str, LineageCollectorType]] = []
@@ -876,7 +893,7 @@ class RedshiftLineageExtractor:
 
     def get_temp_tables(
         self, connection: redshift_connector.Connection
-    ) -> List[TempTableRow]:
+    ) -> Iterable[TempTableRow]:
         ddl_query: str = self.queries.temp_table_ddl_query(
             start_time=self.config.start_time,
             end_time=self.config.end_time,
@@ -884,15 +901,11 @@ class RedshiftLineageExtractor:
 
         logger.debug(f"Temporary table ddl query = {ddl_query}")
 
-        temp_table_rows: List[TempTableRow] = []
-
         for row in RedshiftDataDictionary.get_temporary_rows(
             conn=connection,
             query=ddl_query,
         ):
-            temp_table_rows.append(row)
-
-        return temp_table_rows
+            yield row
 
     def find_temp_tables(
         self, temp_table_rows: List[TempTableRow], temp_table_names: List[str]

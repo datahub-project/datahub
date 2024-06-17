@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.browse;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
@@ -24,7 +25,7 @@ public class EntityBrowsePathsResolver implements DataFetcher<CompletableFuture<
     final QueryContext context = environment.getContext();
     final String urn = ((Entity) environment.getSource()).getUrn();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             return _browsableType.browsePaths(urn, context);
@@ -32,6 +33,8 @@ public class EntityBrowsePathsResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to retrieve browse paths for entity with urn %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }
