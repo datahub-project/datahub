@@ -24,7 +24,7 @@ const customerCardContent = [
     to: "https://youtu.be/ejcO7hdX0lk?si=8iPjrPeBZq5KNdb-",
   },
   {
-    customer: "VISA",
+    customer: "Visa",
     imgUrl: "/img/assets/travel.jpg",
     title: "How to use DataHub to scale your Data Governance",
     description: (
