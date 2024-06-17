@@ -869,10 +869,15 @@ class RedshiftLineageExtractor:
             # newline character. This can cause issues in our parser.
             query_text = rename_row.query_text.replace("\\n", "\n")
 
-            schema, prev_name, new_name = parse_alter_table_rename(
-                default_schema=self.config.default_schema,
-                query=query_text,
-            )
+            try:
+                schema, prev_name, new_name = parse_alter_table_rename(
+                    default_schema=self.config.default_schema,
+                    query=query_text,
+                )
+            except ValueError as e:
+                logger.info(f"Failed to parse alter table rename: {e}")
+                self.report.num_alter_table_parse_errors += 1
+                continue
 
             prev_urn = make_dataset_urn_with_platform_instance(
                 platform=LineageDatasetPlatform.REDSHIFT.value,
