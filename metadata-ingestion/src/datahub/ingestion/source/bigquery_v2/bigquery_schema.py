@@ -2,9 +2,10 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterable, Iterator, List, Optional
 
-from google.cloud import bigquery
+from google.api_core import retry
+from google.cloud import bigquery, datacatalog_v1
 from google.cloud.bigquery.table import (
     RowIterator,
     TableListItem,
@@ -22,6 +23,7 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryTableType,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -31,6 +33,7 @@ class BigqueryColumn(BaseColumn):
     field_path: str
     is_partition_column: bool
     cluster_column_position: Optional[int]
+    policy_tags: Optional[List[str]] = None
 
 
 RANGE_PARTITION_NAME: str = "RANGE"
@@ -137,10 +140,14 @@ class BigqueryProject:
 
 class BigQuerySchemaApi:
     def __init__(
-        self, report: BigQuerySchemaApiPerfReport, client: bigquery.Client
+        self,
+        report: BigQuerySchemaApiPerfReport,
+        client: bigquery.Client,
+        datacatalog_client: Optional[datacatalog_v1.PolicyTagManagerClient] = None,
     ) -> None:
         self.bq_client = client
         self.report = report
+        self.datacatalog_client = datacatalog_client
 
     def get_query_result(self, query: str) -> RowIterator:
         logger.debug(f"Query : {query}")
@@ -148,14 +155,33 @@ class BigQuerySchemaApi:
         return resp.result()
 
     def get_projects(self) -> List[BigqueryProject]:
+        def _should_retry(exc: BaseException) -> bool:
+            logger.debug(
+                f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
+            )
+            self.report.num_list_projects_retry_request += 1
+            return True
+
         with self.report.list_projects:
             try:
-                projects = self.bq_client.list_projects()
-
-                return [
+                # Bigquery API has limit in calling project.list request i.e. 2 request per second.
+                # https://cloud.google.com/bigquery/quotas#api_request_quotas
+                # Whenever this limit reached an exception occur with msg
+                # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
+                # Hence, added the api request retry of 15 min.
+                # We already tried adding rate_limit externally, proving max_result and page_size
+                # to restrict the request calls inside list_project but issue still occured.
+                projects_iterator = self.bq_client.list_projects(
+                    retry=retry.Retry(
+                        predicate=_should_retry, initial=10, maximum=180, timeout=900
+                    )
+                )
+                projects: List[BigqueryProject] = [
                     BigqueryProject(id=p.project_id, name=p.friendly_name)
-                    for p in projects
+                    for p in projects_iterator
                 ]
+                self.report.num_list_projects = len(projects)
+                return projects
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
                 return []
@@ -347,12 +373,69 @@ class BigQuerySchemaApi:
             rows_count=view.get("row_count"),
         )
 
+    def get_policy_tags_for_column(
+        self,
+        project_id: str,
+        dataset_name: str,
+        table_name: str,
+        column_name: str,
+        report: BigQueryV2Report,
+        rate_limiter: Optional[RateLimiter] = None,
+    ) -> Iterable[str]:
+        assert self.datacatalog_client
+
+        try:
+            # Get the table schema
+            table_ref = f"{project_id}.{dataset_name}.{table_name}"
+            table = self.bq_client.get_table(table_ref)
+            schema = table.schema
+
+            # Find the specific field in the schema
+            field = next((f for f in schema if f.name == column_name), None)
+            if not field or not field.policy_tags:
+                return
+
+            # Retrieve policy tag display names
+            for policy_tag_name in field.policy_tags.names:
+                try:
+                    if rate_limiter:
+                        with rate_limiter:
+                            policy_tag = self.datacatalog_client.get_policy_tag(
+                                name=policy_tag_name
+                            )
+                    else:
+                        policy_tag = self.datacatalog_client.get_policy_tag(
+                            name=policy_tag_name
+                        )
+                    yield policy_tag.display_name
+                except Exception as e:
+                    logger.warning(
+                        f"Unexpected error when retrieving policy tag {policy_tag_name} for column {column_name} in table {table_name}: {e}",
+                        exc_info=True,
+                    )
+                    report.report_warning(
+                        "metadata-extraction",
+                        f"Failed to retrieve policy tag {policy_tag_name} for column {column_name} in table {table_name} due to unexpected error: {e}",
+                    )
+        except Exception as e:
+            logger.error(
+                f"Unexpected error retrieving schema for table {table_name} in dataset {dataset_name}, project {project_id}: {e}",
+                exc_info=True,
+            )
+            report.report_warning(
+                "metadata-extraction",
+                f"Failed to retrieve schema for table {table_name} in dataset {dataset_name}, project {project_id} due to unexpected error: {e}",
+            )
+
     def get_columns_for_dataset(
         self,
         project_id: str,
         dataset_name: str,
         column_limit: int,
+        report: BigQueryV2Report,
         run_optimized_column_query: bool = False,
+        extract_policy_tags_from_catalog: bool = False,
+        rate_limiter: Optional[RateLimiter] = None,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         with self.report.get_columns_for_dataset:
@@ -397,6 +480,18 @@ class BigQuerySchemaApi:
                             comment=column.comment,
                             is_partition_column=column.is_partitioning_column == "YES",
                             cluster_column_position=column.clustering_ordinal_position,
+                            policy_tags=list(
+                                self.get_policy_tags_for_column(
+                                    project_id,
+                                    dataset_name,
+                                    column.table_name,
+                                    column.column_name,
+                                    report,
+                                    rate_limiter,
+                                )
+                            )
+                            if extract_policy_tags_from_catalog
+                            else [],
                         )
                     )
 

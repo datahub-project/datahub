@@ -32,7 +32,7 @@ services:
         #
         confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
         #
-        #confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
+        confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
         #
         confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1
         #
