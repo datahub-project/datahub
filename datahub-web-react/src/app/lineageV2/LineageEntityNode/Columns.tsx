@@ -1,8 +1,11 @@
-import React, { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
+import { useDebounce } from 'react-use';
 import { useUpdateNodeInternals } from 'reactflow';
 import { Pagination, Tooltip } from 'antd';
 import { PartitionOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { EventType } from '../../analytics';
+import analytics from '../../analytics/analytics';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import Column from './Column';
 import ColumnSearch from './ColumnSearch';
@@ -121,6 +124,36 @@ function Columns(props: Props) {
 
     const hasColumnPagination = showAllColumns && numFiltered > NUM_COLUMNS_PER_PAGE;
 
+    useDebounce(
+        () => {
+            if (filterText) {
+                analytics.event({
+                    type: EventType.SearchLineageColumnsEvent,
+                    entityUrn: entity.urn,
+                    entityType: entity.type,
+                    searchTextLength: filterText.length,
+                });
+            }
+        },
+        1000,
+        [filterText],
+    );
+
+    const enableDisableColumnsFilter = useCallback(
+        (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
+            onClickPreventSelect(e);
+            analytics.event({
+                type: EventType.FilterLineageColumnsEvent,
+                action: onlyWithLineage ? 'disable' : 'enable',
+                entityUrn: entity.urn,
+                entityType: entity.type,
+                shownCount: numColumnsWithLineage,
+            });
+            setOnlyWithLineage((prevOnlyWithLineage) => !prevOnlyWithLineage);
+        },
+        [onlyWithLineage, setOnlyWithLineage, entity.urn, entity.type, numColumnsWithLineage],
+    );
+
     return (
         <MainColumnsWrapper>
             {showAllColumns && (
@@ -130,17 +163,20 @@ function Columns(props: Props) {
                         <FilterLineageIcon
                             count={numColumnsWithLineage}
                             selected={onlyWithLineage}
-                            onClick={(e) => onClickPreventSelect(e) && setOnlyWithLineage((v) => !v)}
+                            onClick={enableDisableColumnsFilter}
                         />
                     </Tooltip>
                 </SearchBarWrapper>
             )}
-            {showAllColumns && paginatedColumns.map((col) => <Column key={col.fieldPath} {...col} urn={entity.urn} />)}
+            {showAllColumns &&
+                paginatedColumns.map((col) => (
+                    <Column key={col.fieldPath} {...col} urn={entity.urn} entityType={entity.type} />
+                ))}
             {showAllColumns && !!paginatedColumns.length && !!highlightedColumns.length && (
                 <HorizontalDivider margin={4} />
             )}
             {highlightedColumns.map((col) => (
-                <Column key={col.fieldPath} {...col} urn={entity.urn} />
+                <Column key={col.fieldPath} {...col} urn={entity.urn} entityType={entity.type} />
             ))}
             {hasColumnPagination && (
                 <ColumnPagination

@@ -1,23 +1,19 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
-import React, { Dispatch, SetStateAction, useContext } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useContext } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 import { EntityType, LineageDirection } from '../../../types.generated';
+import { EventType } from '../../analytics';
+import analytics from '../../analytics/analytics';
 import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { EntityHealth } from '../../entityV2/shared/containers/profile/header/EntityHealth';
 import { ContainerIconBase } from '../../entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import {
-    FetchStatus,
-    getNodeColor,
-    LineageEntity,
-    LineageNodesContext,
-    onClickPreventSelect,
-} from '../common';
+import { FetchStatus, getNodeColor, LineageEntity, LineageNodesContext, onClickPreventSelect } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { FetchedEntityV2 } from '../types';
 import Columns from './Columns';
@@ -251,6 +247,21 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE && !isExpandedDownstream;
     const isUpstreamHidden = fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE && !isExpandedUpstream;
 
+    const showHideColumns = useCallback(
+        (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+            onClickPreventSelect(e);
+            analytics.event({
+                type: EventType.ShowHideLineageColumnsEvent,
+                action: showColumns ? 'hide' : 'show',
+                entityUrn: urn,
+                entityType: type,
+                entityPlatformUrn: entity?.platform?.urn,
+            });
+            setShowColumns((prevShowColumns) => !prevShowColumns);
+        },
+        [showColumns, setShowColumns, urn, type, entity?.platform?.urn],
+    );
+
     return (
         <NodeWrapper
             selected={selected}
@@ -342,9 +353,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         <ContainerPath parentContainers={entity?.parentContainers} />
                         {!!numColumnsTotal && (
                             <>
-                                <ExpandColumnsWrapper
-                                    onClick={(e) => onClickPreventSelect(e) && setShowColumns((v) => !v)}
-                                >
+                                <ExpandColumnsWrapper onClick={showHideColumns}>
                                     {numColumnsTotal} columns
                                     {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
                                     {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}

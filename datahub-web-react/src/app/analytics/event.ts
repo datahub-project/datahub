@@ -126,6 +126,10 @@ export enum EventType {
     UnsharedEntityEvent,
     ExpandLineageEvent,
     ContractLineageEvent,
+    ShowHideLineageColumnsEvent,
+    SearchLineageColumnsEvent,
+    FilterLineageColumnsEvent,
+    DrillDownLineageEvent,
 }
 
 /**
@@ -931,6 +935,39 @@ export interface ContractLineageEvent extends BaseEvent {
     entityType?: EntityType;
 }
 
+export interface ShowHideLineageColumnsEvent extends BaseEvent {
+    type: EventType.ShowHideLineageColumnsEvent;
+    action: 'show' | 'hide';
+    entityUrn: string;
+    entityType: EntityType;
+    entityPlatformUrn?: string;
+}
+
+export interface SearchLineageColumnsEvent extends BaseEvent {
+    type: EventType.SearchLineageColumnsEvent;
+    entityUrn: string;
+    entityType: EntityType;
+    searchTextLength: number;
+}
+
+export interface FilterLineageColumnsEvent extends BaseEvent {
+    type: EventType.FilterLineageColumnsEvent;
+    action: 'enable' | 'disable';
+    entityUrn: string;
+    entityType: EntityType;
+    shownCount: number;
+}
+
+export interface DrillDownLineageEvent extends BaseEvent {
+    type: EventType.DrillDownLineageEvent;
+    action: 'select' | 'deselect';
+    entityUrn: string;
+    entityType: EntityType;
+    parentUrn: string;
+    parentEntityType: EntityType;
+    dataType?: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1040,4 +1077,8 @@ export type Event =
     | SharedEntityEvent
     | UnsharedEntityEvent
     | ExpandLineageEvent
-    | ContractLineageEvent;
+    | ContractLineageEvent
+    | ShowHideLineageColumnsEvent
+    | SearchLineageColumnsEvent
+    | FilterLineageColumnsEvent
+    | DrillDownLineageEvent;
