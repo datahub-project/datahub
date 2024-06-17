@@ -1,10 +1,8 @@
 import time
 from concurrent.futures import Future
 
-from datahub.utilities.advanced_thread_executor import (
-    BackpressureAwareExecutor,
-    PartitionExecutor,
-)
+from datahub.utilities.advanced_thread_executor import PartitionExecutor
+from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 from datahub.utilities.perf_timer import PerfTimer
 
 
