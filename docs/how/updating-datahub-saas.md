@@ -40,6 +40,34 @@ size of 50. This is typical in metadata tests.
 
 `SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT` (default: false) - Whether we should separate siblings when fetching lineage data in search results by default. Typically this is false, but for Apple, we need this to be set to true.
 
+`GRAPHQL_QUERY_INTROSPECTION_ENABLED` (default: true) - Whether to enable introspection queries in the GraphQL API. By default, this was already true. 
+
+#### Acryl Observe
+
+`ENABLE_INCIDENT_ACTIVITY_EVENTS` (default: true) - Whether to enable generating incident activity events via the incident activity event hook.
+
+`BROADCAST_NEW_INCIDENT_UPDATES_ENABLED` (default: true) - Whether to broadcast stateful incident update notifications. This is useful for propagating
+stateful incident changes to other systems.
+
+`RUN_ASSERTIONS_ENABLED` (default: false) - Whether to enable running assertions in Acryl Observe. 
+This is a new feature that allows you to refresh native Acryl assertions from the UI. Currently ONLY supported for NON-REMOTE-EXECUTOR assertions.
+Some customers have explicitly requested this (Mozilla). 
+
+`STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED` (datahub-integrations-service, default: false) - Whether to enable updating messages based on
+state recorded in datahub-gms backend. This is today powering stateful incident messages, where the original incident notification is updated
+based on the state of the incident in the backend when an incident has an update. If `BROADCAST_NEW_INCIDENT_UPDATES_ENABLED` is true, this should be true.
+
+#### DataHub Executor Coordinator
+
+`DATAHUB_EXECUTOR_HOST` (default: "localhost") - Hostname of the DataHub executor. Used for connecting to the executor service. Migrated from
+DATAHUB_MONITORS_HOST. Should be part of updated Helm Chart.
+
+`DATAHUB_EXECUTOR_PORT` (default: 9004) - Port of the DataHub executor. Used for connecting to the executor service. Migrated from
+DATAHUB_MONITORS_PORT. Should be part of updated Helm Chart.
+
+`DATAHUB_EXECUTOR_USE_SSL` (default: false) - Whether to use SSL when connecting to the DataHub executor. 
+Migrated from DATAHUB_MONITORS_USE_SSL. Should be part of updated Helm Chart. 
+
 #### Metadata Change Proposal Throttle
 
 `MCP_THROTTLE_UPDATE_INTERVAL_MS` (default: 60000) - How often the MAE consumer's kafka lag is sampled for throttleing MCE consumer's processing rate.
@@ -75,6 +103,13 @@ Exponential backoff configuration:
 `MCP_VERSIONED_MAX_INTERVAL_MS` (default: 30000) - The exponential backoff max interval for versioned aspects.
 
 `MCP_TIMESERIES_MAX_INTERVAL_MS` (default: 30000) - The exponential backoff max interval for timeseries aspects.
+
+#### Metadata Tests
+
+Big change alert!
+
+`METADATA_TESTS_ELASTICSEARCH_EXECUTOR_ENABLED` (default: true) - Whether to enable the Elasticsearch executor for metadata tests.
+This is a new feature that allows metadata test predicates to be executed against Elasticsearch when the data is fully available there!
 
 ## v0.3.2
 
