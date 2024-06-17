@@ -245,7 +245,6 @@ class DataHubFormReportingData(FormData):
     ) -> Iterable[FormReportingRow]:
         extra_fields = [f for f in self.DataHubDatasetSearchRow.__fields__.keys()]
         result = self.graph.get_results_by_filter(
-            entity_types=["dataset"],
             extra_or_filters=self.get_form_existence_or_filters(),
             extra_source_fields=extra_fields,
             skip_cache=True,

@@ -110,7 +110,11 @@ public enum DataHubUsageEventType {
   SHARE_ENTITY_EVENT("SharedEntityEvent"),
   UNSHARE_ENTITY_EVENT("UnsharedEntityEvent"),
   EXPAND_LINEAGE_EVENT("ExpandLineageEvent"),
-  CONTRACT_LINEAGE_EVENT("ContractLineageEvent");
+  CONTRACT_LINEAGE_EVENT("ContractLineageEvent"),
+  SHOW_HIDE_LINEAGE_COLUMNS_EVENT("ShowHideLineageColumnsEvent"),
+  SEARCH_LINEAGE_COLUMNS_EVENT("SearchLineageColumnsEvent"),
+  FILTER_LINEAGE_COLUMNS_EVENT("FilterLineageColumnsEvent"),
+  DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent");
 
   private final String type;
 

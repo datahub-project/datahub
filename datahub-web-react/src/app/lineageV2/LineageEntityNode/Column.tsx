@@ -1,10 +1,14 @@
 import React, { useContext, useMemo } from 'react';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
+import { EntityType } from '../../../types.generated';
+import { EventType } from '../../analytics';
+import analytics from '../../analytics/analytics';
+import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
+import { generateSchemaFieldUrn } from '../../entityV2/shared/tabs/Lineage/utils';
+import { CompactFieldIconWithTooltip } from '../../sharedV2/icons/CompactFieldIcon';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { createColumnRef, LineageDisplayContext, onClickPreventSelect } from '../common';
-import { CompactFieldIconWithTooltip } from '../../sharedV2/icons/CompactFieldIcon';
-import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { LineageDisplayColumn } from './useDisplayedColumns';
 
 const ColumnWrapper = styled.div<{
@@ -52,9 +56,9 @@ const TypeWrapper = styled.div`
     width: 11px;
 `;
 
-type Props = LineageDisplayColumn & { urn: string };
+type Props = LineageDisplayColumn & { urn: string; entityType: EntityType };
 
-export default function Column({ urn, fieldPath, highlighted, type, nativeDataType }: Props) {
+export default function Column({ urn, entityType, fieldPath, highlighted, type, nativeDataType }: Props) {
     const { selectedColumn, setSelectedColumn, setHoveredColumn, fineGrainedLineage } =
         useContext(LineageDisplayContext);
     const id = useMemo(() => createColumnRef(urn, fieldPath), [urn, fieldPath]);
@@ -79,6 +83,15 @@ export default function Column({ urn, fieldPath, highlighted, type, nativeDataTy
                     onClickPreventSelect(e);
                     // Toggle if already selected
                     setSelectedColumn((v) => (v === id ? null : id));
+                    analytics.event({
+                        type: EventType.DrillDownLineageEvent,
+                        action: selectedColumn === id ? 'deselect' : 'select',
+                        parentUrn: urn,
+                        parentEntityType: entityType,
+                        entityUrn: generateSchemaFieldUrn(fieldPath, urn),
+                        entityType: EntityType.SchemaField,
+                        dataType: type,
+                    });
                 }
             }}
             onMouseEnter={() => hasLineage && setHoveredColumn(id)}

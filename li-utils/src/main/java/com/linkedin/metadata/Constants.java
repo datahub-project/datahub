@@ -312,6 +312,7 @@ public class Constants {
   // Incident
   public static final String INCIDENT_KEY_ASPECT_NAME = "incidentKey";
   public static final String INCIDENT_INFO_ASPECT_NAME = "incidentInfo";
+  public static final String INCIDENT_ACTIVITY_EVENT_ASPECT_NAME = "incidentActivityEvent";
   public static final String INCIDENT_NOTIFICATION_DETAILS_ASPECT_NAME =
       "incidentNotificationDetails";
 

@@ -1,8 +1,6 @@
 import json
-from unittest.mock import Mock
 
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import GenericAspectClass, MetadataChangeLogClass
 
 from datahub_executor.common.constants import (
@@ -10,10 +8,7 @@ from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
     RUN_INGEST_TASK_NAME,
 )
-from datahub_executor.common.ingestion.helpers import (
-    extract_execution_request,
-    fetch_execution_signal_requests,
-)
+from datahub_executor.common.ingestion.helpers import extract_execution_request
 
 
 class TestExtractExecutionRequest:
@@ -82,40 +77,3 @@ class TestExtractExecutionRequest:
         execution_request = extract_execution_request(self.event)
         assert execution_request is not None
         assert execution_request.executor_id == "default"
-
-
-class TestFetchExecutionSignals:
-    def setup_method(self) -> None:
-        self.graph = Mock(spec=DataHubGraph)
-
-        # Configure the mock object to return a specific result when its execute_graphql method is called
-        self.graph.execute_graphql.return_value = {
-            "listSignalRequests": {
-                "total": 1,
-                "signalRequests": [
-                    {
-                        "execId": "urn:li:dataHubExecutionRequest:my-exec-id",
-                        "executorId": "default",
-                        "signal": "KILL",
-                    },
-                    {
-                        "executorId": "default",
-                        "signal": "KILL",
-                    },
-                ],
-            }
-        }
-
-    def test_no_list_signal_requests(self) -> None:
-        self.graph.execute_graphql.return_value = {}
-        signal_requests = fetch_execution_signal_requests(self.graph, ["my-exec-id"])
-        assert len(signal_requests) == 0
-
-    def test_no_signal_requests(self) -> None:
-        self.graph.execute_graphql.return_value = {"listSignalRequests": {}}
-        signal_requests = fetch_execution_signal_requests(self.graph, ["my-exec-id"])
-        assert len(signal_requests) == 0
-
-    def test_fetch_successful(self) -> None:
-        signal_requests = fetch_execution_signal_requests(self.graph, ["my-exec-id"])
-        assert len(signal_requests) == 1

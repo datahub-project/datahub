@@ -1,0 +1,82 @@
+const DATASET_URN =
+  "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
+const runId = Date.now();
+
+const addNewQuery = () => {
+  cy.get('[data-testid="add-query-button"]').click();
+  cy.get('[data-mode-id="sql"]').click().type(` + Test Query-${runId}`);
+  cy.get('[data-testid="query-builder-title-input"]')
+    .click()
+    .type(`Test Table-${runId}`);
+  cy.get(".ProseMirror").last().click().type(`Test Description-${runId}`);
+  cy.get('[data-testid="query-builder-save-button"]').click();
+  cy.waitTextVisible("Created Query!");
+};
+
+const editQuery = () => {
+  cy.get(".ant-table-body").should("be.visible");
+  cy.get('[data-testid="EditOutlinedIcon"]').first().click({ force: true });
+  cy.get('[data-mode-id="sql"]').click().type(` + Edited Query-${runId}`);
+  cy.get('[data-testid="query-builder-title-input"]')
+    .click()
+    .clear()
+    .type(`Edited Table-${runId}`);
+  cy.get(".ProseMirror")
+    .last()
+    .click()
+    .clear()
+    .type(`Edited Description-${runId}`);
+  cy.get('[data-testid="query-builder-save-button"]').click();
+  cy.waitTextVisible("Edited Query!");
+};
+
+const deleteQuery = () => {
+  cy.get(".ant-table-body").should("be.visible");
+  cy.get('[data-testid="DeleteOutlinedIcon"]').click({ force: true });
+  cy.clickOptionWithText("Yes");
+  cy.waitTextVisible("Deleted Query!");
+};
+
+const verifyViewCardDetails = (query) => {
+  cy.get('[data-testid="query-content-undefined"]')
+    .should("be.visible")
+    .click();
+  cy.get(".ant-modal-content").waitTextVisible(query);
+};
+
+describe("manage queries", () => {
+  beforeEach(() => {
+    cy.setIsThemeV2Enabled(true);
+    cy.loginWithCredentials();
+    cy.handleIntroducePage();
+    cy.goToDataset(DATASET_URN, "SampleCypressHdfsDataset");
+    cy.get("body").click();
+    cy.openEntityTab("Queries");
+  });
+
+  it("go to queries tab on dataset page then create query and verify & view the card", () => {
+    cy.ensureTextNotPresent("Recent Queries");
+    addNewQuery();
+    cy.waitTextVisible(`+ Test Query-${runId}`);
+    cy.waitTextVisible(`Test Table-${runId}`);
+    cy.waitTextVisible(`Test Description-${runId}`);
+    cy.waitTextVisible("Date Created");
+    verifyViewCardDetails(`+ Test Query-${runId}`);
+  });
+
+  it("go to queries tab on dataset page then edit the query and verify edited Query card", () => {
+    editQuery();
+    verifyViewCardDetails(
+      `+ Test Query-${runId} + Edited Query-${runId}`,
+      `Edited Table-${runId}`,
+      `Edited Description-${runId}`,
+    );
+  });
+
+  it("go to queries tab on dataset page then delete the query and verify that query should be gone", () => {
+    deleteQuery();
+    cy.ensureTextNotPresent(`+ Test Query-${runId} + Edited Query-${runId}`);
+    cy.ensureTextNotPresent(`Edited Table-${runId}`);
+    cy.ensureTextNotPresent(`Edited Description-${runId}`);
+  });
+});

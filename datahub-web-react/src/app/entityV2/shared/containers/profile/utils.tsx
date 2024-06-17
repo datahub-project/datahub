@@ -1,7 +1,7 @@
 import { ReadOutlined } from '@ant-design/icons';
 import { isEqual } from 'lodash';
 import queryString from 'query-string';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router';
 import { EntityRegistry } from '../../../../../entityRegistryContext';
 import { EntityType } from '../../../../../types.generated';
@@ -36,6 +36,8 @@ import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../us
 import { EntitySidebarSection, EntitySidebarTab, EntityTab } from '../../types';
 import { GenericEntityProperties } from '../../../../entity/shared/types';
 import EntitySidebarSectionsTab from './sidebar/EntitySidebarSectionsTab';
+import SidebarPopularityHeaderSection from './sidebar/shared/SidebarPopularityHeaderSection';
+import { PopularityTier, getBarsStatusFromPopularityTier } from './sidebar/shared/utils';
 
 /**
  * The structure of our path will be
@@ -43,6 +45,11 @@ import EntitySidebarSectionsTab from './sidebar/EntitySidebarSectionsTab';
  * /<entity-name>/<entity-urn>/<tab-name>
  */
 const ENTITY_TAB_NAME_REGEX_PATTERN = '^/[^/]+/[^/]+/([^/]+).*';
+
+export type SidebarStatsColumn = {
+    title: React.ReactNode;
+    content: React.ReactNode;
+};
 
 export function getDataForEntityType<T>({
     data: entityData,
@@ -278,3 +285,16 @@ export const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: E
 
     return finalTabs;
 };
+
+export function getPopularityColumn(tier: PopularityTier): SidebarStatsColumn | null {
+    if (tier === undefined) return null;
+
+    const status = getBarsStatusFromPopularityTier(tier);
+    if (status) {
+        return {
+            title: 'Popularity',
+            content: <SidebarPopularityHeaderSection />,
+        };
+    }
+    return null;
+}

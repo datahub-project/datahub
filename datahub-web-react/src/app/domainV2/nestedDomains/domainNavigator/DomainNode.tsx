@@ -10,7 +10,6 @@ import useToggle from '../../../shared/useToggle';
 import { BodyContainer, BodyGridExpander } from '../../../shared/components';
 import { useDomainsContext as useDomainsContextV2 } from '../../DomainsContext';
 import { applyOpacity } from '../../../shared/styleUtils';
-import useHasDomainChildren from './useHasDomainChildren';
 import { DomainColoredIcon } from '../../../entityV2/shared/links/DomainColoredIcon';
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../entityV2/shared/constants';
 
@@ -25,7 +24,6 @@ const RowWrapper = styled.div<{ $isSelected: boolean }>`
 `;
 
 const Count = styled.div`
-    opacity: 0;
     color: ${REDESIGN_COLORS.BLACK};
     font-size: 12px;
     padding-left: 8px;
@@ -51,9 +49,6 @@ const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadd
   &:hover {
         font-weight: 700;
         cursor: pointer;
-        ${Count} {
-            opacity: 1;
-        }
     }
     display: flex !important;
     align-items: center;
@@ -116,7 +111,6 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
     const isInSelectMode = !!selectDomainOverride;
-    const hasDomainChildren = useHasDomainChildren({ domainUrn: domain.urn, numDomainChildren });
     const isDomainNodeSelected = !!isOnEntityPage && !isInSelectMode;
     const shouldAutoOpen = useMemo(
         () => !isInSelectMode && entityData?.parentDomains?.domains.some((parent) => parent.urn === domain.urn),
@@ -137,10 +131,11 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
 
     if (shouldHideDomain) return null;
 
+    const finalNumChildren = sortedDomains?.length ?? numDomainChildren;
     return (
         <>
             <RowWrapper data-testid="domain-list-item" $isSelected={isDomainNodeSelected}>
-                {hasDomainChildren && (
+                {!!finalNumChildren && (
                     <ButtonWrapper>
                         <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />
                     </ButtonWrapper>
@@ -149,7 +144,7 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
                     ellipsis={{ tooltip: displayName }}
                     onClick={handleSelectDomain}
                     $isSelected={isDomainNodeSelected}
-                    $addLeftPadding={!hasDomainChildren}
+                    $addLeftPadding={!finalNumChildren}
                 >
                     <Text>
                         <DomainColoredIcon
@@ -159,7 +154,7 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
                         />
                         {displayName}
                     </Text>
-                    <Count>{numDomainChildren}</Count>
+                    <Count>{finalNumChildren}</Count>
                 </NameWrapper>
             </RowWrapper>
             <StyledExpander isOpen={isOpen && !isClosing}>

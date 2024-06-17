@@ -277,8 +277,10 @@ fragment assertionResultDetails on AssertionResult {
 
 fragment assertionRunEventDetails on AssertionRunEvent {
     timestampMillis
+    lastObservedMillis
     assertionUrn
     status
+    runId
     runtimeContext {
         key
         value

@@ -22,12 +22,11 @@ const ContentWrapper = styled.div`
 export default function DomainRoutes() {
     const entityRegistry = useEntityRegistry();
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
-    const [parentDomainsToUpdate, setParentDomainsToUpdate] = useState<string[]>([]);
     const [isSidebarClosed, setIsSidebarClosed] = useState(true);
     const entitySidebarWidth = useSidebarWidth();
 
     return (
-        <DomainsContext.Provider value={{ entityData, setEntityData, parentDomainsToUpdate, setParentDomainsToUpdate }}>
+        <DomainsContext.Provider value={{ entityData, setEntityData }}>
             <ContentWrapper>
                 <ManageDomainsSidebar />
                 <Switch>

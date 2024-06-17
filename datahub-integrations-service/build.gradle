@@ -16,7 +16,7 @@
 
 plugins {
     id 'java' // required for versioning
-    id("org.openapi.generator") version "6.6.0"
+    id("org.openapi.generator") version "7.4.0"
     id 'com.palantir.docker'
 }
 
@@ -102,7 +102,6 @@ clean {
 }
 clean.dependsOn cleanPythonCache
 
-
 openApiGenerate {
     generatorName.set("java")
     inputSpec.set("$rootDir/datahub-integrations-service/generated/openapi/openapi.json")
@@ -114,7 +113,9 @@ openApiGenerate {
     generateApiTests.set(false)
     generateModelTests.set(false)
     configOptions.set([
-        dateLibrary: "java8"
+        dateLibrary: "java8",
+        'java11'             : "true",
+        'delegatePattern'    : "true"
     ])
 
 }

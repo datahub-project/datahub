@@ -15,18 +15,18 @@ record IncidentActivityChange {
         /**
         * Assignees were added or removed
         */
-        ASSIGNEES_CHANGED,
+        ASSIGNEES,
         /**
         * State of the incident changed
         */
-        STATE_CHANGED,
+        STATE,
         /**
         * Lifecycle stage of the incident changes
         */
-        STAGE_CHANGED,
+        STAGE,
         /**
         * The priority of the incident changed
         */
-        PRIORITY_CHANGED,
+        PRIORITY,
     }
 }

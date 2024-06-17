@@ -465,6 +465,17 @@ export function removeNestedTypeNames<T>(obj: T): T {
     return clonedObj as T;
 }
 
+export function cleanAssertionDescription(builderStateData) {
+    const newBuilderStateData = { ...builderStateData };
+    // Create a shallow copy of the assertion to avoid modifying the original object
+    const assertion = { ...newBuilderStateData.assertion };
+    // Description support not added in backend for testAssertion api, so deleting it here won't reflect in the original assertion
+    delete assertion.description;
+    newBuilderStateData.assertion = assertion;
+    const { type } = assertion;
+    return { newBuilderStateData, type };
+}
+
 export const updateSubscriptionFunction = ({
     updateSubscription,
     isPersonal,

@@ -384,8 +384,12 @@ assertions:
     enabled: ${ENABLE_ASSERTIONS_HOOK:true}
 incidents:
   hook:
+    # Only managed incident summary hook. Should be better named.
     enabled: ${ENABLE_INCIDENTS_HOOK:true}
     maxIncidentHistory: ${MAX_INCIDENT_HISTORY:100}
+  # Enable or disable the hook responsible for generating activity events, powering the activity log.
+  activityEventsHook:
+    enabled: ${ENABLE_INCIDENT_ACTIVITY_EVENTS:true}
 
 bootstrap:
   upgradeDefaultBrowsePaths:

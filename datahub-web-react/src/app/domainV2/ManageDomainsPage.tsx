@@ -25,10 +25,9 @@ const ListContainer = styled.div``;
 
 export const ManageDomainsPage = () => {
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
-    const [parentDomainsToUpdate, setParentDomainsToUpdate] = useState<string[]>([]);
 
     return (
-        <DomainsContext.Provider value={{ entityData, setEntityData, parentDomainsToUpdate, setParentDomainsToUpdate }}>
+        <DomainsContext.Provider value={{ entityData, setEntityData }}>
             <PageContainer>
                 <PageHeaderContainer>
                     <PageTitle level={3}>Domains</PageTitle>

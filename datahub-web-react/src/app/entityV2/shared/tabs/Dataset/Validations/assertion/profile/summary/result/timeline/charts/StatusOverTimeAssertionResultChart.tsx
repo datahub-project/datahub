@@ -90,7 +90,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         x={x => x}
                         y={chartDimensions.height / 3}
                         stroke={ACCENT_COLOR_HEX}
-                        strokeWidth={1}
+                        strokeWidth={0.5}
                     />
 
                     {/* Circular data points */}

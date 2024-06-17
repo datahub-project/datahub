@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Empty, Form, Select, Tag, message } from 'antd';
 import styled from 'styled-components';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { DataHubConnection, EntityType } from '../../../../../../types.generated';
+import { DataHubConnection, EntityType, ShareLineageDirection } from '../../../../../../types.generated';
 import AcrylIcon from '../../../../../../images/acryl-logo.svg?react';
 import ShareIcon from '../../../../../../images/share-icon-custom.svg?react';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
@@ -19,6 +19,7 @@ import {
     StyledLabel,
 } from '../../../../../entityV2/shared/containers/profile/sidebar/shared/styledComponents';
 import { StyledCheckbox, StyledButton, StyledModal, ModalTitle } from '../../styledComponents';
+import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
 
 const StyledShareIcon = styled(ShareIcon)`
     height: 28px;
@@ -33,7 +34,6 @@ const StyledContainer = styled.div`
         margin-top: 1.25rem;
     }
 `;
-
 
 const StyledSelect = styled(Select)`
     padding-top: 8px;
@@ -69,9 +69,10 @@ const StyledSelect = styled(Select)`
 
 const ButtonContainer = styled.div`
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    margin: 16px;
-    height: 40px;
+    margin-top: -8px;
 
     .ant-btn {
         font-size: 16px;
@@ -110,6 +111,15 @@ const StyledTag = styled(Tag)`
     align-items: center;
 `;
 
+const LineageBoxWrapper = styled.div`
+    color: ${REDESIGN_COLORS.BODY_TEXT};
+    margin-bottom: 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    align-self: baseline;
+`;
+
 interface Props {
     isModalVisible: boolean;
     closeModal: () => void;
@@ -118,8 +128,10 @@ interface Props {
 export default function ShareModal({ isModalVisible, closeModal }: Props) {
     const [selectedInstancesToShare, setSelectedInstancesToShare] = useState<string[]>([]);
     const [selectedInstancesToUnshare, setSelectedInstancesToUnshare] = useState<string[]>([]);
+    const [shouldShareLineage, setShouldShareLineage] = useState(false);
 
-    const { urn, entityData, refetch } = useEntityContext();
+    const entityRegistry = useEntityRegistryV2();
+    const { urn, entityType, entityData, refetch } = useEntityContext();
     const [shareEntityMutation, { loading }] = useShareEntityMutation();
 
     const [unshareEntityMutation] = useUnshareEntityMutation();
@@ -195,6 +207,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                     input: {
                         entityUrn: urn,
                         connectionUrns: selectedInstancesToShare,
+                        lineageDirection: shouldShareLineage ? ShareLineageDirection.Both : undefined,
                     },
                 },
             })
@@ -220,8 +233,8 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                     }
                 })
                 .catch((e) => {
-                    message.destroy();
                     message.error({ content: `Failed to share entity!: \n ${e.message || ''}`, duration: 3 });
+                    setShouldShareLineage(false);
                 });
         }
     };
@@ -267,6 +280,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
 
     const handleClose = () => {
         closeModal();
+        setShouldShareLineage(false);
         setSelectedInstancesToShare([]);
         setSelectedInstancesToUnshare([]);
     };
@@ -365,6 +379,14 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
 
             {selectedInstancesToShare.length > 0 && (
                 <ButtonContainer>
+                    <LineageBoxWrapper>
+                        <StyledCheckbox
+                            $color={REDESIGN_COLORS.TITLE_PURPLE}
+                            checked={shouldShareLineage}
+                            onChange={() => setShouldShareLineage(!shouldShareLineage)}
+                        />
+                        Share assets upstream and downstream of {entityRegistry.getDisplayName(entityType, entityData)}
+                    </LineageBoxWrapper>
                     <StyledButton
                         $type="filled"
                         $color={REDESIGN_COLORS.TITLE_PURPLE}

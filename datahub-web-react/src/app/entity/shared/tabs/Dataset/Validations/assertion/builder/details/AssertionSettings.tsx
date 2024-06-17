@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 
-import { Form } from 'antd';
-
+import { Button, Form, Tooltip } from 'antd';
+import styled from 'styled-components';
 import { Assertion, AssertionType, Monitor, Entity } from '../../../../../../../../../types.generated';
 import { EditButton } from './EditButton';
 import { AssertionSettingsHeader } from './AssertionSettingsHeader';
 import { AssertionMonitorBuilderState } from '../types';
-import { createAssertionMonitorBuilderState } from '../utils';
+import { createAssertionMonitorBuilderState, getAssertionInput } from '../utils';
 import { SaveButton } from './SaveButton';
 import { useUpsertAssertionMonitor } from '../useUpsertAssertionMonitor';
 import { useUpdateAssertionMetadataWithBuilderState } from '../useUpdateAssertionMetadata';
@@ -14,9 +14,15 @@ import { SqlAssertionBuilder } from '../steps/sql/SqlAssertionBuilder';
 import { DatasetFreshnessAssertionBuilder } from '../steps/freshness/DatasetFreshnessAssertionBuilder';
 import { VolumeAssertionBuilder } from '../steps/volume/VolumeAssertionBuilder';
 import { FieldAssertionBuilder } from '../steps/field/FieldAssertionBuilder';
-import { AssertionEditabilityScopeType, getAssertionEditabilityType } from '../../profile/summary/shared/assertionUtils';
+import {
+    AssertionEditabilityScopeType,
+    getAssertionEditabilityType,
+} from '../../profile/summary/shared/assertionUtils';
 import { AssertionActionsSection } from '../steps/actions/AssertionActionsSection';
 import { SchemaAssertionBuilder } from '../steps/schema/SchemaAssertionBuilder';
+import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
+import { useTestAssertionModal } from '../steps/utils';
+import { TestAssertionModal } from '../../../../../../../../entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/TestAssertionModal';
 
 type Props = {
     assertion: Assertion;
@@ -27,6 +33,15 @@ type Props = {
     refetch?: () => void;
 };
 
+const StyledButton = styled(Button)`
+    margin-right: 10px;
+`;
+
+export const AssertionContainer = styled.div`
+    display: flex;
+    justify-content: space-around;
+`;
+
 export const AssertionSettings = (props: Props) => {
     const initialState = createAssertionMonitorBuilderState(props.assertion, props.entity, props.monitor);
     const [builderState, setBuilderState] = useState<AssertionMonitorBuilderState>(initialState);
@@ -36,7 +51,11 @@ export const AssertionSettings = (props: Props) => {
     const editabilityType = getAssertionEditabilityType(props.assertion);
 
     const isFullEditingDisabled = !(editing && editabilityType === AssertionEditabilityScopeType.FULL);
-    const isDescriptionEditingDisabled = !(editing && (editabilityType === AssertionEditabilityScopeType.FULL || editabilityType === AssertionEditabilityScopeType.ACTIONS_AND_DESCRIPTION));
+    const isDescriptionEditingDisabled = !(
+        editing &&
+        (editabilityType === AssertionEditabilityScopeType.FULL ||
+            editabilityType === AssertionEditabilityScopeType.ACTIONS_AND_DESCRIPTION)
+    );
     const isActionsEditingDisabled = !(editing && editabilityType !== AssertionEditabilityScopeType.NONE);
 
     const updateAssertionMonitor = useUpsertAssertionMonitor(
@@ -46,7 +65,24 @@ export const AssertionSettings = (props: Props) => {
         },
         true,
     );
-    const updateAssertionMetadata = useUpdateAssertionMetadataWithBuilderState(builderState, () => { props.refetch?.() })
+    const updateAssertionMetadata = useUpdateAssertionMetadataWithBuilderState(builderState, () => {
+        props.refetch?.();
+    });
+
+    const { isTestAssertionModalVisible, hideTestAssertionModal, showTestAssertionModal } = useTestAssertionModal();
+
+    const isTestAssertionActionDisabled = !useConnectionWithRunAssertionCapabilitiesForEntityExists(
+        props.entity.urn ?? '',
+    );
+
+    const tryTestAssertion = async () => {
+        try {
+            await form.validateFields();
+            showTestAssertionModal();
+        } catch {
+            // Ignore validation errors
+        }
+    };
 
     const validateForm = async () => {
         try {
@@ -84,6 +120,7 @@ export const AssertionSettings = (props: Props) => {
     const authorizedToEditTooltip = !props.editAllowed ? 'You are not authorized to edit!' : undefined;
     // If the user is not authorized to edit, we show the tooltip for that, otherwise we show the edit button tooltip
     const finalTooltip = props.editAllowed ? editButtonTooltip : authorizedToEditTooltip;
+
     return (
         <>
             {props.editable && (
@@ -99,19 +136,80 @@ export const AssertionSettings = (props: Props) => {
                                     if (props.editAllowed) setEditing(true);
                                 }}
                             />
-                        )) || <SaveButton tooltip="Save changes to this assertion" onClick={save} />
+                        )) || (
+                            <>
+                                <AssertionContainer>
+                                    <Tooltip
+                                        title={
+                                            isTestAssertionActionDisabled
+                                                ? 'Trying assertions is not supported for sources with remote executors.'
+                                                : 'Try this assertion out!'
+                                        }
+                                    >
+                                        <StyledButton
+                                            onClick={tryTestAssertion}
+                                            disabled={isTestAssertionActionDisabled}
+                                        >
+                                            Try it out
+                                        </StyledButton>
+                                    </Tooltip>
+                                    <SaveButton tooltip="Save changes to this assertion" onClick={save} />
+                                </AssertionContainer>
+
+                                <TestAssertionModal
+                                    visible={isTestAssertionModalVisible}
+                                    handleClose={hideTestAssertionModal}
+                                    input={getAssertionInput(builderState, props?.entity?.urn)}
+                                />
+                            </>
+                        )
                     }
                     onChangeDescription={updateDescription}
                     descriptionDisabled={isDescriptionEditingDisabled}
                 />
             )}
+
             <Form initialValues={builderState} form={form}>
-                {props.assertion.info?.type === AssertionType.Sql ? <SqlAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
-                {props.assertion.info?.type === AssertionType.Freshness ? <DatasetFreshnessAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
-                {props.assertion.info?.type === AssertionType.Volume ? <VolumeAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
-                {props.assertion.info?.type === AssertionType.Field ? <FieldAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
-                {props.assertion.info?.type === AssertionType.DataSchema ? <SchemaAssertionBuilder state={builderState} updateState={setBuilderState} disabled={isFullEditingDisabled} /> : null}
-                <AssertionActionsSection state={builderState} updateState={setBuilderState} disabled={isActionsEditingDisabled} />
+                {props.assertion.info?.type === AssertionType.Sql ? (
+                    <SqlAssertionBuilder
+                        state={builderState}
+                        updateState={setBuilderState}
+                        disabled={isFullEditingDisabled}
+                    />
+                ) : null}
+                {props.assertion.info?.type === AssertionType.Freshness ? (
+                    <DatasetFreshnessAssertionBuilder
+                        state={builderState}
+                        updateState={setBuilderState}
+                        disabled={isFullEditingDisabled}
+                    />
+                ) : null}
+                {props.assertion.info?.type === AssertionType.Volume ? (
+                    <VolumeAssertionBuilder
+                        state={builderState}
+                        updateState={setBuilderState}
+                        disabled={isFullEditingDisabled}
+                    />
+                ) : null}
+                {props.assertion.info?.type === AssertionType.Field ? (
+                    <FieldAssertionBuilder
+                        state={builderState}
+                        updateState={setBuilderState}
+                        disabled={isFullEditingDisabled}
+                    />
+                ) : null}
+                {props.assertion.info?.type === AssertionType.DataSchema ? (
+                    <SchemaAssertionBuilder
+                        state={builderState}
+                        updateState={setBuilderState}
+                        disabled={isFullEditingDisabled}
+                    />
+                ) : null}
+                <AssertionActionsSection
+                    state={builderState}
+                    updateState={setBuilderState}
+                    disabled={isActionsEditingDisabled}
+                />
             </Form>
         </>
     );

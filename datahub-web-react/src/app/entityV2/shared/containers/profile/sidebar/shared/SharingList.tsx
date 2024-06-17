@@ -10,6 +10,7 @@ import { ContentText, InstanceIcon, LabelText, RelativeTime } from './styledComp
 import { REDESIGN_COLORS } from '../../../../constants';
 
 import ShareIcon from '../../../../../../../images/share-icon-custom.svg?react';
+import SharedLineageIcon from './SharedLineageIcon';
 
 const StyledShareIcon = styled(ShareIcon)`
     height: 18px;
@@ -63,6 +64,10 @@ const Icon = styled.div`
     }
 `;
 
+const LineageIconWrapper = styled.span`
+    margin-left: 6px;
+`;
+
 type Props = {
     resultsList: ShareResult[];
 };
@@ -72,6 +77,8 @@ const SharingList = ({ resultsList }: Props) => {
         <ResultsContainer>
             {resultsList.map((result) => {
                 const name = result.destination.details.name || result.destination.urn;
+                const hasSharedLineage =
+                    result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
                 const lastSuccessTime = result.lastSuccess?.time || 0;
                 const isRecentlyUpdated = moment(lastSuccessTime).isAfter(moment().subtract(1, 'week'));
 
@@ -84,7 +91,14 @@ const SharingList = ({ resultsList }: Props) => {
                                 <InstanceIcon>
                                     <AcrylIcon />
                                 </InstanceIcon>
-                                <ContentText>{name}</ContentText>
+                                <ContentText>
+                                    {name}
+                                    {hasSharedLineage && (
+                                        <LineageIconWrapper>
+                                            <SharedLineageIcon result={result} size={14} />
+                                        </LineageIconWrapper>
+                                    )}
+                                </ContentText>
                             </Content>
                             <Icon>
                                 <Tooltip title="This represents the last time an entity was shared." placement="left">

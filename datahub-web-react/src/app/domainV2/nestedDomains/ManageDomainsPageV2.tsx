@@ -30,7 +30,7 @@ const Header = styled.div`
 `;
 
 export default function ManageDomainsPageV2() {
-    const { setEntityData, setParentDomainsToUpdate } = useDomainsContextV2();
+    const { setEntityData } = useDomainsContextV2();
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const client = useApolloClient();
 
@@ -56,10 +56,9 @@ export default function ManageDomainsPageV2() {
             {isCreatingDomain && (
                 <CreateDomainModal
                     onClose={() => setIsCreatingDomain(false)}
-                    onCreate={(urn, id, name, description, parentDomain) => {
-                        updateListDomainsCache(client, urn, id, name, description, parentDomain);
-                        if (parentDomain) setParentDomainsToUpdate([parentDomain]);
-                    }}
+                    onCreate={(urn, id, name, description, parentDomain) =>
+                        updateListDomainsCache(client, urn, id, name, description, parentDomain)
+                    }
                 />
             )}
         </PageWrapper>

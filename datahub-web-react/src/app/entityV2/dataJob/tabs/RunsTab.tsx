@@ -125,7 +125,7 @@ export const RunsTab = () => {
     const runs = data && data?.dataJob?.runs?.runs;
 
     const tableData = runs
-        ?.filter((run) => run)
+        ?.filter((run) => run?.state?.length)
         .map((run) => ({
             time: run?.created?.time,
             name: run?.name,

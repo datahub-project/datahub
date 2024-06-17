@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Share;
+import com.linkedin.datahub.graphql.generated.ShareConfig;
 import com.linkedin.datahub.graphql.generated.ShareResult;
 import com.linkedin.datahub.graphql.generated.ShareResultState;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -51,6 +52,9 @@ public class ShareMapper implements ModelMapper<com.linkedin.common.Share, Share
     if (shareResult.getMessage() != null) {
       result.setMessage(shareResult.getMessage());
     }
+    if (shareResult.getShareConfig() != null) {
+      result.setShareConfig(mapShareConfig(shareResult.getShareConfig()));
+    }
     return result;
   }
 
@@ -59,5 +63,16 @@ public class ShareMapper implements ModelMapper<com.linkedin.common.Share, Share
     connection.setUrn(urn.toString());
     connection.setType(EntityType.DATAHUB_CONNECTION);
     return connection;
+  }
+
+  private ShareConfig mapShareConfig(@Nonnull final com.linkedin.common.ShareConfig config) {
+    final ShareConfig resultConfig = new ShareConfig();
+    if (config.hasEnableUpstreamLineage()) {
+      resultConfig.setEnableUpstreamLineage((config.isEnableUpstreamLineage()));
+    }
+    if (config.hasEnableDownstreamLineage()) {
+      resultConfig.setEnableDownstreamLineage((config.isEnableDownstreamLineage()));
+    }
+    return resultConfig;
   }
 }
