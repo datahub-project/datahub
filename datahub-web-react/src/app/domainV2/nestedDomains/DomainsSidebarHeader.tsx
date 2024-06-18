@@ -4,32 +4,38 @@ import { Button } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import DomainsTitle from './DomainsTitle';
 import { PageRoutes } from '../../../conf/Global';
 import CreateDomainModal from '../CreateDomainModal';
 import { updateListDomainsCache } from '../utils';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const HeaderWrapper = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
-    padding: 16px;
-    font-size: 20px;
+    width: 100%;
+    font-size: 18px;
     display: flex;
     align-items: center;
     justify-content: space-between;
 `;
 
 const StyledButton = styled(Button)`
+    width: 2em;
+    height: 2em;
+
     box-shadow: none;
-    border-color: ${ANTD_GRAY_V2[6]};
+    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    border-radius: 50%;
+    color: ${ANTD_GRAY[1]};
+    background: ${REDESIGN_COLORS.TITLE_PURPLE};
+    &:hover {
+        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${REDESIGN_COLORS.WHITE};
+    }
 `;
 
 const StyledLink = styled(Link)`
-    color: inherit;
-
-    &:hover {
-        color: inherit;
-    }
+    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    font-weight: bold;
 `;
 
 export default function DomainsSidebarHeader() {
@@ -38,10 +44,11 @@ export default function DomainsSidebarHeader() {
 
     return (
         <HeaderWrapper>
-            <StyledLink to={`${PageRoutes.DOMAINS}`}>
-                <DomainsTitle />
-            </StyledLink>
-            <StyledButton icon={<PlusOutlined />} onClick={() => setIsCreatingDomain(true)} />
+            <StyledLink to={`${PageRoutes.DOMAINS}`}>Domains</StyledLink>
+            <StyledButton
+                icon={<PlusOutlined style={{ fontSize: 'inherit' }} />}
+                onClick={() => setIsCreatingDomain(true)}
+            />
             {isCreatingDomain && (
                 <CreateDomainModal
                     onClose={() => setIsCreatingDomain(false)}
