@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useHistory } from 'react-router';
+import { AcrylPageRoutes } from '../../../conf/Global';
 import { useLoadUserPersona } from '../persona/useLoadUserPersona';
 
 export const useRedirectToIntroduceYourself = () => {
@@ -8,7 +9,7 @@ export const useRedirectToIntroduceYourself = () => {
 
     useEffect(() => {
         if (!persona) {
-            history.replace('/introduce');
+            history.replace(AcrylPageRoutes.INTRODUCE);
         }
     }, [persona, history]);
 };
