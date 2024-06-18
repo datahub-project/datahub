@@ -412,9 +412,10 @@ public class ESUtils {
     String fieldName =
         StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(filterField, aspectRetriever)
             .map(
-                definition ->
+                urnDefinition ->
                     STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                        + StructuredPropertyUtils.toElasticsearchFieldName(definition))
+                        + StructuredPropertyUtils.toElasticsearchFieldName(
+                            urnDefinition.getFirst(), urnDefinition.getSecond()))
             .orElse(filterField);
 
     for (String subfield : SUBFIELDS) {
@@ -444,9 +445,10 @@ public class ESUtils {
     String fieldName =
         StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(filterField, aspectRetriever)
             .map(
-                definition ->
+                urnDefinition ->
                     STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                        + StructuredPropertyUtils.toElasticsearchFieldName(definition))
+                        + StructuredPropertyUtils.toElasticsearchFieldName(
+                            urnDefinition.getFirst(), urnDefinition.getSecond()))
             .orElse(filterField);
 
     return skipKeywordSuffix
@@ -609,7 +611,7 @@ public class ESUtils {
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull AspectRetriever aspectRetriever) {
-    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName);
+    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName, aspectRetriever);
     if (fieldTypes.size() > 1) {
       log.warn(
           "Multiple field types for field name {}, determining best fit for set: {}",
@@ -635,16 +637,26 @@ public class ESUtils {
   }
 
   private static Set<String> getFieldTypes(
-      Map<String, Set<SearchableAnnotation.FieldType>> searchableFields, String fieldName) {
-    Set<SearchableAnnotation.FieldType> fieldTypes =
-        searchableFields.getOrDefault(fieldName, Collections.emptySet());
-    Set<String> finalFieldTypes =
-        fieldTypes.stream().map(ESUtils::getElasticTypeForFieldType).collect(Collectors.toSet());
-    if (fieldTypes.size() > 1) {
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFields,
+      String fieldName,
+      @Nullable AspectRetriever aspectRetriever) {
+
+    final Set<String> finalFieldTypes;
+    if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      finalFieldTypes =
+          StructuredPropertyUtils.toElasticsearchFieldType(fieldName, aspectRetriever);
+    } else {
+      Set<SearchableAnnotation.FieldType> fieldTypes =
+          searchableFields.getOrDefault(fieldName, Collections.emptySet());
+      finalFieldTypes =
+          fieldTypes.stream().map(ESUtils::getElasticTypeForFieldType).collect(Collectors.toSet());
+    }
+
+    if (finalFieldTypes.size() > 1) {
       log.warn(
           "Multiple field types for field name {}, determining best fit for set: {}",
           fieldName,
-          fieldTypes);
+          finalFieldTypes);
     }
     return finalFieldTypes;
   }
@@ -656,7 +668,7 @@ public class ESUtils {
       Condition condition,
       boolean isTimeseries,
       AspectRetriever aspectRetriever) {
-    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName);
+    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName, aspectRetriever);
 
     // Determine criterion value, range query only accepts single value so take first value in
     // values if multiple

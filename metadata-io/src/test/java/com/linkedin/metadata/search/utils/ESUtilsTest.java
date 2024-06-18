@@ -63,7 +63,7 @@ public class ESUtilsTest {
 
     StructuredPropertyDefinition structPropAbFghTenDefinitionV1 =
         new StructuredPropertyDefinition();
-    structPropAbFghTenDefinitionV1.setVersion("v1");
+    structPropAbFghTenDefinitionV1.setVersion("00000000000001");
     structPropAbFghTenDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinitionV1.setQualifiedName("ab.fgh.ten");
@@ -375,7 +375,7 @@ public class ESUtilsTest {
     String expected =
         "{\n"
             + "  \"terms\" : {\n"
-            + "    \"structuredProperties.ab_fgh_ten.v1.string.keyword\" : [\n"
+            + "    \"structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword\" : [\n"
             + "      \"value1\"\n"
             + "    ],\n"
             + "    \"boost\" : 1.0,\n"
@@ -451,7 +451,7 @@ public class ESUtilsTest {
             + "    \"must\" : [\n"
             + "      {\n"
             + "        \"exists\" : {\n"
-            + "          \"field\" : \"structuredProperties.ab_fgh_ten.v1.string\",\n"
+            + "          \"field\" : \"structuredProperties._versioned.ab_fgh_ten.00000000000001.string\",\n"
             + "          \"boost\" : 1.0\n"
             + "        }\n"
             + "      }\n"

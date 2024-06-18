@@ -717,8 +717,9 @@ plugins:
         - 'com.linkedin.metadata.structuredproperties.validation'
       enabled: true
       supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
         - UPSERT
-        - DELETE
       supportedEntityAspectNames:
         - entityName: structuredProperty
           aspectName: propertyDefinition

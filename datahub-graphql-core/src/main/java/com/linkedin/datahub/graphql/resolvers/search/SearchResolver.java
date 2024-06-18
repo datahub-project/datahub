@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
+
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;

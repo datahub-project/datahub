@@ -80,17 +80,13 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
           retrieverContext
               .getAspectRetriever()
               .getLatestAspectObject(mclItem.getUrn(), STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
-      if (definitionAspect != null) {
-        return generatePatchMCPs(
-            mclItem.getUrn(),
-            new StructuredPropertyDefinition(definitionAspect.data()),
-            mclItem.getAuditStamp(),
-            retrieverContext);
-      } else {
-        log.error(
-            "Cannot remove structured property values for {} because the definition is no longer present.",
-            mclItem.getUrn());
-      }
+      return generatePatchMCPs(
+          mclItem.getUrn(),
+          definitionAspect == null
+              ? null
+              : new StructuredPropertyDefinition(definitionAspect.data()),
+          mclItem.getAuditStamp(),
+          retrieverContext);
     }
     log.warn(
         "Expected either {} or {} aspects but got {}",
@@ -102,7 +98,7 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
 
   private static Stream<MCPItem> generatePatchMCPs(
       Urn propertyUrn,
-      StructuredPropertyDefinition definition,
+      @Nullable StructuredPropertyDefinition definition,
       @Nullable AuditStamp auditStamp,
       @Nonnull RetrieverContext retrieverContext) {
     EntityWithPropertyIterator iterator =
@@ -152,7 +148,7 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
   @Builder
   public static class EntityWithPropertyIterator implements Iterator<ScrollResult> {
     @Nonnull private final Urn propertyUrn;
-    @Nonnull private final StructuredPropertyDefinition definition;
+    @Nullable private final StructuredPropertyDefinition definition;
     @Nonnull private final SearchRetriever searchRetriever;
     private int count;
     @Builder.Default private String scrollId = null;
@@ -178,7 +174,7 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
       // Cannot rely on automatic field name since the definition is deleted
       propertyExistsCriterion.setField(
           STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-              + StructuredPropertyUtils.toElasticsearchFieldName(definition));
+              + StructuredPropertyUtils.toElasticsearchFieldName(propertyUrn, definition));
       propertyExistsCriterion.setCondition(Condition.EXISTS);
 
       andCriterion.add(propertyExistsCriterion);

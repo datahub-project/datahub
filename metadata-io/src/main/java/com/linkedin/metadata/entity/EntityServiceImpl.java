@@ -1916,6 +1916,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       Map<String, String> conditions,
       boolean hardDelete) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
+    List<RollbackResult> removedAspectResults = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
 
     List<Future<?>> futures =
@@ -1923,7 +1924,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .map(
                 aspectToRemove -> {
                   RollbackResult result =
-                      deleteAspect(
+                      deleteAspectWithoutMCL(
                           opContext,
                           aspectToRemove.getUrn(),
                           aspectToRemove.getAspectName(),
@@ -1944,6 +1945,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
                     removedAspects.add(aspectToRemove);
+                    removedAspectResults.add(result);
                     return alwaysProduceMCLAsync(
                             opContext,
                             result.getUrn(),
@@ -1974,12 +1976,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           }
         });
 
-    return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion.get());
+    return new RollbackRunResult(
+        removedAspects, rowsDeletedFromEntityDeletion.get(), removedAspectResults);
   }
 
   @Override
   public RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
+    List<RollbackResult> removedAspectResults = new ArrayList<>();
     Integer rowsDeletedFromEntityDeletion = 0;
 
     final EntitySpec spec =
@@ -1994,7 +1998,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       log.warn("Entity to delete does not exist. {}", urn.toString());
     }
     if (latestKey == null || latestKey.getSystemMetadata() == null) {
-      return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
+      return new RollbackRunResult(
+          removedAspects, rowsDeletedFromEntityDeletion, removedAspectResults);
     }
 
     SystemMetadata latestKeySystemMetadata =
@@ -2002,7 +2007,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .map(SystemAspect::getSystemMetadata)
             .get();
     RollbackResult result =
-        deleteAspect(
+        deleteAspectWithoutMCL(
             opContext,
             urn.toString(),
             keyAspectName,
@@ -2019,6 +2024,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
       rowsDeletedFromEntityDeletion = result.additionalRowsAffected;
       removedAspects.add(summary);
+      removedAspectResults.add(result);
       Future<?> future =
           alwaysProduceMCLAsync(
                   opContext,
@@ -2044,7 +2050,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       }
     }
 
-    return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
+    return new RollbackRunResult(
+        removedAspects, rowsDeletedFromEntityDeletion, removedAspectResults);
   }
 
   @Override
@@ -2097,9 +2104,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
   }
 
+  /** Does not emit MCL */
   @Nullable
-  @Override
-  public RollbackResult deleteAspect(
+  private RollbackResult deleteAspectWithoutMCL(
       @Nonnull OperationContext opContext,
       String urn,
       String aspectName,
