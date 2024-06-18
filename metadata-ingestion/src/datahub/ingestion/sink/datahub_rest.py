@@ -31,7 +31,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.utilities.advanced_thread_executor import (
+from datahub.utilities.partition_executor import (
     BatchPartitionExecutor,
     PartitionExecutor,
 )

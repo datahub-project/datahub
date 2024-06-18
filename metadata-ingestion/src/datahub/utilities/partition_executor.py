@@ -211,12 +211,14 @@ class BatchPartitionExecutor(Closeable):
         self._clearinghouse_started = False
 
         self._pending_count = BoundedSemaphore(max_pending)
-        self._pending = queue.Queue(maxsize=max_pending)
+        self._pending: "queue.Queue[Optional[_BatchPartitionWorkItem]]" = queue.Queue(
+            maxsize=max_pending
+        )
 
         # If this is true, that means shutdown() has been called and self._pending is empty.
         self._queue_empty_for_shutdown = False
 
-    def _clearinghouse_worker(self) -> None:
+    def _clearinghouse_worker(self) -> None:  # noqa: C901
         # This worker will pull items off the queue, and submit them into the executor
         # in batches. Only this worker will submit process commands to the executor thread pool.
 
@@ -249,33 +251,44 @@ class BatchPartitionExecutor(Closeable):
                     keys_in_flight.remove(key)
                 keys_no_longer_in_flight.clear()
 
-                # Then, update the pending key completion.
+                # Then, update the pending key completion and build the ready list.
                 pending = pending_key_completion.copy()
                 pending_key_completion.clear()
 
                 ready = []
                 for item in pending:
-                    if item.key not in keys_in_flight:
-                        keys_in_flight.add(item.key)
+                    if (
+                        len(ready) < self.max_per_batch
+                        and item.key not in keys_in_flight
+                    ):
                         ready.append(item)
                     else:
                         pending_key_completion.append(item)
+
                 return ready
 
         def _build_batch() -> List[_BatchPartitionWorkItem]:
             next_batch = _find_ready_items()
 
-            while not self._queue_empty_for_shutdown and not (
-                len(next_batch) >= self.max_per_batch
-                or (
+            while (
+                not self._queue_empty_for_shutdown
+                and len(next_batch) < self.max_per_batch
+            ):
+                blocking = True
+                if (
                     next_batch
                     and _now() - last_submit_time > self.min_process_interval
                     and workers_available > 0
-                )
-            ):
+                ):
+                    # If we're past the submit deadline, pull from the queue
+                    # in a non-blocking way, and submit the batch once the queue
+                    # is empty.
+                    blocking = False
+
                 try:
                     next_item: Optional[_BatchPartitionWorkItem] = self._pending.get(
-                        block=True, timeout=self.min_process_interval.total_seconds()
+                        block=blocking,
+                        timeout=self.min_process_interval.total_seconds(),
                     )
                     if next_item is None:
                         self._queue_empty_for_shutdown = True
@@ -287,7 +300,8 @@ class BatchPartitionExecutor(Closeable):
                         else:
                             next_batch.append(next_item)
                 except queue.Empty:
-                    pass
+                    if not blocking:
+                        break
 
             return next_batch
 
@@ -357,6 +371,14 @@ class BatchPartitionExecutor(Closeable):
         self._pending.put(_BatchPartitionWorkItem(key, args, done_callback))
 
     def shutdown(self) -> None:
+        if not self._clearinghouse_started:
+            # This is required to make shutdown() idempotent, which is important
+            # when it's called explicitly and then also by a context manager.
+            logger.debug("Shutting down: clearinghouse not started")
+            return
+
+        logger.debug(f"Shutting down {self.__class__.__name__}")
+
         # Send the shutdown signal.
         self._pending.put(None)
 
@@ -368,10 +390,10 @@ class BatchPartitionExecutor(Closeable):
         # We must wait for the clearinghouse worker to exit before calling shutdown
         # on the thread pool. Without this, the clearinghouse worker might fail to
         # enqueue pending tasks into the pool.
-        while not self._clearinghouse_started:
+        while self._clearinghouse_started:
             time.sleep(_PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL)
 
-        self._executor.shutdown(wait=True)
+        self._executor.shutdown(wait=False)
 
     def close(self) -> None:
         self.shutdown()
