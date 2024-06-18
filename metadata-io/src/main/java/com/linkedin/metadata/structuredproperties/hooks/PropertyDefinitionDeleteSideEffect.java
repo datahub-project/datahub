@@ -155,7 +155,7 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
     @Builder.Default private boolean started = false;
 
     private List<String> getEntities() {
-      if (definition.getEntityTypes() != null) {
+      if (definition != null && definition.getEntityTypes() != null) {
         return definition.getEntityTypes().stream()
             .map(StructuredPropertyUtils::getValueTypeId)
             .collect(Collectors.toList());
