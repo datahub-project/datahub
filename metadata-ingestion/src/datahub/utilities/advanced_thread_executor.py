@@ -1,11 +1,26 @@
 from __future__ import annotations
 
 import collections
+import functools
 import logging
+import queue
+import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from threading import BoundedSemaphore
-from typing import Any, Callable, Deque, Dict, Optional, Tuple, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Deque,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+)
 
 from datahub.ingestion.api.closeable import Closeable
 
@@ -140,8 +155,222 @@ class PartitionExecutor(Closeable):
         self.flush()
         assert len(self._pending_by_key) == 0
 
-        # Technically, the wait=True here is redundant, since all the threads should
-        # be idle now.
+        self._executor.shutdown(wait=True)
+
+    def close(self) -> None:
+        self.shutdown()
+
+
+class _BatchPartitionWorkItem(NamedTuple):
+    key: str
+    args: tuple
+    done_callback: Optional[Callable[[Future], None]]
+
+
+def _now() -> datetime:
+    return datetime.now(tz=timezone.utc)
+
+
+class BatchPartitionExecutor(Closeable):
+    def __init__(
+        self,
+        max_workers: int,
+        max_pending: int,
+        process_batch: Callable[[List[Tuple[Any, ...]]], None],
+        max_per_batch: int = 100,
+        min_process_interval: Optional[timedelta] = None,
+    ) -> None:
+        """Similar to PartitionExecutor, but with batching.
+
+        This takes in the stream of requests, automatically segments them into partition-aware
+        batches, and schedules them across a pool of worker threads.
+
+        It maintains the invariant that multiple requests with the same key will not be in
+        flight concurrently, except when part of the same batch. Requests for a given key
+        will also be executed in the order they were submitted.
+
+        Unlike the PartitionExecutor, this does not support return values or kwargs.
+
+        Args:
+            max_workers: The maximum number of threads to use for executing requests.
+            max_pending: The maximum number of pending (e.g. non-executing) requests to allow.
+            max_per_batch: The maximum number of requests to include in a batch.
+            min_process_interval: When requests are coming in slowly, we will wait at least this long
+                before submitting a non-full batch.
+            process_batch: A function that takes in a list of argument tuples.
+        """
+        self.max_workers = max_workers
+        self.max_pending = max_pending
+        self.max_per_batch = max_per_batch
+        self.process_batch = process_batch
+        self.min_process_interval = min_process_interval or timedelta(seconds=5)
+        assert self.max_workers > 1
+
+        # We add one here to account for the clearinghouse worker thread.
+        self._executor = ThreadPoolExecutor(max_workers=max_workers + 1)
+        self._clearinghouse_started = False
+
+        self._pending_count = BoundedSemaphore(max_pending)
+        self._pending = queue.Queue(maxsize=max_pending)
+
+        # If this is true, that means shutdown() has been called and self._pending is empty.
+        self._queue_empty_for_shutdown = False
+
+    def _clearinghouse_worker(self) -> None:
+        # This worker will pull items off the queue, and submit them into the executor
+        # in batches. Only this worker will submit process commands to the executor thread pool.
+
+        # The lock protects the function's internal state.
+        clearinghouse_state_lock = threading.Lock()
+        workers_available = self.max_workers
+        keys_in_flight: Set[str] = set()
+        keys_no_longer_in_flight: Set[str] = set()
+        pending_key_completion: List[_BatchPartitionWorkItem] = []
+
+        last_submit_time = _now()
+
+        def _handle_batch_completion(
+            batch: List[_BatchPartitionWorkItem], future: Future
+        ) -> None:
+            with clearinghouse_state_lock:
+                for item in batch:
+                    keys_no_longer_in_flight.add(item.key)
+                    self._pending_count.release()
+
+            # Separate from the above loop to avoid holding the lock while calling the callbacks.
+            for item in batch:
+                if item.done_callback:
+                    item.done_callback(future)
+
+        def _find_ready_items() -> List[_BatchPartitionWorkItem]:
+            with clearinghouse_state_lock:
+                # First, update the keys in flight.
+                for key in keys_no_longer_in_flight:
+                    keys_in_flight.remove(key)
+                keys_no_longer_in_flight.clear()
+
+                # Then, update the pending key completion.
+                pending = pending_key_completion.copy()
+                pending_key_completion.clear()
+
+                ready = []
+                for item in pending:
+                    if item.key not in keys_in_flight:
+                        keys_in_flight.add(item.key)
+                        ready.append(item)
+                    else:
+                        pending_key_completion.append(item)
+                return ready
+
+        def _build_batch() -> List[_BatchPartitionWorkItem]:
+            next_batch = _find_ready_items()
+
+            while not self._queue_empty_for_shutdown and not (
+                len(next_batch) >= self.max_per_batch
+                or (
+                    next_batch
+                    and _now() - last_submit_time > self.min_process_interval
+                    and workers_available > 0
+                )
+            ):
+                try:
+                    next_item: Optional[_BatchPartitionWorkItem] = self._pending.get(
+                        block=True, timeout=self.min_process_interval.total_seconds()
+                    )
+                    if next_item is None:
+                        self._queue_empty_for_shutdown = True
+                        break
+
+                    with clearinghouse_state_lock:
+                        if next_item.key in keys_in_flight:
+                            pending_key_completion.append(next_item)
+                        else:
+                            next_batch.append(next_item)
+                except queue.Empty:
+                    pass
+
+            return next_batch
+
+        def _submit_batch(next_batch: List[_BatchPartitionWorkItem]) -> None:
+            with clearinghouse_state_lock:
+                for item in next_batch:
+                    keys_in_flight.add(item.key)
+
+                nonlocal workers_available
+                workers_available -= 1
+
+                nonlocal last_submit_time
+                last_submit_time = _now()
+
+            future = self._executor.submit(
+                self.process_batch, [item.args for item in next_batch]
+            )
+            future.add_done_callback(
+                functools.partial(_handle_batch_completion, next_batch)
+            )
+
+        try:
+            # Normal operation - submit batches as they become available.
+            while not self._queue_empty_for_shutdown:
+                next_batch = _build_batch()
+                if next_batch:
+                    _submit_batch(next_batch)
+
+            # Shutdown time.
+            # Invariant - at this point, we know self._pending is empty.
+            # We just need to wait for the in-flight items to complete,
+            # and submit any currently pending items once possible.
+            while pending_key_completion:
+                next_batch = _build_batch()
+                if next_batch:
+                    _submit_batch(next_batch)
+                time.sleep(_PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL)
+
+            # At this point, there are no more things to submit.
+            # We could wait for the in-flight items to complete,
+            # but the executor will take care of waiting for them to complete.
+        except Exception as e:
+            # This represents a fatal error that makes the entire executor defunct.
+            logger.exception(
+                "Threaded executor's clearinghouse worker failed.", exc_info=e
+            )
+        finally:
+            self._clearinghouse_started = False
+
+    def _ensure_clearinghouse_started(self) -> None:
+        # Lazily start the clearinghouse worker.
+        if not self._clearinghouse_started:
+            self._clearinghouse_started = True
+            self._executor.submit(self._clearinghouse_worker)
+
+    def submit(
+        self,
+        key: str,
+        *args: Any,
+        done_callback: Optional[Callable[[Future], None]] = None,
+    ) -> None:
+        """See concurrent.futures.Executor#submit"""
+
+        self._ensure_clearinghouse_started()
+
+        self._pending_count.acquire()
+        self._pending.put(_BatchPartitionWorkItem(key, args, done_callback))
+
+    def shutdown(self) -> None:
+        # Send the shutdown signal.
+        self._pending.put(None)
+
+        # By acquiring all the permits, we ensure that no more tasks will be scheduled
+        # and automatically wait until all existing tasks have completed.
+        for _ in range(self.max_pending):
+            self._pending_count.acquire()
+
+        # We must wait for the clearinghouse worker to exit before calling shutdown
+        # on the thread pool. Without this, the clearinghouse worker might fail to
+        # enqueue pending tasks into the pool.
+        while not self._clearinghouse_started:
+            time.sleep(_PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL)
+
         self._executor.shutdown(wait=True)
 
     def close(self) -> None:
