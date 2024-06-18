@@ -9,7 +9,6 @@ import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
 import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
-import { AssertionSourceType } from '../../../../../../types.generated';
 import { AcrylAssertions } from './AcrylAssertions';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
