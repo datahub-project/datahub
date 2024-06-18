@@ -726,7 +726,7 @@ public class OpenLineageToDataHub {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
         builder.urn(datasetUrn.get());
         if (datahubConf.isMaterializeDataset()) {
-          builder.schemaMetadata(getSchemaMetadata(input));
+          builder.schemaMetadata(getSchemaMetadata(input, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage = getFineGrainedLineage(input, datahubConf);
@@ -756,7 +756,7 @@ public class OpenLineageToDataHub {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
         builder.urn(datasetUrn.get());
         if (datahubConf.isMaterializeDataset()) {
-          builder.schemaMetadata(getSchemaMetadata(output));
+          builder.schemaMetadata(getSchemaMetadata(output, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage = getFineGrainedLineage(output, datahubConf);
@@ -887,7 +887,8 @@ public class OpenLineageToDataHub {
     }
   }
 
-  public static SchemaMetadata getSchemaMetadata(OpenLineage.Dataset dataset) {
+  public static SchemaMetadata getSchemaMetadata(
+      OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
     SchemaFieldArray schemaFieldArray = new SchemaFieldArray();
     if ((dataset.getFacets() == null) || (dataset.getFacets().getSchema() == null)) {
       return null;
@@ -916,9 +917,16 @@ public class OpenLineageToDataHub {
     ddl.setTableSchema(OpenLineageClientUtils.toJson(dataset.getFacets().getSchema().getFields()));
     SchemaMetadata.PlatformSchema platformSchema = new SchemaMetadata.PlatformSchema();
     platformSchema.setMySqlDDL(ddl);
+    Optional<DatasetUrn> datasetUrn =
+        getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), mappingConfig);
+
+    if (!datasetUrn.isPresent()) {
+      return null;
+    }
+
     schemaMetadata.setPlatformSchema(platformSchema);
 
-    schemaMetadata.setPlatform(new DataPlatformUrn(dataset.getNamespace()));
+    schemaMetadata.setPlatform(datasetUrn.get().getPlatformEntity());
 
     schemaMetadata.setFields(schemaFieldArray);
     return schemaMetadata;
