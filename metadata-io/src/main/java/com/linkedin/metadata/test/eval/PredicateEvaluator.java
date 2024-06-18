@@ -20,6 +20,7 @@ import com.linkedin.metadata.test.eval.operator.LessThanEvaluator;
 import com.linkedin.metadata.test.eval.operator.NotEvaluator;
 import com.linkedin.metadata.test.eval.operator.OrEvaluator;
 import com.linkedin.metadata.test.eval.operator.RegexMatchEvaluator;
+import com.linkedin.metadata.test.eval.operator.SchemaFieldsHaveDescriptions;
 import com.linkedin.metadata.test.eval.operator.StartsWithEvaluator;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import com.linkedin.metadata.test.query.TestQuery;
@@ -52,7 +53,8 @@ public class PredicateEvaluator {
             new ContainsAnyEvaluator(),
             new IsTrueEvaluator(),
             new IsFalseEvaluator(),
-            new ContainsStrEvaluator()));
+            new ContainsStrEvaluator(),
+            new SchemaFieldsHaveDescriptions()));
   }
 
   public PredicateEvaluator(List<BaseOperatorEvaluator> operationEvaluators) {
