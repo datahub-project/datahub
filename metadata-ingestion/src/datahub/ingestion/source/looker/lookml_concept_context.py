@@ -1,10 +1,11 @@
 import itertools
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from datahub.ingestion.source.looker.looker_common import (
     LookerConnectionDefinition,
+    ViewFieldValue,
     find_view_from_resolved_includes,
 )
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
@@ -26,6 +27,7 @@ class LookerViewContext:
     view_connection: LookerConnectionDefinition
     view_file_loader: LookerViewFileLoader
     looker_refinement_resolver: LookerRefinementResolver
+    base_folder_path: str
     reporter: LookMLSourceReport
 
     def __init__(
@@ -35,6 +37,7 @@ class LookerViewContext:
         view_connection: LookerConnectionDefinition,
         view_file_loader: LookerViewFileLoader,
         looker_refinement_resolver: LookerRefinementResolver,
+        base_folder_path: str,
         reporter: LookMLSourceReport,
     ):
         """
@@ -124,6 +127,7 @@ class LookerViewContext:
         self.view_connection = view_connection
         self.view_file_loader = view_file_loader
         self.looker_refinement_resolver = looker_refinement_resolver
+        self.base_folder_path = base_folder_path
         self.reporter = reporter
 
     def resolve_extends_view_name(
@@ -243,6 +247,24 @@ class LookerViewContext:
 
     def name(self) -> str:
         return self.raw_view[NAME]
+
+    def view_file_name(self) -> str:
+        splits: List[str] = self.view_file.absolute_file_path.split(
+            self.base_folder_path, 1
+        )
+        if len(splits) != 2:
+            logger.debug(
+                f"base_folder_path({self.base_folder_path}) and absolute_file_path({self.view_file.absolute_file_path})"
+                f" not matching"
+            )
+            return ViewFieldValue.NOT_AVAILABLE.value
+
+        file_name: str = splits[1]
+        logger.debug(f"file_path={file_name}")
+
+        return file_name.strip(
+            "/"
+        )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
 
     def is_materialized_derived_view(self) -> bool:
         for k in self.derived_table():

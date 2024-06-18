@@ -262,15 +262,11 @@ class LookerView:
             populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
         )
 
-        file_path = LookerView.determine_view_file_path(
-            base_folder_path, looker_viewfile.absolute_file_path
-        )
-
         looker_view_id: LookerViewId = LookerViewId(
             project_name=project_name,
             model_name=model_name,
             view_name=view_name,
-            file_path=file_path,
+            file_path=view_context.view_file_name(),
         )
 
         # Prep "default" values for the view, which will be overridden by the logic below.
@@ -1168,6 +1164,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 view_connection=connectionDefinition,
                                 view_file_loader=viewfile_loader,
                                 looker_refinement_resolver=looker_refinement_resolver,
+                                base_folder_path=base_folder_path,
                                 reporter=self.reporter,
                             )
 
