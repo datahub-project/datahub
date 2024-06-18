@@ -149,9 +149,9 @@ class _DatahubLogFilter(logging.Filter):
                 return record.levelno >= logging.INFO
         else:
             if self.debug:
-                return record.levelno >= logging.WARNING
-            else:
                 return record.levelno >= logging.INFO
+            else:
+                return record.levelno >= logging.WARNING
 
 
 class _LogBuffer:
