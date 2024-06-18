@@ -1,4 +1,4 @@
-package com.linkedin.metadata.aspect.hooks;
+package com.linkedin.metadata.structuredproperties.hooks;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.ReadItem;
