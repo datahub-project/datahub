@@ -185,21 +185,30 @@ class LookerViewContext:
 
         return None
 
-    def sql_table_name(self) -> str:
-        sql_table_name: Optional[str] = self.get_including_extends(
-            field="sql_table_name"
-        )
+    def _get_sql_table_name_field(self) -> Optional[str]:
+        return self.get_including_extends(field="sql_table_name")
 
+    def _is_dot_sql_table_name_present(self) -> bool:
+        sql_table_name: Optional[str] = self._get_sql_table_name_field()
+
+        if sql_table_name is None:
+            return False
+
+        if DERIVED_VIEW_SUFFIX in sql_table_name.lower():
+            return True
+
+        return False
+
+    def sql_table_name(self) -> str:
+        sql_table_name: Optional[str] = self._get_sql_table_name_field()
         # if sql_table_name field is not set then the table name is equal to view-name
         if sql_table_name is None:
             return self.raw_view[NAME].lower()
 
         # sql_table_name is in the format "${view-name}.SQL_TABLE_NAME"
         # remove extra characters
-        if self.is_sql_table_name_referring_to_view():
-            sql_table_name = re.sub(
-                DERIVED_VIEW_PATTERN, r"\1", self.raw_view[NAME].lower()
-            )
+        if self._is_dot_sql_table_name_present():
+            sql_table_name = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_table_name)
 
         # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
         return sql_table_name.replace('"', "").replace("`", "").lower()
@@ -235,12 +244,6 @@ class LookerViewContext:
     def name(self) -> str:
         return self.raw_view[NAME]
 
-    def is_derived_view(self) -> bool:
-        if DERIVED_VIEW_SUFFIX in self.raw_view[NAME].lower():
-            return True
-
-        return False
-
     def is_materialized_derived_view(self) -> bool:
         for k in self.derived_table():
             if k in ["datagroup_trigger", "sql_trigger_value", "persist_for"]:
@@ -254,28 +257,32 @@ class LookerViewContext:
     def is_regular_case(self) -> bool:
         # regular-case is pattern1 and 2 where upstream table is either view-name or
         # table name mentioned in sql_table_name attribute
-        if not self.is_derived_view():
-            return True
+        if (
+            self.is_sql_table_name_referring_to_view()
+            or self.is_sql_based_derived_case()
+            or self.is_native_derived_case()
+        ):
+            return False
 
-        return False
+        return True
 
     def is_sql_table_name_referring_to_view(self) -> bool:
         # It is pattern3
-        if DERIVED_VIEW_SUFFIX in self.sql_table_name():
-            return True
-
-        return False
+        return self._is_dot_sql_table_name_present()
 
     def is_sql_based_derived_case(self) -> bool:
         # It is pattern 5
-        if "derived" in self.raw_view and "sql" in self.raw_view["derived"]:
+        if "derived_table" in self.raw_view and "sql" in self.raw_view["derived_table"]:
             return True
 
         return False
 
     def is_native_derived_case(self) -> bool:
         # It is pattern 5
-        if "derived" in self.raw_view and "explore_source" in self.raw_view["derived"]:
+        if (
+            "derived_table" in self.raw_view
+            and "explore_source" in self.raw_view["derived_table"]
+        ):
             return True
 
         return False

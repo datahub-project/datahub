@@ -915,7 +915,7 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=True)
 
-    golden_path = test_resources_dir / "vv_lineage_liquid_template_golden.json.json"
+    golden_path = test_resources_dir / "vv_lineage_liquid_template_golden.json"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_out_file,
