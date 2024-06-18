@@ -38,7 +38,22 @@ This is over and above updating-datahub.md file
 `ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY` (default: 2) - Number of concurrent rest.li calls when the number of urns in a getBatchV2 call exceeds the batch
 size of 50. This is typical in metadata tests.
 
-`SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT` (default: false) - Whether we should separate siblings when fetching lineage data in search results by default. Typically this is false, but for Apple, we need this to be set to true.
+`SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT` (default: false) - Whether we should
+separate siblings when fetching lineage data in search results by default.
+Typically this is false, but for Apple, we need this to be set to true.
+
+#### Sharing
+
+`FEAT_SHARE_EXTRA_ASPECTS` (default: empty) - Set this env variable for integrations service to
+additionally share custom aspects that might have been provisioned.
+
+`FEAT_SHARE_SKIP_CACHE_ON_LINEAGE_QUERY` (default: false) - Set this env
+variable to true (case insensitive) in case you want sharing to always use the
+latest lineage results at the cost of performance.
+
+`FEAT_SHARE_MAX_ENTITIES_PER_SHARE` (default: 1000) - By default the sharing
+system will share a maximum of 1000 upstreams and 1000 downstreams. Change this
+env variable to share higher numbers.
 
 `GRAPHQL_QUERY_INTROSPECTION_ENABLED` (default: true) - Whether to enable introspection queries in the GraphQL API. By default, this was already true. 
 

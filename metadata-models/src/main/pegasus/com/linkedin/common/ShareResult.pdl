@@ -27,6 +27,12 @@ record ShareResult {
   */
   lastAttempt: AuditStamp
 
+  /**
+  * The request id that generated this share result. This is the id of the request that triggered this share.
+  * This is primarily used for debugging purposes.
+  */
+  lastAttemptRequestId: optional string
+
  /**
   * The config for this particular share result
   */
@@ -68,6 +74,12 @@ record ShareResult {
     */
     FAILURE
    }
+
+  /**
+  * The last time the status was updated. Timestamp in milliseconds since epoch.
+  * Useful for monitoring if the status is stale.
+  */
+  statusLastUpdated: optional long
 
  /**
   * Optional message for this share result. Error messages will be stored here.
