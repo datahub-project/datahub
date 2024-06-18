@@ -4,7 +4,7 @@ import { Select, Tooltip, Typography } from 'antd';
 import { Operator } from '../types/operators';
 
 const StyledSelect = styled(Select)`
-    width: 120px;
+    max-width: 160px;
     margin-right: 12px;
 `;
 

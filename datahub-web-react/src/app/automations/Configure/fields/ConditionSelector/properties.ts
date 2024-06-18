@@ -210,10 +210,22 @@ const datasetProps: Property[] = [
         valueType: ValueTypeId.STRING,
     },
     {
+        id: 'schemaFields',
+        displayName: 'Columns',
+        description: 'The set of columns / fields associated with the dataset.',
+        valueType: ValueTypeId.SCHEMA_FIELD_LIST,
+    },
+    {
         id: 'schemaMetadata.fields.fieldPath',
-        displayName: 'Schema Field Paths (Column Paths)',
-        description: 'The set of paths associated with the schema fields (columns) of the dataset.',
+        displayName: 'Column Paths',
+        description: 'The set of paths associated with the columns / fields of the dataset.',
         valueType: ValueTypeId.STRING_LIST,
+    },
+    {
+        id: 'schemaFields.length',
+        displayName: 'Number of Columns',
+        description: 'The number of columns / fields associated with the dataset.',
+        valueType: ValueTypeId.NUMBER,
     },
     {
         id: 'datasetMetrics',
