@@ -12,13 +12,13 @@ const DetailWrapper = styled.div`
 
 const MenuWrapper = styled.div`
     border-right: 2px solid #f5f5f5;
-    flex-basis: 256px;
+    flex-basis: 30%;
     flex-shrink: 1;
 `;
 
 const Content = styled.div`
     flex-grow: 1;
-    flex-basis: fit-content;
+    flex-basis: 70%;
     flex-shrink: 0;
     max-width: 100%;
     overflow: hidden;

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Dict, List, Optional, Set, Union
+import time
+from typing import Callable, Dict, List, Optional, Set, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
@@ -22,8 +23,11 @@ from datahub_integrations.share.api import (
     ShareConfig,
 )
 from datahub_integrations.share.share_settings import (
+    MAX_ENTITIES_PER_SHARE,
+    REPORTING_HEARTBEAT_INTERVAL,
     RESTRICTED_SHARED_ASPECTS,
     SHARED_ASPECTS,
+    SKIP_CACHE_ON_LINEAGE_QUERY,
 )
 
 GET_LINEAGE_GQL = """
@@ -103,7 +107,7 @@ class ShareAgent:
         return entities_to_sync
 
     def get_entities_across_lineage(
-        self, entity_urn: str, lineage_direction: LineageDirection
+        self, entity_urn: str, lineage_direction: LineageDirection, max_entities: int
     ) -> Set[str]:
         entities_to_sync: Set[str] = set()
         variables: Dict = {
@@ -113,15 +117,21 @@ class ShareAgent:
             }
         }
 
-        prev_scroll_id: Optional[str] = None
+        if SKIP_CACHE_ON_LINEAGE_QUERY:
+            variables["input"]["searchFlags"] = {
+                "skipCache": True,
+                "fulltext": False,  # these flags are required, even though we don't use them
+                "maxAggValues": 10,  # these flags are required, even though we don't use them
+            }
+
         scroll_id: Optional[str] = None
-        page = 0
-        while page == 0 or (prev_scroll_id != scroll_id and scroll_id):
+        while len(entities_to_sync) < max_entities or (max_entities == -1):
             logger.info(
-                f"Fetching page {page} of {lineage_direction} entities of {entity_urn}"
+                f"Fetching entities of {lineage_direction} for {entity_urn} with scrollId: {scroll_id}"
             )
-            variables["input"]["scrollId"] = prev_scroll_id
-            prev_scroll_id = scroll_id
+            if scroll_id:
+                variables["input"]["scrollId"] = scroll_id
+
             res = self.source_graph.execute_graphql(
                 GET_LINEAGE_GQL, variables=variables
             )
@@ -129,11 +139,17 @@ class ShareAgent:
             for entity in res["scrollAcrossLineage"]["searchResults"]:
                 entities = self.determine_entities_to_sync(entity["entity"]["urn"])
                 entities_to_sync = entities_to_sync.union(entities)
-            page += 1
+
+            if not scroll_id:
+                break
 
         logger.info(
-            f"Found {len(entities_to_sync)} entities of type {lineage_direction} for {entity_urn} Entities: {entities_to_sync}"
+            f"Found {len(entities_to_sync)} entities of type {lineage_direction} for {entity_urn}. Entities: {entities_to_sync}"
         )
+        if len(entities_to_sync) >= max_entities:
+            logger.warning(
+                f"Reached max entities to sync for {entity_urn} with {len(entities_to_sync)} entities with lineage direction {lineage_direction}. Will share only {max_entities} entities."
+            )
 
         return entities_to_sync
 
@@ -146,6 +162,7 @@ class ShareAgent:
         implicit_share_entity: str | None,
         status: Union[str, ShareResultStateClass] = ShareResultStateClass.SUCCESS,
         share_config: Optional[ShareConfigClass] = None,
+        share_request_id: Optional[str] = None,
     ) -> models.ShareClass:
         # Copy the existing share aspect or init an empty one.
         share_aspect = (
@@ -190,15 +207,20 @@ class ShareAgent:
                 status=status,
                 implicitShareEntity=implicit_share_entity,
                 shareConfig=share_config,
+                lastAttemptRequestId=share_request_id,
             )
 
         # Update the share result.
         share_to_add.status = status
-        share_to_add.lastAttempt = current_audit_stamp
+        share_to_add.lastAttempt = (
+            share_to_add.lastAttempt or current_audit_stamp
+        )  # use the current last attempt id if it exists
         if status == ShareResultStateClass.SUCCESS:
             share_to_add.lastSuccess = current_audit_stamp
         share_to_add.message = None
         share_to_add.shareConfig = share_config
+        share_to_add.lastAttemptRequestId = share_request_id
+        share_to_add.statusLastUpdated = current_audit_stamp.time
 
         share_results.append(share_to_add)
         logging.debug(
@@ -227,7 +249,9 @@ class ShareAgent:
         sharer_urn: str,
         restricted: bool = False,
         share_config: Optional[ShareConfigClass] = None,
-    ) -> None:
+        system_metadata: Optional[models.SystemMetadataClass] = None,
+        update_share_aspect: bool = True,
+    ) -> Optional[Callable]:
         # TODO: This does not work for timeseries aspects.
         raw_entity = self.source_graph.get_entity_raw(shared_urn)
         raw_entity_aspects = raw_entity.get("aspects", {})
@@ -242,7 +266,11 @@ class ShareAgent:
             if aspect_name in allowed_aspects
         }
 
-        logger.info(
+        # status is special - we emit it even if it's not in the allowed_aspects
+        # list.
+        if "status" not in shareable_aspects:
+            shareable_aspects["status"] = {"removed": False}
+        logger.debug(
             f"For {shared_urn}, {'restricted ' if restricted else ''}sharing {len(shareable_aspects)} aspects: "
             f"{list(shareable_aspects.keys())}"
         )
@@ -259,22 +287,42 @@ class ShareAgent:
                     ).encode(),
                     contentType=JSON_CONTENT_TYPE,
                 ),
+                systemMetadata=system_metadata,
             )
             for aspect_name, aspect in shareable_aspects.items()
         ]
 
+        failures = False
+        error_messages = []
         for mcp in destination_mcps:
-            # TODO: Set systemMetadata for the MCPs.
-            # TODO: We also need to mark these entities as shared in the destination.
-            self.destination_graph.emit(mcp)
+            # TODO: We also need to mark these entities as shared in the
+            # destination.
+            try:
+                self.destination_graph.emit(mcp)
+            except Exception as e:
+                logger.error(
+                    f"Failed to emit entity {mcp.entityUrn}, aspect {mcp.aspectName} to destination: {e}"
+                )
+                error_messages.append(f"{mcp.aspectName}: {e}")
+                failures = True
 
-        self.emit_share_result(
+        share_aspect_emitter_func = lambda: self.emit_share_result(  # noqa: E731
             root_entity_urn,
             shared_urn,
             sharer_urn,
-            ShareResultStateClass.SUCCESS,
+            (
+                ShareResultStateClass.FAILURE
+                if failures
+                else ShareResultStateClass.SUCCESS
+            ),
             share_config,
         )
+        if update_share_aspect:
+            share_aspect_emitter_func()
+        else:
+            return share_aspect_emitter_func
+
+        return None
 
     def emit_share_result(
         self,
@@ -283,6 +331,7 @@ class ShareAgent:
         sharer_urn: str,
         status: str = ShareResultStateClass.SUCCESS,
         share_config: Optional[ShareConfigClass] = None,
+        share_request_id: Optional[str] = None,
     ) -> None:
         # Finally, update the source_graph's share aspect.
         existing_share_aspect: models.ShareClass = self.source_graph.get_aspect(
@@ -301,6 +350,7 @@ class ShareAgent:
             ),
             share_config=share_config,
             status=status,
+            share_request_id=share_request_id,
         )
 
         self.source_graph.emit(
@@ -392,7 +442,13 @@ class ShareAgent:
         entity_urn: str,
         sharer_urn: str,
         lineage_direction: Optional[LineageDirection] = None,
+        share_request_id: Optional[str] = None,
     ) -> ExecuteShareResult:
+
+        # Record the start time of this operation
+        last_report_time = time.time()
+
+        system_metadata = models.SystemMetadataClass(runId=share_request_id)
 
         logger.debug(f"Using destination graph: {self.destination_graph!r}")
 
@@ -409,11 +465,23 @@ class ShareAgent:
 
             for direction in lineage_direction_list:
                 lineage_entities = self.get_entities_across_lineage(
-                    entity_urn, lineage_direction=direction
+                    entity_urn,
+                    lineage_direction=direction,
+                    max_entities=MAX_ENTITIES_PER_SHARE,
                 )
                 entities_to_sync = entities_to_sync.union(lineage_entities)
         logger.info(
             f"Going to sync {len(entities_to_sync)} entities: {entities_to_sync}"
+        )
+
+        share_config = ShareConfigClass(
+            enableDownstreamLineage=lineage_direction
+            in [
+                LineageDirection.DOWNSTREAM,
+                LineageDirection.BOTH,
+            ],
+            enableUpstreamLineage=lineage_direction
+            in [LineageDirection.UPSTREAM, LineageDirection.BOTH],
         )
 
         count = 0
@@ -421,7 +489,8 @@ class ShareAgent:
         # The shared entity should have shared an share with IN_PROGRESS status earlier
 
         entities_to_sync.remove(entity_urn)
-        entities_to_sync_list = list(entities_to_sync) + [entity_urn]
+        entities_to_sync_list = [entity_urn] + list(entities_to_sync)
+        root_entity_status_emitter = None
         # Then, we sync each entity.
         for shared_urn in entities_to_sync_list:
             ownership = self.source_graph.get_ownership(shared_urn)
@@ -436,28 +505,47 @@ class ShareAgent:
                 # If there's no ownership, we assume it's not restricted.
                 restricted = False
 
-            share_config = ShareConfigClass(
-                enableDownstreamLineage=lineage_direction
-                in [
-                    LineageDirection.DOWNSTREAM,
-                    LineageDirection.BOTH,
-                ],
-                enableUpstreamLineage=lineage_direction
-                in [LineageDirection.UPSTREAM, LineageDirection.BOTH],
-            )
-
-            self.share_one_entity(
+            emitter_func = self.share_one_entity(
                 shared_urn=shared_urn,
                 root_entity_urn=entity_urn,
                 sharer_urn=sharer_urn,
                 restricted=restricted,
                 share_config=share_config,
+                system_metadata=system_metadata,
+                update_share_aspect=(
+                    False if shared_urn == entity_urn else True
+                ),  # We update the share aspect for the entity_urn at the end.
             )
-            count += 1
-            if len(entities_to_sync) % 10 == 0:
-                logger.info(f"Shared {count} out of {len(entities_to_sync)} entities.")
+            if shared_urn == entity_urn and emitter_func:
+                root_entity_status_emitter = emitter_func
 
-        logger.info(f"Shared {len(entities_to_sync)} entities.")
+            count += 1
+            if count % 10 == 0:
+                # Only check for reporting every 10 entities.
+                if time.time() - last_report_time > REPORTING_HEARTBEAT_INTERVAL:
+                    logger.info(
+                        f"Shared {count} out of {len(entities_to_sync)} entities."
+                    )
+                    self.emit_share_result(
+                        entity_urn,
+                        entity_urn,
+                        sharer_urn,
+                        ShareResultStateClass.RUNNING,
+                        ShareConfigClass(
+                            enableUpstreamLineage=lineage_direction
+                            in [LineageDirection.UPSTREAM, LineageDirection.BOTH],
+                            enableDownstreamLineage=lineage_direction
+                            in [LineageDirection.DOWNSTREAM, LineageDirection.BOTH],
+                        ),
+                        share_request_id=share_request_id,
+                    )
+                    last_report_time = time.time()
+
+        # Finally, update the share aspect for the root entity.
+        if root_entity_status_emitter:
+            root_entity_status_emitter()
+
+        logger.info(f"Shared {len(entities_to_sync_list)} entities.")
         result = ExecuteShareResult(
             status="ok",
             entities_shared=list(entities_to_sync),
@@ -466,9 +554,47 @@ class ShareAgent:
         logger.debug(f"Result: {result}")
         return result
 
+    def get_lineage_direction_from_share_aspect(
+        self, entity_urn: str
+    ) -> Optional[LineageDirection]:
+        share_aspect = self.source_graph.get_aspect(entity_urn, models.ShareClass)
+        if not share_aspect or not share_aspect.lastShareResults:
+            logger.info(f"Entity {entity_urn} does not have a share aspect.")
+            return None
+        if share_aspect.lastShareResults:
+            this_share_result = [
+                x
+                for x in share_aspect.lastShareResults
+                if x.destination == self.source_share_connection_urn
+                and x.implicitShareEntity is None
+                and x.lastAttempt is not None
+            ]
+            sorted(this_share_result, key=lambda x: x.lastAttempt.time, reverse=True)
+            if this_share_result:
+                this_share = this_share_result[0]
+                if this_share.shareConfig:
+                    if (
+                        this_share.shareConfig.enableDownstreamLineage
+                        and this_share.shareConfig.enableUpstreamLineage
+                    ):
+                        return LineageDirection.BOTH
+                    elif this_share.shareConfig.enableUpstreamLineage:
+                        return LineageDirection.UPSTREAM
+                    elif this_share.shareConfig.enableDownstreamLineage:
+                        return LineageDirection.DOWNSTREAM
+        return None
+
     def unshare(
         self, entity_urn: str, lineage_direction: Optional[LineageDirection] = None
     ) -> ExecuteUnshareResult:
+
+        if not lineage_direction:
+            # If lineage direction is not provided, we need to determine the lineage direction from the share aspect.
+            lineage_direction = self.get_lineage_direction_from_share_aspect(entity_urn)
+
+        logger.info(
+            f"Unsharing {entity_urn} with lineage direction {lineage_direction}"
+        )
         # We have to determine the entities to unshare as it is possible a Container was shared with the entity
         entities_to_unshare = self.determine_entities_to_sync(entity_urn)
 
@@ -483,7 +609,9 @@ class ShareAgent:
 
             for lineage_direction in lineage_direction_list:
                 lineage_entities = self.get_entities_across_lineage(
-                    entity_urn, lineage_direction=lineage_direction
+                    entity_urn,
+                    lineage_direction=lineage_direction,
+                    max_entities=MAX_ENTITIES_PER_SHARE,
                 )
                 entities_to_unshare = entities_to_unshare.union(lineage_entities)
 
@@ -506,7 +634,7 @@ class ShareAgent:
 
             if len(unshared_urns) % 10 == 0:
                 logger.info(
-                    f"Unshared {len(unshared_urns)} out of {len(entities_to_unshare)} entities."
+                    f"Unshared {len(unshared_urns)} out of {len(urns_to_unshare)} entities."
                 )
 
         unshare_result = ExecuteUnshareResult(
@@ -514,5 +642,5 @@ class ShareAgent:
             entities_unshared=list(unshared_urns),
         )
 
-        logger.info(f"Unshared {len(unshared_urns)} entities")
+        logger.info(f"Unshared {len(urns_to_unshare)} entities")
         return unshare_result

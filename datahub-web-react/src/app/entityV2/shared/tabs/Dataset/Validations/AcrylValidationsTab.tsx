@@ -43,11 +43,7 @@ export const AcrylValidationsTab = () => {
     const appConfig = useAppConfig();
 
     const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
-    const totalAssertions =
-        assertionsData?.dataset?.assertions?.assertions?.filter(
-            // SaaS-Only filtering.
-            (assertion) => assertion.info?.source?.type !== AssertionSourceType.Inferred,
-        ).length || 0;
+    const totalAssertions = assertionsData?.dataset?.assertions?.assertions?.length || 0;
 
     const passingTests = (entityData as any)?.testResults?.passing || [];
     const failingTests = (entityData as any)?.testResults?.failing || [];

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import Optional
 
 import anyio
@@ -46,6 +47,9 @@ def execute_share(
     )
 
     share_agent = get_or_create_share_agent(share_connection_urn=share_connection_urn)
+    # generate a guid for the share request
+
+    share_request_id = str(uuid.uuid4())
     share_agent.emit_share_result(
         entity_urn,
         entity_urn,
@@ -57,6 +61,7 @@ def execute_share(
             enableDownstreamLineage=lineage_direction
             in [LineageDirection.DOWNSTREAM, LineageDirection.BOTH],
         ),
+        share_request_id=share_request_id,
     )
     background_tasks.add_task(
         anyio.to_thread.run_sync,
@@ -64,6 +69,7 @@ def execute_share(
         entity_urn,
         sharer_urn,
         lineage_direction,
+        share_request_id,
     )
 
     return ExecuteShareResult(status="success", entities_shared=[entity_urn])

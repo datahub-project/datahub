@@ -559,7 +559,9 @@ def test_unshare() -> None:
         mcp = method_call[0][0]
         assert mcp.aspectName == "status"
 
-    assert source_graph.get_aspect.call_count == 1
+    assert (
+        source_graph.get_aspect.call_count == 2
+    )  # unshare checks the share aspect twice (first to determine lineage and second to update it)
 
     assert source_graph.get_aspect.call_args[0][0] == urn_to_unshare
     assert source_graph.get_aspect.call_args[0][1] == ShareClass
@@ -876,7 +878,9 @@ def test_unshare_complex_explicit_share_should_force_unshare_the_entity() -> Non
         mcp = method_call[0][0]
         assert mcp.aspectName == "status"
 
-    assert source_graph.get_aspect.call_count == 1
+    assert (
+        source_graph.get_aspect.call_count == 2
+    )  # unshare checks the share aspect twice
 
     assert source_graph.get_aspect.call_args[0][0] == urn_to_unshare
     assert source_graph.get_aspect.call_args[0][1] == ShareClass
@@ -968,6 +972,7 @@ def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_uns
                             time=1649980800000,  # frozen time
                             actor="urn:li:corpuser:testUser",
                         ),
+                        statusLastUpdated=1649980800000,
                     )
                 ]
             ),
@@ -1007,7 +1012,7 @@ def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_uns
                             actor="urn:li:corpuser:testUser",
                         ),
                         lastAttempt=models.AuditStampClass(
-                            time=1649980800000,  # frozen time
+                            time=1600080800000,  # earlier than frozen time (we don't update lastAttempt as part of update_share_aspect method),
                             actor="urn:li:corpuser:testUser",
                         ),
                         status=models.ShareResultStateClass.SUCCESS,
@@ -1016,6 +1021,7 @@ def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_uns
                             time=1649980800000,  # frozen time
                             actor="urn:li:corpuser:testUser",
                         ),
+                        statusLastUpdated=1649980800000,
                     )
                 ]
             ),
@@ -1058,7 +1064,7 @@ def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_uns
                             actor="urn:li:corpuser:testUser",
                         ),
                         lastAttempt=models.AuditStampClass(
-                            time=1649980800000,  # frozen time
+                            time=1600080800000,  # earlier frozen time (we don't update lastAttempt as part of update_share_aspect method)
                             actor="urn:li:corpuser:testUser",
                         ),
                         status=models.ShareResultStateClass.SUCCESS,
@@ -1067,6 +1073,7 @@ def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_uns
                             time=1649980800000,  # frozen time
                             actor="urn:li:corpuser:testUser",
                         ),
+                        statusLastUpdated=1649980800000,
                     )
                 ]
             ),
@@ -1135,6 +1142,7 @@ def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_uns
                             time=1649980800000,  # frozen time
                             actor="urn:li:corpuser:testUser",
                         ),
+                        statusLastUpdated=1649980800000,
                     ),
                 ]
             ),
@@ -1203,6 +1211,7 @@ def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_uns
                             time=1649980800000,  # frozen time
                             actor="urn:li:corpuser:testUser",
                         ),
+                        statusLastUpdated=1649980800000,
                     ),
                 ]
             ),
@@ -1271,6 +1280,7 @@ def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_uns
                             time=1649980800000,  # frozen time
                             actor="urn:li:corpuser:testUser",
                         ),
+                        statusLastUpdated=1649980800000,
                     ),
                 ]
             ),
@@ -1339,6 +1349,7 @@ def test_unshare_complex_explicit_share_should_not_be_unshared_with_implicit_uns
                             time=1649980800000,  # frozen time
                             actor="urn:li:corpuser:testUser",
                         ),
+                        statusLastUpdated=1649980800000,
                     ),
                 ]
             ),
@@ -1382,3 +1393,32 @@ def test_update_share_aspect(
         print("Expected")
         print(expected_result_share)
         raise e
+
+
+def test_failures_in_emission() -> None:
+
+    destination_graph = Mock()
+    source_graph = Mock()
+    destination_graph.emit.side_effect = Exception("Failed to emit")
+
+    source_graph.get_aspect.return_value = None
+    source_graph.get_ownership.return_value = None
+    source_graph.get_entity_raw.return_value = json.load(
+        open("tests/share/sample_files/sample_entity_v2_response.json")
+    )
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn="dummy_connection_url",
+        destination_graph=destination_graph,
+    )
+
+    share_agent.share(
+        "urn:li:dataset:1",
+        "urn:li:corpuser:dummy_user",
+    )
+
+    call_arg = source_graph.emit.call_args_list[0]
+    share_results = call_arg[0][0].aspect.lastShareResults
+    assert len(share_results) == 1
+    assert share_results[0].status == models.ShareResultStateClass.FAILURE
+    assert share_results[0].destination == "dummy_connection_url"

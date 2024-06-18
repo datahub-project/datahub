@@ -518,6 +518,7 @@ class AspectPluginConfig:
     supportedEntityAspectNames: List[EntityAspectName]
     packageScan: Optional[List[str]] = None
     supportedOperations: Optional[List[str]] = None
+    packageScan: Optional[List[str]] = None
 
 
 @dataclass
