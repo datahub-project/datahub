@@ -177,11 +177,13 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             ],
         )
         report = cast(SnowflakeV2Report, pipeline.source.get_report())
-        assert report.lru_cache_info["get_tables_for_database"]["misses"] == 1
-        assert report.lru_cache_info["get_views_for_database"]["misses"] == 1
-        assert report.lru_cache_info["get_columns_for_schema"]["misses"] == 1
-        assert report.lru_cache_info["get_pk_constraints_for_schema"]["misses"] == 1
-        assert report.lru_cache_info["get_fk_constraints_for_schema"]["misses"] == 1
+        assert report.data_dictionary_cache is not None
+        cache_info = report.data_dictionary_cache.as_obj()
+        assert cache_info["get_tables_for_database"]["misses"] == 1
+        assert cache_info["get_views_for_database"]["misses"] == 1
+        assert cache_info["get_columns_for_schema"]["misses"] == 1
+        assert cache_info["get_pk_constraints_for_schema"]["misses"] == 1
+        assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
 
 @freeze_time(FROZEN_TIME)
