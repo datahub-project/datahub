@@ -95,6 +95,15 @@ class SnowflakeV2Config(
         description="If enabled, populates the snowflake technical schema and descriptions.",
     )
 
+    include_primary_keys: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake primary keys.",
+    )
+    include_foreign_keys: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake foreign keys.",
+    )
+
     include_column_lineage: bool = Field(
         default=True,
         description="Populates table->table and view->table column lineage. Requires appropriate grants given to the role and the Snowflake Enterprise Edition or above.",

@@ -529,10 +529,6 @@ class SnowflakeSchemaGenerator(
 
         self.fetch_columns_for_table(table, schema_name, db_name, table_identifier)
 
-        self.fetch_pk_for_table(table, schema_name, db_name, table_identifier)
-
-        self.fetch_foreign_keys_for_table(table, schema_name, db_name, table_identifier)
-
         if self.config.extract_tags != TagOption.skip:
             table.tags = self.tag_extractor.get_tags_on_object(
                 table_name=table.name,
@@ -542,6 +538,14 @@ class SnowflakeSchemaGenerator(
             )
 
         if self.config.include_technical_schema:
+            if self.config.include_primary_keys:
+                self.fetch_pk_for_table(table, schema_name, db_name, table_identifier)
+
+            if self.config.include_foreign_keys:
+                self.fetch_foreign_keys_for_table(
+                    table, schema_name, db_name, table_identifier
+                )
+
             if table.tags:
                 for tag in table.tags:
                     yield from self._process_tag(tag)
