@@ -68,7 +68,7 @@ export default function UserSidebar({ sidebarData, refetch }: Props) {
                     onSaveAboutMe={onSaveAboutMe}
                 />
                 <UserOwnershipSidebarSection ownedEntities={ownerships} />
-                <UserSubscriptions isCompact />
+                <UserSubscriptions isCompact urn={urn} />
                 <UserGroupSideBarSection groupsDetails={groupsDetails} />
             </Content>
         </SideBar>
