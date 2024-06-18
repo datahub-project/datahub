@@ -23,6 +23,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
+    FormActorAssignmentClass,
     FormInfoClass,
     FormPromptClass,
     OwnerClass,
@@ -82,6 +83,12 @@ class Entities(ConfigModel):
     filters: Optional[Filters] = None
 
 
+class Actors(ConfigModel):
+    owners: Optional[bool] = None
+    users: Optional[List[str]] = None  # can be user IDs or urns
+    groups: Optional[List[str]] = None  # can be group IDs or urns
+
+
 class Forms(ConfigModel):
     id: Optional[str] = None
     urn: Optional[str] = None
@@ -93,6 +100,7 @@ class Forms(ConfigModel):
     entities: Optional[Entities] = None
     owners: Optional[List[str]] = None  # can be user IDs or urns
     group_owners: Optional[List[str]] = None  # can be group IDs or urns
+    actors: Optional[Actors] = None
 
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
@@ -124,6 +132,7 @@ class Forms(ConfigModel):
                                 description=form.description,
                                 prompts=form.validate_prompts(emitter),
                                 type=form.type,
+                                actors=form.create_form_actors(form.actors),
                             ),
                         )
                         emitter.emit_mcp(mcp)
@@ -201,6 +210,24 @@ class Forms(ConfigModel):
 
         return prompts
 
+    def create_form_actors(
+        self, actors: Optional[Actors] = None
+    ) -> Union[None, FormActorAssignmentClass]:
+        if actors is None:
+            return None
+
+        users = None
+        if actors.users is not None:
+            users = Forms.format_users(actors.users)
+
+        groups = None
+        if actors.groups is not None:
+            groups = Forms.format_groups(actors.groups)
+
+        return FormActorAssignmentClass(
+            owners=actors.owners, users=users, groups=groups
+        )
+
     def upload_entities_for_form(self, emitter: DataHubGraph) -> Union[None, Exception]:
         if self.entities and self.entities.urns:
             formatted_entity_urns = ", ".join(
@@ -260,9 +287,9 @@ class Forms(ConfigModel):
     def add_owners(self, emitter: DataHubGraph) -> Union[None, Exception]:
         owner_urns: List[str] = []
         if self.owners:
-            owner_urns += Forms.format_owners(self.owners)
+            owner_urns += Forms.format_users(self.owners)
         if self.group_owners:
-            owner_urns += Forms.format_group_owners(self.group_owners)
+            owner_urns += Forms.format_groups(self.group_owners)
 
         ownership = OwnershipClass(
             owners=[
@@ -326,28 +353,28 @@ class Forms(ConfigModel):
         )
 
     @staticmethod
-    def format_owners(owners: List[str]) -> List[str]:
-        formatted_owners: List[str] = []
+    def format_users(users: List[str]) -> List[str]:
+        formatted_users: List[str] = []
 
-        for owner in owners:
-            if owner.startswith("urn:li:"):
-                formatted_owners.append(owner)
+        for user in users:
+            if user.startswith("urn:li:"):
+                formatted_users.append(user)
             else:
-                formatted_owners.append(make_user_urn(owner))
+                formatted_users.append(make_user_urn(user))
 
-        return formatted_owners
+        return formatted_users
 
     @staticmethod
-    def format_group_owners(owners: List[str]) -> List[str]:
-        formatted_owners: List[str] = []
+    def format_groups(groups: List[str]) -> List[str]:
+        formatted_groups: List[str] = []
 
-        for owner in owners:
-            if owner.startswith("urn:li:"):
-                formatted_owners.append(owner)
+        for group in groups:
+            if group.startswith("urn:li:"):
+                formatted_groups.append(group)
             else:
-                formatted_owners.append(make_group_urn(owner))
+                formatted_groups.append(make_group_urn(group))
 
-        return formatted_owners
+        return formatted_groups
 
     def to_yaml(
         self,

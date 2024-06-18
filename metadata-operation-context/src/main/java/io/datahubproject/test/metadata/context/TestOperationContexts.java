@@ -11,6 +11,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -19,6 +20,8 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -55,7 +58,7 @@ public class TestOperationContexts {
 
   private static EntityRegistry defaultEntityRegistryInstance;
 
-  private static EntityRegistry defaultEntityRegistry() {
+  public static EntityRegistry defaultEntityRegistry() {
     if (defaultEntityRegistryInstance == null) {
       PathSpecBasedSchemaAnnotationVisitor.class
           .getClassLoader()
@@ -84,6 +87,7 @@ public class TestOperationContexts {
   }
 
   public static GraphRetriever emptyGraphRetriever = new EmptyGraphRetriever();
+  public static SearchRetriever emptySearchRetriever = new EmptySearchRetriever();
 
   public static RetrieverContext emptyRetrieverContext(
       @Nullable Supplier<EntityRegistry> entityRegistrySupplier) {
@@ -91,6 +95,7 @@ public class TestOperationContexts {
     return RetrieverContext.builder()
         .aspectRetriever(emptyAspectRetriever(entityRegistrySupplier))
         .graphRetriever(emptyGraphRetriever)
+        .searchRetriever(emptySearchRetriever)
         .build();
   }
 
@@ -115,6 +120,20 @@ public class TestOperationContexts {
 
   public static OperationContext systemContextNoSearchAuthorization(
       @Nullable RetrieverContext retrieverContext) {
+    return systemContextNoSearchAuthorization(
+        () -> retrieverContext.getAspectRetriever().getEntityRegistry(),
+        () -> retrieverContext,
+        null);
+  }
+
+  public static OperationContext systemContextNoSearchAuthorization(
+      @Nullable AspectRetriever aspectRetriever) {
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .aspectRetriever(aspectRetriever)
+            .graphRetriever(emptyGraphRetriever)
+            .searchRetriever(emptySearchRetriever)
+            .build();
     return systemContextNoSearchAuthorization(
         () -> retrieverContext.getAspectRetriever().getEntityRegistry(),
         () -> retrieverContext,
@@ -274,6 +293,22 @@ public class TestOperationContexts {
         @Nullable Long startTimeMillis,
         @Nullable Long endTimeMillis) {
       return new RelatedEntitiesScrollResult(0, 0, null, List.of());
+    }
+  }
+
+  public static class EmptySearchRetriever implements SearchRetriever {
+
+    @Override
+    public ScrollResult scroll(
+        @Nonnull List<String> entities,
+        @Nullable Filter filters,
+        @Nullable String scrollId,
+        int count) {
+      ScrollResult empty = new ScrollResult();
+      empty.setEntities(new SearchEntityArray());
+      empty.setNumEntities(0);
+      empty.setPageSize(0);
+      return empty;
     }
   }
 

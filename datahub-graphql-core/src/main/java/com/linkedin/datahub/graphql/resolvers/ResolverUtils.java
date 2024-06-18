@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -112,10 +113,11 @@ public class ResolverUtils {
     return facetFilters;
   }
 
-  public static List<Criterion> criterionListFromAndFilter(List<FacetFilterInput> andFilters) {
+  public static List<Criterion> criterionListFromAndFilter(
+      List<FacetFilterInput> andFilters, @Nullable AspectRetriever aspectRetriever) {
     return andFilters != null && !andFilters.isEmpty()
         ? andFilters.stream()
-            .map(filter -> criterionFromFilter(filter))
+            .map(filter -> criterionFromFilter(filter, aspectRetriever))
             .collect(Collectors.toList())
         : Collections.emptyList();
   }
@@ -124,13 +126,14 @@ public class ResolverUtils {
   // conjunctive criterion
   // arrays, rather than just one for the AND case.
   public static ConjunctiveCriterionArray buildConjunctiveCriterionArrayWithOr(
-      @Nonnull List<AndFilterInput> orFilters) {
+      @Nonnull List<AndFilterInput> orFilters, @Nullable AspectRetriever aspectRetriever) {
     return new ConjunctiveCriterionArray(
         orFilters.stream()
             .map(
                 orFilter -> {
                   CriterionArray andCriterionForOr =
-                      new CriterionArray(criterionListFromAndFilter(orFilter.getAnd()));
+                      new CriterionArray(
+                          criterionListFromAndFilter(orFilter.getAnd(), aspectRetriever));
                   return new ConjunctiveCriterion().setAnd(andCriterionForOr);
                 })
             .collect(Collectors.toList()));
@@ -138,7 +141,9 @@ public class ResolverUtils {
 
   @Nullable
   public static Filter buildFilter(
-      @Nullable List<FacetFilterInput> andFilters, @Nullable List<AndFilterInput> orFilters) {
+      @Nullable List<FacetFilterInput> andFilters,
+      @Nullable List<AndFilterInput> orFilters,
+      @Nullable AspectRetriever aspectRetriever) {
     if ((andFilters == null || andFilters.isEmpty())
         && (orFilters == null || orFilters.isEmpty())) {
       return null;
@@ -147,30 +152,33 @@ public class ResolverUtils {
     // Or filters are the new default. We will check them first.
     // If we have OR filters, we need to build a series of CriterionArrays
     if (orFilters != null && !orFilters.isEmpty()) {
-      return new Filter().setOr(buildConjunctiveCriterionArrayWithOr(orFilters));
+      return new Filter().setOr(buildConjunctiveCriterionArrayWithOr(orFilters, aspectRetriever));
     }
 
     // If or filters are not set, someone may be using the legacy and filters
-    final List<Criterion> andCriterions = criterionListFromAndFilter(andFilters);
+    final List<Criterion> andCriterions = criterionListFromAndFilter(andFilters, aspectRetriever);
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(
                 new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
   }
 
-  public static Criterion criterionFromFilter(final FacetFilterInput filter) {
-    return criterionFromFilter(filter, false);
+  public static Criterion criterionFromFilter(
+      final FacetFilterInput filter, @Nullable AspectRetriever aspectRetriever) {
+    return criterionFromFilter(filter, false, aspectRetriever);
   }
 
   // Translates a FacetFilterInput (graphql input class) into Criterion (our internal model)
   public static Criterion criterionFromFilter(
-      final FacetFilterInput filter, final Boolean skipKeywordSuffix) {
+      final FacetFilterInput filter,
+      final Boolean skipKeywordSuffix,
+      @Nullable AspectRetriever aspectRetriever) {
     Criterion result = new Criterion();
 
     if (skipKeywordSuffix) {
       result.setField(filter.getField());
     } else {
-      result.setField(getFilterField(filter.getField(), skipKeywordSuffix));
+      result.setField(getFilterField(filter.getField(), skipKeywordSuffix, aspectRetriever));
     }
 
     // `value` is deprecated in place of `values`- this is to support old query patterns. If values
@@ -205,11 +213,13 @@ public class ResolverUtils {
   }
 
   private static String getFilterField(
-      final String originalField, final boolean skipKeywordSuffix) {
+      final String originalField,
+      final boolean skipKeywordSuffix,
+      @Nullable AspectRetriever aspectRetriever) {
     if (KEYWORD_EXCLUDED_FILTERS.contains(originalField)) {
       return originalField;
     }
-    return ESUtils.toKeywordField(originalField, skipKeywordSuffix);
+    return ESUtils.toKeywordField(originalField, skipKeywordSuffix, aspectRetriever);
   }
 
   public static Filter buildFilterWithUrns(@Nonnull Set<Urn> urns, @Nullable Filter inputFilters) {
