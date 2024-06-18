@@ -1,7 +1,5 @@
 import React from 'react';
 import styled from 'styled-components';
-import * as moment from 'moment-timezone';
-import cronstrue from 'cronstrue';
 import {
     ClockCircleOutlined,
     TableOutlined,
@@ -26,7 +24,6 @@ import {
 } from '../../../../../../types.generated';
 import { sortAssertions } from './assertionUtils';
 import { AssertionGroup, AssertionStatusSummary } from './types';
-import { lowerFirstLetter } from '../../../../../shared/textUtil';
 import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
 import { parseMaybeStringAsFloatOrDefault } from '../../../../../shared/numberUtil';
 

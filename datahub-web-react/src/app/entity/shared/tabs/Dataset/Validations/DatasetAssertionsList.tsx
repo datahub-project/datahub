@@ -9,6 +9,7 @@ import {
     StopOutlined,
     AuditOutlined,
 } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import { DatasetAssertionDescription } from './DatasetAssertionDescription';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { DatasetAssertionDetails } from './DatasetAssertionDetails';
@@ -17,11 +18,9 @@ import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import AssertionMenu from './AssertionMenu';
-import { Link, useParams } from 'react-router-dom';
 import { REDESIGN_COLORS } from '../../../constants';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { isAssertionPartOfContract } from './contract/utils';
-import { decodeUrn } from '../../../utils';
 import { useEntityData } from '../../../EntityContext';
 
 const ResultContainer = styled.div`

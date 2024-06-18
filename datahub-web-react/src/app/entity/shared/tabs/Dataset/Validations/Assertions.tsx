@@ -53,7 +53,7 @@ export const Assertions = () => {
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
-    const { data: contractData, refetch: contractRefetch } = useGetDatasetContractQuery({
+    const { data: contractData } = useGetDatasetContractQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });

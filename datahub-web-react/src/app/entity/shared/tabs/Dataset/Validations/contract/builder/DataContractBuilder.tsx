@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { message, Button, Tooltip } from 'antd';
+import { message, Button } from 'antd';
 import styled from 'styled-components';
 import lodash from 'lodash';
-import { DataContract, AssertionType, EntityType, Assertion } from '../../../../../../../../types.generated';
+import { DataContract, AssertionType, Assertion } from '../../../../../../../../types.generated';
 import { DataContractBuilderState, DataContractCategoryType, DEFAULT_BUILDER_STATE } from './types';
 import { buildUpsertDataContractMutationVariables } from './utils';
 import { useUpsertDataContractMutation } from '../../../../../../../../graphql/contract.generated';
@@ -32,10 +32,6 @@ const CancelButton = styled(Button)`
     margin-left: 12px;
 `;
 
-const ProposeButton = styled(Button)`
-    margin-right: 12px;
-`;
-
 const SaveButton = styled(Button)`
     margin-right: 20px;
 `;
@@ -44,9 +40,7 @@ type Props = {
     entityUrn: string;
     initialState?: DataContractBuilderState;
     onSubmit?: (contract: DataContract) => void;
-    onPropose?: () => void;
     onCancel?: () => void;
-    entityType?: EntityType;
 };
 
 /**
@@ -54,7 +48,7 @@ type Props = {
  *
  * In order to build a data contract, we simply list all dataset assertions and allow the user to choose.
  */
-export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSubmit, onPropose, onCancel }: Props) => {
+export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
     const isEdit = !!initialState;
     const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
@@ -81,13 +75,13 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
         return upsertDataContractMutation({
             variables: buildUpsertDataContractMutationVariables(entityUrn, builderState),
         })
-            .then(({ data, errors }) => {
+            .then(({ data: dataContract, errors }) => {
                 if (!errors) {
                     message.success({
                         content: isEdit ? `Edited Data Contract` : `Created Data Contract!`,
                         duration: 3,
                     });
-                    onSubmit?.(data?.upsertDataContract as DataContract);
+                    onSubmit?.(dataContract?.upsertDataContract as DataContract);
                 }
             })
             .catch(() => {
