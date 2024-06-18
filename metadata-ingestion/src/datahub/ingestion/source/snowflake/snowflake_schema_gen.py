@@ -1011,12 +1011,6 @@ class SnowflakeSchemaGenerator(
     ) -> List[SnowflakeView]:
         views = self.data_dictionary.get_views_for_database(db_name)
 
-        # get all views for database failed,
-        # falling back to get views for schema
-        if views is None:
-            self.report.num_get_views_for_schema_queries += 1
-            return self.data_dictionary.get_views_for_schema(schema_name, db_name)
-
         # Some schema may not have any table
         return views.get(schema_name, [])
 

@@ -117,7 +117,6 @@ class SnowflakeV2Report(
     # "Information schema query returned too much data. Please repeat query with more selective predicates.""
     # This will result in overall increase in time complexity
     num_get_tables_for_schema_queries: int = 0
-    num_get_views_for_schema_queries: int = 0
     num_get_columns_for_table_queries: int = 0
 
     # these will be non-zero if the user choses to enable the extract_tags = "with_lineage" option, which requires
