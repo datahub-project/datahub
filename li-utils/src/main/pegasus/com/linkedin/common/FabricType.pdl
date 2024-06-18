@@ -59,4 +59,14 @@ enum FabricType {
    * Designates review fabrics
    */
   RVW
+
+  /**
+   * Alternative Prod spelling
+   */
+  PRD
+
+  /**
+   * Alternative Test spelling
+   */
+  TST
 }
