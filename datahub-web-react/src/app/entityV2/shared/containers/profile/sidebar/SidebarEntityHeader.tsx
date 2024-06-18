@@ -5,7 +5,6 @@ import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
 import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
-import { isUnhealthy } from '../../../../../shared/health/healthUtils';
 import useContentTruncation from '../../../../../shared/useContentTruncation';
 import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -31,6 +30,8 @@ const EntityDetailsContainer = styled.div`
 const NameWrapper = styled.div`
     display: flex;
     gap: 8px;
+
+    font-size: 16px;
 `;
 
 const SidebarEntityHeader = () => {
@@ -66,9 +67,7 @@ const SidebarEntityHeader = () => {
                     {!!entityData?.notes?.total && (
                         <NotesIcon notes={entityData?.notes?.relationships?.map((r) => r.entity as Post) || []} />
                     )}
-                    {entityData?.health && isUnhealthy(entityData.health) && (
-                        <HealthIcon health={entityData.health} baseUrl={entityUrl} />
-                    )}
+                    {entityData?.health && <HealthIcon health={entityData.health} baseUrl={entityUrl} />}
                 </NameWrapper>
                 <div>
                     {hasParentContainers && (

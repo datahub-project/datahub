@@ -13,7 +13,6 @@ import { EntityType } from '../../../../../../types.generated';
 import { PageRoutes } from '../../../../../../conf/Global';
 
 const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
-    font-size: 16px;
     font-weight: 700;
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
     line-height: normal;

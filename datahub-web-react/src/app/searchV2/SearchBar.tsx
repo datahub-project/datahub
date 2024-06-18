@@ -297,12 +297,8 @@ export const SearchBar = ({
     }, [quickFilters, showQuickFilters, quickFilterAutoCompleteOption]);
 
     const options = useMemo(() => {
-        // Display recommendations when there is no search query, autocomplete suggestions otherwise.
         const tail = autoCompleteEntityOptions.length ? autoCompleteEntityOptions : emptyQueryOptions;
-        const hasSearchQuery = autoCompleteEntityOptions.length;
-        return hasSearchQuery
-            ? [...autoCompleteQueryOptions, ...tail]
-            : [...autoCompleteQueryOptions, ...quickFilterOption, ...tail];
+        return [...autoCompleteQueryOptions, ...quickFilterOption, ...tail];
     }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions, quickFilterOption]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);

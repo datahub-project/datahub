@@ -8,7 +8,6 @@ import { Deprecation, Health, Maybe } from '../../types.generated';
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
 import { DeprecationPill } from '../entityV2/shared/components/styled/DeprecationPill';
 import HealthIcon from './HealthIcon';
-import { isUnhealthy } from '../shared/health/healthUtils';
 import { PageRoutes } from '../../conf/Global';
 import { getNumberWithOrdinal } from '../entityV2/shared/utils';
 
@@ -17,6 +16,8 @@ const EntityTitleContainer = styled.div`
     align-items: center;
     gap: 0.5rem;
     width: 100%;
+
+    font-size: 16px;
 `;
 
 export const StyledLink = styled(Link)`
@@ -24,7 +25,7 @@ export const StyledLink = styled(Link)`
     max-width: 75%;
 `;
 
-const EntityTitle = styled(Typography.Text) <{ $titleSizePx?: number }>`
+const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     display: block;
 
     &&& {
@@ -45,7 +46,7 @@ const EntityTitle = styled(Typography.Text) <{ $titleSizePx?: number }>`
     height: 100%;
 `;
 
-const CardEntityTitle = styled(EntityTitle) <{ $previewType?: Maybe<PreviewType> }>`
+const CardEntityTitle = styled(EntityTitle)<{ $previewType?: Maybe<PreviewType> }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -109,14 +110,15 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
             </StyledLink>
             {degree !== undefined && (
                 <Tooltip
-                    title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${connectionName || 'the source entity'
-                        }`}
+                    title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
+                        connectionName || 'the source entity'
+                    }`}
                 >
                     <DegreeText>{getNumberWithOrdinal(degree)}</DegreeText>
                 </Tooltip>
             )}
             {deprecation?.deprecated && <DeprecationPill urn={urn} deprecation={deprecation} showUndeprecate />}
-            {health && isUnhealthy(health) && <HealthIcon health={health} baseUrl={url} />}
+            {health && <HealthIcon health={health} baseUrl={url} />}
         </EntityTitleContainer>
     );
 };
