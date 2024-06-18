@@ -92,6 +92,8 @@ dependencies {
   testImplementation 'ch.qos.logback:logback-classic:1.4.7'
   testImplementation 'net.datafaker:datafaker:1.9.0'
 
+  testImplementation(testFixtures(project(":entity-registry")))
+
   testAnnotationProcessor externalDependency.lombok
 
   constraints {

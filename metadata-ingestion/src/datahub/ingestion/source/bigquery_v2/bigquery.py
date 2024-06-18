@@ -365,7 +365,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=config.is_profiling_enabled(),
+                    with_data_read_permission=config.have_table_data_read_permission,
                 )
                 if len(list(tables)) == 0:
                     return CapabilityReport(
@@ -1380,7 +1380,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         project_id,
                         dataset_name,
                         items_to_get,
-                        with_data_read_permission=self.config.is_profiling_enabled(),
+                        with_data_read_permission=self.config.have_table_data_read_permission,
                     )
                     items_to_get.clear()
 
@@ -1389,7 +1389,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     dataset_name,
                     items_to_get,
-                    with_data_read_permission=self.config.is_profiling_enabled(),
+                    with_data_read_permission=self.config.have_table_data_read_permission,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(

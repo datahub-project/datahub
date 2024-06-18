@@ -1,4 +1,4 @@
-package com.linkedin.metadata.aspect.hooks;
+package com.linkedin.metadata.structuredproperties.hooks;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static org.mockito.Mockito.mock;
