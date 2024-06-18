@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormInfo;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class FormUtils {
 
@@ -44,13 +46,16 @@ public class FormUtils {
   /** Map a GraphQL CreateDynamicFormAssignmentInput to the GMS DynamicFormAssignment aspect */
   @Nonnull
   public static DynamicFormAssignment mapDynamicFormAssignment(
-      @Nonnull final CreateDynamicFormAssignmentInput input) {
+      @Nonnull final CreateDynamicFormAssignmentInput input,
+      @Nullable AspectRetriever aspectRetriever) {
     Objects.requireNonNull(input, "input must not be null");
 
     final DynamicFormAssignment result = new DynamicFormAssignment();
     final Filter filter =
         new Filter()
-            .setOr(ResolverUtils.buildConjunctiveCriterionArrayWithOr(input.getOrFilters()));
+            .setOr(
+                ResolverUtils.buildConjunctiveCriterionArrayWithOr(
+                    input.getOrFilters(), aspectRetriever));
     result.setFilter(filter);
     return result;
   }

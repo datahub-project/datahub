@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.SystemMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -56,7 +57,7 @@ public class AssertionRunEventResolverTest {
                 Mockito.eq(5),
                 Mockito.eq(
                     AssertionRunEventResolver.buildFilter(
-                        null, AssertionRunStatus.COMPLETE.toString()))))
+                        null, AssertionRunStatus.COMPLETE.toString(), null))))
         .thenReturn(
             ImmutableList.of(
                 new EnvelopedAspect()
@@ -68,6 +69,9 @@ public class AssertionRunEventResolverTest {
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(Mockito.mock(OperationContext.class));
+
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
     Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("status"), Mockito.eq(null)))
