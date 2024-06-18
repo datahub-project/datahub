@@ -25,17 +25,15 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
-import io.datahubproject.openapi.models.GenericEntity;
 import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
 import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
+import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-
-import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import org.mockito.Mockito;
 
 public class ServiceTestUtils {
