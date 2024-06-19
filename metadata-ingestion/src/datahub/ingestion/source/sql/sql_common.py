@@ -21,7 +21,7 @@ from typing import (
 )
 
 import sqlalchemy.dialects.postgresql.base
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
 from sqlalchemy.exc import ProgrammingError
@@ -536,6 +536,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options.setdefault("echo", True)
+            # Patch to avoid duplicate logging
+            # Known issue with sqlalchemy https://stackoverflow.com/questions/60804288/pycharm-duplicated-log-for-sqlalchemy-echo-true
+            sqlalchemy_log._add_default_handler = lambda x: None  # type: ignore
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
