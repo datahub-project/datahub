@@ -9,6 +9,7 @@ import { useEntityFormContext } from '../../EntityFormContext';
 import BulkSubmissionButton from './BulkSubmissionButton';
 import usePromptCompletionInfo from '../usePromptCompletionInfo';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
+import { Editor } from '../../../tabs/Documentation/components/editor/Editor';
 import { ColumnSelectorProps } from '../types';
 import ColumnSelector from '../ColumnSelector';
 
@@ -118,7 +119,11 @@ export default function StructuredPropertyPrompt({
                             <RequiredText displayBulkStyles={displayBulkPromptStyles}>required</RequiredText>
                         )}
                     </PromptTitle>
-                    {description && <PromptSubTitle>{description}</PromptSubTitle>}
+                    {description && (
+                        <PromptSubTitle>
+                            <Editor content={description} readOnly editorStyle="padding: 0;" />
+                        </PromptSubTitle>
+                    )}
                     <InputSection>
                         <StructuredPropertyInput
                             structuredProperty={structuredProperty}
