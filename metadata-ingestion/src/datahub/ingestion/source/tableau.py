@@ -664,7 +664,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             def form_path(project_id: str) -> List[str]:
                 cur_proj = all_project_map[project_id]
                 ancestors = [cur_proj.name]
-                while cur_proj.parent_id is not None:
+                while (
+                    cur_proj.parent_id is not None
+                    and cur_proj.parent_id in all_project_map
+                ):
                     cur_proj = all_project_map[cur_proj.parent_id]
                     ancestors = [cur_proj.name, *ancestors]
                 return ancestors
