@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.browse;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultGroupV2Array;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
@@ -100,7 +102,7 @@ public class BrowseV2ResolverTest {
     facetFilterInput.setValues(ImmutableList.of("urn:li:corpuser:test"));
     andFilterInput.setAnd(ImmutableList.of(facetFilterInput));
     orFilters.add(andFilterInput);
-    Filter filter = ResolverUtils.buildFilter(null, orFilters);
+    Filter filter = ResolverUtils.buildFilter(null, orFilters, mock(AspectRetriever.class));
 
     EntityClient mockClient =
         initMockEntityClient(

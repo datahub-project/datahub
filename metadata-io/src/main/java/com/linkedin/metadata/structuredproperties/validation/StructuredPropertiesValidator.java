@@ -1,7 +1,9 @@
-package com.linkedin.metadata.aspect.validation;
+package com.linkedin.metadata.structuredproperties.validation;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
-import static com.linkedin.metadata.aspect.validation.PropertyDefinitionValidator.softDeleteCheck;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getValueTypeId;
+import static com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator.softDeleteCheck;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -66,23 +68,6 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
               LogicalValueType.DATE,
               LogicalValueType.URN));
 
-  public static LogicalValueType getLogicalValueType(Urn valueType) {
-    String valueTypeId = getValueTypeId(valueType);
-    if (valueTypeId.equals("string")) {
-      return LogicalValueType.STRING;
-    } else if (valueTypeId.equals("date")) {
-      return LogicalValueType.DATE;
-    } else if (valueTypeId.equals("number")) {
-      return LogicalValueType.NUMBER;
-    } else if (valueTypeId.equals("urn")) {
-      return LogicalValueType.URN;
-    } else if (valueTypeId.equals("rich_text")) {
-      return LogicalValueType.RICH_TEXT;
-    }
-
-    return LogicalValueType.UNKNOWN;
-  }
-
   @Nonnull private AspectPluginConfig config;
 
   @Override
@@ -132,7 +117,11 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         StructuredPropertyDefinition structuredPropertyDefinition =
             lookupPropertyDefinition(propertyUrn, allStructuredPropertiesAspects);
         if (structuredPropertyDefinition == null) {
-          exceptions.addException(i, "Unexpected null value found.");
+          exceptions.addException(
+              i,
+              String.format(
+                  "Unexpected null value found for %s Structured Property Definition.",
+                  propertyUrn));
         }
 
         log.debug(
@@ -237,7 +226,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     for (BatchItem i : exceptions.successful(mcpItems)) {
       StructuredProperties structuredProperties = i.getAspect(StructuredProperties.class);
 
-      log.warn("Validator called with {}", structuredProperties);
+      log.info("Validator called with {}", structuredProperties);
       Map<Urn, List<StructuredPropertyValueAssignment>> structuredPropertiesMap =
           structuredProperties.getProperties().stream()
               .collect(
@@ -410,14 +399,6 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     }
 
     return Optional.empty();
-  }
-
-  private static String getValueTypeId(@Nonnull final Urn valueType) {
-    String valueTypeId = valueType.getId();
-    if (valueTypeId.startsWith("datahub.")) {
-      valueTypeId = valueTypeId.split("\\.")[1];
-    }
-    return valueTypeId;
   }
 
   private static Map<Urn, Map<String, Aspect>> fetchPropertyAspects(

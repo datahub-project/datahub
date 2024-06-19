@@ -127,6 +127,11 @@ class BigQueryV2Config(
         description="Capture BigQuery table labels as DataHub tag",
     )
 
+    capture_view_label_as_tag: Union[bool, AllowDenyPattern] = Field(
+        default=False,
+        description="Capture BigQuery view labels as DataHub tag",
+    )
+
     capture_dataset_label_as_tag: Union[bool, AllowDenyPattern] = Field(
         default=False,
         description="Capture BigQuery dataset labels as DataHub tag",
@@ -178,6 +183,15 @@ class BigQueryV2Config(
         default=200,
         description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
+
+    use_tables_list_query_v2: bool = Field(
+        default=False,
+        description="List tables using an improved query that extracts partitions and last modified timestamps more accurately. Requires the ability to read table data. Automatically enabled when profiling is enabled.",
+    )
+
+    @property
+    def have_table_data_read_permission(self) -> bool:
+        return self.use_tables_list_query_v2 or self.is_profiling_enabled()
 
     column_limit: int = Field(
         default=300,

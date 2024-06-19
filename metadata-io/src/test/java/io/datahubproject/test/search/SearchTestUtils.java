@@ -2,6 +2,7 @@ package io.datahubproject.test.search;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -13,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -183,7 +185,7 @@ public class SearchTestUtils {
             .collect(Collectors.toList()),
         "*",
         hops,
-        ResolverUtils.buildFilter(filters, List.of()),
+        ResolverUtils.buildFilter(filters, List.of(), mock(AspectRetriever.class)),
         null,
         0,
         100);

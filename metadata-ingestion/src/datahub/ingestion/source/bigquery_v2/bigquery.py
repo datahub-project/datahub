@@ -365,7 +365,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=config.is_profiling_enabled(),
+                    with_data_read_permission=config.have_table_data_read_permission,
                 )
                 if len(list(tables)) == 0:
                     return CapabilityReport(
@@ -1064,11 +1064,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+        tags_to_add = None
+        if table.labels and self.config.capture_view_label_as_tag:
+            tags_to_add = [
+                make_tag_urn(f"{k}:{v}")
+                for k, v in table.labels.items()
+                if is_tag_allowed(self.config.capture_view_label_as_tag, k)
+            ]
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
+            tags_to_add=tags_to_add,
             sub_types=[DatasetSubTypes.VIEW],
         )
 
@@ -1372,7 +1380,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         project_id,
                         dataset_name,
                         items_to_get,
-                        with_data_read_permission=self.config.is_profiling_enabled(),
+                        with_data_read_permission=self.config.have_table_data_read_permission,
                     )
                     items_to_get.clear()
 
@@ -1381,7 +1389,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     dataset_name,
                     items_to_get,
-                    with_data_read_permission=self.config.is_profiling_enabled(),
+                    with_data_read_permission=self.config.have_table_data_read_permission,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
