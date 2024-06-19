@@ -637,6 +637,7 @@ entities:
     aspects:
       - dataHubConnectionDetails
       - dataPlatformInstance
+      - status
   - name: dataContract
     category: core
     keyAspect: dataContractKey

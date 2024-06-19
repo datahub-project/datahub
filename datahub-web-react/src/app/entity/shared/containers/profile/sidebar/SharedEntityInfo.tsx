@@ -49,18 +49,15 @@ const ButtonContainer = styled.div`
     justify-content: center;
 `;
 
-export const StyledTitle = styled(Typography.Title)`
-    text-wrap: balance;
-    font-size: 13px !important;
-    margin-bottom: 0px !important;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+export const StyledTitle = styled(Typography.Title) <{ $color?: string }>`
+		text-wrap: balance;
+		font-size: 13px !important;
+		margin-bottom: 0px !important;
 
-    > span {
-        font-weight: normal;
-        color: ${ANTD_GRAY[7]};
-    }
+		> span {
+			font-weight: normal;
+			color: ${(props) => props.$color || ANTD_GRAY[7]};
+		}
 `;
 
 const SharedWith = styled.div`
@@ -192,23 +189,24 @@ export const SharedEntityInfo = ({
                     const lastSuccessTime = result.lastSuccess?.time || 0;
                     const hasSharedLineage =
                         result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
-                    const name = result.destination.details.name || result.destination.urn;
+                    const hasDestination = !!result.destination;
+                    const name = result.destination?.details.name || result.destination?.urn || 'Deleted connection';
                     return (
                         <StyledContainer>
                             <TitleContainer>
                                 <SharedWith>
-                                    <StyledTitle level={5}>
+                                    <StyledTitle level={5} $color={hasDestination ? undefined : 'red'}>
                                         Shared with&nbsp;
                                         <span>
                                             {name} {hasSharedLineage && <SharedLineageIcon result={result} />}
                                         </span>
                                     </StyledTitle>
-                                    <ResyncBytton
+                                    {hasDestination && result.destination && (<ResyncBytton
                                         type="text"
                                         shape="circle"
-                                        onClick={() => handleSubmit(result.destination.urn)}
+                                        onClick={() => handleSubmit(result.destination!.urn)}
                                     >
-                                        {entityLoading === result.destination.urn ? (
+                                        {entityLoading === result.destination!.urn ? (
                                             <Tooltip title="Sharing entity…">
                                                 <LoadingOutlined />
                                             </Tooltip>
@@ -218,13 +216,14 @@ export const SharedEntityInfo = ({
                                             </Tooltip>
                                         )}
                                     </ResyncBytton>
+                                    )}
                                 </SharedWith>
                                 last synced on {toLocalDateTimeString(lastSuccessTime)}
                             </TitleContainer>
                             {showSelectMode && (
                                 <Checkbox
-                                    checked={selectedInstancesToUnshare.includes(result.destination.urn)}
-                                    onChange={() => handleCheckboxChange(result.destination.urn)}
+                                    checked={selectedInstancesToUnshare.includes(result.destination!.urn)}
+                                    onChange={() => handleCheckboxChange(result.destination!.urn)}
                                 />
                             )}
                         </StyledContainer>

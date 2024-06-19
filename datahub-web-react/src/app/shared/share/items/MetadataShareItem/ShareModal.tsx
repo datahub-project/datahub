@@ -146,8 +146,8 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         // Filter connections that are already shared
                         const resultUrn = result.entity.urn;
                         const sharedUrns = lastShareResults!
-                            .filter((res) => !!res.lastSuccess?.time)
-                            .map((res) => res.destination.urn);
+                            .filter((res) => !!res.lastSuccess?.time && res.destination)
+                            .map((res) => res.destination?.urn);
                         return !sharedUrns.includes(resultUrn);
                     }
                     return true;

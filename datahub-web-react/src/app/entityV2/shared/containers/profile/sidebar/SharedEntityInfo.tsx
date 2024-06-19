@@ -65,14 +65,14 @@ export const TitleContainer = styled.div`
 
 const InstanceDetails = styled.div``;
 
-export const StyledTitle = styled(Typography.Text)`
+export const StyledTitle = styled(Typography.Text)<{ $color?: string }>`
     display: flex;
     gap: 5px;
     align-items: center;
     text-wrap: balance;
     font-size: 16px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.$color || REDESIGN_COLORS.BODY_TEXT};
 
     svg {
         width: 24px;
@@ -208,13 +208,14 @@ export const SharedEntityInfo = ({
                     const lastSuccessTime = result.lastSuccess?.time || 0;
                     const hasSharedLineage =
                         result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
-                    const name = result.destination.details.name || result.destination.urn;
+                        const hasDestination = !!result.destination;
+                        const name = result.destination?.details.name || result.destination?.urn || 'Deleted connection';
                     const isLastItemInList = index === sortedResults.length - 1;
                     return (
                         <StyledContainer>
                             <InstanceDetails>
                                 <TitleContainer>
-                                    <StyledTitle>
+                                    <StyledTitle $color={hasDestination ? undefined : REDESIGN_COLORS.RED_NORMAL}>
                                         <StyledShareIcon />
                                         <InstanceIcon>
                                             <AcrylIcon />
@@ -222,31 +223,35 @@ export const SharedEntityInfo = ({
                                         {name}
                                         {hasSharedLineage && <SharedLineageIcon result={result} />}
                                     </StyledTitle>
-                                    <ResyncButton
-                                        type="text"
-                                        shape="circle"
-                                        onClick={() => handleResync(result.destination.urn)}
-                                    >
-                                        {entityLoading === result.destination.urn ? (
-                                            <Tooltip title="Sharing entity…">
-                                                <LoadingOutlined />
-                                            </Tooltip>
-                                        ) : (
-                                            <Tooltip title="Sync entity">
-                                                <SyncOutlined />
-                                            </Tooltip>
-                                        )}
-                                    </ResyncButton>
+                                    {hasDestination && (
+                                        <ResyncButton
+                                            type="text"
+                                            shape="circle"
+                                            onClick={() => handleResync(result.destination?.urn || '')}
+                                        >
+                                            {entityLoading === result.destination?.urn ? (
+                                                <Tooltip title="Sharing entity…">
+                                                    <LoadingOutlined />
+                                                </Tooltip>
+                                            ) : (
+                                                <Tooltip title="Sync entity">
+                                                    <SyncOutlined />
+                                                </Tooltip>
+                                            )}
+                                        </ResyncButton>
+                                    )}
                                 </TitleContainer>
                                 <LastSynced $addMarginBottom={!isLastItemInList}>
                                     Last synced on <SyncedTime>{toLocalDateTimeString(lastSuccessTime)}</SyncedTime>
                                 </LastSynced>
                             </InstanceDetails>
-                            <StyledCheckbox
-                                $color={REDESIGN_COLORS.RED_ERROR}
-                                checked={selectedInstancesToUnshare.includes(result.destination.urn)}
-                                onChange={() => handleCheckboxChange(result.destination.urn)}
-                            />
+                            {hasDestination && (
+                                <StyledCheckbox
+                                    $color={REDESIGN_COLORS.RED_ERROR}
+                                    checked={selectedInstancesToUnshare.includes(result.destination?.urn || '')}
+                                    onChange={() => handleCheckboxChange(result.destination?.urn || '')}
+                                />
+                            )}
                         </StyledContainer>
                     );
                 })}
