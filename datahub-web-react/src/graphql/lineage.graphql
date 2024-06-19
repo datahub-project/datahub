@@ -162,6 +162,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         properties {
             name
             description
+            externalUrl
         }
         editableProperties {
             description
