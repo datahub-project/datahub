@@ -7405,6 +7405,11 @@ type AssertionRunEvent implements TimeSeriesAspect {
   timestampMillis: Long!
 
   """
+  The time at which the run event was last observed by the DataHub system - ie, when it was reported by external systems
+  """
+  lastObservedMillis: Long
+
+  """
   Urn of assertion which is evaluated
   """
   assertionUrn: String!
@@ -7420,7 +7425,7 @@ type AssertionRunEvent implements TimeSeriesAspect {
   runId: String!
 
   """
-  The status of the assertion run as per this timeseries event.
+  The status of the assertion run as per this timeseries event
   """
   status: AssertionRunStatus!
 

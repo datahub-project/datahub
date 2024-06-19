@@ -17,6 +17,8 @@ As a user, you can subscribe to and receive notifications about changes such as 
 ## Prerequisites
 
 Once you have [configured Slack within your DataHub instance](saas-slack-setup.md), you will be able to subscribe to any Entity in DataHub and begin recieving notifications via DM.
+To begin receiving personal notifications, go to Settings > "My Notifications". From here, toggle on Slack Notifications and input your Slack Member ID.
+
 If you want to create and manage group-level Subscriptions for your team, you will need [the following privileges](../../docs/authorization/roles.md#role-privileges):
 
 - Manage Group Notification Settings
