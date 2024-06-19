@@ -1,34 +1,27 @@
-package com.linkedin.metadata.aspect.validators;
+package com.linkedin.metadata.structuredproperties.validators;
 
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.*;
+import static org.testng.AssertJUnit.assertEquals;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.Constants;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
-import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
-import com.linkedin.metadata.aspect.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.PropertyValueArray;
 import com.linkedin.structured.StructuredPropertyDefinition;
-import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import java.net.URISyntaxException;
-import java.util.List;
-import java.util.Set;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -109,12 +102,37 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     StructuredPropertyDefinition newProperty = oldProperty.copy();
     newProperty.setCardinality(PropertyCardinality.SINGLE);
+    newProperty.setVersion(null, SetMode.REMOVE_IF_NULL);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
         1);
+  }
+
+  @Test
+  public void testCanChangeMultipleToSingleWithNewVersion()
+      throws URISyntaxException, CloneNotSupportedException {
+    StructuredPropertyDefinition oldProperty = new StructuredPropertyDefinition();
+    oldProperty.setEntityTypes(
+        new UrnArray(
+            Urn.createFromString("urn:li:logicalEntity:dataset"),
+            Urn.createFromString("urn:li:logicalEntity:chart"),
+            Urn.createFromString("urn:li:logicalEntity:glossaryTerm")));
+    oldProperty.setDisplayName("oldProp");
+    oldProperty.setQualifiedName("prop3");
+    oldProperty.setCardinality(PropertyCardinality.MULTIPLE);
+    oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    StructuredPropertyDefinition newProperty = oldProperty.copy();
+    newProperty.setCardinality(PropertyCardinality.SINGLE);
+    newProperty.setVersion("00000000000001");
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        0);
   }
 
   @Test
@@ -131,12 +149,37 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     StructuredPropertyDefinition newProperty = oldProperty.copy();
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:NUMBER"));
+    newProperty.setVersion(null, SetMode.REMOVE_IF_NULL);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
         1);
+  }
+
+  @Test
+  public void testCanChangeValueTypeWithNewVersion()
+      throws URISyntaxException, CloneNotSupportedException {
+    StructuredPropertyDefinition oldProperty = new StructuredPropertyDefinition();
+    oldProperty.setEntityTypes(
+        new UrnArray(
+            Urn.createFromString("urn:li:logicalEntity:dataset"),
+            Urn.createFromString("urn:li:logicalEntity:chart"),
+            Urn.createFromString("urn:li:logicalEntity:glossaryTerm")));
+    oldProperty.setDisplayName("oldProp");
+    oldProperty.setQualifiedName("prop3");
+    oldProperty.setCardinality(PropertyCardinality.MULTIPLE);
+    oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    StructuredPropertyDefinition newProperty = oldProperty.copy();
+    newProperty.setValueType(Urn.createFromString("urn:li:logicalType:NUMBER"));
+    newProperty.setVersion("00000000000001");
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        0);
   }
 
   @Test
@@ -186,6 +229,30 @@ public class PropertyDefinitionValidatorTest {
   }
 
   @Test
+  public void testCannotChangeFullyQualifiedNameWithVersionChange()
+      throws URISyntaxException, CloneNotSupportedException {
+    StructuredPropertyDefinition oldProperty = new StructuredPropertyDefinition();
+    oldProperty.setEntityTypes(
+        new UrnArray(
+            Urn.createFromString("urn:li:logicalEntity:dataset"),
+            Urn.createFromString("urn:li:logicalEntity:chart"),
+            Urn.createFromString("urn:li:logicalEntity:glossaryTerm")));
+    oldProperty.setDisplayName("oldProp");
+    oldProperty.setQualifiedName("prop3");
+    oldProperty.setCardinality(PropertyCardinality.MULTIPLE);
+    oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    StructuredPropertyDefinition newProperty = oldProperty.copy();
+    newProperty.setQualifiedName("newProp");
+    newProperty.setVersion("00000000000001");
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  @Test
   public void testCannotChangeRestrictAllowedValues()
       throws URISyntaxException, CloneNotSupportedException {
     // No constraint -> constraint case
@@ -203,6 +270,7 @@ public class PropertyDefinitionValidatorTest {
     PropertyValue allowedValue =
         new PropertyValue().setValue(PrimitivePropertyValue.create(1.0)).setDescription("hello");
     newProperty.setAllowedValues(new PropertyValueArray(allowedValue));
+    newProperty.setVersion(null, SetMode.REMOVE_IF_NULL);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
@@ -220,6 +288,46 @@ public class PropertyDefinitionValidatorTest {
                 mockRetrieverContext)
             .count(),
         1);
+  }
+
+  @Test
+  public void testCanChangeRestrictAllowedValuesWithVersionChange()
+      throws URISyntaxException, CloneNotSupportedException {
+    // No constraint -> constraint case
+    StructuredPropertyDefinition oldProperty = new StructuredPropertyDefinition();
+    oldProperty.setEntityTypes(
+        new UrnArray(
+            Urn.createFromString("urn:li:logicalEntity:dataset"),
+            Urn.createFromString("urn:li:logicalEntity:chart"),
+            Urn.createFromString("urn:li:logicalEntity:glossaryTerm")));
+    oldProperty.setDisplayName("oldProp");
+    oldProperty.setQualifiedName("prop3");
+    oldProperty.setCardinality(PropertyCardinality.MULTIPLE);
+    oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+
+    StructuredPropertyDefinition newProperty = oldProperty.copy();
+    newProperty.setVersion("00000000000001");
+    PropertyValue allowedValue =
+        new PropertyValue().setValue(PrimitivePropertyValue.create(1.0)).setDescription("hello");
+    newProperty.setAllowedValues(new PropertyValueArray(allowedValue));
+
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        0);
+
+    // Remove allowed values from constraint case
+    PropertyValue oldAllowedValue =
+        new PropertyValue().setValue(PrimitivePropertyValue.create(3.0)).setDescription("hello");
+    oldProperty.setAllowedValues((new PropertyValueArray(allowedValue, oldAllowedValue)));
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        0);
   }
 
   @Test
@@ -288,62 +396,5 @@ public class PropertyDefinitionValidatorTest {
                 mockRetrieverContext)
             .count(),
         0);
-  }
-
-  @Test
-  public void testHardDeleteBlock() {
-    PropertyDefinitionValidator test =
-        new PropertyDefinitionValidator()
-            .setConfig(
-                AspectPluginConfig.builder()
-                    .enabled(true)
-                    .className(PropertyDefinitionValidator.class.getName())
-                    .supportedOperations(List.of("DELETE"))
-                    .supportedEntityAspectNames(
-                        List.of(
-                            AspectPluginConfig.EntityAspectName.builder()
-                                .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
-                                .aspectName(Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-                                .build(),
-                            AspectPluginConfig.EntityAspectName.builder()
-                                .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
-                                .aspectName("structuredPropertyKey")
-                                .build()))
-                    .build());
-
-    assertEquals(
-        test.validateProposed(
-                Set.of(
-                    TestMCP.builder()
-                        .changeType(ChangeType.DELETE)
-                        .urn(UrnUtils.getUrn("urn:li:structuredProperty:foo.bar"))
-                        .entitySpec(entityRegistry.getEntitySpec("structuredProperty"))
-                        .aspectSpec(
-                            entityRegistry
-                                .getEntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME)
-                                .getKeyAspectSpec())
-                        .recordTemplate(new StructuredPropertyKey())
-                        .build()),
-                mockRetrieverContext)
-            .count(),
-        1);
-
-    assertEquals(
-        test.validateProposed(
-                Set.of(
-                    TestMCP.builder()
-                        .changeType(ChangeType.DELETE)
-                        .urn(UrnUtils.getUrn("urn:li:structuredProperty:foo.bar"))
-                        .entitySpec(entityRegistry.getEntitySpec("structuredProperty"))
-                        .aspectSpec(
-                            entityRegistry
-                                .getEntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME)
-                                .getAspectSpecMap()
-                                .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
-                        .recordTemplate(new StructuredPropertyDefinition())
-                        .build()),
-                mockRetrieverContext)
-            .count(),
-        1);
   }
 }

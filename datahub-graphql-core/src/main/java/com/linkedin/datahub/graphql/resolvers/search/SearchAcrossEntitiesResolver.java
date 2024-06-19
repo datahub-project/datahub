@@ -59,7 +59,10 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                   : null;
 
           final Filter baseFilter =
-              ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+              ResolverUtils.buildFilter(
+                  input.getFilters(),
+                  input.getOrFilters(),
+                  context.getOperationContext().getAspectRetriever());
 
           SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
           SortCriterion sortCriterion =
