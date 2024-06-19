@@ -1,0 +1,15 @@
+describe("domains", () => {
+  beforeEach(() => {
+    cy.setIsThemeV2Enabled(true);
+    Cypress.on("uncaught:exception", (err, runnable) => false);
+  });
+
+  it("can see elements inside the domain", () => {
+    cy.login();
+    cy.goToDomain("urn:li:domain:marketing/Entities");
+    cy.contains("Marketing");
+    cy.get('[data-node-key="Assets"]').click();
+    cy.contains("SampleCypressKafkaDataset");
+    cy.contains("1 - 1 of 1");
+  });
+});
