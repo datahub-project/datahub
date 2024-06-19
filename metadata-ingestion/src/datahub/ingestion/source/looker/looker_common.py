@@ -17,7 +17,7 @@ from typing import (
     Set,
     Tuple,
     Union,
-    cast,
+    cast, Any,
 )
 
 from looker_sdk.error import SDKError
@@ -291,61 +291,44 @@ class ViewField:
     view_name: Optional[str] = None
     is_primary_key: bool = False
     # It is the list of ColumnRef for derived view defined using SQL otherwise simple column name
-    upstream_fields: Union[List[str], List[ColumnRef]] = cast(
+    upstream_fields: Union[List[ColumnRef]] = cast(
         List[str], dataclasses_field(default_factory=list)
     )
 
     @classmethod
     def view_fields_from_dict(
         cls,
-        field_list: List[Dict],
+        field_dict: Dict,
+        upstream_column_ref: List[ColumnRef],
         type_cls: ViewFieldType,
-        extract_column_level_lineage: bool,
         populate_sql_logic_in_descriptions: bool,
-    ) -> List["ViewField"]:
-        fields = []
-        for field_dict in field_list:
-            is_primary_key = field_dict.get("primary_key", "no") == "yes"
-            name = field_dict["name"]
-            native_type = field_dict.get("type", "string")
-            default_description = (
-                f"sql:{field_dict['sql']}"
-                if "sql" in field_dict and populate_sql_logic_in_descriptions
-                else ""
-            )
+    ) -> "ViewField":
 
-            description = field_dict.get("description", default_description)
-            label = field_dict.get("label", "")
-            upstream_fields = []
-            if extract_column_level_lineage:
-                if field_dict.get("sql") is not None:
-                    for upstream_field_match in re.finditer(
-                        r"\${TABLE}\.[\"]*([\.\w]+)", field_dict["sql"]
-                    ):
-                        matched_field = upstream_field_match.group(1)
-                        # Remove quotes from field names
-                        matched_field = (
-                            matched_field.replace('"', "").replace("`", "").lower()
-                        )
-                        upstream_fields.append(matched_field)
-                else:
-                    # If no SQL is specified, we assume this is referencing an upstream field
-                    # with the same name. This commonly happens for extends and derived tables.
-                    upstream_fields.append(name)
+        is_primary_key = field_dict.get("primary_key", "no") == "yes"
 
-            upstream_fields = sorted(list(set(upstream_fields)))
+        name = field_dict["name"]
 
-            field = ViewField(
-                name=name,
-                type=native_type,
-                label=label,
-                description=description,
-                is_primary_key=is_primary_key,
-                field_type=type_cls,
-                upstream_fields=upstream_fields,
-            )
-            fields.append(field)
-        return fields
+        native_type = field_dict.get("type", "string")
+
+        default_description = (
+            f"sql:{field_dict['sql']}"
+            if "sql" in field_dict and populate_sql_logic_in_descriptions
+            else ""
+        )
+
+        description = field_dict.get("description", default_description)
+
+        label = field_dict.get("label", "")
+
+        return ViewField(
+            name=name,
+            type=native_type,
+            label=label,
+            description=description,
+            is_primary_key=is_primary_key,
+            field_type=type_cls,
+            upstream_fields=upstream_column_ref,
+        )
 
     @classmethod
     def all_view_fields_from_dict(

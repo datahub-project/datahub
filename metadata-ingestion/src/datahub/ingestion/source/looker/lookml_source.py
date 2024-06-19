@@ -41,11 +41,11 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerViewId,
     ViewField,
     ViewFieldValue,
-    gen_project_key,
+    gen_project_key, ViewFieldType,
 )
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
-from datahub.ingestion.source.looker.lookml_concept_context import LookerViewContext
+from datahub.ingestion.source.looker.lookml_concept_context import LookerViewContext, LookerFieldContext
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
     _MODEL_FILE_EXTENSION,
@@ -63,6 +63,7 @@ from datahub.ingestion.source.looker.lookml_resolver import (
     resolve_derived_view_urn,
 )
 from datahub.ingestion.source.looker.lookml_sql_parser import SqlQuery, ViewFieldBuilder
+from datahub.ingestion.source.looker.view_upstream import create_view_upstream, AbstractViewUpstream
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -239,7 +240,6 @@ class LookerView:
         base_folder_path: str,
         model_name: str,
         view_context: LookerViewContext,
-        looker_view: dict,
         connection: LookerConnectionDefinition,
         looker_viewfile: LookerViewFile,
         looker_view_id_cache: LookerViewIdCache,
@@ -256,11 +256,7 @@ class LookerView:
 
         logger.debug(f"Handling view {view_name} in model {model_name}")
 
-        fields = ViewField.all_view_fields_from_dict(
-            looker_view,
-            extract_col_level_lineage,
-            populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
-        )
+        view_fields: List[ViewField] = []
 
         looker_view_id: LookerViewId = LookerViewId(
             project_name=project_name,
@@ -268,6 +264,38 @@ class LookerView:
             view_name=view_name,
             file_path=view_context.view_file_name(),
         )
+
+        view_upstream: AbstractViewUpstream = create_view_upstream(
+            view_context=view_context,
+            looker_view_id_cache=looker_view_id_cache,
+            config=config,
+            reporter=reporter,
+        )
+
+        field_type_vs_raw_fields = {
+            ViewFieldType.DIMENSION: view_context.dimension(),
+            ViewFieldType.MEASURE: view_context.measure(),
+            ViewFieldType.DIMENSION_GROUP: view_context.dimension_group(),
+        }
+
+        for field_type, fields in field_type_vs_raw_fields.items():
+            for field in fields:
+                upstream_column_ref: List[ColumnRef] = []
+                if extract_col_level_lineage:
+                    upstream_column_ref = view_upstream.get_upstream_column_ref(
+                        field_context=LookerFieldContext(
+                            raw_field=field
+                        )
+                    )
+
+                view_fields.append(
+                    ViewField.view_fields_from_dict(
+                        field_dict=field,
+                        upstream_column_ref=upstream_column_ref,
+                        type_cls=field_type,
+                        populate_sql_logic_in_descriptions=populate_sql_logic_in_descriptions,
+                    )
+                )
 
         # Prep "default" values for the view, which will be overridden by the logic below.
         view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
@@ -283,39 +311,17 @@ class LookerView:
                 viewLanguage=VIEW_LANGUAGE_LOOKML,
             )
 
-            view_urn: Optional[str] = None
-            if view_context.is_regular_case():
-                # Ensure sql_table_name is in canonical form (add in db, schema names)
-                view_urn = builder.make_dataset_urn_with_platform_instance(
-                    platform=connection.platform,
-                    name=_generate_fully_qualified_name(
-                        view_context.sql_table_name(), connection, reporter
-                    ),
-                    platform_instance=connection.platform_instance,
-                    env=connection.platform_env or config.env,
-                )
-            else:
-                # sql_table_name is referring to a view in project
-                view_urn = get_derived_view_urn(
-                    qualified_table_name=_generate_fully_qualified_name(
-                        view_context.sql_table_name(), connection, reporter
-                    ),
-                    looker_view_id_cache=looker_view_id_cache,
-                    base_folder_path=base_folder_path,
-                    config=config,
-                )
-
-            if view_urn is None:
+            if len(view_upstream.get_upstream_dataset_urn()) == 0:
                 reporter.report_warning(
                     view_context.name(), "Failed to generate upstream view urn"
                 )
 
             return LookerView(
                 id=looker_view_id,
-                fields=fields,
+                fields=view_fields,
                 absolute_file_path=looker_viewfile.absolute_file_path,
                 connection=connection,
-                sql_table_names=[view_urn] if view_urn is not None else [],
+                sql_table_names=view_upstream.get_upstream_dataset_urn(),
                 raw_file_content=looker_viewfile.raw_file_content,
                 view_details=view_details,
                 upstream_explores=[],
@@ -337,7 +343,7 @@ class LookerView:
                     view_urn=looker_view_id.get_urn(config=config),
                     sql_table_name=view_context.sql_table_name(),
                     sql_query=view_logic,
-                    fields=fields,
+                    fields=view_fields,
                     liquid_variable=config.liquid_variable,
                 )
                 # resolve view name ${<view-name>.SQL_TABLE_NAME} to urn used in derived_table
@@ -376,7 +382,7 @@ class LookerView:
                 fields,
                 upstream_explores,
             ) = cls._extract_metadata_from_derived_table_explore(
-                reporter, view_name, explore_source, fields
+                reporter, view_name, explore_source, view_fields
             )
 
             # We want this to render the full lkml block
@@ -632,7 +638,6 @@ class LookMLSource(StatefulIngestionSourceBase):
         # Generate the upstream + fine grained lineage objects.
         upstreams = []
         observed_lineage_ts = datetime.now(tz=timezone.utc)
-        fine_grained_lineages: List[FineGrainedLineageClass] = []
         for upstream_dataset_urn in upstream_dataset_urns:
             upstream = UpstreamClass(
                 dataset=upstream_dataset_urn,
@@ -644,53 +649,25 @@ class LookMLSource(StatefulIngestionSourceBase):
             )
             upstreams.append(upstream)
 
-            if self.source_config.extract_column_level_lineage and (
-                looker_view.view_details is not None
-                and looker_view.view_details.viewLanguage
-                != VIEW_LANGUAGE_SQL  # we currently only map col-level lineage for views without sql
-            ):
-                for field in looker_view.fields:
-                    if field.upstream_fields:
-                        fine_grained_lineage = FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                make_schema_field_urn(
-                                    upstream_dataset_urn, upstream_field
-                                )
-                                for upstream_field in cast(
-                                    List[str], field.upstream_fields
-                                )
-                            ],
-                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            downstreams=[
-                                make_schema_field_urn(
-                                    looker_view.id.get_urn(self.source_config),
-                                    field.name,
-                                )
-                            ],
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        for field in looker_view.fields:
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[
+                        make_schema_field_urn(cll_ref.table, cll_ref.column)
+                        for cll_ref in field.upstream_fields
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[
+                        make_schema_field_urn(
+                            looker_view.id.get_urn(self.source_config),
+                            field.name,
                         )
-                        fine_grained_lineages.append(fine_grained_lineage)
-            else:
-                # View is defined as SQL
-                for field in looker_view.fields:
-                    if field.upstream_fields:
-                        fine_grained_lineage = FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                make_schema_field_urn(cll_ref.table, cll_ref.column)
-                                for cll_ref in cast(
-                                    List[ColumnRef], field.upstream_fields
-                                )
-                            ],
-                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            downstreams=[
-                                make_schema_field_urn(
-                                    looker_view.id.get_urn(self.source_config),
-                                    field.name,
-                                )
-                            ],
-                        )
-                        fine_grained_lineages.append(fine_grained_lineage)
+                    ],
+                )
+            )
 
         if upstreams:
             return UpstreamLineage(
@@ -1173,7 +1150,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 base_folder_path=base_folder_path,
                                 model_name=model_name,
                                 view_context=view_context,
-                                looker_view=raw_view,
                                 connection=connectionDefinition,
                                 looker_viewfile=looker_viewfile,
                                 looker_view_id_cache=looker_view_id_cache,

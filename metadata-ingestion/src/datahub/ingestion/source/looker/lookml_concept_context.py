@@ -21,6 +21,22 @@ from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementRe
 logger = logging.getLogger(__name__)
 
 
+class LookerFieldContext:
+    raw_field: Dict[Any, Any]
+
+    def __init__(
+            self,
+            raw_field: Dict[Any, Any]
+    ):
+        self.raw_field = raw_field
+
+    def name(self) -> str:
+        return self.raw_field[NAME]
+
+    def sql(self) -> Optional[str]:
+        return self.raw_field.get("sql")
+
+
 class LookerViewContext:
     raw_view: Dict[Any, Any]
     view_file: LookerViewFile
@@ -243,7 +259,22 @@ class LookerViewContext:
         """
         derived_table = self.derived_table()
 
-        return derived_table["sql"]
+        # Looker supports sql fragments that omit the SELECT and FROM parts of the query
+        # Add those in if we detect that it is missing
+        sql_query: str = derived_table["sql"]
+        if not re.search(r"SELECT\s", sql_query, flags=re.I):
+            # add a SELECT clause at the beginning
+            sql_query = f"SELECT {sql_query}"
+
+        if not re.search(r"FROM\s", sql_query, flags=re.I):
+            # add a FROM clause at the end
+            sql_query = f"{sql_query} FROM {self.name()}"
+            # Get the list of tables in the query
+
+        # Drop ${ and }
+        sql_query = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_query)
+
+        return sql_query
 
     def name(self) -> str:
         return self.raw_view[NAME]
@@ -265,6 +296,15 @@ class LookerViewContext:
         return file_name.strip(
             "/"
         )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
+
+    def dimension(self) -> List[Dict]:
+        return self.raw_view.get("dimension") if self.raw_view.get("dimension") is not None else []
+
+    def measure(self) -> List[Dict]:
+        return self.raw_view.get("measure") if self.raw_view.get("measure") is not None else []
+
+    def dimension_group(self) -> List[Dict]:
+        return self.raw_view.get("dimension_groups") if self.raw_view.get("dimension_groups") is not None else []
 
     def is_materialized_derived_view(self) -> bool:
         for k in self.derived_table():

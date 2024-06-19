@@ -30,12 +30,11 @@ def is_derived_view(view_name: str) -> bool:
     return False
 
 
-def get_derived_view_urn(
+def get_derived_looker_view_id(
     qualified_table_name: str,
     looker_view_id_cache: "LookerViewIdCache",
     base_folder_path: str,
-    config: LookMLSourceConfig,
-) -> Optional[str]:
+) -> Optional[LookerViewId]:
     # qualified_table_name can be in either of below format
     # 1) db.schema.employee_income_source.sql_table_name
     # 2) db.employee_income_source.sql_table_name
@@ -51,10 +50,7 @@ def get_derived_view_urn(
         base_folder_path=base_folder_path,
     )
 
-    if looker_view_id is None:
-        return None
-
-    return looker_view_id.get_urn(config=config)
+    return looker_view_id
 
 
 def resolve_derived_view_urn(
@@ -75,20 +71,24 @@ def resolve_derived_view_urn(
         upstream_fields: List[ColumnRef] = []
         for col_ref in cast(List[ColumnRef], field.upstream_fields):
             if is_derived_view(col_ref.table.lower()):
-                view_urn: Optional[str] = get_derived_view_urn(
+                looker_view_id = get_derived_looker_view_id(
                     qualified_table_name=get_qualified_table_name(col_ref.table),
                     looker_view_id_cache=looker_view_id_cache,
                     base_folder_path=base_folder_path,
-                    config=config,
                 )
 
-                if view_urn is None:
+                if looker_view_id is None:
                     logger.warning(
-                        f"Not able to resolve to derived view for view urn {col_ref.table}"
+                        f"Not able to resolve to derived view looker id for {col_ref.table}"
                     )
                     continue
 
-                upstream_fields.append(ColumnRef(table=view_urn, column=col_ref.column))
+                upstream_fields.append(
+                    ColumnRef(
+                        table=looker_view_id.get_urn(config=config),
+                        column=col_ref.column
+                    )
+                )
             else:
                 upstream_fields.append(col_ref)
 
@@ -98,20 +98,21 @@ def resolve_derived_view_urn(
     new_upstream_urns: List[str] = []
     for urn in upstream_urns:
         if is_derived_view(urn):
-            view_urn = get_derived_view_urn(
-                qualified_table_name=get_qualified_table_name(urn),
+            looker_view_id = get_derived_looker_view_id(
+                qualified_table_name=get_qualified_table_name(col_ref.table),
                 looker_view_id_cache=looker_view_id_cache,
                 base_folder_path=base_folder_path,
-                config=config,
             )
 
-            if view_urn is None:
+            if looker_view_id is None:
                 logger.warning(
-                    f"Not able to resolve to derived view for view urn {urn}"
+                    f"Not able to resolve to derived view looker id for {col_ref.table}"
                 )
                 continue
 
-            new_upstream_urns.append(view_urn)
+            new_upstream_urns.append(
+                looker_view_id.get_urn(config=config)
+            )
         else:
             new_upstream_urns.append(urn)
 
