@@ -1,7 +1,6 @@
 import { Button, Divider, Image, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const Container = styled.div`
     display: flex;
@@ -14,8 +13,8 @@ const PlatformLogo = styled(Image)`
     max-height: 45px;
     object-fit: contain;
     background-color: transparent;
-    height: 36px;
-    width: 36px;
+    height: 32px;
+    width: 32px;
 `;
 
 const ImageContainer = styled.div`
@@ -27,7 +26,6 @@ const ImageContainer = styled.div`
 const NameContainer = styled.div`
     font-size: 18px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
 `;
 
 const TitleContainer = styled.div``;

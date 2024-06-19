@@ -1,50 +1,35 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useHistory } from 'react-router';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import { Button, Divider, Skeleton } from 'antd';
+import { Button, Divider, Modal, Skeleton, Typography } from 'antd';
 import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
 import { DataHubConnection, EntityType } from '../../../../types.generated';
 import { PLATFORM_FILTER_NAME } from '../../../searchV2/utils/constants';
 import { PLATFORM_CONNECTION_URN } from '../../../shared/constants';
 import acrylLogo from '../../../../images/acryl-dark-mark.svg';
 import NewInstanceForm from './NewInstanceForm';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { BackButton } from '../../../sharedV2/buttons/BackButton';
+import { REDESIGN_COLORS } from '../../../entity/shared/constants';
 import { HorizontalListSkeletons } from '../../../homeV2/content/HorizontalListSkeletons';
 import ImageWithColoredBackground from '../../../previewV2/ImageWIthColoredBackground';
 import { useDeleteConnectionMutation } from '../../../../graphql/connection.generated';
 import { ToastType, showToastMessage } from '../../../sharedV2/toastMessageUtils';
-import { ConfirmationModal } from '../../../sharedV2/modals/ConfirmationModal';
 import { Body, Layout, PrimaryHeading } from '../../../govern/Dashboard/components';
 import { removeFromInstancesList } from './cacheUtils';
+import { PlatformIntegrationBreadcrumb } from '../PlatformIntegrationBreadcrumb';
 
 const Container = styled.div`
     display: flex;
     flex-direction: column;
     width: 100%;
+    height: max-content;
 `;
 
 const HeaderContainer = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 85px;
     padding: 20px;
-`;
-
-const HeaderTitle = styled.div`
-    display: flex;
-    font-size: 20px;
-    font-weight: 700;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
-`;
-
-const HeaderSubtext = styled.div`
-    font-size: 14px;
-    font-weight: 400;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
 `;
 
 const RightContainer = styled.div`
@@ -54,7 +39,7 @@ const RightContainer = styled.div`
 
 const LeftContainer = styled.div`
     display: flex;
-    align-items: center;
+    flex-direction: column;
 `;
 
 const InstancesList = styled.div<{ isEmptyState?: boolean }>`
@@ -76,6 +61,7 @@ const DeleteIcon = styled(DeleteOutlinedIcon)`
     right: 2px;
     top: 12px;
     display: none !important;
+    color: ${REDESIGN_COLORS.BLUE};
 `;
 
 const Instance = styled.div`
@@ -83,8 +69,7 @@ const Instance = styled.div`
     align-items: center;
     gap: 16px;
     font-size: 20px;
-    font-weight: 700;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    font-weight: 500;
     border-radius: 18px;
     padding: 12px;
     border: 1px solid transparent;
@@ -97,7 +82,7 @@ const Instance = styled.div`
 
     :hover {
         cursor: pointer;
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+        border: 1px solid ${REDESIGN_COLORS.BLUE};
 
         ${DeleteIcon} {
             display: block !important;
@@ -112,11 +97,9 @@ const InstanceName = styled.div`
 `;
 
 const PrimaryButton = styled(Button)`
-    color: ${REDESIGN_COLORS.WHITE};
+    color: #fff;
     font-size: 12px;
     box-shadow: none;
-    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     margin-left: 9px;
     padding: 10px 20px;
     display: flex;
@@ -131,8 +114,6 @@ const PrimaryButton = styled(Button)`
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
 `;
 
@@ -181,7 +162,6 @@ const InstancesListEmptyState = () => (
 );
 
 const AcrylInstances = () => {
-    const history = useHistory();
     const [deleteConnection] = useDeleteConnectionMutation();
 
     const inputs = {
@@ -221,12 +201,6 @@ const AcrylInstances = () => {
         setCurrentInstance(entity);
         setOpenNewInstance(true);
         setIsEditForm(true);
-    };
-
-    const hasHistory = (history as any)?.length > 2;
-
-    const goBack = () => {
-        (history as any).goBack();
     };
 
     const deleteInstance = async () => {
@@ -271,10 +245,10 @@ const AcrylInstances = () => {
                 <>
                     <HeaderContainer>
                         <LeftContainer>
-                            {hasHistory && <BackButton onGoBack={goBack} />}
+                            <PlatformIntegrationBreadcrumb name="Acryl" />
                             <Header>
-                                <HeaderTitle> Acryl</HeaderTitle>
-                                <HeaderSubtext>Integrate with other Acryl instances</HeaderSubtext>
+                                <Typography.Title level={3}>Acryl</Typography.Title>
+                                <Typography.Text type="secondary">Integrate with other Acryl instances</Typography.Text>
                             </Header>
                         </LeftContainer>
                         <RightContainer>
@@ -296,8 +270,8 @@ const AcrylInstances = () => {
                                     <Instance onClick={() => openEditInstance(entity)}>
                                         <ImageWithColoredBackground
                                             src={acrylLogo}
-                                            imgSize={40}
-                                            backgroundSize={72}
+                                            imgSize={30}
+                                            backgroundSize={54}
                                             borderRadius={16}
                                         />
                                         <InstanceName>{entity.details?.name || entity.urn}</InstanceName>
@@ -316,14 +290,16 @@ const AcrylInstances = () => {
                     )}
                 </>
             )}
-            <ConfirmationModal
-                isOpen={showConfirmDelete}
-                handleClose={handleDeleteClose}
-                handleConfirm={handleDeleteConfirm}
-                modalTitle="Confirm Delete"
-                modalText="Are you sure you want to delete the connection?"
-                isDeleteModal
-            />
+            <Modal
+                open={showConfirmDelete}
+                onCancel={handleDeleteConfirm}
+                onOk={handleDeleteClose}
+                title="Confirm Delete"
+                okText="No"
+                cancelText="Yes"
+            >
+                Are you sure you want to delete the connection?
+            </Modal>
         </Container>
     );
 };

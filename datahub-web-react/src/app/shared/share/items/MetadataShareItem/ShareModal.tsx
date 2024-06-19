@@ -28,13 +28,11 @@ const StyledSelect = styled(Select)`
     padding-top: 8px;
 
     .ant-select-selector {
-        border: 1px solid ${REDESIGN_COLORS.BLUE} !important;
         display: flex;
         align-items: center;
     }
 
     .ant-select-selection-placeholder {
-        color: ${REDESIGN_COLORS.BLUE};
         font-size: 14px;
         font-weight: 500;
     }
@@ -49,9 +47,9 @@ const StyledSelect = styled(Select)`
     }
 
     .ant-select-arrow {
+        height: 16px;
         svg {
             font-size: 16px;
-            color: ${REDESIGN_COLORS.BLUE};
         }
     }
 `;
@@ -88,6 +86,10 @@ const LineageBoxWrapper = styled.div`
     gap: 8px;
     align-items: center;
     align-self: baseline;
+`
+const OptionsContainer = styled.div`
+    max-height: 400px;
+    overflow: auto;
 `;
 
 interface Props {
@@ -291,13 +293,15 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         options={options}
                         loading={isLoading}
                         value={selectedInstances}
+                        placeholder="Select Instances"
                         onSelect={(option: any) => handleSelectionChange(option.value)}
                         onDeselect={(option: any) => handleSelectionChange(option.value)}
-                        showSearch
+                        showSearch={false}
                         autoFocus
+                        showArrow
                         mode="multiple"
                         dropdownRender={() => (
-                            <div>
+                            <OptionsContainer>
                                 {options.length === 0 && (
                                     <Empty description="No Instances" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                                 )}
@@ -310,7 +314,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                                         {option.label}
                                     </ListOption>
                                 ))}
-                            </div>
+                            </OptionsContainer>
                         )}
                     />
                 </Form.Item>

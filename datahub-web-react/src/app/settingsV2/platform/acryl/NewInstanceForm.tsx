@@ -200,7 +200,7 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
                     <Header>
                         <HeaderTitle> {isEditForm ? selectedInstance?.details.name : 'Add a Connection'}</HeaderTitle>
                         <HeaderSubtext>
-                            {isEditForm ? 'Edit form' : 'Manage Integrations with other Acryl instances'}
+                            {isEditForm ? 'Edit connection' : 'Manage Integrations with other Acryl instances'}
                         </HeaderSubtext>
                     </Header>
                 </LeftContainer>

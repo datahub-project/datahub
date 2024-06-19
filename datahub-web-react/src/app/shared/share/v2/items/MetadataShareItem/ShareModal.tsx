@@ -60,6 +60,7 @@ const StyledSelect = styled(Select)`
     }
 
     .ant-select-arrow {
+        height: 16px;
         svg {
             font-size: 16px;
             color: ${REDESIGN_COLORS.DARK_DIVIDER};
@@ -90,7 +91,10 @@ const InstanceContainer = styled.div`
     padding: 4px 6px;
 `;
 
-const OptionsContainer = styled.div``;
+const OptionsContainer = styled.div`
+    max-height: 400px;
+    overflow: auto;
+`;
 
 const ListOption = styled.div`
     display: flex;
