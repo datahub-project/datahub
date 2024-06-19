@@ -607,11 +607,7 @@ public class ESBrowseDAO {
 
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     QueryBuilder query =
-        SearchRequestHandler.getBuilder(
-                entitySpec,
-                searchConfiguration,
-                customSearchConfiguration,
-                opContext.getRetrieverContext().get().getAspectRetriever())
+        SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
             .getQuery(
                 finalOpContext,
                 input,
@@ -647,11 +643,7 @@ public class ESBrowseDAO {
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
     QueryBuilder query =
-        SearchRequestHandler.getBuilder(
-                entitySpecs,
-                searchConfiguration,
-                customSearchConfiguration,
-                opContext.getRetrieverContext().get().getAspectRetriever())
+        SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
             .getQuery(
                 finalOpContext,
                 input,
