@@ -229,7 +229,8 @@ export default function DefaultPreviewCard({
     const isIconPresent = !!hasPlatformIcons || !!entityIcon;
 
     // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
-    const hasParentContainers = parentContainers && parentContainers.count > 0;
+    const hasParentContainers =
+        (parentContainers && parentContainers.count > 0) || (parentEntities && parentEntities.length > 0);
 
     const { isFullViewCard } = useSearchContext();
 
