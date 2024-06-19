@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.looker.looker_common import LookerViewId
 from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
 from datahub.ingestion.source.looker.lookml_concept_context import LookerViewContext, LookerFieldContext
 from datahub.ingestion.source.looker.lookml_config import LookMLSourceReport, LookMLSourceConfig
@@ -130,9 +131,21 @@ class AbstractViewUpstream(ABC):
     def get_upstream_dataset_urn(self) -> List[Urn]:
         pass
 
+    def get_derived_view_looker_id(self) -> Optional[LookerViewId]:
+        return get_derived_looker_view_id(
+            qualified_table_name=_generate_fully_qualified_name(
+                self.view_context.sql_table_name(),
+                self.view_context.view_connection,
+                self.view_context.reporter,
+            ),
+            base_folder_path=self.view_context.base_folder_path,
+            looker_view_id_cache=self.looker_view_id_cache,
+        )
+
 
 class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
     spr: SqlParsingResult
+    upstream_dataset_urns: List[str]
 
     def __init__(
             self,
@@ -145,6 +158,7 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
         super().__init__(view_context, looker_view_id_cache, config, ctx)
 
     def _get_spr(self) -> Optional[SqlParsingResult]:
+        # TODO : Add lru cache
         if not self.spr:
             self.spr = create_lineage_sql_parsed_result(
                 query=self.view_context.sql(),
@@ -165,36 +179,47 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
 
         return self.spr
 
+    def _get_upstream_dataset_urn(self) -> List[Urn]:
+        # TODO : Add lru cache
+
+        sql_parsing_result: Optional[SqlParsingResult] = self._get_spr()
+
+        if sql_parsing_result is None:
+            return []
+
+        if self.upstream_dataset_urns:
+            return self.upstream_dataset_urns
+
+        self.upstream_dataset_urns = [_drop_hive_dot(urn) for urn in sql_parsing_result.in_tables]
+
+        return self.upstream_dataset_urns
+
     def get_upstream_column_ref(self, field_context: LookerFieldContext) -> List[ColumnRef]:
         sql_parsing_result: Optional[SqlParsingResult] = self._get_spr()
 
         if sql_parsing_result is None:
             return []
 
+        upstreams_column_refs: List[ColumnRef] = []
+
         for cll in sql_parsing_result.column_lineage:
             if cll.downstream.column == field_context.name():
-                return cll.upstreams
+                upstreams_column_refs = cll.upstreams
 
         # field might get skip either because of Parser not able to identify the column from GMS
         # in-case of "select * from look_ml_view.SQL_TABLE_NAME" or extra field are defined in the looker view which is
         # referring to upstream table
-
-        return [
-            ColumnRef(
-                table=upstrea,
-                column=column,
-            )
-            for column in get_upstream_column_names(field_context)
-        ]
-
+        if self._get_upstream_dataset_urn() and not upstreams_column_refs:
+            upstreams_column_refs = [
+                ColumnRef(
+                    table=self._get_upstream_dataset_urn()[0],  # 0th index has table of from clause
+                    column=column,
+                )
+                for column in get_upstream_column_names(field_context)
+            ]
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
-        sql_parsing_result: Optional[SqlParsingResult] = self._get_spr()
-
-        if sql_parsing_result is None:
-            return []
-
-        return [_drop_hive_dot(urn) for urn in sql_parsing_result.in_tables]
+        return self._get_upstream_dataset_urn()
 
 
 class NativeDerivedViewUpstream(AbstractViewUpstream):
@@ -264,15 +289,8 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
 
     def _get_upstream_dataset_urn(self) -> Optional[Urn]:
         if self.upstream_dataset_urn is None:
-            looker_view_id = get_derived_looker_view_id(
-                qualified_table_name=_generate_fully_qualified_name(
-                    self.view_context.sql_table_name(),
-                    self.view_context.view_connection,
-                    self.view_context.reporter,
-                ),
-                base_folder_path=self.view_context.base_folder_path,
-                looker_view_id_cache=self.looker_view_id_cache,
-            )
+            # In this case view_context.sql_table_name() refers to derived view name
+            looker_view_id = self.get_derived_view_looker_id()
 
             self.upstream_dataset_urn = looker_view_id.get_urn(
                 config=self.config,
