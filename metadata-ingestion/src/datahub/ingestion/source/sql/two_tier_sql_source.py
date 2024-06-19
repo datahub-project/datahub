@@ -118,8 +118,6 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
             inspector = inspect(conn)
-            if inspector is None:
-                return None
             if self.config.database and self.config.database != "":
                 databases = [self.config.database]
             else:
@@ -131,8 +129,8 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
                         with create_engine(
                             url, **self.config.options
                         ).connect() as conn:
-                            if inspector is not None:
-                                yield inspector
+                            inspector = inspect(conn)
+                            yield inspector
                 except Exception as e:
                     logger.exception(f"Failed to create connection with Database {db} -> {e}")
 
