@@ -773,6 +773,7 @@ class BigQuerySinkConnector:
         project: str
         target_platform: str
         sanitizeTopics: str
+        transforms: list
         topicsToTables: Optional[str] = None
         datasets: Optional[str] = None
         defaultDataset: Optional[str] = None
@@ -788,6 +789,20 @@ class BigQuerySinkConnector:
     ) -> BQParser:
         project = connector_manifest.config["project"]
         sanitizeTopics = connector_manifest.config.get("sanitizeTopics", "false")
+        transform_names = (
+            self.connector_manifest.config.get("transforms", "").split(",")
+            if self.connector_manifest.config.get("transforms")
+            else []
+        )
+        transforms = []
+        for name in transform_names:
+            transform = {"name": name}
+            transforms.append(transform)
+            for key in self.connector_manifest.config.keys():
+                if key.startswith(f"transforms.{name}."):
+                    transform[
+                        key.replace(f"transforms.{name}.", "")
+                    ] = self.connector_manifest.config[key]
 
         if "defaultDataset" in connector_manifest.config:
             defaultDataset = connector_manifest.config["defaultDataset"]
@@ -797,6 +812,7 @@ class BigQuerySinkConnector:
                 target_platform="bigquery",
                 sanitizeTopics=sanitizeTopics.lower() == "true",
                 version="v2",
+                transforms=transforms,
             )
         else:
             # version 1.6.x and similar configs supported
@@ -809,6 +825,7 @@ class BigQuerySinkConnector:
                 datasets=datasets,
                 target_platform="bigquery",
                 sanitizeTopics=sanitizeTopics.lower() == "true",
+                transforms=transforms,
             )
 
     def get_list(self, property: str) -> Iterable[Tuple[str, str]]:
@@ -867,6 +884,18 @@ class BigQuerySinkConnector:
             table = self.sanitize_table_name(table)
         return f"{dataset}.{table}"
 
+    def apply_transformations(
+        self, topic: str, transforms: List[Dict[str, str]]
+    ) -> str:
+        for transform in transforms:
+            if transform["type"] == "org.apache.kafka.connect.transforms.RegexRouter":
+                regex = transform["regex"]
+                replacement = transform["replacement"]
+                pattern = re.compile(regex)
+                if pattern.match(topic):
+                    topic = pattern.sub(replacement, topic, count=1)
+        return topic
+
     def _extract_lineages(self):
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)
@@ -874,26 +903,26 @@ class BigQuerySinkConnector:
             return lineages
         target_platform = parser.target_platform
         project = parser.project
-
+        transforms = parser.transforms
         self.connector_manifest.flow_property_bag = self.connector_manifest.config
-
         # Mask/Remove properties that may reveal credentials
         if "keyfile" in self.connector_manifest.flow_property_bag:
             del self.connector_manifest.flow_property_bag["keyfile"]
 
         for topic in self.connector_manifest.topic_names:
-            dataset_table = self.get_dataset_table_for_topic(topic, parser)
+            transformed_topic = self.apply_transformations(topic, transforms)
+            dataset_table = self.get_dataset_table_for_topic(transformed_topic, parser)
             if dataset_table is None:
                 self.report_warning(
                     self.connector_manifest.name,
-                    f"could not find target dataset for topic {topic}, please check your connector configuration",
+                    f"could not find target dataset for topic {transformed_topic}, please check your connector configuration",
                 )
                 continue
             target_dataset = f"{project}.{dataset_table}"
 
             lineages.append(
                 KafkaConnectLineage(
-                    source_dataset=topic,
+                    source_dataset=transformed_topic,
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform=target_platform,
