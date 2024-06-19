@@ -87,7 +87,10 @@ export const singularizeCollectionName = (collectionName: string): string => {
 };
 
 export function getPlatformName(entityData: GenericEntityProperties | null) {
-    return entityData?.platform?.properties?.displayName || capitalizeFirstLetterOnly(entityData?.platform?.name);
+    const platformNames = entityData?.siblingPlatforms?.map(
+        (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name)
+    ) 
+    return platformNames?.[0] || entityData?.platform?.properties?.displayName || capitalizeFirstLetterOnly(entityData?.platform?.name);
 }
 
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';

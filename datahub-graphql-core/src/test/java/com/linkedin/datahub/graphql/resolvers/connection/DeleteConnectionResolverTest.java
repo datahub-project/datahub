@@ -43,7 +43,8 @@ public class DeleteConnectionResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    when(connectionService.deleteConnection(any(OperationContext.class), Mockito.eq(connectionUrn)))
+    when(connectionService.softDeleteConnection(
+            any(OperationContext.class), Mockito.eq(connectionUrn)))
         .thenReturn(true);
 
     final Boolean success = resolver.get(mockEnv).get();
@@ -51,7 +52,7 @@ public class DeleteConnectionResolverTest {
     Assert.assertTrue(success);
 
     Mockito.verify(connectionService, Mockito.times(1))
-        .deleteConnection(any(OperationContext.class), Mockito.eq(connectionUrn));
+        .softDeleteConnection(any(OperationContext.class), Mockito.eq(connectionUrn));
   }
 
   @Test

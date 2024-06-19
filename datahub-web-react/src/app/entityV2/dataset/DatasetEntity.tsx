@@ -356,6 +356,9 @@ export class DatasetEntity implements Entity<Dataset> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
+        const platformNames = genericProperties?.siblingPlatforms?.map(
+            (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
+        );
 
         return (
             <Preview
@@ -364,13 +367,13 @@ export class DatasetEntity implements Entity<Dataset> {
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
-                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                    platformNames?.[0] ||
+                    data?.platform?.properties?.displayName ||
+                    capitalizeFirstLetterOnly(data?.platform?.name)
                 }
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
-                platformNames={genericProperties?.siblingPlatforms?.map(
-                    (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
-                )}
+                platformNames={platformNames}
                 platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
