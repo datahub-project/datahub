@@ -1,11 +1,11 @@
 import React from 'react';
-import styled from 'styled-components/macro';
 import { Link } from 'react-router-dom';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import styled from 'styled-components/macro';
 import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
 import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityContext';
+import { ANTD_GRAY, EDITING_DOCUMENTATION_URL_PARAM, REDESIGN_COLORS } from '../../entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '../../entityV2/shared/containers/profile/utils';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const TermWrapper = styled.div`
     margin-left: 2px;
@@ -82,12 +82,14 @@ function TermItem(props: Props) {
 
     const isOnEntityPage = entityData && entityData.urn === term.urn;
 
+    const isActivelyEditing = activeTabPath.includes(EDITING_DOCUMENTATION_URL_PARAM);
+
     return (
         <TermWrapper>
             {!isSelecting && (
                 <TermLink
                     to={`${entityRegistry.getEntityUrl(term.type, term.urn)}${
-                        includeActiveTabPath ? `/${activeTabPath}` : ''
+                        includeActiveTabPath && !isActivelyEditing ? `/${activeTabPath}` : ''
                     }`}
                     $isSelected={entityData?.urn === term.urn}
                     $areChildrenVisible={areChildrenVisible}
