@@ -9,6 +9,7 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.AbstractArrayTemplate;
+import com.linkedin.data.template.AbstractMapTemplate;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -26,8 +27,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -63,10 +66,6 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
           this.getClass().getSimpleName());
       return false;
     }
-  }
-
-  private ValidationResult invalidResultWithMessage(String message) {
-    return new ValidationResult(false, Collections.singletonList(message));
   }
 
   @Override
@@ -106,6 +105,13 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
       // If field is a map get the type of the map's values
       if (fieldSchema.getType() == DataSchema.Type.MAP) {
         fieldSchema = ((MapDataSchema) fieldSchema).getValues();
+        // Cover MAP_ARRAY type fields
+        while (fieldSchema.getType() == DataSchema.Type.ARRAY) {
+          fieldSchema = ((ArrayDataSchema) fieldSchema).getItems();
+        }
+        if (fieldSchema.isPrimitive()) {
+          return ValidationResult.validResult();
+        }
       }
 
       // If field is primitive, but there is more query part to traverse, query is invalid
@@ -204,34 +210,105 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
   }
 
   // Traverse the records in current values to fetch the field with fieldName
-  private List<ValueWithUrn> traverseRecords(List<ValueWithUrn> currentValues, String fieldName) {
+  private List<ValueWithUrn> traverseRecords(
+      List<ValueWithUrn> currentValues,
+      String fieldName,
+      TestQuery query,
+      AtomicInteger queryIndex) {
     // If the traversed object is a record template, fetch the field corresponding to the current
     // query part
     List<ValueWithUrn> flatMappedResult = new ArrayList<>();
     PathSpec pathSpec = new PathSpec(fieldName);
+    AtomicInteger tempIndex = new AtomicInteger(queryIndex.get());
     for (ValueWithUrn currentValue : currentValues) {
+      tempIndex = new AtomicInteger(queryIndex.get());
 
       // First fetch field value with the field name
       Optional<Object> fieldValue = RecordUtils.getFieldValue(currentValue.getValue(), pathSpec);
       if (!fieldValue.isPresent()) {
         continue;
       }
-      // If field value is an array, flatten the results until we find an object that is not an
-      // array
-      // i.e. for query "glossaryTerms.terms.urn", glossaryTerms.terms returns an array of
-      // GlossaryTermAssociation objects.
-      // The final query part "urn" needs to be applied on each GlossaryTermAssociation object,
-      // so we need to flatten the association object array
-      if (fieldValue.get() instanceof AbstractArrayTemplate) {
-        AbstractArrayTemplate<Object> arrayFieldValues =
-            (AbstractArrayTemplate<Object>) fieldValue.get();
-        arrayFieldValues.forEach(
-            value -> flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), value)));
-      } else {
-        flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), fieldValue.get()));
-      }
+      resolveQueryLevel(fieldValue.get(), currentValue, flatMappedResult, tempIndex, query);
     }
+    queryIndex.compareAndSet(queryIndex.get(), tempIndex.get());
     return flatMappedResult;
+  }
+
+  /**
+   * Handles adding the current query part being processed to the currentValues being iterated over
+   * in the evaluateQuery flow. For map type fields this is handled in a recursive way as key values
+   * to map types are not included in schema to provide flexibility. Map type fields will traverse
+   * the specified keys in the query in a nested fashion until an array, primitive, or record is
+   * encountered which will pass back up to the top level loop in evaluateQuery. The queryIndex is
+   * maintained and updated to be in line once the recursion has exited.
+   *
+   * @param fieldValue the current field value being analyzed
+   * @param currentValue the parent of the current field
+   * @param flatMappedResult current query level's results
+   * @param queryIndex index of the query part being processed, passed through to be maintained by
+   *     recursive loop
+   * @param query the full query being processed
+   */
+  private void resolveQueryLevel(
+      Object fieldValue,
+      ValueWithUrn currentValue,
+      List<ValueWithUrn> flatMappedResult,
+      AtomicInteger queryIndex,
+      TestQuery query) {
+    if (fieldValue instanceof AbstractArrayTemplate) {
+      resolveArrayField(flatMappedResult, fieldValue, currentValue);
+    } else if (fieldValue instanceof AbstractMapTemplate) {
+      resolveMapField(flatMappedResult, fieldValue, currentValue, queryIndex, query);
+    } else {
+      // Record values and primitives do not require special handling
+      flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), fieldValue));
+    }
+  }
+
+  /**
+   * If field value is an array, flatten the results until we find an object that is not an array
+   * i.e. for query "glossaryTerms.terms.urn", glossaryTerms.terms returns an array of
+   * GlossaryTermAssociation objects. The final query part "urn" needs to be applied on each
+   * GlossaryTermAssociation object, so we need to flatten the association object array
+   */
+  private void resolveArrayField(
+      List<ValueWithUrn> flatMappedResult, Object fieldValue, ValueWithUrn currentValue) {
+    AbstractArrayTemplate<Object> arrayFieldValues = (AbstractArrayTemplate<Object>) fieldValue;
+    arrayFieldValues.forEach(
+        value -> flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), value)));
+  }
+
+  private void resolveMapField(
+      List<ValueWithUrn> flatMappedResult,
+      Object fieldValue,
+      ValueWithUrn currentValue,
+      AtomicInteger queryIndex,
+      TestQuery query) {
+    AbstractMapTemplate<Object> mapFieldValues = (AbstractMapTemplate<Object>) fieldValue;
+    // If field is last value in query, then we treat it as querying for the key fields
+    if (queryIndex.get() >= query.getQueryParts().size() - 1) {
+      mapFieldValues.forEach(
+          (key, value) -> flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), key)));
+    } else {
+      // Otherwise we take the key specified and query against that and pass queryIndex by
+      // reference, so we can
+      // increment if there are nested object fields
+      String mapKey = query.getQueryParts().get(queryIndex.incrementAndGet());
+      Object mapValue = mapFieldValues.get(mapKey);
+      if (mapValue == null) {
+        // Key does not exist, return empty response
+        flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), null));
+        return;
+      }
+      // Handle recursive maps if necessary in later models and reduce repeated code from above
+      // for handling arrays
+      resolveQueryLevel(
+          mapValue,
+          new ValueWithUrn(currentValue.getUrn(), mapValue),
+          flatMappedResult,
+          queryIndex,
+          query);
+    }
   }
 
   // Evaluate partial query for the traversed urns (currentValues must contain urns)
@@ -285,9 +362,10 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
         aspects.stream()
             .map(aspect -> new ValueWithUrn(aspect.getUrn(), aspect.getAspect()))
             .collect(Collectors.toList());
-    for (int i = 1; i < query.getQueryParts().size(); i++) {
-      String queryPart = query.getQueryParts().get(i);
-      PathSpec pathSpec = new PathSpec(queryPart);
+    for (AtomicInteger i = new AtomicInteger(1);
+        i.get() < query.getQueryParts().size();
+        i.incrementAndGet()) {
+      String queryPart = query.getQueryParts().get(i.get());
       // If current values is empty, there is no point traversing further
       if (currentValues.isEmpty()) {
         return Collections.emptyMap();
@@ -296,13 +374,13 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
       if (currentValues.get(0).getValue() instanceof RecordTemplate) {
         // If the traversed object is a record template, fetch the field corresponding to the
         // current query part
-        currentValues = traverseRecords(currentValues, queryPart);
+        currentValues = traverseRecords(currentValues, queryPart, query, i);
       } else if (currentValues.get(0).getValue() instanceof Urn) {
         // If the traversed object is an urn, recursively evaluate the rest of the query using the
         // query engine
         // First, build partial query with the rest of the query parts.
         TestQuery partialQuery =
-            new TestQuery(query.getQueryParts().subList(i, query.getQueryParts().size()));
+            new TestQuery(query.getQueryParts().subList(i.get(), query.getQueryParts().size()));
         return evaluateQueryForUrns(opContext, currentValues, partialQuery);
       } else {
         log.error(
@@ -321,7 +399,11 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
                 ValueWithUrn::getUrn,
                 Collectors.collectingAndThen(
                     Collectors.mapping(
-                        valueWithUrn -> valueWithUrn.getValue().toString(), Collectors.toList()),
+                        valueWithUrn ->
+                            valueWithUrn.getValue() != null
+                                ? valueWithUrn.getValue().toString()
+                                : null,
+                        Collectors.filtering(Objects::nonNull, Collectors.toList())),
                     TestQueryResponse::new)));
   }
 

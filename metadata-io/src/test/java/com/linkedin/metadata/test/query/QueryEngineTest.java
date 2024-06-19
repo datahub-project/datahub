@@ -11,8 +11,10 @@ import com.linkedin.common.FabricType;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.UrnArrayMap;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -43,6 +45,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.SneakyThrows;
 import org.mockito.Mockito;
@@ -77,6 +80,13 @@ public class QueryEngineTest {
   static final GlossaryTermUrn GLOSSARY_TERM_WITHOUT_PARENT =
       new GlossaryTermUrn("term_without_parent");
   static final GlossaryNodeUrn PARENT_NODE = new GlossaryNodeUrn("parent_node");
+
+  static final String TEST_OWNERSHIP_TYPE_1 = "urn:li:ownershipType:dataowner";
+  static final String TEST_OWNERSHIP_TYPE_2 = "urn:li:ownershipType:datasteward";
+  static final String TEST_OWNERSHIP_TYPE_3 = "urn:li:ownershipType:businessowner";
+  static final String TEST_USER_1 = "urn:li:corpuser:testUser1";
+  static final String TEST_USER_2 = "urn:li:corpuser:testUser2";
+  static final String TEST_USER_3 = "urn:li:corpuser:testUser3";
   private OperationContext opContext;
 
   @BeforeTest
@@ -653,9 +663,7 @@ public class QueryEngineTest {
         ImmutableMap.of(
             DATASET_URN,
             ImmutableMap.of(
-                testQuery,
-                new TestQueryResponse(
-                    ImmutableList.of("{prop1=value1, owner_group=['group1', 'group2']}")))));
+                testQuery, new TestQueryResponse(ImmutableList.of("prop1", "owner_group")))));
   }
 
   @SneakyThrows
@@ -757,6 +765,92 @@ public class QueryEngineTest {
     assertEquals(
         _queryEngine.batchEvaluateQueries(
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(DATASET_URN, ImmutableMap.of(testQuery, TestQueryResponse.empty())));
+  }
+
+  @SneakyThrows
+  @Test
+  public void testMapArrayField() {
+
+    Mockito.when(
+            _entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(DATASET_URN)),
+                Mockito.eq(com.google.common.collect.ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(ImmutableMap.of());
+
+    final EntityResponse entityResponse = new EntityResponse();
+
+    final UrnArrayMap ownershipTypes = new UrnArrayMap();
+    final UrnArray dataOwnerUsers = new UrnArray();
+    dataOwnerUsers.add(UrnUtils.getUrn(TEST_USER_1));
+    final UrnArray dataStewardUsers = new UrnArray();
+    dataStewardUsers.add(UrnUtils.getUrn(TEST_USER_2));
+    dataStewardUsers.add(UrnUtils.getUrn(TEST_USER_3));
+    final UrnArray businessOwnerUsers = new UrnArray();
+    businessOwnerUsers.add(UrnUtils.getUrn(TEST_USER_1));
+    businessOwnerUsers.add(UrnUtils.getUrn(TEST_USER_3));
+    ownershipTypes.put(TEST_OWNERSHIP_TYPE_1, dataOwnerUsers);
+    ownershipTypes.put(TEST_OWNERSHIP_TYPE_2, dataStewardUsers);
+    ownershipTypes.put(TEST_OWNERSHIP_TYPE_3, businessOwnerUsers);
+
+    final Ownership ownership = new Ownership().setOwnerTypes(ownershipTypes);
+
+    final EnvelopedAspect ownershipAspect =
+        new EnvelopedAspect()
+            .setName(OWNERSHIP_ASPECT_NAME)
+            .setValue(new Aspect(ownership.data()))
+            .setSystemMetadata(new SystemMetadata())
+            .setCreated(new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(10));
+
+    entityResponse
+        .setAspects(new EnvelopedAspectMap(ImmutableMap.of(OWNERSHIP_ASPECT_NAME, ownershipAspect)))
+        .setUrn(DATASET_URN);
+
+    Mockito.when(
+            _entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(DATASET_URN)),
+                Mockito.eq(com.google.common.collect.ImmutableSet.of(OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(ImmutableMap.of(DATASET_URN, entityResponse));
+
+    // String property query
+    TestQuery testQuery = new TestQuery("ownership.ownerTypes." + TEST_OWNERSHIP_TYPE_1);
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of(TEST_USER_1)))));
+
+    // Double property query
+    testQuery = new TestQuery("ownership.ownerTypes." + TEST_OWNERSHIP_TYPE_2);
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(
+                testQuery, new TestQueryResponse(ImmutableList.of(TEST_USER_2, TEST_USER_3)))));
+
+    testQuery = new TestQuery("ownership.ownerTypes." + TEST_OWNERSHIP_TYPE_3);
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(
+                testQuery, new TestQueryResponse(ImmutableList.of(TEST_USER_1, TEST_USER_3)))));
+
+    // No match
+    testQuery = new TestQuery("ownership.ownerTypes.urn:li:ownershipType:nonExistant");
+    Map<Urn, Map<TestQuery, TestQueryResponse>> responseMap =
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery));
+    assertEquals(
+        responseMap,
         ImmutableMap.of(DATASET_URN, ImmutableMap.of(testQuery, TestQueryResponse.empty())));
   }
 
