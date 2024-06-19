@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { message } from 'antd';
 import styled from 'styled-components/macro';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { GenericEntityUpdate } from '../../../../../entity/shared/types';
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
-import { DiscardDescriptionModal } from './DiscardDescriptionModal';
-import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
 import { EntityType } from '../../../../../../types.generated';
+import analytics, { EntityActionType, EventType } from '../../../../../analytics';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
+import { GenericEntityUpdate } from '../../../../../entity/shared/types';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
 import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDescription';
 import { sanitizeRichText } from './editor/utils';
+import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
@@ -159,6 +159,9 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     }
 
     function handleCancel() {
+        const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
+        delete editedDescriptionsLocal[mutationUrn];
+        localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
         if (onComplete) onComplete();
     }
 
