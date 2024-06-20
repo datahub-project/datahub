@@ -95,3 +95,15 @@ query getAssertionRuns($assertionUrn: String!, $startTime: Long, $endTime: Long,
 mutation deleteAssertion($urn: String!) {
     deleteAssertion(urn: $urn)
 }
+
+fragment assertionDetailsWithRunEvents on Assertion {
+    ...assertionDetails
+    runEvents(status: COMPLETE, limit: 1) {
+        total
+        failed
+        succeeded
+        runEvents {
+            ...assertionRunEventDetails
+        }
+    }
+}
