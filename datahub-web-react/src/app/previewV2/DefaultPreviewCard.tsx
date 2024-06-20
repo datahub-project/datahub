@@ -1,6 +1,3 @@
-// import BookOutlinedIcon from '@mui/icons-material/BookOutlined';
-// import CameraIcon from '@mui/icons-material/Camera';
-// import FindInPageIcon from '@mui/icons-material/FindInPage';
 import LaunchIcon from '@mui/icons-material/Launch';
 import { Typography } from 'antd';
 import React, { ReactNode } from 'react';
@@ -117,11 +114,9 @@ interface Props {
     paths?: EntityPath[];
     health?: Health[];
     lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
-    // eslint-disable-next-line react/no-unused-prop-types
     description?: string;
     // eslint-disable-next-line react/no-unused-prop-types
     qualifier?: string | null;
-    // eslint-disable-next-line react/no-unused-prop-types
     externalUrl?: string | null;
     tier?: PopularityTier;
     isOutputPort?: boolean;
@@ -163,7 +158,7 @@ const Documentation = styled.div`
 `;
 
 export default function DefaultPreviewCard({
-    name, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    name,
     urn,
     logoUrl, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     logoComponent,
@@ -172,18 +167,18 @@ export default function DefaultPreviewCard({
     type,
     typeIcon,
     platform,
-    platformInstanceId, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    tags, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    platformInstanceId,
+    tags,
     owners, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    topUsers, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    glossaryTerms, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    topUsers,
+    glossaryTerms,
     paths, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     subHeader,
     snippet,
     insights, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     domain, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     dataProduct,
-    container, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    container,
     deprecation, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     entityCount,
     titleSizePx,
@@ -195,12 +190,12 @@ export default function DefaultPreviewCard({
     parentEntities,
     platforms,
     logoUrls,
-    previewType, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    health, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    previewType,
+    health,
     lastUpdatedMs,
     externalUrl,
     tier,
-    isOutputPort, // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    isOutputPort,
     entityIcon,
     headerDropdownItems,
     statsSummary,
@@ -234,7 +229,8 @@ export default function DefaultPreviewCard({
     const isIconPresent = !!hasPlatformIcons || !!entityIcon;
 
     // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
-    const hasParentContainers = parentContainers && parentContainers.count > 0;
+    const hasParentContainers =
+        (parentContainers && parentContainers.count > 0) || (parentEntities && parentEntities.length > 0);
 
     const { isFullViewCard } = useSearchContext();
 
@@ -361,30 +357,6 @@ export default function DefaultPreviewCard({
                     browsePaths={browsePaths}
                 />
             )}
-
-            {/* {(!!dataProduct || !!domain) && (
-                                <GovernanceSection>
-                                    {subHeader && <VerticalDivider />}
-                                    <GovernanceContainer>
-                                        {domain && (
-                                            <GovernanceItem>
-                                                <DomainLink
-                                                    domain={domain}
-                                                    tagStyle={{ border: 'none', fontSize: 12, color: '#328980', margin: 0 }}
-                                                />
-                                            </GovernanceItem>
-                                        )}
-                                        {dataProduct && (
-                                            <GovernanceItem>
-                                                <DataProductLink
-                                                    dataProduct={dataProduct}
-                                                    tagStyle={{ border: 'none', fontSize: 12, color: '#328980', margin: 0 }}
-                                                />
-                                            </GovernanceItem>
-                                        )}
-                                    </GovernanceContainer>
-                                </GovernanceSection>
-                            )} */}
             <DefaultPreviewCardFooter
                 glossaryTerms={glossaryTerms}
                 tags={tags}
@@ -401,20 +373,6 @@ export default function DefaultPreviewCard({
                 paths={paths}
                 isFullViewCard={isFullViewCard}
             />
-            {/* {!!(insights?.length || groupedMatches.length) && isMatchExpanded && (
-                    <>
-                        <HorizontalDivider />
-                        <SummaryTitle>Matches</SummaryTitle>
-                        <InsightsContainer>
-                            {insightViews.map((insightView, index) => (
-                                <span>
-                                    {insightView}
-                                    {index < insightViews.length - 1 && <PlatformDivider />}
-                                </span>
-                            ))}
-                        </InsightsContainer>
-                    </>
-                )} */}
         </PreviewContainer>
     );
 }

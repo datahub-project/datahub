@@ -8,8 +8,8 @@ import { EntityType, LineageDirection } from '../../../types.generated';
 import { EventType } from '../../analytics';
 import analytics from '../../analytics/analytics';
 import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import { EntityHealth } from '../../entityV2/shared/containers/profile/header/EntityHealth';
 import { ContainerIconBase } from '../../entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
+import HealthIcon from '../../previewV2/HealthIcon';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -340,11 +340,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             <TitleWrapper>
                                 <Title title={entity?.name} />
                                 {entity?.health && (
-                                    <EntityHealth
+                                    <HealthIcon
                                         health={entity.health}
                                         baseUrl={entityRegistry.getEntityUrl(type, urn)}
-                                        fontSize={10}
-                                        noLink
                                     />
                                 )}
                             </TitleWrapper>

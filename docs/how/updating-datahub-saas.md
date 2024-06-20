@@ -33,6 +33,11 @@ This is over and above updating-datahub.md file
 
 ### Other Notable Changes
 
+* Behavior of Custom Properties Metadata Tests has changed, querying the customProperties field directly returns the keys
+  in the map and each key is referencable as a subquery part. This enables more advanced use cases without the need of using
+  Regex matching. So instead of querying `datasetProperties.customProperties` with a Regex operator to filter on a specific property
+  being present you can just query `datasetProperties.customProperties.myProp`
+
 ### Environment Variables
 
 `ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY` (default: 2) - Number of concurrent rest.li calls when the number of urns in a getBatchV2 call exceeds the batch

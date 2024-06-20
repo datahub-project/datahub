@@ -20,4 +20,15 @@ export const COLORS = {
     yellow_8: '#AD8B34',
     yellow_9: '#8B702A',
     yellow_10: '#6E5821',
-}
+
+    green_1: '#F1F8EE',
+    green_2: '#DEEED5',
+    green_3: '#C5E0B4',
+    green_4: '#A9D291',
+    green_5: '#8FC470',
+    green_6: '#77B750',
+    green_7: '#659C44',
+    green_8: '#548239',
+    green_9: '#44682E',
+    green_10: '#365224',
+};

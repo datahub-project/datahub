@@ -128,7 +128,11 @@ public interface EntitySpec {
           fieldPaths.addAll(searchableFieldSpec.getPath().getPathComponents());
           fieldPaths.add(
               searchableFieldSpec.getSearchableAnnotation().getNumValuesFieldName().get());
-          PathSpec pathSpec = new PathSpec(fieldPaths);
+          PathSpec pathSpec =
+              new PathSpec(
+                  fieldPaths.stream()
+                      .filter(str -> !ARRAY_WILDCARD.equals(str))
+                      .collect(Collectors.toList()));
           String fieldName =
               searchableFieldSpec.getSearchableAnnotation().getNumValuesFieldName().get();
           return new Pair<>(pathSpec, fieldName);
@@ -142,7 +146,11 @@ public interface EntitySpec {
           fieldPaths.addAll(searchableFieldSpec.getPath().getPathComponents());
           fieldPaths.add(
               searchableFieldSpec.getSearchableAnnotation().getHasValuesFieldName().get());
-          PathSpec pathSpec = new PathSpec(fieldPaths);
+          PathSpec pathSpec =
+              new PathSpec(
+                  fieldPaths.stream()
+                      .filter(str -> !ARRAY_WILDCARD.equals(str))
+                      .collect(Collectors.toList()));
           return new Pair<>(pathSpec, fieldName);
         };
     BiFunction<AspectSpec, SearchableFieldSpec, Pair<PathSpec, String>> defaultKeyFn =

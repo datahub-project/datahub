@@ -398,7 +398,8 @@ public class ESPredicateUtils {
     if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)
         || fieldTypes.contains(LONG_FIELD_TYPE)
         || fieldTypes.contains(DATE_FIELD_TYPE)
-        || fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
+        || fieldTypes.contains(DOUBLE_FIELD_TYPE)
+        || fieldTypes.contains(OBJECT_FIELD_TYPE)) {
       return fieldName;
     }
     return toKeywordField(fieldName, isTimeseries, aspectRetriever);

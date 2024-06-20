@@ -1,0 +1,165 @@
+package com.linkedin.metadata.test.query.schemafield;
+
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
+
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.test.definition.ValidationResult;
+import com.linkedin.metadata.test.query.TestQuery;
+import com.linkedin.metadata.test.query.TestQueryResponse;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaFieldInfoArray;
+import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.schema.MapType;
+import com.linkedin.schema.OtherSchema;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaFieldDataType;
+import com.linkedin.schema.SchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
+import java.util.*;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+public class SchemaFieldEvaluatorTest {
+  private static final Urn TEST_DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,TestDataset,PROD)");
+  private SchemaFieldEvaluator evaluator;
+  private EntityService<?> entityService;
+  private OperationContext opContext;
+
+  @BeforeMethod
+  public void setUp() {
+    entityService = mock(EntityService.class);
+    evaluator = new SchemaFieldEvaluator(entityService);
+    opContext = mock(OperationContext.class);
+  }
+
+  @Test
+  public void testIsEligibleTrueForSchemaFieldsQuery() {
+    TestQuery query = mock(TestQuery.class);
+    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+    when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields"));
+    assertTrue(evaluator.isEligible("dataset", query));
+  }
+
+  @Test
+  public void testIsEligibleTrueForSchemaFieldsLengthQuery() {
+    TestQuery query = mock(TestQuery.class);
+    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
+    when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields", "length"));
+    assertTrue(evaluator.isEligible("dataset", query));
+  }
+
+  @Test
+  public void testIsIneligibleBadEntityType() {
+    TestQuery query = mock(TestQuery.class);
+    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
+    when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields", "length"));
+    assertFalse(evaluator.isEligible("container", query));
+  }
+
+  @Test
+  public void testIsIneligibleBadQuery() {
+    TestQuery query = mock(TestQuery.class);
+    when(query.getQuery()).thenReturn("bad.query");
+    when(query.getQueryParts()).thenReturn(ImmutableList.of("bad", "query"));
+    assertFalse(evaluator.isEligible("dataset", query));
+  }
+
+  @Test
+  public void testValidateQueryValid() {
+    TestQuery query = mock(TestQuery.class);
+
+    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+    when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields"));
+
+    ValidationResult result = evaluator.validateQuery("dataset", query);
+    assertTrue(result.isValid());
+
+    query = mock(TestQuery.class);
+
+    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
+    when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields", "length"));
+
+    result = evaluator.validateQuery("dataset", query);
+    assertTrue(result.isValid());
+  }
+
+  @Test
+  public void testEvaluateWithValidResponses() throws URISyntaxException {
+    Set<Urn> urns = new HashSet<>(Arrays.asList(TEST_DATASET_URN));
+    Set<TestQuery> queries = new HashSet<>(Arrays.asList(mock(TestQuery.class)));
+    when(queries.iterator().next().getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+
+    SchemaMetadata schemaMetadata = new SchemaMetadata();
+    schemaMetadata.setHash("hash");
+    schemaMetadata.setPlatformSchema(SchemaMetadata.PlatformSchema.create(new OtherSchema()));
+    schemaMetadata.setVersion(0L);
+    schemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new MapType())))
+                    .setFieldPath("path")
+                    .setDescription("description"))));
+
+    EditableSchemaMetadata editableSchemaMetadata = new EditableSchemaMetadata();
+    editableSchemaMetadata.setEditableSchemaFieldInfo(
+        new EditableSchemaFieldInfoArray(
+            ImmutableList.of(
+                new EditableSchemaFieldInfo()
+                    .setDescription("editableDescription")
+                    .setFieldPath("path"))));
+
+    Map<Urn, EntityResponse> mockResponses = new HashMap<>();
+    mockResponses.put(
+        TEST_DATASET_URN,
+        new EntityResponse()
+            .setUrn(TEST_DATASET_URN)
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(schemaMetadata.data())),
+                        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setValue(new Aspect(editableSchemaMetadata.data()))))));
+
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(Constants.DATASET_ENTITY_NAME),
+            eq(Collections.singleton(TEST_DATASET_URN)),
+            eq(
+                ImmutableSet.of(
+                    Constants.SCHEMA_METADATA_ASPECT_NAME,
+                    Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(mockResponses);
+
+    com.linkedin.metadata.test.query.schemafield.SchemaField expectedSchemaField =
+        new com.linkedin.metadata.test.query.schemafield.SchemaField(
+            "path", "description", "editableDescription");
+
+    Map<Urn, Map<TestQuery, TestQueryResponse>> results =
+        evaluator.evaluate(opContext, "dataset", urns, queries);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().size(), 1);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().get(0),
+        SchemaFieldUtils.serializeSchemaField(expectedSchemaField));
+  }
+}

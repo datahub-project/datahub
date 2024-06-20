@@ -2,6 +2,7 @@ package com.linkedin.metadata.connection;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.connection.DataHubConnectionDetails;
 import com.linkedin.connection.DataHubConnectionDetailsType;
@@ -122,7 +123,8 @@ public class ConnectionService {
           connectionUrn,
           ImmutableSet.of(
               Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
-              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME));
+              Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+              Constants.STATUS_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Connection with urn %s", connectionUrn), e);
@@ -210,6 +212,25 @@ public class ConnectionService {
                 e);
           }
         });
+    return true;
+  }
+
+  public boolean softDeleteConnection(
+      @Nonnull OperationContext opContext, @Nonnull Urn connectionUrn)
+      throws RemoteInvocationException {
+    Status status = new Status();
+
+    final EntityResponse response = getConnectionEntityResponse(opContext, connectionUrn);
+    if (response != null && response.getAspects().containsKey(Constants.STATUS_ASPECT_NAME)) {
+      status =
+          new Status(response.getAspects().get(Constants.STATUS_ASPECT_NAME).getValue().data());
+    }
+    status.setRemoved(true);
+    MetadataChangeProposal mcp =
+        AspectUtils.buildMetadataChangeProposal(
+            connectionUrn, Constants.STATUS_ASPECT_NAME, status);
+
+    _entityClient.ingestProposal(opContext, mcp, false);
     return true;
   }
 }

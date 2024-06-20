@@ -6,6 +6,7 @@ import lombok.Value;
 
 @Value
 public class TestQueryResponse {
+  /** The list of values returned by the query. */
   List<String> values;
 
   private static final TestQueryResponse EMPTY = new TestQueryResponse(Collections.emptyList());

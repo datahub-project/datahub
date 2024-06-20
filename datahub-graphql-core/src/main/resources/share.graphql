@@ -27,7 +27,7 @@ type ShareResult {
     """
     The DataHubConnection related to another Acryl instance that this entity is shared with
     """
-    destination: DataHubConnection!
+    destination: DataHubConnection
 
     """
     If this share happened implicitly due to another entity being shared, this field

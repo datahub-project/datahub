@@ -1,35 +1,43 @@
 import React from 'react';
 import { Popover } from 'antd';
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
+import { CheckCircleOutlined } from '@ant-design/icons';
 import AmbulanceIcon from '../../images/ambulance-icon.svg?react';
+import { isHealthy, isUnhealthy } from '../shared/health/healthUtils';
+import { COLORS } from '../sharedV2/colors';
 import HealthPopover from './HealthPopover';
 import { Health } from '../../types.generated';
 
 const IconContainer = styled.div`
     display: flex;
     align-items: center;
+    font-size: 112.5%;
+`;
 
-    svg {
-        height: 18px;
-        width: auto;
-    }
+const HealthyIcon = styled(CheckCircleOutlined)`
+    color: ${COLORS.green_6};
 `;
 
 interface Props {
     health: Health[];
     baseUrl: string;
+    className?: string;
 }
 
-const HealthIcon = ({ health, baseUrl }: Props) => {
+const HealthIcon = ({ health, baseUrl, className }: Props) => {
+    let icon: JSX.Element;
+    if (isUnhealthy(health)) {
+        icon = <AmbulanceIcon />;
+    } else if (isHealthy(health)) {
+        icon = <HealthyIcon />;
+    } else {
+        return null;
+    }
+
     return (
-        <Link to={`${baseUrl}/Incidents`}>
-            <Popover content={<HealthPopover health={health} />} placement="bottom">
-                <IconContainer>
-                    <AmbulanceIcon />
-                </IconContainer>
-            </Popover>
-        </Link>
+        <Popover content={<HealthPopover health={health} baseUrl={baseUrl} />} placement="bottom">
+            <IconContainer className={className}>{icon}</IconContainer>
+        </Popover>
     );
 };
 

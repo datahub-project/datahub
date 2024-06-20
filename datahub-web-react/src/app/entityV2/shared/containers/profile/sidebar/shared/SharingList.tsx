@@ -76,7 +76,8 @@ const SharingList = ({ resultsList }: Props) => {
     return (
         <ResultsContainer>
             {resultsList.map((result) => {
-                const name = result.destination.details.name || result.destination.urn;
+const hasDestination = !!result.destination;
+const name = result?.destination?.details.name || result.destination?.urn || 'Deleted connection';
                 const hasSharedLineage =
                     result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
                 const lastSuccessTime = result.lastSuccess?.time || 0;
@@ -91,7 +92,7 @@ const SharingList = ({ resultsList }: Props) => {
                                 <InstanceIcon>
                                     <AcrylIcon />
                                 </InstanceIcon>
-                                <ContentText>
+                                <ContentText color={hasDestination ? undefined : REDESIGN_COLORS.RED_NORMAL}>
                                     {name}
                                     {hasSharedLineage && (
                                         <LineageIconWrapper>

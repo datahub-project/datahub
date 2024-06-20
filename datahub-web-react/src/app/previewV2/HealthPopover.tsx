@@ -1,22 +1,46 @@
-import React from 'react';
-import styled from 'styled-components';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined';
 import { Typography } from 'antd';
-import { Health, HealthStatusType } from '../../types.generated';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+import { Health, HealthStatus, HealthStatusType } from '../../types.generated';
+import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 
 const Content = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
     min-width: 180px;
+
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    font-size: 16px;
 `;
 
-const Item = styled.div`
+const Message = styled(Typography.Text)`
+    font-size: 12px;
+    margin: 5px;
+    line-height: 12px;
+    font-weight: 400;
+    text-align: center;
+    display: flex;
+`;
+
+const StyledLink = styled(Link)`
     display: flex;
     align-items: center;
     gap: 3px;
+
+    border-radius: 14px;
+
+    :hover {
+        background-color: ${REDESIGN_COLORS.BACKGROUND_SECONDARY_GRAY};
+
+        ${Message} {
+            text-decoration: underline;
+        }
+    }
 `;
 
 const Icon = styled.div`
@@ -29,44 +53,66 @@ const Icon = styled.div`
     padding: 5px;
     background: #f7f7f7;
     border: 1px solid #eeeeee;
-    svg {
-        font-size: 16px;
-        color: #5d668b;
-    }
-`;
-const Message = styled(Typography.Text)`
-    font-size: 12px;
-    margin: 5px;
-    line-height: 12px;
-    font-weight: 400;
-    color: #374066;
-    text-align: center;
-    display: flex;
+    color: ${REDESIGN_COLORS.DARK_GREY};
 `;
 
 interface Props {
     health: Health[];
+    baseUrl: string;
 }
 
-const HealthPopover = ({ health }: Props) => {
+export default function HealthPopover({ health, baseUrl }: Props) {
     return (
         <Content>
             {health.map((item) => (
-                <Item key={item.type}>
-                    {item.message && (
-                        <>
-                            <Icon>
-                                {item.type === HealthStatusType.Assertions && <ErrorOutlineOutlinedIcon />}
-                                {item.type === HealthStatusType.Incidents && <ReportProblemOutlinedIcon />}
-                                {item.type === HealthStatusType.Tests && <VerifiedOutlinedIcon />}
-                            </Icon>
-                            <Message>{item.message}</Message>
-                        </>
-                    )}
-                </Item>
+                <StyledLink key={item.type} to={`${baseUrl}${healthUrlSuffix(item)}`}>
+                    <Icon>{healthIcon(item)}</Icon>
+                    <Message>{healthMessage(item)}</Message>
+                </StyledLink>
             ))}
         </Content>
     );
-};
+}
 
-export default HealthPopover;
+function healthIcon({ type }: Health) {
+    switch (type) {
+        case HealthStatusType.Incidents:
+            return <ReportProblemOutlinedIcon fontSize="inherit" />;
+        case HealthStatusType.Assertions:
+            return <ErrorOutlineOutlinedIcon fontSize="inherit" />;
+        case HealthStatusType.Tests:
+            return <VerifiedOutlinedIcon fontSize="inherit" />;
+        default:
+            return null;
+    }
+}
+
+function healthUrlSuffix({ type }: Health) {
+    switch (type) {
+        case HealthStatusType.Incidents:
+            return '/Incidents';
+        case HealthStatusType.Assertions:
+            return '/Validation/Assertions';
+        case HealthStatusType.Tests:
+            return '/Validation/Tests';
+        default:
+            return null;
+    }
+}
+
+function healthMessage({ message, status, type }: Health) {
+    if (message) return message;
+    if (status === HealthStatus.Pass) {
+        switch (type) {
+            case HealthStatusType.Assertions:
+                return 'All assertions are passing';
+            case HealthStatusType.Incidents:
+                return 'No active incidents';
+            case HealthStatusType.Tests:
+                return 'No failing governance tests';
+            default:
+                return null;
+        }
+    }
+    return null;
+}

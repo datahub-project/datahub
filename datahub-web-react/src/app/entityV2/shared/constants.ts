@@ -202,3 +202,5 @@ export enum EntityProfileTab {
     DATA_PRODUCTS_TAB = 'DATA_PRODUCTS_TAB',
     SUMMARY_TAB = 'SUMMARY_TAB',
 }
+
+export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';

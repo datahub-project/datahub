@@ -1,14 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
 // import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
-import { Divider, Form, Input, Typography, message } from 'antd';
-import { useHistory } from 'react-router';
+import { Button, Divider, Form, Input, Typography, message } from 'antd';
 import { useApolloClient } from '@apollo/client';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
 import { DataHubConnection, DataHubConnectionDetailsType } from '../../../../types.generated';
-import { BackButton } from '../../../sharedV2/buttons/BackButton';
-import { StyledButton } from '../../../shared/share/v2/styledComponents';
 import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
 import { ACRYL_PLATFORM_URN, getConnectionBlob, getURLfromJson } from './utils';
 import { updateInstancesList } from './cacheUtils';
@@ -38,7 +34,6 @@ const FormItemTitle = styled(Typography.Text)`
     margin-bottom: 8px;
     font-size: 14px;
     font-weight: 500;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
 `;
 
 const StyledFormItem = styled(Form.Item)`
@@ -48,19 +43,6 @@ const StyledFormItem = styled(Form.Item)`
         font-size: 14px;
         font-weight: 500;
         border-radius: 8px;
-        color: ${REDESIGN_COLORS.FOUNDATION_BLUE_5};
-
-        &:hover,
-        &:focus,
-        &:active {
-            border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        }
-
-        &:focus,
-        &:active {
-            color: ${REDESIGN_COLORS.TITLE_PURPLE};
-            box-shadow: 0px 0px 4px 0px rgba(83, 63, 209, 0.5);
-        }
     }
 `;
 
@@ -93,6 +75,12 @@ const Header = styled.div`
     flex-direction: column;
 `;
 
+const StyledButton = styled(Button)`
+    display: flex;
+    align-items: center;
+    width: max-content;
+`;
+
 interface Props {
     setOpenNewInstance: React.Dispatch<React.SetStateAction<boolean>>;
     isEditForm: boolean;
@@ -103,12 +91,10 @@ interface Props {
 
 const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inputs, searchAcrossEntities }: Props) => {
     const [form] = Form.useForm();
-    const history = useHistory();
 
     const [upsertConnection] = useUpsertConnectionMutation();
     const [updateConnection] = useUpdateConnectionMutation();
     const client = useApolloClient();
-    const hasHistory = (history as any)?.length > 2;
 
     const instanceURL = isEditForm ? getURLfromJson(selectedInstance?.details?.json?.blob) : '';
 
@@ -188,7 +174,6 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
 
     // Commenting to be used later
     // const testConnection = () => {
-
     //     console.log('Testing connection');
     // };
 
@@ -196,11 +181,10 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
         <Container>
             <HeaderContainer>
                 <LeftContainer>
-                    {hasHistory && <BackButton onGoBack={() => setOpenNewInstance(false)} />}
                     <Header>
                         <HeaderTitle> {isEditForm ? selectedInstance?.details.name : 'Add a Connection'}</HeaderTitle>
                         <HeaderSubtext>
-                            {isEditForm ? 'Edit form' : 'Manage Integrations with other Acryl instances'}
+                            {isEditForm ? 'Edit connection' : 'Manage Integrations with other Acryl instances'}
                         </HeaderSubtext>
                     </Header>
                 </LeftContainer>
@@ -262,12 +246,7 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
                 </FormItemContainer>
                 <FormItemContainer>
                     {/* Commenting the Test Connection button for now, will be used later */}
-                    {/* <StyledButton
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
-                        $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
-                        $type="filled"
-                        onClick={testConnection}
-                    >
+                    {/* <StyledButton type="primary" onClick={testConnection}>
                         <CheckCircleOutlinedIcon />
                         Test Connection
                     </StyledButton> */}
@@ -277,17 +256,10 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
             <FooterContainer>
                 <StyledDivider />
                 <ButtonsContainer>
-                    <StyledButton $color={REDESIGN_COLORS.TITLE_PURPLE} onClick={onCancelAdd}>
+                    <StyledButton type="default" onClick={onCancelAdd}>
                         Cancel
                     </StyledButton>
-                    <StyledButton
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
-                        $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
-                        $type="filled"
-                        form="upsertInstanceForm"
-                        key="submit"
-                        htmlType="submit"
-                    >
+                    <StyledButton type="primary" form="upsertInstanceForm" key="submit" htmlType="submit">
                         {isEditForm ? 'Update' : 'Add'}
                     </StyledButton>
                 </ButtonsContainer>

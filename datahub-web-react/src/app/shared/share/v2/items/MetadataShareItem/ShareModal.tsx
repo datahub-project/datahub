@@ -60,6 +60,7 @@ const StyledSelect = styled(Select)`
     }
 
     .ant-select-arrow {
+        height: 16px;
         svg {
             font-size: 16px;
             color: ${REDESIGN_COLORS.DARK_DIVIDER};
@@ -90,7 +91,10 @@ const InstanceContainer = styled.div`
     padding: 4px 6px;
 `;
 
-const OptionsContainer = styled.div``;
+const OptionsContainer = styled.div`
+    max-height: 400px;
+    overflow: auto;
+`;
 
 const ListOption = styled.div`
     display: flex;
@@ -175,8 +179,8 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         // Filter connections that are already shared
                         const resultUrn = result.entity.urn;
                         const sharedUrns = lastShareResults!
-                            .filter((res) => !!res.lastSuccess?.time)
-                            .map((res) => res.destination.urn);
+                            .filter((res) => !!res.lastSuccess?.time && res.destination)
+                            .map((res) => res.destination?.urn);
                         return !sharedUrns.includes(resultUrn);
                     }
                     return true;

@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { message } from 'antd';
 import styled from 'styled-components/macro';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { GenericEntityUpdate } from '../../../../../entity/shared/types';
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
-import { DiscardDescriptionModal } from './DiscardDescriptionModal';
-import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
 import { EntityType } from '../../../../../../types.generated';
+import analytics, { EntityActionType, EventType } from '../../../../../analytics';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
+import { GenericEntityUpdate } from '../../../../../entity/shared/types';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
 import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
 import SourceDescription from './SourceDescription';
 import { sanitizeRichText } from './editor/utils';
+import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
@@ -37,7 +37,7 @@ type DescriptionEditorProps = {
 
 export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     const mutationUrn = useMutationUrn();
-    const { entityType, entityData } = useEntityData();
+    const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
@@ -50,6 +50,8 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         : entityData?.editableProperties?.description || entityData?.properties?.description || '';
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
+    // Key to force re-render of the editor when the description is updated from server data. Only needed for full page refreshes mid edit
+    const [editorKey, setEditorKey] = useState(0);
     const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(mutationUrn));
     const [confirmCloseModalVisible, setConfirmCloseModalVisible] = useState(false);
 
@@ -68,6 +70,17 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         }
         return () => clearTimeout(delayDebounceFn);
     }, [mutationUrn, isDescriptionUpdated, updatedDescription, localStorageDictionary]);
+
+    /**
+     * If the documentation editor is refreshed mid edit, then this component will load without a description. if that description
+     * comes in on the next frame, we need to update updatedDescription
+     */
+    useEffect(() => {
+        if (description && !updatedDescription) {
+            setUpdatedDescription(description);
+            setEditorKey((prevKey) => prevKey + 1);
+        }
+    }, [description, updatedDescription]);
 
     const updateDescriptionLegacy = () => {
         return updateEntity?.({
@@ -146,6 +159,9 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     }
 
     function handleCancel() {
+        const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
+        delete editedDescriptionsLocal[mutationUrn];
+        localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
         if (onComplete) onComplete();
     }
 
@@ -164,17 +180,17 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         if (Object.keys(editedDescriptions).length === 0) {
             localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
         } else {
-            localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptions));
+            localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptions || description));
         }
         if (onComplete) onComplete();
     };
 
     const shouldShowProposeButton = getShouldShowProposeButton(entityType);
 
-    return entityData ? (
+    return !loading ? (
         <>
             <EditorSourceWrapper>
-                <EditorContainer>
+                <EditorContainer key={editorKey}>
                     <Editor
                         content={updatedDescription}
                         onChange={handleEditorChange}

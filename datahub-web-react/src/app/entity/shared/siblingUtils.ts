@@ -10,6 +10,7 @@ import {
     HealthStatusType,
     Maybe,
     ScrollResults,
+    Operation,
     SiblingProperties,
 } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
@@ -108,6 +109,15 @@ const mergeOwners = (destinationArray, sourceArray, _options) => {
 const mergeFields = (destinationArray, sourceArray, _options) => {
     return mergeArrayOfObjectsByKey(destinationArray, sourceArray, 'fieldPath');
 };
+
+const mergeLastOperations = (destinationArray: Pick<Operation, 'lastUpdatedTimestamp'>[], sourceArray: Pick<Operation, 'lastUpdatedTimestamp'>[], _options) => {
+    // return whichever operation is more recent
+    // const lastUpdated = (operations?.length && operations[0].lastUpdatedTimestamp) || 0;
+    const destinationLastUpdated = destinationArray?.length && destinationArray[0]?.lastUpdatedTimestamp || 0;
+    const sourceLastUpdated = sourceArray?.length && sourceArray[0]?.lastUpdatedTimestamp || 0;
+    // return whichever operation is more recent
+    return destinationLastUpdated > sourceLastUpdated ? destinationArray : sourceArray;
+}
 
 const mergeSubtypes = (destinationArray: string[], sourceArray: string[], _options) => {
     const seen = new Set<string>();
@@ -224,6 +234,8 @@ function getArrayMergeFunction(key) {
             return mergeHealth;
         case 'typeNames':
             return mergeSubtypes;
+        case 'lastOperation':
+            return mergeLastOperations;
         default:
             return undefined;
     }
@@ -246,6 +258,26 @@ const customMerge = (isPrimary, key) => {
     if (key === 'forms') {
         return (_secondary, primary) => primary;
     }
+    if (key === 'lastModified') {
+        return (secondary, primary) => (secondary?.time || primary?.time < 0 || 0 ? secondary : primary);
+    }
+    if (key === 'statsSummary') {
+        return (secondary, primary) => {
+            if (!primary) {
+                return secondary;
+            }
+            if (!secondary) {
+                return primary;
+            }
+            return {
+                ...primary,
+                queryCountLast30Days: primary?.queryCountLast30Days || secondary?.queryCountLast30Days,
+                queryCountPercentileLast30Days: primary?.queryCountPercentileLast30Days || secondary?.queryCountPercentileLast30Days,
+                uniqueUserCountLast30Days: primary?.uniqueUserCountLast30Days || secondary?.uniqueUserCountLast30Days,
+                uniqueUserPercentileLast30Days: primary?.uniqueUserPercentileLast30Days || secondary?.uniqueUserPercentileLast30Days,
+            };
+        }
+    }
     if (
         key === 'tags' ||
         key === 'terms' ||
@@ -256,7 +288,8 @@ const customMerge = (isPrimary, key) => {
         key === 'fields' ||
         key === 'editableSchemaFieldInfo' ||
         key === 'health' ||
-        key === 'typeNames'
+        key === 'typeNames' ||
+        key === 'lastOperation'
     ) {
         return (secondary, primary) => {
             return merge(secondary, primary, {

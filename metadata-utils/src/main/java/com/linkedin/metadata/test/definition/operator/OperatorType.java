@@ -34,7 +34,9 @@ public enum OperatorType {
   /** Inverse of an expression */
   NOT("not"),
   /** A query operator */
-  QUERY("query");
+  QUERY("query"),
+  /** Special case operator that validates that ALL schema fields have a description */
+  SCHEMA_FIELDS_HAVE_DESCRIPTIONS("schema_fields_have_descriptions");
 
   private static final Map<String, OperatorType> NAME_TO_OPERATOR =
       Arrays.stream(OperatorType.values())

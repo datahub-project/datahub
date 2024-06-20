@@ -15,6 +15,7 @@ import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import GlossaryRoutes from './glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from './glossaryV2/GlossaryRoutes';
 import { SettingsPage } from './settings/SettingsPage';
+import { SettingsPage as SettingsPageV2 } from './settingsV2/SettingsPage';
 import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
 import { Automations } from './automations/Automations';
 import { ManageTestsPage } from './tests/ManageTestsPage';
@@ -97,7 +98,7 @@ export const SearchRoutes = (): JSX.Element => {
                     <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
                 )}
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
-                <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
+                <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
                 <Route
                     path={PageRoutes.ACTION_REQUESTS}
                     render={() => (isDocumentationFormsEnabled ? <TaskCenter /> : <ActionRequestsPage />)}
@@ -112,15 +113,18 @@ export const SearchRoutes = (): JSX.Element => {
                     path={`${PageRoutes.GLOSSARY}*`}
                     render={() => (isThemeV2 ? <GlossaryRoutesV2 /> : <GlossaryRoutes />)}
                 />
-                <Route path={PageRoutes.BUSINESS_ATTRIBUTE} render={() => {
-                    if (!appConfigContextLoaded) {
-                        return null;
-                    }
-                    if (businessAttributesFlag) {
-                        return <BusinessAttributes />;
-                    }
-                    return <NoPageFound />;
-                }} />
+                <Route
+                    path={PageRoutes.BUSINESS_ATTRIBUTE}
+                    render={() => {
+                        if (!appConfigContextLoaded) {
+                            return null;
+                        }
+                        if (businessAttributesFlag) {
+                            return <BusinessAttributes />;
+                        }
+                        return <NoPageFound />;
+                    }}
+                />
                 <Route component={NoPageFound} />
             </Switch>
         </FinalSearchablePage>

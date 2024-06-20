@@ -12,10 +12,10 @@ export const RelativeTime = styled.div<{ isRecentlyUpdated?: boolean }>`
         props.isRecentlyUpdated ? `${REDESIGN_COLORS.GREEN_NORMAL}` : `${REDESIGN_COLORS.RED_NORMAL}`};
 `;
 
-export const ContentText = styled(Typography.Text)`
+export const ContentText = styled(Typography.Text)<{ color?: string }>`
     font-size: 12px;
     font-weight: 500;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.color || REDESIGN_COLORS.TEXT_HEADING};
 `;
 
 export const LabelText = styled(Typography.Text)`

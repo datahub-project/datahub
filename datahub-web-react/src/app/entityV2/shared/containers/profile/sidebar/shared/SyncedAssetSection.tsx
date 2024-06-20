@@ -58,6 +58,7 @@ const SyncedAssetSection = () => {
     const platformName = getPlatformName(entityData);
     const lastUpdated = entityData?.lastIngested;
     const isRecentlyUpdated = moment(lastUpdated).isAfter(moment().subtract(1, 'week'));
+    const platform = entityData?.siblingPlatforms?.[0] || entityData?.platform;
 
     if (!lastUpdated) return null;
 
@@ -76,7 +77,7 @@ const SyncedAssetSection = () => {
                 {platformName && (
                     <DetailRow>
                         <LabelText>From: </LabelText>
-                        <PlatformIcon platform={entityData?.platform} size={16} />
+                        <PlatformIcon platform={platform} size={16} />
                         <ContentText>{platformName}</ContentText>
                         <LabelText>on</LabelText>
                         <ContentText>{toLocalDateString(lastUpdated)}</ContentText>

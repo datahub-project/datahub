@@ -179,5 +179,10 @@ input DeleteDataHubConnectionInput {
   The urn of the Connection entity you want to delete
   """
   urn: String!
+
+  """
+  Whether we should hard delete the entity. Default is false, so a soft delete is performed.
+  """
+  hardDelete: Boolean
 }
 

@@ -57,6 +57,10 @@ export enum ValueTypeId {
      * No value type
      */
     NO_VALUE = 'NO_VALUE',
+    /**
+     * Schema field object type
+     */
+    SCHEMA_FIELD_LIST = 'SCHEMA_FIELD_LIST',
 }
 
 /**
@@ -138,6 +142,11 @@ export const valueTypes = [
         id: ValueTypeId.EXISTS_LIST,
         displayName: 'List',
         operators: [OperatorId.EXISTS],
+    },
+    {
+        id: ValueTypeId.SCHEMA_FIELD_LIST,
+        displayName: 'List',
+        operators: [OperatorId.SCHEMA_FIELDS_HAVE_DESCRIPTIONS],
     },
 ];
 

@@ -7,7 +7,6 @@ import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
 import SearchCardBrowsePath from '../../../../../previewV2/SearchCardBrowsePath';
 import StaticSearchCardBrowsePath from '../../../../../previewV2/StaticSearchCardBrowsePath';
-import { isUnhealthy } from '../../../../../shared/health/healthUtils';
 import useContentTruncation from '../../../../../shared/useContentTruncation';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../Entity';
@@ -41,12 +40,17 @@ const EntityDetailsContainer = styled.div`
     gap: 5px;
 `;
 
-const DetailColumn = styled.div`
+const HeaderRow = styled.div`
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 8px;
 `;
+
+const TitleRow = styled(HeaderRow)`
+    font-size: 16px;
+`;
+
 export const Row = styled.div`
     padding: 18px;
     display: flex;
@@ -175,7 +179,7 @@ export const DefaultEntityHeader = ({
                                     />
                                 )}
                                 <EntityDetailsContainer>
-                                    <DetailColumn>
+                                    <TitleRow>
                                         <EntityName isNameEditable={showEditName} />
                                         {!!entityData?.notes?.total && (
                                             <NotesIcon
@@ -190,11 +194,11 @@ export const DefaultEntityHeader = ({
                                                 refetch={refetch}
                                             />
                                         )}
-                                        {entityData?.health && isUnhealthy(entityData.health) && (
+                                        {entityData?.health && (
                                             <HealthIcon health={entityData.health} baseUrl={entityUrl} />
                                         )}
-                                    </DetailColumn>
-                                    <DetailColumn>
+                                    </TitleRow>
+                                    <HeaderRow>
                                         {hasParentContainers && (
                                             <SearchCardBrowsePath
                                                 instanceId={entityData?.dataPlatformInstance?.instanceId}
@@ -214,7 +218,7 @@ export const DefaultEntityHeader = ({
                                                 type={displayedEntityType}
                                             />
                                         )}
-                                    </DetailColumn>
+                                    </HeaderRow>
                                 </EntityDetailsContainer>
                             </TitleWrapper>
                         </>

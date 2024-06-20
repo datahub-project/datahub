@@ -18,7 +18,7 @@ const TabTitle = styled.span`
     margin-left: 4px;
 `;
 
-const TabButton = styled(Button)<{ selected: boolean }>`
+const TabButton = styled(Button) <{ selected: boolean }>`
     background-color: ${(props) => (props.selected && ANTD_GRAY[3]) || 'none'};
     margin-left: 4px;
 `;

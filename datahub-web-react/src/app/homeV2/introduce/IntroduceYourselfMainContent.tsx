@@ -317,8 +317,9 @@ export const IntroduceYourselfMainContent = () => {
     };
 
     const hasPersona = !!selectedPersona;
-    const hasPlatforms = selectedPlatforms.length > 0;
-    const canSubmit = hasPersona && hasPlatforms;
+    // Possibly needed in the future
+    // const hasPlatforms = selectedPlatforms.length > 0;
+    // const canSubmit = hasPersona && hasPlatforms;
 
     const selectStyles = {
         width: 290,
@@ -413,7 +414,7 @@ export const IntroduceYourselfMainContent = () => {
                     size="large"
                     onClick={onSubmitDetails}
                     loading={loading}
-                    disabled={!canSubmit}
+                    disabled={!hasPersona}
                 >
                     Done
                 </DoneButton>

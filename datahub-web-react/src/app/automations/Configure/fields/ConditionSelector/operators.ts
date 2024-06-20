@@ -46,6 +46,10 @@ export enum OperatorId {
      * Whether something is false
      */
     IS_FALSE = 'is_false',
+    /**
+     * Specific case for Schema Fields - Schema Fields have a description
+     */
+    SCHEMA_FIELDS_HAVE_DESCRIPTIONS = 'schema_fields_have_descriptions',
 }
 
 /**
@@ -118,6 +122,12 @@ export const OPERATORS: Operator[] = [
         id: OperatorId.IS_FALSE,
         displayName: 'Is False',
         description: 'The property value is False',
+        operandCount: 1,
+    },
+    {
+        id: OperatorId.SCHEMA_FIELDS_HAVE_DESCRIPTIONS,
+        displayName: 'Have Descriptions',
+        description: 'All columns / fields have a description',
         operandCount: 1,
     },
 ];

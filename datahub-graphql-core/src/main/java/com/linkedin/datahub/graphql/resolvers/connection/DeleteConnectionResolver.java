@@ -42,7 +42,11 @@ public class DeleteConnectionResolver implements DataFetcher<CompletableFuture<B
           }
 
           try {
-            _connectionService.deleteConnection(context.getOperationContext(), connectionUrn);
+            if (input.getHardDelete() != null && input.getHardDelete()) {
+              _connectionService.deleteConnection(context.getOperationContext(), connectionUrn);
+            } else {
+              _connectionService.softDeleteConnection(context.getOperationContext(), connectionUrn);
+            }
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

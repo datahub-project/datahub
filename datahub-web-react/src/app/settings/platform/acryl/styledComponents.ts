@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 export const HeaderContainer = styled.div`
     display: flex;
@@ -18,11 +18,10 @@ export const HeaderTitle = styled.div`
     display: flex;
     font-size: 20px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
 `;
 
 export const HeaderSubtext = styled.div`
     font-size: 14px;
     font-weight: 400;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
+    color: ${ANTD_GRAY[7]};
 `;
