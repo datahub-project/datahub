@@ -10,18 +10,15 @@ export default function LearnItemCard() {
   return (
     <div className={clsx("col col--4", styles.featureCol)}>
       <Link to={permalink} className={clsx("card", styles.card)}>
-        {frontMatter?.image && (
+        {frontMatter?.image ? (
           <div className={styles.card_image}>
-            <img src={frontMatter?.image} alt={frontMatter?.short_title} />
-            <div className={styles.card_overlay_text}>
-              <div class={styles.card_feature}> {frontMatter?.short_title} </div>
-            </div>
+            <img src={frontMatter?.image} alt={title} />
+          </div>
+        ) : (
+          <div className={clsx("card__header", styles.featureHeader)}>
+            <h2>{title}</h2>
           </div>
         )}
-        <div className={clsx("card__header", styles.featureHeader)}>
-          <h2>{title}</h2>
-        </div>
-        <hr />
         <div className={clsx("card__body", styles.featureBody)}>
           <div>{description}</div>
         </div>

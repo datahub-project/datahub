@@ -2,22 +2,10 @@
   display: flex;
 }
 
-.card_overlay_text {
-  position: absolute;
-  text-align: center;
-  width: 80%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-style: italic;
-}
-
 .card_date {
-  padding: 1rem;
+  padding: 1rem 2rem;
   font-size: 0.8rem;
   font-style: italic;
-  text-align: right;
   color: gray;
   margin-top: auto;
 }
@@ -43,7 +31,6 @@
 }
 
 .featureHeader {
-  text-align: center;
   h2 {
     margin-bottom: 1rem !important;
     font-size: 1.25rem;
@@ -52,22 +39,15 @@
 }
 
 .featureBody {
-  padding: 1rem 2rem;
+  padding: 0 2rem;
 }
 
 .card_image {
   margin: 0;
-  height: 8rem;
   margin-bottom: 0.5rem;
-
-  justify-content: center;
-  display: flex;
-  position: relative;
-  text-align: center;
 
   img {
     width: 100%;
-    object-fit: cover;
-    filter: brightness(50%);
+    height: auto;
   }
 }

@@ -1,11 +1,11 @@
 ---
 title: "What is a Business Glossary and How to Standardize It"
 description: Understand how a standardized business glossary aids in achieving consistency, compliance, and efficient data use.
-tags: ["Use Case", "For Data Governance Leads", "Business Glossary"]
-image: img/assets/business-glossary.jpg
+tags: ["Business Glossary", "Use Case", "For Data Governance Leads"]
+image: /img/learn/use-case-business-glossary.png
 hide_table_of_contents: false
 audience: ["Data Governance Leads"]
-short_title: "Business Glossary"
+date: 2024-06-03T05:00
 ---
 
 # What is a Business Glossary and How to Standardize It
@@ -14,7 +14,7 @@ Understand how a standardized business glossary aids in achieving consistency, c
 
 <!--truncate-->
 
-### Introduction
+## Introduction
 
 Have you ever struggled with inconsistent terminology and definitions across your organization? Without a standardized business glossary, achieving consistency, compliance, and efficient data utilization can be challenging. This post will explore what a business glossary is, why it's important, and how to standardize it effectively within your organization.
 

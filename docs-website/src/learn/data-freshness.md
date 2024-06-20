@@ -1,11 +1,11 @@
 ---
 title: "Ensuring Data Freshness: Why It Matters and How to Achieve It"
 description: Explore the significance of maintaining up-to-date data, the challenges involved, and how our solutions can ensure your data remains fresh to meet SLAs.
-tags: ["Use Case", "For Data Engineers"]
-image: img/assets/data-freshness.jpg
+tags: ["Data Freshness", "Use Case", "For Data Engineers"]
+image: /img/learn/use-case-data-freshness.png
 hide_table_of_contents: false
 audience: ["Data Engineers"]
-short_title: "Data Freshness"
+date: 2024-06-03T01:00
 ---
 
 # Ensuring Data Freshness: Why It Matters and How to Achieve It
@@ -14,21 +14,21 @@ Explore the significance of maintaining up-to-date data, the challenges involved
 
 <!--truncate-->
 
-### Introduction
+## Introduction
 
 Have you ever experienced delays in customer-facing datasets or machine learning (ML) models due to stale data? Ensuring timely data freshness is crucial for maintaining the effectiveness and reliability of these critical components. In this post, we'll explore the importance of data freshness, the challenges associated with it, and how our solutions can help you meet your data freshness SLAs consistently.
 
-### What is Data Freshness?
+## What is Data Freshness?
 
 Data freshness refers to the timeliness and accuracy of data used in datasets and ML models. In the modern data landscape, ensuring that data is up-to-date is vital for maintaining the functionality and performance of various applications, especially those directly impacting customers and revenue.
 
-### Why Data Freshness Matters
+## Why Data Freshness Matters
 
 For data engineers, ensuring data freshness is a top priority. Certain ML models, like those used for price prediction or fraud detection, depend heavily on fresh data to make accurate predictions. Delays in updating these models can lead to significant revenue losses and damage to your company's reputation.
 
 Customer-facing datasets also need timely updates to ensure that customers receive the most accurate and relevant information. Delays in data freshness can result in customer dissatisfaction and loss of trust.
 
-### Key Considerations for Your Organization
+## Key Considerations for Your Organization
 
 - **Critical Data and ML Models:**
   - Have you ever faced challenges in maintaining the timeliness of customer-facing datasets and ML models? If your organization relies on these for critical operations, delays can significantly impact revenue and customer satisfaction. Consider identifying which datasets and models are most critical to your operations and quantifying the business impact of delays.
@@ -37,7 +37,7 @@ Customer-facing datasets also need timely updates to ensure that customers recei
 - **Efficiency and Automation in Freshness Monitoring:**
   - Frequently encountering data freshness issues can be a drain on resources if your current methods for troubleshooting and triaging problems are not efficient. How effective are your current methods, such as manual debugging or using communication tools like Slack? There may be opportunities to improve efficiency through automation and dedicated monitoring solutions.
 
-### How to Ensure Data Freshness
+## How to Ensure Data Freshness
 
 Ensuring data freshness involves several best practices and strategies. Here’s how you can achieve it:
 
@@ -54,7 +54,7 @@ Ensuring data freshness involves several best practices and strategies. Here’s
 
 While manual debugging and using communication tools like Slack can help triage issues, they are often time-consuming and less efficient. Automation and dedicated monitoring solutions provide a more robust and scalable approach to ensuring data freshness.
 
-### Our Solution
+## Our Solution
 
 Our product offers comprehensive features designed to tackle data freshness challenges:
 
@@ -64,6 +64,6 @@ Our product offers comprehensive features designed to tackle data freshness chal
 
 By implementing these solutions, you can ensure that your customer-facing datasets and ML models are always up-to-date, maintaining their accuracy and reliability.
 
-### Conclusion
+## Conclusion
 
 Ensuring data freshness is essential for the performance and reliability of critical datasets and ML models. By understanding the importance of data freshness and implementing best practices and automated solutions, you can effectively manage and mitigate delays, thereby protecting your revenue and reputation. Our solutions are designed to help you achieve this, providing the tools and features necessary to keep your data fresh and your operations running smoothly.
