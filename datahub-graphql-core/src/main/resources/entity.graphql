@@ -7783,6 +7783,11 @@ type AssertionInfo {
     An optional human-readable description of the assertion
     """
     description: String
+
+    """
+    URL where assertion details are available
+    """
+    externalUrl: String
 }
 
 """
@@ -8383,6 +8388,10 @@ enum AssertionType {
     A schema or structural assertion.
     """
     DATA_SCHEMA
+    """
+    A custom assertion.
+    """
+    CUSTOM
 }
 
 """
