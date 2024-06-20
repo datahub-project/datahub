@@ -12,13 +12,17 @@ import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.
 import { AcrylAssertions } from './AcrylAssertions';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { DataContractTab } from './contract/DataContractTab';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../siblingUtils';
+import {
+    SEPARATE_SIBLINGS_URL_PARAM,
+    combineEntityDataWithSiblings,
+    useIsSeparateSiblingsMode,
+} from '../../../siblingUtils';
 
 const TabTitle = styled.span`
     margin-left: 4px;
 `;
 
-const TabButton = styled(Button) <{ selected: boolean }>`
+const TabButton = styled(Button)<{ selected: boolean }>`
     background-color: ${(props) => (props.selected && ANTD_GRAY[3]) || 'none'};
     margin-left: 4px;
 `;
@@ -42,14 +46,12 @@ export const AcrylValidationsTab = () => {
     const appConfig = useAppConfig();
 
     const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
-    const totalAssertions = assertionsData?.dataset?.assertions?.assertions?.length || 0;
-
     const passingTests = (entityData as any)?.testResults?.passing || [];
     const failingTests = (entityData as any)?.testResults?.failing || [];
     const totalTests = failingTests.length + passingTests.length;
-
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
-
+    const combinedData = isHideSiblingMode ? assertionsData : combineEntityDataWithSiblings(assertionsData);
+    const totalAssertions = combinedData?.dataset?.assertions?.assertions?.length || 0;
     // If no tab was selected, select a default tab.
     useEffect(() => {
         if (!selectedTab) {
