@@ -1,7 +1,7 @@
 package com.linkedin.metadata.kafka.hook.assertion;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.kafka.hook.common.AssertionUtils.extractAssertionEntities;
+import static com.linkedin.metadata.kafka.hook.common.AssertionUtils.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
@@ -9,6 +9,7 @@ import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.AssertionSummaryDetails;
 import com.linkedin.common.AssertionSummaryDetailsArray;
 import com.linkedin.common.AssertionsSummary;
@@ -29,7 +30,11 @@ import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorType;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -354,7 +359,12 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       @Nonnull final AssertionRunEvent event) {
     AssertionSummaryDetails assertionSummaryDetails = new AssertionSummaryDetails();
     assertionSummaryDetails.setUrn(urn);
-    assertionSummaryDetails.setType(info.getType().toString());
+    if (info.getType() == AssertionType.CUSTOM && info.getCustomAssertion() != null) {
+      assertionSummaryDetails.setType(info.getCustomAssertion().getType());
+    } else {
+      assertionSummaryDetails.setType(info.getType().toString());
+    }
+
     assertionSummaryDetails.setLastResultAt(event.getTimestampMillis());
     if (info.hasSource()) {
       assertionSummaryDetails.setSource(info.getSource().getType().toString());

@@ -3,7 +3,7 @@ import { Button, Form, message, Modal, Select, Empty } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 
 import styled from 'styled-components/macro';
-import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
@@ -56,9 +56,9 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
               }
             : undefined,
     );
-    const [domainSearch, { data: domainSearchData, loading }] = useGetSearchResultsLazyQuery();
-    const domainSearchResults =
-        domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const [domainSearch, { data: domainSearchData, loading }] = useGetAutoCompleteResultsLazyQuery();
+    const domainSearchResults: Array<Entity> = domainSearchData?.autoComplete?.entities || [];
+
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
     const inputEl = useRef(null);
     const isShowingDomainNavigator = !inputValue && isFocusedOnInput;
@@ -70,16 +70,17 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     };
 
     const handleSearch = (text: string) => {
-        domainSearch({
-            variables: {
-                input: {
-                    type: EntityType.Domain,
-                    query: text,
-                    start: 0,
-                    count: 5,
+        if (text) {
+            domainSearch({
+                variables: {
+                    input: {
+                        type: EntityType.Domain,
+                        query: text,
+                        limit: 5,
+                    },
                 },
-            },
-        });
+            });
+        }
     };
 
     // Renders a search result in the select dropdown.

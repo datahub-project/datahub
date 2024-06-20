@@ -102,6 +102,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Tasks',
                     component: DataFlowJobsTab,
                     icon: ConsoleSqlOutlined,
+                    properties: {
+                        urn,
+                    },
                 },
                 {
                     name: 'Incidents',

@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook.common;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionInfo;
@@ -50,6 +51,12 @@ public class AssertionUtils {
       SchemaAssertionInfo schemaAssertion = assertionInfo.getSchemaAssertion();
       if (schemaAssertion.hasEntity()) {
         return ImmutableList.of(schemaAssertion.getEntity());
+      }
+    }
+    if (assertionInfo.hasCustomAssertion()) {
+      CustomAssertionInfo customAssertion = assertionInfo.getCustomAssertion();
+      if (customAssertion.hasEntity()) {
+        return ImmutableList.of(customAssertion.getEntity());
       }
     }
     return Collections.emptyList();

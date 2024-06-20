@@ -7,12 +7,14 @@ import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionRunEvent;
+import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FieldAssertionInfo;
@@ -31,9 +33,11 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -231,6 +235,36 @@ public class AssertionService extends BaseService {
       throw new RuntimeException(
           String.format("Failed to retrieve assertions for entity with urn %s", entityUrn), e);
     }
+  }
+
+  /**
+   * Retrieves the entity associated with the assertion
+   *
+   * @param opContext the operation context
+   * @param assertionUrn the urn of the assertion to retrieve entity for
+   * @return Entity urn associated with the assertion
+   */
+  public @Nullable Urn getEntityUrnForAssertion(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    try {
+      // Fetch the entity associated with the assertion from the Graph
+      final EntityRelationships relationships =
+          _graphClient.getRelatedEntities(
+              assertionUrn.toString(),
+              ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
+              RelationshipDirection.OUTGOING,
+              0,
+              1,
+              opContext.getActorContext().getActorUrn().toString());
+
+      if (relationships.hasRelationships() && !relationships.getRelationships().isEmpty()) {
+        return relationships.getRelationships().get(0).getEntity();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve entity for assertion with urn %s", assertionUrn), e);
+    }
+    return null;
   }
 
   /**
@@ -1185,5 +1219,77 @@ public class AssertionService extends BaseService {
                         .setField(field)
                         .setValue(value)
                         .setValues(new StringArray(ImmutableList.of(value))))));
+  }
+
+  public Urn upsertCustomAssertion(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn assertionUrn,
+      @Nonnull Urn entityUrn,
+      @Nonnull String description,
+      @Nullable String externalUrl,
+      @Nonnull DataPlatformInstance dataPlatformInstance,
+      @Nonnull CustomAssertionInfo customAssertionInfo) {
+
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+    Objects.requireNonNull(description, "description must not be null");
+    Objects.requireNonNull(customAssertionInfo, "info must not be null");
+    Objects.requireNonNull(dataPlatformInstance, "opContext must not be null");
+
+    AssertionInfo assertionInfo = new AssertionInfo();
+    assertionInfo.setType(AssertionType.CUSTOM);
+    assertionInfo.setDescription(description);
+    if (externalUrl != null) {
+      assertionInfo.setExternalUrl(new Url(externalUrl));
+    }
+    assertionInfo.setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
+    assertionInfo.setCustomAssertion(customAssertionInfo);
+
+    final List<MetadataChangeProposal> aspects = new ArrayList<>();
+    aspects.add(
+        AspectUtils.buildMetadataChangeProposal(
+            assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertionInfo));
+    aspects.add(
+        (AspectUtils.buildMetadataChangeProposal(
+            assertionUrn, Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME, dataPlatformInstance)));
+
+    try {
+      this.entityClient.batchIngestProposals(opContext, aspects, false);
+      return assertionUrn;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to upsert Custom Assertion with urn %s", assertionUrn), e);
+    }
+  }
+
+  public void addAssertionRunEvent(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn assertionUrn,
+      @Nonnull Urn asserteeUrn,
+      @Nonnull Long timestampMillis,
+      @Nonnull AssertionResult assertionResult,
+      @Nullable StringMap contextParameters) {
+    AssertionRunEvent assertionRunEvent = new AssertionRunEvent();
+    assertionRunEvent.setTimestampMillis(timestampMillis);
+    assertionRunEvent.setRunId(timestampMillis.toString());
+    assertionRunEvent.setAssertionUrn(assertionUrn);
+    assertionRunEvent.setAsserteeUrn(asserteeUrn);
+    assertionRunEvent.setStatus(AssertionRunStatus.COMPLETE);
+    assertionRunEvent.setResult(assertionResult);
+    if (contextParameters != null) {
+      assertionRunEvent.setRuntimeContext(contextParameters);
+    }
+
+    try {
+      this.entityClient.ingestProposal(
+          opContext,
+          AspectUtils.buildMetadataChangeProposal(
+              assertionUrn, Constants.ASSERTION_RUN_EVENT_ASPECT_NAME, assertionRunEvent),
+          false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to upsert Assertion Run Event for assertion with urn %s", assertionUrn),
+          e);
+    }
   }
 }

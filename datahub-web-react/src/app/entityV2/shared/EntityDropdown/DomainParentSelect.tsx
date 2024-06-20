@@ -1,5 +1,5 @@
 import React, { MouseEvent } from 'react';
-import { Select } from 'antd';
+import { Select, Spin } from 'antd';
 import { CloseCircleFilled } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Domain, EntityType } from '../../../../types.generated';
@@ -12,10 +12,11 @@ import { useDomainsContext } from '../../../domain/DomainsContext';
 import ParentEntities from '../../../search/filters/ParentEntities';
 import { getParentDomains } from '../../../domain/utils';
 
-const SearchResultContainer = styled.div`
+const SearchResultContainer = styled.div<{ isLoading: boolean }>`
     display: flex;
     flex-direction: column;
     justify-content: center;
+    margin: ${(props) => props.isLoading ? '10px 0px': '0px'};
 `;
 
 // filter out entity itself and its children
@@ -48,6 +49,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
         handleSearch,
         clearSelectedParent,
         setIsFocusedOnInput,
+        autoCompleteResultsLoading,
     } = useParentSelector({
         entityType: EntityType.Domain,
         entityData,
@@ -56,7 +58,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
     });
     const domainSearchResultsFiltered =
         isMoving && domainUrn
-            ? searchResults.filter((r) => filterResultsForMove(r.entity as Domain, domainUrn))
+            ? searchResults.filter((r) => filterResultsForMove(r as Domain, domainUrn))
             : searchResults;
 
     function selectDomain(domain: Domain) {
@@ -88,11 +90,18 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                 onFocus={handleFocus}
                 dropdownStyle={isShowingDomainNavigator || !searchQuery ? { display: 'none' } : {}}
             >
+                {autoCompleteResultsLoading && (
+                    <Select.Option>
+                        <SearchResultContainer isLoading={autoCompleteResultsLoading}>
+                            <Spin size="default" />
+                        </SearchResultContainer>
+                    </Select.Option>
+                )}
                 {domainSearchResultsFiltered.map((result) => (
-                    <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
-                        <SearchResultContainer>
-                            <ParentEntities parentEntities={getParentDomains(result.entity, entityRegistry)} />
-                            {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                    <Select.Option key={result?.urn} value={result.urn}>
+                        <SearchResultContainer isLoading={autoCompleteResultsLoading}>
+                            <ParentEntities parentEntities={getParentDomains(result, entityRegistry)} />
+                            {entityRegistry.getDisplayName(result.type, result)}
                         </SearchResultContainer>
                     </Select.Option>
                 ))}

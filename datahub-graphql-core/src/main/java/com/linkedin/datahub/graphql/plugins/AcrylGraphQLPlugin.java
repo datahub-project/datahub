@@ -48,12 +48,14 @@ import com.linkedin.datahub.graphql.resolvers.assertion.CreateFreshnessAssertion
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateSqlAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateVolumeAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.ReportAssertionResultResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionsForAssetResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.TestAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionMetadataResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertCustomAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFieldAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetFreshnessAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpsertDatasetSchemaAssertionMonitorResolver;
@@ -336,6 +338,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "createFreshnessAssertion",
                     new CreateFreshnessAssertionResolver(assertionService))
+                .dataFetcher(
+                    "upsertCustomAssertion", new UpsertCustomAssertionResolver(assertionService))
+                .dataFetcher(
+                    "reportAssertionResult", new ReportAssertionResultResolver(assertionService))
                 .dataFetcher(
                     "upsertDatasetFreshnessAssertionMonitor",
                     new UpsertDatasetFreshnessAssertionMonitorResolver(
