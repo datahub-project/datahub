@@ -5,13 +5,14 @@ namespace com.linkedin.common
  */
 record SourceDetails {
  /**
-  * Urn of the source of this asset. Could be an ingestion run, an acryl platform, etc.
+  * Urn of the source of this asset. Could be an ingestion source, an acryl
+    platform instance, etc.
   */
   source: Urn
 
  /**
-  * Urn of the platform this asset was synced from ie. urn:li:dataPlatform:snowflake for sowflake ingestion
-  * or urn:li:dataPlatform:acryl for sharing assets.
+  * Urn of the platform this asset was synced from ie. urn:li:dataPlatform:snowflake for snowflake ingestion
+  * or urn:li:dataPlatform:acryl for assets synced from another catalog instance.
   */
   sourcePlatform: Urn
 
@@ -33,11 +34,11 @@ record SourceDetails {
     */
     SHARE
     /**
-    * Synced API creation
+    * Synced via the API
     */
     API
     /**
-    * Synced via another mechanism
+    * Synced via some other mechanism
     */
     OTHER
   }

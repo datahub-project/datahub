@@ -19,4 +19,12 @@ record Share {
     }
   }
   lastShareResults: array[ShareResult]
+
+  /**
+   * The last unshare result for each destination that this entity was
+   * previously shared with. A successfully unshared destination should not
+   * appear in the lastShareResults field.
+   */
+  lastUnshareResults: optional array[ShareResult]
+
 }
