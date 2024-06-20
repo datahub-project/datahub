@@ -310,7 +310,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.is_profiling_enabled():
             self.report.report_ingestion_stage_start("Start warehouse")
-            # Can take several minutes, so start now and wait later
+            # Need to start the warehouse again for profiling,
+            # as it may have been stopped after ingestion might take
+            # longer time to complete
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
             if wait_on_warehouse is None:
                 self.report.report_failure(
@@ -321,7 +323,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 # wait until warehouse is started
                 wait_on_warehouse.result()
-            self.report.report_ingestion_stage_start("Warehouse started")
 
             self.report.report_ingestion_stage_start("Profiling")
             if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
