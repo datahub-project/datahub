@@ -1,23 +1,15 @@
 import React, { MouseEvent } from 'react';
-import { Select, Spin } from 'antd';
+import { Empty, Select } from 'antd';
 import { CloseCircleFilled } from '@ant-design/icons';
-import styled from 'styled-components';
 import { Domain, EntityType } from '../../../../types.generated';
+import domainAutocompleteOptions from '../../../domainV2/DomainAutocompleteOptions';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import ClickOutside from '../../../shared/ClickOutside';
 import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
+import { ANTD_GRAY } from '../constants';
 import useParentSelector from './useParentSelector';
 import DomainNavigator from '../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import { useDomainsContext } from '../../../domain/DomainsContext';
-import ParentEntities from '../../../search/filters/ParentEntities';
-import { getParentDomains } from '../../../domain/utils';
-
-const SearchResultContainer = styled.div<{ isLoading: boolean }>`
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    margin: ${(props) => props.isLoading ? '10px 0px': '0px'};
-`;
 
 // filter out entity itself and its children
 export function filterResultsForMove(entity: Domain, entityUrn: string) {
@@ -79,33 +71,31 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
     return (
         <ClickOutside onClickOutside={handleClickOutside}>
             <Select
+                autoFocus
                 showSearch
                 allowClear
                 clearIcon={<CloseCircleFilled onClick={handleClear} />}
-                placeholder="Select"
                 filterOption={false}
+                defaultActiveFirstOption={false}
+                placeholder="Select"
                 value={selectedParentName}
                 onSelect={onSelectParent}
                 onSearch={handleSearch}
                 onFocus={handleFocus}
                 dropdownStyle={isShowingDomainNavigator || !searchQuery ? { display: 'none' } : {}}
-            >
-                {autoCompleteResultsLoading && (
-                    <Select.Option>
-                        <SearchResultContainer isLoading={autoCompleteResultsLoading}>
-                            <Spin size="default" />
-                        </SearchResultContainer>
-                    </Select.Option>
+                notFoundContent={
+                    <Empty
+                        description="No Domains Found"
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        style={{ color: ANTD_GRAY[7] }}
+                    />
+                }
+                options={domainAutocompleteOptions(
+                    domainSearchResultsFiltered,
+                    autoCompleteResultsLoading,
+                    entityRegistry,
                 )}
-                {domainSearchResultsFiltered.map((result) => (
-                    <Select.Option key={result?.urn} value={result.urn}>
-                        <SearchResultContainer isLoading={autoCompleteResultsLoading}>
-                            <ParentEntities parentEntities={getParentDomains(result, entityRegistry)} />
-                            {entityRegistry.getDisplayName(result.type, result)}
-                        </SearchResultContainer>
-                    </Select.Option>
-                ))}
-            </Select>
+            />
             <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                 <DomainNavigator
                     domainUrnToHide={isMoving ? domainUrn : undefined}
