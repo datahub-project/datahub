@@ -16,6 +16,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataFlowKeyClass,
     DataJobKeyClass,
     FineGrainedLineageClass,
@@ -543,6 +545,16 @@ class DataHubListener:
             )
 
             self.emitter.emit(event)
+
+        browse_path_v2_event: MetadataChangeProposalWrapper = (
+            MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn),
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(str(dag.dag_id))],
+                ),
+            )
+        )
+        self.emitter.emit(browse_path_v2_event)
 
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
             assert self.graph

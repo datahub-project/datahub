@@ -136,6 +136,7 @@ shadowJar {
   relocate 'nonapi.io.github.classgraph', 'io.acryl.shaded.nonapi.io.github.classgraph'
   relocate 'org.eclipse.parsson', 'io.acryl.shaded.parsson'
   relocate 'jakarta.json', 'io.acryl.shaded.json'
+  relocate 'io.netty', 'io.acryl.shaded.io.netty'
 }
 
 assemble {
