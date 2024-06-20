@@ -379,7 +379,7 @@ class BigQuerySchemaApi:
             rows_count=view.get("row_count"),
             labels=(
                 parse_labels(view.labels)
-                if hasattr(view, "labels") and isinstance(view.labels, str)
+                if view.get("labels")
                 else None
             ),
         )
