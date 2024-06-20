@@ -7,6 +7,9 @@ import styled from 'styled-components';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '../../../graphql/user.generated';
 import { EntityRelationship, EntityType } from '../../../types.generated';
+import { EntityContext } from '../../entity/shared/EntityContext';
+import { EntityHead } from '../../shared/EntityHead';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
@@ -88,7 +91,7 @@ export default function UserProfile({ urn }: Props) {
     const isCompact = React.useContext(CompactContext);
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
 
-    const { error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
+    const { error, data, loading, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
     const castedCorpUser = data?.corpUser as any;
 
@@ -130,6 +133,11 @@ export default function UserProfile({ urn }: Props) {
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
 
+    const displayName =
+        data?.corpUser?.editableProperties?.displayName ||
+        (data?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, data?.corpUser)) ||
+        undefined;
+
     // Side bar data
     const sidebarData = {
         photoUrl: data?.corpUser?.editableProperties?.pictureLink || undefined,
@@ -138,10 +146,7 @@ export default function UserProfile({ urn }: Props) {
             data?.corpUser?.info?.displayName ||
             data?.corpUser?.info?.fullName ||
             data?.corpUser?.urn,
-        name:
-            data?.corpUser?.editableProperties?.displayName ||
-            (data?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, data?.corpUser)) ||
-            undefined,
+        name: displayName,
         role: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
         team: data?.corpUser?.editableProperties?.teams?.join(',') || data?.corpUser?.info?.departmentName || undefined,
         email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,
@@ -192,7 +197,19 @@ export default function UserProfile({ urn }: Props) {
     }
 
     return (
-        <>
+        <EntityContext.Provider
+            value={{
+                urn,
+                loading,
+                refetch,
+                entityType: EntityType.CorpUser,
+                entityData: (data?.corpUser ?? null) as GenericEntityProperties | null,
+                routeToTab: () => {},
+                dataNotCombinedWithSiblings: null,
+                baseEntity: null,
+            }}
+        >
+            <EntityHead />
             {error && <ErrorSection />}
             <UserProfileWrapper>
                 <Row>
@@ -206,6 +223,6 @@ export default function UserProfile({ urn }: Props) {
                     </Col>
                 </Row>
             </UserProfileWrapper>
-        </>
+        </EntityContext.Provider>
     );
 }

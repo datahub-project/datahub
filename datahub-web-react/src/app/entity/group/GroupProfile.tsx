@@ -5,6 +5,9 @@ import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
 import { Message } from '../../shared/Message';
+import { EntityContext } from '../shared/EntityContext';
+import { EntityHead } from '../../shared/EntityHead';
+import { GenericEntityProperties } from '../shared/types';
 import GroupMembers from './GroupMembers';
 import { decodeUrn } from '../shared/utils';
 import { RoutedTabs } from '../../shared/RoutedTabs';
@@ -134,7 +137,19 @@ export default function GroupProfile() {
         return <NonExistentEntityPage />;
     }
     return (
-        <>
+        <EntityContext.Provider
+            value={{
+                urn,
+                loading,
+                refetch,
+                entityType: EntityType.CorpGroup,
+                entityData: (data?.corpGroup ?? null) as GenericEntityProperties | null,
+                routeToTab: () => {},
+                dataNotCombinedWithSiblings: null,
+                baseEntity: null,
+            }}
+        >
+            <EntityHead />
             {error && <ErrorSection />}
             {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data?.corpGroup && (
@@ -151,6 +166,6 @@ export default function GroupProfile() {
                     </Row>
                 </GroupProfileWrapper>
             )}
-        </>
+        </EntityContext.Provider>
     );
 }

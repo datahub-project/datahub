@@ -4,6 +4,9 @@ import styled from 'styled-components';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
 import { EntityRelationship, EntityType } from '../../../types.generated';
+import { EntityContext } from '../shared/EntityContext';
+import { EntityHead } from '../../shared/EntityHead';
+import { GenericEntityProperties } from '../shared/types';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
@@ -62,7 +65,7 @@ export default function UserProfile() {
     const urn = decodeUrn(encodedUrn);
     const entityRegistry = useEntityRegistry();
 
-    const { error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
+    const { error, data, loading, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
     const castedCorpUser = data?.corpUser as any;
 
@@ -93,7 +96,7 @@ export default function UserProfile() {
             {
                 name: TabType.Subscription,
                 path: TabType.Subscription.toLocaleLowerCase(),
-                content: <UserSubscriptions  urn={urn}/>,
+                content: <UserSubscriptions urn={urn} />,
                 display: {
                     enabled: () => true,
                 },
@@ -131,7 +134,19 @@ export default function UserProfile() {
     }
 
     return (
-        <>
+        <EntityContext.Provider
+            value={{
+                urn,
+                loading,
+                refetch,
+                entityType: EntityType.CorpUser,
+                entityData: (data?.corpUser ?? null) as GenericEntityProperties | null,
+                routeToTab: () => {},
+                dataNotCombinedWithSiblings: null,
+                baseEntity: null,
+            }}
+        >
+            <EntityHead />
             {error && <ErrorSection />}
             <UserProfileWrapper>
                 <Row>
@@ -145,6 +160,6 @@ export default function UserProfile() {
                     </Col>
                 </Row>
             </UserProfileWrapper>
-        </>
+        </EntityContext.Provider>
     );
 }

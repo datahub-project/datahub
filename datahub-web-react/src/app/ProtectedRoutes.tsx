@@ -1,6 +1,7 @@
 import { Layout } from 'antd';
 import React from 'react';
 import { Route, Switch } from 'react-router-dom';
+import DataHubTitle from './DataHubTitle';
 import AcrylRoutes from './AcrylRoutes';
 import { HomePage } from './home/HomePage';
 import { HomePage as HomePageV2 } from './homeV2/HomePage';
@@ -19,6 +20,7 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     return (
         <OnboardingContextProvider>
+            <DataHubTitle />
             <Layout className={isThemeV2 ? 'themeV2' : undefined}>
                 <Switch>
                     <Route exact path="/" render={() => <FinalHomePage />} />

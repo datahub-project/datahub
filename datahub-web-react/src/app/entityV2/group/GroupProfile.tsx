@@ -7,6 +7,9 @@ import { ReadOutlined } from '@ant-design/icons';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
+import { EntityContext } from '../../entity/shared/EntityContext';
+import { EntityHead } from '../../shared/EntityHead';
+import { GenericEntityProperties } from '../../entity/shared/types';
 import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
 import { RoutedTabs } from '../../shared/RoutedTabs';
@@ -204,7 +207,19 @@ export default function GroupProfile({ urn }: Props) {
     }
 
     return (
-        <>
+        <EntityContext.Provider
+            value={{
+                urn,
+                loading,
+                refetch,
+                entityType: EntityType.CorpGroup,
+                entityData: (data?.corpGroup ?? null) as GenericEntityProperties | null,
+                routeToTab: () => {},
+                dataNotCombinedWithSiblings: null,
+                baseEntity: null,
+            }}
+        >
+            <EntityHead />
             {error && <ErrorSection />}
             {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data?.corpGroup && (
@@ -228,6 +243,6 @@ export default function GroupProfile({ urn }: Props) {
                     </Row>
                 </GroupProfileWrapper>
             )}
-        </>
+        </EntityContext.Provider>
     );
 }

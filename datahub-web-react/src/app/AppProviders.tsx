@@ -5,7 +5,6 @@ import UserContextProvider from './context/UserContextProvider';
 import QuickFiltersProvider from '../providers/QuickFiltersProvider';
 import SearchContextProvider from './search/context/SearchContextProvider';
 import EntityRegistryProvider from './EntityRegistryProvider';
-import { BrowserTitleProvider } from './shared/BrowserTabTitleContext';
 import GlobalSettingsContextProvider from './context/GlobalSettings/GlobalSettingsContextProvider';
 
 interface Props {
@@ -17,15 +16,13 @@ export default function AppProviders({ children }: Props) {
         <AppConfigProvider>
             <UserContextProvider>
                 <EntityRegistryProvider>
-                    <BrowserTitleProvider>
-                        <EducationStepsProvider>
-                            <QuickFiltersProvider>
-                                <SearchContextProvider>
-                                    <GlobalSettingsContextProvider>{children}</GlobalSettingsContextProvider>
-                                </SearchContextProvider>
-                            </QuickFiltersProvider>
-                        </EducationStepsProvider>
-                    </BrowserTitleProvider>
+                    <EducationStepsProvider>
+                        <QuickFiltersProvider>
+                            <SearchContextProvider>
+                                <GlobalSettingsContextProvider>{children}</GlobalSettingsContextProvider>
+                            </SearchContextProvider>
+                        </QuickFiltersProvider>
+                    </EducationStepsProvider>
                 </EntityRegistryProvider>
             </UserContextProvider>
         </AppConfigProvider>
