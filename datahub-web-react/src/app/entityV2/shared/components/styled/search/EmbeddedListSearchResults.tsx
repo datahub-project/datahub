@@ -1,13 +1,14 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Pagination, Spin, Typography } from 'antd';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import LanguageIcon from '@mui/icons-material/Language';
 import { SearchCfg } from '../../../../../../conf';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
 import { UnionType } from '../../../../../search/utils/constants';
-import { ANTD_GRAY } from '../../../constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
 import { EntityActionProps, EntitySearchResults } from './EntitySearchResults';
 import MatchingViewsLabel from './MatchingViewsLabel';
 
@@ -35,6 +36,18 @@ const ResultContainer = styled.div`
     height: auto;
     overflow: auto;
     flex: 1;
+    position: relative;
+    width: 100%;
+    &::-webkit-scrollbar {
+        height: 12px;
+        width: 5px;
+        background: #f2f2f2;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #cccccc;
+        -webkit-border-radius: 1ex;
+        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+    }
 `;
 
 const PaginationInfoContainer = styled.span`
@@ -66,6 +79,60 @@ const StyledLoading = styled(LoadingOutlined)`
     padding-bottom: 18px;
 `;
 
+const ViewsContainer = styled.div`
+    padding: 10px 16px;
+    width: 100%;
+    background-color: #e9eaee;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+`;
+
+const ViewsWrapper = styled.div`
+    padding: 0px 16px;
+    background: ${REDESIGN_COLORS.WHITE};
+    transition: 0.5s ease-in;
+`;
+
+const Pill = styled.div<{ selected?: boolean }>`
+    border: 1px solid ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : `#797F98`)};
+    white-space: nowrap;
+    border-radius: 20px;
+    padding: 5px 16px;
+    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : '#797F98')};
+    cursor: pointer;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    background: ${(props) => (props.selected ? '#E5E2F8' : 'none')};
+`;
+
+const Count = styled.div<{ selected: boolean }>`
+    background-color: ${(props) => (props.selected ? REDESIGN_COLORS.HOVER_PURPLE : '#A3A7B9')};
+    color: ${REDESIGN_COLORS.WHITE};
+    border-radius: 20px;
+    min-width: 25px;
+    padding: 2px 4px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 11px;
+`;
+
+const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
+    font-size: 18px !important;
+    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : '#797F98')};
+`;
+
+const ViewLabel = styled.span`
+    font-weight: 700;
+    color: #5f6685;
+    font-size: 16px;
+    margin-right: 8px;
+`;
+
 interface Props {
     page: number;
     searchResponse?: SearchResultType | null;
@@ -84,7 +151,13 @@ interface Props {
     setNumResultsPerPage: (numResults: number) => void;
     entityAction?: React.FC<EntityActionProps>;
     applyView?: boolean;
+    selectedViewUrn?: string;
+    setSelectedUrn?: (selectedViewUrn: string | undefined) => void;
     compactUserSearchCardStyle?: boolean;
+    defaultViewUrn?: string | undefined;
+    defaultViewCount?: number;
+    allSearchCount?: number;
+    view?: any;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -106,11 +179,25 @@ export const EmbeddedListSearchResults = ({
     entityAction,
     applyView,
     compactUserSearchCardStyle,
+    selectedViewUrn,
+    setSelectedUrn,
+    defaultViewUrn,
+    defaultViewCount = 0,
+    allSearchCount = 0,
+    view,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+
+    const [selectedViewName, setSelectedViewName] = useState<string | undefined>();
+
+    useEffect(() => {
+        if (view) {
+            setSelectedViewName(view?.urn === selectedViewUrn ? view?.name : undefined);
+        }
+    }, [selectedViewUrn, setSelectedViewName, view]);
 
     return (
         <>
@@ -127,7 +214,34 @@ export const EmbeddedListSearchResults = ({
                         />
                     </FiltersContainer>
                 )}
+
                 <ResultContainer>
+                    {view && (
+                        <ViewsWrapper>
+                            <ViewsContainer>
+                                <ViewLabel>View</ViewLabel>
+                                <Pill
+                                    selected={!selectedViewName}
+                                    onClick={() => setSelectedUrn && setSelectedUrn(undefined)}
+                                >
+                                    <LanguageIconStyle selected={!selectedViewName} />
+                                    <span>All</span>
+                                    {allSearchCount > 0 && <Count selected={!selectedViewName}>{allSearchCount}</Count>}
+                                </Pill>
+                                {defaultViewUrn === view.urn && (
+                                    <Pill
+                                        selected={selectedViewName === view?.name}
+                                        onClick={() => view?.urn && setSelectedUrn && setSelectedUrn(view?.urn)}
+                                    >
+                                        <span>{view?.name}</span>
+                                        {defaultViewCount > 0 && (
+                                            <Count selected={selectedViewName === view?.name}>{defaultViewCount}</Count>
+                                        )}
+                                    </Pill>
+                                )}
+                            </ViewsContainer>
+                        </ViewsWrapper>
+                    )}
                     {loading && (
                         <LoadingContainer>
                             <Spin indicator={<StyledLoading />} />

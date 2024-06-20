@@ -2,7 +2,6 @@ import { Checkbox, List } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { EntityPath, EntityType, SearchResult } from '../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 import { MATCHES_CONTAINER_HEIGHT } from '../../../../../searchV2/SearchResultList';
 import { MatchContextContianer } from '../../../../../searchV2/matches/MatchContextContainer';
 import { PreviewSection } from '../../../../../shared/MatchesContext';
@@ -10,11 +9,11 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCards';
 import { useSearchContext } from '../../../../../search/context/SearchContext';
+import { REDESIGN_COLORS } from '../../../constants';
 
 export const StyledList = styled(List)`
-    overflow-y: auto;
     height: 100%;
-    background-color: ${ANTD_GRAY[3]};
+    background-color: ${REDESIGN_COLORS.WHITE};
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     flex: 1;
     .ant-list-items > .ant-list-item {
@@ -52,9 +51,8 @@ export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; 
     display: flex;
     align-items: center;
     background-color: #ffffff;
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
     margin-bottom: ${(props) =>
         // eslint-disable-next-line no-nested-ternary
         props.areMatchesExpanded
@@ -63,6 +61,7 @@ export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; 
                 : MATCHES_CONTAINER_HEIGHT + 20
             : 0}px;
     transition: margin-bottom 0.3s ease;
+    border: 1px solid #ebecf0;
     ${(props) =>
         props.areMatchesExpanded &&
         `
@@ -158,7 +157,7 @@ export const EntitySearchResults = ({
                         <MatchContextContianer
                             selected={false}
                             item={searchResult}
-                            onClick={() => { }}
+                            onClick={() => {}}
                             urnToExpandedSection={urnToExpandedSection}
                             setUrnToExpandedSection={setUrnToExpandedSection}
                             compactUserSearchCardStyle={compactUserSearchCardStyle}

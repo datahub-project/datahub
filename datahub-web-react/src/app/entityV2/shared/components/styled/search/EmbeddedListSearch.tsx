@@ -12,7 +12,10 @@ import { DEGREE_FILTER_NAME, UnionType } from '../../../../../search/utils/const
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
-import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
+import {
+    useGetSearchCountLazyQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '../../../../../../graphql/search.generated';
 import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../../../entity/shared/types';
@@ -29,6 +32,7 @@ import { useEntityContext } from '../../../../../entity/shared/EntityContext';
 import { EntityActionProps } from './EntitySearchResults';
 import { useUserContext } from '../../../../../context/useUserContext';
 import analytics, { EventType } from '../../../../../analytics';
+import { useGetViewQuery } from '../../../../../../graphql/view.generated';
 
 const Container = styled.div`
     display: flex;
@@ -69,6 +73,18 @@ export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery:
 export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: FacetMetadata[]) => {
     const fixedFields = fixedFilters.filters.map((filter) => filter.field);
     return facets.filter((facet) => !fixedFields.includes(facet.field));
+};
+
+const useGetSearchCountQueryResult = (param) => {
+    const [getSearchResult, { data }] = useGetSearchCountLazyQuery(param);
+
+    useEffect(() => {
+        getSearchResult();
+    }, [getSearchResult]);
+
+    return {
+        data: data?.searchAcrossEntities,
+    };
 };
 
 type Props = {
@@ -140,6 +156,8 @@ export const EmbeddedListSearch = ({
     showFilterBar = true,
     sort,
 }: Props) => {
+    const userContext = useUserContext();
+
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
     const finalQuery: string = addFixedQuery(query as string, fixedQuery as string, emptySearchQuery as string);
@@ -156,11 +174,19 @@ export const EmbeddedListSearch = ({
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+    const [defaultViewUrn, setDefaultViewUrn] = useState<string | undefined>();
+    const [selectedViewUrn, setSelectedUrn] = useState<string | undefined>();
+
+    useEffect(() => {
+        setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
+        setDefaultViewUrn(userContext.localState?.selectedViewUrn || undefined);
+    }, [userContext.localState?.selectedViewUrn, setSelectedUrn, setDefaultViewUrn]);
 
     // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
     // download the correct results given the current context.
     // TODO: Use the loading indicator to log a message to the user should download to CSV fail.
     // TODO: Revisit this pattern -- what can we push down?
+
     const { refetch: refetchForDownload } = useGetDownloadSearchResults({
         variables: {
             input: {
@@ -174,28 +200,43 @@ export const EmbeddedListSearch = ({
         skip: true,
     });
 
-    const userContext = useUserContext();
-    const selectedViewUrn = userContext.localState?.selectedViewUrn;
-
-    let searchInput: SearchAcrossEntitiesInput = {
+    const searchInput: SearchAcrossEntitiesInput = {
         types: entityTypes || [],
         query: finalQuery,
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
         orFilters: finalFilters,
-        viewUrn: applyView ? selectedViewUrn : undefined,
+        viewUrn: (applyView && selectedViewUrn) || undefined,
         sortInput: sort ? { sortCriterion: sort } : undefined,
+        ...(skipCache && { searchFlags: { skipCache: true } }),
     };
-    if (skipCache) {
-        searchInput = { ...searchInput, searchFlags: { skipCache: true } };
-    }
 
     const { data, loading, error, refetch } = useGetSearchResults({
-        variables: {
-            input: searchInput,
-        },
+        variables: { input: searchInput },
         fetchPolicy: 'cache-first',
     });
+
+    const useGetViewSearchData = (viewUrn: string | undefined) => {
+        return useGetSearchCountQueryResult({
+            variables: {
+                input: {
+                    ...searchInput,
+                    viewUrn: viewUrn || undefined,
+                },
+            },
+            fetchPolicy: 'cache-first',
+        });
+    };
+
+    const allSearchCount = useGetViewSearchData(undefined)?.data?.total;
+    const defaultViewCount = useGetViewSearchData(defaultViewUrn)?.data?.total;
+    const { data: viewData } = useGetViewQuery({
+        variables: {
+            urn: defaultViewUrn || '',
+        },
+        skip: !defaultViewUrn,
+    });
+    const view = viewData?.entity;
 
     useEffect(() => {
         if (shouldRefetch && resetShouldRefetch) {
@@ -333,7 +374,13 @@ export const EmbeddedListSearch = ({
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
                 entityAction={entityAction}
+                selectedViewUrn={selectedViewUrn || ''}
+                setSelectedUrn={setSelectedUrn}
                 applyView={applyView}
+                defaultViewUrn={defaultViewUrn}
+                allSearchCount={allSearchCount}
+                defaultViewCount={defaultViewCount}
+                view={view}
                 compactUserSearchCardStyle
             />
         </Container>

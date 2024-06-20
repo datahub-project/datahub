@@ -1140,6 +1140,12 @@ query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     }
 }
 
+query getSearchCount($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        total
+    }
+}
+
 query searchAcrossLineage(
     $input: SearchAcrossLineageInput!
     $includeAssertions: Boolean = false
