@@ -130,6 +130,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                 start: 0,
                 count: 50,
                 orFilters: [{ and: [{ field: PLATFORM_FILTER_NAME, values: [PLATFORM_CONNECTION_URN] }] }],
+                searchFlags: { skipCache: true },
             },
         },
     });

@@ -145,6 +145,8 @@ import com.linkedin.datahub.graphql.resolvers.businessattribute.UpdateBusinessAt
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.connection.DeleteConnectionResolver;
+import com.linkedin.datahub.graphql.resolvers.connection.UpdateConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
@@ -3212,9 +3214,14 @@ public class GmsGraphQLEngine {
     builder.type(
         "Mutation",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "upsertConnection",
-                new UpsertConnectionResolver(connectionService, secretService)));
+            typeWiring
+                .dataFetcher(
+                    "upsertConnection",
+                    new UpsertConnectionResolver(connectionService, secretService))
+                .dataFetcher(
+                    "updateConnection",
+                    new UpdateConnectionResolver(connectionService, secretService))
+                .dataFetcher("deleteConnection", new DeleteConnectionResolver(connectionService)));
     builder.type(
         "Query",
         typeWiring -> typeWiring.dataFetcher("connection", getResolver(this.connectionType)));
