@@ -1,9 +1,9 @@
 import Modal from 'antd/lib/modal/Modal';
-import { Button, Select, message } from 'antd';
-import React, { useRef, useState } from 'react';
+import { Button, Select, Spin, message } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { useGetSearchResultsForMultipleQuery } from '../../../../../../../graphql/search.generated';
-import { DataProduct, EntityType } from '../../../../../../../types.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../graphql/search.generated';
+import { DataProduct, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../../Entity';
@@ -17,6 +17,12 @@ const OptionWrapper = styled.div`
     svg {
         margin-right: 8px;
     }
+`;
+
+const LoadingWrapper = styled.div`
+    display: flex;
+    justify-content: center;
+    margin: 5px;
 `;
 
 interface Props {
@@ -41,19 +47,32 @@ export default function SetDataProductModal({
     const entityRegistry = useEntityRegistry();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
-    const [query, setQuery] = useState<string | undefined>('');
     const inputEl = useRef(null);
+    const [searchResults, setSearchResults] = useState<Entity[]>([]);
 
-    const { data } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: {
-                types: [EntityType.DataProduct],
-                query: query || '',
-                start: 0,
-                count: 5,
+
+    const [getSearchResults, { data, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
+
+    const handleSearch = (text: string) => {
+        if (text) {
+        getSearchResults({
+            variables: {
+                input: {
+                    types: [EntityType.DataProduct],
+                    query: text,
+                    limit: 5,
+                },
             },
-        },
-    });
+        });
+        }
+    };
+
+
+    useEffect(() => {
+        const newData: Array<Entity> =
+            data?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities) || [];
+        setSearchResults(newData);
+    }, [data]);
 
     function onOk() {
         if (!selectedDataProduct) return;
@@ -91,14 +110,13 @@ export default function SetDataProductModal({
         if (inputEl && inputEl.current) {
             (inputEl.current as any).blur();
         }
-        const dataProduct = data?.searchAcrossEntities?.searchResults
-            .map((result) => result.entity)
+        const dataProduct = data?.autoCompleteForMultiple?.suggestions
+            .flatMap((suggestion) => suggestion.entities || [])
             .find((entity) => entity.urn === urn);
         setSelectedDataProduct((dataProduct as DataProduct) || null);
     }
 
     function onDeselect() {
-        setQuery('');
         setSelectedDataProduct(null);
     }
 
@@ -137,18 +155,26 @@ export default function SetDataProductModal({
                 placeholder="Search for Data Products..."
                 onSelect={(urn: string) => onSelectDataProduct(urn)}
                 onDeselect={onDeselect}
-                onSearch={(value: string) => setQuery(value.trim())}
+                onSearch={(value: string) => {
+                    handleSearch(value.trim());
+                }}
                 style={{ width: '100%' }}
                 ref={inputEl}
                 value={selectValue}
                 tagRender={tagRender}
-                onBlur={() => setQuery('')}
             >
-                {data?.searchAcrossEntities?.searchResults.map((result) => (
-                    <Select.Option value={result.entity.urn} key={result.entity.urn}>
+                {loading && (
+                    <Select.Option>
+                        <LoadingWrapper>
+                            <Spin size="default" />
+                        </LoadingWrapper>
+                    </Select.Option>
+                )}
+                {searchResults.map((result) => (
+                    <Select.Option value={result.urn} key={result.urn}>
                         <OptionWrapper>
                             {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}
-                            {entityRegistry.getDisplayName(EntityType.DataProduct, result.entity)}
+                            {entityRegistry.getDisplayName(EntityType.DataProduct, result)}
                         </OptionWrapper>
                     </Select.Option>
                 ))}
