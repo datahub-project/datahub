@@ -9,7 +9,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
-from datahub.ingestion.api.source_helpers import auto_stale_entity_removal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -27,6 +26,10 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
+    "dataProcessInstance",
+}
 
 
 class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
@@ -57,6 +60,33 @@ class StaleEntityRemovalSourceReport(StatefulIngestionReport):
 
     def report_last_state_non_deletable_entities(self, urn: str) -> None:
         self.last_state_non_deletable_entities.append(urn)
+
+
+def auto_stale_entity_removal(
+    stale_entity_removal_handler: "StaleEntityRemovalHandler",
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """
+    Record all entities that are found, and emit removals for any that disappeared in this run.
+    """
+
+    for wu in stream:
+        urn = wu.get_urn()
+
+        if wu.is_primary_source:
+            entity_type = guess_entity_type(urn)
+            if (
+                entity_type is not None
+                and entity_type not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES
+            ):
+                stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
+        else:
+            stale_entity_removal_handler.add_urn_to_skip(urn)
+
+        yield wu
+
+    # Clean up stale entities.
+    yield from stale_entity_removal_handler.gen_removed_entity_workunits()
 
 
 class StaleEntityRemovalHandler(
@@ -285,7 +315,11 @@ class StaleEntityRemovalHandler(
         for urn in last_checkpoint_state.get_urns_not_in(
             type="*", other_checkpoint_state=cur_checkpoint_state
         ):
-            if not entity_supports_aspect(guess_entity_type(urn), StatusClass):
+            entity_type = guess_entity_type(urn)
+            if (
+                entity_type in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES
+                or not entity_supports_aspect(entity_type, StatusClass)
+            ):
                 # If any entity does not support aspect 'status' then skip that entity urn
                 report.report_last_state_non_deletable_entities(urn)
                 continue
