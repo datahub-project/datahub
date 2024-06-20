@@ -15,6 +15,8 @@ import org.springframework.context.annotation.FilterType;
 @ComponentScan(
     basePackages = {
       "com.linkedin.gms.factory.common",
+      "com.linkedin.metadata.service",
+      "com.datahub.event",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.kafka.common",
       "com.linkedin.gms.factory.kafka.schemaregistry",
@@ -29,7 +31,8 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.incident",
       "com.linkedin.gms.factory.timeline.eventgenerator",
       "io.datahubproject.metadata.jobs.common.health.kafka",
-      "com.linkedin.gms.factory.context"
+      "com.linkedin.gms.factory.context",
+      "com.linkedin.gms.factory.timeseries",
     },
     excludeFilters = {
       @ComponentScan.Filter(
