@@ -1278,6 +1278,22 @@ class DataHubGraph(DatahubRestEmitter):
         # return urn
         return res["createTag"]
 
+    def remove_tag(self, tag_urn: str, resource_urn: str) -> bool:
+        graph_query = """
+            mutation removeTag {{
+                removeTag(
+                input: {{
+                    tagUrn: "{tag_urn}",
+                    resourceUrn: "{resource_urn}"
+                    }})
+            }}
+        """.format(
+            tag_urn=tag_urn, resource_urn=resource_urn
+        )
+
+        res = self.execute_graphql(query=graph_query)
+        return res["removeTag"]
+
     def _assertion_result_shared(self) -> str:
         fragment: str = """
              fragment assertionResult on AssertionResult {
