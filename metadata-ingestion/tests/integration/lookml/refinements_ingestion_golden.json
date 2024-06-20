@@ -1665,7 +1665,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT\n        customer_id,\n        SUM(sale_price) AS lifetime_spend\n      FROM\n        order\n      WHERE\n        \n            region = \"GCP_SOUTH_1\"\n        \n      GROUP BY 1",
+            "viewLogic": "SELECT\n            customer_id,\n            SUM(sale_price) AS lifetime_spend\n          FROM\n            order\n          WHERE\n            \n                region = \"GCP_SOUTH_1\"\n            \n          GROUP BY 1",
             "viewLanguage": "sql"
         }
     },

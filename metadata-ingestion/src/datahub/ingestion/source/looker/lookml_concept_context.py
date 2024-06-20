@@ -24,10 +24,7 @@ logger = logging.getLogger(__name__)
 class LookerFieldContext:
     raw_field: Dict[Any, Any]
 
-    def __init__(
-            self,
-            raw_field: Dict[Any, Any]
-    ):
+    def __init__(self, raw_field: Dict[Any, Any]):
         self.raw_field = raw_field
 
     def name(self) -> str:
@@ -36,9 +33,136 @@ class LookerFieldContext:
     def sql(self) -> Optional[str]:
         return self.raw_field.get("sql")
 
+    def column_name_in_sql_attribute(self) -> List[str]:
+        if self.sql() is None:
+            # If no "sql" is specified, we assume this is referencing an upstream field
+            # with the same name. This commonly happens for extends and derived tables.
+            return [self.name()]
+
+        column_names: List[str] = []
+
+        sql: Optional[str] = self.sql()
+
+        assert sql  # to silent lint false positive
+
+        for upstream_field_match in re.finditer(r"\${TABLE}\.[\"]*([\.\w]+)", sql):
+            matched_field = upstream_field_match.group(1)
+            # Remove quotes from field names
+            matched_field = matched_field.replace('"', "").replace("`", "").lower()
+            column_names.append(matched_field)
+
+        return column_names
+
 
 class LookerViewContext:
-    raw_view: Dict[Any, Any]
+    """
+    There are three pattern to associate the view's fields with dataset
+    Pattern1:
+        view: view_name {
+            ... measure and dimension definition i.e. fields of a view
+        }
+
+    In Pattern1 the fields' upstream dataset name is equivalent to view_name and this dataset should be present in
+    the connection.
+
+    Pattern2:
+        view: view_name {
+            sql_table_name: dataset-name
+
+            ... measure and dimension definition i.e. fields of a view
+        }
+
+    In Pattern2 the fields' upstream dataset name is mentioned in "sql_table_name" attribute and this dataset
+    should be present in the connection.
+
+    Pattern3:
+        view: view_name {
+            sql_table_name: "<view-name>.SQL_TABLE_NAME"
+
+            ... measure and dimension definition i.e. fields of a view
+        }
+
+    In Pattern3 the fields' upstream is another view in same looker project.
+
+    Pattern4:
+        view: view_name {
+            derived_table:
+                sql:
+                    ... SQL select query
+
+            ... measure and dimension definition i.e. fields of a view
+        }
+
+    In Pattern4 the fields' upstream dataset is the output of sql mentioned in derived_table.sql.
+
+    Pattern5:
+        view: view_name {
+            derived_table:
+                explore_source:
+                    ... LookML native query
+
+            ... measure and dimension definition i.e. fields of a view
+        }
+
+    In Pattern5 the fields' upstream dataset is the output of LookML native query mentioned in
+    derived_table.explore_source.
+
+    In all patterns the "sql_table_name" or "derived_table" field might present in parent view instead of current
+    view (see "extends" doc https://cloud.google.com/looker/docs/reference/param-view-extends)
+
+    In all the patterns the common thing is field definition and fields are defined as
+        # Dimensions
+        dimension: id {
+            primary_key: yes
+            type: number
+            sql: ${TABLE}.id ;;
+        }
+
+        # Measures
+        measure: total_revenue {
+            type: sum
+            sql: ${TABLE}.total_revenue ;;
+        }
+
+    Here "sql" attribute is referring to column present in upstream dataset.
+
+    This sql can be complex sql, see below example
+
+    dimension: profit_in_dollars { type: number sql: ${TABLE}.revenue_in_dollars - ${TABLE}.cost_in_dollars ;; }
+    Here "profit_in_dollars" has two upstream columns from upstream dataset i.e. revenue_in_dollars and
+    cost_in_dollars.
+
+    There is one special case of view definition, which is actually not useful but still a valid lookml definition. We
+    call it pattern 6. Refer below lookml
+
+    view: customer_facts {
+      derived_table: {
+        sql:
+              SELECT
+                customer_id,
+                SUM(sale_price) AS lifetime_spend
+              FROM
+                order
+              WHERE
+                {% if order.region == "ap-south-1" %}
+                    region = "AWS_AP_SOUTH_1"
+                {% else %}
+                    region = "GCP_SOUTH_1"
+                {% endif %}
+              GROUP BY 1
+            ;;
+            }
+    }
+
+    The customer_facts view is not useful for looker as there is no field definition, but still such view appears in
+    connector test-cases, and it might be present on customer side
+
+    For all possible options of "sql" attribute please refer looker doc:
+    https://cloud.google.com/looker/docs/reference/param-field-sql
+
+    """
+
+    raw_view: Dict
     view_file: LookerViewFile
     view_connection: LookerConnectionDefinition
     view_file_loader: LookerViewFileLoader
@@ -48,7 +172,7 @@ class LookerViewContext:
 
     def __init__(
         self,
-        raw_view: Dict[Any, Any],
+        raw_view: Dict,
         view_file: LookerViewFile,
         view_connection: LookerConnectionDefinition,
         view_file_loader: LookerViewFileLoader,
@@ -56,88 +180,6 @@ class LookerViewContext:
         base_folder_path: str,
         reporter: LookMLSourceReport,
     ):
-        """
-        There are three pattern to associate the view's fields with dataset
-        Pattern1:
-            view: view_name {
-                ... measure and dimension definition i.e. fields of a view
-            }
-
-        In Pattern1 the fields' upstream dataset name is equivalent to view_name and this dataset should be present in
-        the connection.
-
-        Pattern2:
-            view: view_name {
-                sql_table_name: dataset-name
-
-                ... measure and dimension definition i.e. fields of a view
-            }
-
-        In Pattern2 the fields' upstream dataset name is mentioned in "sql_table_name" attribute and this dataset
-        should be present in the connection.
-
-        Pattern3:
-            view: view_name {
-                sql_table_name: "<view-name>.SQL_TABLE_NAME"
-
-                ... measure and dimension definition i.e. fields of a view
-            }
-
-        In Pattern3 the fields' upstream is another view in same looker project.
-
-        Pattern4:
-            view: view_name {
-                derived_table:
-                    sql:
-                        ... SQL select query
-
-                ... measure and dimension definition i.e. fields of a view
-            }
-
-        In Pattern4 the fields' upstream dataset is the output of sql mentioned in derived_table.sql.
-
-        Pattern5:
-            view: view_name {
-                derived_table:
-                    explore_source:
-                        ... LookML native query
-
-                ... measure and dimension definition i.e. fields of a view
-            }
-
-        In Pattern5 the fields' upstream dataset is the output of LookML native query mentioned in
-        derived_table.explore_source.
-
-        In all patterns the "sql_table_name" or "derived_table" field might present in parent view instead of current
-        view (see "extends" doc https://cloud.google.com/looker/docs/reference/param-view-extends)
-
-        In all the patterns the common thing is field definition and fields are defined as
-            # Dimensions
-            dimension: id {
-                primary_key: yes
-                type: number
-                sql: ${TABLE}.id ;;
-            }
-
-            # Measures
-            measure: total_revenue {
-                type: sum
-                sql: ${TABLE}.total_revenue ;;
-            }
-
-        Here "sql" attribute is referring to column present in upstream dataset.
-
-        This sql can be complex sql, see below example
-
-        dimension: profit_in_dollars { type: number sql: ${TABLE}.revenue_in_dollars - ${TABLE}.cost_in_dollars ;; }
-        Here "profit_in_dollars" has two upstream columns from upstream dataset i.e. revenue_in_dollars and
-        cost_in_dollars.
-
-        For all possible options of "sql" attribute please refer looker doc:
-        https://cloud.google.com/looker/docs/reference/param-field-sql
-
-        """
-
         self.raw_view = raw_view
         self.view_file = view_file
         self.view_connection = view_connection
@@ -253,7 +295,7 @@ class LookerViewContext:
 
         return derived_table["explore_source"]
 
-    def sql(self) -> str:
+    def sql(self, transformed: bool = True) -> str:
         """
         This function should only be called if is_sql_based_derived_case return true
         """
@@ -262,17 +304,19 @@ class LookerViewContext:
         # Looker supports sql fragments that omit the SELECT and FROM parts of the query
         # Add those in if we detect that it is missing
         sql_query: str = derived_table["sql"]
-        if not re.search(r"SELECT\s", sql_query, flags=re.I):
-            # add a SELECT clause at the beginning
-            sql_query = f"SELECT {sql_query}"
 
-        if not re.search(r"FROM\s", sql_query, flags=re.I):
-            # add a FROM clause at the end
-            sql_query = f"{sql_query} FROM {self.name()}"
-            # Get the list of tables in the query
+        if transformed:  # update the original sql attribute only if transformed is true
+            if not re.search(r"SELECT\s", sql_query, flags=re.I):
+                # add a SELECT clause at the beginning
+                sql_query = f"SELECT {sql_query}"
 
-        # Drop ${ and }
-        sql_query = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_query)
+            if not re.search(r"FROM\s", sql_query, flags=re.I):
+                # add a FROM clause at the end
+                sql_query = f"{sql_query} FROM {self.name()}"
+                # Get the list of tables in the query
+
+            # Drop ${ and }
+            sql_query = re.sub(DERIVED_VIEW_PATTERN, r"\1", sql_query)
 
         return sql_query
 
@@ -297,14 +341,20 @@ class LookerViewContext:
             "/"
         )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
 
-    def dimension(self) -> List[Dict]:
-        return self.raw_view.get("dimension") if self.raw_view.get("dimension") is not None else []
+    def _get_list_dict(self, attribute_name: str) -> List[Dict]:
+        ans: Optional[List[Dict]] = self.raw_view.get(attribute_name)
+        if ans is not None:
+            return ans
+        return []
 
-    def measure(self) -> List[Dict]:
-        return self.raw_view.get("measure") if self.raw_view.get("measure") is not None else []
+    def dimensions(self) -> List[Dict]:
+        return self._get_list_dict("dimensions")
 
-    def dimension_group(self) -> List[Dict]:
-        return self.raw_view.get("dimension_groups") if self.raw_view.get("dimension_groups") is not None else []
+    def measures(self) -> List[Dict]:
+        return self._get_list_dict("measures")
+
+    def dimension_groups(self) -> List[Dict]:
+        return self._get_list_dict("dimension_groups")
 
     def is_materialized_derived_view(self) -> bool:
         for k in self.derived_table():
@@ -333,7 +383,7 @@ class LookerViewContext:
         return self._is_dot_sql_table_name_present()
 
     def is_sql_based_derived_case(self) -> bool:
-        # It is pattern 5
+        # It is pattern 4
         if "derived_table" in self.raw_view and "sql" in self.raw_view["derived_table"]:
             return True
 
@@ -345,6 +395,19 @@ class LookerViewContext:
             "derived_table" in self.raw_view
             and "explore_source" in self.raw_view["derived_table"]
         ):
+            return True
+
+        return False
+
+    def is_sql_based_derived_view_without_fields_case(self) -> bool:
+        # Pattern 6
+        fields: List[Dict] = []
+
+        fields.extend(self.dimensions())
+        fields.extend(self.measures())
+        fields.extend(self.dimension_groups())
+
+        if self.is_sql_based_derived_case() and len(fields) == 0:
             return True
 
         return False

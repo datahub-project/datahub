@@ -1,16 +1,16 @@
 import logging
 import pathlib
 import tempfile
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, cast
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import lkml
 import lkml.simple
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import DBConnection
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.git import GitInfo
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -40,12 +40,17 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerUtil,
     LookerViewId,
     ViewField,
+    ViewFieldType,
     ViewFieldValue,
-    gen_project_key, ViewFieldType,
+    deduplicate_fields,
+    gen_project_key,
 )
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
-from datahub.ingestion.source.looker.lookml_concept_context import LookerViewContext, LookerFieldContext
+from datahub.ingestion.source.looker.lookml_concept_context import (
+    LookerFieldContext,
+    LookerViewContext,
+)
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
     _MODEL_FILE_EXTENSION,
@@ -59,11 +64,12 @@ from datahub.ingestion.source.looker.lookml_resolver import (
     LookerModel,
     LookerViewFileLoader,
     LookerViewIdCache,
-    get_derived_view_urn,
-    resolve_derived_view_urn,
 )
 from datahub.ingestion.source.looker.lookml_sql_parser import SqlQuery, ViewFieldBuilder
-from datahub.ingestion.source.looker.view_upstream import create_view_upstream, AbstractViewUpstream
+from datahub.ingestion.source.looker.view_upstream import (
+    AbstractViewUpstream,
+    create_view_upstream,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -159,8 +165,7 @@ class LookerView:
     id: LookerViewId
     absolute_file_path: str
     connection: LookerConnectionDefinition
-    sql_table_names: List[str]
-    upstream_explores: List[str]
+    upstream_dataset_urns: List[str]
     fields: List[ViewField]
     raw_file_content: str
     view_details: Optional[ViewProperties] = None
@@ -173,47 +178,6 @@ class LookerView:
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
         return parser_cls
-
-    @classmethod
-    def _get_sql_info(
-        cls, sql: str, sql_parser_path: str, use_external_process: bool = True
-    ) -> SQLInfo:
-        parser_cls = cls._import_sql_parser_cls(sql_parser_path)
-
-        try:
-            parser_instance: SQLParser = parser_cls(
-                sql, use_external_process=use_external_process
-            )
-        except Exception as e:
-            logger.warning(f"Sql parser failed on {sql} with {e}")
-            return SQLInfo(table_names=[], column_names=[])
-
-        sql_table_names: List[str]
-        try:
-            sql_table_names = parser_instance.get_tables()
-        except Exception as e:
-            logger.warning(f"Sql parser failed on {sql} with {e}")
-            sql_table_names = []
-
-        try:
-            column_names: List[str] = parser_instance.get_columns()
-        except Exception as e:
-            logger.warning(f"Sql parser failed on {sql} with {e}")
-            column_names = []
-
-        logger.debug(f"Column names parsed = {column_names}")
-        # Drop table names with # in them
-        sql_table_names = [t for t in sql_table_names if "#" not in t]
-
-        # Remove quotes from table names
-        sql_table_names = [t.replace('"', "") for t in sql_table_names]
-        sql_table_names = [t.replace("`", "") for t in sql_table_names]
-        # Remove reserved words from table names
-        sql_table_names = [
-            t for t in sql_table_names if t.upper() not in _SQL_FUNCTIONS
-        ]
-
-        return SQLInfo(table_names=sql_table_names, column_names=column_names)
 
     @classmethod
     def determine_view_file_path(
@@ -237,7 +201,6 @@ class LookerView:
     def from_looker_dict(
         cls,
         project_name: str,
-        base_folder_path: str,
         model_name: str,
         view_context: LookerViewContext,
         connection: LookerConnectionDefinition,
@@ -247,7 +210,6 @@ class LookerView:
         max_file_snippet_length: int,
         config: LookMLSourceConfig,
         ctx: PipelineContext,
-        parse_table_names_from_sql: bool = False,
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
     ) -> Optional["LookerView"]:
@@ -255,8 +217,6 @@ class LookerView:
         view_name = view_context.name()
 
         logger.debug(f"Handling view {view_name} in model {model_name}")
-
-        view_fields: List[ViewField] = []
 
         looker_view_id: LookerViewId = LookerViewId(
             project_name=project_name,
@@ -269,23 +229,26 @@ class LookerView:
             view_context=view_context,
             looker_view_id_cache=looker_view_id_cache,
             config=config,
+            ctx=ctx,
             reporter=reporter,
         )
 
-        field_type_vs_raw_fields = {
-            ViewFieldType.DIMENSION: view_context.dimension(),
-            ViewFieldType.MEASURE: view_context.measure(),
-            ViewFieldType.DIMENSION_GROUP: view_context.dimension_group(),
-        }
+        field_type_vs_raw_fields = OrderedDict(
+            {
+                ViewFieldType.DIMENSION: view_context.dimensions(),
+                ViewFieldType.DIMENSION_GROUP: view_context.dimension_groups(),
+                ViewFieldType.MEASURE: view_context.measures(),
+            }
+        )  # in order to maintain order in golden file
+
+        view_fields: List[ViewField] = []
 
         for field_type, fields in field_type_vs_raw_fields.items():
             for field in fields:
                 upstream_column_ref: List[ColumnRef] = []
                 if extract_col_level_lineage:
                     upstream_column_ref = view_upstream.get_upstream_column_ref(
-                        field_context=LookerFieldContext(
-                            raw_field=field
-                        )
+                        field_context=LookerFieldContext(raw_field=field)
                     )
 
                 view_fields.append(
@@ -297,94 +260,27 @@ class LookerView:
                     )
                 )
 
+        # special case where view is defined as derived sql, however fields are not defined
+        if (
+            len(view_fields) == 0
+            and view_context.is_sql_based_derived_view_without_fields_case()
+        ):
+            view_fields = view_upstream.create_fields()
+
+        view_fields = deduplicate_fields(view_fields)
+
         # Prep "default" values for the view, which will be overridden by the logic below.
         view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
 
-        if (
-            view_context.is_regular_case()
-            or view_context.is_sql_table_name_referring_to_view()
-        ):
-
+        if view_context.is_sql_based_derived_case():
+            view_logic = view_context.sql(transformed=False)
+            # Parse SQL to extract dependencies.
             view_details = ViewProperties(
                 materialized=False,
                 viewLogic=view_logic,
-                viewLanguage=VIEW_LANGUAGE_LOOKML,
+                viewLanguage=VIEW_LANGUAGE_SQL,
             )
-
-            if len(view_upstream.get_upstream_dataset_urn()) == 0:
-                reporter.report_warning(
-                    view_context.name(), "Failed to generate upstream view urn"
-                )
-
-            return LookerView(
-                id=looker_view_id,
-                fields=view_fields,
-                absolute_file_path=looker_viewfile.absolute_file_path,
-                connection=connection,
-                sql_table_names=view_upstream.get_upstream_dataset_urn(),
-                raw_file_content=looker_viewfile.raw_file_content,
-                view_details=view_details,
-                upstream_explores=[],
-            )
-
-        sql_table_names: List[str] = []
-        if view_context.is_sql_based_derived_case():
-            view_logic = view_context.sql()
-            # Parse SQL to extract dependencies.
-            if parse_table_names_from_sql:
-                (
-                    fields,
-                    sql_table_names,
-                ) = cls._extract_metadata_from_derived_table_sql(
-                    reporter=reporter,
-                    connection=connection,
-                    ctx=ctx,
-                    view_name=view_name,
-                    view_urn=looker_view_id.get_urn(config=config),
-                    sql_table_name=view_context.sql_table_name(),
-                    sql_query=view_logic,
-                    fields=view_fields,
-                    liquid_variable=config.liquid_variable,
-                )
-                # resolve view name ${<view-name>.SQL_TABLE_NAME} to urn used in derived_table
-                # https://cloud.google.com/looker/docs/derived-tables
-                (fields, sql_table_names,) = resolve_derived_view_urn(
-                    base_folder_path=base_folder_path,
-                    looker_view_id_cache=looker_view_id_cache,
-                    fields=fields,
-                    upstream_urns=sql_table_names,
-                    config=config,
-                )
-
-                view_details = ViewProperties(
-                    materialized=False,
-                    viewLogic=view_logic,
-                    viewLanguage=VIEW_LANGUAGE_SQL,
-                )
-
-                return LookerView(
-                    id=looker_view_id,
-                    absolute_file_path=looker_viewfile.absolute_file_path,
-                    connection=connection,
-                    sql_table_names=sql_table_names,
-                    upstream_explores=[],
-                    fields=fields,
-                    raw_file_content=looker_viewfile.raw_file_content,
-                    view_details=view_details,
-                )
-
-        if view_context.is_native_derived_case():
-            upstream_explores: List[str] = []
-            # This is called a "native derived table".
-            # See https://cloud.google.com/looker/docs/creating-ndts.
-            explore_source = view_context.explore_source()
-            (
-                fields,
-                upstream_explores,
-            ) = cls._extract_metadata_from_derived_table_explore(
-                reporter, view_name, explore_source, view_fields
-            )
-
+        elif view_context.is_native_derived_case():
             # We want this to render the full lkml block
             # e.g. explore_source: source_name { ... }
             # As such, we use the full derived_table instead of the explore_source.
@@ -398,21 +294,22 @@ class LookerView:
             view_details = ViewProperties(
                 materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
             )
-
-            return LookerView(
-                id=looker_view_id,
-                absolute_file_path=looker_viewfile.absolute_file_path,
-                connection=connection,
-                sql_table_names=[],
-                upstream_explores=upstream_explores,
-                fields=fields,
-                raw_file_content=looker_viewfile.raw_file_content,
-                view_details=view_details,
+        else:
+            view_details = ViewProperties(
+                materialized=False,
+                viewLogic=view_logic,
+                viewLanguage=VIEW_LANGUAGE_LOOKML,
             )
 
-        logger.debug(f"view {view_context.name()} is unsupported")
-
-        return None
+        return LookerView(
+            id=looker_view_id,
+            absolute_file_path=looker_viewfile.absolute_file_path,
+            connection=connection,
+            upstream_dataset_urns=view_upstream.get_upstream_dataset_urn(),
+            fields=view_fields,
+            raw_file_content=looker_viewfile.raw_file_content,
+            view_details=view_details,
+        )
 
     @classmethod
     def _extract_metadata_from_derived_table_sql(
@@ -477,7 +374,6 @@ class LookerView:
         explore_columns = explore_source.get("columns", [])
         # TODO: We currently don't support column-level lineage for derived_column.
         # In order to support it, we'd need to parse the `sql` field of the derived_column.
-
         # The fields in the view are actually references to the fields in the explore.
         # As such, we need to perform an extra mapping step to update
         # the upstream column names.
@@ -624,16 +520,7 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _get_upstream_lineage(
         self, looker_view: LookerView
     ) -> Optional[UpstreamLineage]:
-        # Merge dataset upstreams with sql table upstreams.
-        upstream_dataset_urns = []
-        for upstream_explore in looker_view.upstream_explores:
-            # We're creating a "LookerExplore" just to use the urn generator.
-            upstream_dataset_urn = LookerExplore(
-                name=upstream_explore, model_name=looker_view.id.model_name
-            ).get_explore_urn(self.source_config)
-            upstream_dataset_urns.append(upstream_dataset_urn)
-
-        upstream_dataset_urns.extend(looker_view.sql_table_names)
+        upstream_dataset_urns = looker_view.upstream_dataset_urns
 
         # Generate the upstream + fine grained lineage objects.
         upstreams = []
@@ -1147,7 +1034,6 @@ class LookMLSource(StatefulIngestionSourceBase):
 
                             maybe_looker_view = LookerView.from_looker_dict(
                                 project_name=current_project_name,
-                                base_folder_path=base_folder_path,
                                 model_name=model_name,
                                 view_context=view_context,
                                 connection=connectionDefinition,
@@ -1155,7 +1041,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 looker_view_id_cache=looker_view_id_cache,
                                 reporter=self.reporter,
                                 max_file_snippet_length=self.source_config.max_file_snippet_length,
-                                parse_table_names_from_sql=self.source_config.parse_table_names_from_sql,
                                 extract_col_level_lineage=self.source_config.extract_column_level_lineage,
                                 populate_sql_logic_in_descriptions=self.source_config.populate_sql_logic_for_missing_descriptions,
                                 config=self.source_config,
@@ -1166,6 +1051,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 include.include,
                                 f"unable to load Looker view {raw_view}: {repr(e)}",
                             )
+
+                            logger.debug(e, exc_info=e)
+
                             continue
 
                         if maybe_looker_view:

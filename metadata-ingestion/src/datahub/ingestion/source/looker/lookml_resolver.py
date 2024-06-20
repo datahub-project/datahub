@@ -1,11 +1,10 @@
 import logging
 import re
-from typing import Dict, List, Optional, Tuple, cast
+from typing import Dict, List, Optional
 
 from datahub.ingestion.source.looker.looker_common import (
     LookerConnectionDefinition,
     LookerViewId,
-    ViewField,
     ViewFieldValue,
 )
 from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
@@ -53,70 +52,62 @@ def get_derived_looker_view_id(
     return looker_view_id
 
 
-def resolve_derived_view_urn(
+def resolve_derived_view_urn_of_col_ref(
+    column_refs: List[ColumnRef],
     looker_view_id_cache: "LookerViewIdCache",
     base_folder_path: str,
     config: LookMLSourceConfig,
-    fields: List[ViewField],
-    upstream_urns: List[str],
-) -> Tuple[List[ViewField], List[str]]:
+) -> List[ColumnRef]:
 
-    for field in fields:
-        # if list is not list of ColumnRef then continue
-        if field.upstream_fields and not isinstance(
-            field.upstream_fields[0], ColumnRef
-        ):
-            continue
-
-        upstream_fields: List[ColumnRef] = []
-        for col_ref in cast(List[ColumnRef], field.upstream_fields):
-            if is_derived_view(col_ref.table.lower()):
-                looker_view_id = get_derived_looker_view_id(
-                    qualified_table_name=get_qualified_table_name(col_ref.table),
-                    looker_view_id_cache=looker_view_id_cache,
-                    base_folder_path=base_folder_path,
+    new_column_refs: List[ColumnRef] = []
+    for col_ref in column_refs:
+        if is_derived_view(col_ref.table.lower()):
+            new_urns: List[str] = fix_derived_view_urn(
+                urns=[col_ref.table],
+                looker_view_id_cache=looker_view_id_cache,
+                base_folder_path=base_folder_path,
+                config=config,
+            )
+            if not new_urns:
+                logger.warning(
+                    f"Not able to resolve to derived view looker id for {col_ref.table}"
                 )
+                continue
 
-                if looker_view_id is None:
-                    logger.warning(
-                        f"Not able to resolve to derived view looker id for {col_ref.table}"
-                    )
-                    continue
+            new_column_refs.append(ColumnRef(table=new_urns[0], column=col_ref.column))
+        else:
+            new_column_refs.append(col_ref)
 
-                upstream_fields.append(
-                    ColumnRef(
-                        table=looker_view_id.get_urn(config=config),
-                        column=col_ref.column
-                    )
-                )
-            else:
-                upstream_fields.append(col_ref)
+    return new_column_refs
 
-        field.upstream_fields = upstream_fields
 
-    # Regenerate upstream_urns if .sql_table_name is present
-    new_upstream_urns: List[str] = []
-    for urn in upstream_urns:
+def fix_derived_view_urn(
+    urns: List[str],
+    looker_view_id_cache: "LookerViewIdCache",
+    base_folder_path: str,
+    config: LookMLSourceConfig,
+) -> List[str]:
+    # Regenerate view urn if .sql_table_name is present in urn
+    new_urns: List[str] = []
+    for urn in urns:
         if is_derived_view(urn):
             looker_view_id = get_derived_looker_view_id(
-                qualified_table_name=get_qualified_table_name(col_ref.table),
+                qualified_table_name=get_qualified_table_name(urn),
                 looker_view_id_cache=looker_view_id_cache,
                 base_folder_path=base_folder_path,
             )
 
             if looker_view_id is None:
                 logger.warning(
-                    f"Not able to resolve to derived view looker id for {col_ref.table}"
+                    f"Not able to resolve to derived view looker id for {urn}"
                 )
                 continue
 
-            new_upstream_urns.append(
-                looker_view_id.get_urn(config=config)
-            )
+            new_urns.append(looker_view_id.get_urn(config=config))
         else:
-            new_upstream_urns.append(urn)
+            new_urns.append(urn)
 
-    return fields, new_upstream_urns
+    return new_urns
 
 
 def determine_view_file_path(base_folder_path: str, absolute_file_path: str) -> str:
