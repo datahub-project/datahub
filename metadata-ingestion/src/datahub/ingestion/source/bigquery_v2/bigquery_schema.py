@@ -377,7 +377,11 @@ class BigQuerySchemaApi:
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
             size_in_bytes=view.get("size_bytes"),
             rows_count=view.get("row_count"),
-            labels=parse_labels(view.labels) if isinstance(view.labels, str) else None,
+            labels=(
+                parse_labels(view.labels)
+                if hasattr(view, "labels") and isinstance(view.labels, str)
+                else None
+            ),
         )
 
     def get_policy_tags_for_column(
