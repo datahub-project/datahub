@@ -367,7 +367,7 @@ class Pipeline:
                     status="CANCELLED"
                     if self.final_status == "cancelled"
                     else "FAILURE"
-                    if self.has_failures()
+                    if self.has_failures() or self.final_status == "pipeline_failure"
                     else "SUCCESS"
                     if self.final_status == "completed"
                     else "UNKNOWN",
@@ -458,9 +458,7 @@ class Pipeline:
                                         f"Failed to write record: {e}"
                                     )
 
-                    except RuntimeError:
-                        raise
-                    except SystemExit:
+                    except (RuntimeError, SystemExit):
                         raise
                     except Exception as e:
                         logger.error(
@@ -493,6 +491,10 @@ class Pipeline:
             except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
                 self.final_status = "cancelled"
                 logger.error("Caught error", exc_info=e)
+                raise
+            except Exception as exc:
+                self.final_status = "pipeline_failure"
+                logger.error("pipline run error: ", exc_info=exc)
                 raise
             finally:
                 clear_global_warnings()
