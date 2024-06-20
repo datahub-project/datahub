@@ -1,0 +1,22 @@
+namespace com.linkedin.common
+
+/**
+ * Aspect used for keeping track of metadata sharing info
+ */
+@Aspect = {
+  "name": "syncedFrom"
+}
+record SyncedFrom {
+
+  /**
+   * The different sources that this asset has been synchronized from
+   */
+  @Searchable = {
+    "/*/source": {
+      "fieldName": "syncedFromSources",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasSyncedFromSources",
+    }
+  }
+  sources: array[SourceDetails]
+}

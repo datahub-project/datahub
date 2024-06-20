@@ -1,0 +1,49 @@
+namespace com.linkedin.common
+
+/**
+ * Info about how this asset was ingested into this system
+ */
+record SourceDetails {
+ /**
+  * Urn of the source of this asset. Could be an ingestion run, an acryl platform, etc.
+  */
+  source: Urn
+
+ /**
+  * Urn of the platform this asset was synced from ie. urn:li:dataPlatform:snowflake for sowflake ingestion
+  * or urn:li:dataPlatform:acryl for sharing assets.
+  */
+  sourcePlatform: Urn
+
+ /**
+  * Audit stamp for when this asset was synced
+  */
+  lastModified: AuditStamp
+
+ /**
+  * The means by which this asset got synchronized
+  */
+  mechanism: enum SyncMechanism {
+    /**
+    * Synced via ingestion
+    */
+    INGEST
+    /**
+    * Synced via metadata sharing with another acryl instance
+    */
+    SHARE
+    /**
+    * Synced API creation
+    */
+    API
+    /**
+    * Synced via another mechanism
+    */
+    OTHER
+  }
+
+ /**
+  * Additional information related to the source of this metadata
+  */
+  sourceDetails: optional map[string, string] = { }
+}
