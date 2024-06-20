@@ -4,7 +4,7 @@ import tempfile
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import lkml
 import lkml.simple
@@ -65,7 +65,6 @@ from datahub.ingestion.source.looker.lookml_resolver import (
     LookerViewFileLoader,
     LookerViewIdCache,
 )
-from datahub.ingestion.source.looker.lookml_sql_parser import SqlQuery, ViewFieldBuilder
 from datahub.ingestion.source.looker.view_upstream import (
     AbstractViewUpstream,
     create_view_upstream,
@@ -310,52 +309,6 @@ class LookerView:
             raw_file_content=looker_viewfile.raw_file_content,
             view_details=view_details,
         )
-
-    @classmethod
-    def _extract_metadata_from_derived_table_sql(
-        cls,
-        reporter: LookMLSourceReport,
-        connection: LookerConnectionDefinition,
-        ctx: PipelineContext,
-        view_name: str,
-        view_urn: str,
-        sql_table_name: Optional[str],
-        sql_query: str,
-        fields: List[ViewField],
-        liquid_variable: Dict[Any, Any],
-    ) -> Tuple[List[ViewField], List[str]]:
-
-        logger.debug(f"Parsing sql from derived table section of view: {view_name}")
-        reporter.query_parse_attempts += 1
-        upstream_urns: List[str] = []
-        # TODO: also support ${EXTENDS} and ${TABLE}
-        try:
-            view_field_builder: ViewFieldBuilder = ViewFieldBuilder(
-                fields=fields,
-                sql_query=SqlQuery(
-                    lookml_sql_query=sql_query,
-                    liquid_variable=liquid_variable,
-                    view_name=sql_table_name
-                    if sql_table_name is not None
-                    else view_name,
-                ),
-                reporter=reporter,
-                ctx=ctx,
-            )
-
-            fields, upstream_urns = view_field_builder.create_or_update_fields(
-                view_urn=view_urn,
-                connection=connection,
-            )
-
-        except Exception as e:
-            reporter.query_parse_failures += 1
-            reporter.report_warning(
-                f"looker-view-{view_name}",
-                f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
-            )
-
-        return fields, upstream_urns
 
     @classmethod
     def _extract_metadata_from_derived_table_explore(
