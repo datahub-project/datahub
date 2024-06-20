@@ -75,10 +75,7 @@ def auto_stale_entity_removal(
 
         if wu.is_primary_source:
             entity_type = guess_entity_type(urn)
-            if (
-                entity_type is not None
-                and entity_type not in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES
-            ):
+            if entity_type is not None:
                 stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
         else:
             stale_entity_removal_handler.add_urn_to_skip(urn)
