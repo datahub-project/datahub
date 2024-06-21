@@ -264,15 +264,10 @@ export const UserInfo = styled(Row)`
 export const GroupInfo = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    padding: 10px 10px;
     flex-wrap: wrap;
     background: ${ANTD_GRAY_V2['14']};
     border-radius: 10px;
-    @media only screen and (min-width: 1700px) {
-        padding: 15px 15px;
-        gap: 1.5rem;
-    }
+    overflow: hidden;
 `;
 
 export const SocialInfo = styled.div`

@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { Col, Row, message } from 'antd';
+import { Col, message } from 'antd';
 import styled from 'styled-components';
 import SectionActionButton from '../shared/containers/profile/sidebar/SectionActionButton';
 import { REDESIGN_COLORS } from '../shared/constants';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import {
     CustomAvatarContainer,
-    GradientContainer,
     EditProfileButtonContainer,
     WhiteEditOutlinedIconStyle,
     GroupInfo,
@@ -40,10 +39,11 @@ const AVATAR_STYLE = {
     backgroundColor: REDESIGN_COLORS.AVATAR_STYLE_WHITE_BACKGROUND,
 };
 
-const AvatarWithTitleContainer = styled(Row)`
+const AvatarWithTitleContainer = styled.div`
     display: flex;
+    padding: 10px;
+    background: ${REDESIGN_COLORS.GROUP_AVATAR_STYLE_GRADIENT}};
     gap: 0.5rem;
-    align-item: center;
 `;
 
 type Props = {
@@ -96,7 +96,6 @@ export const GroupProfileInfoCard = ({ sidebarData, refetch }: Props) => {
     return (
         <>
             <CustomAvatarContainer>
-                <GradientContainer gradient={REDESIGN_COLORS.GROUP_AVATAR_STYLE_GRADIENT} height={55} />
                 <GroupInfo>
                     <AvatarWithTitleContainer>
                         <Col xxl={2} xl={3} lg={4} md={4} sm={3} xs={3}>

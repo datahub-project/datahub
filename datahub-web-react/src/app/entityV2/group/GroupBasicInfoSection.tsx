@@ -1,6 +1,17 @@
 import React from 'react';
-import { MailOutlined, SlackOutlined } from '@ant-design/icons';
-import { EmptyValue, SocialDetails, BasicDetailsContainer, SocialInfo } from '../shared/SidebarStyledComponents';
+import { SlackOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
+import {
+    EmptyValue,
+    SocialDetails,
+    BasicDetailsContainer,
+    SocialInfo,
+    DraftsOutlinedIconStyle,
+} from '../shared/SidebarStyledComponents';
+
+const StyledBasicDetailsContainer = styled(BasicDetailsContainer)`
+    padding: 10px;
+`;
 
 type Props = {
     email: string | undefined;
@@ -9,10 +20,10 @@ type Props = {
 
 export const GroupBasicInfoSection = ({ email, slack }: Props) => {
     return (
-        <BasicDetailsContainer>
+        <StyledBasicDetailsContainer>
             <SocialInfo>
                 <SocialDetails>
-                    <MailOutlined />
+                    <DraftsOutlinedIconStyle />
                     {email || <EmptyValue />}
                 </SocialDetails>
                 <SocialDetails>
@@ -20,6 +31,6 @@ export const GroupBasicInfoSection = ({ email, slack }: Props) => {
                     {slack || <EmptyValue />}
                 </SocialDetails>
             </SocialInfo>
-        </BasicDetailsContainer>
+        </StyledBasicDetailsContainer>
     );
 };
