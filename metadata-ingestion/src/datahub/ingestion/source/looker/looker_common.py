@@ -1137,16 +1137,9 @@ class LookerExplore:
         ]
 
         # Add tags
-        explore_tag_urns: List[TagAssociationClass] = []
-        for tag in self.tags:
-            tag_urn = TagUrn(tag)
-            explore_tag_urns.append(TagAssociationClass(tag_urn.urn()))
-            proposals.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=tag_urn.urn(),
-                    aspect=tag_urn.to_key_aspect(),
-                )
-            )
+        explore_tag_urns: List[TagAssociationClass] = [
+            TagAssociationClass(tag=TagUrn(tag).urn()) for tag in self.tags
+        ]
         if explore_tag_urns:
             dataset_snapshot.aspects.append(GlobalTagsClass(explore_tag_urns))
 
@@ -1384,6 +1377,7 @@ class LookerDashboardElement:
     input_fields: Optional[List[InputFieldElement]] = None
     folder_path: Optional[str] = None  # for independent looks.
     folder: Optional[LookerFolder] = None
+    owner: Optional[LookerUser] = None
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore

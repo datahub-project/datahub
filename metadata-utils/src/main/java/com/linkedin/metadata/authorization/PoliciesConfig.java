@@ -147,7 +147,9 @@ public class PoliciesConfig {
 
   public static final Privilege MANAGE_CONNECTIONS_PRIVILEGE =
       Privilege.of(
-          "MANAGE_CONNECTIONS", "Manage Connections", "Manage connections to external platforms.");
+          "MANAGE_CONNECTIONS",
+          "Manage Connections",
+          "Manage connections to external DataHub platforms.");
 
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
@@ -263,7 +265,7 @@ public class PoliciesConfig {
           "The ability to edit any information about an entity. Super user privileges for the entity.");
 
   static final Privilege DELETE_ENTITY_PRIVILEGE =
-      Privilege.of("DELETE_ENTITY", "Delete", "The ability to delete the delete this entity.");
+      Privilege.of("DELETE_ENTITY", "Delete", "The ability to delete this entity.");
 
   static final Privilege EDIT_LINEAGE_PRIVILEGE =
       Privilege.of(
@@ -345,6 +347,12 @@ public class PoliciesConfig {
           "Edit Dataset Queries",
           "The ability to edit the Queries for a Dataset.");
 
+  public static final Privilege EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_DATA_CONTRACT",
+          "Edit Data Contract",
+          "The ability to edit the Data Contract for an entity.");
+
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
       Privilege.of("EDIT_TAG_COLOR", "Edit Tag Color", "The ability to change the color of a Tag.");
@@ -411,7 +419,7 @@ public class PoliciesConfig {
   public static final Privilege RESTORE_INDICES_PRIVILEGE =
       Privilege.of(
           "RESTORE_INDICES_PRIVILEGE",
-          "Restore Indicies API",
+          "Restore Indices API",
           "The ability to use the Restore Indices API.");
 
   public static final Privilege GET_TIMESERIES_INDEX_SIZES_PRIVILEGE =

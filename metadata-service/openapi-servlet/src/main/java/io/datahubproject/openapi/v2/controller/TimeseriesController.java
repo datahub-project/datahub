@@ -19,7 +19,7 @@ import com.linkedin.metadata.utils.SearchUtil;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.UnauthorizedException;
-import io.datahubproject.openapi.v2.models.GenericScrollResult;
+import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericTimeseriesAspect;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URISyntaxException;

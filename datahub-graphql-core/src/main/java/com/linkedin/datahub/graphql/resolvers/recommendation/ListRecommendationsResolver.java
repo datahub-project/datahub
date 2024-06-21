@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ContentParams;
 import com.linkedin.datahub.graphql.generated.EntityProfileParams;
 import com.linkedin.datahub.graphql.generated.FacetFilter;
@@ -25,6 +26,7 @@ import com.linkedin.metadata.recommendation.SearchRequestContext;
 import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,14 +57,14 @@ public class ListRecommendationsResolver
     final ListRecommendationsInput input =
         bindArgument(environment.getArgument("input"), ListRecommendationsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug("Listing recommendations for input {}", input);
             List<com.linkedin.metadata.recommendation.RecommendationModule> modules =
                 _recommendationsService.listRecommendations(
                     context.getOperationContext(),
-                    mapRequestContext(input.getRequestContext()),
+                    mapRequestContext(context.getOperationContext(), input.getRequestContext()),
                     viewFilter(context.getOperationContext(), _viewService, input.getViewUrn()),
                     input.getLimit());
             return ListRecommendationsResult.builder()
@@ -76,11 +79,13 @@ public class ListRecommendationsResolver
             log.error("Failed to get recommendations for input {}", input, e);
             return EMPTY_RECOMMENDATIONS;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private com.linkedin.metadata.recommendation.RecommendationRequestContext mapRequestContext(
-      RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext, RecommendationRequestContext requestContext) {
     com.linkedin.metadata.recommendation.ScenarioType mappedScenarioType;
     try {
       mappedScenarioType =
@@ -100,7 +105,9 @@ public class ListRecommendationsResolver
         searchRequestContext.setFilters(
             new CriterionArray(
                 requestContext.getSearchRequestContext().getFilters().stream()
-                    .map(facetField -> criterionFromFilter(facetField))
+                    .map(
+                        facetField ->
+                            criterionFromFilter(facetField, opContext.getAspectRetriever()))
                     .collect(Collectors.toList())));
       }
       mappedRequestContext.setSearchRequestContext(searchRequestContext);

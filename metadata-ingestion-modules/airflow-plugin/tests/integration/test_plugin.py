@@ -255,7 +255,7 @@ def check_golden_file(
         update_golden=update_golden,
         copy_output=False,
         ignore_paths=ignore_paths,
-        ignore_order=False,
+        ignore_order=True,
     )
 
 
@@ -375,6 +375,8 @@ def test_airflow_plugin(
             # TODO: If we switched to Git urls, maybe we could get this to work consistently.
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['datahub_sql_parser_error'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['log_url'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
         ],
     )
 

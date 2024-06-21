@@ -492,6 +492,11 @@ type FeatureFlagsConfig {
   Whether business attribute entity should be shown
   """
   businessAttributeEntityEnabled: Boolean!
+
+  """
+  Whether data contracts should be enabled
+  """
+  dataContractsEnabled: Boolean!
 }
 
 """
