@@ -1180,6 +1180,7 @@ class DatahubGEProfiler:
             if custom_sql is not None:
                 ge_config["query"] = custom_sql
 
+        batch = None
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
@@ -1219,7 +1220,7 @@ class DatahubGEProfiler:
                 self.report.report_warning(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
-                if self.base_engine.engine.name == TRINO:
+                if batch is not None and self.base_engine.engine.name == TRINO:
                     self._drop_trino_temp_table(batch)
 
     def _get_ge_dataset(

@@ -5,6 +5,8 @@ import UrlButton from './UrlButton';
 
 const GITHUB_LINK = 'github.com';
 const GITHUB = 'GitHub';
+const GITLAB_LINK = 'gitlab.com';
+const GITLAB = 'GitLab';
 
 interface Props {
     externalUrl: string;
@@ -26,6 +28,8 @@ export default function ExternalUrlButton({ externalUrl, platformName, entityTyp
     let displayedName = platformName;
     if (externalUrl.toLocaleLowerCase().includes(GITHUB_LINK)) {
         displayedName = GITHUB;
+    } else if (externalUrl.toLocaleLowerCase().includes(GITLAB_LINK)) {
+        displayedName = GITLAB;
     }
 
     return (

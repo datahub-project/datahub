@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
@@ -52,16 +51,13 @@ public class AutocompleteRequestHandler {
   private static final Map<EntitySpec, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
-  private final AspectRetriever aspectRetriever;
-
   private final CustomizedQueryHandler customizedQueryHandler;
 
   private final EntitySpec entitySpec;
 
   public AutocompleteRequestHandler(
       @Nonnull EntitySpec entitySpec,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
     this.entitySpec = entitySpec;
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
@@ -87,17 +83,13 @@ public class AutocompleteRequestHandler {
                       set1.addAll(set2);
                       return set1;
                     }));
-    this.aspectRetriever = aspectRetriever;
   }
 
   public static AutocompleteRequestHandler getBuilder(
       @Nonnull EntitySpec entitySpec,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nullable CustomSearchConfiguration customSearchConfiguration) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
-        entitySpec,
-        k ->
-            new AutocompleteRequestHandler(entitySpec, customSearchConfiguration, aspectRetriever));
+        entitySpec, k -> new AutocompleteRequestHandler(entitySpec, customSearchConfiguration));
   }
 
   public SearchRequest getSearchRequest(
@@ -120,7 +112,8 @@ public class AutocompleteRequestHandler {
 
     // Initial query with input filters
     BoolQueryBuilder filterQuery =
-        ESUtils.buildFilterQuery(filter, false, searchableFieldTypes, aspectRetriever);
+        ESUtils.buildFilterQuery(
+            filter, false, searchableFieldTypes, opContext.getAspectRetriever());
     baseQuery.filter(filterQuery);
 
     // Add autocomplete query

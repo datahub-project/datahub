@@ -32,27 +32,26 @@ const UnborderedTabs = styled(Tabs)<{ $isClosed: boolean }>`
         display: flex;
         align-items: center;
         justify-content: center;
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+
+        .ant-tabs-tab-btn {
+            color: ${(props) => (props.$isClosed ? REDESIGN_COLORS.BLACK : REDESIGN_COLORS.TITLE_PURPLE)};
+        }
 
         :hover {
             color: ${REDESIGN_COLORS.WHITE};
             background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+
+            .ant-tabs-tab-btn {
+                color: ${REDESIGN_COLORS.WHITE};
+            }
         }
     }
 
     &&& .ant-tabs-tab-active {
-        background-color: ${(props) => !props.$isClosed && `${REDESIGN_COLORS.TITLE_PURPLE_2}`};
+        background-color: ${(props) => !props.$isClosed && REDESIGN_COLORS.TITLE_PURPLE_2};
 
-        :hover {
-            color: ${(props) => (props.$isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : `${REDESIGN_COLORS.WHITE}`)};
-        }
-    }
-
-    &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => (props.$isClosed ? 'black' : 'white')};
-
-        :hover {
-            color: ${(props) => (props.$isClosed ? `${REDESIGN_COLORS.LINK_HOVER_BLUE}` : 'white')};
+        .ant-tabs-tab-btn {
+            color: ${(props) => (props.$isClosed ? REDESIGN_COLORS.TITLE_PURPLE : REDESIGN_COLORS.WHITE)};
         }
     }
 

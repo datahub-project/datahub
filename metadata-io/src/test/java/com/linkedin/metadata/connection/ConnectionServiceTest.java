@@ -106,7 +106,8 @@ public class ConnectionServiceTest {
             Mockito.eq(
                 ImmutableSet.of(
                     Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
-                    Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                    Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    Constants.STATUS_ASPECT_NAME))))
         .thenReturn(response);
 
     // Execute and assert
@@ -126,7 +127,8 @@ public class ConnectionServiceTest {
             Mockito.eq(
                 ImmutableSet.of(
                     Constants.DATAHUB_CONNECTION_DETAILS_ASPECT_NAME,
-                    Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME))))
+                    Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                    Constants.STATUS_ASPECT_NAME))))
         .thenReturn(response);
     // Execute and assert
     assertEquals(

@@ -245,6 +245,7 @@ def extract_dbt_entities(
         dbtNode = DBTNode(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
+            dbt_package_name=manifest_node.get("package_name"),
             database=manifest_node["database"],
             schema=manifest_node["schema"],
             name=name,

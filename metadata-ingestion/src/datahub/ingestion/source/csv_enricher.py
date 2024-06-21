@@ -93,13 +93,18 @@ class CSVEnricherReport(SourceReport):
     num_domain_workunits_produced: int = 0
 
 
-@platform_name("CSV")
+@platform_name("CSV Enricher")
 @config_class(CSVEnricherConfig)
 @support_status(SupportStatus.INCUBATING)
 class CSVEnricherSource(Source):
     """
+    :::tip Looking to ingest a CSV data file into DataHub, as an asset?
+    Use the [Local File](./s3.md) ingestion source.
+    The CSV enricher is used for enriching entities already ingested into DataHub.
+    :::
+
     This plugin is used to bulk upload metadata to Datahub.
-    It will apply glossary terms, tags, decription, owners and domain at the entity level. It can also be used to apply tags,
+    It will apply glossary terms, tags, description, owners and domain at the entity level. It can also be used to apply tags,
     glossary terms, and documentation at the column level. These values are read from a CSV file. You have the option to either overwrite
     or append existing values.
 

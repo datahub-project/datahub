@@ -27,6 +27,7 @@ const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
     AssertionStdOperator.IsTrue,
     AssertionStdOperator.IsFalse,
 ];
+
 const getAssertionStdOperator = (operator: AssertionStdOperator) => {
     if (!ASSERTION_OPERATOR_TO_DESCRIPTION[operator] || !SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION.includes(operator)) {
         throw new Error(`Unknown operator ${operator}`);
@@ -86,10 +87,16 @@ const getFieldTransformType = (transform: FieldTransformType) => {
 
 const getAssertionStdParameters = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
-        return formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value));
+        return formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value),
+        );
     }
     if (parameters.minValue && parameters.maxValue) {
-        return `${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value))} and ${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value))}`;
+        return `${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value),
+        )} and ${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value),
+        )}`;
     }
     return '';
 };

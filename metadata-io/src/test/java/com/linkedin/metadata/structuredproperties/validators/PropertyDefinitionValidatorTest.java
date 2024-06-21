@@ -126,7 +126,7 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     StructuredPropertyDefinition newProperty = oldProperty.copy();
     newProperty.setCardinality(PropertyCardinality.SINGLE);
-    newProperty.setVersion("v1");
+    newProperty.setVersion("00000000000001");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
@@ -173,7 +173,7 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     StructuredPropertyDefinition newProperty = oldProperty.copy();
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:NUMBER"));
-    newProperty.setVersion("v1");
+    newProperty.setVersion("00000000000001");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
@@ -243,7 +243,7 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     StructuredPropertyDefinition newProperty = oldProperty.copy();
     newProperty.setQualifiedName("newProp");
-    newProperty.setVersion("v1");
+    newProperty.setVersion("00000000000001");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
@@ -306,7 +306,7 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
 
     StructuredPropertyDefinition newProperty = oldProperty.copy();
-    newProperty.setVersion("v1");
+    newProperty.setVersion("00000000000001");
     PropertyValue allowedValue =
         new PropertyValue().setValue(PrimitivePropertyValue.create(1.0)).setDescription("hello");
     newProperty.setAllowedValues(new PropertyValueArray(allowedValue));

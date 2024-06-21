@@ -117,7 +117,11 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         StructuredPropertyDefinition structuredPropertyDefinition =
             lookupPropertyDefinition(propertyUrn, allStructuredPropertiesAspects);
         if (structuredPropertyDefinition == null) {
-          exceptions.addException(i, "Unexpected null value found.");
+          exceptions.addException(
+              i,
+              String.format(
+                  "Unexpected null value found for %s Structured Property Definition.",
+                  propertyUrn));
         }
 
         log.debug(
@@ -222,7 +226,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     for (BatchItem i : exceptions.successful(mcpItems)) {
       StructuredProperties structuredProperties = i.getAspect(StructuredProperties.class);
 
-      log.debug("Validator called with {}", structuredProperties);
+      log.info("Validator called with {}", structuredProperties);
       Map<Urn, List<StructuredPropertyValueAssignment>> structuredPropertiesMap =
           structuredProperties.getProperties().stream()
               .collect(

@@ -458,21 +458,6 @@ type AuditLogSpec {
 }
 
 """
-A cron schedule
-"""
-type CronSchedule {
-  """
-  A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
-  """
-  cron: String!
-
-  """
-  Timezone in which the cron interval applies, e.g. America/Los_Angeles
-  """
-  timezone: String!
-}
-
-"""
 The operational mode of a monitor
 """
 enum MonitorMode {

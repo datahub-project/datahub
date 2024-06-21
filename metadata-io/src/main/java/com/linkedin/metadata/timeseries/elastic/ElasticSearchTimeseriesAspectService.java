@@ -202,19 +202,9 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
-  public void configure() {
-    indexBuilders.reindexAll();
-  }
-
-  @Override
-  public List<ReindexConfig> buildReindexConfigs() {
-    return indexBuilders.buildReindexConfigs();
-  }
-
-  @Override
-  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
-      Collection<StructuredPropertyDefinition> properties) throws IOException {
-    return indexBuilders.buildReindexConfigsWithAllStructProps(properties);
+  public List<ReindexConfig> buildReindexConfigs(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
+    return indexBuilders.buildReindexConfigs(properties);
   }
 
   public String reindexAsync(
@@ -224,8 +214,8 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
-  public void reindexAll() {
-    configure();
+  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    indexBuilders.reindexAll(properties);
   }
 
   @Override

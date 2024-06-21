@@ -144,9 +144,10 @@ public class AggregationQueryBuilder {
           StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
                   facets.get(i), opContext.getAspectRetriever())
               .map(
-                  definition ->
+                  urnDefinition ->
                       STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                          + StructuredPropertyUtils.toElasticsearchFieldName(definition))
+                          + StructuredPropertyUtils.toElasticsearchFieldName(
+                              urnDefinition.getFirst(), urnDefinition.getSecond()))
               .orElse(facets.get(i));
 
       AggregationBuilder aggBuilder;

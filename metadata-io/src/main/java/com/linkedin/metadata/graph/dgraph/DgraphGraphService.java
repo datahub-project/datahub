@@ -766,9 +766,6 @@ public class DgraphGraphService implements GraphService {
   }
 
   @Override
-  public void configure() {}
-
-  @Override
   public void clear() {
     log.debug("dropping Dgraph data");
 

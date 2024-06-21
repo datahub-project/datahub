@@ -1,16 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Empty } from 'antd';
-import { LoadingOutlined } from '@ant-design/icons';
-
-import styled from 'styled-components/macro';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
+import domainAutocompleteOptions from '../../../../../../domainV2/DomainAutocompleteOptions';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { DomainLabel } from '../../../../../../shared/DomainLabel';
 import { handleBatchError } from '../../../../utils';
-import { tagRender } from '../tagRenderer';
 import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal';
 import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import ClickOutside from '../../../../../../shared/ClickOutside';
@@ -31,18 +27,6 @@ type SelectedDomain = {
     urn: string;
 };
 
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-        color: ${ANTD_GRAY[8]};
-    }
-`;
-
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
@@ -57,7 +41,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
             : undefined,
     );
     const [domainSearch, { data: domainSearchData, loading }] = useGetAutoCompleteResultsLazyQuery();
-    const domainSearchResults: Array<Entity> = domainSearchData?.autoComplete?.entities || [];
+    const domainSearchResults: Entity[] = domainSearchData?.autoComplete?.entities || [];
 
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
     const inputEl = useRef(null);
@@ -83,21 +67,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         }
     };
 
-    // Renders a search result in the select dropdown.
-    const renderSearchResult = (entity: Entity) => {
-        const displayName = entityRegistry.getDisplayName(entity.type, entity);
-        return (
-            <Select.Option value={entity.urn} key={entity.urn}>
-                <DomainLabel name={displayName} />
-            </Select.Option>
-        );
-    };
-
-    const domainResult = !inputValue || inputValue.length === 0 ? [] : domainSearchResults;
-
-    const domainSearchOptions = domainResult?.map((result) => {
-        return renderSearchResult(result);
-    });
+    const domainResult = !inputValue.length ? [] : domainSearchResults;
 
     const onSelectDomain = (newUrn: string) => {
         if (inputEl && inputEl.current) {
@@ -202,23 +172,18 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     <ClickOutside onClickOutside={handleCLickOutside}>
                         <Select
                             autoFocus
-                            defaultOpen
-                            filterOption={false}
                             showSearch
-                            mode="multiple"
+                            filterOption={false}
                             defaultActiveFirstOption={false}
                             placeholder="Search for Domains..."
                             onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                             onDeselect={onDeselectDomain}
                             onSearch={(value: string) => {
-                                // eslint-disable-next-line react/prop-types
                                 handleSearch(value.trim());
-                                // eslint-disable-next-line react/prop-types
                                 setInputValue(value.trim());
                             }}
                             ref={inputEl}
                             value={selectValue}
-                            tagRender={tagRender}
                             onBlur={handleBlur}
                             onFocus={() => setIsFocusedOnInput(true)}
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
@@ -229,17 +194,8 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                                     style={{ color: ANTD_GRAY[7] }}
                                 />
                             }
-                        >
-                            {loading ? (
-                                <Select.Option value="loading">
-                                    <LoadingWrapper>
-                                        <LoadingOutlined />
-                                    </LoadingWrapper>
-                                </Select.Option>
-                            ) : (
-                                domainSearchOptions
-                            )}
-                        </Select>
+                            options={domainAutocompleteOptions(domainResult, loading, entityRegistry)}
+                        />
                         <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                             <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
                         </BrowserWrapper>

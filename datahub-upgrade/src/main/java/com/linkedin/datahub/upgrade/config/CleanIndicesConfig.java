@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -23,7 +24,8 @@ public class CleanIndicesConfig {
       final GraphService graphService,
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
           baseElasticSearchComponents,
-      final ConfigurationProvider configurationProvider) {
+      final ConfigurationProvider configurationProvider,
+      final AspectDao aspectDao) {
 
     return new CleanIndices(
         systemMetadataService,
@@ -31,6 +33,7 @@ public class CleanIndicesConfig {
         entitySearchService,
         graphService,
         baseElasticSearchComponents,
-        configurationProvider);
+        configurationProvider,
+        aspectDao);
   }
 }

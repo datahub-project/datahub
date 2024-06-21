@@ -151,7 +151,8 @@ public class MockEntityService extends EntityServiceImpl {
   public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
       @Nonnull OperationContext opContext,
       @Nonnull Set<VersionedUrn> versionedUrns,
-      @Nonnull Set<String> aspectNames)
+      @Nonnull Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
     return null;
   }

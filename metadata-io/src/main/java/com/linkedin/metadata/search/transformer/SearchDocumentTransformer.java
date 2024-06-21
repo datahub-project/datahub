@@ -38,12 +38,15 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -107,6 +110,37 @@ public class SearchDocumentTransformer {
       searchDocument.put(SYSTEM_CREATED_FIELD, auditStamp.getTime());
     }
     return searchDocument;
+  }
+
+  /**
+   * Handle object type UPSERTS where the new value to upsert removes a previous key. Only enabling
+   * for structured properties to start with i.e.
+   *
+   * <p>New => { "structuredProperties.foobar": "value1" } Old => { "structuredProperties.foobar":
+   * "value1" "structuredProperties.foobar2": "value2" } Expected => {
+   * "structuredProperties.foobar": "value1" "structuredProperties.foobar2": null }
+   *
+   * @param searchDocument new document
+   * @param previousSearchDocument previous document (if not present, no-op)
+   * @return searchDocument to upsert
+   */
+  public static ObjectNode handleRemoveFields(
+      @Nonnull ObjectNode searchDocument, @Nullable ObjectNode previousSearchDocument) {
+    if (previousSearchDocument != null) {
+      Set<String> documentFields = objectFieldsFilter(searchDocument.fieldNames());
+      objectFieldsFilter(previousSearchDocument.fieldNames()).stream()
+          .filter(prevFieldName -> !documentFields.contains(prevFieldName))
+          .forEach(removeFieldName -> searchDocument.set(removeFieldName, null));
+    }
+    // no-op
+    return searchDocument;
+  }
+
+  private static Set<String> objectFieldsFilter(Iterator<String> fieldNames) {
+    Iterable<String> iterable = () -> fieldNames;
+    return StreamSupport.stream(iterable.spliterator(), false)
+        .filter(fieldName -> fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX))
+        .collect(Collectors.toSet());
   }
 
   public Optional<ObjectNode> transformAspect(
@@ -388,20 +422,25 @@ public class SearchDocumentTransformer {
         .entrySet()
         .forEach(
             propertyEntry -> {
-              StructuredPropertyDefinition definition =
-                  new StructuredPropertyDefinition(
-                      definitions
-                          .get(propertyEntry.getKey())
-                          .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
-                          .data());
+              Optional<StructuredPropertyDefinition> definition =
+                  Optional.ofNullable(
+                          definitions
+                              .get(propertyEntry.getKey())
+                              .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+                      .map(def -> new StructuredPropertyDefinition(def.data()));
 
               LogicalValueType logicalValueType =
-                  StructuredPropertyUtils.getLogicalValueType(definition);
+                  definition
+                      .map(StructuredPropertyUtils::getLogicalValueType)
+                      .orElse(LogicalValueType.UNKNOWN);
+
               String fieldName =
                   String.join(
                       ".",
                       List.of(
-                          STRUCTURED_PROPERTY_MAPPING_FIELD, toElasticsearchFieldName(definition)));
+                          STRUCTURED_PROPERTY_MAPPING_FIELD,
+                          toElasticsearchFieldName(
+                              propertyEntry.getKey(), definition.orElse(null))));
 
               if (forDelete) {
                 searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());

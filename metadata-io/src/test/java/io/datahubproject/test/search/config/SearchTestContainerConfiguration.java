@@ -93,6 +93,7 @@ public class SearchTestContainerConfiguration {
         Map.of(),
         false,
         false,
+        false,
         new ElasticSearchConfiguration(),
         gitVersion);
   }

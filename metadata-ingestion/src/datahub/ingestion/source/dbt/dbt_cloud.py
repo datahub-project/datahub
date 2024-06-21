@@ -116,6 +116,7 @@ _DBT_GRAPHQL_NODE_COMMON_FIELDS = """
 """
 
 _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
+  packageName
   alias
   error
   status
@@ -433,6 +434,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             dbt_name=key,
             # TODO: Get the dbt adapter natively.
             dbt_adapter=self.config.target_platform,
+            dbt_package_name=node.get("packageName"),
             database=node.get("database"),
             schema=node.get("schema"),
             name=name,

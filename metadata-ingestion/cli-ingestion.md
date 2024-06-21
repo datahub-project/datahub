@@ -58,7 +58,7 @@ Please refer the following pages for advanced guids on CLI ingestion.
 - [Reference for `datahub ingest` command](../docs/cli.md#ingest)
 - [UI Ingestion Guide](../docs/ui-ingestion.md)
 
-:::Tip Compatibility
+:::tip Compatibility
 DataHub server uses a 3 digit versioning scheme, while the CLI uses a 4 digit scheme. For example, if you're using DataHub server version 0.10.0, you should use CLI version 0.10.0.x, where x is a patch version.
 We do this because we do CLI releases at a much higher frequency than server releases, usually every few days vs twice a month.
 

@@ -1,13 +1,14 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import Modal from 'antd/lib/modal/Modal';
 import { Button, Select, Spin, message } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
+import { debounce } from 'lodash';
+import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { DataProduct, Entity, EntityType } from '../../../../../../../types.generated';
+import { DataProduct, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../../Entity';
-import { tagRender } from '../tagRenderer';
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
 import { handleBatchError } from '../../../../utils';
 
@@ -48,31 +49,27 @@ export default function SetDataProductModal({
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
     const inputEl = useRef(null);
-    const [searchResults, setSearchResults] = useState<Entity[]>([]);
-
 
     const [getSearchResults, { data, loading }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const [showResults, setShowResults] = useState(false);
 
-    const handleSearch = (text: string) => {
-        if (text) {
-        getSearchResults({
-            variables: {
-                input: {
-                    types: [EntityType.DataProduct],
-                    query: text,
-                    limit: 5,
-                },
-            },
-        });
-        }
-    };
-
-
-    useEffect(() => {
-        const newData: Array<Entity> =
-            data?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities) || [];
-        setSearchResults(newData);
-    }, [data]);
+    const handleSearch = useMemo(() => {
+        const fetch = (text: string) => {
+            if (text.trim()) {
+                getSearchResults({
+                    variables: {
+                        input: {
+                            types: [EntityType.DataProduct],
+                            query: text.trim(),
+                            limit: 5,
+                        },
+                    },
+                });
+            }
+            setShowResults(!!text.trim());
+        };
+        return debounce(fetch, 100);
+    }, [getSearchResults]);
 
     function onOk() {
         if (!selectedDataProduct) return;
@@ -83,7 +80,12 @@ export default function SetDataProductModal({
         }
 
         batchSetDataProductMutation({
-            variables: { input: { resourceUrns: urns, dataProductUrn: selectedDataProduct.urn } },
+            variables: {
+                input: {
+                    resourceUrns: urns,
+                    dataProductUrn: selectedDataProduct.urn,
+                },
+            },
         })
             .then(() => {
                 message.success({ content: 'Updated Data Product!', duration: 3 });
@@ -129,6 +131,28 @@ export default function SetDataProductModal({
         (selectedDataProduct && [entityRegistry.getDisplayName(EntityType.DataProduct, selectedDataProduct)]) ||
         undefined;
 
+    const loadingOption = {
+        label: (
+            <LoadingWrapper>
+                <Spin size="default" indicator={<LoadingOutlined />} />
+            </LoadingWrapper>
+        ),
+        value: 'loading',
+    };
+    const options = showResults
+        ? data?.autoCompleteForMultiple?.suggestions
+              .flatMap((suggestion) => suggestion.entities)
+              .map((result) => ({
+                  label: (
+                      <OptionWrapper>
+                          {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}
+                          {entityRegistry.getDisplayName(EntityType.DataProduct, result)}
+                      </OptionWrapper>
+                  ),
+                  value: result.urn,
+              }))
+        : [];
+
     return (
         <Modal
             title={titleOverride || 'Set Data Product'}
@@ -147,38 +171,19 @@ export default function SetDataProductModal({
         >
             <Select
                 autoFocus
-                defaultOpen
-                filterOption={false}
                 showSearch
-                mode="multiple"
+                filterOption={false}
                 defaultActiveFirstOption={false}
                 placeholder="Search for Data Products..."
                 onSelect={(urn: string) => onSelectDataProduct(urn)}
                 onDeselect={onDeselect}
-                onSearch={(value: string) => {
-                    handleSearch(value.trim());
-                }}
+                onSearch={handleSearch}
                 style={{ width: '100%' }}
                 ref={inputEl}
                 value={selectValue}
-                tagRender={tagRender}
-            >
-                {loading && (
-                    <Select.Option>
-                        <LoadingWrapper>
-                            <Spin size="default" />
-                        </LoadingWrapper>
-                    </Select.Option>
-                )}
-                {searchResults.map((result) => (
-                    <Select.Option value={result.urn} key={result.urn}>
-                        <OptionWrapper>
-                            {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}
-                            {entityRegistry.getDisplayName(EntityType.DataProduct, result)}
-                        </OptionWrapper>
-                    </Select.Option>
-                ))}
-            </Select>
+                options={loading ? [loadingOption] : options}
+                notFoundContent={showResults ? undefined : null}
+            />
         </Modal>
     );
 }

@@ -1222,6 +1222,7 @@ enum EntityType {
     A data contract
     """
     DATA_CONTRACT
+
     """"
     An structured property on entities
     """
@@ -8254,12 +8255,12 @@ enum AssertionStdOperator {
     NOT_IN
 
     """
-    Value being asserted is true.
+    Value being asserted is true
     """
     IS_TRUE
 
     """
-    Value being asserted is false.
+    Value being asserted is false
     """
     IS_FALSE
 
@@ -13272,6 +13273,21 @@ type ListBusinessAttributesResult {
     The Business Attributes
     """
     businessAttributes: [BusinessAttribute!]!
+}
+
+"""
+A cron schedule
+"""
+type CronSchedule {
+    """
+    A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+    """
+    cron: String!
+
+    """
+    Timezone in which the cron interval applies, e.g. America/Los_Angeles
+    """
+    timezone: String!
 }
 
 

@@ -69,7 +69,7 @@ public class PropertyDefinitionDeleteSideEffectTest {
   private static final StructuredPropertyDefinition TEST_PROPERTY_DEFINITION =
       new StructuredPropertyDefinition()
           .setValueType(UrnUtils.getUrn("urn:li:type:datahub.string"))
-          .setVersion("v1")
+          .setVersion("00000000000001")
           .setEntityTypes(
               new UrnArray(List.of(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"))))
           .setQualifiedName("io.acryl.privacy.retentionTime");
@@ -180,7 +180,7 @@ public class PropertyDefinitionDeleteSideEffectTest {
 
     final Criterion propertyExistsCriterion = new Criterion();
     propertyExistsCriterion.setField(
-        "structuredProperties.io_acryl_privacy_retentionTime.v1.string");
+        "structuredProperties._versioned.io_acryl_privacy_retentionTime.00000000000001.string");
     propertyExistsCriterion.setCondition(Condition.EXISTS);
 
     andCriterion.add(propertyExistsCriterion);

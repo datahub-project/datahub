@@ -40,6 +40,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -149,6 +150,7 @@ public class SampleDataFixtureConfiguration {
             Map.of(),
             true,
             false,
+            false,
             new ElasticSearchConfiguration(),
             gitVersion);
     SettingsBuilder settingsBuilder = new SettingsBuilder(null);
@@ -252,7 +254,7 @@ public class SampleDataFixtureConfiguration {
             ranker);
 
     // Build indices & write fixture data
-    indexBuilders.reindexAll();
+    indexBuilders.reindexAll(Collections.emptySet());
 
     FixtureReader.builder()
         .bulkProcessor(_bulkProcessor)

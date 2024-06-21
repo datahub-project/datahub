@@ -16,7 +16,6 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
-    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -168,5 +167,5 @@ class DataJob:
             for iolet in self.inlets + self.outlets:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=str(iolet),
-                    aspect=StatusClass(removed=False),
+                    aspect=iolet.to_key_aspect(),
                 )

@@ -56,11 +56,17 @@ class FileSourceConfig(ConfigModel):
         message="filename is deprecated. Use path instead.",
     )
     path: str = Field(
-        description="File path to folder or file to ingest, or URL to a remote file. If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
+        description=(
+            "File path to folder or file to ingest, or URL to a remote file. "
+            "If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
+        )
     )
     file_extension: str = Field(
         ".json",
-        description="When providing a folder to use to read files, set this field to control file extensions that you want the source to process. * is a special value that means process every file regardless of extension",
+        description=(
+            "When providing a folder to use to read files, set this field to control file extensions that you want the source to process. "
+            "* is a special value that means process every file regardless of extension"
+        ),
     )
     read_mode: FileReadMode = FileReadMode.AUTO
     aspect: Optional[str] = Field(
@@ -69,7 +75,10 @@ class FileSourceConfig(ConfigModel):
     )
     count_all_before_starting: bool = Field(
         default=True,
-        description="When enabled, counts total number of records in the file before starting. Used for accurate estimation of completion time. Turn it off if startup time is too high.",
+        description=(
+            "When enabled, counts total number of records in the file before starting. "
+            "Used for accurate estimation of completion time. Turn it off if startup time is too high."
+        ),
     )
 
     _minsize_for_streaming_mode_in_bytes: int = (
@@ -163,12 +172,14 @@ class FileSourceReport(SourceReport):
             self.percentage_completion = f"{percentage_completion:.2f}%"
 
 
-@platform_name("File")
+@platform_name("Metadata File")
 @config_class(FileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 class GenericFileSource(TestableSource):
     """
-    This plugin pulls metadata from a previously generated file. The [file sink](../../../../metadata-ingestion/sink_docs/file.md) can produce such files, and a number of samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
+    This plugin pulls metadata from a previously generated file.
+    The [metadata file sink](../../../../metadata-ingestion/sink_docs/metadata-file.md) can produce such files, and a number of
+    samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
     """
 
     def __init__(self, ctx: PipelineContext, config: FileSourceConfig):

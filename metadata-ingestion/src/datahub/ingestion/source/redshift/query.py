@@ -502,7 +502,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                     usename as username,
                     ddl,
                     sq.query as query_id,
-                    min(si.starttime) as starttime,
+                    min(si.starttime) as timestamp,
                     ANY_VALUE(pid) as session_id
                 from
                     stl_insert as si

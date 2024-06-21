@@ -126,7 +126,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
-    elasticSearchService.configure();
+    elasticSearchService.reindexAll(Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
     graphService = mock(GraphService.class);
     resetService(true, false);
