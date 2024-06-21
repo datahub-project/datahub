@@ -462,12 +462,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                         "Failed to load connection from Looker",
                     )
 
-        # set the platform_env in connectionDefinition as per description provided in
-        # LookerConnectionDefinition.platform_env
-        if connection_def:
-            if connection_def.platform_env is None:
-                connection_def.platform_env = self.source_config.env
-
         return connection_def
 
     def _get_upstream_lineage(

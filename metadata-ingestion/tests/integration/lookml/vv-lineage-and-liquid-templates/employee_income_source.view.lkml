@@ -12,6 +12,8 @@ view: employee_income_source {
       {% endif %},
       employee_income
     FROM source_table
+    WHERE
+        {% condition source_region %} source_table.region {% endcondition %}
   ;;
   }
 

@@ -167,6 +167,10 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
         )
 
     def __get_spr(self) -> Optional[SqlParsingResult]:
+        # for backward compatibility
+        if not self.config.parse_table_names_from_sql:
+            return None
+
         spr = create_lineage_sql_parsed_result(
             query=self.view_context.sql(),
             default_schema=self.view_context.view_connection.default_schema,
@@ -277,10 +281,6 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream):
         return upstreams_column_refs
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
-        # for backward compatibility
-        if not self.config.parse_table_names_from_sql:
-            return []
-
         return self._get_upstream_dataset_urn()
 
 
@@ -395,13 +395,11 @@ class RegularViewUpstream(AbstractViewUpstream):
                 reporter=self.view_context.reporter,
             )
 
-            assert self.view_context.view_connection.platform_env
-
             self.upstream_dataset_urn = make_dataset_urn_with_platform_instance(
                 platform=self.view_context.view_connection.platform,
                 name=qualified_table_name.lower(),
                 platform_instance=self.view_context.view_connection.platform_instance,
-                env=self.view_context.view_connection.platform_env,
+                env=self.view_context.view_connection.platform_env or self.config.env,
             )
 
         return self.upstream_dataset_urn
@@ -512,15 +510,10 @@ def create_view_upstream(
             looker_view_id_cache=looker_view_id_cache,
         )
 
-    if view_context.is_sql_based_derived_case():
-        return SqlBasedDerivedViewUpstream(
-            view_context=view_context,
-            config=config,
-            ctx=ctx,
-            looker_view_id_cache=looker_view_id_cache,
-        )
-
-    if view_context.is_sql_based_derived_view_without_fields_case():
+    if (
+        view_context.is_sql_based_derived_case()
+        or view_context.is_sql_based_derived_view_without_fields_case()
+    ):
         return SqlBasedDerivedViewUpstream(
             view_context=view_context,
             config=config,

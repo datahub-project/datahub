@@ -1,9 +1,13 @@
 import logging
 from typing import Any, Dict
 
-from liquid import Template, Undefined
+from liquid import Undefined
 from liquid.exceptions import LiquidSyntaxError
 
+from datahub.ingestion.source.looker.looker_liquid_tag import (
+    CustomTagException,
+    create_template,
+)
 from datahub.ingestion.source.looker.str_functions import (
     remove_extra_spaces_and_newlines,
 )
@@ -16,7 +20,7 @@ def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
     Undefined.__str__ = lambda instance: "NULL"  # type: ignore
     try:
         # Resolve liquid template
-        return Template(text).render(liquid_variable)
+        return create_template(text).render(liquid_variable)
     except LiquidSyntaxError as e:
         logger.warning(f"Unsupported liquid template encountered. error [{e.message}]")
         # TODO: There are some tag specific to looker and python-liquid library does not understand them. currently
@@ -24,6 +28,9 @@ def resolve_liquid_variable(text: str, liquid_variable: Dict[Any, Any]) -> str:
         #
         # See doc: https://cloud.google.com/looker/docs/templated-filters and look for { % condition region %}
         # order.region { % endcondition %}
+    except CustomTagException as e:
+        logger.warning(e)
+        logger.debug(e, exc_info=e)
 
     return text
 

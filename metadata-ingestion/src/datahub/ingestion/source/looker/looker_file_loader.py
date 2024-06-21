@@ -6,13 +6,13 @@ from typing import Any, Dict, Optional
 from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
+from datahub.ingestion.source.looker.looker_template_language import (
+    resolve_liquid_variable_in_view_dict,
+)
 from datahub.ingestion.source.looker.lookml_config import (
     _EXPLORE_FILE_EXTENSION,
     _VIEW_FILE_EXTENSION,
     LookMLSourceReport,
-)
-from datahub.ingestion.source.looker.template_lang_resolver import (
-    resolve_liquid_variable_in_view_dict,
 )
 
 logger = logging.getLogger(__name__)

@@ -302,7 +302,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT\n      employee_id,\n      employee_name,\n      \n        prod_core.data.r_metric_summary_v2\n      ,\n      employee_income\n    FROM source_table",
+            "viewLogic": "SELECT\n      employee_id,\n      employee_name,\n      \n        prod_core.data.r_metric_summary_v2\n      ,\n      employee_income\n    FROM source_table\n    WHERE\n        source_table.region='ap-south-1'",
             "viewLanguage": "sql"
         }
     },

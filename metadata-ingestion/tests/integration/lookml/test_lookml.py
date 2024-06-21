@@ -908,6 +908,7 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
         "dw_eff_dt_date": {
             "_is_selected": True,
         },
+        "source_region": "ap-south-1"
     }
 
     pipeline = Pipeline.create(new_recipe)
