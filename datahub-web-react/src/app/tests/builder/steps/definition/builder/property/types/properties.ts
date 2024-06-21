@@ -3,7 +3,7 @@
  * which the UI deeply understands.
  */
 import { EntityType } from '../../../../../../../../types.generated';
-import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '../constants';
+import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID, OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID } from '../constants';
 import { SelectInputMode, ValueTypeId } from './values';
 
 /**
@@ -347,6 +347,15 @@ const datasetProps: Property[] = [
         id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
         displayName: 'Structured Property',
         description: 'Match entities that have a custom structured property',
+        valueType: ValueTypeId.NO_VALUE,
+    },
+    // Simply serves as an entry point to defining a ownership type reference.
+    // Once this type is selected, we'll transfer the user to the ownership type predicate
+    // builder experience.
+    {
+        id: OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Ownership Type',
+        description: 'Match entities that have a custom ownership type',
         valueType: ValueTypeId.NO_VALUE,
     },
 ];

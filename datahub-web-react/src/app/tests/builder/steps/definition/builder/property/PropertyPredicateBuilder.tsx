@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { PropertyPredicate } from '../types';
 import { Property } from './types/properties';
-import { getPropertyById, isStructuredPropertyId } from './utils';
+import { getPropertyById, isStructuredPropertyId, isOwnershipTypeId } from './utils';
 import { CustomPropertyPredicateBuilder } from './CustomPropertyPredicateBuilder';
 import { TypedPropertyPredicateBuilder } from './TypedPropertyPredicateBuilder';
 import { StructuredPropertyPredicateBuilder } from './StructuredPropertyPredicateBuilder';
+import { OwnershipTypePredicateBuilder } from './OwnershipTypePredicateBuilder';
 
 const PredicateContainer = styled.div`
     display: flex;
@@ -30,6 +31,10 @@ enum PropertyPredicateBuilderType {
      * Display the structured property predicate builder. Used for generating predicates that reference specific structured properties
      */
     STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY',
+    /**
+     * Display the ownership type property predicate builder. Used for generating predicates that reference specific custom ownership types
+     */
+     OWNERSHIP_TYPE = 'OWNERSHIP_TYPE',
     /**
      * Display the freeform custom property builder. Used when a property cannot be found (is not supported) by the default property select.
      */
@@ -57,10 +62,13 @@ export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChan
      * 1. If the property id matches the shape of a "structured property reference", e.g. "structuredProperties.urn:li:structuredProperty:xyz",
      *    then display the structured property predicate builder.
      *
-     * 2. If the property id can be used to find a property object definition from the provided "properties" list above,
+     * 2. If the property id matches the shape of a "custom ownership type reference", e.g. "ownership.ownerTypes.urn:li:ownershipType:xyz",
+     *    then display the ownership type predicate builder.
+     *
+     * 3. If the property id can be used to find a property object definition from the provided "properties" list above,
      *    then the property is well-supported by the default property select experience, so display that.
      *
-     * 3. If the property is unrecognized, then fall back to showing the "custom property editor", which is really just a
+     * 4. If the property is unrecognized, then fall back to showing the "custom property editor", which is really just a
      *    freeform text box where you can enter the name of a specific property instead of selecting it.
      */
     useEffect(() => {
@@ -72,11 +80,14 @@ export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChan
         } else if (isStructuredPropertyId(selectedPropertyId)) {
             // Case 1
             setBuilderType(PropertyPredicateBuilderType.STRUCTURED_PROPERTY);
-        } else if (getPropertyById(selectedPropertyId, properties)) {
+        } else if (isOwnershipTypeId(selectedPropertyId)) {
             // Case 2
+            setBuilderType(PropertyPredicateBuilderType.OWNERSHIP_TYPE);
+        } else if (getPropertyById(selectedPropertyId, properties)) {
+            // Case 3
             setBuilderType(PropertyPredicateBuilderType.PROPERTY_SELECT);
         } else {
-            // Case 3
+            // Case 4
             setBuilderType(PropertyPredicateBuilderType.CUSTOM);
         }
     }, [selectedPredicate, properties, setBuilderType]);
@@ -119,6 +130,14 @@ export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChan
                 null}
             {builderType === PropertyPredicateBuilderType.STRUCTURED_PROPERTY && (
                 <StructuredPropertyPredicateBuilder
+                    selectedPredicate={selectedPredicate}
+                    onChangeProperty={onChangeProperty}
+                    onChangeOperator={onChangeOperator}
+                    onChangeValues={onChangeValues}
+                />
+            )}
+            {builderType === PropertyPredicateBuilderType.OWNERSHIP_TYPE && (
+                <OwnershipTypePredicateBuilder
                     selectedPredicate={selectedPredicate}
                     onChangeProperty={onChangeProperty}
                     onChangeOperator={onChangeOperator}
