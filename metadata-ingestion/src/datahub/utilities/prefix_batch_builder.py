@@ -65,7 +65,7 @@ def _batch_prefix_groups(
 
     batches = []
     current_batch_size = 0
-    batch = []
+    batch: List[PrefixGroup] = []
     for group in groups:
         if (
             current_batch_size + len(group.names) > max_batch_size
