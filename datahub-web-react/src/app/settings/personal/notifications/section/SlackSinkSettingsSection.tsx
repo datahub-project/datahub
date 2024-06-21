@@ -140,9 +140,9 @@ export const SlackSinkSettingsSection = ({
                 <SinkTitle strong>Slack Notifications</SinkTitle>
                 <SinkDescription>
                     {sinkSupported ? supportedSinkDescription : unsupportedSinkDescription}
+                    {sinkSupported && <strong>{inputValue}</strong>}
                     {sinkEnabled && inputValue && !editing && (
                         <>
-                            <strong>{inputValue}</strong>
                             <SinkEditButton type="link" onClick={() => setIsEditing(true)}>
                                 <EditDescription strong>edit</EditDescription>
                             </SinkEditButton>
