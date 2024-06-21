@@ -1,4 +1,5 @@
 import concurrent.futures
+import itertools
 import logging
 import queue
 from typing import Dict, Iterable, List, Optional, Union
@@ -321,7 +322,7 @@ class SnowflakeSchemaGenerator(
 
             # Read from the queue and yield the work units until all futures are done.
             while True:
-                if q.empty():
+                if not q.empty():
                     while not q.empty():
                         yield q.get_nowait()
                 else:
@@ -534,7 +535,9 @@ class SnowflakeSchemaGenerator(
         table_identifier = self.get_dataset_identifier(table.name, schema_name, db_name)
 
         try:
-            table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
+            table.columns = self.get_columns_for_table(
+                table.name, snowflake_schema, db_name
+            )
             table.column_count = len(table.columns)
             if self.config.extract_tags != TagOption.skip:
                 table.column_tags = self.tag_extractor.get_column_tags_for_table(
@@ -612,7 +615,9 @@ class SnowflakeSchemaGenerator(
         view_name = self.get_dataset_identifier(view.name, schema_name, db_name)
 
         try:
-            view.columns = self.get_columns_for_table(view.name, schema_name, db_name)
+            view.columns = self.get_columns_for_table(
+                view.name, snowflake_schema, db_name
+            )
             if self.config.extract_tags != TagOption.skip:
                 view.column_tags = self.tag_extractor.get_column_tags_for_table(
                     view.name, schema_name, db_name
@@ -1010,17 +1015,16 @@ class SnowflakeSchemaGenerator(
         return views.get(schema_name, [])
 
     def get_columns_for_table(
-        self, table_name: str, schema_name: str, db_name: str
+        self, table_name: str, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> List[SnowflakeColumn]:
-        columns = self.data_dictionary.get_columns_for_schema(schema_name, db_name)
-
-        # get all columns for schema failed,
-        # falling back to get columns for table
-        if columns is None:
-            self.report.num_get_columns_for_table_queries += 1
-            return self.data_dictionary.get_columns_for_table(
-                table_name, schema_name, db_name
-            )
+        schema_name = snowflake_schema.name
+        columns = self.data_dictionary.get_columns_for_schema(
+            schema_name,
+            db_name,
+            cache_exclude_all_objects=itertools.chain(
+                snowflake_schema.tables, snowflake_schema.views
+            ),
+        )
 
         # Access to table but none of its columns - is this possible ?
         return columns.get(table_name, [])
