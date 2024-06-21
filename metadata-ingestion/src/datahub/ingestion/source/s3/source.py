@@ -217,7 +217,7 @@ class TableData:
     number_of_files: int
 
 
-@platform_name("S3 Data Lake", id="s3")
+@platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

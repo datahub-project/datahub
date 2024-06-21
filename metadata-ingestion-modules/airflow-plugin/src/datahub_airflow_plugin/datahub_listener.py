@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import functools
 import logging
@@ -8,12 +9,17 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
 import datahub.emitter.mce_builder as builder
+from airflow.models.serialized_dag import SerializedDagModel
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    DataFlowKeyClass,
+    DataJobKeyClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -68,6 +74,7 @@ _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower
     "1",
 )
 _RUN_IN_THREAD_TIMEOUT = 30
+_DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
@@ -403,13 +410,12 @@ class DataHubListener:
         if self.config.capture_executions:
             dpi = AirflowGenerator.run_datajob(
                 emitter=self.emitter,
-                cluster=self.config.cluster,
+                config=self.config,
                 ti=task_instance,
                 dag=dag,
                 dag_run=dagrun,
                 datajob=datajob,
                 emit_templates=False,
-                config=self.config,
             )
             logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
 
@@ -525,10 +531,8 @@ class DataHubListener:
             return
 
         dataflow = AirflowGenerator.generate_dataflow(
-            cluster=self.config.cluster,
+            config=self.config,
             dag=dag,
-            capture_tags=self.config.capture_tags_info,
-            capture_owner=self.config.capture_ownership_info,
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
 
@@ -541,6 +545,91 @@ class DataHubListener:
             )
 
             self.emitter.emit(event)
+
+        browse_path_v2_event: MetadataChangeProposalWrapper = (
+            MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn),
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(str(dag.dag_id))],
+                ),
+            )
+        )
+        self.emitter.emit(browse_path_v2_event)
+
+        if dag.dag_id == _DATAHUB_CLEANUP_DAG:
+            assert self.graph
+
+            logger.debug("Initiating the cleanup of obsselete data from datahub")
+
+            # get all ingested dataflow and datajob
+            ingested_dataflow_urns = list(
+                self.graph.get_urns_by_filter(
+                    platform="airflow",
+                    entity_types=["dataFlow"],
+                )
+            )
+            ingested_datajob_urns = list(
+                self.graph.get_urns_by_filter(
+                    platform="airflow", entity_types=["dataJob"]
+                )
+            )
+
+            # filter the ingested dataflow and datajob based on the cluster
+            filtered_ingested_dataflow_urns: List = []
+            filtered_ingested_datajob_urns: List = []
+
+            for ingested_dataflow_urn in ingested_dataflow_urns:
+                data_flow_aspect = self.graph.get_aspect(
+                    entity_urn=ingested_dataflow_urn, aspect_type=DataFlowKeyClass
+                )
+                if (
+                    data_flow_aspect is not None
+                    and data_flow_aspect.flowId != _DATAHUB_CLEANUP_DAG
+                    and data_flow_aspect is not None
+                    and data_flow_aspect.cluster == self.config.cluster
+                ):
+                    filtered_ingested_dataflow_urns.append(ingested_dataflow_urn)
+
+            for ingested_datajob_urn in ingested_datajob_urns:
+                data_job_aspect = self.graph.get_aspect(
+                    entity_urn=ingested_datajob_urn, aspect_type=DataJobKeyClass
+                )
+                if (
+                    data_job_aspect is not None
+                    and data_job_aspect.flow in filtered_ingested_dataflow_urns
+                ):
+                    filtered_ingested_datajob_urns.append(ingested_datajob_urn)
+
+            # get all airflow dags
+            all_airflow_dags = SerializedDagModel.read_all_dags().values()
+
+            airflow_flow_urns: List = []
+            airflow_job_urns: List = []
+
+            for dag in all_airflow_dags:
+                flow_urn = builder.make_data_flow_urn(
+                    orchestrator="airflow",
+                    flow_id=dag.dag_id,
+                    cluster=self.config.cluster,
+                )
+                airflow_flow_urns.append(flow_urn)
+
+                for task in dag.tasks:
+                    airflow_job_urns.append(
+                        builder.make_data_job_urn_with_flow(str(flow_urn), task.task_id)
+                    )
+
+            obsolete_pipelines = set(filtered_ingested_dataflow_urns) - set(
+                airflow_flow_urns
+            )
+            obsolete_tasks = set(filtered_ingested_datajob_urns) - set(airflow_job_urns)
+
+            obsolete_urns = obsolete_pipelines.union(obsolete_tasks)
+
+            asyncio.run(self._soft_delete_obsolete_urns(obsolete_urns=obsolete_urns))
+
+            logger.debug(f"total pipelines removed = {len(obsolete_pipelines)}")
+            logger.debug(f"total tasks removed = {len(obsolete_tasks)}")
 
     if HAS_AIRFLOW_DAG_LISTENER_API:
 
@@ -578,3 +667,13 @@ class DataHubListener:
             logger.debug(
                 f"DataHub listener got notification about dataset change for {dataset}"
             )
+
+    async def _soft_delete_obsolete_urns(self, obsolete_urns):
+        delete_tasks = [self._delete_obsolete_data(urn) for urn in obsolete_urns]
+        await asyncio.gather(*delete_tasks)
+
+    async def _delete_obsolete_data(self, obsolete_urn):
+        assert self.graph
+
+        if self.graph.exists(str(obsolete_urn)):
+            self.graph.soft_delete_entity(str(obsolete_urn))

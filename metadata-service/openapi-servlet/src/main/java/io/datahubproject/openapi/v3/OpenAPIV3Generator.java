@@ -42,6 +42,7 @@ public class OpenAPIV3Generator {
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
   private static final String NAME_ASYNC = "async";
   private static final String NAME_SCROLL_ID = "scrollId";
+  private static final String NAME_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
   private static final String PROPERTY_PATCH = "patch";
@@ -208,7 +209,12 @@ public class OpenAPIV3Generator {
                         .in(NAME_PATH)
                         .name("urn")
                         .description("The entity's unique URN id.")
-                        .schema(new Schema().type(TYPE_STRING))))
+                        .schema(new Schema().type(TYPE_STRING)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_INCLUDE_SOFT_DELETE)
+                        .description("If enabled, soft deleted items will exist.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .tags(List.of(entity.getName() + " Entity"))
             .responses(
                 new ApiResponses()
@@ -274,6 +280,7 @@ public class OpenAPIV3Generator {
             .summary(String.format("Scroll/List %s.", upperFirst))
             .parameters(parameters)
             .tags(List.of(entity.getName() + " Entity"))
+            .description("Scroll indexed entities. Will not include soft deleted entities.")
             .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
 
     // Post Operation
@@ -437,27 +444,31 @@ public class OpenAPIV3Generator {
                   final String newDefinition =
                       definition.replaceAll("definitions", "components/schemas");
                   Schema s = Json.mapper().readValue(newDefinition, Schema.class);
-                  Set<String> requiredNames =
-                      Optional.ofNullable(s.getRequired())
-                          .map(names -> Set.copyOf(names))
-                          .orElse(new HashSet());
-                  Map<String, Schema> properties =
-                      Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
-                  properties.forEach(
-                      (name, schema) -> {
-                        String $ref = schema.get$ref();
-                        boolean isNameRequired = requiredNames.contains(name);
-                        if ($ref != null && !isNameRequired) {
-                          // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
-                          // object to allow the
-                          // property to be marked as nullable
-                          schema.setType(TYPE_OBJECT);
-                          schema.set$ref(null);
-                          schema.setAllOf(List.of(new Schema().$ref($ref)));
-                        }
-                        schema.setNullable(!isNameRequired);
-                      });
-
+                  // Set enums to "string".
+                  if (s.getEnum() != null && !s.getEnum().isEmpty()) {
+                    s.setType("string");
+                  } else {
+                    Set<String> requiredNames =
+                        Optional.ofNullable(s.getRequired())
+                            .map(names -> Set.copyOf(names))
+                            .orElse(new HashSet());
+                    Map<String, Schema> properties =
+                        Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
+                    properties.forEach(
+                        (name, schema) -> {
+                          String $ref = schema.get$ref();
+                          boolean isNameRequired = requiredNames.contains(name);
+                          if ($ref != null && !isNameRequired) {
+                            // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+                            // object to allow the
+                            // property to be marked as nullable
+                            schema.setType(TYPE_OBJECT);
+                            schema.set$ref(null);
+                            schema.setAllOf(List.of(new Schema().$ref($ref)));
+                          }
+                          schema.setNullable(!isNameRequired);
+                        });
+                  }
                   components.addSchemas(n, s);
                 } catch (Exception e) {
                   throw new RuntimeException(e);
@@ -535,14 +546,23 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
+    // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+    // object to allow the
+    // property to be marked as nullable
     final Schema result = new Schema<>();
+
+    result.setType(TYPE_OBJECT);
+    result.set$ref(null);
+    result.setNullable(true);
+    final String internalRef;
     if (withSystemMetadata) {
-      result.set$ref(
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_RESPONSE_SUFFIX));
+      internalRef =
+          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_RESPONSE_SUFFIX);
     } else {
-      result.set$ref(
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX));
+      internalRef =
+          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
+    result.setAllOf(List.of(new Schema().$ref(internalRef)));
     return result;
   }
 
@@ -618,6 +638,13 @@ public class OpenAPIV3Generator {
         new Operation()
             .summary(String.format("%s on %s existence.", aspect, upperFirstEntity))
             .tags(tags)
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_INCLUDE_SOFT_DELETE)
+                        .description("If enabled, soft deleted items will exist.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .responses(
                 new ApiResponses()
                     .addApiResponse("200", successHeadResponse)

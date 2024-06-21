@@ -224,9 +224,6 @@ public class DgraphContainer extends GenericContainer<DgraphContainer> {
     return Stream.of(getHttpPort(), getGrpcPort()).map(this::getMappedPort).collect(toSet());
   }
 
-  @Override
-  protected void configure() {}
-
   public int getHttpPort() {
     return getMappedPort(HTTP_PORT);
   }

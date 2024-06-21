@@ -224,7 +224,7 @@ def run(
 @click.option(
     "--urn",
     type=str,
-    help="Urn of recipe to update",
+    help="Urn of recipe to update. Creates recipe if provided urn does not exist",
     required=False,
 )
 @click.option(
@@ -293,10 +293,6 @@ def deploy(
         variables["schedule"] = {"interval": schedule, "timezone": time_zone}
 
     if urn:
-        if not datahub_graph.exists(urn):
-            logger.error(f"Could not find recipe for provided urn: {urn}")
-            exit()
-        logger.info("Found recipe URN, will update recipe.")
 
         graphql_query: str = textwrap.dedent(
             """

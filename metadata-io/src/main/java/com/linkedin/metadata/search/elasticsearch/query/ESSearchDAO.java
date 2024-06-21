@@ -466,8 +466,7 @@ public class ESSearchDAO {
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
       IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
       AutocompleteRequestHandler builder =
-          AutocompleteRequestHandler.getBuilder(
-              entitySpec, customSearchConfiguration, opContext.getAspectRetriever());
+          AutocompleteRequestHandler.getBuilder(entitySpec, customSearchConfiguration);
       SearchRequest req =
           builder.getSearchRequest(
               opContext,

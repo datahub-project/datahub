@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search;
 
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -15,6 +16,15 @@ import lombok.Setter;
 @Getter
 @Builder
 public class SearchServiceSearchRetriever implements SearchRetriever {
+  private static final SearchFlags RETRIEVER_SEARCH_FLAGS =
+      new SearchFlags()
+          .setFulltext(false)
+          .setMaxAggValues(20)
+          .setSkipCache(false)
+          .setSkipAggregates(true)
+          .setSkipHighlighting(true)
+          .setIncludeSoftDeleted(false)
+          .setIncludeRestricted(false);
 
   @Setter private OperationContext systemOperationContext;
   private final SearchService searchService;
@@ -29,6 +39,13 @@ public class SearchServiceSearchRetriever implements SearchRetriever {
     urnSort.setField("urn");
     urnSort.setOrder(SortOrder.ASCENDING);
     return searchService.scrollAcrossEntities(
-        systemOperationContext, entities, "*", filters, List.of(urnSort), scrollId, null, count);
+        systemOperationContext.withSearchFlags(flags -> RETRIEVER_SEARCH_FLAGS),
+        entities,
+        "*",
+        filters,
+        List.of(urnSort),
+        scrollId,
+        null,
+        count);
   }
 }

@@ -10,6 +10,7 @@ dependencies {
     implementation project(':metadata-service:services')
     implementation project(':metadata-io')
     implementation project(':metadata-service:openapi-servlet')
+    implementation project(':metadata-service:openapi-servlet:models')
     implementation project(':metadata-service:openapi-entity-servlet')
 
     implementation externalDependency.springBoot

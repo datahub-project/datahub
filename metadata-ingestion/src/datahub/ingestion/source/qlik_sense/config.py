@@ -93,6 +93,8 @@ class Constant:
     # Personal entity constants
     PERSONAL_SPACE_ID = "personal-space-id"
     PERSONAL_SPACE_NAME = "personal_space"
+    # Hypercube
+    HYPERCUBE = "qHyperCube"
 
 
 @dataclass

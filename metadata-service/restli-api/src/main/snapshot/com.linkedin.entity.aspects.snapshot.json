@@ -3456,6 +3456,7 @@
       "name" : "MLFeatureProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a MLFeature",
+      "include" : [ "com.linkedin.common.CustomProperties" ],
       "fields" : [ {
         "name" : "description",
         "type" : "string",
@@ -4277,6 +4278,18 @@
         "parameters" : [ {
           "name" : "proposal",
           "type" : "com.linkedin.mxe.MetadataChangeProposal"
+        }, {
+          "name" : "async",
+          "type" : "string",
+          "default" : "unset"
+        } ],
+        "returns" : "string"
+      }, {
+        "name" : "ingestProposalBatch",
+        "javaMethodName" : "ingestProposalBatch",
+        "parameters" : [ {
+          "name" : "proposals",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.mxe.MetadataChangeProposal\" }"
         }, {
           "name" : "async",
           "type" : "string",

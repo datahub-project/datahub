@@ -51,7 +51,8 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
           }
 
           Entity proposalEntity =
-              _entityService.getEntity(context.getOperationContext(), proposalUrn, new HashSet<>());
+              _entityService.getEntity(
+                  context.getOperationContext(), proposalUrn, new HashSet<>(), true);
           ActionRequestSnapshot actionRequestSnapshot =
               proposalEntity.getValue().getActionRequestSnapshot();
           ActionRequest proposal =

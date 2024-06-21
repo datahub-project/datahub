@@ -583,6 +583,12 @@ def generate(
         if source and source != plugin_name:
             continue
 
+        if plugin_name in {
+            "snowflake-summary",
+        }:
+            logger.info(f"Skipping {plugin_name} as it is on the deny list")
+            continue
+
         metrics["plugins"]["discovered"] = metrics["plugins"]["discovered"] + 1  # type: ignore
         # We want to attempt to load all plugins before printing a summary.
         source_type = None
@@ -885,11 +891,14 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
     os.makedirs(source_dir, exist_ok=True)
     doc_file = f"{source_dir}/lineage-feature-guide.md"
     with open(doc_file, "w+") as f:
-        f.write("import FeatureAvailability from '@site/src/components/FeatureAvailability';\n\n")
+        f.write(
+            "import FeatureAvailability from '@site/src/components/FeatureAvailability';\n\n"
+        )
         f.write(f"# About DataHub Lineage\n\n")
         f.write("<FeatureAvailability/>\n")
 
-        f.write("""
+        f.write(
+            """
 Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up. 
 This can happen within a single system (like data moving between Snowflake tables) or across various platforms.
 
@@ -979,24 +988,27 @@ Types of lineage connections supported in DataHub and the example codes are as f
 
 ### Automatic Lineage Extraction Support
 
-This is a summary of automatic lineage extraciton support in our data source. Please refer to the **Important Capabilities** table in the source documentation. Note that even if the source does not support automatic extraction, you can still add lineage manually using our API & SDKs.\n""")
+This is a summary of automatic lineage extraciton support in our data source. Please refer to the **Important Capabilities** table in the source documentation. Note that even if the source does not support automatic extraction, you can still add lineage manually using our API & SDKs.\n"""
+        )
 
-        f.write("\n| Source | Table-Level Lineage | Column-Level Lineage | Related Configs |\n")
+        f.write(
+            "\n| Source | Table-Level Lineage | Column-Level Lineage | Related Configs |\n"
+        )
         f.write("| ---------- | ------ | ----- |----- |\n")
 
         for platform_id, platform_docs in sorted(
-                source_documentation.items(),
-                key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
-                if "name" in x[1]
-                else (x[0].casefold(), x[0]),
+            source_documentation.items(),
+            key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
+            if "name" in x[1]
+            else (x[0].casefold(), x[0]),
         ):
             for plugin, plugin_docs in sorted(
-                    platform_docs["plugins"].items(),
-                    key=lambda x: str(x[1].get("doc_order"))
-                    if x[1].get("doc_order")
-                    else x[0],
+                platform_docs["plugins"].items(),
+                key=lambda x: str(x[1].get("doc_order"))
+                if x[1].get("doc_order")
+                else x[0],
             ):
-                platform_name = platform_docs['name']
+                platform_name = platform_docs["name"]
                 if len(platform_docs["plugins"].keys()) > 1:
                     # We only need to show this if there are multiple modules.
                     platform_name = f"{platform_name} `{plugin}`"
@@ -1004,33 +1016,60 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
                 # Initialize variables
                 table_level_supported = "❌"
                 column_level_supported = "❌"
-                config_names = ''
+                config_names = ""
 
                 if "capabilities" in plugin_docs:
                     plugin_capabilities = plugin_docs["capabilities"]
 
                     for cap_setting in plugin_capabilities:
                         capability_text = get_capability_text(cap_setting.capability)
-                        capability_supported = get_capability_supported_badge(cap_setting.supported)
+                        capability_supported = get_capability_supported_badge(
+                            cap_setting.supported
+                        )
 
-                        if capability_text == "Table-Level Lineage" and capability_supported == "✅":
+                        if (
+                            capability_text == "Table-Level Lineage"
+                            and capability_supported == "✅"
+                        ):
                             table_level_supported = "✅"
 
-                        if capability_text == "Column-level Lineage" and capability_supported == "✅":
+                        if (
+                            capability_text == "Column-level Lineage"
+                            and capability_supported == "✅"
+                        ):
                             column_level_supported = "✅"
 
                 if not (table_level_supported == "❌" and column_level_supported == "❌"):
                     if "config_schema" in plugin_docs:
-                        config_properties = json.loads(plugin_docs['config_schema']).get('properties', {})
-                        config_names = '<br />'.join(
-                            [f'- {property_name}' for property_name in config_properties if 'lineage' in property_name])
-                lineage_not_applicable_sources = ['azure-ad', 'csv', 'demo-data', 'dynamodb', 'iceberg', 'json-schema', 'ldap', 'openapi', 'pulsar', 'sqlalchemy' ]
-                if platform_id not in lineage_not_applicable_sources :
+                        config_properties = json.loads(
+                            plugin_docs["config_schema"]
+                        ).get("properties", {})
+                        config_names = "<br />".join(
+                            [
+                                f"- {property_name}"
+                                for property_name in config_properties
+                                if "lineage" in property_name
+                            ]
+                        )
+                lineage_not_applicable_sources = [
+                    "azure-ad",
+                    "csv",
+                    "demo-data",
+                    "dynamodb",
+                    "iceberg",
+                    "json-schema",
+                    "ldap",
+                    "openapi",
+                    "pulsar",
+                    "sqlalchemy",
+                ]
+                if platform_id not in lineage_not_applicable_sources:
                     f.write(
                         f"| [{platform_name}](../../generated/ingestion/sources/{platform_id}.md) | {table_level_supported} | {column_level_supported} | {config_names}|\n"
                     )
 
-        f.write("""
+        f.write(
+            """
         
 ### SQL Parser Lineage Extraction
 
@@ -1054,9 +1093,11 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
 - [Data in Context: Lineage Explorer in DataHub](https://blog.datahubproject.io/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4)
 - [Harnessing the Power of Data Lineage with DataHub](https://blog.datahubproject.io/harnessing-the-power-of-data-lineage-with-datahub-ad086358dec4)
 - [Data Lineage: What It Is And Why It Matters](https://blog.datahubproject.io/data-lineage-what-it-is-and-why-it-matters-1a8d9846f0bd)
-                        """)
+                        """
+        )
 
     print("Lineage Documentation Generation Complete")
+
 
 if __name__ == "__main__":
     logger.setLevel("INFO")

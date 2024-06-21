@@ -516,6 +516,7 @@ class AspectPluginConfig:
     className: str
     enabled: bool
     supportedEntityAspectNames: List[EntityAspectName]
+    packageScan: Optional[List[str]] = None
     supportedOperations: Optional[List[str]] = None
     packageScan: Optional[List[str]] = None
 

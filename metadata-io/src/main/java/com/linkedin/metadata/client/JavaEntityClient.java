@@ -113,7 +113,7 @@ public class JavaEntityClient implements EntityClient {
   @Nonnull
   @Deprecated
   public Entity get(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
-    return entityService.getEntity(opContext, urn, ImmutableSet.of());
+    return entityService.getEntity(opContext, urn, ImmutableSet.of(), true);
   }
 
   @Nonnull
@@ -176,7 +176,7 @@ public class JavaEntityClient implements EntityClient {
   @Deprecated
   public Map<Urn, Entity> batchGet(
       @Nonnull OperationContext opContext, @Nonnull final Set<Urn> urns) {
-    return entityService.getEntities(opContext, urns, ImmutableSet.of());
+    return entityService.getEntities(opContext, urns, ImmutableSet.of(), true);
   }
 
   /**

@@ -5,7 +5,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.TestEntitySpecBuilder;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
 import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -34,9 +33,7 @@ import org.testng.annotations.Test;
 public class AutocompleteRequestHandlerTest {
   private AutocompleteRequestHandler handler =
       AutocompleteRequestHandler.getBuilder(
-          TestEntitySpecBuilder.getSpec(),
-          CustomSearchConfiguration.builder().build(),
-          TestOperationContexts.emptyAspectRetriever(null));
+          TestEntitySpecBuilder.getSpec(), CustomSearchConfiguration.builder().build());
   private OperationContext mockOpContext =
       TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
 
@@ -173,8 +170,7 @@ public class AutocompleteRequestHandlerTest {
                                     .should(List.of(Map.of("match_all", Map.of())))
                                     .build())
                             .build()))
-                .build(),
-            mock(AspectRetriever.class));
+                .build());
 
     SearchRequest autocompleteRequest =
         withoutDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -199,8 +195,7 @@ public class AutocompleteRequestHandlerTest {
                                     .should(List.of(Map.of("match_all", Map.of())))
                                     .build())
                             .build()))
-                .build(),
-            mock(AspectRetriever.class));
+                .build());
 
     autocompleteRequest = withDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
@@ -242,8 +237,7 @@ public class AutocompleteRequestHandlerTest {
                                     .should(List.of(Map.of("match_all", Map.of())))
                                     .build())
                             .build()))
-                .build(),
-            mock(AspectRetriever.class));
+                .build());
 
     SearchRequest autocompleteRequest =
         withInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -281,8 +275,7 @@ public class AutocompleteRequestHandlerTest {
                                     .should(List.of(Map.of("match_all", Map.of())))
                                     .build())
                             .build()))
-                .build(),
-            mock(AspectRetriever.class));
+                .build());
 
     autocompleteRequest =
         noQueryCustomization.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -344,8 +337,7 @@ public class AutocompleteRequestHandlerTest {
                                                 Map.<String, Object>of(
                                                     "deprecated", Map.of("value", false)))))))
                             .build()))
-                .build(),
-            mock(AspectRetriever.class));
+                .build());
 
     SearchRequest autocompleteRequest =
         explicitNoInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
@@ -397,8 +389,7 @@ public class AutocompleteRequestHandlerTest {
                                                 Map.<String, Object>of(
                                                     "deprecated", Map.of("value", false)))))))
                             .build()))
-                .build(),
-            mock(AspectRetriever.class));
+                .build());
 
     autocompleteRequest = explicit.getSearchRequest(mockOpContext, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();

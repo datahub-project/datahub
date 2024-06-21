@@ -310,6 +310,18 @@ mutation deleteAssertion($urn: String!) {
     deleteAssertion(urn: $urn)
 }
 
+fragment assertionDetailsWithRunEvents on Assertion {
+    ...assertionDetails
+    runEvents(status: COMPLETE, limit: 1) {
+        total
+        failed
+        succeeded
+        runEvents {
+            ...assertionRunEventDetails
+        }
+    }
+}
+
 mutation upsertDatasetFreshnessAssertionMonitor($assertionUrn: String, $input: UpsertDatasetFreshnessAssertionMonitorInput!) {
     upsertDatasetFreshnessAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {
         ...assertionDetails

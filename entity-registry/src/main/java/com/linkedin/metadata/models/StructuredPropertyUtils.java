@@ -5,6 +5,8 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASP
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
@@ -49,29 +51,33 @@ public class StructuredPropertyUtils {
     return getLogicalValueType(structuredPropertyDefinition.getValueType());
   }
 
-  public static LogicalValueType getLogicalValueType(Urn valueType) {
+  public static LogicalValueType getLogicalValueType(@Nullable Urn valueType) {
     String valueTypeId = getValueTypeId(valueType);
-    if (valueTypeId.equals("string")) {
+    if ("string".equals(valueTypeId)) {
       return LogicalValueType.STRING;
-    } else if (valueTypeId.equals("date")) {
+    } else if ("date".equals(valueTypeId)) {
       return LogicalValueType.DATE;
-    } else if (valueTypeId.equals("number")) {
+    } else if ("number".equals(valueTypeId)) {
       return LogicalValueType.NUMBER;
-    } else if (valueTypeId.equals("urn")) {
+    } else if ("urn".equals(valueTypeId)) {
       return LogicalValueType.URN;
-    } else if (valueTypeId.equals("rich_text")) {
+    } else if ("rich_text".equals(valueTypeId)) {
       return LogicalValueType.RICH_TEXT;
     }
-
     return LogicalValueType.UNKNOWN;
   }
 
-  public static String getValueTypeId(@Nonnull final Urn valueType) {
-    String valueTypeId = valueType.getId();
-    if (valueTypeId.startsWith("datahub.")) {
-      valueTypeId = valueTypeId.split("\\.")[1];
+  @Nullable
+  public static String getValueTypeId(@Nullable final Urn valueType) {
+    if (valueType != null) {
+      String valueTypeId = valueType.getId();
+      if (valueTypeId.startsWith("datahub.")) {
+        valueTypeId = valueTypeId.split("\\.")[1];
+      }
+      return valueTypeId.toLowerCase();
+    } else {
+      return null;
     }
-    return valueTypeId.toLowerCase();
   }
 
   /**
@@ -82,8 +88,9 @@ public class StructuredPropertyUtils {
    * @param aspectRetriever method to look up the definition aspect
    * @return the structured property definition if found
    */
-  public static Optional<StructuredPropertyDefinition> lookupDefinitionFromFilterOrFacetName(
-      @Nonnull String fieldOrFacetName, @Nullable AspectRetriever aspectRetriever) {
+  public static Optional<Pair<Urn, StructuredPropertyDefinition>>
+      lookupDefinitionFromFilterOrFacetName(
+          @Nonnull String fieldOrFacetName, @Nullable AspectRetriever aspectRetriever) {
     if (fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
       String fqn =
           fieldOrFacetName
@@ -102,7 +109,8 @@ public class StructuredPropertyUtils {
                   .getOrDefault(urn, Collections.emptyMap())
                   .getOrDefault(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, null));
       return definition.map(
-          definitonAspect -> new StructuredPropertyDefinition(definitonAspect.data()));
+          definitonAspect ->
+              Pair.of(urn, new StructuredPropertyDefinition(definitonAspect.data())));
     }
     return Optional.empty();
   }
@@ -117,21 +125,54 @@ public class StructuredPropertyUtils {
    * @param definition The structured property definition
    * @return The sanitized version that can be used as a field name
    */
-  public static String toElasticsearchFieldName(@Nonnull StructuredPropertyDefinition definition) {
-    if (definition.getQualifiedName().contains(" ")) {
+  public static String toElasticsearchFieldName(
+      @Nonnull Urn propertyUrn, @Nullable StructuredPropertyDefinition definition) {
+    String qualifiedName = definition != null ? definition.getQualifiedName() : propertyUrn.getId();
+
+    if (qualifiedName.contains(" ")) {
       throw new IllegalArgumentException(
           "Fully qualified structured property name cannot contain spaces");
     }
-    if (definition.getVersion(GetMode.NULL) != null) {
+    if (definition != null && definition.getVersion(GetMode.NULL) != null) {
       // includes type suffix
       return String.join(
           ".",
+          STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD,
           definition.getQualifiedName().replace('.', '_'),
           definition.getVersion(),
           getLogicalValueType(definition).name().toLowerCase());
     } else {
       // un-typed property
-      return definition.getQualifiedName().replace('.', '_');
+      return qualifiedName.replace('.', '_');
+    }
+  }
+
+  /**
+   * Return an elasticsearch type from structured property type
+   *
+   * @param fieldName filter or facet field name
+   * @param aspectRetriever aspect retriever
+   * @return elasticsearch type
+   */
+  public static Set<String> toElasticsearchFieldType(
+      @Nonnull String fieldName, @Nullable AspectRetriever aspectRetriever) {
+    LogicalValueType logicalValueType =
+        lookupDefinitionFromFilterOrFacetName(fieldName, aspectRetriever)
+            .map(definition -> getLogicalValueType(definition.getValue()))
+            .orElse(LogicalValueType.STRING);
+
+    switch (logicalValueType) {
+      case NUMBER:
+        return Collections.singleton("double");
+      case DATE:
+        return Collections.singleton("long");
+      case RICH_TEXT:
+        return Collections.singleton("text");
+      case UNKNOWN:
+      case STRING:
+      case URN:
+      default:
+        return Collections.singleton("keyword");
     }
   }
 
@@ -171,10 +212,7 @@ public class StructuredPropertyUtils {
     if (filter.getCriteria() != null) {
       for (Criterion c : filter.getCriteria()) {
         if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-          fieldNames.add(
-              c.getField()
-                  .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
-                  .split("[.]")[0]);
+          fieldNames.add(stripStructuredPropertyPrefix(c.getField()).split("[.]")[0]);
         }
       }
     }
@@ -183,10 +221,7 @@ public class StructuredPropertyUtils {
       for (ConjunctiveCriterion cc : filter.getOr()) {
         for (Criterion c : cc.getAnd()) {
           if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-            fieldNames.add(
-                c.getField()
-                    .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
-                    .split("[.]")[0]);
+            fieldNames.add(stripStructuredPropertyPrefix(c.getField()).split("[.]")[0]);
           }
         }
       }
@@ -195,6 +230,15 @@ public class StructuredPropertyUtils {
     if (!fieldNames.isEmpty()) {
       validateStructuredPropertyFQN(fieldNames, Objects.requireNonNull(aspectRetriever));
     }
+  }
+
+  private static String stripStructuredPropertyPrefix(String s) {
+    if (s.startsWith(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX)) {
+      return s.substring(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.length() + 1).split("[.]")[0];
+    } else if (s.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      return s.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1).split("[.]")[0];
+    }
+    return s;
   }
 
   public static Date toDate(PrimitivePropertyValue value) throws DateTimeParseException {

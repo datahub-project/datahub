@@ -224,8 +224,6 @@ def default_query_results(  # noqa: C901
         ]
     elif query == SnowflakeQuery.tables_for_database("TEST_DB"):
         raise Exception("Information schema query returned too much data")
-    elif query == SnowflakeQuery.show_views_for_database("TEST_DB"):
-        raise Exception("Information schema query returned too much data")
     elif query == SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB"):
         return [
             {
@@ -241,7 +239,8 @@ def default_query_results(  # noqa: C901
             }
             for tbl_idx in range(1, num_tables + 1)
         ]
-    elif query == SnowflakeQuery.show_views_for_schema("TEST_SCHEMA", "TEST_DB"):
+    elif query == SnowflakeQuery.show_views_for_database("TEST_DB"):
+        # TODO: Add tests for view pagination.
         return [
             {
                 "schema_name": "TEST_SCHEMA",

@@ -61,6 +61,8 @@ get_databases_response = {
                 }
             ],
             "CatalogId": "123412341234",
+            "LocationUri": "s3://test-bucket/test-prefix",
+            "Parameters": {"param1": "value1", "param2": "value2"},
         },
         {
             "Name": "test-database",

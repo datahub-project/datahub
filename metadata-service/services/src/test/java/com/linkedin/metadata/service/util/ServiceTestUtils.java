@@ -27,7 +27,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
 import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
-import io.datahubproject.openapi.v2.models.GenericEntity;
+import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -92,19 +92,19 @@ public class ServiceTestUtils {
             .withSystemMetadata(true)
             .build();
 
-    List<GenericEntity> entities;
+    List<GenericEntityV2> entities;
     if (aspect != null) {
       Map<String, Pair<RecordTemplate, SystemMetadata>> aspectMap1 = new HashMap<>();
       aspectMap1.put(aspectName, Pair.of(aspect, null));
-      GenericEntity testEntity1 =
-          GenericEntity.builder()
+      GenericEntityV2 testEntity1 =
+          GenericEntityV2.builder()
               .urn(TEST_ENTITY_URN_1.toString())
               .build(new ObjectMapper(), aspectMap1);
 
       Map<String, Pair<RecordTemplate, SystemMetadata>> aspectMap2 = new HashMap<>();
       aspectMap2.put(aspectName, Pair.of(aspect, null));
-      GenericEntity testEntity2 =
-          GenericEntity.builder()
+      GenericEntityV2 testEntity2 =
+          GenericEntityV2.builder()
               .urn(TEST_ENTITY_URN_2.toString())
               .build(new ObjectMapper(), aspectMap2);
       entities = new ArrayList<>();

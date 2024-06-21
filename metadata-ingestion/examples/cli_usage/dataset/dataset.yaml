@@ -1,0 +1,14 @@
+urn: urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.actuating,PROD)
+name: ACTUATING
+schema_metadata:
+  fields:
+    - id: pk
+      urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.actuating,PROD),pk)
+      type: "SchemaFieldDataTypeClass({'type': NumberTypeClass({})})"
+      nativeDataType: NUMBER(1,0)
+      nullable: true
+      recursive: false
+properties: {}
+subtypes:
+  - Table
+

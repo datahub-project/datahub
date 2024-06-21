@@ -81,7 +81,7 @@ public class AggregationQueryBuilderTest {
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
     StructuredPropertyDefinition structPropHelloDefinitionV1 = new StructuredPropertyDefinition();
-    structPropHelloDefinitionV1.setVersion("v1");
+    structPropHelloDefinitionV1.setVersion("00000000000001");
     structPropHelloDefinitionV1.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropHelloDefinitionV1.setQualifiedName("hello");
     when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(helloUrn)), anySet()))
@@ -94,7 +94,7 @@ public class AggregationQueryBuilderTest {
 
     StructuredPropertyDefinition structPropAbFghTenDefinitionV1 =
         new StructuredPropertyDefinition();
-    structPropAbFghTenDefinitionV1.setVersion("v1");
+    structPropAbFghTenDefinitionV1.setVersion("00000000000001");
     structPropAbFghTenDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinitionV1.setQualifiedName("ab.fgh.ten");
@@ -289,22 +289,24 @@ public class AggregationQueryBuilderTest {
     // Check that field name is sanitized to correct field name
     Assert.assertEquals(
         agg.field(),
-        "structuredProperties.ab_fgh_ten.v1.string.keyword",
+        "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
         "Terms aggregation must be on a keyword field or subfield.");
 
     // Two structured properties
     aggs =
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
-            List.of("structuredProperties.ab.fgh.ten", "structuredProperties.hello.v1.string"));
+            List.of(
+                "structuredProperties.ab.fgh.ten",
+                "structuredProperties._versioned.hello.00000000000001.string"));
     Assert.assertEquals(aggs.size(), 2);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
         Set.of(
-            "structuredProperties.ab_fgh_ten.v1.string.keyword",
-            "structuredProperties.hello.v1.string.keyword"));
+            "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
+            "structuredProperties._versioned.hello.00000000000001.string.keyword"));
   }
 
   @Test
@@ -441,8 +443,8 @@ public class AggregationQueryBuilderTest {
             "test1.keyword",
             "test2.keyword",
             "hasTest1",
-            "structuredProperties.ab_fgh_ten.v1.string.keyword",
-            "structuredProperties.hello.v1.string.keyword"));
+            "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
+            "structuredProperties._versioned.hello.00000000000001.string.keyword"));
   }
 
   @Test

@@ -96,13 +96,13 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
         return upsertDataContractMutation({
             variables: buildUpsertDataContractMutationVariables(entityUrn, builderState),
         })
-            .then(({ data, errors }) => {
+            .then(({ data: dataContract, errors }) => {
                 if (!errors) {
                     message.success({
                         content: isEdit ? `Edited Data Contract` : `Created Data Contract!`,
                         duration: 3,
                     });
-                    onSubmit?.(data?.upsertDataContract as DataContract);
+                    onSubmit?.(dataContract?.upsertDataContract as DataContract);
                 }
             })
             .catch(() => {
@@ -144,47 +144,17 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
             });
     };
 
-    const onSelectFreshnessAssertion = (assertionUrn: string) => {
-        const selected = builderState.freshness?.assertionUrn === assertionUrn;
+    const onSelectDataAssertion = (assertionUrn: string, type: string) => {
+        const selected = builderState[type]?.some((c) => c.assertionUrn === assertionUrn);
         if (selected) {
             setBuilderState({
                 ...builderState,
-                freshness: undefined,
+                [type]: builderState[type]?.filter((c) => c.assertionUrn !== assertionUrn),
             });
         } else {
             setBuilderState({
                 ...builderState,
-                freshness: { assertionUrn },
-            });
-        }
-    };
-
-    const onSelectSchemaAssertion = (assertionUrn: string) => {
-        const selected = builderState.schema?.assertionUrn === assertionUrn;
-        if (selected) {
-            setBuilderState({
-                ...builderState,
-                schema: undefined,
-            });
-        } else {
-            setBuilderState({
-                ...builderState,
-                schema: { assertionUrn },
-            });
-        }
-    };
-
-    const onSelectDataQualityAssertion = (assertionUrn: string) => {
-        const selected = builderState.dataQuality?.some((c) => c.assertionUrn === assertionUrn);
-        if (selected) {
-            setBuilderState({
-                ...builderState,
-                dataQuality: builderState.dataQuality?.filter((c) => c.assertionUrn !== assertionUrn),
-            });
-        } else {
-            setBuilderState({
-                ...builderState,
-                dataQuality: [...(builderState.dataQuality || []), { assertionUrn }],
+                [type]: [...(builderState[type] || []), { assertionUrn }],
             });
         }
     };
@@ -208,7 +178,7 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                         selectedUrns={
                             (builderState.freshness?.assertionUrn && [builderState.freshness?.assertionUrn]) || []
                         }
-                        onSelect={onSelectFreshnessAssertion}
+                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'freshness')}
                     />
                 )) ||
                     undefined}
@@ -218,7 +188,7 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                         assertions={schemaAssertions}
                         multiple={false}
                         selectedUrns={(builderState.schema?.assertionUrn && [builderState.schema?.assertionUrn]) || []}
-                        onSelect={onSelectSchemaAssertion}
+                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'schema')}
                     />
                 )) ||
                     undefined}
@@ -227,7 +197,7 @@ export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSub
                         category={DataContractCategoryType.DATA_QUALITY}
                         assertions={dataQualityAssertions}
                         selectedUrns={builderState.dataQuality?.map((c) => c.assertionUrn) || []}
-                        onSelect={onSelectDataQualityAssertion}
+                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'dataQuality')}
                     />
                 )) ||
                     undefined}

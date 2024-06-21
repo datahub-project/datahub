@@ -219,6 +219,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
             .setDocumentationAiEnabled(_featureFlags.isDocumentationAiEnabled())
             .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
+            .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
             .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
             .setThemeV2Default(_featureFlags.isThemeV2Default())
             .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())

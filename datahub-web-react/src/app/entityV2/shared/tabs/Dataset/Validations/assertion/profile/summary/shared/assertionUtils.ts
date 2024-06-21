@@ -9,6 +9,7 @@ export enum AssertionEditabilityScopeType {
 
 // ------- NOTE: we take the lowest permission of the union of (AssertType, AssertionSourceType) from the maps below ------- //
 const ASSERTION_TYPE_TO_EDITING_SCOPE: { [type in AssertionType]: AssertionEditabilityScopeType } = {
+    [AssertionType.Custom]: AssertionEditabilityScopeType.FULL,
     [AssertionType.Field]: AssertionEditabilityScopeType.FULL,
     [AssertionType.Freshness]: AssertionEditabilityScopeType.FULL,
     [AssertionType.Sql]: AssertionEditabilityScopeType.FULL,

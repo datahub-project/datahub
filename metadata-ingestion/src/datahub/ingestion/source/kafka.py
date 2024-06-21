@@ -303,34 +303,63 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         ).topics
         extra_topic_details = self.fetch_extra_topic_details(topics.keys())
 
-        for t, t_detail in topics.items():
-            self.report.report_topic_scanned(t)
-            if self.source_config.topic_patterns.allowed(t):
+        for topic, topic_detail in topics.items():
+            self.report.report_topic_scanned(topic)
+            if self.source_config.topic_patterns.allowed(topic):
                 try:
                     yield from self._extract_record(
-                        t, t_detail, extra_topic_details.get(t)
+                        topic, False, topic_detail, extra_topic_details.get(topic)
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to extract topic {t}", exc_info=True)
+                    logger.warning(f"Failed to extract topic {topic}", exc_info=True)
                     self.report.report_warning(
-                        "topic", f"Exception while extracting topic {t}: {e}"
+                        "topic", f"Exception while extracting topic {topic}: {e}"
                     )
             else:
-                self.report.report_dropped(t)
+                self.report.report_dropped(topic)
+
+        # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
+        for subject in self.schema_registry_client.get_subjects():
+            try:
+                yield from self._extract_record(
+                    subject, True, topic_detail=None, extra_topic_config=None
+                )
+            except Exception as e:
+                logger.warning(f"Failed to extract subject {subject}", exc_info=True)
+                self.report.report_warning(
+                    "subject", f"Exception while extracting topic {subject}: {e}"
+                )
 
     def _extract_record(
         self,
         topic: str,
+        is_subject: bool,
         topic_detail: Optional[TopicMetadata],
         extra_topic_config: Optional[Dict[str, ConfigEntry]],
     ) -> Iterable[MetadataWorkUnit]:
-        logger.debug(f"topic = {topic}")
-
         AVRO = "AVRO"
 
-        # 1. Create the default dataset snapshot for the topic.
-        dataset_name = topic
+        kafka_entity = "subject" if is_subject else "topic"
+
+        logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
+
         platform_urn = make_data_platform_urn(self.platform)
+
+        # 1. Create schemaMetadata aspect (pass control to SchemaRegistry)
+        schema_metadata = self.schema_registry_client.get_schema_metadata(
+            topic, platform_urn, is_subject
+        )
+
+        # topic can have no associated subject, but still it can be ingested without schema
+        # for schema ingestion, ingest only if it has valid schema
+        if is_subject:
+            if schema_metadata is None:
+                return
+            dataset_name = schema_metadata.schemaName
+        else:
+            dataset_name = topic
+
+        # 2. Create the default dataset snapshot for the topic.
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
@@ -342,10 +371,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             aspects=[Status(removed=False)],  # we append to this list later on
         )
 
-        # 2. Attach schemaMetadata aspect (pass control to SchemaRegistry)
-        schema_metadata = self.schema_registry_client.get_schema_metadata(
-            topic, platform_urn
-        )
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
 
@@ -356,9 +381,19 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         browse_path = BrowsePathsClass([browse_path_str])
         dataset_snapshot.aspects.append(browse_path)
 
-        custom_props = self.build_custom_properties(
-            topic, topic_detail, extra_topic_config
-        )
+        # build custom properties for topic, schema properties may be added as needed
+        custom_props: Dict[str, str] = {}
+        if not is_subject:
+            custom_props = self.build_custom_properties(
+                topic, topic_detail, extra_topic_config
+            )
+            schema_name: Optional[
+                str
+            ] = self.schema_registry_client._get_subject_for_topic(
+                topic, is_key_schema=False
+            )
+            if schema_name is not None:
+                custom_props["Schema Name"] = schema_name
 
         # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
         description: Optional[str] = None
@@ -414,7 +449,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         dataset_properties = DatasetPropertiesClass(
-            name=topic, customProperties=custom_props, description=description
+            name=dataset_name, customProperties=custom_props, description=description
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -431,12 +466,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         # 6. Emit the datasetSnapshot MCE
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        yield MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
+        yield MetadataWorkUnit(id=f"kafka-{kafka_entity}", mce=mce)
 
-        # 7. Add the subtype aspect marking this as a "topic"
+        # 7. Add the subtype aspect marking this as a "topic" or "schema"
+        typeName = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=SubTypesClass(typeNames=[DatasetSubTypes.TOPIC]),
+            aspect=SubTypesClass(typeNames=[typeName]),
         ).as_workunit()
 
         domain_urn: Optional[str] = None

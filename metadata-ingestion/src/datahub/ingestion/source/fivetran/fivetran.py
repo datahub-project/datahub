@@ -173,11 +173,12 @@ class FivetranSource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
+        owner_email = self.audit_log.get_user_email(connector.user_id)
         datajob = DataJob(
             id=connector.connector_id,
             flow_urn=dataflow_urn,
             name=connector.connector_name,
-            owners={connector.user_email} if connector.user_email else set(),
+            owners={owner_email} if owner_email else set(),
         )
 
         job_property_bag: Dict[str, str] = {}
@@ -281,7 +282,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         """
         logger.info("Fivetran plugin execution is started")
         connectors = self.audit_log.get_allowed_connectors_list(
-            self.config.connector_patterns, self.report
+            self.config.connector_patterns,
+            self.report,
+            self.config.history_sync_lookback_period,
         )
         for connector in connectors:
             logger.info(f"Processing connector id: {connector.connector_id}")
