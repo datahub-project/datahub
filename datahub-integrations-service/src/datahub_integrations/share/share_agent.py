@@ -7,7 +7,11 @@ from typing import Callable, Dict, List, Optional, Set, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
-from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mce_builder import (
+    get_sys_time,
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata._schema_classes import ShareConfigClass, ShareResultStateClass
@@ -23,6 +27,7 @@ from datahub_integrations.share.api import (
     ShareConfig,
 )
 from datahub_integrations.share.share_settings import (
+    _ACTOR_URN,
     MAX_ENTITIES_PER_SHARE,
     REPORTING_HEARTBEAT_INTERVAL,
     RESTRICTED_SHARED_ASPECTS,
@@ -56,12 +61,24 @@ class ShareAgent:
     ):
         self.source_graph = source_graph
         self.source_share_connection_urn = share_connection_urn
+        self.source_platform_instance = ShareAgent.get_platform_instance(
+            self.source_graph
+        )
         if not destination_graph:
             self.destination_graph = ShareAgent.create_destination_graph(
                 self.source_graph, share_connection_urn
             )
         else:
             self.destination_graph = destination_graph
+
+    @staticmethod
+    def get_platform_instance(graph: DataHubGraph) -> str:
+        if graph.server_id and graph.server_id != "missing":
+            platform_id = graph.server_id
+        else:
+            platform_id = graph.server_config.get("baseUrl") or ""
+
+        return make_dataplatform_instance_urn("acryl", platform_id)
 
     @staticmethod
     def create_destination_graph(
@@ -327,6 +344,26 @@ class ShareAgent:
         # list.
         if "status" not in shareable_aspects:
             shareable_aspects["status"] = {"removed": False}
+
+        # origin is also special - we replace it with our version
+        origin_aspect = models.OriginClass(
+            type=models.OriginTypeClass.EXTERNAL,
+            externalType=None,
+            sourceDetails=[
+                models.SourceDetailsClass(
+                    source=self.source_platform_instance,
+                    platform=make_data_platform_urn("acryl"),
+                    lastModified=models.AuditStampClass(
+                        time=int(time.time() * 1000),
+                        actor=sharer_urn,
+                        impersonator=_ACTOR_URN,
+                    ),
+                    mechanism=models.SyncMechanismClass.SHARE,
+                )
+            ],
+        ).to_obj()
+        shareable_aspects["origin"] = origin_aspect
+
         logger.debug(
             f"For {shared_urn}, {'restricted ' if restricted else ''}sharing {len(shareable_aspects)} aspects: "
             f"{list(shareable_aspects.keys())}"

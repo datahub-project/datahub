@@ -708,6 +708,8 @@ entities:
       - propertyDefinition
       - institutionalMemory
       - status
+      - share
+      - origin
   - name: form
     category: core
     keyAspect: formKey
