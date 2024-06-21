@@ -58,7 +58,6 @@ type Props = {
     showContractBuilder: () => void;
 };
 
-
 export const DataContractEmptyState = ({ showContractBuilder }: Props) => {
     return (
         <Container>
