@@ -109,6 +109,7 @@ RESTRICTED_SHARED_ASPECTS = {
     "inputFields",
     "status",
     "upstreamLineage",
+    "origin",
 }
 
 

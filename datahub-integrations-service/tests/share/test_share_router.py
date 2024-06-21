@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import datahub.metadata.schema_classes as models
 import pytest
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.metadata._schema_classes import (
     ShareClass,
     ShareResultClass,
@@ -111,6 +112,9 @@ def test_share_non_restricted() -> None:
     share_agent = ShareAgent(
         source_graph, destination_urn, destination_graph=destination_graph_mock
     )
+    share_agent.source_platform_instance = make_dataplatform_instance_urn(
+        "acryl", "my_platform_id"
+    )
 
     share_agent.share_one_entity(
         test_urn,
@@ -119,7 +123,7 @@ def test_share_non_restricted() -> None:
         False,
     )
 
-    assert len(destination_graph_mock.method_calls) == 9
+    assert len(destination_graph_mock.method_calls) == 10  # +1 Origin aspect
 
     for method_call in destination_graph_mock.method_calls:
         mcp = method_call.args[0]
@@ -206,6 +210,9 @@ def test_share_explicit_share_should_not_remove_implicit_shares() -> None:
         share_connection_urn=destination_urn,
         destination_graph=destination_graph_mock,
     )
+    share_agent.source_platform_instance = make_dataplatform_instance_urn(
+        "acryl", "my_platform_id"
+    )
 
     share_agent.share_one_entity(
         test_urn,
@@ -214,7 +221,7 @@ def test_share_explicit_share_should_not_remove_implicit_shares() -> None:
         False,
     )
 
-    assert len(destination_graph_mock.method_calls) == 9
+    assert len(destination_graph_mock.method_calls) == 10  # +1 Origin aspect
 
     for method_call in destination_graph_mock.method_calls:
         mcp = method_call.args[0]
@@ -329,6 +336,10 @@ def test_share_implict_share_should_add_to_implicit_shares() -> None:
         destination_graph=destination_graph_mock,
     )
 
+    share_agent.source_platform_instance = make_dataplatform_instance_urn(
+        "acryl", "my_platform_id"
+    )
+
     share_agent.share_one_entity(
         test_urn,
         referenced_entity3,
@@ -336,7 +347,7 @@ def test_share_implict_share_should_add_to_implicit_shares() -> None:
         False,
     )
 
-    assert len(destination_graph_mock.method_calls) == 9
+    assert len(destination_graph_mock.method_calls) == 10  # +1 Origin aspect
 
     for method_call in destination_graph_mock.method_calls:
         mcp = method_call.args[0]
@@ -409,6 +420,9 @@ def test_share_implict_share_should_be_added_if_earlier_it_was_explicitly_shared
         share_connection_urn=destination_urn,
         destination_graph=destination_graph_mock,
     )
+    share_agent.source_platform_instance = make_dataplatform_instance_urn(
+        "acryl", "my_platform_id"
+    )
 
     share_agent.share_one_entity(
         test_urn,
@@ -417,7 +431,7 @@ def test_share_implict_share_should_be_added_if_earlier_it_was_explicitly_shared
         False,
     )
 
-    assert len(destination_graph_mock.method_calls) == 9
+    assert len(destination_graph_mock.method_calls) == 10  # +1 origin aspect
 
     for method_call in destination_graph_mock.method_calls:
         mcp = method_call.args[0]
@@ -485,6 +499,11 @@ def test_restricted_share_should_only_share_certain_aspects() -> None:
         share_connection_urn=destination_urn,
         destination_graph=destination_graph_mock,
     )
+
+    share_agent.source_platform_instance = make_dataplatform_instance_urn(
+        "acryl", "my_platform_id"
+    )
+
     share_agent.share_one_entity(
         test_urn,
         test_urn,
@@ -492,7 +511,7 @@ def test_restricted_share_should_only_share_certain_aspects() -> None:
         True,
     )
 
-    assert len(destination_graph_mock.method_calls) == 2
+    assert len(destination_graph_mock.method_calls) == 3
 
     for method_call in destination_graph_mock.method_calls:
         mcp = method_call.args[0]
@@ -1432,6 +1451,9 @@ def test_failures_in_emission() -> None:
         source_graph=source_graph,
         share_connection_urn="dummy_connection_url",
         destination_graph=destination_graph,
+    )
+    share_agent.source_platform_instance = make_dataplatform_instance_urn(
+        "acryl", "my_platform_id"
     )
 
     share_agent.share(
