@@ -40,6 +40,7 @@ public class SparkConfigParser {
   public static final String STREAMING_HEARTBEAT = "streaming_heartbeat";
   public static final String DATAHUB_FLOW_NAME = "flow_name";
   public static final String DATASET_ENV_KEY = "metadata.dataset.env";
+  public static final String DATASET_HIVE_PLATFORM_ALIAS = "metadata.dataset.hivePlatformAlias";
   public static final String DATASET_MATERIALIZE_KEY = "metadata.dataset.materialize";
   public static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
   public static final String DATASET_INCLUDE_SCHEMA_METADATA =
@@ -147,6 +148,7 @@ public class SparkConfigParser {
     }
     builder.platformInstance(SparkConfigParser.getPlatformInstance(sparkConfig));
     builder.commonDatasetPlatformInstance(SparkConfigParser.getCommonPlatformInstance(sparkConfig));
+    builder.hivePlatformAlias(SparkConfigParser.getHivePlatformAlias(sparkConfig));
     builder.usePatch(SparkConfigParser.isPatchEnabled(sparkConfig));
     try {
       String parentJob = SparkConfigParser.getParentJobKey(sparkConfig);
@@ -172,6 +174,12 @@ public class SparkConfigParser {
       fabricType = FabricType.PROD;
     }
     return fabricType;
+  }
+
+  public static String getHivePlatformAlias(Config datahubConfig) {
+    return datahubConfig.hasPath(DATASET_HIVE_PLATFORM_ALIAS)
+        ? datahubConfig.getString(DATASET_HIVE_PLATFORM_ALIAS)
+        : "hive";
   }
 
   public static String getCommonPlatformInstance(Config datahubConfig) {
@@ -307,7 +315,7 @@ public class SparkConfigParser {
 
   public static boolean isPatchEnabled(Config datahubConfig) {
     if (!datahubConfig.hasPath(PATCH_ENABLED)) {
-      return true;
+      return false;
     }
     return datahubConfig.hasPath(PATCH_ENABLED) && datahubConfig.getBoolean(PATCH_ENABLED);
   }
