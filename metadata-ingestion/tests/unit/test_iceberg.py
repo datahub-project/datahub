@@ -128,10 +128,22 @@ def test_config_support_nested_dicts():
     """
     Test that Iceberg source supports nested dictionaries inside its configuration, as allowed by pyiceberg.
     """
-    catalog = {"test": {"type": "rest", "nested_dict": {"nested_key": "nested_value"}}}
+    catalog = {
+        "test": {
+            "type": "rest",
+            "nested_dict": {
+                "nested_key": "nested_value",
+                "subnested_dict": {"subnested_key": "subnested_value"},
+            },
+        }
+    }
     test_config = IcebergSourceConfig(catalog=catalog)
     assert isinstance(test_config.catalog["test"]["nested_dict"], Dict)
     assert test_config.catalog["test"]["nested_dict"]["nested_key"] == "nested_value"
+    assert (
+        test_config.catalog["test"]["nested_dict"]["subnested_dict"]["subnested_key"]
+        == "subnested_value"
+    )
 
 
 @pytest.mark.parametrize(
