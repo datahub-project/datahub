@@ -370,6 +370,7 @@ featureFlags:
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
   businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
+  dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:false} # Enables the Data Contracts feature (Tab) in the UI
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -476,7 +477,7 @@ metadataChangeProposal:
       maxAttempts: ${MCP_VERSIONED_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_VERSIONED_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_VERSIONED_MULTIPLIER:10}
-      maxIntervalMs:  ${MCP_VERSIONED_MAX_INTERVAL_MS:30000}
+      maxIntervalMs: ${MCP_VERSIONED_MAX_INTERVAL_MS:30000}
     # Timeseries MCL topic
     timeseries:
       # Whether to throttle MCP processing based on MCL backlog
