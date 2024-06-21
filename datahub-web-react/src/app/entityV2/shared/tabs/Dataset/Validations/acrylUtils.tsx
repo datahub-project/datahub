@@ -29,7 +29,10 @@ import { sortAssertions } from './assertionUtils';
 import { AssertionGroup, AssertionStatusSummary } from './acrylTypes';
 import { lowerFirstLetter } from '../../../../../shared/textUtil';
 import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
-import { GetDatasetAssertionsWithMonitorsQuery, MonitorDetailsFragment } from '../../../../../../graphql/monitor.generated';
+import {
+    GetDatasetAssertionsWithMonitorsQuery,
+    MonitorDetailsFragment,
+} from '../../../../../../graphql/monitor.generated';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
@@ -147,7 +150,7 @@ export const ASSERTION_INFO = [
     },
     {
         name: 'Schema',
-        description: 'Define & monitor your expectations about the table\'s columns and their types',
+        description: "Define & monitor your expectations about the table's columns and their types",
         icon: <StyledCodeOutlined />,
         type: AssertionType.DataSchema,
         entityTypes: [EntityType.Dataset],
@@ -189,15 +192,20 @@ const getAssertionGroupTypeIcon = (type: AssertionType) => {
 };
 
 export type AssertionWithMonitorDetails = Assertion & {
-    monitors?: MonitorDetailsFragment[] // should almost always have 0-1 items
+    monitors?: MonitorDetailsFragment[]; // should almost always have 0-1 items
 };
 
-export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (queryData?: GetDatasetAssertionsWithMonitorsQuery): AssertionWithMonitorDetails[] | undefined => {
-    return queryData?.dataset?.assertions?.assertions?.map(assertion => ({
+export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (
+    queryData?: GetDatasetAssertionsWithMonitorsQuery,
+): AssertionWithMonitorDetails[] | undefined => {
+    return queryData?.dataset?.assertions?.assertions?.map((assertion) => ({
         ...(assertion as Assertion),
-        monitors: assertion.monitor?.relationships?.filter(r => r.entity?.__typename === 'Monitor').map(r => r.entity as MonitorDetailsFragment) ?? []
+        monitors:
+            assertion.monitor?.relationships
+                ?.filter((r) => r.entity?.__typename === 'Monitor')
+                .map((r) => r.entity as MonitorDetailsFragment) ?? [],
     }));
-}
+};
 
 /**
  * Returns a status summary for the assertions associated with a Dataset.
@@ -215,7 +223,9 @@ export const getAssertionsSummary = (assertions: AssertionWithMonitorDetails[]):
     assertions.forEach((assertion) => {
         // Skip inactive monitors
         // NOTE: we don't assert that the status is Active, because in cases of external assertions they won't have monitors
-        const maybeInactiveMonitor = assertion.monitors?.find(item => item.info?.status.mode === MonitorMode.Inactive);
+        const maybeInactiveMonitor = assertion.monitors?.find(
+            (item) => item.info?.status.mode === MonitorMode.Inactive,
+        );
         if (maybeInactiveMonitor) {
             return;
         }
@@ -336,7 +346,7 @@ export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
         const nextDateInUserTz = moment.tz(nextDate, userTimezone); // Convert to user's timezone
         return nextDateInUserTz.valueOf();
     } catch (e) {
-        console.log('Failed to parse cron expression', e)
+        console.log('Failed to parse cron expression', e);
         return undefined;
     }
 };
@@ -351,14 +361,14 @@ export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, mayb
     try {
         const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
         if (typeof maybeFromDateTS !== 'undefined') {
-            interval.reset(maybeFromDateTS)
+            interval.reset(maybeFromDateTS);
         }
         const prevDate = interval.prev().toDate(); // Get prev date as JavaScript Date object
         const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const prevDateInUserTz = moment.tz(prevDate, userTimezone); // Convert to user's timezone
         return prevDateInUserTz.valueOf();
     } catch (e) {
-        console.log('Failed to parse cron expression', e)
+        console.log('Failed to parse cron expression', e);
         return undefined;
     }
 };
@@ -438,7 +448,7 @@ export const useConnectionForEntityExists = (entityUrn: string) => {
 
 /**
  * Checks if a connection exists for an entity that is able to run test assertion queries
- * @param entityUrn 
+ * @param entityUrn
  * @returns {boolean} optimistically returns true
  */
 export const useConnectionWithRunAssertionCapabilitiesForEntityExists = (entityUrn: string): boolean => {
@@ -452,6 +462,6 @@ export const useConnectionWithRunAssertionCapabilitiesForEntityExists = (entityU
     // If the executorId starts with 'default', we assume it's an embedded executor
     // See setup docs: https://www.notion.so/acryldata/How-to-configure-Remote-Executor-e9ed044b438d4789afcd530952d73944?pvs=4#14237a6d6dd04fcfb2abd45f16c6d63c
     // and design docs:  https://www.notion.so/acryldata/Remote-Executor-V2-Design-593d41280c4a4e34805def00b3f47a65?pvs=4#fe2a4481fbe74f379eb35cd10546b3b8
-    const maybeExecutorId = ingestionSourceData?.ingestionSourceForEntity?.config?.executorId
+    const maybeExecutorId = ingestionSourceData?.ingestionSourceForEntity?.config?.executorId;
     return !maybeExecutorId || maybeExecutorId.toLowerCase().startsWith('default');
 };

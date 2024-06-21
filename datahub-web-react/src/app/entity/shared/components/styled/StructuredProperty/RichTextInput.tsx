@@ -4,7 +4,7 @@ import { Editor } from '../../../tabs/Documentation/components/editor/Editor';
 import { ANTD_GRAY_V2 } from '../../../constants';
 import { useEntityFormContext } from '../../../entityForm/EntityFormContext';
 
-const StyledEditor = styled(Editor) <{ displayBulkPromptStyles?: boolean }>`
+const StyledEditor = styled(Editor)<{ displayBulkPromptStyles?: boolean }>`
     border: 1px solid ${ANTD_GRAY_V2[6]};
     min-height: 115px;
     border-radius: 6px;
@@ -35,7 +35,9 @@ interface Props {
 }
 
 export default function RichTextInput({ selectedValues, updateSelectedValues }: Props) {
-    const { prompt: { displayBulkPromptStyles } } = useEntityFormContext();
+    const {
+        prompt: { displayBulkPromptStyles },
+    } = useEntityFormContext();
 
     function updateInput(value: string) {
         updateSelectedValues([value]);

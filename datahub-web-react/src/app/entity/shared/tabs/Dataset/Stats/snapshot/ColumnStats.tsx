@@ -164,12 +164,7 @@ export default function ColumnStats({ columnStats }: Props) {
     return (
         <StatSection>
             <Typography.Title level={5}>Column Stats</Typography.Title>
-            <StyledTable
-                pagination={false}
-                columns={columnStatsColumns}
-                dataSource={columnStatsTableData} 
-                sticky
-            />
+            <StyledTable pagination={false} columns={columnStatsColumns} dataSource={columnStatsTableData} sticky />
         </StatSection>
     );
 }

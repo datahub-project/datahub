@@ -1,74 +1,78 @@
-import { SchemaAssertionCompatibility, SchemaAssertionField, SchemaFieldDataType } from "../../../../../../../../../../types.generated";
-
+import {
+    SchemaAssertionCompatibility,
+    SchemaAssertionField,
+    SchemaFieldDataType,
+} from '../../../../../../../../../../types.generated';
 
 export const compatibilityLevels = [
     {
         id: SchemaAssertionCompatibility.Superset,
-        name: "Contains All",
-        description: "The actual schema must contain all expected columns. It may contain additional columns."
+        name: 'Contains All',
+        description: 'The actual schema must contain all expected columns. It may contain additional columns.',
     },
     {
         id: SchemaAssertionCompatibility.ExactMatch,
-        name: "Exact Match",
-        description: "The columns in the actual schema must exactly match those in the expected schema. It may not contain any additional columns."
-    }
-]
+        name: 'Exact Match',
+        description:
+            'The columns in the actual schema must exactly match those in the expected schema. It may not contain any additional columns.',
+    },
+];
 
 export const supportedSchemaFieldTypes = [
     {
         type: SchemaFieldDataType.String,
-        name: "String"
+        name: 'String',
     },
     {
         type: SchemaFieldDataType.Number,
-        name: "Number"
+        name: 'Number',
     },
     {
         type: SchemaFieldDataType.Boolean,
-        name: "Boolean"
+        name: 'Boolean',
     },
     {
         type: SchemaFieldDataType.Date,
-        name: "Date"
+        name: 'Date',
     },
     {
         type: SchemaFieldDataType.Time,
-        name: "Timestamp"
+        name: 'Timestamp',
     },
     {
         type: SchemaFieldDataType.Struct,
-        name: "Struct"
+        name: 'Struct',
     },
     {
         type: SchemaFieldDataType.Array,
-        name: "Array"
+        name: 'Array',
     },
     {
         type: SchemaFieldDataType.Map,
-        name: "Map"
+        name: 'Map',
     },
     {
         type: SchemaFieldDataType.Union,
-        name: "Union"
+        name: 'Union',
     },
     {
         type: SchemaFieldDataType.Bytes,
-        name: "Bytes"
+        name: 'Bytes',
     },
     {
         type: SchemaFieldDataType.Enum,
-        name: "Enum"
+        name: 'Enum',
     },
-]
+];
 
-// Checks that 
+// Checks that
 // 1. Columns are completed (path + type)
-// 2. Column path types are not conflicting. 
+// 2. Column path types are not conflicting.
 export const areExpectedColumnsValid = (fields: Partial<SchemaAssertionField>[]): boolean => {
     const pathTypeMap: Record<string, string> = {};
 
     // Use `every` to ensure all fields are valid
-    return fields.every(field => {
+    return fields.every((field) => {
         // Check if path and type exist
         if (!field.path || !field.type) {
             return false;

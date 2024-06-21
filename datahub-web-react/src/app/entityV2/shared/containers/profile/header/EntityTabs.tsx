@@ -92,17 +92,30 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
                 const TabIcon = tab.icon;
                 const tabName = (tab.getDynamicName && tab.getDynamicName(entityData, baseEntity)) || tab.name;
                 if (!tab.display?.enabled(entityData, baseEntity)) {
-                    return <Tab tab={<>
-                        {TabIcon && <TabIcon style={tabIconStyle} />}
-                        {tab.name}
-                    </>} key={tab.name} disabled />;
+                    return (
+                        <Tab
+                            tab={
+                                <>
+                                    {TabIcon && <TabIcon style={tabIconStyle} />}
+                                    {tab.name}
+                                </>
+                            }
+                            key={tab.name}
+                            disabled
+                        />
+                    );
                 }
-                return <Tab tab={
-                    <>
-                        {TabIcon && <TabIcon style={tabIconStyle} />}
-                        {tabName}
-                    </>
-                } key={tab.name} />;
+                return (
+                    <Tab
+                        tab={
+                            <>
+                                {TabIcon && <TabIcon style={tabIconStyle} />}
+                                {tabName}
+                            </>
+                        }
+                        key={tab.name}
+                    />
+                );
             })}
         </UnborderedTabs>
     );

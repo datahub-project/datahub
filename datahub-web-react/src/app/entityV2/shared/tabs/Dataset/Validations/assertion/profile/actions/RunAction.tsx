@@ -34,11 +34,11 @@ export const RunAction = ({ assertion, monitor, canEdit, refetch }: Props) => {
     const isNonNative = assertion.info?.source?.type !== AssertionSourceType.Native;
 
     if (!isRunAssertionsEnabled || !monitor || isNonNative || !isReachable) {
-        // 4 cases to hide the run assertion button entirely: 
+        // 4 cases to hide the run assertion button entirely:
         //      1. Feature flag is disabled.
-        //      2. Monitor is missing for assertion (no params). 
-        //      3. Assertion is not native (external), so it cannot be run by us. 
-        //      4. We have a reachable, local (non-remote) connection to the table in the datahub-executor.  
+        //      2. Monitor is missing for assertion (no params).
+        //      3. Assertion is not native (external), so it cannot be run by us.
+        //      4. We have a reachable, local (non-remote) connection to the table in the datahub-executor.
         return null;
     }
 
@@ -53,7 +53,7 @@ export const RunAction = ({ assertion, monitor, canEdit, refetch }: Props) => {
     const onCloseModal = () => {
         setShowResult(false);
         setTimeout(() => refetch?.(), 2000);
-    }
+    };
 
     const isActiveTip = !isActive ? 'This assertion is currently stopped! Start the assertion to run.' : undefined;
     const unauthorizedTip = canEdit ? 'Run this assertion' : 'You do not have permission to run this assertion';

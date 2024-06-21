@@ -18,10 +18,7 @@ export default function MetadataShareItem({ key }: Props) {
                     <strong>Send to another instance</strong>
                 </TextSpan>
             </StyledMenuItem>
-            <ShareModal
-                isModalVisible={isShareModalVisible}
-                closeModal={() => setIsShareModalVisible(false)}
-            />
+            <ShareModal isModalVisible={isShareModalVisible} closeModal={() => setIsShareModalVisible(false)} />
         </>
     );
 }

@@ -23,7 +23,7 @@ export type State = {
     notificationTypes: {
         checkedKeys: Array<Key>;
         expandedKeys: Array<Key>;
-        keysWithAllFilteringCleared: Array<Key>;  // ie. if user has cleared urn filters for assertions
+        keysWithAllFilteringCleared: Array<Key>; // ie. if user has cleared urn filters for assertions
     };
     subscribeToUpstream: boolean;
     notificationSinkTypes: Array<NotificationSinkType>;
@@ -56,7 +56,7 @@ export type InitializeActionPayload = {
     entityType: EntityType;
     subscription?: DataHubSubscription;
     forSubResource?: {
-        assertion?: Assertion
+        assertion?: Assertion;
     };
     settingsSinkTypes?: NotificationSinkType[];
 };

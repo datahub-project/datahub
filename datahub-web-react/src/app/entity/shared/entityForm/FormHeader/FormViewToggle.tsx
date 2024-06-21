@@ -36,17 +36,9 @@ const ButtonText = styled.span`
 
 export default function FormViewToggle() {
     const {
-        form: {
-            formView,
-            setFormView,
-        },
-        prompt: {
-            prompts,
-            setSelectedPromptId,
-        },
-        entity: {
-            setSelectedEntities
-        }
+        form: { formView, setFormView },
+        prompt: { prompts, setSelectedPromptId },
+        entity: { setSelectedEntities },
     } = useEntityFormContext();
 
     function toggleFormView() {

@@ -14,83 +14,85 @@ import { decodeJson, SnowflakeConnectionForm } from './Form';
 import { TestConnection } from './TestConnection';
 
 const Wrapper = styled.div`
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 `;
 
 const SelectWrapper = styled.div`
-	display: flex;
-	flex-direction: row;
-	gap: 16px;
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
 `;
 
 interface Props {
-	handleChange: (value: any) => void;
+    handleChange: (value: any) => void;
 }
 
 export const SnowflakeConnectionSelector = ({ handleChange }: Props) => {
-	const [selectedConnection, setSelectedConnection] = useState<string | undefined>(undefined);
-	const [configValues, setConfigValues] = useState<any>({}); // Config values for the selected connection
+    const [selectedConnection, setSelectedConnection] = useState<string | undefined>(undefined);
+    const [configValues, setConfigValues] = useState<any>({}); // Config values for the selected connection
 
-	const selectConnection = (value: string) => {
-		setSelectedConnection(value);
-	}
+    const selectConnection = (value: string) => {
+        setSelectedConnection(value);
+    };
 
-	// Get list of connections
-	const { data, loading } = useGetSearchResultsForMultipleQuery({
-		variables: {
-			input: {
-				types: [EntityType.DatahubConnection],
-				query: '*',
-				start: 0,
-				count: 50,
-				orFilters: [{ and: [{ field: PLATFORM_FILTER_NAME, values: [PLATFORM] }] }],
-			},
-		},
-	});
+    // Get list of connections
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
+        variables: {
+            input: {
+                types: [EntityType.DatahubConnection],
+                query: '*',
+                start: 0,
+                count: 50,
+                orFilters: [{ and: [{ field: PLATFORM_FILTER_NAME, values: [PLATFORM] }] }],
+            },
+        },
+    });
 
-	// Connections from result
-	const connections = data?.searchAcrossEntities?.searchResults?.map((result) => result.entity);
+    // Connections from result
+    const connections = data?.searchAcrossEntities?.searchResults?.map((result) => result.entity);
 
-	// Select options
-	const options = [{ value: 'new', label: 'New Connection' }];
+    // Select options
+    const options = [{ value: 'new', label: 'New Connection' }];
 
-	// Format select options
-	connections?.map((connection: any) => options.push({
-		value: connection?.urn,
-		label: connection?.details?.name,
-	}));
+    // Format select options
+    connections?.map((connection: any) =>
+        options.push({
+            value: connection?.urn,
+            label: connection?.details?.name,
+        }),
+    );
 
-	// Fetch connection if when selected
-	useConnectionQuery({
-		variables: {
-			urn: selectedConnection || '',
-		},
-		onCompleted: (connData) => {
-			if (connData?.connection?.details?.json) {
-				const json = decodeJson(connData.connection.details.json.blob);
-				setConfigValues(json);
-				handleChange(json);
-			}
-		},
-		skip: !selectedConnection,
-	});
+    // Fetch connection if when selected
+    useConnectionQuery({
+        variables: {
+            urn: selectedConnection || '',
+        },
+        onCompleted: (connData) => {
+            if (connData?.connection?.details?.json) {
+                const json = decodeJson(connData.connection.details.json.blob);
+                setConfigValues(json);
+                handleChange(json);
+            }
+        },
+        skip: !selectedConnection,
+    });
 
-	return (
-		<Wrapper>
-			<SelectWrapper>
-				<Select
-					style={{ flex: 1 }}
-					options={options}
-					placeholder="Select a connection"
-					onChange={(value) => selectConnection(value)}
-					loading={loading}
-					showSearch
-				/>
-				{selectedConnection && selectedConnection !== 'new' && <TestConnection configValues={configValues} />}
-			</SelectWrapper>
-			{selectedConnection === 'new' && <SnowflakeConnectionForm />}
-		</Wrapper>
-	);
+    return (
+        <Wrapper>
+            <SelectWrapper>
+                <Select
+                    style={{ flex: 1 }}
+                    options={options}
+                    placeholder="Select a connection"
+                    onChange={(value) => selectConnection(value)}
+                    loading={loading}
+                    showSearch
+                />
+                {selectedConnection && selectedConnection !== 'new' && <TestConnection configValues={configValues} />}
+            </SelectWrapper>
+            {selectedConnection === 'new' && <SnowflakeConnectionForm />}
+        </Wrapper>
+    );
 };

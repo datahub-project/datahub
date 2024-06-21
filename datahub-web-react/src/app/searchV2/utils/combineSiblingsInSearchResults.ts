@@ -7,7 +7,9 @@ type UncombinedSeaerchResults = {
     paths?: EntityPath[];
 };
 
-export type CombinedSearchResult = CombinedEntity & Pick<UncombinedSeaerchResults, 'matchedFields'> & Pick<UncombinedSeaerchResults, 'paths'>;
+export type CombinedSearchResult = CombinedEntity &
+    Pick<UncombinedSeaerchResults, 'matchedFields'> &
+    Pick<UncombinedSeaerchResults, 'paths'>;
 
 export function combineSiblingsInSearchResults(
     searchResults: Array<UncombinedSeaerchResults> | undefined = [],

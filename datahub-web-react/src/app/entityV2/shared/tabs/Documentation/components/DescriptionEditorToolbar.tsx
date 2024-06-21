@@ -2,7 +2,7 @@ import styled from 'styled-components';
 import { Button } from 'antd';
 import React from 'react';
 import TabToolbar from '../../../components/styled/TabToolbar';
-import { REDESIGN_COLORS,ANTD_GRAY } from '../../../constants';
+import { REDESIGN_COLORS, ANTD_GRAY } from '../../../constants';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: flex-end !important;

@@ -111,7 +111,6 @@ export const DomainLink = ({ domain, name, closable, onClose, tagStyle, readOnly
                     tagStyle={tagStyle}
                     fontSize={fontSize}
                 />
-              
             </DomainLinkContainer>
         </HoverEntityTooltip>
     );

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Typography } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
@@ -31,7 +30,6 @@ const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
     margin-right: 12px;
 `;
 
-
 type Props = {
     selected: Partial<SchemaAssertionField>[];
     onChange: (newFields: Partial<SchemaAssertionField>[]) => void;
@@ -47,12 +45,16 @@ export const SchemaBuilder = ({ selected, onChange, disabled, options }: Props) 
         <>
             <Typography.Title level={5}>Expected Columns</Typography.Title>
             <Typography.Paragraph type="secondary">
-                Select the set of expected columns. These will be compared against the actual columns whenever changes are detected. This determines whether the assertion is passing or failing.
+                Select the set of expected columns. These will be compared against the actual columns whenever changes
+                are detected. This determines whether the assertion is passing or failing.
             </Typography.Paragraph>
             <SchemaBuilderTable selected={selected} onChange={onChange} disabled={disabled} options={options} />
             <Tip>
                 <StyledInfoCircleOutlined />
-                <TipText>The schema collected during ingestion syncs will be used to evaluate this assertion. Be sure to run ingestion syncs on a regular basis to keep your schemas up to date.</TipText>
+                <TipText>
+                    The schema collected during ingestion syncs will be used to evaluate this assertion. Be sure to run
+                    ingestion syncs on a regular basis to keep your schemas up to date.
+                </TipText>
             </Tip>
         </>
     );

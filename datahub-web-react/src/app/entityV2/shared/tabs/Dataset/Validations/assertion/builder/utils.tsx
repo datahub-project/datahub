@@ -313,19 +313,31 @@ const allSourceOptions: SourceOption[] = [
         type: DatasetFreshnessSourceType.AuditLog,
         name: 'Audit Log',
         description: 'Use operations logged in platform audit logs to determine whether the asset has changed',
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
     {
         type: DatasetFreshnessSourceType.InformationSchema,
         name: 'Information Schema',
         description: 'Use the information schema or system metadata tables to determine whether the asset has changed',
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
     {
         type: DatasetFreshnessSourceType.FileMetadata,
         name: 'File Metadata',
         description: "Use the underlying file system's metadata to determine whether the asset has changed",
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
     {
         type: DatasetFreshnessSourceType.FieldValue,
@@ -338,7 +350,11 @@ const allSourceOptions: SourceOption[] = [
             kind: FreshnessFieldKind.LastModified,
             dataTypes: LAST_MODIFIED_FIELD_TYPES,
         },
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
     {
         type: DatasetFreshnessSourceType.FieldValue,
@@ -358,7 +374,11 @@ const allSourceOptions: SourceOption[] = [
         name: 'DataHub Operation',
         description:
             'Use the DataHub "Operation" Aspect to determine whether the table has changed. This avoids the requirement to contact your data platform to determine evaluate Freshness Assertions. Note that this relies on operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (reportOperation).',
-        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron, FreshnessAssertionScheduleType.SinceTheLastCheck],
+        allowedScheduleTypes: [
+            FreshnessAssertionScheduleType.FixedInterval,
+            FreshnessAssertionScheduleType.Cron,
+            FreshnessAssertionScheduleType.SinceTheLastCheck,
+        ],
     },
 ];
 
@@ -380,21 +400,21 @@ export const builderStateToSharedFreshnessAssertionVariables = (builderState: As
                     : undefined,
             fixedInterval:
                 builderState.assertion?.freshnessAssertion?.schedule?.type ===
-                    FreshnessAssertionScheduleType.FixedInterval
+                FreshnessAssertionScheduleType.FixedInterval
                     ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
                     : undefined,
         },
         filter: builderState.assertion?.freshnessAssertion?.filter
             ? {
-                type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
-                sql: builderState.assertion?.freshnessAssertion?.filter.sql,
-            }
+                  type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
+                  sql: builderState.assertion?.freshnessAssertion?.filter.sql,
+              }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                onFailure: builderState.assertion?.actions?.onFailure || [],
-            }
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
             : undefined,
     });
 };
@@ -464,15 +484,15 @@ export const builderStateToSharedVolumeAssertionVariables = (builderState: Asser
         description: builderState.assertion?.description,
         filter: builderState.assertion?.volumeAssertion?.filter
             ? {
-                type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
-                sql: builderState.assertion?.volumeAssertion?.filter.sql,
-            }
+                  type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
+                  sql: builderState.assertion?.volumeAssertion?.filter.sql,
+              }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                onFailure: builderState.assertion?.actions?.onFailure || [],
-            }
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
             : undefined,
         ...volumeTypeVariables,
     });
@@ -502,26 +522,26 @@ export const builderStateToSharedSqlAssertionVariables = (builderState: Assertio
         parameters:
             builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
                 ? {
-                    minValue: {
-                        type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
-                        value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
-                    },
-                    maxValue: {
-                        type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
-                        value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
-                    },
-                }
+                      minValue: {
+                          type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
+                          value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
+                      },
+                      maxValue: {
+                          type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
+                          value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
+                      },
+                  }
                 : {
-                    value: {
-                        type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
-                        value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
-                    },
-                },
+                      value: {
+                          type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
+                          value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
+                      },
+                  },
         actions: builderState.assertion?.actions
             ? {
-                onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                onFailure: builderState.assertion?.actions?.onFailure || [],
-            }
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
             : undefined,
     });
 };
@@ -553,15 +573,15 @@ export const builderStateToSharedFieldAssertionVariables = (builderState: Assert
                 : undefined,
         filter: builderState.assertion?.fieldAssertion?.filter
             ? {
-                type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
-                sql: builderState.assertion?.fieldAssertion?.filter.sql,
-            }
+                  type: builderState.assertion?.fieldAssertion?.filter.type as DatasetFilterType,
+                  sql: builderState.assertion?.fieldAssertion?.filter.sql,
+              }
             : undefined,
         actions: builderState.assertion?.actions
             ? {
-                onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                onFailure: builderState.assertion?.actions?.onFailure || [],
-            }
+                  onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                  onFailure: builderState.assertion?.actions?.onFailure || [],
+              }
             : undefined,
     });
 };
@@ -593,15 +613,14 @@ export const builderStateToUpsertSchemaAssertionMonitorVariables = (builderState
             entityUrn: builderState.entityUrn,
             actions: builderState.assertion?.actions
                 ? {
-                    onSuccess: builderState.assertion?.actions?.onSuccess || [],
-                    onFailure: builderState.assertion?.actions?.onFailure || [],
-                }
+                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                      onFailure: builderState.assertion?.actions?.onFailure || [],
+                  }
                 : undefined,
             evaluationSchedule: builderState.schedule,
         },
     });
 };
-
 
 export const builderStateToTestFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     return {
@@ -745,15 +764,15 @@ export const builderStateToUpdateAssertionMetadataVariables = (
 ): UpdateAssertionMetadataMutationVariables | undefined => {
     return builderState.assertion?.actions && builderState.assertion?.urn
         ? {
-            urn: builderState.assertion.urn,
-            input: {
-                description: builderState.assertion.description,
-                actions: {
-                    onSuccess: builderState.assertion.actions.onSuccess || [],
-                    onFailure: builderState.assertion.actions.onFailure || [],
-                },
-            },
-        }
+              urn: builderState.assertion.urn,
+              input: {
+                  description: builderState.assertion.description,
+                  actions: {
+                      onSuccess: builderState.assertion.actions.onSuccess || [],
+                      onFailure: builderState.assertion.actions.onFailure || [],
+                  },
+              },
+          }
         : undefined;
 };
 
@@ -812,7 +831,7 @@ const convertAssertionToBuilderState = (assertion: Assertion): AssertionMonitorB
         schemaAssertion: {
             compatibility: assertion.info?.schemaAssertion?.compatibility,
             fields: assertion.info?.schemaAssertion?.fields,
-        }
+        },
     };
 };
 

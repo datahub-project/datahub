@@ -6,14 +6,16 @@ import { AssertionResult, AssertionResultType } from '../../../../../../../../..
 
 type Props = {
     result: AssertionResult;
-    isTest?: boolean; 
+    isTest?: boolean;
 };
 
 export const RunAssertionResult = ({ result, isTest = false }: Props) => {
     if (result.type === AssertionResultType.Init) {
         return (
             <Typography.Text>
-                {!isTest ? 'This assertion is initialized. An assertion result will be available on the next run.' : 'Unable to test this assertion because it requires more information to produce a passing or failing result.'}
+                {!isTest
+                    ? 'This assertion is initialized. An assertion result will be available on the next run.'
+                    : 'Unable to test this assertion because it requires more information to produce a passing or failing result.'}
             </Typography.Text>
         );
     }

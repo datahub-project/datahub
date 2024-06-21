@@ -585,7 +585,6 @@ export interface AssertionMonitorBuilderState {
             } | null;
         } | null;
 
-
         /**
          * Schema Field Assertion
          */
@@ -598,23 +597,24 @@ export interface AssertionMonitorBuilderState {
             /**
              * Required if type is 'FIELD_VALUES'
              */
-            fields?: {
-                /**
-                 * The V1 field path
-                 */
-                path?: string;
+            fields?:
+                | {
+                      /**
+                       * The V1 field path
+                       */
+                      path?: string;
 
-                /**
-                 * The standard data type
-                 */
-                type?: SchemaFieldDataType;
+                      /**
+                       * The standard data type
+                       */
+                      type?: SchemaFieldDataType;
 
-                /**
-                 * The native data type (optional)
-                 */
-                nativeType?: string | null;
-
-            }[] | null;
+                      /**
+                       * The native data type (optional)
+                       */
+                      nativeType?: string | null;
+                  }[]
+                | null;
         } | null;
 
         /**
@@ -785,7 +785,6 @@ export type StepProps = {
     submit: () => Promise<void>;
     cancel: () => void;
 };
-
 
 /**
  * State required to use the assertion actions form.

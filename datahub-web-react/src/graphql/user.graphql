@@ -227,5 +227,6 @@ mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) 
 
 query getUserOwnedAssets($urn: String!) {
     searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: [$urn] }] }) {
-    ...searchResults
-}}
+        ...searchResults
+    }
+}

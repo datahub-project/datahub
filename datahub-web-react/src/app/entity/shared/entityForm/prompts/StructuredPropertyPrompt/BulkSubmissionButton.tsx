@@ -15,7 +15,9 @@ interface Props {
 }
 
 export default function BulkSubmissionButton({ isDisabled, submitResponse }: Props) {
-    const { entity: { selectedEntities } } = useEntityFormContext();
+    const {
+        entity: { selectedEntities },
+    } = useEntityFormContext();
 
     return (
         <StyledButton disabled={isDisabled} onClick={submitResponse}>

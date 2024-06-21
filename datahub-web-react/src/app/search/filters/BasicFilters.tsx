@@ -89,7 +89,11 @@ export default function BasicFilters({
     onClearFilters,
     showAdvancedFilters,
 }: Props) {
-    const { isInFormContext, filter: { formResponsesFilters }, form: { formView } } = useEntityFormContext();
+    const {
+        isInFormContext,
+        filter: { formResponsesFilters },
+        form: { formView },
+    } = useEntityFormContext();
     const userContext = useUserContext();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;

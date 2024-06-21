@@ -26,7 +26,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
 import { DataPlatform } from '../../../types.generated';
 
-const Count = styled(Typography.Text) <{ $isPlatformBrowse: boolean; isOpen: boolean }>`
+const Count = styled(Typography.Text)<{ $isPlatformBrowse: boolean; isOpen: boolean }>`
     font-size: 10px;
     color: ${(props) => props.color};
     padding: 2px 8px;

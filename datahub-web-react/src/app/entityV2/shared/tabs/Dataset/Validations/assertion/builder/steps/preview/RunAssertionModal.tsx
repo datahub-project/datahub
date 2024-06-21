@@ -20,7 +20,7 @@ const Row = styled.div`
 `;
 
 type Props = {
-    urn: string; 
+    urn: string;
     visible: boolean;
     handleClose: () => void;
 };
@@ -33,18 +33,18 @@ export const RunAssertionModal = ({ urn, visible, handleClose }: Props) => {
             variables: {
                 urn,
             },
-        })    
+        });
     };
 
     useEffect(() => {
-        // Run assertion on first load. 
+        // Run assertion on first load.
         if (visible) {
             runAssertion();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visible]);
 
-    const result = data?.runAssertion; 
+    const result = data?.runAssertion;
 
     return (
         <Modal
@@ -70,10 +70,9 @@ export const RunAssertionModal = ({ urn, visible, handleClose }: Props) => {
             )}
             {error && (
                 <Typography.Paragraph>
-                    {(error?.networkError as any)?.statusCode === 503 
-                        ? 'Oops! The assertion has exceeded the real-time results timeout (30s). Don\'t worry - we\'ve still kicked off the assertion run. Check back soon to view the results!' 
-                        : 'Oops. An unknown error occurred while running the assertion! Try again later.'
-                    }
+                    {(error?.networkError as any)?.statusCode === 503
+                        ? "Oops! The assertion has exceeded the real-time results timeout (30s). Don't worry - we've still kicked off the assertion run. Check back soon to view the results!"
+                        : 'Oops. An unknown error occurred while running the assertion! Try again later.'}
                 </Typography.Paragraph>
             )}
             {loading && <LoadingIcon spin />}

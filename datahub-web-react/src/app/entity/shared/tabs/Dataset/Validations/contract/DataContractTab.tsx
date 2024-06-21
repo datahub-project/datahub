@@ -102,7 +102,14 @@ export const DataContractTab = () => {
                         </RightColumn>
                     </Container>
                 </>
-            )) || <DataContractProposal refetch={refetch} showContractBuilder={() => setShowContractBuilder(true)} entityUrn={urn} entityType={entityType}/>}
+            )) || (
+                <DataContractProposal
+                    refetch={refetch}
+                    showContractBuilder={() => setShowContractBuilder(true)}
+                    entityUrn={urn}
+                    entityType={entityType}
+                />
+            )}
             {showContractBuilder && (
                 <DataContractBuilderModal
                     initialState={createBuilderState(data?.dataset?.contract as any)}

@@ -51,7 +51,8 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
         shuffleFlag && prePageType !== 'ERModelRelationship'
             ? ermodelrelationData?.properties?.source?.urn
             : ermodelrelationData?.properties?.destination?.urn;
-    const ermodelrelationHeader = ermodelrelationData?.editableProperties?.name || ermodelrelationData?.properties?.name || '';
+    const ermodelrelationHeader =
+        ermodelrelationData?.editableProperties?.name || ermodelrelationData?.properties?.name || '';
     function getFieldMap(): ERModelRelationRecord[] {
         const newData = [] as ERModelRelationRecord[];
         if (shuffleFlag && prePageType !== 'ERModelRelationship') {
@@ -147,7 +148,12 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                         <Row>
                             <p className="all-table-heading">{ermodelrelationHeader}</p>
                             {prePageType === 'Dataset' && (
-                                <Button type="link" onClick={() => handleViewEntity(EntityType.ErModelRelationship, ermodelrelationData?.urn)}>
+                                <Button
+                                    type="link"
+                                    onClick={() =>
+                                        handleViewEntity(EntityType.ErModelRelationship, ermodelrelationData?.urn)
+                                    }
+                                >
                                     <div className="div-view">
                                         View ER-Model-Relationship <RightOutlined />{' '}
                                     </div>

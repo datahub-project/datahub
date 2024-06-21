@@ -45,7 +45,7 @@ export const AssertionsSummary = ({ total }: Props) => {
                 searchFlags: {
                     skipCache: true,
                 },
-                viewUrn
+                viewUrn,
             },
         },
     });

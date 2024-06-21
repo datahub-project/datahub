@@ -27,11 +27,11 @@ function useDeleteGlossaryEntity() {
                     content: 'Deleting...',
                     duration: 2,
                 });
-                    setHasBeenDeleted(true);
-                    message.success({
-                        content: `Deleted ${entityRegistry.getEntityName(entityType)}!`,
-                        duration: 2,
-                    });
+                setHasBeenDeleted(true);
+                message.success({
+                    content: `Deleted ${entityRegistry.getEntityName(entityType)}!`,
+                    duration: 2,
+                });
             });
     }
 

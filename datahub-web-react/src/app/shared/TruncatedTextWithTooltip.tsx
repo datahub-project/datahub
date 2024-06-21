@@ -18,7 +18,13 @@ export const TruncatedTextWithTooltip = ({ text, maxLength, tooltipOptions, rend
 
     return (
         <Tooltip title={text.length > maxLength ? text : undefined} {...tooltipOptions}>
-            {renderText ? renderText(truncatedText) : <Typography.Text style={props.style} {...props}>{truncatedText}</Typography.Text>}
+            {renderText ? (
+                renderText(truncatedText)
+            ) : (
+                <Typography.Text style={props.style} {...props}>
+                    {truncatedText}
+                </Typography.Text>
+            )}
         </Tooltip>
     );
 };

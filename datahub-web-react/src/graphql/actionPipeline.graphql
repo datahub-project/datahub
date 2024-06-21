@@ -1,59 +1,59 @@
 # Ref: https://github.com/acryldata/datahub-fork/blob/acryl-main/datahub-graphql-core/src/main/resources/actions_pipeline.graphql#L22
 
 fragment ActionInfo on ActionPipeline {
-  urn
-  status
-  details {
-    type
-    name
-    config {
-      recipe
-      executorId
-      version
-      debugMode
+    urn
+    status
+    details {
+        type
+        name
+        config {
+            recipe
+            executorId
+            version
+            debugMode
+        }
     }
-  }
 }
 
 query listActionPipelines($input: ListActionPipelinesInput!) {
-  listActionPipelines(input: $input) {
-    start
-    count
-    total
-    actionPipelines {
-      ...ActionInfo
+    listActionPipelines(input: $input) {
+        start
+        count
+        total
+        actionPipelines {
+            ...ActionInfo
+        }
     }
-  }
 }
 
 query getActionPipeline($urn: String!) {
-  actionPipeline(urn: $urn) {
-    ...ActionInfo
-  }
+    actionPipeline(urn: $urn) {
+        ...ActionInfo
+    }
 }
 
 query getActionPipelineStatus($urn: String!) {
-  actionPipeline(urn: $urn) {
-		status
-  }
+    actionPipeline(urn: $urn) {
+        status
+    }
 }
 
 mutation createActionPipeline($input: UpdateActionPipelineInput!) {
-	createActionPipeline(input: $input)
+    createActionPipeline(input: $input)
 }
 
 mutation upsertActionPipeline($urn: String!, $input: UpdateActionPipelineInput!) {
-	upsertActionPipeline(urn: $urn, input: $input)
+    upsertActionPipeline(urn: $urn, input: $input)
 }
 
 mutation stopActionPipeline($urn: String!) {
-	stopActionPipeline(urn: $urn)
+    stopActionPipeline(urn: $urn)
 }
 
 mutation startActionPipeline($urn: String!) {
-	startActionPipeline(urn: $urn)
+    startActionPipeline(urn: $urn)
 }
 
 mutation rollbackActionPipeline($urn: String!) {
-	rollbackActionPipeline(urn: $urn)
+    rollbackActionPipeline(urn: $urn)
 }

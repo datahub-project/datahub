@@ -69,7 +69,7 @@ export default function TestResultsModal({
         {
             field: resultType === TestResultType.Success ? 'passingTests' : 'failingTests',
             values: [urn],
-        }
+        },
     ];
 
     if (testDefinitionMd5 !== null && testDefinitionMd5 !== '') {
@@ -78,7 +78,6 @@ export default function TestResultsModal({
             values: [testDefinitionMd5],
         });
     }
-
 
     return (
         <StyledModal

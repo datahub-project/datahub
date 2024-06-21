@@ -1,6 +1,12 @@
 import { EntityType } from '../../../types.generated';
 import { glossaryNode1, glossaryNode3, glossaryTerm1 } from '../../../Mocks';
-import { getParentNodeToUpdate, getGlossaryRootToUpdate, ROOT_NODES, ROOT_TERMS,updateGlossarySidebar } from '../utils';
+import {
+    getParentNodeToUpdate,
+    getGlossaryRootToUpdate,
+    ROOT_NODES,
+    ROOT_TERMS,
+    updateGlossarySidebar,
+} from '../utils';
 
 const glossaryTermWithParent = {
     ...glossaryTerm1,
@@ -43,7 +49,7 @@ describe('glossary utils tests', () => {
         const parentNodesToUpdate = ['sampleParentNode1', 'sampleParentNode2'];
         const urnsToUpdate = ['urnsSample1'];
         const setUrnsToUpdate = vi.fn();
-        updateGlossarySidebar(parentNodesToUpdate,urnsToUpdate,setUrnsToUpdate);
+        updateGlossarySidebar(parentNodesToUpdate, urnsToUpdate, setUrnsToUpdate);
         expect(setUrnsToUpdate).toHaveBeenCalledWith([...urnsToUpdate, ...parentNodesToUpdate]);
     });
 });

@@ -1,114 +1,115 @@
 // Query strings for the charts in the Governance Dashboard
 export const sqlQueries = (
-	daysSinceDate: string,
-	formId?: string,
-	assigneeId?: string,
-	domainId?: string,
-	snapshotDate?: string,
-	tab?: string,
-	series?: number,
+    daysSinceDate: string,
+    formId?: string,
+    assigneeId?: string,
+    domainId?: string,
+    snapshotDate?: string,
+    tab?: string,
+    series?: number,
 ) => {
-	// Define our entity type based on tab selection
-	let entity;
-	if (tab === 'byForm') entity = 'form';
-	if (tab === 'byAssignee') entity = 'assignee';
-	if (tab === 'byDomain') entity = 'domain';
+    // Define our entity type based on tab selection
+    let entity;
+    if (tab === 'byForm') entity = 'form';
+    if (tab === 'byAssignee') entity = 'assignee';
+    if (tab === 'byDomain') entity = 'domain';
 
-	// Builds the query based on the entity
-	// Reduces code duplication
-	const queryBuilder = (query: string) => {
-		let updatedQuery = query;
-		const whereIndex = updatedQuery.indexOf('where') + 5;
+    // Builds the query based on the entity
+    // Reduces code duplication
+    const queryBuilder = (query: string) => {
+        let updatedQuery = query;
+        const whereIndex = updatedQuery.indexOf('where') + 5;
 
-		const injectWhere = (whereItem: string) =>
-			`${updatedQuery.slice(0, whereIndex)} ${whereItem} and ${query.slice(whereIndex)}`;
+        const injectWhere = (whereItem: string) =>
+            `${updatedQuery.slice(0, whereIndex)} ${whereItem} and ${query.slice(whereIndex)}`;
 
-		if (entity === 'form') updatedQuery = injectWhere(`form_urn = '${formId}'`);
-		if (entity === 'assignee') updatedQuery = injectWhere(`assignee_urn = '${assigneeId}'`);
-		if (entity === 'domain') {
-			if (domainId === null || domainId === 'null' || domainId === '') {
-				updatedQuery = injectWhere('domain_urn is null');
-			} else {
-				updatedQuery = injectWhere(`domain_urn = '${domainId}'`);
-			}
-		}
+        if (entity === 'form') updatedQuery = injectWhere(`form_urn = '${formId}'`);
+        if (entity === 'assignee') updatedQuery = injectWhere(`assignee_urn = '${assigneeId}'`);
+        if (entity === 'domain') {
+            if (domainId === null || domainId === 'null' || domainId === '') {
+                updatedQuery = injectWhere('domain_urn is null');
+            } else {
+                updatedQuery = injectWhere(`domain_urn = '${domainId}'`);
+            }
+        }
 
-		return updatedQuery;
-	};
+        return updatedQuery;
+    };
 
-	// Date truncation
-	const dateTrunc = () => {
-		let trunc = 'day'; // last 7 days
-		if (series === 30) trunc = 'day'; // last 30 days
-		if (series === 90) trunc = 'week'; // last 90 days
-		if (series === 365) trunc = 'month'; // last 365 days
-		return trunc;
-	}
+    // Date truncation
+    const dateTrunc = () => {
+        let trunc = 'day'; // last 7 days
+        if (series === 30) trunc = 'day'; // last 30 days
+        if (series === 90) trunc = 'week'; // last 90 days
+        if (series === 365) trunc = 'month'; // last 365 days
+        return trunc;
+    };
 
-	// Reusable select for percentage and count stats
-	const percentAndCount = (status: string) => (`
+    // Reusable select for percentage and count stats
+    const percentAndCount = (status: string) => `
 		count(distinct(case when form_status = '${status}' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
 		count(distinct(case when form_status = '${status}' then asset_urn end)) as completed_asset_count,
 		count(distinct(asset_urn)) as assigned_asset_count
-	`);
+	`;
 
-	// Reusable select for trend stats
-	const trend = `
+    // Reusable select for trend stats
+    const trend = `
 		form_assigned_date as date,
 		count(distinct(asset_urn)) as value
 	`;
 
-	// Reusable select aggregate for status categories
-	const statusAsCategories = `
+    // Reusable select aggregate for status categories
+    const statusAsCategories = `
 		count(distinct(case when form_status = 'complete' then asset_urn end)) as "Completed",
 		count(distinct(case when form_status = 'in_progress' then asset_urn end)) as "In Progress",
 		count(distinct(case when form_status = 'not_started' then asset_urn end)) as "Not Started"
 	`;
 
-	// Reusable select for percentage completed
-	const percentCompleted = `
+    // Reusable select for percentage completed
+    const percentCompleted = `
 		count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent
 	`;
 
-	// Reusable orderBy for top performing
-	const orderByTopPerforming = `
+    // Reusable orderBy for top performing
+    const orderByTopPerforming = `
 		count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) desc
 	`;
 
-	// Reusable orderBy for least performing
-	const orderByLeastPerforming = `
+    // Reusable orderBy for least performing
+    const orderByLeastPerforming = `
 		count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) asc
 	`;
 
-	// Query skip logic
-	const skip = () => {
-		const base = !snapshotDate || !daysSinceDate;
-		if (entity === 'form') return base || !formId;
-		if (entity === 'assignee') return base || !assigneeId;
-		if (entity === 'domain') return base || !domainId;
-		return base;
-	}
+    // Query skip logic
+    const skip = () => {
+        const base = !snapshotDate || !daysSinceDate;
+        if (entity === 'form') return base || !formId;
+        if (entity === 'assignee') return base || !assigneeId;
+        if (entity === 'domain') return base || !domainId;
+        return base;
+    };
 
-	return ({
-		/* 
-		* Chart Queries
-		*/
+    return {
+        /*
+         * Chart Queries
+         */
 
-		// Completed Trend Stat Details
-		// TODO: Validate use of `snapshot_date` vs `form_assigned_date`
-		completedTrendPercentAndCount: queryBuilder(
-			`select
+        // Completed Trend Stat Details
+        // TODO: Validate use of `snapshot_date` vs `form_assigned_date`
+        completedTrendPercentAndCount: queryBuilder(
+            `select
 				${percentAndCount('complete')}
 			from
 				'{{ table }}'
 			where
 				snapshot_date >= '${daysSinceDate}'
 				and form_assigned_date >= '${daysSinceDate}';
-			`),
+			`,
+        ),
 
-		// Completed Trend Line Chart
-		completedTrend: queryBuilder(
-			`select
+        // Completed Trend Line Chart
+        completedTrend: queryBuilder(
+            `select
 				${trend}
 			from
 				'{{ table }}'
@@ -118,22 +119,24 @@ export const sqlQueries = (
 				and form_status = 'complete'
 			group by
 				asset_urn, form_assigned_date;
-			`),
+			`,
+        ),
 
-		// In Progress Trend Stat Details
-		inProgressTrendPercentAndCount: queryBuilder(
-			`select
+        // In Progress Trend Stat Details
+        inProgressTrendPercentAndCount: queryBuilder(
+            `select
 				${percentAndCount('in_progress')}
 			from
 				'{{ table }}'
 			where
 				snapshot_date >= '${daysSinceDate}'
 				and form_assigned_date >= '${daysSinceDate}';
-			`),
+			`,
+        ),
 
-		// In Progress Trend Line Chart
-		inProgressTrend: queryBuilder(
-			`select
+        // In Progress Trend Line Chart
+        inProgressTrend: queryBuilder(
+            `select
 				${trend}
 			from
 				'{{ table }}'
@@ -143,22 +146,24 @@ export const sqlQueries = (
 				and form_status = 'in_progress'
 			group by
 				asset_urn, form_assigned_date;
-			`),
+			`,
+        ),
 
-		// Not Started Trend Stat Details
-		notStartedTrendPercentAndCount: queryBuilder(
-			`select
+        // Not Started Trend Stat Details
+        notStartedTrendPercentAndCount: queryBuilder(
+            `select
 				${percentAndCount('not_started')}
 			from
 				'{{ table }}'
 			where
 				snapshot_date >= '${daysSinceDate}'
 				and form_assigned_date >= '${daysSinceDate}';
-			`),
+			`,
+        ),
 
-		// Not Started Trend Line Chart
-		notStartedTrend: queryBuilder(
-			`select
+        // Not Started Trend Line Chart
+        notStartedTrend: queryBuilder(
+            `select
 				${trend}
 			from
 				'{{ table }}'
@@ -168,12 +173,13 @@ export const sqlQueries = (
 				and form_status = 'not_started'
 			group by
 				asset_urn, form_assigned_date;
-			`),
+			`,
+        ),
 
-		// Status of Assets Bar Chart
-		// TODO: Explore date (by month) aggregation for > 90 days
-		docStatusByDate: queryBuilder(
-			`select
+        // Status of Assets Bar Chart
+        // TODO: Explore date (by month) aggregation for > 90 days
+        docStatusByDate: queryBuilder(
+            `select
 				DATE_TRUNC('${dateTrunc()}', form_assigned_date) as 'date',
 				${statusAsCategories}
 			from
@@ -184,12 +190,13 @@ export const sqlQueries = (
 				and assignee_urn is not null
 			group by
 				DATE_TRUNC('${dateTrunc()}', form_assigned_date)
-			`),
-		//			form_assigned_date;
+			`,
+        ),
+        //			form_assigned_date;
 
-		// Forms Bar Chart
-		docProgressByForm: queryBuilder(
-			`select
+        // Forms Bar Chart
+        docProgressByForm: queryBuilder(
+            `select
 				form_urn as 'form',
 				${statusAsCategories}
 			from
@@ -202,11 +209,12 @@ export const sqlQueries = (
 				form_urn
 			order by
 				count(distinct(asset_urn)) asc;
-			`),
+			`,
+        ),
 
-		// Table view of form performance
-		completionPerformanceByForm: queryBuilder(
-			`select
+        // Table view of form performance
+        completionPerformanceByForm: queryBuilder(
+            `select
 				form_urn as 'form',
 				${statusAsCategories},
 				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
@@ -218,11 +226,12 @@ export const sqlQueries = (
 				and assignee_urn is not null
 			group by
 				form_urn;
-			`),
+			`,
+        ),
 
-		// List of Top Performing Forms
-		formTopPerforming: queryBuilder(
-			`select
+        // List of Top Performing Forms
+        formTopPerforming: queryBuilder(
+            `select
 				form_urn as 'form',
 				${percentCompleted}
 			from
@@ -237,11 +246,12 @@ export const sqlQueries = (
 				${orderByTopPerforming}
 			limit
 				3;
-			`),
+			`,
+        ),
 
-		// List of Least Performing Forms
-		formLeastPerforming: queryBuilder(
-			`select
+        // List of Least Performing Forms
+        formLeastPerforming: queryBuilder(
+            `select
 				form_urn as 'form',
 				${percentCompleted}
 			from
@@ -256,12 +266,12 @@ export const sqlQueries = (
 				${orderByLeastPerforming}
 			limit
 				3;
-			`),
+			`,
+        ),
 
-		// Question Bar Chart
-		// Does not use the queryBuilder as it only appears on the `form` tab
-		formQuestionProgress:
-			`select
+        // Question Bar Chart
+        // Does not use the queryBuilder as it only appears on the `form` tab
+        formQuestionProgress: `select
 				question_id as 'question',
 				${statusAsCategories}
 			from
@@ -277,9 +287,9 @@ export const sqlQueries = (
 				count(distinct(case when form_status = 'complete' then asset_urn end)) desc;
 			`,
 
-		// Assignee Table View
-		docProgressByAssignee: queryBuilder(
-			`select
+        // Assignee Table View
+        docProgressByAssignee: queryBuilder(
+            `select
 				assignee_urn,
 				${statusAsCategories},
 				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
@@ -291,12 +301,13 @@ export const sqlQueries = (
 				and assignee_urn is not null
 			group by
 				assignee_urn;
-			`),
+			`,
+        ),
 
-		// List of Top Performing Assignees
-		// TODO: Determine how useful/relevant/accurate is this to display?
-		assigneeTopPerforming: queryBuilder(
-			`select
+        // List of Top Performing Assignees
+        // TODO: Determine how useful/relevant/accurate is this to display?
+        assigneeTopPerforming: queryBuilder(
+            `select
 				assignee_urn,
 				${percentCompleted}
 			from
@@ -311,12 +322,13 @@ export const sqlQueries = (
 				${orderByTopPerforming}
 			limit
 				5;
-			`),
+			`,
+        ),
 
-		// List of Least Performing Assignees
-		// TODO: Determine how useful/relevant/accurate is this to display?
-		assigneeLeastPerforming: queryBuilder(
-			`select
+        // List of Least Performing Assignees
+        // TODO: Determine how useful/relevant/accurate is this to display?
+        assigneeLeastPerforming: queryBuilder(
+            `select
 				assignee_urn,
 				${percentCompleted}
 			from
@@ -331,11 +343,12 @@ export const sqlQueries = (
 				${orderByLeastPerforming}
 			limit
 				5;
-			`),
+			`,
+        ),
 
-		// Domain Bar Chart
-		docProgressByDomain: queryBuilder(
-			`select
+        // Domain Bar Chart
+        docProgressByDomain: queryBuilder(
+            `select
 				domain_urn,
 				${statusAsCategories}
 			from
@@ -348,11 +361,12 @@ export const sqlQueries = (
 				domain_urn
 			order by
 				count(distinct(asset_urn)) asc;
-			`),
+			`,
+        ),
 
-		// Table view of form performance
-		completionPerformanceByDomain: queryBuilder(
-			`select
+        // Table view of form performance
+        completionPerformanceByDomain: queryBuilder(
+            `select
 				domain_urn,
 				${statusAsCategories},
 				count(distinct(case when form_status = 'complete' then asset_urn end)) / count(distinct(asset_urn)) as completed_asset_percent,
@@ -364,11 +378,12 @@ export const sqlQueries = (
 				and assignee_urn is not null
 			group by
 				domain_urn;
-			`),
+			`,
+        ),
 
-		// List of Top Performing Domains
-		domainTopPerforming: queryBuilder(
-			`select
+        // List of Top Performing Domains
+        domainTopPerforming: queryBuilder(
+            `select
 				domain_urn,
 				${percentCompleted}
 			from
@@ -383,11 +398,12 @@ export const sqlQueries = (
 				${orderByTopPerforming}
 			limit
 				3;
-			`),
+			`,
+        ),
 
-		// List of Least Performing Domains
-		domainLeastPerforming: queryBuilder(
-			`select
+        // List of Least Performing Domains
+        domainLeastPerforming: queryBuilder(
+            `select
 				domain_urn,
 				${percentCompleted}
 			from
@@ -402,14 +418,14 @@ export const sqlQueries = (
 				${orderByLeastPerforming}
 			limit
 				3;
-			`),
+			`,
+        ),
 
-		/* 
-		* Lists of Entities Queries
-		*/
+        /*
+         * Lists of Entities Queries
+         */
 
-		getFormsWithAnalytics:
-			`select
+        getFormsWithAnalytics: `select
 				form_urn
 			from
 				'{{ table }}'
@@ -420,8 +436,7 @@ export const sqlQueries = (
 				form_urn,
 			`,
 
-		getAssignessWithFormAnalytics:
-			`select
+        getAssignessWithFormAnalytics: `select
 					assignee_urn
 				from
 					'{{ table }}'
@@ -432,8 +447,7 @@ export const sqlQueries = (
 					assignee_urn;
 				`,
 
-		getDomainsWithFormAnalytics:
-			`select
+        getDomainsWithFormAnalytics: `select
 				domain_urn
 			from
 				'{{ table }}'
@@ -444,12 +458,11 @@ export const sqlQueries = (
 				domain_urn;
 			`,
 
-		/*
-		* CSV Query
-		*/
+        /*
+         * CSV Query
+         */
 
-		downloadCSVJSON:
-			`select
+        downloadCSVJSON: `select
 				form_urn,
 				form_assigned_date,
 				form_completed_date,
@@ -465,9 +478,9 @@ export const sqlQueries = (
 			where
 				snapshot_date = '${snapshotDate}'
 				and form_assigned_date >= '${daysSinceDate}'
-				${(entity === 'form' && formId) ? `and form_urn = '${formId}'` : ''}
-				${(entity === 'assignee' && assigneeId) ? `and assignee_urn = '${assigneeId}'` : ''}
-				${(entity === 'domain' && domainId) ? `and domain_urn = '${domainId}'` : ''}
+				${entity === 'form' && formId ? `and form_urn = '${formId}'` : ''}
+				${entity === 'assignee' && assigneeId ? `and assignee_urn = '${assigneeId}'` : ''}
+				${entity === 'domain' && domainId ? `and domain_urn = '${domainId}'` : ''}
 			group by
 				form_urn,
 				form_assigned_date,
@@ -479,9 +492,9 @@ export const sqlQueries = (
 				assignee_urn;
 			`,
 
-		/* 
-		* Query Utils 
-		*/
-		skip: skip(),
-	});
-}
+        /*
+         * Query Utils
+         */
+        skip: skip(),
+    };
+};

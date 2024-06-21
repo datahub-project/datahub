@@ -15,7 +15,12 @@ const useBrowsePagination = ({ skip }: Props) => {
     const type = useEntityType();
     const path = useBrowsePath();
     const sidebarFilters = useSidebarFilters();
-    const { filter: { formFilter }, isInFormContext, shouldRefetch, setShouldRefetch } = useEntityFormContext();
+    const {
+        filter: { formFilter },
+        isInFormContext,
+        shouldRefetch,
+        setShouldRefetch,
+    } = useEntityFormContext();
     const [startToBrowseMap, setStartToBrowseMap] = useState<Record<number, GetBrowseResultsV2Query | undefined>>({});
     const startList = useMemo(
         () =>

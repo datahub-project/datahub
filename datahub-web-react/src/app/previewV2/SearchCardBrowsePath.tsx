@@ -40,7 +40,7 @@ export const PlatformText = styled.div<{
     overflow: hidden;
     display: flex;
     align-items: center;
-    ${(props) => props.$isCompactView ? '12px' : '13px'}
+    ${(props) => (props.$isCompactView ? '12px' : '13px')}
     ${(props) => props.$maxWidth && `max-width: ${props.$maxWidth}px;`}
 `;
 
@@ -120,17 +120,19 @@ function SearchCardBrowsePath(props: Props) {
     const entityTypeIcon =
         getSubTypeIcon(type) || entityRegistry.getIcon(entityType, 16, IconStyleType.ACCENT, '#8d95b1');
 
-    const divider = isCompactView
-        ? (
-            <KeyboardArrowRightOutlinedIcon
-                style={{ fill: REDESIGN_COLORS.TEXT_GREY }}
-            />
-        )
-        : <PlatformDivider>|</PlatformDivider>;
+    const divider = isCompactView ? (
+        <KeyboardArrowRightOutlinedIcon style={{ fill: REDESIGN_COLORS.TEXT_GREY }} />
+    ) : (
+        <PlatformDivider>|</PlatformDivider>
+    );
 
     return (
         <PlatformContentWrapper>
-            <PlatformText $maxWidth={entityTitleWidth} $isCompactView={isCompactView} title={capitalizeFirstLetter(type)}>
+            <PlatformText
+                $maxWidth={entityTitleWidth}
+                $isCompactView={isCompactView}
+                title={capitalizeFirstLetter(type)}
+            >
                 {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
                 <PlatFormTitle>{capitalizeFirstLetter(type)}</PlatFormTitle>
                 {(!!instanceId || !!parentContainers?.length || !!parentEntities?.length) && divider}

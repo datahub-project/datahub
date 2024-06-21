@@ -4,18 +4,19 @@ import styled from 'styled-components';
 import { Divider, Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
-import {
-    Assertion,
-    AssertionResultType,
-    AssertionRunEvent,
-} from '../../../../../../../../../../types.generated';
+import { Assertion, AssertionResultType, AssertionRunEvent } from '../../../../../../../../../../types.generated';
 import { AssertionResultPill } from '../../summary/shared/AssertionResultPill';
 import { PrimaryButton } from '../../../builder/details/PrimaryButton';
 import { isExternalAssertion } from '../isExternalAssertion';
 import { ProviderSummarySection } from '../../summary/schedule/ProviderSummarySection';
 import { ANTD_GRAY } from '../../../../../../../constants';
 import { toReadableLocalDateTimeString } from '../utils';
-import { ResultStatusType, getDetailedErrorMessage, getFormattedExpectedResultText, getFormattedReasonText } from '../../summary/shared/resultMessageUtils';
+import {
+    ResultStatusType,
+    getDetailedErrorMessage,
+    getFormattedExpectedResultText,
+    getFormattedReasonText,
+} from '../../summary/shared/resultMessageUtils';
 
 const HeaderRow = styled.div`
     display: flex;
@@ -176,12 +177,18 @@ export const AssertionResultPopoverContent = ({
             {hasExternalPlatform ? (
                 <>
                     {/* Show the native results if it's an external platform, so the customers can see things like 'result' that they've emitted into DH */}
-                    {result?.nativeResults?.length ? [
-                        <ThinDivider />,
-                        <PlatformRow>
-                            {result.nativeResults.map(entry => <div><Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}</div>)}
-                        </PlatformRow>
-                    ] : null}
+                    {result?.nativeResults?.length
+                        ? [
+                              <ThinDivider />,
+                              <PlatformRow>
+                                  {result.nativeResults.map((entry) => (
+                                      <div>
+                                          <Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}
+                                      </div>
+                                  ))}
+                              </PlatformRow>,
+                          ]
+                        : null}
                     {/* Show the external platform details */}
                     <ThinDivider />
                     <PlatformRow>

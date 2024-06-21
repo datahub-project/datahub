@@ -49,14 +49,19 @@ export const reducer = (state: State, action: Action): State => {
                 settingsSinkTypes,
             } = action.payload;
 
-            const relevantEntityChangeDetails = forSubResource?.assertion ? subscription?.entityChangeTypes.filter(
-                details => !details.filter?.includeAssertions || details.filter.includeAssertions.includes(forSubResource.assertion!.urn)
-            ) : subscription?.entityChangeTypes;
+            const relevantEntityChangeDetails = forSubResource?.assertion
+                ? subscription?.entityChangeTypes.filter(
+                      (details) =>
+                          !details.filter?.includeAssertions ||
+                          details.filter.includeAssertions.includes(forSubResource.assertion!.urn),
+                  )
+                : subscription?.entityChangeTypes;
 
-            const entityChangeTypes = relevantEntityChangeDetails
-                // Do not mark it as checked if this is the asset subscription view and there's filters on this type
-                ?.filter(details => (forSubResource?.assertion || !details.filter?.includeAssertions))
-                .map((details) => details.entityChangeType) ?? [];
+            const entityChangeTypes =
+                relevantEntityChangeDetails
+                    // Do not mark it as checked if this is the asset subscription view and there's filters on this type
+                    ?.filter((details) => forSubResource?.assertion || !details.filter?.includeAssertions)
+                    .map((details) => details.entityChangeType) ?? [];
             const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
 
             if (slackSinkEnabled && !subscription) notificationSinkTypes.push(NotificationSinkType.Slack);

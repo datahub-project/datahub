@@ -22,7 +22,6 @@ export type DataContractBuilderState = {
     dataQuality?: {
         assertionUrn: string;
     }[];
-
 };
 
 export const DEFAULT_BUILDER_STATE = {

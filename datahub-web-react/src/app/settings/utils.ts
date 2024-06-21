@@ -44,13 +44,17 @@ export const getTokenExpireDate = (duration: AccessTokenDuration) => {
 
 const isPresent = (value?: string | null) => {
     return value !== null && value !== undefined;
-}
+};
 
 // TODO: Make this use the standard NotificationSinkType instead of this frontend id.
-export const isSinkEnabled = (sinkId: string, settings?: Partial<GlobalSettings> | null, appConfig?: Partial<AppConfig> | null) => {
+export const isSinkEnabled = (
+    sinkId: string,
+    settings?: Partial<GlobalSettings> | null,
+    appConfig?: Partial<AppConfig> | null,
+) => {
     switch (sinkId) {
         case SLACK_SINK.id: {
-            // This is a HACK. We should actually make a call to hcheck connection settings. 
+            // This is a HACK. We should actually make a call to hcheck connection settings.
             return isPresent(settings?.integrationSettings?.slackSettings?.defaultChannelName);
         }
         case EMAIL_SINK.id:

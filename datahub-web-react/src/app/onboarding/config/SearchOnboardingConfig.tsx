@@ -41,5 +41,5 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
                 by.
             </Typography.Paragraph>
         ),
-    }
+    },
 ];

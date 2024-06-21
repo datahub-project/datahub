@@ -178,7 +178,7 @@ export const SearchResults = ({
     previewType,
     onCardClick,
     onClickExploreAll,
-    onClickClearFilters
+    onClickClearFilters,
 }: Props) => {
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
@@ -261,7 +261,7 @@ export const SearchResults = ({
                             </StyledTabToolbar>
                         )}
                         {(error && <ErrorSection />) ||
-                            showCustomSection && customSection ||
+                            (showCustomSection && customSection) ||
                             (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
                             (combinedSiblingSearchResults && (
                                 <SearchResultListContainer v2Styles={showSearchFiltersV2}>

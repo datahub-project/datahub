@@ -2,7 +2,11 @@ import React, { useEffect } from 'react';
 import { Button, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
-import { AssertionResult, AssertionResultType, TestAssertionInput } from '../../../../../../../../../../types.generated';
+import {
+    AssertionResult,
+    AssertionResultType,
+    TestAssertionInput,
+} from '../../../../../../../../../../types.generated';
 import { AssertionStatusTag } from './AssertionStatusTag';
 import { RunAssertionResult } from './RunAssertionResult';
 import { useTestAssertionMutation } from '../../../../../../../../../../graphql/assertion.generated';
@@ -67,10 +71,9 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
             )}
             {error && (
                 <Typography.Paragraph>
-                    {(error?.networkError as any)?.statusCode === 503 
-                        ? 'Oops! The assertion has exceeded the real-time results timeout (30s). Create the assertion to run it to completion!' 
-                        : 'Oops. An unknown error occurred while testing the assertion! Try again later.'
-                    }
+                    {(error?.networkError as any)?.statusCode === 503
+                        ? 'Oops! The assertion has exceeded the real-time results timeout (30s). Create the assertion to run it to completion!'
+                        : 'Oops. An unknown error occurred while testing the assertion! Try again later.'}
                 </Typography.Paragraph>
             )}
             {loading && <LoadingIcon spin />}

@@ -110,14 +110,18 @@ const mergeFields = (destinationArray, sourceArray, _options) => {
     return mergeArrayOfObjectsByKey(destinationArray, sourceArray, 'fieldPath');
 };
 
-const mergeLastOperations = (destinationArray: Pick<Operation, 'lastUpdatedTimestamp'>[], sourceArray: Pick<Operation, 'lastUpdatedTimestamp'>[], _options) => {
+const mergeLastOperations = (
+    destinationArray: Pick<Operation, 'lastUpdatedTimestamp'>[],
+    sourceArray: Pick<Operation, 'lastUpdatedTimestamp'>[],
+    _options,
+) => {
     // return whichever operation is more recent
     // const lastUpdated = (operations?.length && operations[0].lastUpdatedTimestamp) || 0;
-    const destinationLastUpdated = destinationArray?.length && destinationArray[0]?.lastUpdatedTimestamp || 0;
-    const sourceLastUpdated = sourceArray?.length && sourceArray[0]?.lastUpdatedTimestamp || 0;
+    const destinationLastUpdated = (destinationArray?.length && destinationArray[0]?.lastUpdatedTimestamp) || 0;
+    const sourceLastUpdated = (sourceArray?.length && sourceArray[0]?.lastUpdatedTimestamp) || 0;
     // return whichever operation is more recent
     return destinationLastUpdated > sourceLastUpdated ? destinationArray : sourceArray;
-}
+};
 
 const mergeSubtypes = (destinationArray: string[], sourceArray: string[], _options) => {
     const seen = new Set<string>();
@@ -272,11 +276,13 @@ const customMerge = (isPrimary, key) => {
             return {
                 ...primary,
                 queryCountLast30Days: primary?.queryCountLast30Days || secondary?.queryCountLast30Days,
-                queryCountPercentileLast30Days: primary?.queryCountPercentileLast30Days || secondary?.queryCountPercentileLast30Days,
+                queryCountPercentileLast30Days:
+                    primary?.queryCountPercentileLast30Days || secondary?.queryCountPercentileLast30Days,
                 uniqueUserCountLast30Days: primary?.uniqueUserCountLast30Days || secondary?.uniqueUserCountLast30Days,
-                uniqueUserPercentileLast30Days: primary?.uniqueUserPercentileLast30Days || secondary?.uniqueUserPercentileLast30Days,
+                uniqueUserPercentileLast30Days:
+                    primary?.uniqueUserPercentileLast30Days || secondary?.uniqueUserPercentileLast30Days,
             };
-        }
+        };
     }
     if (
         key === 'tags' ||

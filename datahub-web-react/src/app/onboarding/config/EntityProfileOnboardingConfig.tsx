@@ -76,7 +76,8 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     and downstream consumers of this entity.
                 </p>
                 <p>
-                    <strong>Impact Analysis</strong> allows you to understand the impact of changes to this asset (and its fields) on downstream and upstream assets.
+                    <strong>Impact Analysis</strong> allows you to understand the impact of changes to this asset (and
+                    its fields) on downstream and upstream assets.
                 </p>
                 <p>
                     If this tab is disabled, <strong>Lineage</strong> has not been detected for this entity.
@@ -208,10 +209,11 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    The asset sidebar is a vertically organized set of important information about an asset. It shows
-                    up on the right side of the screen when you view an asset, a search result, a lineage entry and a host of other places.
+                    The asset sidebar is a vertically organized set of important information about an asset. It shows up
+                    on the right side of the screen when you view an asset, a search result, a lineage entry and a host
+                    of other places.
                 </p>
             </Typography.Paragraph>
         ),
-    }
+    },
 ];

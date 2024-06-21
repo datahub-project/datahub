@@ -17,7 +17,11 @@ import { Assertion, AssertionType } from '../../../../../../../../types.generate
 import analytics, { EventType } from '../../../../../../../analytics';
 import { AssertionMonitorBuilderState } from './types';
 
-export const useUpsertAssertionMonitor = (builderState: AssertionMonitorBuilderState, onUpdate?: (assertion: Assertion) => void, isUpdate?: boolean): (() => Promise<any>) => {
+export const useUpsertAssertionMonitor = (
+    builderState: AssertionMonitorBuilderState,
+    onUpdate?: (assertion: Assertion) => void,
+    isUpdate?: boolean,
+): (() => Promise<any>) => {
     /**
      * Mutations for upserting Assertions, and the Monitor that evaluates them.
      */
@@ -108,12 +112,18 @@ export const useUpsertAssertionMonitor = (builderState: AssertionMonitorBuilderS
                 })
                 .catch(() => {
                     message.destroy();
-                    message.error({ content: `Failed to ${isUpdate ? 'update' : 'create'} Assertion Monitor! An unexpected error occurred` });
+                    message.error({
+                        content: `Failed to ${
+                            isUpdate ? 'update' : 'create'
+                        } Assertion Monitor! An unexpected error occurred`,
+                    });
                 });
         }
 
         message.destroy();
-        message.error({ content: `Failed to ${isUpdate ? 'update' : 'create'} Assertion Monitor! An unexpected error occurred` });
+        message.error({
+            content: `Failed to ${isUpdate ? 'update' : 'create'} Assertion Monitor! An unexpected error occurred`,
+        });
         return Promise.reject(new Error('Could not find upsertAssertionMutation or upsertAssertionVariables!'));
     };
 

@@ -3,9 +3,7 @@ import { Button, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import TabToolbar from '../entityV2/shared/components/styled/TabToolbar';
 import { REDESIGN_COLORS, ANTD_GRAY } from '../entityV2/shared/constants';
-import {
-    BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
-} from '../onboarding/config/BusinessGlossaryOnboardingConfig';
+import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
 import EmptyGlossarySection from './EmptyGlossarySection';
 import { GlossaryNode, GlossaryTerm } from '../../types.generated';

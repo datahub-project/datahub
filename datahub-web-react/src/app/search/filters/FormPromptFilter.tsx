@@ -10,7 +10,9 @@ import { FilterOptionType } from './types';
 import FilterOption from './FilterOption';
 
 export default function FormPromptFilter() {
-    const { filter: { formResponsesFilters, setFormResponsesFilters } } = useEntityFormContext();
+    const {
+        filter: { formResponsesFilters, setFormResponsesFilters },
+    } = useEntityFormContext();
     const initialSelectedFilterOptions = useMemo(
         () => formResponsesFilters?.map((filter) => ({ field: FORM_RESPONSES_FILTER, value: filter })) || [],
         [formResponsesFilters],
@@ -51,7 +53,7 @@ export default function FormPromptFilter() {
             searchQuery=""
             loading={false}
             updateIsMenuOpen={updateIsMenuOpen}
-            setSearchQuery={() => { }}
+            setSearchQuery={() => {}}
             updateFilters={updateFilters}
             hideSearchBar
         />

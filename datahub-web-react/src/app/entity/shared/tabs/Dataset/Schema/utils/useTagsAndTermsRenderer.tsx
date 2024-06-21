@@ -27,49 +27,55 @@ export default function useTagsAndTermsRenderer(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 
-        const businessAttributeTags = record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags?.tags || [];
-        const businessAttributeTerms = record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.glossaryTerms?.terms || [];
+        const businessAttributeTags =
+            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags
+                ?.tags || [];
+        const businessAttributeTerms =
+            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+                ?.glossaryTerms?.terms || [];
 
         return (
             <TagTermGroup
                 uneditableTags={options.showTags ? { tags: [...(tags?.tags || []), ...businessAttributeTags] } : null}
                 editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
-                uneditableGlossaryTerms={options.showTerms ? { terms: [...(record?.glossaryTerms?.terms || []), ...businessAttributeTerms] } : null}
+                uneditableGlossaryTerms={
+                    options.showTerms
+                        ? { terms: [...(record?.glossaryTerms?.terms || []), ...businessAttributeTerms] }
+                        : null
+                }
                 editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
                 canRemove={canEdit}
                 buttonProps={{ size: 'small' }}
                 canAddTag={canEdit && options.showTags}
                 canAddTerm={canEdit && options.showTerms}
-
-                    entityUrn={urn}
-                    entityType={EntityType.Dataset}
-                    entitySubresource={record.fieldPath}
-                    highlightText={filterText}
-                    refetch={refresh}
-                    proposedGlossaryTerms={
-                        options.showTerms
-                            ? findFieldPathProposal(
-                                  // eslint-disable-next-line
-                                  // @ts-ignore
-                                  // eslint-disable-next-line
-                                  baseEntity?.['dataset']?.['termProposals'] || [],
-                                  record.fieldPath,
-                              )
-                            : []
-                    }
-                    proposedTags={
-                        options.showTags
-                            ? findFieldPathProposal(
-                                  // eslint-disable-next-line
-                                  // @ts-ignore
-                                  // eslint-disable-next-line
-                                  baseEntity?.['dataset']?.['tagProposals'] || [],
-                                  record.fieldPath,
-                              )
-                            : []
-                    }
-                />
-
+                entityUrn={urn}
+                entityType={EntityType.Dataset}
+                entitySubresource={record.fieldPath}
+                highlightText={filterText}
+                refetch={refresh}
+                proposedGlossaryTerms={
+                    options.showTerms
+                        ? findFieldPathProposal(
+                              // eslint-disable-next-line
+                              // @ts-ignore
+                              // eslint-disable-next-line
+                              baseEntity?.['dataset']?.['termProposals'] || [],
+                              record.fieldPath,
+                          )
+                        : []
+                }
+                proposedTags={
+                    options.showTags
+                        ? findFieldPathProposal(
+                              // eslint-disable-next-line
+                              // @ts-ignore
+                              // eslint-disable-next-line
+                              baseEntity?.['dataset']?.['tagProposals'] || [],
+                              record.fieldPath,
+                          )
+                        : []
+                }
+            />
         );
     };
     return tagAndTermRender;

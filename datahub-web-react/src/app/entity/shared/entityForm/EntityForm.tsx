@@ -16,7 +16,7 @@ export default function EntityForm({ formUrn, closeModal }: Props) {
     const {
         loading,
         form: { formView },
-        entity: { refetch, selectedEntity, entityData: selectedEntityData }
+        entity: { refetch, selectedEntity, entityData: selectedEntityData },
     } = useEntityFormContext();
     const { entityType } = useEntityContext();
 
@@ -29,7 +29,7 @@ export default function EntityForm({ formUrn, closeModal }: Props) {
                 loading,
                 baseEntity: selectedEntityData,
                 dataNotCombinedWithSiblings: selectedEntityData,
-                routeToTab: () => { },
+                routeToTab: () => {},
                 refetch,
             }}
         >

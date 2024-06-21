@@ -54,7 +54,7 @@ export const AssertionMonitorBuilderModal = ({
             onOk() {
                 onCancel?.();
             },
-            onCancel() { },
+            onCancel() {},
             okText: 'Yes',
             maskClosable: true,
             closable: true,

@@ -1,9 +1,17 @@
-import _ from 'lodash'
+import _ from 'lodash';
 
-import { AssertionInfo, AssertionResultType, AssertionRunEvent, AssertionType, FreshnessAssertionInfo, FreshnessAssertionScheduleType, Maybe } from "../../../../../../../../../../../../types.generated";
-import { INTERVAL_TO_MS } from "../../../../../../../../../../../shared/time/timeUtils";
-import { tryGetExpectedRangeFromAssertionRunEvent } from "../../../shared/resultExtractionUtils";
-import { AssertionChartType, AssertionDataPoint } from "./types";
+import {
+    AssertionInfo,
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionType,
+    FreshnessAssertionInfo,
+    FreshnessAssertionScheduleType,
+    Maybe,
+} from '../../../../../../../../../../../../types.generated';
+import { INTERVAL_TO_MS } from '../../../../../../../../../../../shared/time/timeUtils';
+import { tryGetExpectedRangeFromAssertionRunEvent } from '../../../shared/resultExtractionUtils';
+import { AssertionChartType, AssertionDataPoint } from './types';
 import { getPreviousScheduleEvaluationTimeMs } from '../../../../../../acrylUtils';
 import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from '../../../shared/constants';
 
@@ -32,12 +40,12 @@ export const getFillColor = (type: AssertionResultType) => {
 
 /**
  * For now we're keeping it simple by only showing the range of values being displayed on the chart
- * @param minY 
- * @param maxY 
+ * @param minY
+ * @param maxY
  * @returns {number[]}
  */
 export function generateYScaleTickValues(minY: number, maxY: number): number[] {
-    return [minY, maxY]
+    return [minY, maxY];
 }
 
 export function generateTimeScaleTickValues(startMs: number, endMs: number): Date[] {
@@ -109,8 +117,9 @@ export function getCustomTimeScaleTickValue(v, timeRange) {
     return v.toLocaleDateString('en-us', { month: 'short', day: 'numeric' });
 }
 
-
-export const getBestChartTypeForAssertion = (assertionInfo?: AssertionInfo | Maybe<AssertionInfo>): AssertionChartType => {
+export const getBestChartTypeForAssertion = (
+    assertionInfo?: AssertionInfo | Maybe<AssertionInfo>,
+): AssertionChartType => {
     switch (assertionInfo?.type) {
         case AssertionType.Freshness:
             return AssertionChartType.Freshness;
@@ -124,40 +133,48 @@ export const getBestChartTypeForAssertion = (assertionInfo?: AssertionInfo | May
             break;
     }
     return AssertionChartType.StatusOverTime; // safest catch-all fallback
-}
-
+};
 
 export const tryGetUpperAndLowerYRangeFromAssertionRunEvent = (runEvent: AssertionRunEvent) => {
-    return tryGetExpectedRangeFromAssertionRunEvent(runEvent)
-}
+    return tryGetExpectedRangeFromAssertionRunEvent(runEvent);
+};
 
-const DATA_POINTS_TEMPORAL_ORDER_BY_KEY: keyof AssertionDataPoint = 'time'
+const DATA_POINTS_TEMPORAL_ORDER_BY_KEY: keyof AssertionDataPoint = 'time';
 
-const tryGetWindowStartDateForFreshnessAssertionSinceTheLastCheck = (mountedDataPoint: AssertionDataPoint, allDataPoints: AssertionDataPoint[]) => {
+const tryGetWindowStartDateForFreshnessAssertionSinceTheLastCheck = (
+    mountedDataPoint: AssertionDataPoint,
+    allDataPoints: AssertionDataPoint[],
+) => {
     // Get the ts of the data point before this one
-    const orderedDataPoints = _.sortBy(allDataPoints, DATA_POINTS_TEMPORAL_ORDER_BY_KEY)
-    const thisDataPointIndex = orderedDataPoints.findIndex(point => point.time === mountedDataPoint.time)
+    const orderedDataPoints = _.sortBy(allDataPoints, DATA_POINTS_TEMPORAL_ORDER_BY_KEY);
+    const thisDataPointIndex = orderedDataPoints.findIndex((point) => point.time === mountedDataPoint.time);
     const lastDataPoint: AssertionDataPoint | undefined = orderedDataPoints[thisDataPointIndex - 1];
-    return typeof lastDataPoint?.time === 'number' ? new Date(lastDataPoint.time) : undefined
-}
+    return typeof lastDataPoint?.time === 'number' ? new Date(lastDataPoint.time) : undefined;
+};
 
-const tryGetWindowStartDateForFreshnessAssertionFixedInterval = (mountedDataPoint: AssertionDataPoint, assertionInfo: FreshnessAssertionInfo): Date | undefined => {
+const tryGetWindowStartDateForFreshnessAssertionFixedInterval = (
+    mountedDataPoint: AssertionDataPoint,
+    assertionInfo: FreshnessAssertionInfo,
+): Date | undefined => {
     // Get the current run time minus interval
-    const interval = assertionInfo.schedule.fixedInterval
+    const interval = assertionInfo.schedule.fixedInterval;
     if (!interval) return undefined;
     const intervalInMS = INTERVAL_TO_MS[interval.unit] * interval.multiple;
-    const windowStartMillis = mountedDataPoint.time - intervalInMS
+    const windowStartMillis = mountedDataPoint.time - intervalInMS;
     return windowStartMillis > 0 ? new Date(windowStartMillis) : undefined;
-}
+};
 
 const tryGetWindowStartDateForFreshnessAssertionCron = (mountedDataPoint: AssertionDataPoint): Date | undefined => {
     // Compute the previous cron iteration of this data point
-    const cron = mountedDataPoint.relatedRunEvent.result?.assertion?.freshnessAssertion?.schedule.cron
+    const cron = mountedDataPoint.relatedRunEvent.result?.assertion?.freshnessAssertion?.schedule.cron;
     if (!cron) return undefined;
-    let lastExpectedRunTS = getPreviousScheduleEvaluationTimeMs({
-        cron: cron.cron,
-        timezone: cron.timezone
-    }, mountedDataPoint.time)
+    let lastExpectedRunTS = getPreviousScheduleEvaluationTimeMs(
+        {
+            cron: cron.cron,
+            timezone: cron.timezone,
+        },
+        mountedDataPoint.time,
+    );
 
     if (typeof lastExpectedRunTS !== 'number') {
         return undefined;
@@ -167,13 +184,17 @@ const tryGetWindowStartDateForFreshnessAssertionCron = (mountedDataPoint: Assert
     // NOTE: in some cases a slight delay in running the assertion can cause mountedDataPoint.time to be...
     // ...slightly after the cron run time. So, we need to take one more step back on the cron schedule...
     // ...in order to get the actual time of the last window
-    const oneSchedulePriorTS = getPreviousScheduleEvaluationTimeMs({
-        cron: cron.cron,
-        timezone: cron.timezone
-    }, lastExpectedRunTS) || 0
+    const oneSchedulePriorTS =
+        getPreviousScheduleEvaluationTimeMs(
+            {
+                cron: cron.cron,
+                timezone: cron.timezone,
+            },
+            lastExpectedRunTS,
+        ) || 0;
 
     // ie. let's say the assertion ran 3min after it was scheduled to run, then below value would be 3min as MS
-    const distanceOfDataPointFromLastScheduledTime = mountedDataPoint.time - lastExpectedRunTS
+    const distanceOfDataPointFromLastScheduledTime = mountedDataPoint.time - lastExpectedRunTS;
     // ie. let's say the cron schedules this to run every 24h, then below value would be 24h as MS
     const distanceBetweenScheduledTimes = lastExpectedRunTS - oneSchedulePriorTS;
 
@@ -181,25 +202,31 @@ const tryGetWindowStartDateForFreshnessAssertionCron = (mountedDataPoint: Assert
     // ...the distance between this data point and the cron schedule prior to it,
     // ...then we should start the window at the prior schedule (24h3m ago)
     if (distanceOfDataPointFromLastScheduledTime < distanceBetweenScheduledTimes) {
-        lastExpectedRunTS = oneSchedulePriorTS
+        lastExpectedRunTS = oneSchedulePriorTS;
     }
 
-    return typeof lastExpectedRunTS === 'number' ? new Date(lastExpectedRunTS) : undefined
-}
+    return typeof lastExpectedRunTS === 'number' ? new Date(lastExpectedRunTS) : undefined;
+};
 
 /**
  * Gets start and end dates of a freshness asseriton's evaluation window
  * Ie. if it's a fixed interval then it'll give the {current run's date - interval} and {current run date}
  * Ie. if it's a cron then it'll give the dates of the last run
- * @param mountedDataPoint 
- * @param allDataPoints 
+ * @param mountedDataPoint
+ * @param allDataPoints
  * @returns {tuple:[Date, Date]} start and end date
  */
-export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoint: AssertionDataPoint | undefined, allDataPoints: AssertionDataPoint[]): [Date, Date] | undefined => {
-
+export const getWindowStartAndEndDatesForFreshnessAssertionRun = (
+    mountedDataPoint: AssertionDataPoint | undefined,
+    allDataPoints: AssertionDataPoint[],
+): [Date, Date] | undefined => {
     // 1. ensure data point is valid
-    const assertionInfo = mountedDataPoint?.relatedRunEvent.result?.assertion
-    if (!mountedDataPoint?.time || assertionInfo?.type !== AssertionType.Freshness || !assertionInfo.freshnessAssertion) {
+    const assertionInfo = mountedDataPoint?.relatedRunEvent.result?.assertion;
+    if (
+        !mountedDataPoint?.time ||
+        assertionInfo?.type !== AssertionType.Freshness ||
+        !assertionInfo.freshnessAssertion
+    ) {
         return undefined;
     }
     if (mountedDataPoint.result.type === AssertionResultType.Error) {
@@ -210,16 +237,17 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
     const windowEndDate = new Date(mountedDataPoint.time);
 
     // 3. If window details exist in native results, use those
-    const nativeResults = mountedDataPoint.relatedRunEvent.result?.nativeResults
+    const nativeResults = mountedDataPoint.relatedRunEvent.result?.nativeResults;
     if (nativeResults) {
-        let maybeStartTime = nativeResults[
-            ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FRESHNESS_ASSERTIONS.EVALUATION_WINDOW_START_TIME
-        ]
+        let maybeStartTime =
+            nativeResults[
+                ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE.FRESHNESS_ASSERTIONS.EVALUATION_WINDOW_START_TIME
+            ];
         if (typeof maybeStartTime === 'string') {
-            maybeStartTime = parseInt(maybeStartTime, 10)
+            maybeStartTime = parseInt(maybeStartTime, 10);
         }
         if (typeof maybeStartTime === 'number' && !Number.isNaN(maybeStartTime)) {
-            return [new Date(maybeStartTime), windowEndDate]
+            return [new Date(maybeStartTime), windowEndDate];
         }
     }
 
@@ -227,15 +255,21 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
     let windowStartDate: Date | undefined;
     switch (assertionInfo.freshnessAssertion.schedule.type) {
         case FreshnessAssertionScheduleType.SinceTheLastCheck: {
-            windowStartDate = tryGetWindowStartDateForFreshnessAssertionSinceTheLastCheck(mountedDataPoint, allDataPoints)
+            windowStartDate = tryGetWindowStartDateForFreshnessAssertionSinceTheLastCheck(
+                mountedDataPoint,
+                allDataPoints,
+            );
             break;
         }
         case FreshnessAssertionScheduleType.FixedInterval: {
-            windowStartDate = tryGetWindowStartDateForFreshnessAssertionFixedInterval(mountedDataPoint, assertionInfo.freshnessAssertion)
+            windowStartDate = tryGetWindowStartDateForFreshnessAssertionFixedInterval(
+                mountedDataPoint,
+                assertionInfo.freshnessAssertion,
+            );
             break;
         }
         case FreshnessAssertionScheduleType.Cron: {
-            windowStartDate = tryGetWindowStartDateForFreshnessAssertionCron(mountedDataPoint)
+            windowStartDate = tryGetWindowStartDateForFreshnessAssertionCron(mountedDataPoint);
             break;
         }
         default:
@@ -246,21 +280,24 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (mountedDataPoi
     }
 
     // 5. Return the values
-    return [windowStartDate, windowEndDate]
-}
+    return [windowStartDate, windowEndDate];
+};
 
 /**
  * Duplicates a datapoint with +- a certain amount of buffer on the timestamp
  * Useful to extend a line with some buffer to the left and right
- * @param dataPoint 
- * @param timestampMillisModifiers 
+ * @param dataPoint
+ * @param timestampMillisModifiers
  * @returns {AssertionDataPoint[]}
  */
-export const duplicateDataPointsAcrossBufferedTimeRange = (dataPoint: AssertionDataPoint, timestampMillisBuffer: number): AssertionDataPoint[] => {
+export const duplicateDataPointsAcrossBufferedTimeRange = (
+    dataPoint: AssertionDataPoint,
+    timestampMillisBuffer: number,
+): AssertionDataPoint[] => {
     const timestampMillisModifiers = [-timestampMillisBuffer, 0, timestampMillisBuffer];
-    const points: AssertionDataPoint[] = timestampMillisModifiers.map(tsModifier => ({
+    const points: AssertionDataPoint[] = timestampMillisModifiers.map((tsModifier) => ({
         ...dataPoint,
         time: dataPoint.time + tsModifier,
-    }))
-    return points
-}
+    }));
+    return points;
+};

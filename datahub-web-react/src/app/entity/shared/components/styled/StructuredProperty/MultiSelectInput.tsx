@@ -8,7 +8,7 @@ import { AllowedValue } from '../../../../../../types.generated';
 import DropdownLabel from './DropdownLabel';
 import { useEntityFormContext } from '../../../entityForm/EntityFormContext';
 
-const StyledCheckbox = styled(Checkbox) <{ $displayBulkStyles?: boolean }>`
+const StyledCheckbox = styled(Checkbox)<{ $displayBulkStyles?: boolean }>`
     display: flex;
     margin: 0 0 4px 0;
     .ant-checkbox-inner {
@@ -40,9 +40,11 @@ export default function MultiSelectInput({
     toggleSelectedValue,
     updateSelectedValues,
     allowedValues,
-    selectedValues
+    selectedValues,
 }: Props) {
-    const { prompt: { displayBulkPromptStyles } } = useEntityFormContext();
+    const {
+        prompt: { displayBulkPromptStyles },
+    } = useEntityFormContext();
 
     const shouldShowSelectDropdown = allowedValues.length > 5 || displayBulkPromptStyles;
 

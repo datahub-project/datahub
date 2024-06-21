@@ -1,6 +1,6 @@
 import { EntityType } from '../../../../../../../../types.generated';
 import { entityProperties } from '../types/properties';
-import {  getPropertiesForEntityTypes } from '../utils';
+import { getPropertiesForEntityTypes } from '../utils';
 
 describe('utils', () => {
     describe('getPropertiesForEntityTypes', () => {

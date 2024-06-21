@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Button, Tooltip, Typography } from 'antd';
 import { ANTD_GRAY } from '../../../../../../constants';
 
-const Container = styled(Button) <{ enabled }>`
+const Container = styled(Button)<{ enabled }>`
     margin-bottom: 12px;
     padding: 20px 40px;
     height: 160px;
@@ -33,7 +33,7 @@ const Header = styled.div`
     margin-bottom: 12px;
 `;
 
-const Title = styled(Typography.Title) <{ enabled }>`
+const Title = styled(Typography.Title)<{ enabled }>`
     && {
         padding: 0px;
         margin: 0px;

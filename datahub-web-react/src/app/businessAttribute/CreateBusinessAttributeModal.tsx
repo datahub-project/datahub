@@ -223,9 +223,9 @@ export default function CreateBusinessAttributeModal({ visible, onClose, onCreat
                             >
                                 <Typography.Paragraph>
                                     By default, a random UUID will be generated to uniquely identify this entity. If
-                                    you&apos;d like to provide a custom id, you may provide it here. Note that it should be
-                                    unique across the entire Business Attributes. Be careful, you cannot easily change the id after
-                                    creation.
+                                    you&apos;d like to provide a custom id, you may provide it here. Note that it should
+                                    be unique across the entire Business Attributes. Be careful, you cannot easily
+                                    change the id after creation.
                                 </Typography.Paragraph>
                                 <Form.Item
                                     name="id"

@@ -50,7 +50,9 @@ interface Props {
 }
 
 export default function MultipleStringInput({ selectedValues, updateSelectedValues }: Props) {
-    const { prompt: { displayBulkPromptStyles } } = useEntityFormContext();
+    const {
+        prompt: { displayBulkPromptStyles },
+    } = useEntityFormContext();
 
     function updateInput(text: string, index: number) {
         const updatedValues =

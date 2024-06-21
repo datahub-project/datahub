@@ -30,14 +30,13 @@ const ButtonsContainer = styled.div`
 `;
 
 interface Props {
-	showUndoConfirmation: boolean;
-	handleUndo: (e: any) => void;
-	handleClose: () => void;
+    showUndoConfirmation: boolean;
+    handleUndo: (e: any) => void;
+    handleClose: () => void;
 }
 
 export const UndoConfirmationModal = ({ showUndoConfirmation, handleClose, handleUndo }: Props) => {
-
-	return (
+    return (
         <StyledModal
             open={showUndoConfirmation}
             onCancel={handleClose}

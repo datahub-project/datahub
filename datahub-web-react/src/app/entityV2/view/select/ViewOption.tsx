@@ -76,7 +76,6 @@ export const ViewOption = ({
     onClickPreview,
     onClickClear,
 }: Props) => {
-    
     const onClear = (e) => {
         e.stopPropagation();
         onClickClear();

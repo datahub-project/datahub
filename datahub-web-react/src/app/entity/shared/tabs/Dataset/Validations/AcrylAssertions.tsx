@@ -7,7 +7,12 @@ import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
 import { useAppConfig } from '../../../../../useAppConfig';
 import { AssertionMonitorBuilderDrawer } from './assertion/builder/AssertionMonitorBuilderDrawer';
 import TabToolbar from '../../../components/styled/TabToolbar';
-import { AssertionWithMonitorDetails, createAssertionGroups, getLegacyAssertionsSummary, tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from './acrylUtils';
+import {
+    AssertionWithMonitorDetails,
+    createAssertionGroups,
+    getLegacyAssertionsSummary,
+    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
+} from './acrylUtils';
 import { AssertionGroupTable } from './AssertionGroupTable';
 import { updateDatasetAssertionsCache, createCachedAssertionWithMonitor } from './acrylCacheUtils';
 import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
@@ -36,7 +41,8 @@ export const AcrylAssertions = () => {
     });
 
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
-    const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] = tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
+    const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
+        tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
     const assertionGroups = createAssertionGroups(assertionsWithMonitorsDetails);
 
     const contract = contractData?.dataset?.contract as any;
@@ -67,25 +73,24 @@ export const AcrylAssertions = () => {
                     </Tooltip>
                 </TabToolbar>
             )}
-            {loading 
-                ?
-                        <AcrylAssertionsSummaryLoading />
-                :
-                        <>
-                            <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertionsWithMonitorsDetails)} />
-                            <AssertionGroupTable
-                                groups={assertionGroups}
-                                contract={contract}
-                                refetch={() => {
-                                    refetch();
-                                    contractRefetch();
-                                }}
-                                canEditAssertions={data?.dataset?.privileges?.canEditAssertions || false}
-                                canEditMonitors={data?.dataset?.privileges?.canEditMonitors || false}
-                                canEditSqlAssertions={data?.dataset?.privileges?.canEditSqlAssertionMonitors || false}
-                            />
-                        </>
-            }
+            {loading ? (
+                <AcrylAssertionsSummaryLoading />
+            ) : (
+                <>
+                    <DatasetAssertionsSummary summary={getLegacyAssertionsSummary(assertionsWithMonitorsDetails)} />
+                    <AssertionGroupTable
+                        groups={assertionGroups}
+                        contract={contract}
+                        refetch={() => {
+                            refetch();
+                            contractRefetch();
+                        }}
+                        canEditAssertions={data?.dataset?.privileges?.canEditAssertions || false}
+                        canEditMonitors={data?.dataset?.privileges?.canEditMonitors || false}
+                        canEditSqlAssertions={data?.dataset?.privileges?.canEditSqlAssertionMonitors || false}
+                    />
+                </>
+            )}
             {showAssertionBuilder && (
                 <AssertionMonitorBuilderDrawer
                     entityUrn={urn}

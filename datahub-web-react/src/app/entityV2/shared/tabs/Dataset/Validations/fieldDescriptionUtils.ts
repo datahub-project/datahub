@@ -86,10 +86,16 @@ const getFieldTransformType = (transform: FieldTransformType) => {
 
 const getAssertionStdParameters = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
-        return formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value));
+        return formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value),
+        );
     }
     if (parameters.minValue && parameters.maxValue) {
-        return `${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value))} and ${formatNumberWithoutAbbreviation(parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value))}`;
+        return `${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value),
+        )} and ${formatNumberWithoutAbbreviation(
+            parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value),
+        )}`;
     }
     return '';
 };

@@ -5,7 +5,10 @@ import { builderStateToUpdateAssertionMetadataVariables } from './utils';
 import { AssertionMonitorBuilderState } from './types';
 import analytics, { EventType } from '../../../../../../../analytics';
 
-export const useUpdateAssertionMetadataWithBuilderState = (builderState: AssertionMonitorBuilderState, onUpdate?: (a: Assertion) => void): (() => Promise<void>) => {
+export const useUpdateAssertionMetadataWithBuilderState = (
+    builderState: AssertionMonitorBuilderState,
+    onUpdate?: (a: Assertion) => void,
+): (() => Promise<void>) => {
     const [updateAssertionMetadataMutation] = useUpdateAssertionMetadataMutation();
 
     const updateAssertionMetadata = () => {

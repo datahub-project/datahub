@@ -16,7 +16,12 @@ import {
     getFineGrainedLineageWithSiblings,
     summaryHasStats,
 } from '../utils';
-import { mockEntityRelationShipResult, mockFineGrainedLineages1, mockRecord, mockSearchResult } from '../../../../Mocks';
+import {
+    mockEntityRelationShipResult,
+    mockFineGrainedLineages1,
+    mockRecord,
+    mockSearchResult,
+} from '../../../../Mocks';
 
 describe('entity V2 utils test ->', () => {
     describe('dictToQueryStringParams ->', () => {

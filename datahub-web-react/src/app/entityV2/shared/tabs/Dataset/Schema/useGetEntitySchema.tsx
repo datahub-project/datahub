@@ -2,7 +2,7 @@ import { cloneDeep } from 'lodash';
 import { EntityType } from '../../../../../../types.generated';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useGetDatasetSchemaQuery } from '../../../../../../graphql/dataset.generated';
-import {combineEntityDataWithSiblings} from "../../../../../entity/shared/siblingUtils";
+import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
 import { useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
 
 // Whether to dynamically load the schema from the backend.

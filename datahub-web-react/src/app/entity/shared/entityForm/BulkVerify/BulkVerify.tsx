@@ -47,23 +47,9 @@ export default function BulkVerify({ closeFormModal }: Props) {
     const { urn: paramUrn }: any = useParams();
 
     const {
-        search: {
-            results,
-            resultItems,
-            resultItemCount,
-            error,
-            loading,
-            refetch,
-        },
-        entity: {
-            selectedEntities,
-            setSelectedEntity,
-            setSelectedEntities,
-            setNumSubmittedEntities
-        },
-        filter: {
-            setFormResponsesFilters,
-        },
+        search: { results, resultItems, resultItemCount, error, loading, refetch },
+        entity: { selectedEntities, setSelectedEntity, setSelectedEntities, setNumSubmittedEntities },
+        filter: { setFormResponsesFilters },
     } = useEntityFormContext();
 
     const isV2 = useIsThemeV2();
@@ -93,7 +79,7 @@ export default function BulkVerify({ closeFormModal }: Props) {
     const clearAllFilters = () => {
         setFormResponsesFilters([]);
         onChangeFilters([]);
-    }
+    };
 
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => {
@@ -127,7 +113,9 @@ export default function BulkVerify({ closeFormModal }: Props) {
         return (
             <>
                 {!!resultItemCount && (
-                    <OnboardingTour stepIds={[FORM_BULK_VERIFY_INTRO_ID, FORM_CHECK_RESPONSES_ID, FORM_BULK_VERIFY_ID]} />
+                    <OnboardingTour
+                        stepIds={[FORM_BULK_VERIFY_INTRO_ID, FORM_CHECK_RESPONSES_ID, FORM_BULK_VERIFY_ID]}
+                    />
                 )}
                 <FormByQuestionWrapper>
                     {showSearchFiltersV2 && (
@@ -168,7 +156,9 @@ export default function BulkVerify({ closeFormModal }: Props) {
                         refetch={refetch}
                         previewType={PreviewType.BULK_VERIFY}
                         onCardClick={handleCardClick}
-                        customSection={<EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />}
+                        customSection={
+                            <EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />
+                        }
                         showCustomSection={resultItemCount === 0}
                         shouldHideSuggestions
                         onClickExploreAll={clearAllFilters}
@@ -199,9 +189,9 @@ export default function BulkVerify({ closeFormModal }: Props) {
                         basicFilters
                     />
                 )}
-                {resultItemCount === 0 &&
+                {resultItemCount === 0 && (
                     <EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />
-                }
+                )}
                 {resultItemCount > 0 && (
                     <SearchResults
                         unionType={unionType}

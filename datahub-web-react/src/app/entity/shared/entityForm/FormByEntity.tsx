@@ -67,7 +67,7 @@ export default function FormByEntity({ formUrn }: Props) {
                 loading,
                 baseEntity: selectedEntityData,
                 dataNotCombinedWithSiblings: selectedEntityData,
-                routeToTab: () => { },
+                routeToTab: () => {},
                 refetch,
                 lineage: undefined,
             }}

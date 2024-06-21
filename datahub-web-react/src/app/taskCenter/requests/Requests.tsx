@@ -9,38 +9,38 @@ import { useGetFormsForActorQuery } from '../../../graphql/form.generated';
 import { RequestItem } from './RequestItem';
 
 const StyledList = styled(List)`
-	&&& {
-		width: 100%;
-		border-color: ${(props) => props.theme.styles['border-color-base']};
-		box-shadow: ${(props) => props.theme.styles['box-shadow']};
-	}
+    &&& {
+        width: 100%;
+        border-color: ${(props) => props.theme.styles['border-color-base']};
+        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    }
 `;
 
 export const Requests = () => {
-	const { data, loading, error, refetch } = useGetFormsForActorQuery({
-		variables: { input: { searchFlags: { skipCache: true } } },
-		fetchPolicy: 'no-cache',
-	});
+    const { data, loading, error, refetch } = useGetFormsForActorQuery({
+        variables: { input: { searchFlags: { skipCache: true } } },
+        fetchPolicy: 'no-cache',
+    });
 
-	const requests = useMemo(() =>
-		// client-side filter of forms unfinished
-		(data?.getFormsForActor.formsForActor || [])
-			.filter((form) => form!.numEntitiesToComplete! > 0) || [],
-		[data]
-	);
+    const requests = useMemo(
+        () =>
+            // client-side filter of forms unfinished
+            (data?.getFormsForActor.formsForActor || []).filter((form) => form!.numEntitiesToComplete! > 0) || [],
+        [data],
+    );
 
-	return (
-		<>
-			{!data && loading && <Message type="loading" content="Loading your requests…" />}
-			{error && message.error('Failed to load your requests :(')}
-			<StyledList
-				bordered
-				locale={{
-					emptyText: <Empty description="No Requests!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-				}}
-				dataSource={requests}
-				renderItem={(item: unknown) => <RequestItem request={item} refetch={refetch} />}
-			/>
-		</>
-	);
+    return (
+        <>
+            {!data && loading && <Message type="loading" content="Loading your requests…" />}
+            {error && message.error('Failed to load your requests :(')}
+            <StyledList
+                bordered
+                locale={{
+                    emptyText: <Empty description="No Requests!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                }}
+                dataSource={requests}
+                renderItem={(item: unknown) => <RequestItem request={item} refetch={refetch} />}
+            />
+        </>
+    );
 };

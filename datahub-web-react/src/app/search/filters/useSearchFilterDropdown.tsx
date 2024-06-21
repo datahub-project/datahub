@@ -39,8 +39,9 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
         useMemo(() => [filter.field], [filter.field]),
     );
     const [aggregateAcrossEntities, { data, loading }] = useAggregateAcrossEntitiesLazyQuery();
-    const [autoCompleteResults, setAutoCompleteResults] =
-        useState<GetAutoCompleteMultipleResultsQuery | undefined>(undefined);
+    const [autoCompleteResults, setAutoCompleteResults] = useState<GetAutoCompleteMultipleResultsQuery | undefined>(
+        undefined,
+    );
     const [getAutoCompleteResults] = useGetAutoCompleteMultipleResultsLazyQuery({
         onCompleted: (result) => setAutoCompleteResults(result),
     });

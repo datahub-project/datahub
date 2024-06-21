@@ -6,14 +6,13 @@ import { ArrowLeft, ArrowRight, BulkNavigationWrapper, NavigationWrapper } from 
 
 export default function EntityNavigation() {
     const {
-        entity: { selectedEntity, setSelectedEntity, entitiesForForm }
+        entity: { selectedEntity, setSelectedEntity, entitiesForForm },
     } = useEntityFormContext();
 
     if (!selectedEntity) return null;
 
-    const currentEntityIndex = entitiesForForm?.findIndex(
-        (entity) => selectedEntity && entity.urn === selectedEntity?.urn
-    ) || 0;
+    const currentEntityIndex =
+        entitiesForForm?.findIndex((entity) => selectedEntity && entity.urn === selectedEntity?.urn) || 0;
 
     function navigateLeft() {
         if (currentEntityIndex === 0) {

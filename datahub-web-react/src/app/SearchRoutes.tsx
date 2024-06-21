@@ -21,7 +21,13 @@ import { Automations } from './automations/Automations';
 import { ManageTestsPage } from './tests/ManageTestsPage';
 import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
 import DomainRoutes from './domain/DomainRoutes';
-import { useBusinessAttributesFlag, useIsAppConfigContextLoaded, useIsNestedDomainsEnabled, useIsDocumentationFormsEnabled, useAppConfig } from './useAppConfig';
+import {
+    useBusinessAttributesFlag,
+    useIsAppConfigContextLoaded,
+    useIsNestedDomainsEnabled,
+    useIsDocumentationFormsEnabled,
+    useAppConfig,
+} from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
 

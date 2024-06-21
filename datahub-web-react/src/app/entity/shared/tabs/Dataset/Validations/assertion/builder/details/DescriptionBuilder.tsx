@@ -23,7 +23,7 @@ export const DescriptionBuilder = ({ value, onChange, disabled }: Props) => {
                 value={value || ''}
                 onChange={(e) => updateDescription(e.target.value)}
                 disabled={disabled}
-                placeholder='Optional. If not specified, a name will be generated from the settings.'
+                placeholder="Optional. If not specified, a name will be generated from the settings."
             />
         </Section>
     );

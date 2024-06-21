@@ -66,13 +66,17 @@ export default function CustomAvatar({
     );
 
     const handleImageError = () => {
-      setImageError(true);
-      // To prevent fallback error handling from Ant Design
-      return false;
+        setImageError(true);
+        // To prevent fallback error handling from Ant Design
+        return false;
     };
 
     const avatar =
-        photoUrl && photoUrl !== '' && !imageError ? <AvatarStyled src={photoUrl} style={style} size={size} onError={handleImageError} /> : avatarWithDefault;
+        photoUrl && photoUrl !== '' && !imageError ? (
+            <AvatarStyled src={photoUrl} style={style} size={size} onError={handleImageError} />
+        ) : (
+            avatarWithDefault
+        );
     if (!name) {
         return url ? <Link to={url}>{avatar}</Link> : avatar;
     }

@@ -8,7 +8,7 @@ import { AllowedValue } from '../../../../../../types.generated';
 import DropdownLabel from './DropdownLabel';
 import { useEntityFormContext } from '../../../entityForm/EntityFormContext';
 
-const StyledRadio = styled(Radio) <{ displayBulkStyles?: boolean }>`
+const StyledRadio = styled(Radio)<{ displayBulkStyles?: boolean }>`
     display: block;
     .ant-radio-inner {
         border-color: ${ANTD_GRAY_V2[8]};
@@ -25,7 +25,9 @@ interface Props {
 }
 
 export default function SingleSelectInput({ selectSingleValue, allowedValues, selectedValues }: Props) {
-    const { prompt: { displayBulkPromptStyles } } = useEntityFormContext();
+    const {
+        prompt: { displayBulkPromptStyles },
+    } = useEntityFormContext();
 
     const shouldShowSelectDropdown = allowedValues.length > 5 || displayBulkPromptStyles;
 
@@ -47,10 +49,7 @@ export default function SingleSelectInput({ selectSingleValue, allowedValues, se
             ))}
         </Select>
     ) : (
-        <Radio.Group
-            value={selectedValues[0]}
-            onChange={(e) => selectSingleValue(e.target.value)}
-        >
+        <Radio.Group value={selectedValues[0]} onChange={(e) => selectSingleValue(e.target.value)}>
             {allowedValues.map((allowedValue) => (
                 <StyledRadio
                     key={getStructuredPropertyValue(allowedValue.value)}

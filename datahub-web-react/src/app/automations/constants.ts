@@ -1,4 +1,4 @@
 export const env = {
-	hideSidebar: true,
-	hideMetadataTests: true,
-}
+    hideSidebar: true,
+    hideMetadataTests: true,
+};

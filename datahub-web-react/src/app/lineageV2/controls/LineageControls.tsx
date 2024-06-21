@@ -81,7 +81,7 @@ const LineageControls: React.FC = () => {
                     <StyledPanelButton
                         type="text"
                         onClick={() => {
-                            fitView({duration: 1000, nodes: [{id: rootUrn}], maxZoom: 1})
+                            fitView({ duration: 1000, nodes: [{ id: rootUrn }], maxZoom: 1 });
                         }}
                     >
                         <HomeOutlined />

@@ -1,5 +1,5 @@
-import { Maybe } from "graphql/jsutils/Maybe";
-import { Assertion, AssertionResultType, AssertionRunEvent } from "../../../../../../../../../../../../types.generated";
+import { Maybe } from 'graphql/jsutils/Maybe';
+import { Assertion, AssertionResultType, AssertionRunEvent } from '../../../../../../../../../../../../types.generated';
 
 export type AssertionResult = {
     type: AssertionResultType;
@@ -19,7 +19,7 @@ export type AssertionResultChartData = {
     context: {
         assertion: Assertion;
     };
-}
+};
 
 export type TimeRange = {
     startMs: number;

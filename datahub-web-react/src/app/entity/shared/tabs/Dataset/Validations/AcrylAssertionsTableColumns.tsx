@@ -87,8 +87,11 @@ export function DetailsColumn({
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
     const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
-    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days') : undefined;
-    const isSmartAssertionStale = isSmartAssertion && smartAssertionAgeDays && (smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS);
+    const smartAssertionAgeDays = assertion.inferenceDetails?.generatedAt
+        ? moment().diff(moment(assertion.inferenceDetails.generatedAt), 'days')
+        : undefined;
+    const isSmartAssertionStale =
+        isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
     return (
         <DetailsContainer>
             <AssertionResultPopover
@@ -104,9 +107,20 @@ export function DetailsColumn({
                 </Result>
             </AssertionResultPopover>
             <AssertionDescription assertion={assertion} monitor={monitor} />
-            {isSmartAssertionStale ? <Tooltip title={<><b>This Smart Assertion may be outdated.</b><br />This is likely related to insufficient training data for this asset. Training data is obtained during ingestion syncs.</>}>
-                <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
-            </Tooltip> : null}
+            {isSmartAssertionStale ? (
+                <Tooltip
+                    title={
+                        <>
+                            <b>This Smart Assertion may be outdated.</b>
+                            <br />
+                            This is likely related to insufficient training data for this asset. Training data is
+                            obtained during ingestion syncs.
+                        </>
+                    }
+                >
+                    <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
+                </Tooltip>
+            ) : null}
             {isSmartAssertion ? (
                 <InferredAssertionPopover>
                     <InferredAssertionBadge />

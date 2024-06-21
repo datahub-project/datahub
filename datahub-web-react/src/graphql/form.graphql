@@ -16,7 +16,7 @@ mutation verifyForm($input: VerifyFormInput!) {
 }
 
 mutation batchVerifyForm($input: BatchVerifyFormInput!) {
-    batchVerifyForm(input: $input) 
+    batchVerifyForm(input: $input)
 }
 
 query searchForEntityUrnsByForm($input: SearchAcrossEntitiesInput!) {

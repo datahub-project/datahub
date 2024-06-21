@@ -100,7 +100,11 @@ export default function DownloadAsCsvModal({
                         ...accumulatedResults,
                         ...transformResultsToCsvRow(refetchData?.searchResults || [], entityRegistry),
                     ];
-                    console.log(`Downloaded ${  accumulatedResults.length  } rows out of ${  refetchData?.total  } rows. Time taken for download so far: ${  timeTaken / 1000  }s`);
+                    console.log(
+                        `Downloaded ${accumulatedResults.length} rows out of ${
+                            refetchData?.total
+                        } rows. Time taken for download so far: ${timeTaken / 1000}s`,
+                    );
                     // If we have a "next offset", then we continue.
                     // Otherwise, we terminate fetching.
                     if (refetchData?.nextScrollId) {
@@ -119,7 +123,7 @@ export default function DownloadAsCsvModal({
                 .catch((_) => {
                     if (sizeForDownload > 10) {
                         sizeForDownload = Math.floor(sizeForDownload / 2);
-                        console.log(`Failed to download, retrying with smaller page size of ${  sizeForDownload}`)
+                        console.log(`Failed to download, retrying with smaller page size of ${sizeForDownload}`);
                         fetchNextPage();
                     } else {
                         setIsDownloadingCsv(false);

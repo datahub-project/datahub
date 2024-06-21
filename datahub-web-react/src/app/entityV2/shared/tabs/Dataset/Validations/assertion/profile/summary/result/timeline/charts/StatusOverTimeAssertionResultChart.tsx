@@ -4,9 +4,9 @@ import { Popover } from 'antd';
 import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
-import { GlyphCircle } from '@visx/glyph'
+import { GlyphCircle } from '@visx/glyph';
 import { LinePath } from '@visx/shape';
-import { GridColumns } from '@visx/grid'
+import { GridColumns } from '@visx/grid';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
@@ -21,10 +21,9 @@ type Props = {
     chartDimensions: {
         width: number;
         height: number;
-    }
-    renderHeader?: (title?: string) => JSX.Element
+    };
+    renderHeader?: (title?: string) => JSX.Element;
 };
-
 
 const CHART_HORIZ_MARGIN = 36;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
@@ -34,9 +33,8 @@ const CHART_AXIS_BOTTOM_HEIGHT = 40;
  * TODO(jayacryl) refactor to a pretty timeline line-view
  */
 export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
-
-    const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT
-    const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN
+    const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT;
+    const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN;
 
     const xScale = useMemo(
         () =>
@@ -47,8 +45,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
         [timeRange, chartInnerWidth],
     );
 
-
-    const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
+    const timeScaleTicks = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs);
     return (
         <>
             {renderHeader?.(getTimeRangeDisplay(timeRange))}
@@ -77,9 +74,9 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         height={chartInnerHeight}
                         lineStyle={{
                             stroke: ANTD_GRAY[5],
-                            strokeLinecap: "round",
+                            strokeLinecap: 'round',
                             strokeWidth: 1,
-                            strokeDasharray: '1 4'
+                            strokeDasharray: '1 4',
                         }}
                     />
 
@@ -87,14 +84,14 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                     <LinePath
                         // Full across the entire timeline
                         data={[0, chartInnerWidth]}
-                        x={x => x}
+                        x={(x) => x}
                         y={chartDimensions.height / 3}
                         stroke={ACCENT_COLOR_HEX}
                         strokeWidth={0.5}
                     />
 
                     {/* Circular data points */}
-                    {data.dataPoints.map(dataPoint => {
+                    {data.dataPoints.map((dataPoint) => {
                         const xOffset = xScale(new Date(dataPoint.time));
                         const yOffset = chartDimensions.height / 3;
                         const fillColor = getFillColor(dataPoint.result.type);
@@ -107,26 +104,27 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                         maxWidth: 440,
                                         wordWrap: 'break-word',
                                     }}
-                                    content={<AssertionResultPopoverContent
-                                        assertion={data.context.assertion}
-                                        run={dataPoint.relatedRunEvent}
-                                    />}
+                                    content={
+                                        <AssertionResultPopoverContent
+                                            assertion={data.context.assertion}
+                                            run={dataPoint.relatedRunEvent}
+                                        />
+                                    }
                                     showArrow={false}
                                 >
                                     <GlyphCircle
                                         left={xOffset}
                                         top={yOffset}
                                         fill={fillColor}
-                                        stroke='white'
+                                        stroke="white"
                                         strokeWidth={2}
                                         size={100}
-                                        filter='drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.05))'
+                                        filter="drop-shadow(0px 1px 2.5px rgb(0 0 0 / 0.05))"
                                     />
                                 </Popover>
                             </LinkWrapper>
                         );
                     })}
-
                 </Group>
             </svg>
         </>

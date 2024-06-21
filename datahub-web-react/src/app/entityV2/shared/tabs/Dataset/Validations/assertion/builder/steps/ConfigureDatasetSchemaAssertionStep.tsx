@@ -1,4 +1,3 @@
-
 import React from 'react';
 import styled from 'styled-components';
 import { Button } from 'antd';
@@ -7,7 +6,11 @@ import { AssertionActionsSection } from './actions/AssertionActionsSection';
 import { SchemaAssertionBuilder } from './schema/SchemaAssertionBuilder';
 import { useTestAssertionModal } from '../../../../../../../../entity/shared/tabs/Dataset/Validations/assertion/builder/steps/utils';
 import { TestAssertionModal } from './preview/TestAssertionModal';
-import { AssertionEvaluationParametersInput, AssertionType, CreateSchemaAssertionInput } from '../../../../../../../../../types.generated';
+import {
+    AssertionEvaluationParametersInput,
+    AssertionType,
+    CreateSchemaAssertionInput,
+} from '../../../../../../../../../types.generated';
 import { builderStateToTestSchemaAssertionVariables } from '../utils';
 
 const Step = styled.div`
@@ -31,7 +34,7 @@ const ControlsGroup = styled.div`
 
 /**
  * Step for defining the Dataset Schema assertion
- * TODO: Add support for trying this type of assertion out. 
+ * TODO: Add support for trying this type of assertion out.
  */
 export const ConfigureDatasetSchemaAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();

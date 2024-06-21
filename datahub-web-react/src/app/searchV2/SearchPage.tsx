@@ -26,7 +26,12 @@ import useFilterMode from './filters/useFilterMode';
 import { useSelectedSortOption } from '../search/context/SearchContext';
 import { useUpdateEducationStepsAllowList } from '../onboarding/useUpdateEducationStepsAllowList';
 import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '../onboarding/config/EntityProfileOnboardingConfig';
-import { ENTITY_SIDEBAR_V2_ABOUT_TAB_ID, ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID, ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID, ENTITY_SIDEBAR_V2_PROPERTIES_ID } from '../onboarding/configV2/EntityProfileOnboardingConfig';
+import {
+    ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
+    ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
+    ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
+    ENTITY_SIDEBAR_V2_PROPERTIES_ID,
+} from '../onboarding/configV2/EntityProfileOnboardingConfig';
 
 const Container = styled.span`
     display: flex;

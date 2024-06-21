@@ -14,7 +14,12 @@ import {
     SubscriptionType,
 } from '../../../../types.generated';
 import { useDrawerState } from './state/context';
-import { createSubscriptionFunction, getEntityChangeTypesFromCheckedKeys, removeNestedTypeNames, updateSubscriptionFunction } from './utils';
+import {
+    createSubscriptionFunction,
+    getEntityChangeTypesFromCheckedKeys,
+    removeNestedTypeNames,
+    updateSubscriptionFunction,
+} from './utils';
 import { checkIsAssetLevelAssertionSubscription } from './section/utils';
 
 type UseUpsertSubScriptionParams = {
@@ -26,7 +31,7 @@ type UseUpsertSubScriptionParams = {
     onCreateSuccess?: () => void;
     onRefetch?: () => void;
     forSubResource?: {
-        assertion?: Assertion
+        assertion?: Assertion;
     };
 };
 
@@ -42,14 +47,17 @@ const generateEntityChangeDetailsFromAssertionSubscriptionForm = (
 ): EntityChangeDetails[] => {
     // 1. Add this assertion's urn from to the filters for the selected types
     // Ie. lets say the user has checked the 'Passing' type. Then we should add forAssertion.urn to the filter.includeAssertions list
-    const entityChangeDetails: EntityChangeDetails[] = selectedEntityChangeTypes.map(entityChangeType => {
-        const maybeExistingEntityTypeDetails = maybeExistingEntityChangeDetails?.find(details => details.entityChangeType.valueOf() === entityChangeType.valueOf());
+    const entityChangeDetails: EntityChangeDetails[] = selectedEntityChangeTypes.map((entityChangeType) => {
+        const maybeExistingEntityTypeDetails = maybeExistingEntityChangeDetails?.find(
+            (details) => details.entityChangeType.valueOf() === entityChangeType.valueOf(),
+        );
 
         // If the existing subscription for this type is at the entity level, we make no changes.
-        const isSubscribedAtEntityLevel = maybeExistingEntityTypeDetails && checkIsAssetLevelAssertionSubscription(maybeExistingEntityTypeDetails)
+        const isSubscribedAtEntityLevel =
+            maybeExistingEntityTypeDetails && checkIsAssetLevelAssertionSubscription(maybeExistingEntityTypeDetails);
         if (isSubscribedAtEntityLevel) {
             return maybeExistingEntityTypeDetails;
-        };
+        }
 
         // Else, we add this assertion's urn to the inclusive filter.
         const details: EntityChangeDetails = maybeExistingEntityTypeDetails ?? {
@@ -61,30 +69,35 @@ const generateEntityChangeDetailsFromAssertionSubscriptionForm = (
         details.filter.includeAssertions.push(forAssertion.urn);
 
         return details;
-    })
+    });
 
     // 2.1 Remove this assertion's urn from the types that were unselected
     // 2.2 And, coalesce all the other subscriptions that are already on the entity.
     // NOTE: The return value of this method wil overwrite entityChangeTypes on the asset-level subscription object. So, we coalesce...
     // ...existing entity change types in to make sure we don't drop any types unrelated to this assertion in particular.
     if (maybeExistingEntityChangeDetails) {
-        const existingChangeTypesThatAreNotSelectedInView: EntityChangeDetails[] = maybeExistingEntityChangeDetails.filter(details => !selectedEntityChangeTypes.includes(details.entityChangeType))
-            .map(details => {
+        const existingChangeTypesThatAreNotSelectedInView: EntityChangeDetails[] = maybeExistingEntityChangeDetails
+            .filter((details) => !selectedEntityChangeTypes.includes(details.entityChangeType))
+            .map((details) => {
                 const detailsCopy: EntityChangeDetails = _.cloneDeep(details);
                 // Remove this urn from filters if it was unselected in this subresource's view
                 if (detailsCopy.filter?.includeAssertions?.includes(forAssertion.urn)) {
-                    detailsCopy.filter.includeAssertions = detailsCopy.filter.includeAssertions.filter(urn => urn !== forAssertion.urn);
+                    detailsCopy.filter.includeAssertions = detailsCopy.filter.includeAssertions.filter(
+                        (urn) => urn !== forAssertion.urn,
+                    );
                     // If there was a filter for this change type & this sub resource is the last item in the filter, we can just remove the change type completely
                     if (!detailsCopy.filter.includeAssertions.length) {
                         return undefined;
                     }
                 }
                 return detailsCopy;
-            }).filter(exists => exists).map(exists => exists!);
-        entityChangeDetails.push(...existingChangeTypesThatAreNotSelectedInView)
+            })
+            .filter((exists) => exists)
+            .map((exists) => exists!);
+        entityChangeDetails.push(...existingChangeTypesThatAreNotSelectedInView);
     }
     return entityChangeDetails;
-}
+};
 
 /**
  * For top level entity subscription forms.
@@ -96,8 +109,10 @@ const generateEntityChangeDetailsFromEntitySubscriptionForm = (
     keysWithAllFilteringCleared: Key[],
     maybeExistingEntityChangeDetails?: EntityChangeDetails[],
 ): EntityChangeDetails[] => {
-    return selectedEntityChangeTypes.map(entityChangeType => {
-        const maybeExistingEntityTypeDetails = maybeExistingEntityChangeDetails?.find(details => details.entityChangeType.valueOf() === entityChangeType.valueOf());
+    return selectedEntityChangeTypes.map((entityChangeType) => {
+        const maybeExistingEntityTypeDetails = maybeExistingEntityChangeDetails?.find(
+            (details) => details.entityChangeType.valueOf() === entityChangeType.valueOf(),
+        );
         const details: EntityChangeDetails = maybeExistingEntityTypeDetails ?? {
             entityChangeType,
         };
@@ -105,8 +120,8 @@ const generateEntityChangeDetailsFromEntitySubscriptionForm = (
             delete details.filter;
         }
         return details;
-    })
-}
+    });
+};
 
 /**
  * Merges the state of the subscription form into the current state of the Subscription aspect,
@@ -123,26 +138,26 @@ const getEntityChangeDetailsFromSubscriptionFormState = (
     forSubResource: UseUpsertSubScriptionParams['forSubResource'], // passed through so we re-use the parent hook's
     subscription?: DataHubSubscription,
 ): EntityChangeDetails[] => {
-
     const selectedEntityChangeTypes: EntityChangeType[] = getEntityChangeTypesFromCheckedKeys(checkedKeys);
-    const existingEntityChangeDetails: EntityChangeDetails[] | undefined = subscription?.entityChangeTypes.map(details =>
-        // remove '__typename' so this object can be re-used in gql request
-        removeNestedTypeNames(details));
-
+    const existingEntityChangeDetails: EntityChangeDetails[] | undefined = subscription?.entityChangeTypes.map(
+        (details) =>
+            // remove '__typename' so this object can be re-used in gql request
+            removeNestedTypeNames(details),
+    );
 
     if (forSubResource?.assertion) {
         return generateEntityChangeDetailsFromAssertionSubscriptionForm(
             forSubResource.assertion,
             selectedEntityChangeTypes,
-            existingEntityChangeDetails
+            existingEntityChangeDetails,
         );
     }
     return generateEntityChangeDetailsFromEntitySubscriptionForm(
         selectedEntityChangeTypes,
         keysWithAllFilteringCleared,
-        existingEntityChangeDetails
+        existingEntityChangeDetails,
     );
-}
+};
 
 const useUpsertSubscription = ({
     entityUrn,
@@ -170,14 +185,12 @@ const useUpsertSubscription = ({
     const [createSubscription] = useCreateSubscriptionMutation();
     const [updateSubscription] = useUpdateSubscriptionMutation();
 
-
     const entityChangeDetails: EntityChangeDetails[] = getEntityChangeDetailsFromSubscriptionFormState(
         checkedKeys,
         keysWithAllFilteringCleared,
         forSubResource,
         subscription,
-    )
-
+    );
 
     const subscriptionTypes = subscribeToUpstream
         ? [SubscriptionType.EntityChange, SubscriptionType.UpstreamEntityChange]
@@ -192,8 +205,8 @@ const useUpsertSubscription = ({
         emailSettings:
             !emailSaveAsDefault && emailChannel
                 ? {
-                    email: emailChannel,
-                }
+                      email: emailChannel,
+                  }
                 : undefined,
     };
 

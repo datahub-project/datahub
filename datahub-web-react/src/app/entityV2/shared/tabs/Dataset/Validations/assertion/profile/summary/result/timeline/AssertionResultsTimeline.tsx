@@ -82,15 +82,18 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
     const results = data?.assertion?.runEvents;
     const isInitializing = !hasInitializedLookbackWindow;
 
-    const vizHeight = assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT;
+    const vizHeight =
+        assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT;
     return (
         <Container>
-              {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
             {loading || isInitializing ? (
-                <AssertionTimelineSkeleton parentDimensions={{
-                    width: RESULT_CHART_WIDTH_PX,
-                    height: vizHeight,
-                }} />
+                <AssertionTimelineSkeleton
+                    parentDimensions={{
+                        width: RESULT_CHART_WIDTH_PX,
+                        height: vizHeight,
+                    }}
+                />
             ) : (
                 <AssertionResultsTimelineViz
                     parentDimensions={{

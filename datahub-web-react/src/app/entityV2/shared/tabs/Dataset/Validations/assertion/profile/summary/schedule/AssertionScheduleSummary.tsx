@@ -85,10 +85,13 @@ export const AssertionScheduleSummary = ({
     const isExternal = isExternalAssertion(assertion);
 
     /**
-     * For smart assertions, show the last time the rule was updated. 
+     * For smart assertions, show the last time the rule was updated.
      */
     const isSmartAssertion = assertion?.info?.source?.type === AssertionSourceType.Inferred;
-    const generatedAt = isSmartAssertion && assertion?.inferenceDetails?.generatedAt ? new Date(assertion?.inferenceDetails?.generatedAt) : undefined;
+    const generatedAt =
+        isSmartAssertion && assertion?.inferenceDetails?.generatedAt
+            ? new Date(assertion?.inferenceDetails?.generatedAt)
+            : undefined;
     const lastUpdatedAtTimeLocal = generatedAt
         ? `${generatedAt.toLocaleDateString()} at ${generatedAt.toLocaleTimeString()} (${localeTimezone})`
         : null;
@@ -142,8 +145,7 @@ export const AssertionScheduleSummary = ({
                         tooltip={lastUpdatedAtTimeGmt}
                         showDivider={false}
                     />
-                ) :
-                    null}
+                ) : null}
             </Sections>
         </Container>
     );

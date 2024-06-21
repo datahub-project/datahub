@@ -36,7 +36,7 @@ export enum PageRoutes {
     DATASET_HEALTH_DASHBOARD = '/observe/datasets',
     SETTINGS_POSTS = '/settings/posts',
     BUSINESS_ATTRIBUTE = '/business-attribute',
-    SETTINGS_HELP_LINK = '/settings/helpLink'
+    SETTINGS_HELP_LINK = '/settings/helpLink',
 }
 
 export enum AcrylPageRoutes {
@@ -45,7 +45,7 @@ export enum AcrylPageRoutes {
 
 export enum HelpLinkRoutes {
     GRAPHIQL = '/api/graphiql',
-    OPENAPI = '/openapi/swagger-ui/index.html'
+    OPENAPI = '/openapi/swagger-ui/index.html',
 }
 
 /**

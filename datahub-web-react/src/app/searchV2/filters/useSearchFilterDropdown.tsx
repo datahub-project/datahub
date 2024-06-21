@@ -1,9 +1,5 @@
-
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import {
-    getNewFilters,
-    getNumActiveFiltersForFilter,
-} from './utils';
+import { getNewFilters, getNumActiveFiltersForFilter } from './utils';
 
 interface Props {
     filter: FacetMetadata;
@@ -12,7 +8,6 @@ interface Props {
 }
 
 export default function useSearchFilterDropdown({ filter, activeFilters, onChangeFilters }: Props) {
-
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
 
     function updateFilters(newFilters) {

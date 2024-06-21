@@ -36,20 +36,20 @@ export const removeEmptyArrays = (obj) => {
     if (typeof obj === 'object' && obj !== null) {
         // Recursively remove empty arrays from object properties
         const cleanedObj = Object.fromEntries(
-        Object.entries(obj).map(([key, value]) => [key, removeEmptyArrays(value)]));
+            Object.entries(obj).map(([key, value]) => [key, removeEmptyArrays(value)]),
+        );
         if (cleanedObj.conditions) {
             const propertiesToDelete = Object.keys(cleanedObj.conditions);
-            if (propertiesToDelete.some(prop => cleanedObj.conditions[prop]?.length === 0)) {
-              delete cleanedObj.conditions;
+            if (propertiesToDelete.some((prop) => cleanedObj.conditions[prop]?.length === 0)) {
+                delete cleanedObj.conditions;
             }
-          }
+        }
         // Filter out undefined properties
-        return Object.fromEntries(
-            Object.entries(cleanedObj).filter(([_, v]) => v !== undefined && v !== null));
+        return Object.fromEntries(Object.entries(cleanedObj).filter(([_, v]) => v !== undefined && v !== null));
     }
     // Return non-array, non-object values as it is
     return obj;
-  }
+};
 
 export const jsonToYaml = (json: string): string => {
     const obj = JSON.parse(json);
@@ -164,7 +164,6 @@ export const validateURL = (fieldName: string) => {
         },
     };
 };
-
 
 const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dataset.toLowerCase(),

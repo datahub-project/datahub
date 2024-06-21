@@ -46,7 +46,7 @@ ExpandableNode.Header = styled.div<{
     border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
 `;
 
-ExpandableNode.SelectableHeader = styled(ExpandableNode.Header) <{ $isSelected: boolean }>`
+ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ $isSelected: boolean }>`
     & {
         border: 1px solid ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
         background-color: ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
@@ -63,7 +63,7 @@ ExpandableNode.HeaderLeft = styled.div`
     align-items: center;
 `;
 
-const ChevronRightIconStyle = styled(ChevronRightIcon) <{ isVisible?: boolean }>`
+const ChevronRightIconStyle = styled(ChevronRightIcon)<{ isVisible?: boolean }>`
     &&& {
         color: ${ANTD_GRAY[6]};
         visibility: ${(props) => (props.isVisible ? 'visible' : 'hidden')};
@@ -129,7 +129,7 @@ const BaseTitleContainer = styled.div<{ depth: number; maxWidth: number; padLeft
     padding-left: ${(props) => (props.padLeft ? 8 : 0)}px;
 `;
 
-const BaseTitle = styled(Typography.Text) <{ color: string; size: number }>`
+const BaseTitle = styled(Typography.Text)<{ color: string; size: number }>`
     font-size: ${(props) => props.size}px;
     color: ${(props) => props.color};
 `;

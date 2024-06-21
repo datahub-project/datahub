@@ -1,13 +1,17 @@
-
 import React, { useEffect } from 'react';
 import { AssertionMonitorBuilderState } from '../../types';
-import { AssertionType, CronSchedule, SchemaAssertionCompatibility, SchemaAssertionField, SchemaMetadata } from '../../../../../../../../../../types.generated';
+import {
+    AssertionType,
+    CronSchedule,
+    SchemaAssertionCompatibility,
+    SchemaAssertionField,
+    SchemaMetadata,
+} from '../../../../../../../../../../types.generated';
 import { CompatibilityBuilder } from './CompatibilityBuilder';
 import { SchemaBuilder } from './SchemaBuilder';
 import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
 import { convertSchemaMetadataToAssertionFields } from '../field/utils';
 import { EvaluationScheduleBuilder } from '../common/EvaluationScheduleBuilder';
-
 
 type Props = {
     state: AssertionMonitorBuilderState;
@@ -19,9 +23,9 @@ type Props = {
  * Build a new schema assertion
  */
 export const SchemaAssertionBuilder = ({ state, updateState, disabled }: Props) => {
-    // 2 things: 
+    // 2 things:
     // 1. Compatibility Select
-    // 2. Columns selection. 
+    // 2. Columns selection.
 
     const { data } = useGetDatasetSchemaQuery({
         variables: {
@@ -29,12 +33,13 @@ export const SchemaAssertionBuilder = ({ state, updateState, disabled }: Props) 
         },
         fetchPolicy: 'cache-first',
     });
-    const schemaMetadata = data?.dataset?.schemaMetadata; 
+    const schemaMetadata = data?.dataset?.schemaMetadata;
     const schedule: CronSchedule | undefined | null = state?.schedule;
 
     useEffect(() => {
-        const schemaFields = schemaMetadata && convertSchemaMetadataToAssertionFields(schemaMetadata as SchemaMetadata) || []; 
-        // Set the original fields to the actual schema fields. 
+        const schemaFields =
+            (schemaMetadata && convertSchemaMetadataToAssertionFields(schemaMetadata as SchemaMetadata)) || [];
+        // Set the original fields to the actual schema fields.
         if (schemaFields.length && !state?.assertion?.schemaAssertion?.fields?.length) {
             updateState({
                 ...state,
@@ -45,9 +50,9 @@ export const SchemaAssertionBuilder = ({ state, updateState, disabled }: Props) 
                         fields: schemaFields,
                     },
                 },
-            })
+            });
         }
-    }, [schemaMetadata, state, updateState])
+    }, [schemaMetadata, state, updateState]);
 
     const onChangeCompatibility = (newCompatibility: SchemaAssertionCompatibility) => {
         updateState({
@@ -59,8 +64,8 @@ export const SchemaAssertionBuilder = ({ state, updateState, disabled }: Props) 
                     compatibility: newCompatibility,
                 },
             },
-        })
-    }
+        });
+    };
 
     const onChangeFields = (newFields: Partial<SchemaAssertionField>[]) => {
         updateState({
@@ -72,8 +77,8 @@ export const SchemaAssertionBuilder = ({ state, updateState, disabled }: Props) 
                     fields: newFields,
                 },
             },
-        });   
-    }
+        });
+    };
 
     const updateAssertionSchedule = (newSchedule: CronSchedule) => {
         updateState({
@@ -82,14 +87,20 @@ export const SchemaAssertionBuilder = ({ state, updateState, disabled }: Props) 
         });
     };
 
-    const existingSchemaFields =  schemaMetadata && convertSchemaMetadataToAssertionFields(schemaMetadata as SchemaMetadata) || []; 
-    const compatibility = state?.assertion?.schemaAssertion?.compatibility; 
-    const fields = state?.assertion?.schemaAssertion?.fields; 
+    const existingSchemaFields =
+        (schemaMetadata && convertSchemaMetadataToAssertionFields(schemaMetadata as SchemaMetadata)) || [];
+    const compatibility = state?.assertion?.schemaAssertion?.compatibility;
+    const fields = state?.assertion?.schemaAssertion?.fields;
 
     return (
         <>
             <CompatibilityBuilder selected={compatibility} onChange={onChangeCompatibility} disabled={disabled} />
-            <SchemaBuilder selected={fields || []} onChange={onChangeFields} disabled={disabled} options={existingSchemaFields} />
+            <SchemaBuilder
+                selected={fields || []}
+                onChange={onChangeFields}
+                disabled={disabled}
+                options={existingSchemaFields}
+            />
             <EvaluationScheduleBuilder
                 value={schedule}
                 assertionType={AssertionType.DataSchema}

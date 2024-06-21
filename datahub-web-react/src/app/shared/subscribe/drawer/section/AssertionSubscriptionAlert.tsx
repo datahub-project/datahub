@@ -54,11 +54,7 @@ interface Props {
     onCancel: () => void;
 }
 
-const AssertionSubscriptionAlert: React.FC<Props> = ({
-    visible,
-    onConfirm,
-    onCancel,
-}) => (
+const AssertionSubscriptionAlert: React.FC<Props> = ({ visible, onConfirm, onCancel }) => (
     <StyledModal
         title={
             <AlertTitleContainer>
@@ -81,7 +77,10 @@ const AssertionSubscriptionAlert: React.FC<Props> = ({
             </FooterContent>,
         ]}
     >
-        <ContentMessage>You are currently subscribed to all assertions on this asset. If you continue, you will no longer be auto-subscribed to newly created assertions on this asset.</ContentMessage>
+        <ContentMessage>
+            You are currently subscribed to all assertions on this asset. If you continue, you will no longer be
+            auto-subscribed to newly created assertions on this asset.
+        </ContentMessage>
     </StyledModal>
 );
 

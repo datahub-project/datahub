@@ -40,10 +40,10 @@ export const SqlAssertionDetails = ({ assertion }: Props) => {
                     value={schedule}
                     assertionType={AssertionType.Sql}
                     showAdvanced={false}
-                    onChange={() => { }}
+                    onChange={() => {}}
                     disabled
                 />
-                <SqlQueryBuilder value={sqlAssertion?.statement} onChange={() => { }} disabled />
+                <SqlQueryBuilder value={sqlAssertion?.statement} onChange={() => {}} disabled />
                 <SqlEvaluationBuilder
                     value={{
                         assertion: {
@@ -55,10 +55,10 @@ export const SqlAssertionDetails = ({ assertion }: Props) => {
                             },
                         },
                     }}
-                    onChange={() => { }}
+                    onChange={() => {}}
                     disabled
                 />
-                <DescriptionBuilder value={assertion?.info?.description} onChange={() => { }} disabled />
+                <DescriptionBuilder value={assertion?.info?.description} onChange={() => {}} disabled />
             </Section>
         </Form>
     );

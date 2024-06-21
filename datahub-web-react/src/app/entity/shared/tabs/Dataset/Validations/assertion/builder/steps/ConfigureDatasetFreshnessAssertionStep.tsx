@@ -36,9 +36,11 @@ const ControlsGroup = styled.div`
 /**
  * Step for defining the Dataset Freshness assertion
  */
-export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goTo, prev, }: StepProps) => {
+export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const { isTestAssertionModalVisible, handleTestAssertionSubmit, hideTestAssertionModal } = useTestAssertionModal();
-    const isTestAssertionActionDisabled = !useConnectionWithRunAssertionCapabilitiesForEntityExists(state.entityUrn ?? '');
+    const isTestAssertionActionDisabled = !useConnectionWithRunAssertionCapabilitiesForEntityExists(
+        state.entityUrn ?? '',
+    );
 
     return (
         <Step>
@@ -50,9 +52,15 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
                 <Button onClick={prev}>Back</Button>
                 <ControlsGroup>
                     <Tooltip
-                        title={isTestAssertionActionDisabled ? 'Trying assertions is not supported for sources with remote executors.' : 'Try this assertion out!'}
+                        title={
+                            isTestAssertionActionDisabled
+                                ? 'Trying assertions is not supported for sources with remote executors.'
+                                : 'Try this assertion out!'
+                        }
                     >
-                        <Button onClick={handleTestAssertionSubmit} disabled={isTestAssertionActionDisabled}>Try it out</Button>
+                        <Button onClick={handleTestAssertionSubmit} disabled={isTestAssertionActionDisabled}>
+                            Try it out
+                        </Button>
                     </Tooltip>
                     <Button type="primary" onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>
                         Next

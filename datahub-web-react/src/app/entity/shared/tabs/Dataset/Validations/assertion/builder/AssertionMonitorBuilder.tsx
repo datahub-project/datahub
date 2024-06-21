@@ -56,7 +56,6 @@ export const AssertionMonitorBuilder = ({
 
     const createAssertionMonitor = useUpsertAssertionMonitor(builderState, onCreateAssertionMonitor, false);
 
-
     /**
      * The current step id, e.g. SELECT_TYPE
      */

@@ -89,7 +89,6 @@ function GlossarySearch() {
                     onFocus={() => setIsSearchBarFocused(true)}
                 />
                 {isSearchBarFocused && searchResults && !!searchResults.length && renderSearchResults()}
-                
             </ClickOutside>
         </GlossarySearchWrapper>
     );

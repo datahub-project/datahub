@@ -5,7 +5,12 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { SectionHeader, StyledDivider } from './components';
 import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
-import { EditableSchemaFieldInfo, EntityType, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
+import {
+    EditableSchemaFieldInfo,
+    EntityType,
+    SchemaField,
+    SubResourceType,
+} from '../../../../../../../../types.generated';
 import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../EntityContext';
 import { useSchemaRefetch } from '../../SchemaContext';
@@ -84,7 +89,9 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
     });
 
     const displayedDescription = editableFieldInfo?.description || expandedField.description;
-    const baDescription = expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.description;
+    const baDescription =
+        expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+            ?.description;
     const baUrn = expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.urn;
     const shouldShowProposeButton = getShouldShowProposeButton(entityType);
 
@@ -93,7 +100,12 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
             <DescriptionWrapper>
                 <div>
                     <SectionHeader>Description</SectionHeader>
-                    <DescriptionSection description={displayedDescription || ''} baDescription={baDescription || ''} baUrn={baUrn || ''} isExpandable />
+                    <DescriptionSection
+                        description={displayedDescription || ''}
+                        baDescription={baDescription || ''}
+                        baUrn={baUrn || ''}
+                        isExpandable
+                    />
                 </div>
                 {isSchemaEditable && (
                     <EditIcon

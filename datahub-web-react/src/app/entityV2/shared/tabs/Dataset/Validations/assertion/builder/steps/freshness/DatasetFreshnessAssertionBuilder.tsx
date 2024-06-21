@@ -107,7 +107,11 @@ export const DatasetFreshnessAssertionBuilder = ({ state, updateState, disabled 
             />
 
             <EvaluationScheduleBuilder
-                headerLabel={state.assertion?.freshnessAssertion?.schedule?.type === FreshnessAssertionScheduleType.FixedInterval ? `As of...` : `Schedule checks at...`}
+                headerLabel={
+                    state.assertion?.freshnessAssertion?.schedule?.type === FreshnessAssertionScheduleType.FixedInterval
+                        ? `As of...`
+                        : `Schedule checks at...`
+                }
                 value={state.schedule}
                 onChange={updateAssertionSchedule}
                 assertionType={AssertionType.Freshness}

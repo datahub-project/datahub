@@ -34,7 +34,6 @@ export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
 export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
 export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
 
-
 export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 
 export const FILTER_DELIMITER = '␞';
@@ -133,6 +132,6 @@ export const FilterModes = {
     ADVANCED: 'advanced',
 } as const;
 
-export type FilterMode = typeof FilterModes[keyof typeof FilterModes];
+export type FilterMode = (typeof FilterModes)[keyof typeof FilterModes];
 
 export const MAX_COUNT_VAL = 10000;

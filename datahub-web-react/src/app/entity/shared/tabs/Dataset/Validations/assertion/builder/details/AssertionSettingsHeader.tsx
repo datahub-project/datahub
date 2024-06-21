@@ -32,7 +32,7 @@ const StyledDivider = styled(Divider)`
 type Props = {
     description?: string;
     action?: React.ReactNode;
-    descriptionDisabled?: boolean
+    descriptionDisabled?: boolean;
     showDivider: boolean;
     onChangeDescription: (newValue: string) => void;
 };
@@ -52,7 +52,11 @@ export const AssertionSettingsHeader = ({
             <Container>
                 <LeftColumn>
                     <DescriptionWrapper>
-                        <DescriptionBuilder value={description} onChange={onChangeDescription} disabled={!!descriptionDisabled} />
+                        <DescriptionBuilder
+                            value={description}
+                            onChange={onChangeDescription}
+                            disabled={!!descriptionDisabled}
+                        />
                     </DescriptionWrapper>
                 </LeftColumn>
                 <RightColumn>{action}</RightColumn>

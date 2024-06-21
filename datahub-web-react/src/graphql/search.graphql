@@ -922,7 +922,7 @@ fragment searchResultsWithoutSchemaField on Entity {
 fragment searchResultFieldsNoLineage on Entity {
     ...searchResultsWithoutSchemaField
     ... on SchemaFieldEntity {
-          ...entityField
+        ...entityField
     }
 }
 
@@ -937,7 +937,6 @@ fragment searchResultFields on Entity {
         }
     }
 }
-
 
 fragment facetFields on FacetMetadata {
     field
@@ -1049,29 +1048,29 @@ fragment searchResults on SearchResults {
 }
 
 fragment entityField on SchemaFieldEntity {
-  urn
-  type
-  parent {
     urn
     type
-    ...entityDisplayNameFields
-    ... on Dataset {
-        platform {
-            ...platformFields
+    parent {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
         }
     }
-  }
-  fieldPath
-  structuredProperties {
-    properties {
-      ...structuredPropertiesFields
+    fieldPath
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
     }
-  }
-  businessAttributes {
-    businessAttribute {
-      ...businessAttribute
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
     }
-  }
 }
 
 fragment schemaFieldEntityFields on SchemaFieldEntity {

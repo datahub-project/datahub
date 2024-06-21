@@ -73,13 +73,11 @@ function StaticSearchCardBrowsePath({ browsePaths, entityType, type, isCompactVi
     const entityTypeIcon =
         getSubTypeIcon(type) || entityRegistry.getIcon(entityType, 16, IconStyleType.ACCENT, '#8d95b1');
 
-    const divider = isCompactView
-        ? (
-            <KeyboardArrowRightOutlinedIcon
-                style={{ fill: REDESIGN_COLORS.TEXT_GREY, fontSize: 20, marginBottom: -1 }}
-            />
-        )
-        : <PlatformDivider>|</PlatformDivider>;
+    const divider = isCompactView ? (
+        <KeyboardArrowRightOutlinedIcon style={{ fill: REDESIGN_COLORS.TEXT_GREY, fontSize: 20, marginBottom: -1 }} />
+    ) : (
+        <PlatformDivider>|</PlatformDivider>
+    );
 
     return (
         <PlatformContentWrapper>

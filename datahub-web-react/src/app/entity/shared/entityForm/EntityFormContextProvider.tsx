@@ -23,9 +23,9 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     const { entityData, refetch: refetchEntityProfile, loading: profileLoading } = useEntityContext();
     const entityRegistry = useEntityRegistry();
 
-    /* 
-    * State setup
-    */
+    /*
+     * State setup
+     */
 
     const [formView, setFormView] = useState<FormView>(FormView.BY_ENTITY);
     const [selectedEntity, setSelectedEntity] = useState<Entity | undefined>(entityData as Entity);
@@ -36,12 +36,12 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     const [shouldClearFilters, setShouldClearFilters] = useState<boolean>(false);
     const [shouldRefetch, setShouldRefetch] = useState<boolean>(false);
     const [nonOptimisticLoading, setNonOptimisticLoading] = useState<boolean>(false);
-	const [submittedEntitiesMap, setSubmittedEntitiesMap] = useState<{[promptId: string]: string[]}>({}); // map from promptId: list of submitted entity urns
-	const [verifiedEntities, setVerifiedEntities] = useState<string[]>([]);
+    const [submittedEntitiesMap, setSubmittedEntitiesMap] = useState<{ [promptId: string]: string[] }>({}); // map from promptId: list of submitted entity urns
+    const [verifiedEntities, setVerifiedEntities] = useState<string[]>([]);
 
-    /* 
-    * Data setup
-    */
+    /*
+     * Data setup
+     */
 
     const {
         loading,
@@ -59,13 +59,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         },
         filter,
         counts,
-    } = useEntityFormDataFactory(
-        formUrn,
-        selectedPromptId,
-        formView,
-        submittedEntitiesMap,
-        verifiedEntities
-    );
+    } = useEntityFormDataFactory(formUrn, selectedPromptId, formView, submittedEntitiesMap, verifiedEntities);
 
     // Determine the previous form's urn
     const previousFormUrn = usePrevious(formUrn);
@@ -73,11 +67,9 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     // Determine form type
     const isVerificationType = form?.info.type === FormType.Verification;
 
-    // Find intitial prompt 
+    // Find intitial prompt
     const initialPromptId =
-        form?.info.prompts.filter(
-            (prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)
-        )[0]?.id || null;
+        form?.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type))[0]?.id || null;
 
     // Place current entity first in entity array
     const entitiesForForm = entityUrnsByForm?.searchAcrossEntities?.searchResults
@@ -106,26 +98,26 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         ? entityData
         : (fetchedData?.[selectedEntityGraphName || 'dataset'] as GenericEntityProperties);
 
-    /* 
-    * Loading conslidation
-    */
+    /*
+     * Loading conslidation
+     */
 
     const isProfileLoading = profileLoading || loading;
     const isDatasetLoading = entityLoading || loading;
     const isLoading = isOnEntityProfilePage ? isProfileLoading : isDatasetLoading;
 
-    /* 
-    * Refetch conslidation
-    */
+    /*
+     * Refetch conslidation
+     */
 
     const handleRefetch = (): any => {
         if (isOnEntityProfilePage) refetchEntityProfile();
         else entityRefetch?.();
-    }
+    };
 
-    /* 
-    * Handling submissions
-    */
+    /*
+     * Handling submissions
+     */
 
     const handlePromptSubmission = (promptId: string, entityUrns: string[]) => {
         setSubmittedEntitiesMap({
@@ -141,10 +133,10 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     };
 
     const handleUndoPromptSubmission = (promptId: string, entityUrns: string[]) => {
-        const submittedUrnsForPrompt = (submittedEntitiesMap[promptId] || []);
+        const submittedUrnsForPrompt = submittedEntitiesMap[promptId] || [];
         setSubmittedEntitiesMap({
             ...submittedEntitiesMap,
-            [promptId]: [...submittedUrnsForPrompt.filter(urn => entityUrns.includes(urn))],
+            [promptId]: [...submittedUrnsForPrompt.filter((urn) => entityUrns.includes(urn))],
         });
     };
 
@@ -155,9 +147,9 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         }, 5000);
     };
 
-    /* 
-    * Pragmatic updates to state
-    */
+    /*
+     * Pragmatic updates to state
+     */
 
     useEffect(() => {
         if (!selectedEntity || (!selectedEntity.urn && entitiesForForm)) {
@@ -177,9 +169,9 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         }
     }, [formUrn, previousFormUrn, initialPromptId]);
 
-    /* 
-    * Consolidate context output 
-    */
+    /*
+     * Consolidate context output
+     */
 
     // Submission
     const submission = {
@@ -188,7 +180,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         handleUndoPromptSubmission,
         handleBulkVerifySubmission,
         verificationDataLoading,
-    }
+    };
 
     // Search
     const search = {
@@ -202,7 +194,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
         setNumResultsPerPage,
     };
 
-    // Form 
+    // Form
     const formInfo = {
         formUrn,
         form,
@@ -213,10 +205,10 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
 
     // Entity
     const entity = {
-        // Entities in Form 
+        // Entities in Form
         entitiesForForm,
 
-        // Entity Data 
+        // Entity Data
         entityData: selectedEntityData as GenericEntityProperties,
         refetch: handleRefetch,
 
@@ -250,68 +242,46 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
 
         // Current Prompt Data
         prompt: prompts.find((p) => p.id === selectedPromptId),
-        promptIndex: selectedPromptId && prompts.findIndex((p) => p.id === selectedPromptId) || 0,
+        promptIndex: (selectedPromptId && prompts.findIndex((p) => p.id === selectedPromptId)) || 0,
 
         // Bulk utils on a prompt
         displayBulkPromptStyles: formView === FormView.BY_QUESTION,
     };
 
-    // Form States 
+    // Form States
     const { promptCounts, verificationType, completionType } = counts;
     const isByQuestion = formView === FormView.BY_QUESTION;
     const isBulkVerify = formView === FormView.BULK_VERIFY;
     const noSearchResults = search.resultItemCount === 0;
     const states = {
         byQuestion: {
-            showFinishRemainingAssets:
-                isByQuestion && (
-                    noSearchResults && promptCounts.numNotComplete > 0
-                ),
-            showContinueToNextQuestion:
-                isByQuestion && (
-                    noSearchResults && promptCounts.numNotComplete === 0
-                ),
-            showCompleted:
-                isByQuestion && (
-                    !isVerificationType && (
-                        completionType.notComplete === 0
-                    )
-                ),
-            showVerifyCTAHeader:
-                isByQuestion && (
-                    isVerificationType && (
-                        verificationType.verifyReady > 0
-                    )
-                ),
+            showFinishRemainingAssets: isByQuestion && noSearchResults && promptCounts.numNotComplete > 0,
+            showContinueToNextQuestion: isByQuestion && noSearchResults && promptCounts.numNotComplete === 0,
+            showCompleted: isByQuestion && !isVerificationType && completionType.notComplete === 0,
+            showVerifyCTAHeader: isByQuestion && isVerificationType && verificationType.verifyReady > 0,
             showVerifyCTA:
-                isByQuestion && (
-                    isVerificationType && (
-                        verificationType.verifyReady > 0 && verificationType.notVerifyReady === 0
-                    )
-                ),
+                isByQuestion &&
+                isVerificationType &&
+                verificationType.verifyReady > 0 &&
+                verificationType.notVerifyReady === 0,
         },
         bulkVerify: {
             showReturnToQuestions:
-                isBulkVerify && (
-                    noSearchResults && verificationType.verifyReady === 0 && verificationType.notVerifyReady > 0
-                ),
-            showFinishRemainingAssets:
-                isBulkVerify && (
-                    noSearchResults && verificationType.verifyReady > 0
-                ),
-            showCompleted:
-                isBulkVerify && (
-                    verificationType.verifyReady === 0 && verificationType.notVerifyReady === 0
-                ),
+                isBulkVerify &&
+                noSearchResults &&
+                verificationType.verifyReady === 0 &&
+                verificationType.notVerifyReady > 0,
+            showFinishRemainingAssets: isBulkVerify && noSearchResults && verificationType.verifyReady > 0,
+            showCompleted: isBulkVerify && verificationType.verifyReady === 0 && verificationType.notVerifyReady === 0,
         },
     };
 
     // Bool for form context?
     const isInFormContext = true;
 
-    /* 
-    * Build & return the provider
-    */
+    /*
+     * Build & return the provider
+     */
 
     return (
         <EntityFormContext.Provider
@@ -327,7 +297,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
                 filter: {
                     ...filter,
                     shouldClearFilters,
-                    setShouldClearFilters
+                    setShouldClearFilters,
                 },
                 entity,
                 prompt,

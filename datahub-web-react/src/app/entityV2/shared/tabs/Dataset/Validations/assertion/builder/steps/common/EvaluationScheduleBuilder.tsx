@@ -103,31 +103,31 @@ export const EvaluationScheduleBuilder = ({
     const title = headerLabel ?? getEvaluationScheduleTitle(assertionType);
     const tooltipDescription = getEvaluationScheduleTooltipDescription(assertionType, platformName as string);
 
-    const currentIntervalPeriodRef = useRef<PeriodType>()
+    const currentIntervalPeriodRef = useRef<PeriodType>();
     const onIntervalInitializeOrChange = (newInterval: string, extra: SetValueFunctionExtra) => {
-        let cron = newInterval
+        let cron = newInterval;
 
         // If initializing, do nothing
         // Else if granularity has changed, reset cron to a default for that granularity
-        if (typeof currentIntervalPeriodRef.current === "undefined") {
-            currentIntervalPeriodRef.current = extra.selectedPeriod
+        if (typeof currentIntervalPeriodRef.current === 'undefined') {
+            currentIntervalPeriodRef.current = extra.selectedPeriod;
         } else if (currentIntervalPeriodRef.current !== extra.selectedPeriod) {
-            currentIntervalPeriodRef.current = extra.selectedPeriod
+            currentIntervalPeriodRef.current = extra.selectedPeriod;
             switch (extra.selectedPeriod) {
                 case 'month':
-                    cron = '0 0 1 * *'
+                    cron = '0 0 1 * *';
                     break;
                 case 'week':
-                    cron = '0 0 * * 1'
+                    cron = '0 0 * * 1';
                     break;
                 case 'day':
-                    cron = '0 0 * * *'
+                    cron = '0 0 * * *';
                     break;
                 case 'hour':
-                    cron = '0 * * * *'
+                    cron = '0 * * * *';
                     break;
                 case 'minute':
-                    cron = '* * * * *'
+                    cron = '* * * * *';
                     break;
                 default:
                     break;
@@ -138,7 +138,6 @@ export const EvaluationScheduleBuilder = ({
             timezone,
         });
     };
-
 
     const updateTimezone = (newTimezone: string) => {
         onChange({
@@ -209,7 +208,11 @@ export const EvaluationScheduleBuilder = ({
                         {cronAsText.text && (
                             <>
                                 <CronSuccessCheck />
-                                <TruncatedTextWithTooltip text={`${actionText} ${cronAsText.text}`} style={{ color: ANTD_GRAY[7] }} maxLength={100} />
+                                <TruncatedTextWithTooltip
+                                    text={`${actionText} ${cronAsText.text}`}
+                                    style={{ color: ANTD_GRAY[7] }}
+                                    maxLength={100}
+                                />
                             </>
                         )}
                     </CronText>

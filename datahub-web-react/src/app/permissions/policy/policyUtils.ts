@@ -179,7 +179,6 @@ export const updateListPoliciesCache = (client, policies, pageSize) => {
             },
         },
         data: {
-            
             listPolicies: {
                 __typename: 'ListPoliciesResult',
                 start: 0,

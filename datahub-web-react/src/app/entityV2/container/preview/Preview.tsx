@@ -44,7 +44,7 @@ export const Preview = ({
     entityCount,
     isOutputPort,
     headerDropdownItems,
-    browsePaths
+    browsePaths,
 }: {
     urn: string;
     name: string;

@@ -14,8 +14,7 @@ const Header = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
 `;
 
-const Body = styled.div`
-`
+const Body = styled.div``;
 
 const HeaderSkeleton = styled(Skeleton.Input)`
     && {

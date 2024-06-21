@@ -45,7 +45,7 @@ export const IncidentsSummary = ({ total }: Props) => {
                 searchFlags: {
                     skipCache: true,
                 },
-                viewUrn
+                viewUrn,
             },
         },
     });

@@ -21,7 +21,7 @@ const GlossaryItem = styled.div`
     position: relative;
     overflow: hidden;
     padding: 12px 20px 20px 32px;
-    border-top: 1px solid rgba(0,0,0,0.1);
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
 
     .anticon-folder {
         margin-right: 8px;
@@ -65,12 +65,12 @@ interface Props {
 }
 
 function GlossaryEntityItem(props: Props) {
-    const { name, description, urn, type, count, displayProperties} = props;
+    const { name, description, urn, type, count, displayProperties } = props;
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 
     return (
-        <ItemWrapper type={type} entityData={entityData} >
+        <ItemWrapper type={type} entityData={entityData}>
             <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
                 <GlossaryItem>
                     {type === EntityType.GlossaryNode && !entityData.urn ? (
@@ -83,7 +83,14 @@ function GlossaryEntityItem(props: Props) {
                             urn={urn}
                         />
                     ) : (
-                        <GlossaryTermItem name={name} description={description} type={type} urn={urn} entityData={entityData} count={count}/>
+                        <GlossaryTermItem
+                            name={name}
+                            description={description}
+                            type={type}
+                            urn={urn}
+                            entityData={entityData}
+                            count={count}
+                        />
                     )}
                 </GlossaryItem>
             </Link>

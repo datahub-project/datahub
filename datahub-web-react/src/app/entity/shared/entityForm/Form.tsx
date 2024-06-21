@@ -78,12 +78,13 @@ function Form({ formUrn, showHeader, showVerifyPrompt }: Props) {
                     )}
                     {description ? (
                         <SubTitle>
-                        <Editor content={description} readOnly editorStyle="padding: 0;" />
-                    </SubTitle>
+                            <Editor content={description} readOnly editorStyle="padding: 0;" />
+                        </SubTitle>
                     ) : (
                         <SubTitle>
-                            Please fill out the following information for this {entityRegistry.getEntityName(entityType)} so
-                            that we can keep track of the status of the asset
+                            Please fill out the following information for this{' '}
+                            {entityRegistry.getEntityName(entityType)} so that we can keep track of the status of the
+                            asset
                         </SubTitle>
                     )}
                 </HeaderWrapper>
@@ -96,12 +97,7 @@ function Form({ formUrn, showHeader, showVerifyPrompt }: Props) {
                     associatedUrn={associatedUrn}
                 />
             ))}
-            {fieldPrompts.length > 0 && (
-                <SchemaFieldPrompts
-                    prompts={fieldPrompts}
-                    associatedUrn={associatedUrn}
-                />
-            )}
+            {fieldPrompts.length > 0 && <SchemaFieldPrompts prompts={fieldPrompts} associatedUrn={associatedUrn} />}
             {shouldShowVerificationPrompt && showVerifyPrompt && (
                 <VerificationPrompt
                     formUrn={formUrn}
@@ -113,20 +109,10 @@ function Form({ formUrn, showHeader, showVerifyPrompt }: Props) {
     );
 }
 
-export default function FormContainer({
-    formUrn,
-    showHeader = true,
-    showVerifyPrompt = true
-}: Props) {
+export default function FormContainer({ formUrn, showHeader = true, showVerifyPrompt = true }: Props) {
     return (
         <DeferredRenderComponent
-            wrappedComponent={(
-                <Form
-                    formUrn={formUrn}
-                    showHeader={showHeader}
-                    showVerifyPrompt={showVerifyPrompt}
-                />
-            )}
+            wrappedComponent={<Form formUrn={formUrn} showHeader={showHeader} showVerifyPrompt={showVerifyPrompt} />}
         />
     );
 }

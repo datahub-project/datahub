@@ -60,7 +60,7 @@ const MoreSiblings = styled.span`
     margin-left: 4px;
 `;
 
-const MAX_SIBLINGS_TO_DISPLAY = 3; 
+const MAX_SIBLINGS_TO_DISPLAY = 3;
 
 type Props = {
     loading: boolean;
@@ -89,7 +89,7 @@ export const SearchResultList = ({
     previewType,
     onCardClick,
     onClickExploreAll,
-    onClickClearFilters
+    onClickClearFilters,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -124,9 +124,13 @@ export const SearchResultList = ({
                 dataSource={searchResults}
                 split={false}
                 locale={{
-                    emptyText: (
-                        !loading && <EmptySearchResults suggestions={suggestions} onClickExploreAll={onClickExploreAll} onClickClearFilters={onClickClearFilters} />
-                    ) || <></>
+                    emptyText: (!loading && (
+                        <EmptySearchResults
+                            suggestions={suggestions}
+                            onClickExploreAll={onClickExploreAll}
+                            onClickClearFilters={onClickClearFilters}
+                        />
+                    )) || <></>,
                 }}
                 renderItem={(item, index) => (
                     <ResultWrapper showUpdatedStyles={showSearchFiltersV2} className={`entityUrn-${item.entity.urn}`}>
@@ -157,12 +161,11 @@ export const SearchResultList = ({
                                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
                                     entities={item.matchedEntities?.slice(0, MAX_SIBLINGS_TO_DISPLAY)}
                                 />
-                                {(item?.matchedEntities?.length || 0) > MAX_SIBLINGS_TO_DISPLAY ?
+                                {(item?.matchedEntities?.length || 0) > MAX_SIBLINGS_TO_DISPLAY ? (
                                     <MoreSiblings>
-                                        + {item?.matchedEntities?.length - MAX_SIBLINGS_TO_DISPLAY} more 
+                                        + {item?.matchedEntities?.length - MAX_SIBLINGS_TO_DISPLAY} more
                                     </MoreSiblings>
-                                    : null
-                                }
+                                ) : null}
                             </SiblingResultContainer>
                         )}
                         {!showSearchFiltersV2 && <ThinDivider />}

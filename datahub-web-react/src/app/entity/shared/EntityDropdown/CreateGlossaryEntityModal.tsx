@@ -122,7 +122,7 @@ function CreateGlossaryEntityModal(props: Props) {
                                 : res.data?.createGlossaryNode;
                         history.push(getEntityPath(entityType, redirectUrn, entityRegistry, false, false));
                     }
-                }, 2000)
+                }, 2000);
             })
             .catch((e) => {
                 message.destroy();

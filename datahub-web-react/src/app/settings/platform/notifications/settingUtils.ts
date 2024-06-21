@@ -11,7 +11,7 @@ import { UpdateGlobalNotificationSettingsMutationFn } from '../../../../graphql/
 export const SLACK_CHANNEL_PARAM_NAME = `${SLACK_SINK.id}.channel`;
 export const EMAIL_ADDRESS_PARAM_NAME = `${EMAIL_SINK.id}.address`;
 
-// TODO: Move these utilities to a global file. 
+// TODO: Move these utilities to a global file.
 export const paramsMapToArray = (params: Map<string, string>) => {
     const paramsArray = Array<StringMapEntry>();
     params.forEach((value, key) => {
@@ -37,7 +37,8 @@ export const isParamPresent = (params: Map<string, string>, key: string, value: 
 
 export const isSinkNotificationTypeEnabled = (sinkId, setting?: FormattedNotificationSetting | null) => {
     return (
-        setting?.value === NotificationSettingValue.Enabled && isParamPresent(setting.params, `${sinkId}.enabled`, 'true')
+        setting?.value === NotificationSettingValue.Enabled &&
+        isParamPresent(setting.params, `${sinkId}.enabled`, 'true')
     );
 };
 

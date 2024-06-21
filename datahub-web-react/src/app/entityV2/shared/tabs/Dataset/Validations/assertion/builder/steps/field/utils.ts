@@ -575,7 +575,6 @@ export const getDefaultDatasetSchemaAssertionState = () => {
     };
 };
 
-
 // Default assertion parameter definition used when the selected type is Field.
 export const getDefaultDatasetFieldAssertionParametersState = (connectionForEntityExists: boolean) => {
     return {
@@ -595,11 +594,10 @@ export const getDefaultDatasetSchemaAssertionParametersState = () => {
     return {
         type: AssertionEvaluationParametersType.DatasetSchema,
         datasetSchemaParameters: {
-            sourceType: DatasetSchemaSourceType.DatahubSchema
+            sourceType: DatasetSchemaSourceType.DatahubSchema,
         },
     };
 };
-
 
 // Display a disabled message based on the dataset profile option depending on the platform and connection.
 export const getDatasetProfileDisabledMessage = (
@@ -660,11 +658,11 @@ export const getFieldMetricLabel = (metric: FieldMetricType) => {
 };
 
 export const convertSchemaMetadataToAssertionFields = (schemaMetadata: SchemaMetadata) => {
-    return schemaMetadata.fields?.map(field => 
-        ({
+    return (
+        schemaMetadata.fields?.map((field) => ({
             path: downgradeV2FieldPath(field.fieldPath) as string,
             type: field.type,
-            nativeType: field.nativeDataType
-        })    
-    ) || []; 
-}
+            nativeType: field.nativeDataType,
+        })) || []
+    );
+};

@@ -13,17 +13,16 @@ interface Props {
 }
 
 export default function SearchFilter({ filter, filterPredicates, activeFilters, onChangeFilters }: Props) {
-    const {
-        updateFilters,
-        numActiveFilters,
-    } = useSearchFilterDropdown({
+    const { updateFilters, numActiveFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
         onChangeFilters,
     });
     const filterIcon = getFilterDropdownIcon(filter.field);
 
-    const currentFilterPredicate = filterPredicates?.find(obj => obj.field.field.includes(filter.field)) as FilterPredicate
+    const currentFilterPredicate = filterPredicates?.find((obj) =>
+        obj.field.field.includes(filter.field),
+    ) as FilterPredicate;
     return (
         <SearchFilterView
             filterPredicate={currentFilterPredicate}

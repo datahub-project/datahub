@@ -1,6 +1,6 @@
-import { EntityType } from "../../../../types.generated";
-import { getTestEntityRegistryV2 } from "../../../../utils/test-utils/TestEntityRegistry";
-import { getRelatedAssetsUrl, getRelatedEntitiesUrl, sortGlossaryTerms } from "../utils";
+import { EntityType } from '../../../../types.generated';
+import { getTestEntityRegistryV2 } from '../../../../utils/test-utils/TestEntityRegistry';
+import { getRelatedAssetsUrl, getRelatedEntitiesUrl, sortGlossaryTerms } from '../utils';
 
 const testEntityRegistry = getTestEntityRegistryV2();
 
@@ -8,19 +8,19 @@ describe('sortGlossaryTerms', () => {
     it('should correctly sort glossary terms when both nodes are provided', () => {
         const nodeA = {
             type: EntityType.GlossaryTerm,
-            urn: "urn:123",
+            urn: 'urn:123',
             properties: {
-                "__typename": "GlossaryTermProperties",
-                name: "test child 2"
-            }
+                __typename: 'GlossaryTermProperties',
+                name: 'test child 2',
+            },
         };
         const nodeB = {
             type: EntityType.GlossaryTerm,
-            urn: "urn:li:456",
+            urn: 'urn:li:456',
             properties: {
-                "__typename": "GlossaryTermProperties",
-                name: "test child 1"
-            }
+                __typename: 'GlossaryTermProperties',
+                name: 'test child 1',
+            },
         };
         const result = sortGlossaryTerms(testEntityRegistry, nodeA, nodeB);
         expect(result).toBeGreaterThan(0);
@@ -29,19 +29,19 @@ describe('sortGlossaryTerms', () => {
     it('should not sort glossary terms when both nodes are provided in sorted order', () => {
         const nodeA = {
             type: EntityType.GlossaryTerm,
-            urn: "urn:123",
+            urn: 'urn:123',
             properties: {
-                "__typename": "GlossaryTermProperties",
-                name: "test child 1"
-            }
+                __typename: 'GlossaryTermProperties',
+                name: 'test child 1',
+            },
         };
         const nodeB = {
             type: EntityType.GlossaryTerm,
-            urn: "urn:li:456",
+            urn: 'urn:li:456',
             properties: {
-                "__typename": "GlossaryTermProperties",
-                name: "test child 2"
-            }
+                __typename: 'GlossaryTermProperties',
+                name: 'test child 2',
+            },
         };
         const result = sortGlossaryTerms(testEntityRegistry, nodeA, nodeB);
         expect(result).toBeLessThan(0);
@@ -50,11 +50,11 @@ describe('sortGlossaryTerms', () => {
     it('should correctly sort glossary terms when only one node is provided', () => {
         const nodeA = {
             type: EntityType.GlossaryTerm,
-            urn: "urn:123",
+            urn: 'urn:123',
             properties: {
-                "__typename": "GlossaryTermProperties",
-                name: "test child 1"
-            }
+                __typename: 'GlossaryTermProperties',
+                name: 'test child 1',
+            },
         };
         const result = sortGlossaryTerms(testEntityRegistry, nodeA);
         expect(result).toBeGreaterThan(0);

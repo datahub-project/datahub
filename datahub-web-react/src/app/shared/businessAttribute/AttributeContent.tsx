@@ -67,11 +67,13 @@ export default function AttributeContent({
                         variables: {
                             input: {
                                 businessAttributeUrn: attributeToRemove.businessAttribute.urn,
-                                resourceUrn: [{
-                                    resourceUrn: attributeToRemove.associatedUrn || entityUrn || '',
-                                    subResource: null,
-                                    subResourceType: null,
-                                }],
+                                resourceUrn: [
+                                    {
+                                        resourceUrn: attributeToRemove.associatedUrn || entityUrn || '',
+                                        subResource: null,
+                                        subResourceType: null,
+                                    },
+                                ],
                             },
                         },
                     })

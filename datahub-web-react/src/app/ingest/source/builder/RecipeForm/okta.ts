@@ -150,4 +150,3 @@ export const SKIP_USERS_WITHOUT_GROUP: RecipeField = {
     fieldPath: 'source.config.skip_users_without_a_group',
     rules: null,
 };
-

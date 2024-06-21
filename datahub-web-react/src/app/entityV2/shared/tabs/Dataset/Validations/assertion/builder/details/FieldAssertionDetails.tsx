@@ -60,37 +60,37 @@ export const FieldAssertionDetails = ({ assertion }: Props) => {
             <EvaluationScheduleBuilder
                 value={schedule}
                 assertionType={AssertionType.Field}
-                onChange={() => { }}
+                onChange={() => {}}
                 showAdvanced={false}
                 disabled
             />
-            <FieldTypeBuilder value={state} onChange={() => { }} disabled />
-            <FieldColumnBuilder value={state} onChange={() => { }} disabled />
+            <FieldTypeBuilder value={state} onChange={() => {}} disabled />
+            <FieldColumnBuilder value={state} onChange={() => {}} disabled />
             {isFieldValuesAssertion && fieldAssertion?.fieldValuesAssertion?.field?.path && (
                 <>
-                    <FieldValuesParameterBuilder value={state} onChange={() => { }} disabled />
-                    <FieldNullCheckBuilder value={state} onChange={() => { }} disabled />
+                    <FieldValuesParameterBuilder value={state} onChange={() => {}} disabled />
+                    <FieldNullCheckBuilder value={state} onChange={() => {}} disabled />
                 </>
             )}
             {isFieldMetricAssertion && fieldAssertion?.fieldMetricAssertion?.field?.path && (
-                <FieldMetricBuilder value={state} onChange={() => { }} disabled />
+                <FieldMetricBuilder value={state} onChange={() => {}} disabled />
             )}
-            <FieldRowCheckBuilder value={state} onChange={() => { }} disabled />
+            <FieldRowCheckBuilder value={state} onChange={() => {}} disabled />
             <Section>
                 <Collapse>
                     <Collapse.Panel key="Advanced" header="Advanced">
                         <AdvancedSection>
                             {isFieldMetricAssertion && (
-                                <FieldMetricSourceBuilder value={state} onChange={() => { }} disabled />
+                                <FieldMetricSourceBuilder value={state} onChange={() => {}} disabled />
                             )}
                             <FieldFilterBuilder
                                 value={fieldAssertion?.filter as DatasetFilter}
-                                onChange={() => { }}
+                                onChange={() => {}}
                                 sourceType={datasetFieldParameters?.sourceType as DatasetFieldAssertionSourceType}
                                 disabled
                             />
                             {isFieldValuesAssertion && (
-                                <FieldErrorThresholdBuilder value={state} onChange={() => { }} disabled />
+                                <FieldErrorThresholdBuilder value={state} onChange={() => {}} disabled />
                             )}
                         </AdvancedSection>
                     </Collapse.Panel>

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-import { scaleOrdinal } from "@visx/scale";
+import { scaleOrdinal } from '@visx/scale';
 
 import { ChartCard, HorizontalFullBarChart } from '../../../dataviz';
 import { COMPLETED_COLOR, NOT_STARTED_COLOR, IN_PROGRESS_COLOR } from '../../../dataviz/constants';
@@ -17,91 +17,93 @@ import { SectionWaiting, ChartState, ChartNoData } from './AuxViews';
 
 /* THIS CHART CAN ONLY WORK ON THE FORMS TAB WHEN A FORM ID IS SELECTED */
 const DocumentationProgressByQuestion = () => {
-	const {
-		sql,
-		sectionLoadStates: { questions, setLoadStates },
-		byForm: { selectedForm }
-	} = useFormAnalyticsContext();
+    const {
+        sql,
+        sectionLoadStates: { questions, setLoadStates },
+        byForm: { selectedForm },
+    } = useFormAnalyticsContext();
 
-	const { data, loading, error } = useFormAnalyticsQuery({
-		variables: { input: { 'queryString': sql.formQuestionProgress } },
-		skip: sql.skip,
-	});
+    const { data, loading, error } = useFormAnalyticsQuery({
+        variables: { input: { queryString: sql.formQuestionProgress } },
+        skip: sql.skip,
+    });
 
-	// Get the form data
-	const { data: formData } = useGetFormQuery({
-		variables: { urn: selectedForm || '' },
-		skip: !selectedForm
-	});
+    // Get the form data
+    const { data: formData } = useGetFormQuery({
+        variables: { urn: selectedForm || '' },
+        skip: !selectedForm,
+    });
 
-	// Get the prompts from the form data
-	const prompts = formData?.form?.info?.prompts || [];
+    // Get the prompts from the form data
+    const prompts = formData?.form?.info?.prompts || [];
 
-	useEffect(() => {
-		if (!loading && !questions) setLoadStates('questions', 'questions', true);
-	}, [loading, setLoadStates, questions]);
+    useEffect(() => {
+        if (!loading && !questions) setLoadStates('questions', 'questions', true);
+    }, [loading, setLoadStates, questions]);
 
-	// States the chart can be in
-	const chartState = {
-		loading,
-		error: !!error,
-		noDataTimeframe: !!data && data?.formAnalytics?.table?.length === 0,
-		noData: data?.formAnalytics?.table?.length === 0
-	};
+    // States the chart can be in
+    const chartState = {
+        loading,
+        error: !!error,
+        noDataTimeframe: !!data && data?.formAnalytics?.table?.length === 0,
+        noData: data?.formAnalytics?.table?.length === 0,
+    };
 
-	// Render component to display the chart state
-	if (Object.values(chartState).some((v) => v === true)) return <ChartState {...chartState} />;
+    // Render component to display the chart state
+    if (Object.values(chartState).some((v) => v === true)) return <ChartState {...chartState} />;
 
-	const mergedData = mergeRowAndHeaderData(data?.formAnalytics?.header, data?.formAnalytics?.table || []).map((d) => ({
-		...d,
-		question: d.question
-	}));
+    const mergedData = mergeRowAndHeaderData(data?.formAnalytics?.header, data?.formAnalytics?.table || []).map(
+        (d) => ({
+            ...d,
+            question: d.question,
+        }),
+    );
 
-	if (mergedData.length === 0) return <ChartNoData />;
+    if (mergedData.length === 0) return <ChartNoData />;
 
-	const docProgressByFormDataKeys = Object.keys(mergedData[0]).filter((k) =>
-		k !== 'question'
-	);
+    const docProgressByFormDataKeys = Object.keys(mergedData[0]).filter((k) => k !== 'question');
 
-	const ordinalColorScale = scaleOrdinal({
-		domain: ['Not Started', 'In Progress', 'Completed'],
-		range: [NOT_STARTED_COLOR, IN_PROGRESS_COLOR, COMPLETED_COLOR]
-	});
+    const ordinalColorScale = scaleOrdinal({
+        domain: ['Not Started', 'In Progress', 'Completed'],
+        range: [NOT_STARTED_COLOR, IN_PROGRESS_COLOR, COMPLETED_COLOR],
+    });
 
-	// Add prompts to chart data (FE data hydration)
-	const updatedData = mergedData.map((d) => {
-		const prompt = prompts.find((p) => p.id === d.question);
-		return {
-			...d,
-			question: truncateString(prompt?.title) || d.question
-		};
-	});
+    // Add prompts to chart data (FE data hydration)
+    const updatedData = mergedData.map((d) => {
+        const prompt = prompts.find((p) => p.id === d.question);
+        return {
+            ...d,
+            question: truncateString(prompt?.title) || d.question,
+        };
+    });
 
-	return (
-		<HorizontalFullBarChart
-			data={updatedData}
-			dataKeys={docProgressByFormDataKeys}
-			yAccessor={(d: { question: string }) => d.question}
-			colorAccessor={ordinalColorScale}
-		/>
-	);
-}
+    return (
+        <HorizontalFullBarChart
+            data={updatedData}
+            dataKeys={docProgressByFormDataKeys}
+            yAccessor={(d: { question: string }) => d.question}
+            colorAccessor={ordinalColorScale}
+        />
+    );
+};
 
 export const Questions = () => {
-	const { sectionLoadStates: { overallProgress } } = useFormAnalyticsContext();
+    const {
+        sectionLoadStates: { overallProgress },
+    } = useFormAnalyticsContext();
 
-	// this section only occurs on the forms tab and currently comes after overall progress (waterfall render)
-	if (!overallProgress) return <SectionWaiting />;
+    // this section only occurs on the forms tab and currently comes after overall progress (waterfall render)
+    if (!overallProgress) return <SectionWaiting />;
 
-	return (
-		<ChartGroup>
-			<SecondaryHeading>Questions</SecondaryHeading>
-			<Row>
-				<ChartCard
-					title="Marketing Documentation Form Progress by Question"
-					chart={<DocumentationProgressByQuestion />}
-				/>
-			</Row>
-		</ChartGroup>
-	);
-}
+    return (
+        <ChartGroup>
+            <SecondaryHeading>Questions</SecondaryHeading>
+            <Row>
+                <ChartCard
+                    title="Marketing Documentation Form Progress by Question"
+                    chart={<DocumentationProgressByQuestion />}
+                />
+            </Row>
+        </ChartGroup>
+    );
+};

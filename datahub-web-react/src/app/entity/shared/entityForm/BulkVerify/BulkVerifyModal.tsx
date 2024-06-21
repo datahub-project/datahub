@@ -42,7 +42,7 @@ export default function BulkVerifyModal({ isVerifyModalVisible, closeModal }: Pr
     const {
         submission: { handleBulkVerifySubmission },
         form: { formUrn },
-        entity: { selectedEntities, setSelectedEntities }
+        entity: { selectedEntities, setSelectedEntities },
     } = useEntityFormContext();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,27 +54,26 @@ export default function BulkVerifyModal({ isVerifyModalVisible, closeModal }: Pr
     function batchVerify() {
         setIsSubmitting(true);
         const selectedEntityUrns = selectedEntities.map((e) => e.urn);
-        batchVerifyForm({ variables: { input: { formUrn, assetUrns: selectedEntityUrns } } }).then(
-            () => {
-                analytics.event({
-                    type: EventType.CompleteVerification,
-                    source: DocRequestView.BulkVerify,
-                    numAssets: 1,
-                });
-                handleBulkVerifySubmission(selectedEntityUrns);
-                setIsSubmitting(false);
-                notification.success({
-                    message: 'Success',
-                    description: `You have successfully verified ${numSelectedEntities} ${numSelectedEntities === 1 ? 'entity' : 'entities'
-                        }`,
-                    placement: 'bottomLeft',
-                    duration: 3,
-                    icon: <CheckCircleFilled style={{ color: '#078781' }} />,
-                });
-                setSelectedEntities([]);
-                closeModal();
-            },
-        );
+        batchVerifyForm({ variables: { input: { formUrn, assetUrns: selectedEntityUrns } } }).then(() => {
+            analytics.event({
+                type: EventType.CompleteVerification,
+                source: DocRequestView.BulkVerify,
+                numAssets: 1,
+            });
+            handleBulkVerifySubmission(selectedEntityUrns);
+            setIsSubmitting(false);
+            notification.success({
+                message: 'Success',
+                description: `You have successfully verified ${numSelectedEntities} ${
+                    numSelectedEntities === 1 ? 'entity' : 'entities'
+                }`,
+                placement: 'bottomLeft',
+                duration: 3,
+                icon: <CheckCircleFilled style={{ color: '#078781' }} />,
+            });
+            setSelectedEntities([]);
+            closeModal();
+        });
     }
 
     return (
@@ -84,7 +83,7 @@ export default function BulkVerifyModal({ isVerifyModalVisible, closeModal }: Pr
                     Verify {numSelectedEntities} {pluralize(numSelectedEntities, 'Asset')}
                 </Title>
                 <div>
-                    This action will mark the documentation for { } as verified for {numSelectedEntities}{' '}
+                    This action will mark the documentation for {} as verified for {numSelectedEntities}{' '}
                     {pluralize(numSelectedEntities, 'asset')}. Would you like to proceed?
                 </div>
                 <ButtonsWrapper>

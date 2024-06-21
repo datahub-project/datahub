@@ -219,7 +219,7 @@ export const AdvancedFilterSelectValueModal = ({
                 dropdownOptions="Has active incidents"
                 icon={<WarningOutlined />}
             />
-        )
+        );
     }
     if (filterField === HAS_FAILING_ASSERTIONS_FILTER_NAME) {
         return (
@@ -235,7 +235,7 @@ export const AdvancedFilterSelectValueModal = ({
                 dropdownOptions="Has failing assertions"
                 icon={<CloseCircleOutlined />}
             />
-        )
+        );
     }
 
     if (filterField === REMOVED_FILTER_NAME) {

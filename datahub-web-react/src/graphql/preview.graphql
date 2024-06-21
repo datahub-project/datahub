@@ -156,7 +156,7 @@ fragment entityPreview on Entity {
         }
         health {
             ...entityHealth
-        }    
+        }
     }
     ... on DataFlow {
         urn

@@ -65,7 +65,9 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange }: Pro
                             >
                                 {channel ? `#${channel}` : 'None'}
                             </StyledLabel>
-                            <Tooltip title={!isSlackEnabled ? 'Slack notifications are currently disabled.' : undefined}>
+                            <Tooltip
+                                title={!isSlackEnabled ? 'Slack notifications are currently disabled.' : undefined}
+                            >
                                 <Button
                                     size="small"
                                     disabled={!isSlackEnabled || editing}

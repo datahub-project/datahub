@@ -12,10 +12,10 @@ import { useIsThemeV2 } from '../useIsThemeV2';
 
 const PageContainer = styled.div<{ isV2: boolean }>`
     padding-top: 20px;
-    background-color: ${props => (props.isV2 ? '#fff' : 'inherit')};
-    margin-right: ${props => (props.isV2 ? '24px' : '0')};
-    margin-bottom: ${props => (props.isV2 ? '24px' : '0')};
-    border-radius: ${props => (props.isV2 ? '8px' : '0')};
+    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+    margin-right: ${(props) => (props.isV2 ? '24px' : '0')};
+    margin-bottom: ${(props) => (props.isV2 ? '24px' : '0')};
+    border-radius: ${(props) => (props.isV2 ? '8px' : '0')};
 `;
 
 const PageHeaderContainer = styled.div`
@@ -54,19 +54,19 @@ const StyledBadge = styled(Badge)`
     margin-left: 0.25rem;
     margin-bottom: 0.2rem;
 
-	sup {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 100%;
-		padding: 0;
-		font-size: 9px;
-		font-weight: bold;
-		min-width: ${badgeBoxSize};
-		width: ${badgeBoxSize};
-		height: ${badgeBoxSize};
-		line-height: ${badgeBoxSize};
-	}
+    sup {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 100%;
+        padding: 0;
+        font-size: 9px;
+        font-weight: bold;
+        min-width: ${badgeBoxSize};
+        width: ${badgeBoxSize};
+        height: ${badgeBoxSize};
+        line-height: ${badgeBoxSize};
+    }
 `;
 
 const TabTitle = ({ title, count }: TabTitleProps) => (
@@ -77,7 +77,9 @@ const TabTitle = ({ title, count }: TabTitleProps) => (
 );
 
 export const TaskCenter = () => {
-    const { state: { notificationsCount, proposalCount } } = useUserContext();
+    const {
+        state: { notificationsCount, proposalCount },
+    } = useUserContext();
     const [activeTab, setActiveTab] = useState('requests');
     const isV2 = useIsThemeV2();
 

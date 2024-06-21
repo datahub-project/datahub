@@ -12,17 +12,15 @@ type Props = {
  */
 export const SchemaAssertionDescription = ({ assertionInfo }: Props) => {
     const [showSchemaSummary, setShowSchemaSummary] = useState(false);
-    const { compatibility } = assertionInfo; 
-    const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch 
-        ? 'exactly match'
-        : 'include'
-    const expectedColumnCount = assertionInfo?.fields?.length || 0; 
+    const { compatibility } = assertionInfo;
+    const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
+    const expectedColumnCount = assertionInfo?.fields?.length || 0;
     return (
         <div>
             <Typography.Text>
                 Actual table columns {matchText} {expectedColumnCount} expected columns
             </Typography.Text>
-            {showSchemaSummary && !!assertionInfo.schema &&(
+            {showSchemaSummary && !!assertionInfo.schema && (
                 <SchemaSummaryModal schema={assertionInfo.schema} onClose={() => setShowSchemaSummary(false)} />
             )}
         </div>

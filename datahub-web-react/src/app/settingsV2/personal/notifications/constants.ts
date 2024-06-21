@@ -6,4 +6,4 @@ export const ActorTypes = {
     GROUP: 'group',
 } as const;
 
-export type ActorType = typeof ActorTypes[keyof typeof ActorTypes];
+export type ActorType = (typeof ActorTypes)[keyof typeof ActorTypes];

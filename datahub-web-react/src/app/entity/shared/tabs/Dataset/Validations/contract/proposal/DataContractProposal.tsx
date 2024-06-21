@@ -11,7 +11,12 @@ import {
 } from '@ant-design/icons';
 import { useEntityData } from '../../../../../EntityContext';
 import { useGetContractProposalsQuery } from '../../../../../../../../graphql/contract.generated';
-import { ActionRequestStatus, ActionRequestType, DataContractProposalParams, EntityType } from '../../../../../../../../types.generated';
+import {
+    ActionRequestStatus,
+    ActionRequestType,
+    DataContractProposalParams,
+    EntityType,
+} from '../../../../../../../../types.generated';
 import { DataContractProposalDescription } from './DataContractProposalDescription';
 import {
     useAcceptProposalMutation,
@@ -90,7 +95,7 @@ const DenyButton = styled(Button)`
         background-color: ${FAILURE_COLOR_HEX};
         border-color: ${FAILURE_COLOR_HEX};
     }
-    margin-right: 12px; ;
+    margin-right: 12px;
 `;
 
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
@@ -168,7 +173,7 @@ export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, 
                             actionType: EntityActionType.ProposalRejected,
                             actionQualifier: ActionRequestType.DataContract,
                             entityType,
-                            entityUrn
+                            entityUrn,
                         });
                         contractRefetch();
                         setTimeout(() => refetch(), 3000);

@@ -33,8 +33,7 @@ export const StyledTable = styled(Table)<StyledTableProps>`
     && {
         .ant-table-tbody > tr > td {
             border: none;
-            ${(props) => props.showSelect && `padding: 16px 20px;`
-        }
+            ${(props) => props.showSelect && `padding: 16px 20px;`}
     }
     &&& .ant-table-cell {
         background-color: transparent;
@@ -143,13 +142,13 @@ export const AcrylAssertionsTable = ({
                 const selected = selectedUrns?.some((selectedUrn) => selectedUrn === record.urn);
                 return (
                     <DetailsColumnWrapper>
-                        {showSelect ?
+                        {showSelect ? (
                             <AssertionSelectCheckbox
                                 checked={selected}
-                                onClick={e => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
                                 onChange={() => onSelect?.(record.urn as string)}
                             />
-                            : undefined}
+                        ) : undefined}
                         <DetailsColumn
                             assertion={record.assertion}
                             monitor={record.monitor}
@@ -170,7 +169,7 @@ export const AcrylAssertionsTable = ({
                 const isSqlAssertion = record.type === AssertionType.Sql;
                 return (
                     <>
-                        {showMenu ?
+                        {showMenu ? (
                             <ActionsColumn
                                 assertion={record.assertion}
                                 platform={record.platform}
@@ -182,7 +181,7 @@ export const AcrylAssertionsTable = ({
                                 lastEvaluationUrl={record.lastEvaluationUrl}
                                 refetch={refetch}
                             />
-                            : undefined}
+                        ) : undefined}
                     </>
                 );
             },

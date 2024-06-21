@@ -43,7 +43,7 @@ export default function ShareButtonMenu({ urn, entityType, subType, name }: Shar
         <StyledMenu selectable={false}>
             {navigator.clipboard && <CopyLinkMenuItem key="0" />}
             {navigator.clipboard && <CopyUrnMenuItem key="1" urn={urn} type={displayType} />}
-            {(metadataShareEnabled && canShareEntity) && <MetadataShareItem key="2" />}
+            {metadataShareEnabled && canShareEntity && <MetadataShareItem key="2" />}
             <EmailMenuItem key="2" urn={urn} name={displayName} type={displayType} />
         </StyledMenu>
     );

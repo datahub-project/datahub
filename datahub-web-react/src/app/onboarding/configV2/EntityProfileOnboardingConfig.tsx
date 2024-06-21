@@ -52,8 +52,8 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
         title: 'Stay in the know 🛎️',
         content: (
             <Typography.Paragraph>
-                You can subscribe yourself or your team to stay up-to-date with important changes such as
-                incidents, schema changes, failing tests, documentation updates, and more.
+                You can subscribe yourself or your team to stay up-to-date with important changes such as incidents,
+                schema changes, failing tests, documentation updates, and more.
             </Typography.Paragraph>
         ),
     },
@@ -80,7 +80,9 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    The asset sidebar is a vertically organized set of important information about an asset. It appears on the right side of the screen when viewing an asset, a search result, a lineage entry, and many other places.
+                    The asset sidebar is a vertically organized set of important information about an asset. It appears
+                    on the right side of the screen when viewing an asset, a search result, a lineage entry, and many
+                    other places.
                 </p>
             </Typography.Paragraph>
         ),

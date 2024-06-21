@@ -5,11 +5,19 @@ import { PlusOutlined } from '@ant-design/icons';
 import arrow from '../../../../../../images/Arrow.svg';
 import './CreateERModelRelationModal.less';
 import { EntityType, ErModelRelationship, OwnerEntityType } from '../../../../../../types.generated';
-import { useCreateErModelRelationshipMutation, useUpdateErModelRelationshipMutation } from '../../../../../../graphql/ermodelrelationship.generated';
+import {
+    useCreateErModelRelationshipMutation,
+    useUpdateErModelRelationshipMutation,
+} from '../../../../../../graphql/ermodelrelationship.generated';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { EditableRow } from './EditableRow';
 import { EditableCell } from './EditableCell';
-import { checkDuplicateERModelRelation, getDatasetName, ERModelRelationDataType, validateERModelRelation } from './ERModelRelationUtils';
+import {
+    checkDuplicateERModelRelation,
+    getDatasetName,
+    ERModelRelationDataType,
+    validateERModelRelation,
+} from './ERModelRelationUtils';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
 import { useAddOwnerMutation } from '../../../../../../graphql/mutations.generated';
 
@@ -52,7 +60,10 @@ export const CreateERModelRelationModal = ({
 
     const [details, setDetails] = useState<string>(editERModelRelation?.editableProperties?.description || '');
     const [ermodelrelationName, setERModelRelationName] = useState<string>(
-        editERModelRelation?.editableProperties?.name || editERModelRelation?.properties?.name || editERModelRelation?.id || '',
+        editERModelRelation?.editableProperties?.name ||
+            editERModelRelation?.properties?.name ||
+            editERModelRelation?.id ||
+            '',
     );
     const [tableData, setTableData] = useState<ERModelRelationDataType[]>(
         editERModelRelation?.properties?.relationshipFieldMappings?.map((item, index) => {
@@ -116,11 +127,11 @@ export const CreateERModelRelationModal = ({
                         destination: table2Dataset?.urn || '',
                         name: ermodelrelationName,
                         relationshipFieldmappings: tableData.map((r) => {
-                                return {
-                                    sourceField: r.field1Name,
-                                    destinationField: r.field2Name,
-                                };
-                            }),
+                            return {
+                                sourceField: r.field1Name,
+                                destinationField: r.field2Name,
+                            };
+                        }),
                         created: true,
                     },
                     editableProperties: {
@@ -171,12 +182,12 @@ export const CreateERModelRelationModal = ({
                         createdBy: editERModelRelation?.properties?.createdActor?.urn || user?.urn,
                         createdAt: editERModelRelation?.properties?.createdTime || 0,
                         relationshipFieldmappings: tableData.map((r) => {
-                                return {
-                                    sourceField: r.field1Name,
-                                    destinationField: r.field2Name,
-                                };
-                            }),
-                        },
+                            return {
+                                sourceField: r.field1Name,
+                                destinationField: r.field2Name,
+                            };
+                        }),
+                    },
                     editableProperties: {
                         name: ermodelrelationName,
                         description: details,
@@ -203,7 +214,12 @@ export const CreateERModelRelationModal = ({
             });
     };
     const onSubmit = async () => {
-        const errors = validateERModelRelation(ermodelrelationName, tableData, isEditing, getSearchResultsERModelRelations);
+        const errors = validateERModelRelation(
+            ermodelrelationName,
+            tableData,
+            isEditing,
+            getSearchResultsERModelRelations,
+        );
         if ((await errors).length > 0) {
             const err = (await errors).join(`, `);
             message.error(err);
@@ -368,19 +384,25 @@ export const CreateERModelRelationModal = ({
                             },
                             {
                                 validator: (_, value) =>
-                                    checkDuplicateERModelRelation(getSearchResultsERModelRelations, value?.trim()).then((result) => {
-                                        return result === true && !isEditing
-                                            ? Promise.reject(
-                                                  new Error(
-                                                      'This ER-Model-Relationship name already exists. A unique name for each ER-Model-Relationship is required.',
-                                                  ),
-                                              )
-                                            : Promise.resolve();
-                                    }),
+                                    checkDuplicateERModelRelation(getSearchResultsERModelRelations, value?.trim()).then(
+                                        (result) => {
+                                            return result === true && !isEditing
+                                                ? Promise.reject(
+                                                      new Error(
+                                                          'This ER-Model-Relationship name already exists. A unique name for each ER-Model-Relationship is required.',
+                                                      ),
+                                                  )
+                                                : Promise.resolve();
+                                        },
+                                    ),
                             },
                         ]}
                     >
-                        <Input size="large" className="ermodelrelation-name" onChange={(e) => setERModelRelationName(e.target.value)} />
+                        <Input
+                            size="large"
+                            className="ermodelrelation-name"
+                            onChange={(e) => setERModelRelationName(e.target.value)}
+                        />
                     </Form.Item>
                     <p className="all-content-heading">Fields</p>
                     <Table

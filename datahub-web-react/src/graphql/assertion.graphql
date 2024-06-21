@@ -322,7 +322,10 @@ fragment assertionDetailsWithRunEvents on Assertion {
     }
 }
 
-mutation upsertDatasetFreshnessAssertionMonitor($assertionUrn: String, $input: UpsertDatasetFreshnessAssertionMonitorInput!) {
+mutation upsertDatasetFreshnessAssertionMonitor(
+    $assertionUrn: String
+    $input: UpsertDatasetFreshnessAssertionMonitorInput!
+) {
     upsertDatasetFreshnessAssertionMonitor(assertionUrn: $assertionUrn, input: $input) {
         ...assertionDetails
     }
@@ -351,7 +354,6 @@ mutation upsertDatasetSchemaAssertionMonitor($assertionUrn: String, $input: Upse
         ...assertionDetails
     }
 }
-
 
 mutation updateAssertionMetadata($urn: String!, $input: UpdateAssertionMetadataInput!) {
     updateAssertionMetadata(urn: $urn, input: $input) {

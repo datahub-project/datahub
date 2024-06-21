@@ -52,7 +52,11 @@ export const AssertionSettingsHeader = ({
             <Container>
                 <LeftColumn>
                     <DescriptionWrapper>
-                        <DescriptionBuilder value={description} onChange={onChangeDescription} disabled={!!descriptionDisabled} />
+                        <DescriptionBuilder
+                            value={description}
+                            onChange={onChangeDescription}
+                            disabled={!!descriptionDisabled}
+                        />
                     </DescriptionWrapper>
                 </LeftColumn>
                 <RightColumn>{action}</RightColumn>

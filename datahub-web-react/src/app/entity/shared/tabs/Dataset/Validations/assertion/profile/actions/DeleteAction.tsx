@@ -73,7 +73,7 @@ export const DeleteAction = ({ assertion, monitor, canEdit, refetch }: Props) =>
             onOk() {
                 deleteAssertion();
             },
-            onCancel() { },
+            onCancel() {},
             okText: 'Yes',
             maskClosable: true,
             closable: true,

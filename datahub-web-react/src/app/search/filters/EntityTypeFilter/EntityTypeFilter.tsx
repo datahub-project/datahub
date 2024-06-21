@@ -23,7 +23,10 @@ interface Props {
 
 export default function EntityTypeFilter({ filter, activeFilters, onChangeFilters }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { isInFormContext, filter: { formFilter } } = useEntityFormContext();
+    const {
+        isInFormContext,
+        filter: { formFilter },
+    } = useEntityFormContext();
     const [selectedFilterOptions, setSelectedFilterOptions] = useState<FilterOptionType[]>([]);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isMenuOpen, setIsMenuOpen] = useState(false);

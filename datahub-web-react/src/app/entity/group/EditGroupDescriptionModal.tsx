@@ -22,19 +22,18 @@ export default function EditGroupDescriptionModal({
     stagedDescription,
 }: Props) {
     const [form] = Form.useForm();
-    const [aboutText,setAboutText] = useState(stagedDescription)
+    const [aboutText, setAboutText] = useState(stagedDescription);
 
     function updateDescription(description: string) {
-        setAboutText(aboutText)
+        setAboutText(aboutText);
         setStagedDescription(description);
-       
     }
 
     const saveDescription = () => {
         onSaveAboutMe();
         onClose();
     };
-    
+
     return (
         <Modal
             width={700}

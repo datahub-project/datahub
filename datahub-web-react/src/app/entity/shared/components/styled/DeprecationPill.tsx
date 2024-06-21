@@ -165,8 +165,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
                         <DescriptionContainer>
                             {expanded || !overLimit ? (
                                 <>
-                                    {
-                                        deprecation?.note && deprecation?.note !== '' &&
+                                    {deprecation?.note && deprecation?.note !== '' && (
                                         <>
                                             <StyledViewer content={deprecation.note} readOnly />
                                             <ExpandedActions>
@@ -181,7 +180,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
                                                 )}
                                             </ExpandedActions>
                                         </>
-                                    }
+                                    )}
                                 </>
                             ) : (
                                 <>

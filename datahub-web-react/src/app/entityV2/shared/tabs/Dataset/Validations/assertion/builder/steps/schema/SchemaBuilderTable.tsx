@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { DeleteOutline } from '@mui/icons-material';
 import { Button, Input, Select, Table, Tooltip } from 'antd';
@@ -11,7 +10,7 @@ import { areExpectedColumnsValid, supportedSchemaFieldTypes } from './utils';
 
 const ButtonWrapper = styled.div`
     max-width: 100px;
-`
+`;
 
 const StyledPlusOutlined = styled(PlusOutlined)`
     && {
@@ -22,16 +21,15 @@ const StyledPlusOutlined = styled(PlusOutlined)`
 const StyledTable = styled(Table)`
     max-width: 100px;
     overflow: none;
-`
+`;
 
 const Name = styled.div`
     max-width: 280px;
-`
+`;
 
 const Path = styled.div`
     overflow: ellipsis;
-`
-
+`;
 
 type Props = {
     selected: Partial<SchemaAssertionField>[];
@@ -44,35 +42,30 @@ type Props = {
  * Schema builder table
  */
 export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Props) => {
-    const initialData = selected.map((field, i) => (
-        {
-            key: i,
-            path: field.path,
-            type: field.type,
-            nativeType: field.nativeType,
-        }
-    ))
+    const initialData = selected.map((field, i) => ({
+        key: i,
+        path: field.path,
+        type: field.type,
+        nativeType: field.nativeType,
+    }));
     const [tableData, setTableData] = useState(initialData);
     const [index, setIndex] = useState(selected.length);
     const [editing, setEditing] = useState<boolean>(false);
 
     // Only allow saving the expected columns if there are not duplicates
-    // of the same column with differing types. 
+    // of the same column with differing types.
     const validExpectedColumns = areExpectedColumnsValid(tableData);
 
     useEffect(() => {
-        const newTableData = selected.map((field, i) => (
-            {
-                key: i,
-                path: field.path,
-                type: field.type,
-                nativeType: field.nativeType,
-            }
-        ));
+        const newTableData = selected.map((field, i) => ({
+            key: i,
+            path: field.path,
+            type: field.type,
+            nativeType: field.nativeType,
+        }));
         setIndex(selected.length);
         setTableData(newTableData);
-    }, [selected])
-
+    }, [selected]);
 
     const handleAdd = () => {
         const newData = {
@@ -105,7 +98,7 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
 
     const selectFieldOption = (path, key) => {
         const newData = [...tableData];
-        const option = options?.find(o => o.path === path);
+        const option = options?.find((o) => o.path === path);
         const i = newData.findIndex((item) => key === item.key);
         if (i > -1 && option) {
             newData[i] = {
@@ -119,13 +112,17 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
     };
 
     const onDoneEditing = () => {
-        onChange(tableData.filter(row => row.path && row.type).map(row => ({
-            path: row.path as string,
-            type: row.type as SchemaFieldDataType,
-            nativeType: row.nativeType
-        })));
+        onChange(
+            tableData
+                .filter((row) => row.path && row.type)
+                .map((row) => ({
+                    path: row.path as string,
+                    type: row.type as SchemaFieldDataType,
+                    nativeType: row.nativeType,
+                })),
+        );
         setEditing(false);
-    }
+    };
 
     // TODO: Refactor into broken down components.
     const columns = [
@@ -135,24 +132,33 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
             key: 'path',
             render: (text, record) => (
                 <Name key={record.key}>
-                    {editing ?
-                        !options && <Input
-                            disabled={disabled}
-                            value={text}
-                            onChange={(e) => handleFieldChange(e.target.value, record.key, 'path')}
-                        /> || <Select
-                            disabled={disabled}
-                            value={text}
-                            style={{ maxWidth: 260 }}
-                            dropdownMatchSelectWidth={false}
-                            onSelect={(value) => selectFieldOption(value, record.key)}
-                        >
-                            {options?.map(option =>
-                                <Select.Option key={option.path} value={option.path}>{option.path}</Select.Option>
-                            )}
-                        </Select>
-                        : <Tooltip showArrow={false} title={text}><Path>{text}</Path></Tooltip>
-                    }
+                    {editing ? (
+                        (!options && (
+                            <Input
+                                disabled={disabled}
+                                value={text}
+                                onChange={(e) => handleFieldChange(e.target.value, record.key, 'path')}
+                            />
+                        )) || (
+                            <Select
+                                disabled={disabled}
+                                value={text}
+                                style={{ maxWidth: 260 }}
+                                dropdownMatchSelectWidth={false}
+                                onSelect={(value) => selectFieldOption(value, record.key)}
+                            >
+                                {options?.map((option) => (
+                                    <Select.Option key={option.path} value={option.path}>
+                                        {option.path}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        )
+                    ) : (
+                        <Tooltip showArrow={false} title={text}>
+                            <Path>{text}</Path>
+                        </Tooltip>
+                    )}
                 </Name>
             ),
         },
@@ -168,23 +174,37 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
                     onChange={(value) => handleFieldChange(value, record.key, 'type')}
                     style={{ width: 120 }}
                 >
-                    {supportedSchemaFieldTypes.map(type =>
-                        <Select.Option key={type.type} value={type.type}>{type.name}</Select.Option>
-                    )}
+                    {supportedSchemaFieldTypes.map((type) => (
+                        <Select.Option key={type.type} value={type.type}>
+                            {type.name}
+                        </Select.Option>
+                    ))}
                 </Select>
             ),
         },
         {
-            title: <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Tooltip title="Remove all columns" showArrow={false} placement='left'>
-                    <Button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }} disabled={disabled || !editing} onClick={() => handleRemoveAll()} icon={<DeleteOutline style={{ fontSize: 16 }} />} />
-                </Tooltip>
-            </div>,
+            title: (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Tooltip title="Remove all columns" showArrow={false} placement="left">
+                        <Button
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}
+                            disabled={disabled || !editing}
+                            onClick={() => handleRemoveAll()}
+                            icon={<DeleteOutline style={{ fontSize: 16 }} />}
+                        />
+                    </Tooltip>
+                </div>
+            ),
             key: 'action',
             render: (record) => (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Tooltip title="Remove column from expectation set" showArrow={false} placement='left'>
-                        <Button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }} disabled={disabled || !editing} onClick={() => handleRemove(record.key)} icon={<DeleteOutline style={{ fontSize: 16 }} />} />
+                    <Tooltip title="Remove column from expectation set" showArrow={false} placement="left">
+                        <Button
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none' }}
+                            disabled={disabled || !editing}
+                            onClick={() => handleRemove(record.key)}
+                            icon={<DeleteOutline style={{ fontSize: 16 }} />}
+                        />
                     </Tooltip>
                 </div>
             ),
@@ -203,7 +223,18 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
                             if (!disabled) setEditing(true);
                         }}
                     />
-                )) || <SaveButton disabled={!validExpectedColumns} title="Done" tooltip={!validExpectedColumns ? 'Invalid expectations found. Please check expected columns for duplicate or incomplete entries!' : "Confirm expected columns"} onClick={onDoneEditing} />}
+                )) || (
+                    <SaveButton
+                        disabled={!validExpectedColumns}
+                        title="Done"
+                        tooltip={
+                            !validExpectedColumns
+                                ? 'Invalid expectations found. Please check expected columns for duplicate or incomplete entries!'
+                                : 'Confirm expected columns'
+                        }
+                        onClick={onDoneEditing}
+                    />
+                )}
             </ButtonWrapper>
             <StyledTable
                 columns={columns}
@@ -212,15 +243,14 @@ export const SchemaBuilderTable = ({ selected, onChange, disabled, options }: Pr
                 rowKey="key"
                 bordered
                 locale={{
-                    emptyText: "No expected columns"
+                    emptyText: 'No expected columns',
                 }}
             />
-            {editing ? <Button type="default" onClick={handleAdd} style={{ marginBottom: 16 }}>
-                <StyledPlusOutlined /> Add Column
-            </Button>
-                : null
-            }
+            {editing ? (
+                <Button type="default" onClick={handleAdd} style={{ marginBottom: 16 }}>
+                    <StyledPlusOutlined /> Add Column
+                </Button>
+            ) : null}
         </div>
     );
 };
-

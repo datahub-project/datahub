@@ -14,10 +14,10 @@ import { useUserContext } from '../../context/useUserContext';
 import { useIsThemeV2 } from '../../useIsThemeV2';
 
 const PageContainer = styled.div<{ isV2: boolean }>`
-    background-color: ${props => (props.isV2 ? '#fff' : 'inherit')};
-    margin-right: ${props => (props.isV2 ? '24px' : '0')};
-    margin-bottom: ${props => (props.isV2 ? '24px' : '0')};
-    border-radius: ${props => (props.isV2 ? '8px' : '0')};
+    background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
+    margin-right: ${(props) => (props.isV2 ? '24px' : '0')};
+    margin-bottom: ${(props) => (props.isV2 ? '24px' : '0')};
+    border-radius: ${(props) => (props.isV2 ? '8px' : '0')};
 `;
 
 const HighlightGroup = styled.div`
@@ -27,7 +27,7 @@ const HighlightGroup = styled.div`
     display: grid;
     grid-template-rows: auto auto;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px; 
+    gap: 10px;
 `;
 
 const MetadataAnalyticsInput = styled.div`
@@ -106,7 +106,7 @@ export const AnalyticsPage = () => {
                     <Alert type="error" message={highlightError?.message || 'Highlights failed to load'} />
                 )}
                 {highlightData?.getHighlights?.map((highlight) => (
-                    <Highlight highlight={highlight} shortenValue key={highlight.title}/>
+                    <Highlight highlight={highlight} shortenValue key={highlight.title} />
                 ))}
             </HighlightGroup>
             <>
@@ -116,7 +116,7 @@ export const AnalyticsPage = () => {
                 {chartData?.getAnalyticsCharts
                     ?.filter((chartGroup) => chartGroup.groupId === 'GlobalMetadataAnalytics')
                     .map((chartGroup) => (
-                        <ChartGroup chartGroup={chartGroup} key={chartGroup.title}/>
+                        <ChartGroup chartGroup={chartGroup} key={chartGroup.title} />
                     ))}
             </>
             <>
@@ -165,13 +165,13 @@ export const AnalyticsPage = () => {
                 )}
                 {domain === '' && query === ''
                     ? !chartLoading && (
-                        <MetadataAnalyticsPlaceholder>
-                            Please specify domain or query to get granular results
-                        </MetadataAnalyticsPlaceholder>
-                    )
+                          <MetadataAnalyticsPlaceholder>
+                              Please specify domain or query to get granular results
+                          </MetadataAnalyticsPlaceholder>
+                      )
                     : metadataAnalyticsData?.getMetadataAnalyticsCharts?.map((chartGroup) => (
-                        <ChartGroup chartGroup={chartGroup} key={chartGroup.title}/>
-                    ))}
+                          <ChartGroup chartGroup={chartGroup} key={chartGroup.title} />
+                      ))}
             </>
             <>
                 {chartError && <Alert type="error" message={chartError?.message || 'Charts failed to load'} />}

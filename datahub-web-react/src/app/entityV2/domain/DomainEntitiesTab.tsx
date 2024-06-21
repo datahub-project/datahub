@@ -16,7 +16,7 @@ export const DomainEntitiesTab = () => {
         };
     }
 
-    const excludeFromFilter = { field: "_entityType", values: ["DATA_PRODUCT"], value: "DATA_PRODUCT", negated: true }
+    const excludeFromFilter = { field: '_entityType', values: ['DATA_PRODUCT'], value: 'DATA_PRODUCT', negated: true };
 
     return (
         <EmbeddedListSearchSection

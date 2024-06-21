@@ -64,7 +64,11 @@ export const NotificationSettingValue = ({
                 />
             ) : (
                 <Tooltip
-                    title={`${sink.name} notifications are currently disabled! ${sink.id === EMAIL_SINK.id ? 'Contact your Acryl representative for more details.' : `You can enable it inside Integrations settings.`}`}
+                    title={`${sink.name} notifications are currently disabled! ${
+                        sink.id === EMAIL_SINK.id
+                            ? 'Contact your Acryl representative for more details.'
+                            : `You can enable it inside Integrations settings.`
+                    }`}
                 >
                     <Checkbox disabled />
                 </Tooltip>

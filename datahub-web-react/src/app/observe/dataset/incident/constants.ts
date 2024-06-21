@@ -32,7 +32,7 @@ export const INCIDENT_TYPE_OPTIONS = [
         name: 'Other',
         value: IncidentType.Custom,
     },
-    // Legacy! These are deprecated types. 
+    // Legacy! These are deprecated types.
     {
         name: 'External Volume Assertion',
         value: IncidentType.DatasetRows,

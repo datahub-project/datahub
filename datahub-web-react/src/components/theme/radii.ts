@@ -3,7 +3,7 @@
 */
 
 export const radii = {
-	sm: '4px',
-	md: '8px',
-	lg: '12px',
-}
+    sm: '4px',
+    md: '8px',
+    lg: '12px',
+};

@@ -99,14 +99,12 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
             : '-';
 
     const testDefinitionMd5 =
-        results?.test?.results?.testDefinitionMd5 !== undefined
-            ? results?.test?.results?.testDefinitionMd5
-            : '-';
+        results?.test?.results?.testDefinitionMd5 !== undefined ? results?.test?.results?.testDefinitionMd5 : '-';
 
-    const lastComputed = results?.test?.results?.lastRunTimestampMillis !== undefined
-        ? toRelativeTimeString(results?.test?.results?.lastRunTimestampMillis || 0)
-        : 'unknown';
-
+    const lastComputed =
+        results?.test?.results?.lastRunTimestampMillis !== undefined
+            ? toRelativeTimeString(results?.test?.results?.lastRunTimestampMillis || 0)
+            : 'unknown';
 
     return (
         <Container>
@@ -116,7 +114,9 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
                     <>
                         <StyledButton
                             type="link"
-                            onClick={() => setResultsModalOptions({ visible: true, defaultActive: TestResultType.Success })}
+                            onClick={() =>
+                                setResultsModalOptions({ visible: true, defaultActive: TestResultType.Success })
+                            }
                         >
                             <StyledTag>
                                 <Typography.Text style={{ color: SUCCESS_COLOR_HEX }} strong>
@@ -127,7 +127,9 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
                         </StyledButton>
                         <StyledButton
                             type="link"
-                            onClick={() => setResultsModalOptions({ visible: true, defaultActive: TestResultType.Failure })}
+                            onClick={() =>
+                                setResultsModalOptions({ visible: true, defaultActive: TestResultType.Failure })
+                            }
                         >
                             <StyledTag>
                                 <Typography.Text style={{ color: 'red' }} strong>
@@ -150,7 +152,8 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
                     />
                 )}
             </ButtonContainer>
-            <LastComputed>Last computed: {lastComputed}
+            <LastComputed>
+                Last computed: {lastComputed}
                 <Tooltip title="Refresh summary results">
                     <IconButton onClick={handleRefreshClick} size="small">
                         <RefreshIcon fontSize="small" /> {/* Adjust fontSize as needed */}

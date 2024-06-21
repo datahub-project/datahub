@@ -98,8 +98,8 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                             <div>
                                 <Typography.Text>{displayName}</Typography.Text>
                             </div>
-                            <div   data-testid={`email-${shouldShowPasswordReset ? 'native' : 'non-native'}`}>
-                                <Typography.Text type="secondary"   >{user.username}</Typography.Text>
+                            <div data-testid={`email-${shouldShowPasswordReset ? 'native' : 'non-native'}`}>
+                                <Typography.Text type="secondary">{user.username}</Typography.Text>
                             </div>
                         </div>
                         {userStatus && (

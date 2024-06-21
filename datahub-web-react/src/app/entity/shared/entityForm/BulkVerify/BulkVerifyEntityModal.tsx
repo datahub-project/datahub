@@ -9,8 +9,8 @@ import Form from '../Form';
 import BulkVerifyEntityInfo from './BulkVerifyEntityInfo';
 
 const StyledModal = styled(Modal)`
-		min-width: 70%;
-		max-height: 1140px;
+    min-width: 70%;
+    max-height: 1140px;
 
     &&& .ant-modal-content {
         display: flex;
@@ -29,56 +29,54 @@ const StyledModal = styled(Modal)`
         display: flex;
     }
 
-		.ant-modal-close {
-			display: none;
-		}
+    .ant-modal-close {
+        display: none;
+    }
 `;
 
 const StyledModalHeader = styled.div`
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.25rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 2rem;
 
-		.ant-divider {
-			display: none;
-		}
+    .ant-divider {
+        display: none;
+    }
 
-		> div {
-			padding-top: 8px;
-		}
+    > div {
+        padding-top: 8px;
+    }
 `;
 
 interface Props {
-	isOpen: boolean;
-	onClose: () => void;
+    isOpen: boolean;
+    onClose: () => void;
 }
 
 export const BulkVerifyEntityModal = ({ isOpen, onClose }: Props) => {
-	const { form: { formUrn } } = useEntityFormContext();
+    const {
+        form: { formUrn },
+    } = useEntityFormContext();
 
-	return (
-		<StyledModal
-			open={isOpen}
-			onCancel={onClose}
-			title={(
-				<StyledModalHeader>
-					<BulkVerifyEntityInfo />
-				</StyledModalHeader>
-			)}
-			footer={(
-				<Button onClick={onClose} type="primary">
-					Close
-				</Button>
-			)}
-			closeIcon={null}
-			destroyOnClose
-		>
-			<Form
-				formUrn={formUrn}
-				showHeader={false}
-				showVerifyPrompt={false}
-			/>
-		</StyledModal>
-	);
-}
+    return (
+        <StyledModal
+            open={isOpen}
+            onCancel={onClose}
+            title={
+                <StyledModalHeader>
+                    <BulkVerifyEntityInfo />
+                </StyledModalHeader>
+            }
+            footer={
+                <Button onClick={onClose} type="primary">
+                    Close
+                </Button>
+            }
+            closeIcon={null}
+            destroyOnClose
+        >
+            <Form formUrn={formUrn} showHeader={false} showVerifyPrompt={false} />
+        </StyledModal>
+    );
+};

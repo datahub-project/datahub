@@ -38,7 +38,7 @@ export type EntityFormContextType = {
         loading: boolean;
         refetch: () => void;
         numResultsPerPage: number;
-        setNumResultsPerPage: (num: number) => void,
+        setNumResultsPerPage: (num: number) => void;
     };
     form: {
         formUrn: string;

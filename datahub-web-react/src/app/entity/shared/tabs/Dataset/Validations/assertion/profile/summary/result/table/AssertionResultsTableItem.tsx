@@ -7,11 +7,7 @@ import { Assertion, AssertionRunEvent } from '../../../../../../../../../../../t
 import { ANTD_GRAY } from '../../../../../../../../constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../../../../../../shared/time/timeUtils';
 import { getFormattedTimeString } from '../timeline/utils';
-import {
-    ResultStatusType,
-    getFormattedReasonText,
-    getFormattedResultText,
-} from '../../shared/resultMessageUtils';
+import { ResultStatusType, getFormattedReasonText, getFormattedResultText } from '../../shared/resultMessageUtils';
 import { getResultColor } from '../../../../../assertionUtils';
 import { AssertionResultPopover } from '../../../shared/result/AssertionResultPopover';
 import { applyOpacityToHexColor } from '../../../../../../../../../../shared/styleUtils';

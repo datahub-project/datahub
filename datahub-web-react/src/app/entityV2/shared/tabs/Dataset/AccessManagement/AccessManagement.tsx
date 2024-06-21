@@ -22,7 +22,9 @@ const StyledTable = styled(Table)`
     &&
         .ant-table-thead
         > tr
-        > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not([colspan])::before {
+        > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
+            [colspan]
+        )::before {
         border: 1px solid #f0f0f0;
     }
 ` as typeof Table;

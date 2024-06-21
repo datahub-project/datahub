@@ -34,9 +34,9 @@ export const SummaryTabHeaderWrapper = styled.div`
 `;
 
 export const SummaryHeaderButtonGroup = styled.div`
-		display: flex;
-		align-items: center;
-		gap: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 `;
 
 export const HeaderTitle = styled.h3`
@@ -58,10 +58,10 @@ export const HeaderTitle = styled.h3`
 `;
 
 export function SummaryTabHeaderTitle({ icon, title }: { icon?: React.ReactNode; title: string }) {
-	return (
-		<HeaderTitle>
-			{React.isValidElement(icon) && icon}
-			{title}
-		</HeaderTitle>
-	);
+    return (
+        <HeaderTitle>
+            {React.isValidElement(icon) && icon}
+            {title}
+        </HeaderTitle>
+    );
 }

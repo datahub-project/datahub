@@ -1,15 +1,13 @@
 import * as cronParser from 'cron-parser';
 
-import { AssertionRunEventDetailsFragment } from "../../../../../../../../../../../graphql/assertion.generated";
-import { CronSchedule, Monitor } from "../../../../../../../../../../../types.generated";
-import { LOOKBACK_WINDOWS, LookbackWindow } from "../../../../../../Stats/lookbackWindows";
+import { AssertionRunEventDetailsFragment } from '../../../../../../../../../../../graphql/assertion.generated';
+import { CronSchedule, Monitor } from '../../../../../../../../../../../types.generated';
+import { LOOKBACK_WINDOWS, LookbackWindow } from '../../../../../../Stats/lookbackWindows';
 import { tryGetScheduleFromMonitor } from '../../../shared/utils';
-
 
 const ONE_HOUR_IN_MS = 60 * 60 * 1000; // Milliseconds in one hour
 const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS; // Milliseconds in one day
 const ONE_WEEK_IN_MS = 7 * ONE_DAY_IN_MS; // Milliseconds in one week
-
 
 export function isLessThanOneDay(timeRange) {
     return timeRange.endMs - timeRange.startMs <= ONE_DAY_IN_MS;
@@ -61,7 +59,6 @@ export const getFormattedTimeString = (timestampMs) => {
     return new Date(timestampMs).toLocaleDateString('en-us', { month: 'short', year: 'numeric' });
 };
 
-
 const tryGetNextTSFromCron = (cronSched?: CronSchedule): number | undefined => {
     if (!cronSched) return undefined;
     try {
@@ -72,9 +69,12 @@ const tryGetNextTSFromCron = (cronSched?: CronSchedule): number | undefined => {
         // best attempt
     }
     return undefined;
-}
+};
 
-export function calculateInitialLookbackWindowFromRunEvents(allRunEvents: Array<{ __typename?: 'AssertionRunEvent' } & AssertionRunEventDetailsFragment>, monitor?: Monitor): LookbackWindow | undefined {
+export function calculateInitialLookbackWindowFromRunEvents(
+    allRunEvents: Array<{ __typename?: 'AssertionRunEvent' } & AssertionRunEventDetailsFragment>,
+    monitor?: Monitor,
+): LookbackWindow | undefined {
     if (!allRunEvents?.length) return undefined;
 
     // Take the latest two events.
@@ -83,8 +83,8 @@ export function calculateInitialLookbackWindowFromRunEvents(allRunEvents: Array<
     const ts1 = allRunEvents[0].timestampMillis;
     const ts2 = allRunEvents[1]
         ? allRunEvents[1].timestampMillis
-        // if we don't have a second run event yet, guess the next event based on the current monitor
-        : tryGetNextTSFromCron(tryGetScheduleFromMonitor(monitor));
+        : // if we don't have a second run event yet, guess the next event based on the current monitor
+          tryGetNextTSFromCron(tryGetScheduleFromMonitor(monitor));
 
     if (typeof ts2 !== 'number') return undefined;
 

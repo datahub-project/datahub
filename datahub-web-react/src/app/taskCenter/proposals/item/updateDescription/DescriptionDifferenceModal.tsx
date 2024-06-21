@@ -13,7 +13,7 @@ const ButtonsWrapper = styled.div`
     margin-bottom: 20px;
 `;
 
-const StyledButton = styled(Button) <{ $isSelected: boolean }>`
+const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `

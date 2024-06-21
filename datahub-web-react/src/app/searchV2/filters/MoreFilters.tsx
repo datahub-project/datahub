@@ -11,7 +11,6 @@ import { useFilterRendererRegistry } from './render/useFilterRenderer';
 import { FilterScenarioType } from './render/types';
 import { FilterPredicate } from './types';
 
-
 const DropdownMenu = styled.div<{ padding?: string }>`
     background-color: white;
     border-radius: 5px;

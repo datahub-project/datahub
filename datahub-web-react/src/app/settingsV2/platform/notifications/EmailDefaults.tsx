@@ -63,7 +63,9 @@ export const EmailDefaults = ({ isEmailEnabled, emailAddress, onChange }: Props)
                             >
                                 {emailAddress || 'None'}
                             </StyledLabel>
-                            <Tooltip title={!isEmailEnabled ? 'Email notifications are currently disabled.' : undefined}>
+                            <Tooltip
+                                title={!isEmailEnabled ? 'Email notifications are currently disabled.' : undefined}
+                            >
                                 <Button
                                     size="small"
                                     disabled={!isEmailEnabled || editing}

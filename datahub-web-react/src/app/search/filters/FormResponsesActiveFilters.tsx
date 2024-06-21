@@ -10,7 +10,9 @@ interface Props {
 }
 
 function FormResponseActiveFilter({ filter }: Props) {
-    const { filter: { formResponsesFilters, setFormResponsesFilters } } = useEntityFormContext();
+    const {
+        filter: { formResponsesFilters, setFormResponsesFilters },
+    } = useEntityFormContext();
 
     const label = getLabelForFormResponsesFilter(filter);
 
@@ -35,7 +37,9 @@ function FormResponseActiveFilter({ filter }: Props) {
 }
 
 export default function FormResponsesActiveFilters() {
-    const { filter: { formResponsesFilters } } = useEntityFormContext();
+    const {
+        filter: { formResponsesFilters },
+    } = useEntityFormContext();
 
     if (!formResponsesFilters || !formResponsesFilters.length) return null;
 

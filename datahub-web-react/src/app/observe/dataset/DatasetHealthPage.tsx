@@ -99,7 +99,7 @@ export const DatasetHealthPage = () => {
             },
         },
     });
-    
+
     const total = data?.searchAcrossEntities?.total || 0;
 
     return (

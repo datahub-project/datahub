@@ -1,4 +1,4 @@
-import { CronSchedule, Monitor } from "../../../../../../../../../types.generated";
+import { CronSchedule, Monitor } from '../../../../../../../../../types.generated';
 
 export const toReadableLocalDateTimeString = (timeMs: number) => {
     const date = new Date(timeMs);
@@ -13,7 +13,7 @@ export const toReadableLocalDateTimeString = (timeMs: number) => {
 };
 
 export const tryGetScheduleFromMonitor = (monitor?: Monitor): CronSchedule | undefined => {
-    return monitor?.info?.assertionMonitor?.assertions?.length ?
-        monitor?.info?.assertionMonitor?.assertions[0].schedule :
-        undefined;
-}
+    return monitor?.info?.assertionMonitor?.assertions?.length
+        ? monitor?.info?.assertionMonitor?.assertions[0].schedule
+        : undefined;
+};

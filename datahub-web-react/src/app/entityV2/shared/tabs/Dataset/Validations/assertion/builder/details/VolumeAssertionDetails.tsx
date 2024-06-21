@@ -57,15 +57,15 @@ export const VolumeAssertionDetails = ({ assertion }: Props) => {
             <EvaluationScheduleBuilder
                 value={schedule}
                 assertionType={AssertionType.Volume}
-                onChange={() => { }}
+                onChange={() => {}}
                 disabled
             />
-            <VolumeTypeBuilder onChange={() => { }} segment={segment as IncrementingSegmentSpec} disabled />
+            <VolumeTypeBuilder onChange={() => {}} segment={segment as IncrementingSegmentSpec} disabled />
             <VolumeParametersBuilder
                 volumeInfo={volumeAssertion as VolumeAssertionInfo}
                 value={volumeParameters as AssertionStdParameters}
-                onChange={() => { }}
-                updateVolumeAssertion={() => { }}
+                onChange={() => {}}
+                updateVolumeAssertion={() => {}}
                 disabled
             />
             <Section>
@@ -75,12 +75,12 @@ export const VolumeAssertionDetails = ({ assertion }: Props) => {
                             entityUrn={urn}
                             platformUrn={platformUrn}
                             value={sourceType as DatasetVolumeSourceType}
-                            onChange={() => { }}
+                            onChange={() => {}}
                             disabled
                         />
                         <VolumeFilterBuilder
                             value={filter as DatasetFilter}
-                            onChange={() => { }}
+                            onChange={() => {}}
                             sourceType={sourceType as DatasetVolumeSourceType}
                             disabled
                         />

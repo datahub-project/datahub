@@ -22,41 +22,43 @@ const EntityName = styled.div`
 `;
 
 export default function BulkVerifyEntityInfo() {
-	const { entity: { entityData } } = useEntityFormContext();
-	const { contentRef, isContentTruncated } = useContentTruncation(entityData);
-	const entityRegistry = useEntityRegistry();
+    const {
+        entity: { entityData },
+    } = useEntityFormContext();
+    const { contentRef, isContentTruncated } = useContentTruncation(entityData);
+    const entityRegistry = useEntityRegistry();
 
-	// entity data may take a second to load before we're ready to display this component
-	if (!entityData) return null;
+    // entity data may take a second to load before we're ready to display this component
+    if (!entityData) return null;
 
-	const entityType = entityData?.type as EntityType;
+    const entityType = entityData?.type as EntityType;
 
-	const platformName = getPlatformName(entityData);
-	const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
-	const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
-	const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
-	const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
-	const instanceId = entityData?.dataPlatformInstance?.instanceId;
+    const platformName = getPlatformName(entityData);
+    const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
+    const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
+    const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
+    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
+    const instanceId = entityData?.dataPlatformInstance?.instanceId;
 
-	return (
-		<div>
-			<PlatformContentView
-				platformName={platformName}
-				platformLogoUrl={platformLogoUrl}
-				platformNames={entityData?.siblingPlatforms?.map(
-					(platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
-				)}
-				platformLogoUrls={entityData?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
-				entityLogoComponent={entityLogoComponent}
-				instanceId={instanceId}
-				typeIcon={typeIcon}
-				entityType={displayedEntityType}
-				parentContainers={entityData?.parentContainers?.containers}
-				parentContainersRef={contentRef}
-				areContainersTruncated={isContentTruncated}
-				parentEntities={entityData?.parentDomains?.domains}
-			/>
-			<EntityName>{entityRegistry.getDisplayName(entityType, entityData)}</EntityName>
-		</div>
-	);
+    return (
+        <div>
+            <PlatformContentView
+                platformName={platformName}
+                platformLogoUrl={platformLogoUrl}
+                platformNames={entityData?.siblingPlatforms?.map(
+                    (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
+                )}
+                platformLogoUrls={entityData?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
+                entityLogoComponent={entityLogoComponent}
+                instanceId={instanceId}
+                typeIcon={typeIcon}
+                entityType={displayedEntityType}
+                parentContainers={entityData?.parentContainers?.containers}
+                parentContainersRef={contentRef}
+                areContainersTruncated={isContentTruncated}
+                parentEntities={entityData?.parentDomains?.domains}
+            />
+            <EntityName>{entityRegistry.getDisplayName(entityType, entityData)}</EntityName>
+        </div>
+    );
 }

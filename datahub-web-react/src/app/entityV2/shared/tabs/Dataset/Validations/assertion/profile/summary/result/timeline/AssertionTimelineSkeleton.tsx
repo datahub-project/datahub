@@ -38,7 +38,6 @@ const Box = styled.div`
     margin: -1px 0 0 -1px;
 `;
 
-
 const GridSkeletonContainer = styled.div`
     width: 100%;
     height: 100%;
@@ -55,14 +54,13 @@ const LoadingTextContainer = styled.div`
 `;
 const LoadingText = styled(Typography.Text)`
     font-size: 14px;
-    color: ${ANTD_GRAY[6]}
-`
+    color: ${ANTD_GRAY[6]};
+`;
 
-
-const NUM_GRID_BOXES = 12
-const ANT_COL_6_SPAN = 6
-const ANT_COL_6_ITEM_WIDTH_RATIO = 1 / 4
-const NUM_GRID_ROWS = NUM_GRID_BOXES * ANT_COL_6_ITEM_WIDTH_RATIO
+const NUM_GRID_BOXES = 12;
+const ANT_COL_6_SPAN = 6;
+const ANT_COL_6_ITEM_WIDTH_RATIO = 1 / 4;
+const NUM_GRID_ROWS = NUM_GRID_BOXES * ANT_COL_6_ITEM_WIDTH_RATIO;
 const renderGridSkeleton = (height: number) => {
     const boxes = Array.from({ length: NUM_GRID_BOXES }, (_, index) => (
         <StyledCol key={index} span={ANT_COL_6_SPAN}>
@@ -81,11 +79,11 @@ const renderGridSkeleton = (height: number) => {
 };
 
 type Props = {
-    parentDimensions: { width: number, height: number }
-}
+    parentDimensions: { width: number; height: number };
+};
 
 export const AssertionTimelineSkeleton = (props: Props) => {
-    const skeletonHeight = props.parentDimensions.height - SKELETON_MARGIN_BOTTOM_PX
+    const skeletonHeight = props.parentDimensions.height - SKELETON_MARGIN_BOTTOM_PX;
     return (
         <Body style={props.parentDimensions}>
             <GridContainer style={{ height: skeletonHeight }}>

@@ -26,8 +26,8 @@ export const FinishUpBuilder = ({ state, updateState, onValidityChange }: Props)
     const description = state.assertion?.description;
     const isDescriptionRequired = state.assertion?.type === AssertionType.Sql;
     useEffect(() => {
-        onValidityChange?.(!isDescriptionRequired || !!description?.length)
-    }, [description, isDescriptionRequired, onValidityChange])
+        onValidityChange?.(!isDescriptionRequired || !!description?.length);
+    }, [description, isDescriptionRequired, onValidityChange]);
 
     const updateDescription = (newDescription: string) => {
         const finalDescription = newDescription || null;
@@ -50,7 +50,9 @@ export const FinishUpBuilder = ({ state, updateState, onValidityChange }: Props)
                     onChange={(e) => updateDescription(e.target.value)}
                 />
                 <Typography.Paragraph style={{ marginTop: 4 }} type="secondary">
-                    {isDescriptionRequired ? 'Required for this assertion type.' : 'If not specified, a name will be generated from the assertion settings.'}
+                    {isDescriptionRequired
+                        ? 'Required for this assertion type.'
+                        : 'If not specified, a name will be generated from the assertion settings.'}
                 </Typography.Paragraph>
             </Section>
         </div>

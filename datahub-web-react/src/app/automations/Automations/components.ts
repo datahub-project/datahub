@@ -90,9 +90,9 @@ export const AutomationsContentTabs = styled.div`
 `;
 
 export const AutomationsContentTab = styled.div<{ isActive: boolean }>`
-		display: flex;
-		align-items: center;
-		gap: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     padding: 12px 20px;
     border-bottom: 2px solid transparent;
     color: ${sharedStyles.contentColor};
@@ -102,29 +102,28 @@ export const AutomationsContentTab = styled.div<{ isActive: boolean }>`
     margin-bottom: -1px;
 
     ${({ isActive }) =>
-		isActive &&
-		`
+        isActive &&
+        `
 		color: ${sharedStyles.activeColor};
 		border-color: ${sharedStyles.activeColor};
 	`}
 
-		&:hover {
-				cursor: pointer;
-		}
+    &:hover {
+        cursor: pointer;
+    }
 
-		& span {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			background-color: ${sharedStyles.borderColor};
-			width: 10px;
-			height: 10px;
-			padding: 9px;
-			font-size: 9px;
-			color: ${sharedStyles.contentColor};
-			border-radius: 100%;
-
-		}
+    & span {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: ${sharedStyles.borderColor};
+        width: 10px;
+        height: 10px;
+        padding: 9px;
+        font-size: 9px;
+        color: ${sharedStyles.contentColor};
+        border-radius: 100%;
+    }
 `;
 
 // Automations List Card
@@ -146,7 +145,7 @@ export const ListCardHeader = styled.div<{ status: string | undefined }>`
         justify-content: space-between;
         align-items: center;
         margin-bottom: 4px;
-				height: 30.8516px;
+        height: 30.8516px;
 
         & h4 {
             color: ${sharedStyles.contentColor};
@@ -191,15 +190,17 @@ export const ListCardHeader = styled.div<{ status: string | undefined }>`
     }
 
     & .status {
-			display: flex;
-			align-items: center;
-			padding: 4px 8px;
-			border-radius: 20px;
-			background: ${sharedStyles.statusInactiveColor};
-			color: ${sharedStyles.statusInactiveFontColor};
+        display: flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 20px;
+        background: ${sharedStyles.statusInactiveColor};
+        color: ${sharedStyles.statusInactiveFontColor};
     }
 
-		${({ status }) => status === 'running' && `
+    ${({ status }) =>
+        status === 'running' &&
+        `
 			.status {
 				background: ${sharedStyles.statusActiveColor};
 				color: ${sharedStyles.statusActiveFontColor};
@@ -210,7 +211,9 @@ export const ListCardHeader = styled.div<{ status: string | undefined }>`
 			}
 		`}
 
-		${({ status }) => status === 'stopped' && `
+    ${({ status }) =>
+        status === 'stopped' &&
+        `
 			.status {
 				background: ${sharedStyles.statusInactiveColor};
 				color: ${sharedStyles.statusInactiveFontColor};
@@ -313,9 +316,9 @@ export const AutomationModalFooter = styled.div`
     justify-content: space-between;
     gap: 4px;
 
-		& button {
-			font-family: ${sharedStyles.fontFamily};
-		}
+    & button {
+        font-family: ${sharedStyles.fontFamily};
+    }
 `;
 
 export const AutomationLogo = styled.img`
@@ -331,10 +334,10 @@ export const YamlButtonsContainer = styled.div`
     align-items: center;
     gap: 8px;
 
-		& .ant-btn > .anticon + span, 
-		& .ant-btn > span + .anticon {
-			margin-left: 0;
-		}
+    & .ant-btn > .anticon + span,
+    & .ant-btn > span + .anticon {
+        margin-left: 0;
+    }
 `;
 
 export const ButtonsContainer = styled.div`
@@ -342,7 +345,7 @@ export const ButtonsContainer = styled.div`
     gap: 8px;
 `;
 
-export const IconContainer = styled.div<{ addExtraPadding?: boolean; disabled?: boolean; }>`
+export const IconContainer = styled.div<{ addExtraPadding?: boolean; disabled?: boolean }>`
     border-radius: 50%;
     color: ${sharedStyles.activeColor};
     border: 1px solid ${sharedStyles.buttonBorderColor};
@@ -354,8 +357,8 @@ export const IconContainer = styled.div<{ addExtraPadding?: boolean; disabled?: 
     width: 25px;
 
     svg {
-			height: 15px;
-			width: 15px;
+        height: 15px;
+        width: 15px;
     }
 `;
 
@@ -371,12 +374,12 @@ export const UndoButton = styled.div`
     width: 25px;
 
     svg {
-			height: 15px;
-			width: 15px;
+        height: 15px;
+        width: 15px;
 
-			path {
-				fill: ${sharedStyles.activeColor};
-			}
+        path {
+            fill: ${sharedStyles.activeColor};
+        }
     }
 `;
 
@@ -404,20 +407,20 @@ export const Details = styled.div`
     color: ${REDESIGN_COLORS.BODY_TEXT};
 `;
 
-/* 
-* Results 
-*/
+/*
+ * Results
+ */
 
 export const ResultContainer = styled.div`
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
 
-	& .pass {
-		color: ${sharedStyles.success};
-	}
+    & .pass {
+        color: ${sharedStyles.success};
+    }
 
-	& .fail {
-		color: ${sharedStyles.fail};
-	}
+    & .fail {
+        color: ${sharedStyles.fail};
+    }
 `;

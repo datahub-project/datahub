@@ -17,7 +17,6 @@ describe('handleAccessRoles', () => {
                                         'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
                                     type: 'READ',
                                     requestUrl: 'https://www.google.com/',
-
                                 },
                                 urn: 'urn:li:role:accessRole',
                                 isAssignedToMe: true,
@@ -96,10 +95,11 @@ describe('handleAccessRoles', () => {
         expect(externalRole).toMatchObject([
             {
                 name: 'accessRole',
-                description: 'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
+                description:
+                    'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
                 accessType: 'READ',
                 hasAccess: false,
-                url: 'https://www.google.com/'
+                url: 'https://www.google.com/',
             },
         ]);
     });
@@ -269,11 +269,12 @@ describe('handleAccessRoles', () => {
         expect(externalRole).toMatchObject([
             {
                 name: 'accessRole',
-                description: 'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
+                description:
+                    'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
                 accessType: 'READ',
                 hasAccess: false,
-                url: 'https://www.google.com/'
-            }
+                url: 'https://www.google.com/',
+            },
         ]);
     });
 });

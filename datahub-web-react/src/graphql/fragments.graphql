@@ -1605,9 +1605,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
     businessAttribute {
         urn
         type
-            ownership {
-                ...ownershipFields
-            }
+        ownership {
+            ...ownershipFields
+        }
         properties {
             name
             description

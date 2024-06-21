@@ -30,7 +30,13 @@ interface Props {
     onUpdate: () => void;
 }
 
-export default function Footer({ isSubscribed, canManageSubscription, forSubResource, onCancelOrUnsubscribe, onUpdate }: Props) {
+export default function Footer({
+    isSubscribed,
+    canManageSubscription,
+    forSubResource,
+    onCancelOrUnsubscribe,
+    onUpdate,
+}: Props) {
     const isSlackEnabled = useDrawerSelector(selectIsSlackEnabled);
     const edited = useDrawerSelector(selectIsEdited);
     const hasSlackChannel = useDrawerSelector(selectHasSlackChannel);
@@ -43,7 +49,11 @@ export default function Footer({ isSubscribed, canManageSubscription, forSubReso
     const showUnsubscribe = isSubscribed && !forSubResource;
     return (
         <FooterContainer>
-            <FooterButton danger={showUnsubscribe} onClick={() => onCancelOrUnsubscribe(showUnsubscribe)} data-testid="cancel-button">
+            <FooterButton
+                danger={showUnsubscribe}
+                onClick={() => onCancelOrUnsubscribe(showUnsubscribe)}
+                data-testid="cancel-button"
+            >
                 {showUnsubscribe ? 'Unsubscribe' : 'Cancel'}
             </FooterButton>
             <FooterButton type="primary" onClick={onUpdate} disabled={!canSubmit} data-testid="subscribe-button">

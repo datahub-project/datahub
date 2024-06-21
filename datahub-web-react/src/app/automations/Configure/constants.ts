@@ -8,40 +8,40 @@ export const PLACEHOLDER_TEST_URN = 'placeholder-test-urn';
  * A set of well-supported, built-in Metadata Tests categories.
  */
 export enum TestCategory {
-	DATA_GOVERNANCE = 'Data Governance',
-	DATA_QUALITY = 'Data Quality',
-	DATA_DISCOVERY = 'Data Discovery',
-	DATA_COST = 'Data Cost',
-	CUSTOM = 'Custom',
+    DATA_GOVERNANCE = 'Data Governance',
+    DATA_QUALITY = 'Data Quality',
+    DATA_DISCOVERY = 'Data Discovery',
+    DATA_COST = 'Data Cost',
+    CUSTOM = 'Custom',
 }
 
 /**
  * Information about a well-supported set of Test Categories.
  */
 export const TEST_CATEGORIES: TestCategoryType[] = [
-	{
-		name: TestCategory.DATA_GOVERNANCE,
-		description:
-			'Tests for monitoring and enforcing Data Governance & Compliance policies, for example those related to Data Ownership and Classification.',
-	},
-	{
-		name: TestCategory.DATA_QUALITY,
-		description:
-			'Tests for monitoring and enforcing Data Quality policies, for example those related to data Assertions, Incidents, & usage.',
-	},
-	{
-		name: TestCategory.DATA_DISCOVERY,
-		description:
-			'Tests for enriching your data assets for the purpose of improving data discoverability, for example by automatically applying Tags, Domains, and Glossary Terms.',
-	},
-	{
-		name: TestCategory.DATA_COST,
-		description: 'Tests for identifying costly data assets within your organization.',
-	},
-	{
-		name: TestCategory.CUSTOM,
-		description: 'A custom category for your Metadata Tests',
-	},
+    {
+        name: TestCategory.DATA_GOVERNANCE,
+        description:
+            'Tests for monitoring and enforcing Data Governance & Compliance policies, for example those related to Data Ownership and Classification.',
+    },
+    {
+        name: TestCategory.DATA_QUALITY,
+        description:
+            'Tests for monitoring and enforcing Data Quality policies, for example those related to data Assertions, Incidents, & usage.',
+    },
+    {
+        name: TestCategory.DATA_DISCOVERY,
+        description:
+            'Tests for enriching your data assets for the purpose of improving data discoverability, for example by automatically applying Tags, Domains, and Glossary Terms.',
+    },
+    {
+        name: TestCategory.DATA_COST,
+        description: 'Tests for identifying costly data assets within your organization.',
+    },
+    {
+        name: TestCategory.CUSTOM,
+        description: 'A custom category for your Metadata Tests',
+    },
 ];
 
 /**

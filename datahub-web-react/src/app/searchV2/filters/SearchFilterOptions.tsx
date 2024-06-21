@@ -86,10 +86,7 @@ export default function SearchFilterOptions({
     const hiddenFilters = shouldShowMoreDropdown ? dynamicFilterOptions?.slice(NUM_VISIBLE_FILTER_DROPDOWNS) : [];
     const filterRendererRegistry = useFilterRendererRegistry();
 
-    const filterPredicates: FilterPredicate[] = convertToAvailableFilterPredictes(
-        activeFilters,
-        visibleFilters || [],
-    );
+    const filterPredicates: FilterPredicate[] = convertToAvailableFilterPredictes(activeFilters, visibleFilters || []);
 
     const hiddenFilterPredicates: FilterPredicate[] = convertToAvailableFilterPredictes(
         activeFilters,

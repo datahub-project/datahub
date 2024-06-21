@@ -230,13 +230,14 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             <DescriptionContainer>
                                 <IncidentDescriptionLabel>Description</IncidentDescriptionLabel>
                                 <IncidentDescriptionText>{incident?.description}</IncidentDescriptionText>
-                                {incident.status.state === IncidentState.Resolved ?
+                                {incident.status.state === IncidentState.Resolved ? (
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
-                                        <IncidentDescriptionText>{incident?.status.message || 'No additional details'}</IncidentDescriptionText>
+                                        <IncidentDescriptionText>
+                                            {incident?.status.message || 'No additional details'}
+                                        </IncidentDescriptionText>
                                     </>
-                                    : null
-                                }
+                                ) : null}
                             </DescriptionContainer>
                             <DescriptionContainer>
                                 <Tooltip placement="right" showArrow={false} title={toLocalDateTimeString(createdDate)}>

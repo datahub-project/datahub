@@ -23,7 +23,7 @@ import UserContextProvider from '../../app/context/UserContextProvider';
 import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
 import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
 import AppConfigProvider from '../../AppConfigProvider';
-import {BusinessAttributeEntity} from "../../app/entity/businessAttribute/BusinessAttributeEntity";
+import { BusinessAttributeEntity } from '../../app/entity/businessAttribute/BusinessAttributeEntity';
 import { DomainEntity } from '../../app/entity/domain/DomainEntity';
 import { DataProductEntity } from '../../app/entity/dataProduct/DataProductEntity';
 import CustomThemeProvider from '../../CustomThemeProvider';

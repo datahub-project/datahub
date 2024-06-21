@@ -5,13 +5,19 @@ import { Group } from '@visx/group';
 import { AxisBottom } from '@visx/axis';
 import { scaleUtc } from '@visx/scale';
 import { AreaClosed } from '@visx/shape';
-import { GridColumns } from '@visx/grid'
+import { GridColumns } from '@visx/grid';
 import { LinearGradient } from '@visx/gradient';
 import { scaleLinear } from 'd3-scale';
 
 import { ANTD_GRAY } from '../../../../../../../../../constants';
 import { LinkWrapper } from '../../../../../../../../../../../shared/LinkWrapper';
-import { ACCENT_COLOR_HEX, generateTimeScaleTickValues, getCustomTimeScaleTickValue, getFillColor, getWindowStartAndEndDatesForFreshnessAssertionRun } from './utils';
+import {
+    ACCENT_COLOR_HEX,
+    generateTimeScaleTickValues,
+    getCustomTimeScaleTickValue,
+    getFillColor,
+    getWindowStartAndEndDatesForFreshnessAssertionRun,
+} from './utils';
 import { AssertionDataPoint, AssertionResultChartData, TimeRange } from './types';
 import { AssertionResultPopoverContent } from '../../../../shared/result/AssertionResultPopoverContent';
 import { tryGetActualUpdatedTimestampFromAssertionResult } from '../../../shared/resultExtractionUtils';
@@ -25,10 +31,9 @@ type Props = {
     chartDimensions: {
         width: number;
         height: number;
-    }
-    renderHeader?: (title?: string) => JSX.Element
+    };
+    renderHeader?: (title?: string) => JSX.Element;
 };
-
 
 const CHART_HORIZ_MARGIN = 36;
 const CHART_AXIS_BOTTOM_HEIGHT = 40;
@@ -44,24 +49,24 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
 
     // ----------------- States and data calculations ----------------- //
     // Handle special visuals when user hovers over a data point
-    const [mountedDataPoint, setMountedDataPoint] = useState<AssertionDataPoint>()
-    const maybeMounteDataPointWindowRangeTicks: Date[] | undefined = useMemo(() =>
-        getWindowStartAndEndDatesForFreshnessAssertionRun(mountedDataPoint, dataPoints),
-        [mountedDataPoint, dataPoints]
-    )
-    const maybeMountedDataPointFillColor = mountedDataPoint && getFillColor(mountedDataPoint.result.type)
+    const [mountedDataPoint, setMountedDataPoint] = useState<AssertionDataPoint>();
+    const maybeMounteDataPointWindowRangeTicks: Date[] | undefined = useMemo(
+        () => getWindowStartAndEndDatesForFreshnessAssertionRun(mountedDataPoint, dataPoints),
+        [mountedDataPoint, dataPoints],
+    );
+    const maybeMountedDataPointFillColor = mountedDataPoint && getFillColor(mountedDataPoint.result.type);
     const maybeMountedDataPointDatasetUpdateDate: number | undefined = useMemo(() => {
         const result = mountedDataPoint?.relatedRunEvent.result;
         if (!result || result.type === AssertionResultType.Error) return undefined;
         const maybeUpdatedTs = tryGetActualUpdatedTimestampFromAssertionResult(result);
         return maybeUpdatedTs;
-    }, [mountedDataPoint])
+    }, [mountedDataPoint]);
 
-    const timeScaleTicks: Date[] = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)
+    const timeScaleTicks: Date[] = generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs);
 
     // ----------------- Visual calculations ----------------- //
-    const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT - CHART_AXIS_TOP_MARGIN
-    const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN
+    const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT - CHART_AXIS_TOP_MARGIN;
+    const chartInnerWidth = chartDimensions.width - CHART_HORIZ_MARGIN;
 
     const xScale = useMemo(
         () =>
@@ -104,41 +109,46 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         height={chartInnerHeight}
                         lineStyle={{
                             stroke: ANTD_GRAY[5],
-                            strokeLinecap: "round",
+                            strokeLinecap: 'round',
                             strokeWidth: 1,
-                            strokeDasharray: '1 4'
+                            strokeDasharray: '1 4',
                         }}
                     />
 
                     {/* Expected window of mounted data point (currently being hovered) */}
-                    {maybeMounteDataPointWindowRangeTicks ? [
-                        <GridColumns
-                            scale={xScale}
-                            tickValues={maybeMounteDataPointWindowRangeTicks}
-                            height={chartInnerHeight}
-                            lineStyle={{
-                                stroke: maybeMountedDataPointFillColor,
-                                strokeLinecap: "round",
-                                strokeWidth: 1,
-                                strokeDasharray: '1 4'
-                            }}
-                        />,
-                        <LinearGradient id="area-gradient" from={maybeMountedDataPointFillColor} to={maybeMountedDataPointFillColor} fromOpacity={0.25} toOpacity={0.1} />,
-                        <AreaClosed
-                            data={maybeMounteDataPointWindowRangeTicks}
-                            x={xScale}
-                            y={1}
-                            yScale={scaleLinear(
-                                [0, 1],
-                                [chartInnerHeight, 0]
-                            )}
-                            strokeWidth={1}
-                            fill="url(#area-gradient)"
-                        />,
-                    ] : null}
+                    {maybeMounteDataPointWindowRangeTicks
+                        ? [
+                              <GridColumns
+                                  scale={xScale}
+                                  tickValues={maybeMounteDataPointWindowRangeTicks}
+                                  height={chartInnerHeight}
+                                  lineStyle={{
+                                      stroke: maybeMountedDataPointFillColor,
+                                      strokeLinecap: 'round',
+                                      strokeWidth: 1,
+                                      strokeDasharray: '1 4',
+                                  }}
+                              />,
+                              <LinearGradient
+                                  id="area-gradient"
+                                  from={maybeMountedDataPointFillColor}
+                                  to={maybeMountedDataPointFillColor}
+                                  fromOpacity={0.25}
+                                  toOpacity={0.1}
+                              />,
+                              <AreaClosed
+                                  data={maybeMounteDataPointWindowRangeTicks}
+                                  x={xScale}
+                                  y={1}
+                                  yScale={scaleLinear([0, 1], [chartInnerHeight, 0])}
+                                  strokeWidth={1}
+                                  fill="url(#area-gradient)"
+                              />,
+                          ]
+                        : null}
 
                     {/* Dataset updated TS marker (shows when you hover over a data point) */}
-                    {maybeMountedDataPointDatasetUpdateDate ?
+                    {maybeMountedDataPointDatasetUpdateDate ? (
                         <CandleStick
                             candleHeight={chartInnerHeight - yOffset}
                             parentChartHeight={chartInnerHeight}
@@ -150,11 +160,11 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                                 type: 'diamond',
                                 extraProps: {
                                     strokeWidth: 1,
-                                }
+                                },
                             }}
                             opacity={1}
                         />
-                        : null}
+                    ) : null}
 
                     {/* Candle data points */}
                     {dataPoints.map((dataPoint, i) => {
@@ -164,16 +174,18 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         let markerOverlapPx: number | undefined;
                         const maybePreviousDataPoint: AssertionDataPoint | undefined = dataPoints[i - 1];
                         if (maybePreviousDataPoint) {
-                            const lastPointXOffset = xScale(new Date(maybePreviousDataPoint.time))
-                            markerOverlapPx = calculateOverlapBetweenTwoMarkers({
-                                xOffset,
-                                width: PRIMARY_CANDLE_STICK_BAR_WIDTH,
-                            }, {
-                                xOffset: lastPointXOffset,
-                                width: PRIMARY_CANDLE_STICK_BAR_WIDTH,
-                            })
+                            const lastPointXOffset = xScale(new Date(maybePreviousDataPoint.time));
+                            markerOverlapPx = calculateOverlapBetweenTwoMarkers(
+                                {
+                                    xOffset,
+                                    width: PRIMARY_CANDLE_STICK_BAR_WIDTH,
+                                },
+                                {
+                                    xOffset: lastPointXOffset,
+                                    width: PRIMARY_CANDLE_STICK_BAR_WIDTH,
+                                },
+                            );
                         }
-
 
                         // setting offset as per the x axis of black and green candle
                         const opacity = xOffset - tsMarkerX <= PRIMARY_CANDLE_STICK_BAR_WIDTH ? 0.4 : 1;
@@ -188,28 +200,38 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                                 leftOffset={xOffset}
                                 markerOverlapPx={markerOverlapPx}
                                 shape={{ type: 'circle' }}
-                                opacity={(mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? opacity : 0.1)) || 1}
+                                opacity={
+                                    (mountedDataPoint && (mountedDataPoint.time === dataPoint.time ? opacity : 0.1)) ||
+                                    1
+                                }
                                 color={fillColor}
-                                wrapper={(children) => <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
-                                    <Popover
-                                        key={dataPoint.time}
-                                        title={undefined}
-                                        overlayStyle={{
-                                            maxWidth: 440,
-                                            wordWrap: 'break-word',
-                                        }}
-                                        content={<AssertionResultPopoverContent
-                                            assertion={data.context.assertion}
-                                            run={dataPoint.relatedRunEvent}
-                                        />}
-                                        showArrow={false}
-                                        onOpenChange={visible => setMountedDataPoint(visible ? dataPoint : undefined)}
-                                    >{children}</Popover>
-                                </LinkWrapper>}
+                                wrapper={(children) => (
+                                    <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
+                                        <Popover
+                                            key={dataPoint.time}
+                                            title={undefined}
+                                            overlayStyle={{
+                                                maxWidth: 440,
+                                                wordWrap: 'break-word',
+                                            }}
+                                            content={
+                                                <AssertionResultPopoverContent
+                                                    assertion={data.context.assertion}
+                                                    run={dataPoint.relatedRunEvent}
+                                                />
+                                            }
+                                            showArrow={false}
+                                            onOpenChange={(visible) =>
+                                                setMountedDataPoint(visible ? dataPoint : undefined)
+                                            }
+                                        >
+                                            {children}
+                                        </Popover>
+                                    </LinkWrapper>
+                                )}
                             />
                         );
                     })}
-
                 </Group>
             </svg>
         </>

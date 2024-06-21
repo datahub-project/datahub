@@ -33,8 +33,8 @@ function UpdateDescriptionContentView({ actionRequest }: Props) {
     const newDescription = DOMPurify.sanitize(actionRequest.params?.updateDescriptionProposal?.description || '');
     const oldDescription = DOMPurify.sanitize(
         (actionRequest.entity as any)?.editableProperties?.description ||
-        (actionRequest.entity as any)?.properties?.description ||
-        '',
+            (actionRequest.entity as any)?.properties?.description ||
+            '',
     );
     const isRequestPending = actionRequest.status === ActionRequestStatus.Pending;
 

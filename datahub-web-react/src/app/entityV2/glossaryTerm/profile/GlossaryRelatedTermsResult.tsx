@@ -45,7 +45,6 @@ const TitleContainer = styled.div`
 
 const messageStyle = { marginTop: '10%' };
 
-
 const ButtonStyle = styled(Button)`
     border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
     color: ${REDESIGN_COLORS.TITLE_PURPLE};
@@ -53,11 +52,11 @@ const ButtonStyle = styled(Button)`
     display: flex;
     gap: 0.2rem;
 
-    &:hover, &:focus{
+    &:hover,
+    &:focus {
         border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
         color: ${REDESIGN_COLORS.TITLE_PURPLE};
     }
-
 `;
 
 export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, glossaryRelatedTermResult }: Props) {
@@ -88,7 +87,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                         </Typography.Title>
                         {canEditRelatedTerms && (
                             <ButtonStyle type="text" onClick={() => setIsShowingAddModal(true)}>
-                                <CustomIcon iconSvg={addTerm}/> Add Terms
+                                <CustomIcon iconSvg={addTerm} /> Add Terms
                             </ButtonStyle>
                         )}
                     </TitleContainer>

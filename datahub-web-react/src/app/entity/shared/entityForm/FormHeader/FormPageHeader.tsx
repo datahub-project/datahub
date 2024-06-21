@@ -32,7 +32,9 @@ const TitleWrapper = styled.div`
 `;
 
 export default function FormPageHeader() {
-    const { form: { formView } } = useEntityFormContext();
+    const {
+        form: { formView },
+    } = useEntityFormContext();
 
     return (
         <StyledDivider>

@@ -55,7 +55,9 @@ const TitleSelector = styled(Select)`
 `;
 
 const StyledFormItem = styled(Form.Item)`
-    .ant-input-affix-wrapper-status-error:not(.ant-input-affix-wrapper-disabled):not(.ant-input-affix-wrapper-borderless).ant-input-affix-wrapper {
+    .ant-input-affix-wrapper-status-error:not(.ant-input-affix-wrapper-disabled):not(
+            .ant-input-affix-wrapper-borderless
+        ).ant-input-affix-wrapper {
         background-color: transparent;
     }
 `;

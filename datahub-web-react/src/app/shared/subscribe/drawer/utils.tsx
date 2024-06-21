@@ -72,24 +72,29 @@ export const ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES = [
 ];
 
 const getDetailsLabelForAssertionTypeChange = (
-    assertionChangeType: EntityChangeType.AssertionPassed | EntityChangeType.AssertionFailed | EntityChangeType.AssertionError,
+    assertionChangeType:
+        | EntityChangeType.AssertionPassed
+        | EntityChangeType.AssertionFailed
+        | EntityChangeType.AssertionError,
     subscription?: DataHubSubscription,
     keysWithFilteringCleared?: Key[],
     isForAssertionSubscription?: boolean,
 ): string => {
-    const maybeAssertionSubscription = subscription?.entityChangeTypes.find(details => details.entityChangeType === assertionChangeType)
-    const maybeAssertionFilters = maybeAssertionSubscription?.filter?.includeAssertions
+    const maybeAssertionSubscription = subscription?.entityChangeTypes.find(
+        (details) => details.entityChangeType === assertionChangeType,
+    );
+    const maybeAssertionFilters = maybeAssertionSubscription?.filter?.includeAssertions;
     const assertionFiltersCount = maybeAssertionFilters?.length;
-    const hasDisabledAssertionFiltering = keysWithFilteringCleared?.includes(assertionChangeType.valueOf())
+    const hasDisabledAssertionFiltering = keysWithFilteringCleared?.includes(assertionChangeType.valueOf());
 
     let label = '';
     if (!isForAssertionSubscription && assertionFiltersCount && !hasDisabledAssertionFiltering) {
-        label = `(subscribed to ${assertionFiltersCount} individual assertions)`
+        label = `(subscribed to ${assertionFiltersCount} individual assertions)`;
     } else if (isForAssertionSubscription && maybeAssertionSubscription && !maybeAssertionFilters) {
-        label = 'All assertions on asset selected'
+        label = 'All assertions on asset selected';
     }
     return label;
-}
+};
 
 const getAssertionsNode = (maybeContext?: NodeRenderingContext): DataNode => {
     const { subscription, forSubResource, keysWithFilteringCleared } = maybeContext ?? {};
@@ -99,21 +104,21 @@ const getAssertionsNode = (maybeContext?: NodeRenderingContext): DataNode => {
         EntityChangeType.AssertionFailed,
         subscription,
         keysWithFilteringCleared,
-        isForAssertionSubscription
+        isForAssertionSubscription,
     );
 
     const assertionPassedDetailsLabel = getDetailsLabelForAssertionTypeChange(
         EntityChangeType.AssertionPassed,
         subscription,
         keysWithFilteringCleared,
-        isForAssertionSubscription
+        isForAssertionSubscription,
     );
 
     const assertionErrorDetailsLabel = getDetailsLabelForAssertionTypeChange(
         EntityChangeType.AssertionError,
         subscription,
         keysWithFilteringCleared,
-        isForAssertionSubscription
+        isForAssertionSubscription,
     );
 
     return {
@@ -122,18 +127,33 @@ const getAssertionsNode = (maybeContext?: NodeRenderingContext): DataNode => {
         children: [
             {
                 key: EntityChangeType.AssertionFailed,
-                title: <NotificationTypeText>{isForAssertionSubscription ? 'This' : 'Any'} assertion fails <NotificationTypeDetailsText>{assertionFailedDetailsLabel}</NotificationTypeDetailsText></NotificationTypeText>,
+                title: (
+                    <NotificationTypeText>
+                        {isForAssertionSubscription ? 'This' : 'Any'} assertion fails{' '}
+                        <NotificationTypeDetailsText>{assertionFailedDetailsLabel}</NotificationTypeDetailsText>
+                    </NotificationTypeText>
+                ),
             },
             {
                 key: EntityChangeType.AssertionPassed,
-                title: <NotificationTypeText>{isForAssertionSubscription ? 'This' : 'Any'} assertion passes <NotificationTypeDetailsText>{assertionPassedDetailsLabel}</NotificationTypeDetailsText></NotificationTypeText>,
+                title: (
+                    <NotificationTypeText>
+                        {isForAssertionSubscription ? 'This' : 'Any'} assertion passes{' '}
+                        <NotificationTypeDetailsText>{assertionPassedDetailsLabel}</NotificationTypeDetailsText>
+                    </NotificationTypeText>
+                ),
             },
             {
                 key: EntityChangeType.AssertionError,
-                title: <NotificationTypeText>{isForAssertionSubscription ? 'This' : 'Any'} assertion errors  <NotificationTypeDetailsText>{assertionErrorDetailsLabel}</NotificationTypeDetailsText></NotificationTypeText>,
+                title: (
+                    <NotificationTypeText>
+                        {isForAssertionSubscription ? 'This' : 'Any'} assertion errors{' '}
+                        <NotificationTypeDetailsText>{assertionErrorDetailsLabel}</NotificationTypeDetailsText>
+                    </NotificationTypeText>
+                ),
             },
         ],
-    }
+    };
 };
 
 const incidentsNode: DataNode = {
@@ -276,16 +296,16 @@ const tagChangeNode: DataNode = {
 };
 
 type NodeRenderingContext = {
-    subscription?: DataHubSubscription,
-    forSubResource?: { assertion?: Assertion }
-    keysWithFilteringCleared: Array<Key>
-}
+    subscription?: DataHubSubscription;
+    forSubResource?: { assertion?: Assertion };
+    keysWithFilteringCleared: Array<Key>;
+};
 
 export const getTreeDataForEntity = (entityType: string, maybeContext?: NodeRenderingContext): DataNode[] => {
     switch (entityType) {
         case EntityType.Dataset:
             if (maybeContext?.forSubResource?.assertion) {
-                return [getAssertionsNode(maybeContext)]
+                return [getAssertionsNode(maybeContext)];
             }
             return [
                 deprecationNode,
@@ -408,7 +428,7 @@ export const createSubscriptionFunction = ({
                 subscriptionUrn: result.data?.createSubscription.subscriptionUrn ?? '',
                 entityUrn,
                 entityType,
-                entityChangeTypes: entityChangeTypes.map(details => details.entityChangeType),
+                entityChangeTypes: entityChangeTypes.map((details) => details.entityChangeType),
                 sinkTypes: notificationSettings?.sinkTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
@@ -429,7 +449,7 @@ export const createSubscriptionFunction = ({
                 type: EventType.SubscriptionCreateErrorEvent,
                 entityUrn,
                 entityType,
-                entityChangeTypes: entityChangeTypes.map(details => details.entityChangeType),
+                entityChangeTypes: entityChangeTypes.map((details) => details.entityChangeType),
                 sinkTypes: notificationSettings.sinkTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
@@ -442,7 +462,7 @@ export const createSubscriptionFunction = ({
 
 /**
  * Remove the GraphQL __typename fields from any object
- * @param obj 
+ * @param obj
  * @returns {T}
  */
 export function removeNestedTypeNames<T>(obj: T): T {
@@ -453,7 +473,7 @@ export function removeNestedTypeNames<T>(obj: T): T {
     const clonedObj = _.clone(obj as object);
 
     // Iterate over object properties
-    Object.keys(clonedObj).forEach(prop => {
+    Object.keys(clonedObj).forEach((prop) => {
         if (prop === '__typename') {
             // Remove __typename property
             delete clonedObj[prop];
@@ -461,7 +481,7 @@ export function removeNestedTypeNames<T>(obj: T): T {
             // Recurse for nested objects and arrays
             clonedObj[prop] = removeNestedTypeNames(clonedObj[prop]);
         }
-    })
+    });
     return clonedObj as T;
 }
 
@@ -496,12 +516,12 @@ export const updateSubscriptionFunction = ({
     onRefetch?: () => void;
 }) => {
     const entityChangeTypesAdded = _.difference(
-        entityChangeTypes.map(details => details.entityChangeType),
+        entityChangeTypes.map((details) => details.entityChangeType),
         subscription?.entityChangeTypes.map((details) => details.entityChangeType) ?? [],
     );
     const entityChangeTypesRemoved = _.difference(
         subscription?.entityChangeTypes.map((changeType) => changeType.entityChangeType) ?? [],
-        entityChangeTypes.map(details => details.entityChangeType),
+        entityChangeTypes.map((details) => details.entityChangeType),
     );
 
     const sinkTypesAdded = _.difference(
@@ -535,7 +555,7 @@ export const updateSubscriptionFunction = ({
                     subscriptionUrn: subscription.subscriptionUrn,
                     entityUrn: subscription.entity.urn,
                     entityType,
-                    entityChangeTypes: entityChangeTypes.map(details => details.entityChangeType),
+                    entityChangeTypes: entityChangeTypes.map((details) => details.entityChangeType),
                     entityChangeTypesAdded,
                     entityChangeTypesRemoved,
                     sinkTypes: notificationSettings.sinkTypes,
@@ -561,7 +581,7 @@ export const updateSubscriptionFunction = ({
                     subscriptionUrn: subscription.subscriptionUrn,
                     entityUrn: subscription.entity.urn,
                     entityType,
-                    entityChangeTypes: entityChangeTypes.map(details => details.entityChangeType),
+                    entityChangeTypes: entityChangeTypes.map((details) => details.entityChangeType),
                     sinkTypes: notificationSettings.sinkTypes,
                     actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 });

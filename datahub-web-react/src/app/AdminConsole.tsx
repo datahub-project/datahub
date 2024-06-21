@@ -44,7 +44,8 @@ export const AdminConsole = (): JSX.Element => {
     const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
-    const showActionRequests = (isActionRequestsEnabled && me && me?.platformPrivileges?.viewMetadataProposals) || false;
+    const showActionRequests =
+        (isActionRequestsEnabled && me && me?.platformPrivileges?.viewMetadataProposals) || false;
     const showAdminConsole = showAnalytics || showPolicyBuilder || showActionRequests;
 
     const onMenuItemClick = () => {

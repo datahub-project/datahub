@@ -17,7 +17,12 @@ type Props = {
 const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) => {
     const registry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
-    const { filter: { formFilter }, isInFormContext, shouldRefetch, setShouldRefetch } = useEntityFormContext();
+    const {
+        filter: { formFilter },
+        isInFormContext,
+        shouldRefetch,
+        setShouldRefetch,
+    } = useEntityFormContext();
 
     const {
         data: newData,
@@ -37,7 +42,7 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
                 query: excludeFilters ? '*' : sidebarFilters.query,
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_VALUES,
-                    skipCache: isInFormContext
+                    skipCache: isInFormContext,
                 },
                 formFilter,
             },

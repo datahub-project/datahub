@@ -23,7 +23,9 @@ const StyledTable = styled(Table)`
     &&
         .ant-table-thead
         > tr
-        > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not([colspan])::before {
+        > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
+            [colspan]
+        )::before {
         border: 1px solid #f0f0f0;
     }
 ` as typeof Table;
@@ -61,7 +63,7 @@ export default function AccessManagement() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     const { data: externalRoles, loading: isLoading } = useGetExternalRolesQuery({
-        variables: { urn: baseEntity?.dataset?.urn as string, },
+        variables: { urn: baseEntity?.dataset?.urn as string },
         skip: !baseEntity?.dataset?.urn,
     });
 
@@ -109,12 +111,13 @@ export default function AccessManagement() {
             hidden: true,
         },
     ];
-    const spinProps: SpinProps = { indicator: <LoadingOutlined style={{ fontSize: 28 }} spin /> }
+    const spinProps: SpinProps = { indicator: <LoadingOutlined style={{ fontSize: 28 }} spin /> };
     return (
         <StyledTable
             loading={isLoading ? spinProps : false}
             dataSource={handleAccessRoles(externalRoles)}
-            columns={columns} pagination={false}
+            columns={columns}
+            pagination={false}
         />
-    )
+    );
 }

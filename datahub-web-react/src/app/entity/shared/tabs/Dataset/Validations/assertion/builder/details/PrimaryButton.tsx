@@ -42,7 +42,7 @@ type Props = {
 export const PrimaryButton = ({ icon, title, tooltip, disabled = false, style, onClick }: Props) => {
     return (
         <Tooltip title={tooltip} placement="left" showArrow={false}>
-             <Button
+            <Button
                 disabled={disabled}
                 onClick={(e) => {
                     e.stopPropagation();

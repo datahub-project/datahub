@@ -10,7 +10,6 @@ interface CopyUrnMenuItemProps {
     type: string;
 }
 
-
 const TextSpan = styled.span`
     padding-left: 12px;
     margin-left: 0px !important;

@@ -10,7 +10,7 @@ const Container = styled.div`
     max-width: 470px;
     margin: 15px;
     padding: 52px 65px 65px 52px;
-    background: #191D2E url(${introduceBg}) no-repeat bottom right;
+    background: #191d2e url(${introduceBg}) no-repeat bottom right;
     border-radius: 18px;
 `;
 
@@ -45,7 +45,8 @@ export const IntroduceYourselfLeftSidebar = () => {
             <div>
                 <Title>Start your data journey</Title>
                 <Subtitle>
-                    Thousands of data professionals use Acryl to discover trusted data, ensure data quality and collaborate with their colleagues
+                    Thousands of data professionals use Acryl to discover trusted data, ensure data quality and
+                    collaborate with their colleagues
                 </Subtitle>
             </div>
         </Container>

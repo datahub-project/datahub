@@ -194,7 +194,6 @@ fragment subscriptionFields on DataHubSubscription {
         filter {
             includeAssertions
         }
-
     }
     createdOn {
         time

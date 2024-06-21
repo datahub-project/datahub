@@ -80,11 +80,11 @@ export default function SubscribeButtonMenu({
     const items = [
         ...(isUserSubscribed
             ? [
-                {
-                    key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
-                    label: 'Unsubscribe Me',
-                },
-            ]
+                  {
+                      key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
+                      label: 'Unsubscribe Me',
+                  },
+              ]
             : []),
         {
             key: DROPDOWN_KEYS.SUBSCRIBE_ME,
@@ -92,11 +92,11 @@ export default function SubscribeButtonMenu({
         },
         ...(hasGroupRelationships
             ? [
-                {
-                    key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
-                    label: 'Manage Group Subscriptions',
-                },
-            ]
+                  {
+                      key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
+                      label: 'Manage Group Subscriptions',
+                  },
+              ]
             : []),
     ];
 

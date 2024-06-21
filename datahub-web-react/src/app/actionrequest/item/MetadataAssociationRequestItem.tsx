@@ -83,7 +83,7 @@ export default function MetadataAssociationRequestItem({
                                 actionType: EntityActionType.ProposalAccepted,
                                 actionQualifier: actionRequest.type,
                                 entityType: actionRequest.entity?.type,
-                                entityUrn: actionRequest.entity?.urn
+                                entityUrn: actionRequest.entity?.urn,
                             });
                         }
                         message.success('Successfully accepted the proposal!');

@@ -409,7 +409,7 @@ export default function DefaultPreviewCard({
                 )}
             </LeftColumn>
             {shouldShowRightColumn && (
-                <RightColumn key='right-column'>
+                <RightColumn key="right-column">
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

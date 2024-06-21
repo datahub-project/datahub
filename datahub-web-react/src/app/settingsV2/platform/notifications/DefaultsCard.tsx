@@ -43,7 +43,6 @@ type Props = {
 };
 
 export const DefaultsCard = ({ globalSettings, refetch }: Props) => {
-
     const { config } = useAppConfig();
 
     const defaultEmailAddress = globalSettings?.integrationSettings?.emailSettings?.defaultEmail;

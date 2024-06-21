@@ -69,7 +69,9 @@ export const AssertionProfile = ({
                     entity={entity}
                     refetch={fullRefetch}
                     monitor={monitor}
-                    editable={!!assertion && getAssertionEditabilityType(assertion) !== AssertionEditabilityScopeType.NONE}
+                    editable={
+                        !!assertion && getAssertionEditabilityType(assertion) !== AssertionEditabilityScopeType.NONE
+                    }
                     editAllowed={editAllowed}
                 />
             ),

@@ -85,8 +85,7 @@ type Props = {
 };
 
 export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading, error, refetch }: Props) => {
-
-    const { config } = useAppConfig(); 
+    const { config } = useAppConfig();
 
     // Determine which notification sinks are enabled
     const [showNotificationOptions, setShowNotificationOptions] = useState(false);

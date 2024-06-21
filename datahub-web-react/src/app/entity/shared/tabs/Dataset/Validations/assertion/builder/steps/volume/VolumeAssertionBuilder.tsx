@@ -120,7 +120,11 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled }: Props) 
 
     return (
         <div>
-            <VolumeTypeBuilder volumeInfo={volumeAssertion as VolumeAssertionInfo} onChange={updateVolumeType} disabled={disabled} />
+            <VolumeTypeBuilder
+                volumeInfo={volumeAssertion as VolumeAssertionInfo}
+                onChange={updateVolumeType}
+                disabled={disabled}
+            />
             <VolumeParametersBuilder
                 volumeInfo={volumeAssertion as VolumeAssertionInfo}
                 value={volumeParameters as AssertionStdParameters}

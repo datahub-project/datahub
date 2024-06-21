@@ -69,10 +69,9 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
             )}
             {error && (
                 <Typography.Paragraph>
-                    {(error?.networkError as any)?.statusCode === 503 
-                        ? 'Oops! The assertion has exceeded the real-time results timeout (30s). Don\'t worry - we\'ve still kicked off the assertion run. Check back soon to view the results!' 
-                        : 'Oops. An unknown error occurred while testing the assertion! Try again later.'
-                    }
+                    {(error?.networkError as any)?.statusCode === 503
+                        ? "Oops! The assertion has exceeded the real-time results timeout (30s). Don't worry - we've still kicked off the assertion run. Check back soon to view the results!"
+                        : 'Oops. An unknown error occurred while testing the assertion! Try again later.'}
                 </Typography.Paragraph>
             )}
             {loading && <LoadingIcon spin />}

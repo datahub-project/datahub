@@ -38,7 +38,10 @@ const VerifyButton = styled(Button)`
 `;
 
 export default function BulkVerifyHeader() {
-    const { form: { form }, entity: { selectedEntities } } = useEntityFormContext();
+    const {
+        form: { form },
+        entity: { selectedEntities },
+    } = useEntityFormContext();
     const { entityType } = useEntityData();
 
     const [isVerifyModalVisible, setIsVerifyModalVisible] = useState(false);

@@ -148,7 +148,7 @@ const SubscriptionDrawerContent = ({
         subscription,
         onCreateSuccess: () => onUpsertSubscription?.(),
         onRefetch,
-        forSubResource
+        forSubResource,
     });
 
     const showBottomDrawerSection = isPersonal || (groupUrn && canManageSubscription);
@@ -193,7 +193,7 @@ const SubscriptionDrawerContent = ({
         emailSinkSupported,
         subscription,
         sinkTypes,
-        forSubResource
+        forSubResource,
     ]);
 
     const onUpdate = () => {
@@ -264,7 +264,9 @@ const SubscriptionDrawerContent = ({
         >
             <SubscriptionTitleContainer>
                 {/* TODO: enter assertion name here (derrive it from parameters if needed) */}
-                <SubscriptionTitle>Subscribe to {forSubResource?.assertion ? 'assertion...' : entityName}</SubscriptionTitle>
+                <SubscriptionTitle>
+                    Subscribe to {forSubResource?.assertion ? 'assertion...' : entityName}
+                </SubscriptionTitle>
             </SubscriptionTitleContainer>
             {!isPersonal && <SelectGroupSection groupUrn={groupUrn} setGroupUrn={setGroupUrn} />}
             {canManageSubscription === false && (

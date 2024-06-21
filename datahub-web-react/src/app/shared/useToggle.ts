@@ -34,11 +34,11 @@ const useToggle = ({ initialValue = false, closeDelay = 0, openDelay = 0, onTogg
     );
 
     // below code only work when we have only one platform item and it will expand that platform item
-    useEffect(()=>{
-        if(initialValue){
+    useEffect(() => {
+        if (initialValue) {
             setIsOpen(initialValue);
         }
-    },[initialValue, setIsOpen])
+    }, [initialValue, setIsOpen]);
 
     const toggle = () => {
         if (isOpen) {

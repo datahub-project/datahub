@@ -32,7 +32,7 @@ export const StyledDivider = styled(Divider)`
     margin: 12px 0 0 0;
 `;
 
-export const StyledReadOutlined = styled(ReadOutlined)<{ color?: string, addLineHeight?: boolean }>`
+export const StyledReadOutlined = styled(ReadOutlined)<{ color?: string; addLineHeight?: boolean }>`
     margin-right: 8px;
     height: 18px;
     width: 18px;
@@ -41,7 +41,7 @@ export const StyledReadOutlined = styled(ReadOutlined)<{ color?: string, addLine
     ${(props) => props.color && `color: ${props.color};`}
 `;
 
-export const StyledReadFilled = styled(ReadFilled)<{ color: string, addLineHeight?: boolean }>`
+export const StyledReadFilled = styled(ReadFilled)<{ color: string; addLineHeight?: boolean }>`
     margin-right: 8px;
     height: 18px;
     width: 18px;
@@ -57,23 +57,22 @@ export const CTAWrapper = styled.div<{ backgroundColor?: string; borderColor?: s
         `
         border-radius: 8px;
         padding: 16px;
-        background-color: ${props.backgroundColor ? props.backgroundColor : '#f9f0ff' };
-        border: 1px solid ${props.borderColor ? props.borderColor : '#8338b8' };
+        background-color: ${props.backgroundColor ? props.backgroundColor : '#f9f0ff'};
+        border: 1px solid ${props.borderColor ? props.borderColor : '#8338b8'};
         `}
 `;
-
 
 export const Content = styled.div`
     width: 100%;
 `;
 
-export const TitleWrapper = styled.div<{ isOpen?: boolean; isUserAssigned? : boolean}>`
+export const TitleWrapper = styled.div<{ isOpen?: boolean; isUserAssigned?: boolean }>`
     display: flex;
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    margin-bottom: ${props => props.isOpen? '10px' : '0px'};
-    cursor: ${props => props.isUserAssigned? 'pointer' : 'not-allowed'};
+    margin-bottom: ${(props) => (props.isOpen ? '10px' : '0px')};
+    cursor: ${(props) => (props.isUserAssigned ? 'pointer' : 'not-allowed')};
 `;
 
 export const StyledArrow = styled(KeyboardArrowDownOutlinedIcon)<{ isOpen: boolean }>`
@@ -88,15 +87,15 @@ export const StyledArrow = styled(KeyboardArrowDownOutlinedIcon)<{ isOpen: boole
     `}
 `;
 
-export const StyledButtonWrapper= styled.div`
+export const StyledButtonWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
 `;
 
-export const StyledImgIcon = styled.img<{ addLineHeight?: boolean ; disable? : boolean }>`
+export const StyledImgIcon = styled.img<{ addLineHeight?: boolean; disable?: boolean }>`
     font-size: 24px;
     margin-right: 8px;
     align-self: flex-start;
-    ${props => props.disable && `opacity: 0.5;`};
+    ${(props) => props.disable && `opacity: 0.5;`};
     ${(props) => props.addLineHeight && `line-height: 24px;`}
 `;

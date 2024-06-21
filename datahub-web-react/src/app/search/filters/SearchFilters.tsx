@@ -77,8 +77,8 @@ export const SearchFilters = ({
             )}
         </SearchFiltersWrapper>
     );
-}
+};
 
-// To support having both versions (v1 & v2) imported to the same components this needed to be a named export 
+// To support having both versions (v1 & v2) imported to the same components this needed to be a named export
 // To ensure that other components that are using the absolute export remain unaffected, we're also exporting as default
 export default SearchFilters;

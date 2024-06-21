@@ -15,7 +15,11 @@ import {
 } from '../state/selectors';
 import { Assertion, DataHubSubscription, EntityChangeType } from '../../../../../types.generated';
 import AssertionSubscriptionAlert from './AssertionSubscriptionAlert';
-import { checkIsKeyBeingToggledForAssertionSubscriptionsAtAssetLevel, getEntityChangeTypeWithName, useRemoveAssertionFromAssetLevelSubscription } from './utils';
+import {
+    checkIsKeyBeingToggledForAssertionSubscriptionsAtAssetLevel,
+    getEntityChangeTypeWithName,
+    useRemoveAssertionFromAssetLevelSubscription,
+} from './utils';
 
 const NotificationTypesContainer = styled.div`
     margin-top: 32px;
@@ -49,19 +53,16 @@ const TreeContainer = styled.div`
     }
 `;
 
-const ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES_AS_STRINGS = ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES.map((e) => e.valueOf().toString());
+const ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES_AS_STRINGS =
+    ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES.map((e) => e.valueOf().toString());
 
 interface Props {
     subscription?: DataHubSubscription;
     forSubResource?: { assertion?: Assertion };
-    onClose()
+    onClose();
 }
 
-const NotificationTypesSection = ({
-    forSubResource,
-    subscription,
-    onClose
-}: Props) => {
+const NotificationTypesSection = ({ forSubResource, subscription, onClose }: Props) => {
     const checkedKeys = useDrawerSelector(selectCheckedKeys);
     const expandedKeys = useDrawerSelector(selectExpandedKeys);
 
@@ -76,21 +77,25 @@ const NotificationTypesSection = ({
     const [alertVisibleForEntityChangeType, setAlertVisibleForEntityChangeType] = useState<EntityChangeType>();
     const onRemoveAssertionFromAssetLevelSubscription = useRemoveAssertionFromAssetLevelSubscription({
         entityUrn,
-        entityType
+        entityType,
     });
 
-    const onExpand = useCallback((expandedKeysValue: Key[]) => {
-        actions.setExpandedNotificationTypes(expandedKeysValue);
-    }, [actions]);
+    const onExpand = useCallback(
+        (expandedKeysValue: Key[]) => {
+            actions.setExpandedNotificationTypes(expandedKeysValue);
+        },
+        [actions],
+    );
 
     const showToggleAssetLevelSubscriptionAlert = (entityChangeType: EntityChangeType) => {
         setAlertVisibleForEntityChangeType(entityChangeType);
-    }
+    };
 
     const tryAddKeysWithFiltersCleared = (nodeBeingToggled: DataNode) => {
-        let keysToClear: Key[] | undefined = nodeBeingToggled.key === 'assertion_changes'
-            ? nodeBeingToggled.children?.map((child) => child.key)
-            : undefined;
+        let keysToClear: Key[] | undefined =
+            nodeBeingToggled.key === 'assertion_changes'
+                ? nodeBeingToggled.children?.map((child) => child.key)
+                : undefined;
         if (ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES_AS_STRINGS.includes(String(nodeBeingToggled.key))) {
             keysToClear = [nodeBeingToggled.key];
         }
@@ -98,7 +103,7 @@ const NotificationTypesSection = ({
         if (keysToClear?.length) {
             actions.setNotificationTypesWithFiltersCleared([...keysWithFilteringCleared, ...keysToClear]);
         }
-    }
+    };
 
     // Handle user checking/unchecking a key
     const onCheck = (checkedKeysValue: any, _info: any) => {
@@ -106,7 +111,8 @@ const NotificationTypesSection = ({
         // 1. If this view is for managing an assertions's subscriptions...
         // ...and the user has attempted to uncheck an EntityChangeType that's set at the entity-level and not the assertion level,
         // then we need to alert the user they need to switch to the top entity-level subscription management view to perform this.
-        if (forSubResource?.assertion &&
+        if (
+            forSubResource?.assertion &&
             checkIsKeyBeingToggledForAssertionSubscriptionsAtAssetLevel(node.key, subscription)
         ) {
             // NOTE: for now we don't let you manage across assertion change types if you've got asset level subscriptions
@@ -116,7 +122,7 @@ const NotificationTypesSection = ({
             const maybeEntityChangeType = getEntityChangeTypeWithName(node.key as string);
             if (!maybeEntityChangeType) {
                 // Should never happen
-                alert('Could not find an entity change type matching the selected key.')
+                alert('Could not find an entity change type matching the selected key.');
                 return;
             }
             showToggleAssetLevelSubscriptionAlert(maybeEntityChangeType);
@@ -129,7 +135,7 @@ const NotificationTypesSection = ({
         // 3. If this is for top entity-level subscription management, and the user clicks a change type that has subresource filters
         // on it, we need to clear all those filters; as this is now being set at the entity-level.
         if (!forSubResource?.assertion) {
-            tryAddKeysWithFiltersCleared(node)
+            tryAddKeysWithFiltersCleared(node);
         }
     };
 
@@ -141,16 +147,13 @@ const NotificationTypesSection = ({
 
     // If this view is being rendered for assertion subscriptions, expand the respective key by default
     const firstKeyInTree = treeData.length ? treeData[0].key : null;
-    const isForSubResource = !!forSubResource
-    useEffect(
-        () => {
-            if (isForSubResource && firstKeyInTree) {
-                // Trigger on next tick of event loop
-                setTimeout(() => onExpand([firstKeyInTree]), 50)
-            }
-        },
-        [isForSubResource, firstKeyInTree, onExpand]
-    );
+    const isForSubResource = !!forSubResource;
+    useEffect(() => {
+        if (isForSubResource && firstKeyInTree) {
+            // Trigger on next tick of event loop
+            setTimeout(() => onExpand([firstKeyInTree]), 50);
+        }
+    }, [isForSubResource, firstKeyInTree, onExpand]);
 
     return (
         <NotificationTypesContainer>
@@ -173,26 +176,28 @@ const NotificationTypesSection = ({
                 onConfirm={() => {
                     if (!forSubResource?.assertion || !alertVisibleForEntityChangeType) {
                         // Should never happen
-                        alert(`Unexpected error. Could not get assertion to perform action on.\nPlease try again later.`);
-                        return
+                        alert(
+                            `Unexpected error. Could not get assertion to perform action on.\nPlease try again later.`,
+                        );
+                        return;
                     }
                     if (!subscription) {
                         // Should never happen
                         alert(`Unexpected error. Could not get subscription to update.\nPlease try again later.`);
-                        return
+                        return;
                     }
                     try {
                         onRemoveAssertionFromAssetLevelSubscription(
                             forSubResource.assertion,
                             alertVisibleForEntityChangeType,
-                            subscription
-                        )
+                            subscription,
+                        );
                         setAlertVisibleForEntityChangeType(undefined);
                         onClose();
                     } catch (e: unknown) {
                         // should never happen
-                        const errorMessage = typeof e === 'object' && e !== null && ('message' in e) ? e.message : '';
-                        alert(`Could not unsubscribe from this assertion.\n${errorMessage}\nPlease try again later.`)
+                        const errorMessage = typeof e === 'object' && e !== null && 'message' in e ? e.message : '';
+                        alert(`Could not unsubscribe from this assertion.\n${errorMessage}\nPlease try again later.`);
                     }
                 }}
                 onCancel={() => setAlertVisibleForEntityChangeType(undefined)}

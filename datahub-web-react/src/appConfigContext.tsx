@@ -51,8 +51,8 @@ export const DEFAULT_APP_CONFIG = {
     classificationConfig: {
         enabled: false,
         automations: {
-            snowflake: false
-        }
+            snowflake: false,
+        },
     },
     featureFlags: {
         readOnlyModeEnabled: false,

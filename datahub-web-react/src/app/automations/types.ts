@@ -5,9 +5,9 @@ import { Test } from '../../types.generated';
  * Test Definition.
  */
 export interface Predicate {
-	property: string;
-	operator?: string;
-	values?: string[];
+    property: string;
+    operator?: string;
+    values?: string[];
 }
 
 /**
@@ -15,7 +15,7 @@ export interface Predicate {
  * Test Definition.
  */
 export type AndPredicate = {
-	and: TestPredicate;
+    and: TestPredicate;
 };
 
 /**
@@ -23,7 +23,7 @@ export type AndPredicate = {
  * Test Definition
  */
 export type OrPredicate = {
-	or: TestPredicate;
+    or: TestPredicate;
 };
 
 /**
@@ -31,7 +31,7 @@ export type OrPredicate = {
  * Test Definition
  */
 export type NotPredicate = {
-	not: TestPredicate;
+    not: TestPredicate;
 };
 
 /**
@@ -45,8 +45,8 @@ export type TestPredicate = AndPredicate | OrPredicate | NotPredicate | Predicat
  * Test Definition.
  */
 export type SelectPredicate = {
-	types: string[];
-	conditions?: TestPredicate;
+    types: string[];
+    conditions?: TestPredicate;
 };
 
 /**
@@ -54,8 +54,8 @@ export type SelectPredicate = {
  * Test Definition.
  */
 export type TestAction = {
-	type: string;
-	values: string[];
+    type: string;
+    values: string[];
 };
 
 /**
@@ -63,28 +63,28 @@ export type TestAction = {
  * of a deserialized Test Definition.
  */
 export type TestActions = {
-	failing: TestAction[];
-	passing: TestAction[];
+    failing: TestAction[];
+    passing: TestAction[];
 };
 
 /**
  * A deserialized Test Definition.
  */
 export interface TestDefinition {
-	/**
-	 * The select conditions for the test (or)
-	 */
-	on: SelectPredicate;
+    /**
+     * The select conditions for the test (or)
+     */
+    on: SelectPredicate;
 
-	/**
-	 * The rules conditions for the test
-	 */
-	rules: TestPredicate;
+    /**
+     * The rules conditions for the test
+     */
+    rules: TestPredicate;
 
-	/**
-	 * The actions for the test
-	 */
-	actions?: TestActions;
+    /**
+     * The actions for the test
+     */
+    actions?: TestActions;
 }
 
 export type TestCategoryType = { name: string; description?: string };

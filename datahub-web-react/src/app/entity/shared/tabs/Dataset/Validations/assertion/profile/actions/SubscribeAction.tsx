@@ -53,17 +53,20 @@ export const SubscribeAction = ({ assertion, refetch }: Props) => {
         entityUrn: urn,
         isPersonal,
         groupUrn,
-        isEntityExists
+        isEntityExists,
     });
     const { hasGroupRelationships } = useGroupRelationships({ count: 1 });
 
     const entityName = entityData?.name || '';
 
-
-    const isAssetLevelAssertionSubscription = subscription?.entityChangeTypes.some(checkIsAssetLevelAssertionSubscription);
-    const isSubscribedToThisAssertionSpecifically = subscription?.entityChangeTypes.some(changeType =>
-        changeType.filter?.includeAssertions?.includes(assertion.urn));
-    const isSubscribedToThisAssertionGenerally = isAssetLevelAssertionSubscription || isSubscribedToThisAssertionSpecifically;
+    const isAssetLevelAssertionSubscription = subscription?.entityChangeTypes.some(
+        checkIsAssetLevelAssertionSubscription,
+    );
+    const isSubscribedToThisAssertionSpecifically = subscription?.entityChangeTypes.some((changeType) =>
+        changeType.filter?.includeAssertions?.includes(assertion.urn),
+    );
+    const isSubscribedToThisAssertionGenerally =
+        isAssetLevelAssertionSubscription || isSubscribedToThisAssertionSpecifically;
 
     const refetchSub = () => {
         refetchSubscription?.();
@@ -109,35 +112,39 @@ export const SubscribeAction = ({ assertion, refetch }: Props) => {
         //         },
         //     ]
         //     : []),
-        ...(isSubscribedToThisAssertionGenerally ? [
-            {
-                key: DROPDOWN_KEYS.SUBSCRIBE_ME,
-                label: <span style={{ color: '#46507b' }}>Manage My Subscription</span>,
-                onClick: (e) => {
-                    e.domEvent.stopPropagation();
-                    onClickMenuItem(DROPDOWN_KEYS.SUBSCRIBE_ME);
-                },
-            }]
+        ...(isSubscribedToThisAssertionGenerally
+            ? [
+                  {
+                      key: DROPDOWN_KEYS.SUBSCRIBE_ME,
+                      label: <span style={{ color: '#46507b' }}>Manage My Subscription</span>,
+                      onClick: (e) => {
+                          e.domEvent.stopPropagation();
+                          onClickMenuItem(DROPDOWN_KEYS.SUBSCRIBE_ME);
+                      },
+                  },
+              ]
             : [
-                {
-                    key: DROPDOWN_KEYS.SUBSCRIBE_ME,
-                    label: <span style={{ color: '#46507b' }}>Subscribe Me</span>,
-                    onClick: (e) => {
-                        e.domEvent.stopPropagation();
-                        onClickMenuItem(DROPDOWN_KEYS.SUBSCRIBE_ME);
-                    },
-                },
-            ]),
-        ...(hasGroupRelationships ? [
-            {
-                key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
-                label: <span style={{ color: '#46507b' }}>Manage Group Subscriptions</span>,
-                onClick: (e) => {
-                    e.domEvent.stopPropagation();
-                    onClickMenuItem(DROPDOWN_KEYS.SUBSCRIBE_GROUP);
-                },
-            }
-        ] : []),
+                  {
+                      key: DROPDOWN_KEYS.SUBSCRIBE_ME,
+                      label: <span style={{ color: '#46507b' }}>Subscribe Me</span>,
+                      onClick: (e) => {
+                          e.domEvent.stopPropagation();
+                          onClickMenuItem(DROPDOWN_KEYS.SUBSCRIBE_ME);
+                      },
+                  },
+              ]),
+        ...(hasGroupRelationships
+            ? [
+                  {
+                      key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
+                      label: <span style={{ color: '#46507b' }}>Manage Group Subscriptions</span>,
+                      onClick: (e) => {
+                          e.domEvent.stopPropagation();
+                          onClickMenuItem(DROPDOWN_KEYS.SUBSCRIBE_GROUP);
+                      },
+                  },
+              ]
+            : []),
         // TODO: remove this if not needed based on user feedback
         // ...(isAssetLevelAssertionSubscription
         //     ? [
@@ -168,7 +175,7 @@ export const SubscribeAction = ({ assertion, refetch }: Props) => {
                 <span>
                     <ActionItem
                         key="subscribe-urn"
-                        onClick={() => { }}
+                        onClick={() => {}}
                         icon={isSubscribedToThisAssertionGenerally ? <StyledBellFilled /> : <StyledBellOutlined />}
                     />
                 </span>

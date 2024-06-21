@@ -50,12 +50,12 @@ export const FreshnessAssertionDetails = ({ assertion }: Props) => {
             <EvaluationScheduleBuilder
                 value={schedule}
                 assertionType={AssertionType.Freshness}
-                onChange={() => { }}
+                onChange={() => {}}
                 disabled
             />
             <DatasetFreshnessScheduleBuilder
                 value={freshnessSchedule as FreshnessAssertionSchedule}
-                onChange={() => { }}
+                onChange={() => {}}
                 disabled
             />
             <Section>
@@ -66,13 +66,13 @@ export const FreshnessAssertionDetails = ({ assertion }: Props) => {
                             platformUrn={platformUrn}
                             scheduleType={freshnessScheduleType as FreshnessAssertionScheduleType}
                             value={datasetFreshnessParameters as DatasetFreshnessAssertionParameters}
-                            onChange={() => { }}
+                            onChange={() => {}}
                             disabled
                         />
                         <DatasetFreshnessFilterBuilder
                             value={freshnessFilter as DatasetFilter}
                             sourceType={datasetFreshnessParameters?.sourceType}
-                            onChange={() => { }}
+                            onChange={() => {}}
                             disabled
                         />
                     </Collapse.Panel>

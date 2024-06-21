@@ -1,5 +1,3 @@
 import React from 'react';
 
-export const ChartLoading = () => (
-	<>Chart</>
-)
+export const ChartLoading = () => <>Chart</>;

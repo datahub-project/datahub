@@ -17,7 +17,9 @@ interface Props {
 }
 
 export default function ValueDescription({ description }: Props) {
-    const { prompt: { displayBulkPromptStyles } } = useEntityFormContext();
+    const {
+        prompt: { displayBulkPromptStyles },
+    } = useEntityFormContext();
 
     return (
         <>

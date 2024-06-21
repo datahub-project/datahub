@@ -9,115 +9,120 @@ import { FAILURE, RUNNING, getSourceConfigs } from '../../../ingest/source/utils
 import { SourceConfig } from '../../../ingest/source/builder/types';
 
 import {
-	useCreateTestConnectionRequestMutation,
-	useGetIngestionExecutionRequestQuery
+    useCreateTestConnectionRequestMutation,
+    useGetIngestionExecutionRequestQuery,
 } from '../../../../graphql/ingestion.generated';
 
 interface Props {
-	configValues: {
-		account_id?: string;
-		name?: string;
-		password?: string;
-		role?: string;
-		username?: string;
-		warehouse?: string;
-	};
+    configValues: {
+        account_id?: string;
+        name?: string;
+        password?: string;
+        role?: string;
+        username?: string;
+        warehouse?: string;
+    };
 }
 
 export const TestConnection = ({ configValues }: Props) => {
-	// Test States
-	const [isTesting, setIsTesting] = useState(false);
-	const [isTestConnectionModalVisible, setIsTestConnectionModalVisible] = useState(false);
-	const [testUrn, setTestUrn] = useState<string | undefined>();
-	const [testConnectionResult, setTestConnectionResult] = useState<any | undefined>();
+    // Test States
+    const [isTesting, setIsTesting] = useState(false);
+    const [isTestConnectionModalVisible, setIsTestConnectionModalVisible] = useState(false);
+    const [testUrn, setTestUrn] = useState<string | undefined>();
+    const [testConnectionResult, setTestConnectionResult] = useState<any | undefined>();
 
-	// Get source configs
-	const sourceConfigs = getSourceConfigs(
-		[{ name: 'snowflake', displayName: 'Snowflake' } as SourceConfig],
-		'snowflake'
-	);
+    // Get source configs
+    const sourceConfigs = getSourceConfigs(
+        [{ name: 'snowflake', displayName: 'Snowflake' } as SourceConfig],
+        'snowflake',
+    );
 
-	// Mutation to test connection
-	const [createTestConnectionRequest] = useCreateTestConnectionRequestMutation();
+    // Mutation to test connection
+    const [createTestConnectionRequest] = useCreateTestConnectionRequestMutation();
 
-	// Query for test 
-	const { data: resultData } = useGetIngestionExecutionRequestQuery({
-		variables: {
-			urn: testUrn || '',
-		},
-		skip: !testUrn,
-	});
+    // Query for test
+    const { data: resultData } = useGetIngestionExecutionRequestQuery({
+        variables: {
+            urn: testUrn || '',
+        },
+        skip: !testUrn,
+    });
 
-	// Update test status
-	React.useEffect(() => {
-		const result = resultData?.executionRequest?.result;
-		if (result && result.status !== RUNNING) {
-			if (result.status === FAILURE) {
-				message.error(
-					'Something went wrong with your connection test. Please check your recipe and try again.',
-				);
-				setIsTestConnectionModalVisible(false);
-			}
-			if (result.structuredReport) {
-				const testConnectionReport = JSON.parse(result.structuredReport.serializedValue);
-				setTestConnectionResult(testConnectionReport);
-			}
-			setIsTesting(false);
-		}
-	}, [resultData]);
+    // Update test status
+    React.useEffect(() => {
+        const result = resultData?.executionRequest?.result;
+        if (result && result.status !== RUNNING) {
+            if (result.status === FAILURE) {
+                message.error(
+                    'Something went wrong with your connection test. Please check your recipe and try again.',
+                );
+                setIsTestConnectionModalVisible(false);
+            }
+            if (result.structuredReport) {
+                const testConnectionReport = JSON.parse(result.structuredReport.serializedValue);
+                setTestConnectionResult(testConnectionReport);
+            }
+            setIsTesting(false);
+        }
+    }, [resultData]);
 
-	const handleTest = () => {
-		setIsTesting(true);
-		setIsTestConnectionModalVisible(true);
+    const handleTest = () => {
+        setIsTesting(true);
+        setIsTestConnectionModalVisible(true);
 
-		createTestConnectionRequest({
-			variables: {
-				input: {
-					recipe: JSON.stringify({
-						source: {
-							type: 'snowflake',
-							config: configValues
-						}
-					}),
-				},
-			},
-		})
-			.then((result: any) => {
-				const urn = result?.data?.createTestConnectionRequest;
-				if (urn) setTestUrn(urn);
-			})
-			.catch((e: unknown) => {
-				message.destroy();
-				if (e instanceof Error) {
-					message.error({
-						content: 'An unexpected error occurred. Failed to test connection.',
-						duration: 3,
-					});
-				}
-			});
-	};
+        createTestConnectionRequest({
+            variables: {
+                input: {
+                    recipe: JSON.stringify({
+                        source: {
+                            type: 'snowflake',
+                            config: configValues,
+                        },
+                    }),
+                },
+            },
+        })
+            .then((result: any) => {
+                const urn = result?.data?.createTestConnectionRequest;
+                if (urn) setTestUrn(urn);
+            })
+            .catch((e: unknown) => {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({
+                        content: 'An unexpected error occurred. Failed to test connection.',
+                        duration: 3,
+                    });
+                }
+            });
+    };
 
-	const internalFailure = !!testConnectionResult?.internal_failure;
-	const basicConnectivityFailure = testConnectionResult?.basic_connectivity?.capable === false;
-	const testConnectionFailed = internalFailure || basicConnectivityFailure;
+    const internalFailure = !!testConnectionResult?.internal_failure;
+    const basicConnectivityFailure = testConnectionResult?.basic_connectivity?.capable === false;
+    const testConnectionFailed = internalFailure || basicConnectivityFailure;
 
-	const isDisabled = !configValues.account_id || !configValues.password || !configValues.username || !configValues.role || !configValues.warehouse;
+    const isDisabled =
+        !configValues.account_id ||
+        !configValues.password ||
+        !configValues.username ||
+        !configValues.role ||
+        !configValues.warehouse;
 
-	return (
-		<>
-			<Button type="default" onClick={handleTest} disabled={isDisabled}>
-				<CheckCircleOutlined style={{ color: green[5] }} />
-				Test Connection
-			</Button>
-			{isTestConnectionModalVisible && (
-				<TestConnectionModal
-					isLoading={isTesting}
-					sourceConfig={sourceConfigs}
-					testConnectionFailed={testConnectionFailed}
-					testConnectionResult={testConnectionResult}
-					hideModal={() => setIsTestConnectionModalVisible(false)}
-				/>
-			)}
-		</>
-	)
-}
+    return (
+        <>
+            <Button type="default" onClick={handleTest} disabled={isDisabled}>
+                <CheckCircleOutlined style={{ color: green[5] }} />
+                Test Connection
+            </Button>
+            {isTestConnectionModalVisible && (
+                <TestConnectionModal
+                    isLoading={isTesting}
+                    sourceConfig={sourceConfigs}
+                    testConnectionFailed={testConnectionFailed}
+                    testConnectionResult={testConnectionResult}
+                    hideModal={() => setIsTestConnectionModalVisible(false)}
+                />
+            )}
+        </>
+    );
+};
