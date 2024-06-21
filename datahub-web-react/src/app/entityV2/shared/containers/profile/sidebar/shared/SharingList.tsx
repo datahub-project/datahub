@@ -102,8 +102,13 @@ const SharingList = ({ resultsList }: Props) => {
                         r.destination?.urn === result.destination?.urn &&
                         r.implicitShareEntity?.urn === result.implicitShareEntity?.urn,
                 );
-                const { isInProgress: isSharing, failed: failedToShare } = getShareResultStatus(result);
-                const { isInProgress: isUnsharing, failed: failedToUnshare } = getShareResultStatus(unshareResult);
+                const isShareMoreRecent = (result?.statusLastUpdated || 1) > (unshareResult?.statusLastUpdated || 0);
+                const { isInProgress: isSharing, failed: failedToShare } = isShareMoreRecent
+                    ? getShareResultStatus(result)
+                    : { isInProgress: false, failed: false };
+                const { isInProgress: isUnsharing, failed: failedToUnshare } = isShareMoreRecent
+                    ? { isInProgress: false, failed: false }
+                    : getShareResultStatus(unshareResult);
 
                 return (
                     <DetailsContainer key={name}>
@@ -126,8 +131,8 @@ const SharingList = ({ resultsList }: Props) => {
                                             <StyledLoading />
                                         </Tooltip>
                                     )}
-                                    {(failedToShare || failedToUnshare) && (
-                                        <Tooltip title={isUnsharing ? 'Failed to unshare' : 'Failed to share'}>
+                                    {!(isSharing || isUnsharing) && (failedToShare || failedToUnshare) && (
+                                        <Tooltip title={failedToUnshare ? 'Failed to unshare' : 'Failed to share'}>
                                             <StyledExclamation />
                                         </Tooltip>
                                     )}

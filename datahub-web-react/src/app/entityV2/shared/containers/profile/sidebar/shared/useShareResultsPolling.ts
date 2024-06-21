@@ -6,7 +6,7 @@ import { GenericEntityProperties } from '../../../../../../entity/shared/types';
 
 function isShareResultRunning(result: ShareResult) {
     const isRunning = result.status === ShareResultState.Running;
-    const isRecentlyAttempted = moment() < moment(result.lastAttempt?.time).add(1, 'hour');
+    const isRecentlyAttempted = moment() < moment(result.statusLastUpdated).add(5, 'minute');
     return isRunning && isRecentlyAttempted;
 }
 

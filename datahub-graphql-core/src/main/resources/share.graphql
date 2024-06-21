@@ -72,6 +72,11 @@ type ShareResult {
     The config for this particular share result
     """
     shareConfig: ShareConfig
+
+    """
+    The last time the status was updated. Timestamp in milliseconds since epoch.
+    """
+    statusLastUpdated: Long
 }
 
 """

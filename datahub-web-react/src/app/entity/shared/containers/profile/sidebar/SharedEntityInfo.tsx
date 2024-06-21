@@ -98,6 +98,7 @@ const LineageIcon = styled(PartitionOutlined)`
 const StyledExclamation = styled(ExclamationCircleOutlined)`
     color: ${REDESIGN_COLORS.RED_ERROR};
     margin-top: -2px;
+    margin-right: 8px;
 `;
 
 interface Props {
@@ -212,8 +213,14 @@ export const SharedEntityInfo = ({
                     const hasSharedLineage =
                         result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
                     const name = result.destination?.details.name || result.destination?.urn || 'Deleted connection';
-                    const { isInProgress: isSharing, failed: failedToShare } = getShareResultStatus(result);
-                    const { isInProgress: isUnsharing, failed: failedToUnshare } = getShareResultStatus(unshareResult);
+                    const isShareMoreRecent =
+                        (result?.statusLastUpdated || 1) > (unshareResult?.statusLastUpdated || 0);
+                    const { isInProgress: isSharing, failed: failedToShare } = isShareMoreRecent
+                        ? getShareResultStatus(result)
+                        : { isInProgress: false, failed: false };
+                    const { isInProgress: isUnsharing, failed: failedToUnshare } = isShareMoreRecent
+                        ? { isInProgress: false, failed: false }
+                        : getShareResultStatus(unshareResult);
                     const hasDestination = !!result.destination;
                     return (
                         <StyledContainer>
@@ -242,23 +249,20 @@ export const SharedEntityInfo = ({
                                                 </Tooltip>
                                             ) : (
                                                 <>
-                                                    {failedToShare ||
-                                                        (failedToUnshare && (
-                                                            <Tooltip
-                                                                title={
-                                                                    isUnsharing
-                                                                        ? 'Failed to unshare'
-                                                                        : 'Failed to share'
-                                                                }
-                                                            >
-                                                                <StyledExclamation />
-                                                            </Tooltip>
-                                                        ))}
-                                                    {!failedToShare && (
-                                                        <Tooltip title="Sync entity">
-                                                            <SyncOutlined />
+                                                    {(failedToShare || failedToUnshare) && (
+                                                        <Tooltip
+                                                            title={
+                                                                failedToUnshare
+                                                                    ? 'Failed to unshare'
+                                                                    : 'Failed to share'
+                                                            }
+                                                        >
+                                                            <StyledExclamation />
                                                         </Tooltip>
                                                     )}
+                                                    <Tooltip title="Sync entity">
+                                                        <SyncOutlined />
+                                                    </Tooltip>
                                                 </>
                                             )}
                                         </ResyncBytton>
@@ -266,7 +270,7 @@ export const SharedEntityInfo = ({
                                 </SharedWith>
                                 {!!lastSuccessTime && <>last synced on {toLocalDateTimeString(lastSuccessTime)}</>}
                             </TitleContainer>
-                            {showSelectMode && (
+                            {showSelectMode && !isSharing && !isUnsharing && (
                                 <Checkbox
                                     checked={selectedInstancesToUnshare.includes(result.destination!.urn)}
                                     onChange={() => handleCheckboxChange(result.destination!.urn)}

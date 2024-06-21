@@ -118,7 +118,7 @@ export const getBarsStatusFromPopularityTier = (tier: number) => {
  */
 export function getShareResultStatus(result?: ShareResult) {
     const isRunning = result?.status === ShareResultState.Running;
-    const isAttemptedRecently = moment() < moment(result?.lastAttempt?.time).add(1, 'hours');
+    const isAttemptedRecently = moment() < moment(result?.statusLastUpdated).add(5, 'minutes');
     const isInProgress = isRunning && isAttemptedRecently;
     const failed = isRunning && !isAttemptedRecently;
     return { isInProgress, failed };

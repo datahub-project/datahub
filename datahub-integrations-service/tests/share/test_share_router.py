@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, Mock, patch
 
 import datahub.metadata.schema_classes as models
 import pytest
-from datahub.metadata._schema_classes import ShareClass, ShareResultClass
+from datahub.metadata._schema_classes import (
+    ShareClass,
+    ShareResultClass,
+    ShareResultStateClass,
+)
 from freezegun import freeze_time
 
 from datahub_integrations.share import share_router
@@ -1983,3 +1987,52 @@ def test_update_unshare_aspect(
         print("Expected")
         print(expected_result_share)
         raise e
+
+
+def test_update_share_status() -> None:
+
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+
+    urn_to_unshare = "urn:li:dataset:1"
+    destination_datahub_instance = "urn:li:dataHubConnection:1"
+
+    source_graph.get_aspect.return_value = ShareClass(
+        lastShareResults=[],
+        lastUnshareResults=[
+            ShareResultClass(
+                destination="urn:li:dataHubConnection:1",
+                created=models.AuditStampClass(
+                    time=1649980800000,  # frozen time
+                    actor="urn:li:corpuser:testUser",
+                ),
+                lastAttempt=models.AuditStampClass(
+                    time=1649980800000,  # frozen time
+                    actor="urn:li:corpuser:testUser",
+                ),
+                status=models.ShareResultStateClass.RUNNING,
+                lastSuccess=models.AuditStampClass(
+                    time=1649980800000,  # frozen time
+                    actor="urn:li:corpuser:testUser",
+                ),
+                statusLastUpdated=1649980800000,
+            )
+        ],
+    )
+
+    destination_graph_mock.exists.return_value = True
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_datahub_instance,
+        destination_graph=destination_graph_mock,
+    )
+    share_agent.unshare_status_update(
+        urn_to_unshare,
+        ShareResultStateClass.SUCCESS,
+    )
+    source_graph.emit.assert_called_once()
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastUnshareResults[0].status
+        == ShareResultStateClass.SUCCESS
+    )

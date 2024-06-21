@@ -299,6 +299,7 @@ class ShareAgent:
         if unshare_to_add:
             unshare_to_add.lastAttempt.time = get_sys_time()
             unshare_to_add.status = status
+            unshare_to_add.statusLastUpdated = get_sys_time()
             unshares.append(unshare_to_add)
 
         share_aspect.lastUnshareResults = unshares
@@ -690,10 +691,8 @@ class ShareAgent:
         existing_share_aspect = self.source_graph.get_aspect(
             entity_urn, models.ShareClass
         )
-        if not existing_share_aspect or not existing_share_aspect.lastShareResults:
-            logger.debug(
-                f"Entity {entity_urn} doesn't have a share aspect or no share results. This is normal if it was the last unshare."
-            )
+        if not existing_share_aspect:
+            logger.warning(f"Entity {entity_urn} doesn't have a share aspect.")
             return
 
         updated_share_aspect = self.update_unshare_aspect(

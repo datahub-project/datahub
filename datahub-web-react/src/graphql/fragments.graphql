@@ -1583,6 +1583,7 @@ fragment shareResultFields on ShareResult {
     }
     status
     message
+    statusLastUpdated
     created {
         time
     }

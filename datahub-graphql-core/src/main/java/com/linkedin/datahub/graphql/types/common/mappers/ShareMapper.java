@@ -61,6 +61,9 @@ public class ShareMapper implements ModelMapper<com.linkedin.common.Share, Share
     if (shareResult.getShareConfig() != null) {
       result.setShareConfig(mapShareConfig(shareResult.getShareConfig()));
     }
+    if (shareResult.getStatusLastUpdated() != null) {
+      result.setStatusLastUpdated(shareResult.getStatusLastUpdated());
+    }
     return result;
   }
 
