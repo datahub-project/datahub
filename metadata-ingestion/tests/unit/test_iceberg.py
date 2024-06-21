@@ -1,6 +1,6 @@
 import uuid
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import pytest
 from pydantic import ValidationError
@@ -122,6 +122,16 @@ def test_config_for_tests():
     Test valid iceberg source that will be used in unit tests.
     """
     with_iceberg_source()
+
+
+def test_config_support_nested_dicts():
+    """
+    Test that Iceberg source supports nested dictionaries inside its configuration, as allowed by pyiceberg.
+    """
+    catalog = {"test": {"type": "rest", "nested_dict": {"nested_key": "nested_value"}}}
+    test_config = IcebergSourceConfig(catalog=catalog)
+    assert isinstance(test_config.catalog["test"]["nested_dict"], Dict)
+    assert test_config.catalog["test"]["nested_dict"]["nested_key"] == "nested_value"
 
 
 @pytest.mark.parametrize(
