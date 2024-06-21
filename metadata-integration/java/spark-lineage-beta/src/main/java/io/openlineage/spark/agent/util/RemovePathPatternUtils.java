@@ -18,6 +18,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -72,7 +73,7 @@ public class RemovePathPatternUtils {
         .map(
             dataset -> {
               String newName = removePathPattern(dataset.getName());
-              if (newName != dataset.getName()) {
+              if (!Objects.equals(newName, dataset.getName())) {
                 return context
                     .getOpenLineage()
                     .newOutputDatasetBuilder()
@@ -95,7 +96,7 @@ public class RemovePathPatternUtils {
         .map(
             dataset -> {
               String newName = removePathPattern(dataset.getName());
-              if (newName != dataset.getName()) {
+              if (!Objects.equals(newName, dataset.getName())) {
                 return context
                     .getOpenLineage()
                     .newInputDatasetBuilder()
@@ -112,8 +113,8 @@ public class RemovePathPatternUtils {
   }
 
   private static Optional<Pattern> getPattern(OpenLineageContext context) {
-    return Optional.ofNullable(context.getSparkContext())
-        .map(sparkContext -> sparkContext.conf())
+    return Optional.of(context.getSparkContext())
+        .map(sparkContext -> sparkContext.get().conf())
         .filter(conf -> conf.contains(SPARK_OPENLINEAGE_DATASET_REMOVE_PATH_PATTERN))
         .map(conf -> conf.get(SPARK_OPENLINEAGE_DATASET_REMOVE_PATH_PATTERN))
         .map(pattern -> Pattern.compile(pattern));
