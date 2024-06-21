@@ -16,8 +16,8 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.prefix_batch_builder import build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
-from datahub.utilities.urns.prefix_batch_builder import build_prefix_batches
 
 logger: logging.Logger = logging.getLogger(__name__)
 
