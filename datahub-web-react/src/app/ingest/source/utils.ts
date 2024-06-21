@@ -142,7 +142,6 @@ export const validateURL = (fieldName: string) => {
     };
 };
 
-
 const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dataset.toLowerCase(),
     EntityType.Container.toLowerCase(),

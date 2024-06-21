@@ -1,9 +1,7 @@
-
 export function parseMaybeStringAsFloatOrDefault<T>(str: any, fallback?: T): number | T | undefined {
     const parsedValue = typeof str === 'string' ? parseFloat(str) : str;
     return typeof parsedValue === 'number' && !Number.isNaN(parsedValue) ? parsedValue : fallback;
 }
-
 
 export function parseJsonArrayOrDefault<T>(str: any, fallback: T[] = []): T[] | undefined {
     // Check if the input is a string and try to parse it.
@@ -16,7 +14,7 @@ export function parseJsonArrayOrDefault<T>(str: any, fallback: T[] = []): T[] | 
             }
         } catch (e) {
             // If parsing throws, log the error (optional) and proceed to return fallback.
-            console.error("Failed to parse JSON:", e);
+            console.error('Failed to parse JSON:', e);
         }
     }
     // Return fallback if the above conditions fail.
