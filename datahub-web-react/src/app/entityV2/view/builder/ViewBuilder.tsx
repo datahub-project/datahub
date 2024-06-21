@@ -93,11 +93,7 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
         const viewInput = convertStateToUpdateInput(state);
         const isCreate = urn === undefined;
         const mutation = isCreate ? createViewMutation : updateViewMutation;
-        const variables = urn
-            ? { urn, input: { ...viewInput, viewType: undefined } }
-            : {
-                  input: viewInput,
-              };
+        const variables = urn ? { urn, input: { ...viewInput, viewType: undefined } } : { input: viewInput };
         (
             mutation({
                 variables: variables as any,

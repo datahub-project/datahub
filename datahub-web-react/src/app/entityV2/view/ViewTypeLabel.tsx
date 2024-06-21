@@ -23,6 +23,7 @@ const StyledText = styled(Typography.Text)<{ color }>`
 type Props = {
     type: DataHubViewType;
     color: string;
+    onClick?: () => void;
 };
 
 /**
@@ -30,7 +31,7 @@ type Props = {
  *
  * @param param0 the color of the text and iconography
  */
-export const ViewTypeLabel = ({ type, color }: Props) => {
+export const ViewTypeLabel = ({ type, color, onClick }: Props) => {
     const copy =
         type === DataHubViewType.Personal ? (
             <>
@@ -44,11 +45,12 @@ export const ViewTypeLabel = ({ type, color }: Props) => {
     const Icon = type === DataHubViewType.Global ? StyledGlobalOutlined : StyledLockOutlined;
 
     return (
-        <>
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions
+        <div onClick={onClick}>
             <Icon color={color} />
             <StyledText color={color} type="secondary">
                 {copy}
             </StyledText>
-        </>
+        </div>
     );
 };
