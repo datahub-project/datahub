@@ -94,6 +94,8 @@ def execute_unshare(
     )
 
     share_agent: ShareAgent = get_or_create_share_agent(share_connection_urn)
+    share_agent.unshare_status_update(entity_urn, ShareResultStateClass.RUNNING)
+
     background_tasks.add_task(
         anyio.to_thread.run_sync, share_agent.unshare, entity_urn, lineage_direction
     )

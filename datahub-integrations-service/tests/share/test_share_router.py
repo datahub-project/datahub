@@ -182,7 +182,19 @@ def test_share_explicit_share_should_not_remove_implicit_shares() -> None:
                     actor="urn:li:corpuser:test_user", time=2345
                 ),
             ),
-        ]
+        ],
+        lastUnshareResults=[
+            ShareResultClass(
+                destination=destination_urn,
+                status="SUCCESS",
+                created=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=1234
+                ),
+                lastAttempt=models.AuditStampClass(
+                    actor="urn:li:corpuser:test_user", time=2345
+                ),
+            ),
+        ],
     )
 
     share_agent = ShareAgent(
@@ -255,6 +267,12 @@ def test_share_explicit_share_should_not_remove_implicit_shares() -> None:
     )
     assert (
         source_graph.emit.call_args[0][0].aspect.lastShareResults[2].status == "SUCCESS"
+    )
+
+    # Make sure unshare results are not removed
+    assert (
+        source_graph.emit.call_args[0][0].aspect.lastUnshareResults[0].status
+        == "SUCCESS"
     )
 
 
@@ -560,8 +578,8 @@ def test_unshare() -> None:
         assert mcp.aspectName == "status"
 
     assert (
-        source_graph.get_aspect.call_count == 2
-    )  # unshare checks the share aspect twice (first to determine lineage and second to update it)
+        source_graph.get_aspect.call_count == 3
+    )  # unshare checks the share aspect twice (first to determine lineage and second to update it) + 1 for the status set
 
     assert source_graph.get_aspect.call_args[0][0] == urn_to_unshare
     assert source_graph.get_aspect.call_args[0][1] == ShareClass
@@ -879,8 +897,8 @@ def test_unshare_complex_explicit_share_should_force_unshare_the_entity() -> Non
         assert mcp.aspectName == "status"
 
     assert (
-        source_graph.get_aspect.call_count == 2
-    )  # unshare checks the share aspect twice
+        source_graph.get_aspect.call_count == 3
+    )  # unshare checks the share aspect twice + 1 for the status set
 
     assert source_graph.get_aspect.call_args[0][0] == urn_to_unshare
     assert source_graph.get_aspect.call_args[0][1] == ShareClass
@@ -1422,3 +1440,546 @@ def test_failures_in_emission() -> None:
     assert len(share_results) == 1
     assert share_results[0].status == models.ShareResultStateClass.FAILURE
     assert share_results[0].destination == "dummy_connection_url"
+
+
+@pytest.mark.parametrize(
+    "scenario, unshared_urn, existing_share_aspect, source_share_connection_urn, implicit_share_entity, status, share_config, expected_result_share",
+    [
+        (
+            "new unshare aspect getting added with state In Progress",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ]
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.RUNNING,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+            ),
+        ),
+        (
+            "unshare aspect should not be deleted after unshare",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.SUCCESS,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+            ),
+        ),
+        (
+            "unshare aspect should not be deleted after unshare but set status success and it should keep the other in progress unshares",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    ),
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:2",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    ),
+                ],
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.SUCCESS,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:2",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    ),
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    ),
+                ],
+            ),
+        ),
+        (
+            "if you unshare a share in-progress it should update the unshare aspect",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    ),
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:2",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    ),
+                ],
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.RUNNING,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:2",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    ),
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    ),
+                ],
+            ),
+        ),
+        (
+            "if you unshare a share and there was no lastUnshare then it should be added",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=None,
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.RUNNING,
+            None,
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.RUNNING,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+            ),
+        ),
+        (
+            "if you unshare an implicit share it should return with None as implict shares can't be unshared and we shouldn't do anything",
+            "urn:li:dataset:1",
+            ShareClass(
+                lastShareResults=[
+                    ShareResultClass(
+                        destination="urn:li:dataHubConnection:1",
+                        implicitShareEntity="urn:li:dataset:2",
+                        created=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        lastAttempt=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        status=models.ShareResultStateClass.SUCCESS,
+                        lastSuccess=models.AuditStampClass(
+                            time=1649980800000,  # frozen time
+                            actor="urn:li:corpuser:testUser",
+                        ),
+                        statusLastUpdated=1649980800000,
+                    )
+                ],
+                lastUnshareResults=None,
+            ),
+            "urn:li:dataHubConnection:1",
+            "urn:li:dataset:2",
+            models.ShareResultStateClass.RUNNING,
+            None,
+            None,
+        ),
+    ],
+)
+@freeze_time("2022-04-15")
+def test_update_unshare_aspect(
+    scenario: str,
+    unshared_urn: str,
+    existing_share_aspect: ShareClass,
+    source_share_connection_urn: str,
+    implicit_share_entity: str,
+    status: models.ShareResultStateClass,
+    share_config: Optional[Any],
+    expected_result_share: ShareClass,
+) -> None:
+    source_graph = Mock()
+    destination_graph = Mock()
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=source_share_connection_urn,
+        destination_graph=destination_graph,
+    )
+    result_share = share_agent.update_unshare_aspect(
+        unshared_urn=unshared_urn,
+        existing_share_aspect=existing_share_aspect,
+        source_share_connection_urn=source_share_connection_urn,
+        status=status,
+    )
+    try:
+        assert result_share == expected_result_share
+    except AssertionError as e:
+        print(f"Results Differ on scenario {scenario}!")
+        print(result_share)
+        print("Expected")
+        print(expected_result_share)
+        raise e

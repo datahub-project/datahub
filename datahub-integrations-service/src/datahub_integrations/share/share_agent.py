@@ -231,6 +231,63 @@ class ShareAgent:
 
         return share_aspect
 
+    def update_unshare_aspect(
+        self,
+        unshared_urn: str,
+        existing_share_aspect: models.ShareClass,
+        source_share_connection_urn: str,
+        status: Union[str, ShareResultStateClass],
+        share_request_id: Optional[str] = None,
+    ) -> Optional[models.ShareClass]:
+        share_aspect = models.ShareClass.from_obj(existing_share_aspect.to_obj())
+
+        unshare_to_add: Optional[models.ShareResultClass] = None
+
+        unshares: List[models.ShareResultClass] = []
+
+        if status == ShareResultStateClass.RUNNING:
+            # First find the shareResult we want to unshare
+            for share_result in share_aspect.lastShareResults:
+                if (
+                    share_result.destination == self.source_share_connection_urn
+                    and share_result.implicitShareEntity is None
+                ):
+                    unshare_to_add = models.ShareResultClass.from_obj(
+                        share_result.to_obj()
+                    )
+                    break
+
+            if not unshare_to_add:
+                logger.warning(
+                    f"Entity {unshared_urn} does not have a share aspect for the source connection. Maybe it was already unshared or it was implicit share?"
+                )
+                return None
+
+        if share_aspect.lastUnshareResults:
+            for share_result in share_aspect.lastUnshareResults:
+                if share_result.destination != self.source_share_connection_urn:
+                    unshares.append(share_result)
+                else:
+                    # If we already have an unshare then we should update that or use the newly created unshare if we have it
+                    unshare_to_add = (
+                        share_result if not unshare_to_add else unshare_to_add
+                    )
+
+            if not unshare_to_add:
+                logger.warning(
+                    f"Entity {unshared_urn} does not have a share aspect for the source connection. Maybe it was already unshared?"
+                )
+                return None
+
+        if unshare_to_add:
+            unshare_to_add.lastAttempt.time = get_sys_time()
+            unshare_to_add.status = status
+            unshares.append(unshare_to_add)
+
+        share_aspect.lastUnshareResults = unshares
+
+        return share_aspect
+
     def transform_aspect(
         self, aspect: dict, aspect_type: str, restricted: bool
     ) -> dict:
@@ -378,6 +435,11 @@ class ShareAgent:
             return None
         updated_share_results = models.ShareClass(lastShareResults=[])
         destination_reference_left = 0
+
+        # We need to carry over the last unshared results
+        updated_share_results.lastUnshareResults = (
+            existing_share_aspect.lastUnshareResults
+        )
 
         for share_result in existing_share_aspect.lastShareResults:
             if share_result.destination != self.source_share_connection_urn:
@@ -584,6 +646,37 @@ class ShareAgent:
                         return LineageDirection.DOWNSTREAM
         return None
 
+    def unshare_status_update(
+        self, entity_urn: str, status: Union[str, ShareResultStateClass]
+    ) -> None:
+
+        existing_share_aspect = self.source_graph.get_aspect(
+            entity_urn, models.ShareClass
+        )
+        if not existing_share_aspect or not existing_share_aspect.lastShareResults:
+            logger.debug(
+                f"Entity {entity_urn} doesn't have a share aspect or no share results. This is normal if it was the last unshare."
+            )
+            return
+
+        updated_share_aspect = self.update_unshare_aspect(
+            unshared_urn=entity_urn,
+            existing_share_aspect=existing_share_aspect,
+            source_share_connection_urn=self.source_share_connection_urn,
+            status=status,
+        )
+
+        # Update the share aspect for the entity
+        # if it is None that means no change
+        if updated_share_aspect:
+            logger.info(f"Unshare Status update to {status} for {entity_urn}")
+            self.source_graph.emit(
+                MetadataChangeProposalWrapper(
+                    entityUrn=entity_urn,
+                    aspect=updated_share_aspect,
+                )
+            )
+
     def unshare(
         self, entity_urn: str, lineage_direction: Optional[LineageDirection] = None
     ) -> ExecuteUnshareResult:
@@ -642,5 +735,6 @@ class ShareAgent:
             entities_unshared=list(unshared_urns),
         )
 
+        self.unshare_status_update(entity_urn, ShareResultStateClass.SUCCESS)
         logger.info(f"Unshared {len(urns_to_unshare)} entities")
         return unshare_result
