@@ -6,7 +6,13 @@ import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.gener
 import { useAppConfig } from '../../useAppConfig';
 
 const StyledInput = styled(Input)`
-    margin-bottom: 4px;
+    margin-bottom: 20px;
+`;
+
+const StyledText = styled(Typography.Text)`
+    display: block;
+    position: absolute;
+    bottom: 11.5rem;
 `;
 
 type PropsData = {
@@ -231,17 +237,17 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         onChange={(event) => setData({ ...data, slack: event.target.value })}
                         disabled={readOnlyModeEnabled}
                     />
-                    <Typography.Text type="secondary">
-                        Find your member ID from the <MoreOutlined /> menu in your Slack profile. More info{' '}
-                        <a
-                            href="https://slack.com/intl/en-ca/help/articles/212906697-Where-can-I-find-my-Slack-member-ID-"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            here.
-                        </a>
-                    </Typography.Text>
                 </Form.Item>
+                <StyledText type="secondary">
+                    Find your member ID from the <MoreOutlined /> menu in your Slack profile. More info{' '}
+                    <a
+                        href="https://slack.com/intl/en-ca/help/articles/212906697-Where-can-I-find-my-Slack-member-ID-"
+                        target="_blank"
+                        rel="noreferrer"
+                    >
+                        here.
+                    </a>
+                </StyledText>
                 <Form.Item
                     name="phone"
                     label={<Typography.Text strong>Phone</Typography.Text>}
