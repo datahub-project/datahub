@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Select } from 'antd';
-import { EntityType, OwnershipTypeEntity } from '../../../../../../../../../types.generated';
+import { OwnershipTypeEntity } from '../../../../../../../../../types.generated';
 import { OwnershipTypeSelectResult } from './OwnershipTypeSelectResult';
 import { createOwnershipTypeUrnMap } from './utils';
 import { useSearchOwnershipTypesLazyQuery } from '../../../../../../../../../graphql/ownershipTypes.generated';

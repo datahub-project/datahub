@@ -1,6 +1,5 @@
 import {
     EntityType,
-    OwnershipTypeEntity,
     StructuredPropertyEntity,
     PropertyCardinality,
     StdDataType,
@@ -261,7 +260,7 @@ export const getStructuredPropertiesOperatorOptions = (property: StructuredPrope
 /**
  * Returns a set of valid operator options given a ownership type definition.
  */
-export const getOwnershipTypeOperatorOptions = (property: OwnershipTypeEntity) => {
+export const getOwnershipTypeOperatorOptions = () => {
     return [
                OPERATOR_ID_TO_DETAILS.get(OperatorId.EXISTS),
                OPERATOR_ID_TO_DETAILS.get(OperatorId.EQUAL_TO),
@@ -367,7 +366,7 @@ export const getStructuredPropertyValueOptions = (property: StructuredPropertyEn
 /**
 * Returns a set of valid operator options given a ownership type definition.
 */
-export const getOwnershipTypeValueOptions = (property: OwnershipTypeEntity, predicate: PropertyPredicate): ValueOptions | undefined => {
+export const getOwnershipTypeValueOptions = (predicate: PropertyPredicate): ValueOptions | undefined => {
         if (!predicate.operator || isUnaryOperator(predicate.operator)) {
                 return undefined;
         }

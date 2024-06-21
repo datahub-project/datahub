@@ -70,7 +70,7 @@ export const OwnershipTypePredicateBuilder = ({
      * on the type of the property.
      */
     const operatorOptions =
-        (resolvedPropertyDefinition && getOwnershipTypeOperatorOptions(resolvedPropertyDefinition)) || undefined;
+        (resolvedPropertyDefinition && getOwnershipTypeOperatorOptions()) || undefined;
 
     /**
      * Get options required for rendering the options input once a ownership type has been selected.
@@ -82,7 +82,7 @@ export const OwnershipTypePredicateBuilder = ({
      * This Depends
      */
     const valueOptions =
-        (resolvedPropertyDefinition && getOwnershipTypeValueOptions(resolvedPropertyDefinition, selectedPredicate)) || undefined;
+        (resolvedPropertyDefinition && getOwnershipTypeValueOptions(selectedPredicate)) || undefined;
 
     /**
      * When a ownership type is selected, we simply
