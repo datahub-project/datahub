@@ -9,6 +9,7 @@ import { pluralize } from '../../../../../../shared/textUtil';
 import SectionActionButton from '../SectionActionButton';
 import ShareModal from '../../../../../../shared/share/v2/items/MetadataShareItem/ShareModal';
 import SharingList from './SharingList';
+import { ShareResultState } from '../../../../../../../types.generated';
 
 const SharingInfo = styled.div`
     margin: 5px 0;
@@ -31,7 +32,9 @@ const NumberText = styled(Typography.Text)`
 const SharingAssetSection = () => {
     const { entityData } = useEntityData();
 
-    const lastShareResults = entityData?.share?.lastShareResults?.filter((result) => !!result.lastSuccess?.time);
+    const lastShareResults = entityData?.share?.lastShareResults?.filter(
+        (result) => !!result.lastSuccess?.time || result.status === ShareResultState.Running,
+    );
     const [isShareModalVisible, setIsShareModalVisible] = useState(false);
     const sortedResults = lastShareResults && sortSharedList(lastShareResults);
 

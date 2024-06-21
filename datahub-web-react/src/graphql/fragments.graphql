@@ -1565,22 +1565,39 @@ fragment entityPrivileges on EntityPrivileges {
     canShareEntity
 }
 
+fragment shareResultFields on ShareResult {
+    lastSuccess {
+        time
+    }
+    lastAttempt {
+        time
+    }
+    destination {
+        urn
+        details {
+            name
+        }
+    }
+    implicitShareEntity {
+        urn
+    }
+    status
+    message
+    created {
+        time
+    }
+    shareConfig {
+        enableUpstreamLineage
+        enableDownstreamLineage
+    }
+}
+
 fragment shareFields on Share {
     lastShareResults {
-        lastSuccess {
-            time
-        }
-        destination {
-            urn
-            details {
-                name
-            }
-        }
-        status
-        shareConfig {
-            enableUpstreamLineage
-            enableDownstreamLineage
-        }
+        ...shareResultFields
+    }
+    lastUnshareResults {
+        ...shareResultFields
     }
 }
 

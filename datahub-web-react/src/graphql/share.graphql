@@ -1,15 +1,12 @@
 mutation shareEntity($input: ShareEntityInput!) {
     shareEntity(input: $input) {
-		succeeded
+        succeeded
         share {
             lastShareResults {
-                created {
-                    time
-                }
-                shareConfig {
-                    enableUpstreamLineage
-                    enableDownstreamLineage
-                }
+                ...shareResultFields
+            }
+            lastUnshareResults {
+                ...shareResultFields
             }
         }
     }
@@ -20,13 +17,10 @@ mutation unshareEntity($input: UnshareEntityInput!) {
         succeeded
         share {
             lastShareResults {
-                created {
-                    time
-                }
-                shareConfig {
-                    enableUpstreamLineage
-                    enableDownstreamLineage
-                }
+                ...shareResultFields
+            }
+            lastUnshareResults {
+                ...shareResultFields
             }
         }
     }

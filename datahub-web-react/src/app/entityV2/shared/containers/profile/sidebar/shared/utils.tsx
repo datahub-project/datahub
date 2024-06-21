@@ -1,4 +1,5 @@
-import { CorpUser } from '../../../../../../../types.generated';
+import moment from 'moment';
+import { CorpUser, ShareResult, ShareResultState } from '../../../../../../../types.generated';
 
 /**
  * A tier of popularity for the dataset.
@@ -110,3 +111,15 @@ export const getBarsStatusFromPopularityTier = (tier: number) => {
     else if (tier === 2) status = 1;
     return status;
 };
+
+/**
+ * Returns the status for a given share or unshare result to display the appropraite
+ * cues to the user.
+ */
+export function getShareResultStatus(result?: ShareResult) {
+    const isRunning = result?.status === ShareResultState.Running;
+    const isAttemptedRecently = moment() < moment(result?.lastAttempt?.time).add(1, 'hours');
+    const isInProgress = isRunning && isAttemptedRecently;
+    const failed = isRunning && !isAttemptedRecently;
+    return { isInProgress, failed };
+}

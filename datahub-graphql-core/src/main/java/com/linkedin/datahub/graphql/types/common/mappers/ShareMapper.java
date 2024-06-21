@@ -31,6 +31,12 @@ public class ShareMapper implements ModelMapper<com.linkedin.common.Share, Share
         input.getLastShareResults().stream()
             .map(r -> mapShareResult(context, r))
             .collect(Collectors.toList()));
+    if (input.getLastUnshareResults() != null) {
+      result.setLastUnshareResults(
+          input.getLastUnshareResults().stream()
+              .map(r -> mapShareResult(context, r))
+              .collect(Collectors.toList()));
+    }
     return result;
   }
 

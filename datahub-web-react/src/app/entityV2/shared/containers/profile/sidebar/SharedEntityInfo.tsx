@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 import { Typography, Button, Tooltip, message } from 'antd';
-import { SyncOutlined, LoadingOutlined } from '@ant-design/icons';
+import { SyncOutlined, LoadingOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import AcrylIcon from '../../../../../../images/acryl-logo.svg?react';
 import ShareIcon from '../../../../../../images/share-icon-custom.svg?react';
@@ -11,10 +11,17 @@ import { toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
 import { sortSharedList } from '../../../../../entity/shared/containers/profile/utils';
 import analytics, { EventType } from '../../../../../analytics';
 import { useShareEntityMutation } from '../../../../../../graphql/share.generated';
-import { EntityType, ShareResult } from '../../../../../../types.generated';
+import {
+    EntityType,
+    Maybe,
+    ShareLineageDirection,
+    ShareResult,
+    ShareResultState,
+} from '../../../../../../types.generated';
 import { InstanceIcon, StyledLabel } from './shared/styledComponents';
 import { StyledCheckbox, StyledButton } from '../../../../../shared/share/v2/styledComponents';
 import SharedLineageIcon from './shared/SharedLineageIcon';
+import { getShareResultStatus } from './shared/utils';
 
 const SharingInfoContainer = styled.div`
     margin-bottom: 12px;
@@ -114,6 +121,11 @@ const StyledShareIcon = styled(ShareIcon)`
     margin-right: 6px;
 `;
 
+const StyledExclamation = styled(ExclamationCircleOutlined)`
+    color: ${REDESIGN_COLORS.RED_ERROR};
+    margin-top: -2px;
+`;
+
 interface Props {
     lastShareResults: ShareResult[];
     selectedInstancesToUnshare: string[];
@@ -133,14 +145,16 @@ export const SharedEntityInfo = ({
     if (!lastShareResults || lastShareResults?.length === 0 || !lastShareResults[0]) return null;
 
     // TODO (PRD-944): handle partial successes and have no need to filter these anymore
-    // filter results to get only those that have succeeded before
-    const filteredResults = lastShareResults.filter((result) => !!result.lastSuccess?.time);
+    // filter results to get only those that have succeeded before or are in a RUNNING state
+    const filteredResults = lastShareResults.filter(
+        (result) => !!result.lastSuccess?.time || result.status === ShareResultState.Running,
+    );
 
     // Sort the list
     const sortedResults = sortSharedList(filteredResults);
 
     // Handle Resync
-    const handleResync = (connectionUrn: string) => {
+    const handleResync = (connectionUrn: string, hasSharedLineage?: Maybe<boolean>) => {
         setEntityLoading(connectionUrn);
 
         if (entityData?.urn)
@@ -149,6 +163,7 @@ export const SharedEntityInfo = ({
                     input: {
                         entityUrn: entityData.urn,
                         connectionUrn,
+                        lineageDirection: hasSharedLineage ? ShareLineageDirection.Both : undefined,
                     },
                 },
             })
@@ -205,12 +220,19 @@ export const SharedEntityInfo = ({
             </HeaderContainer>
             <SharingList>
                 {sortedResults.map((result, index) => {
+                    const unshareResult = entityData?.share?.lastUnshareResults?.find(
+                        (r) =>
+                            r.destination?.urn === result.destination?.urn &&
+                            r.implicitShareEntity?.urn === result.implicitShareEntity?.urn,
+                    );
                     const lastSuccessTime = result.lastSuccess?.time || 0;
                     const hasSharedLineage =
                         result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
-                        const hasDestination = !!result.destination;
-                        const name = result.destination?.details.name || result.destination?.urn || 'Deleted connection';
+                    const hasDestination = !!result.destination;
+                    const name = result.destination?.details.name || result.destination?.urn || 'Deleted connection';
                     const isLastItemInList = index === sortedResults.length - 1;
+                    const { isInProgress: isSharing, failed: failedToShare } = getShareResultStatus(result);
+                    const { isInProgress: isUnsharing, failed: failedToUnshare } = getShareResultStatus(unshareResult);
                     return (
                         <StyledContainer>
                             <InstanceDetails>
@@ -227,23 +249,45 @@ export const SharedEntityInfo = ({
                                         <ResyncButton
                                             type="text"
                                             shape="circle"
-                                            onClick={() => handleResync(result.destination?.urn || '')}
+                                            onClick={() =>
+                                                handleResync(result.destination?.urn || '', hasSharedLineage)
+                                            }
                                         >
-                                            {entityLoading === result.destination?.urn ? (
-                                                <Tooltip title="Sharing entity…">
+                                            {entityLoading === result.destination?.urn || isSharing || isUnsharing ? (
+                                                <Tooltip
+                                                    title={isUnsharing ? 'Unsharing asset...' : 'Sharing asset...'}
+                                                >
                                                     <LoadingOutlined />
                                                 </Tooltip>
                                             ) : (
-                                                <Tooltip title="Sync entity">
-                                                    <SyncOutlined />
-                                                </Tooltip>
+                                                <>
+                                                    {failedToShare ||
+                                                        (failedToUnshare && (
+                                                            <Tooltip
+                                                                title={
+                                                                    isUnsharing
+                                                                        ? 'Failed to unshare'
+                                                                        : 'Failed to share'
+                                                                }
+                                                            >
+                                                                <StyledExclamation />
+                                                            </Tooltip>
+                                                        ))}
+                                                    {!failedToShare && (
+                                                        <Tooltip title="Sync entity">
+                                                            <SyncOutlined />
+                                                        </Tooltip>
+                                                    )}
+                                                </>
                                             )}
                                         </ResyncButton>
                                     )}
                                 </TitleContainer>
-                                <LastSynced $addMarginBottom={!isLastItemInList}>
-                                    Last synced on <SyncedTime>{toLocalDateTimeString(lastSuccessTime)}</SyncedTime>
-                                </LastSynced>
+                                {!!lastSuccessTime && (
+                                    <LastSynced $addMarginBottom={!isLastItemInList}>
+                                        Last synced on <SyncedTime>{toLocalDateTimeString(lastSuccessTime)}</SyncedTime>
+                                    </LastSynced>
+                                )}
                             </InstanceDetails>
                             {hasDestination && (
                                 <StyledCheckbox

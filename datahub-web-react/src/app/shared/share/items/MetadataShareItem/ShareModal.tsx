@@ -1,16 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-
 import { Form, Modal, Select, Divider, message, Empty, Checkbox, Button } from 'antd';
 import styled from 'styled-components';
-
-import { DataHubConnection, EntityType, ShareLineageDirection } from '../../../../../types.generated';
+import { DataHubConnection, EntityType, ShareLineageDirection, ShareResultState } from '../../../../../types.generated';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../graphql/search.generated';
 import { PLATFORM_FILTER_NAME } from '../../../../search/utils/constants';
 import { PLATFORM_CONNECTION_URN } from '../../../constants';
 import { useShareEntityMutation, useUnshareEntityMutation } from '../../../../../graphql/share.generated';
 import analytics, { EventType } from '../../../../analytics';
 import { useEntityContext } from '../../../../entity/shared/EntityContext';
-
 import { SharedEntityInfo } from '../../../../entity/shared/containers/profile/sidebar/SharedEntityInfo';
 import { ANTD_GRAY_V2, REDESIGN_COLORS } from '../../../../entity/shared/constants';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
@@ -86,7 +83,8 @@ const LineageBoxWrapper = styled.div`
     gap: 8px;
     align-items: center;
     align-self: baseline;
-`
+`;
+
 const OptionsContainer = styled.div`
     max-height: 400px;
     overflow: auto;
@@ -181,28 +179,38 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
             })
                 .then(({ data, errors }) => {
                     message.destroy();
-                    if (!errors && data?.unshareEntity.succeeded) {
+                    const unshareResult = data?.unshareEntity.share.lastUnshareResults?.filter((result) =>
+                        selectedInstancesToUnshare.includes(result.destination?.urn || ''),
+                    )[0];
+                    if (!errors && !(unshareResult?.status === ShareResultState.Failure)) {
                         analytics.event({
                             type: EventType.UnsharedEntityEvent,
                             entityType: EntityType.DatahubConnection,
                             entityUrn: urn,
                             connectionUrns: selectedInstancesToUnshare,
                         });
-                        message.success({
-                            content: `Unshared Entity!`,
-                            duration: 3,
-                        });
+                        if (unshareResult?.status === ShareResultState.Success) {
+                            message.success({
+                                content: `Unshared Asset!`,
+                                duration: 3,
+                            });
+                        } else if (unshareResult?.status === ShareResultState.Running) {
+                            message.success({
+                                content: `Asset unsharing in progress!`,
+                                duration: 3,
+                            });
+                        }
                         form.resetFields();
                         setSelectedInstances([]);
                         setSelectedInstancesToUnshare([]);
                         refetch();
                     } else {
-                        message.error({ content: `Failed to unshare entity`, duration: 3 });
+                        message.error({ content: `Failed to unshare asset`, duration: 3 });
                     }
                 })
                 .catch((e) => {
                     message.destroy();
-                    message.error({ content: `Failed to unshare entity!: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `Failed to unshare asset!: \n ${e.message || ''}`, duration: 3 });
                 });
         }
     };
@@ -210,7 +218,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
     // Handle the mutation
     const handleSubmit = () => {
         if (selectedInstances) {
-            message.loading('Sharing entity...');
+            message.loading('Sharing asset...');
             shareEntityMutation({
                 variables: {
                     input: {
@@ -222,35 +230,47 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
             })
                 .then(({ data, errors }) => {
                     message.destroy();
-                    if (!errors && data?.shareEntity.succeeded) {
+                    const shareResult = data?.shareEntity.share.lastShareResults.filter((result) =>
+                        selectedInstances.includes(result.destination?.urn || ''),
+                    )[0];
+                    if (!errors && !(shareResult?.status === ShareResultState.Failure)) {
                         analytics.event({
                             type: EventType.SharedEntityEvent,
                             entityType: EntityType.DatahubConnection,
                             entityUrn: urn,
                             connectionUrns: selectedInstances,
                         });
-                        message.success({
-                            content: `Shared Entity!`,
-                            duration: 3,
-                        });
+                        if (shareResult?.status === ShareResultState.Success) {
+                            message.success({
+                                content: `Shared Asset!`,
+                                duration: 3,
+                            });
+                        } else if (shareResult?.status === ShareResultState.Running) {
+                            message.success({
+                                content: `Asset sharing in progress!`,
+                                duration: 3,
+                            });
+                        }
                         form.resetFields();
                         setSelectedInstances([]);
                         refetch();
                         closeModal();
                     } else {
-                        message.error({ content: `Failed to share entity`, duration: 3 });
+                        message.error({ content: `Failed to share asset`, duration: 3 });
                     }
                 })
                 .catch((e) => {
                     message.destroy();
-                    message.error({ content: `Failed to share entity!: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `Failed to share asset!: \n ${e.message || ''}`, duration: 3 });
                 });
         }
     };
 
     const isLoading = loading && searchLoading;
     const isDisabled = isLoading || !selectedInstances.length;
-    const filteredResults = lastShareResults?.filter((result) => !!result.lastSuccess?.time);
+    const filteredResults = lastShareResults?.filter(
+        (result) => !!result.lastSuccess?.time || result.status === ShareResultState.Running,
+    );
 
     const handleClose = () => {
         setSelectedInstances([]);

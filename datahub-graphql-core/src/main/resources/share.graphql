@@ -18,6 +18,12 @@ type Share {
     The last share result for each destination that this entity has been shared with
     """
     lastShareResults: [ShareResult!]!
+
+    """
+    The last un-share result for each destination that this entity has been un-shared with.
+    This helps us keep status of where this entity has been un-shared from.
+    """
+    lastUnshareResults: [ShareResult!]
 }
 
 """
@@ -92,7 +98,7 @@ enum ShareResultState {
     The share request is still in progress
     """
     RUNNING
-
+    
     """
     The share was successful
     """

@@ -251,6 +251,19 @@ export function getNestedValue(obj: any, path: string) {
 }
 
 export function sortSharedList(sharedItems: ShareResult[]) {
-    // sort by lastSuccess time / descending
-    return sharedItems.slice().sort((a, b) => b!.lastSuccess!.time - a!.lastSuccess!.time);
+    // sort by lastSuccess time considering the running state items with lastSuccess null
+    const sortedItems = sharedItems.slice().sort((a, b) => {
+        if (a.lastSuccess === null && b.lastSuccess !== null) {
+            return -1;
+        }
+        if (a.lastSuccess !== null && b.lastSuccess === null) {
+            return 1;
+        }
+        if (a.lastSuccess === null && b.lastSuccess === null) {
+            return 0;
+        }
+        return b!.lastSuccess!.time - a!.lastSuccess!.time;
+    });
+
+    return sortedItems;
 }
