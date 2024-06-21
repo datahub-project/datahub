@@ -56,6 +56,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - origin
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -89,6 +90,7 @@ entities:
       - subTypes
       - incidentsSummary
       - share
+      - origin
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -113,6 +115,7 @@ entities:
       - forms
       - subTypes
       - share
+      - origin
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -158,6 +161,7 @@ entities:
       - incidentsSummary
       - forms
       - share
+      - origin
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -185,6 +189,7 @@ entities:
       - incidentsSummary
       - forms
       - share
+      - origin
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -204,6 +209,7 @@ entities:
       - proposals
       - browsePathsV2
       - share
+      - origin
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -249,6 +255,7 @@ entities:
       - forms
       - displayProperties
       - share
+      - origin
   - name: container
     doc: A container of related data assets.
     category: core
@@ -272,6 +279,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - origin
   - name: tag
     category: core
     keyAspect: tagKey
@@ -282,6 +290,7 @@ entities:
       - testResults
       - status
       - share
+      - origin
   - name: glossaryTerm
     category: core
     keyAspect: glossaryTermKey
@@ -299,6 +308,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - origin
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -312,6 +322,7 @@ entities:
       - testResults
       - displayProperties
       - share
+      - origin
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -388,6 +399,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - origin
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -408,6 +420,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - origin
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -439,6 +452,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - origin
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -460,6 +474,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - origin
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -479,6 +494,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - origin
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -610,6 +626,7 @@ entities:
       - structuredProperties
       - forms
       - share
+      - origin
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core

@@ -1,0 +1,51 @@
+namespace com.linkedin.common
+
+/**
+ * Info about how this asset was brought into DataHub
+ */
+record SourceDetails {
+ /**
+  * Urn of the source of this asset. Could be an ingestion source (e.g. urn:li:dataHubIngestionSource:1234), an acryl
+    platform instance, etc.
+  */
+  source: Urn
+
+ /**
+  * Urn of the platform this asset originated from ie. urn:li:dataPlatform:snowflake for snowflake ingestion
+  * or urn:li:dataPlatform:acryl for assets synced from another catalog instance.
+  */
+  platform: Urn
+
+ /**
+  * Audit stamp for when this asset was synced
+  */
+  lastModified: AuditStamp
+
+ /**
+  * The means by which this asset got synchronized
+  */
+  mechanism: enum SyncMechanism {
+    /**
+    * Synced via ingestion recipes
+    */
+    INGEST
+    /**
+    * Synced via metadata sharing with another Acryl instance
+    */
+    SHARE
+    /**
+    * Synced via the API (pushed from clients using the API directly)
+    */
+    API
+    /**
+    * Synced via some other mechanism (used as a placeholder for incubating
+      future mechanisms)
+    */
+    OTHER
+  }
+
+ /**
+  * Additional information related to the origin of this metadata
+  */
+  properties: optional map[string, string] = { }
+}
