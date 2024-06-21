@@ -15,5 +15,11 @@ record Origin {
   /**
    * Only populated if type is EXTERNAL. The externalType of the entity, such as the name of the identity provider.
    */
+  @deprecated = "Use sourceDetails instead"
   externalType: optional string
+
+  /**
+  * Details about the source(s) by which this asset was originated
+  */
+  sourceDetails: optional array[SourceDetails]
 }

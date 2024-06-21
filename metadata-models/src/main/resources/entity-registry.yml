@@ -56,7 +56,7 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -90,7 +90,7 @@ entities:
       - subTypes
       - incidentsSummary
       - share
-      - syncedFrom
+      - origin
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -115,7 +115,7 @@ entities:
       - forms
       - subTypes
       - share
-      - syncedFrom
+      - origin
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -161,7 +161,7 @@ entities:
       - incidentsSummary
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -189,7 +189,7 @@ entities:
       - incidentsSummary
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -209,7 +209,7 @@ entities:
       - proposals
       - browsePathsV2
       - share
-      - syncedFrom
+      - origin
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -228,7 +228,6 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -244,7 +243,6 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -257,7 +255,7 @@ entities:
       - forms
       - displayProperties
       - share
-      - syncedFrom
+      - origin
   - name: container
     doc: A container of related data assets.
     category: core
@@ -281,7 +279,7 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: tag
     category: core
     keyAspect: tagKey
@@ -292,7 +290,7 @@ entities:
       - testResults
       - status
       - share
-      - syncedFrom
+      - origin
   - name: glossaryTerm
     category: core
     keyAspect: glossaryTermKey
@@ -310,7 +308,7 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -324,7 +322,7 @@ entities:
       - testResults
       - displayProperties
       - share
-      - syncedFrom
+      - origin
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -401,7 +399,7 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -422,7 +420,7 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -454,7 +452,7 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -476,7 +474,7 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -496,7 +494,7 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -628,7 +626,7 @@ entities:
       - structuredProperties
       - forms
       - share
-      - syncedFrom
+      - origin
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
