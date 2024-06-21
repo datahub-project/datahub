@@ -14,7 +14,7 @@ record SourceDetails {
   * Urn of the platform this asset originated from ie. urn:li:dataPlatform:snowflake for snowflake ingestion
   * or urn:li:dataPlatform:acryl for assets synced from another catalog instance.
   */
-  sourcePlatform: Urn
+  platform: Urn
 
  /**
   * Audit stamp for when this asset was synced
