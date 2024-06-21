@@ -82,7 +82,7 @@ export const OwnershipTypePredicateBuilder = ({
      * This Depends
      */
     const valueOptions =
-        (resolvedPropertyDefinition && getOwnershipTypeValueOptions(selectedPredicate)) || undefined;
+        (resolvedPropertyDefinition && selectedPredicate && getOwnershipTypeValueOptions(selectedPredicate)) || undefined;
 
     /**
      * When a ownership type is selected, we simply
