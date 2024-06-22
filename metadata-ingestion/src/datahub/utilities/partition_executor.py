@@ -17,7 +17,6 @@ from typing import (
     List,
     NamedTuple,
     Optional,
-    Sequence,
     Set,
     Tuple,
     TypeVar,
@@ -165,7 +164,7 @@ class PartitionExecutor(Closeable):
 
 class _BatchPartitionWorkItem(NamedTuple):
     key: str
-    args: _Args
+    args: tuple
     done_callback: Optional[Callable[[Future], None]]
 
 
@@ -178,7 +177,10 @@ class BatchPartitionExecutor(Closeable):
         self,
         max_workers: int,
         max_pending: int,
-        process_batch: Callable[[Sequence[_Args]], None],
+        # Due to limitations of Python's typing, we can't express the type of the list
+        # effectively. Ideally we'd use ParamSpec here, but that's not allowed in a
+        # class context like this.
+        process_batch: Callable[[List], None],
         max_per_batch: int = 100,
         min_process_interval: Optional[timedelta] = None,
     ) -> None:
