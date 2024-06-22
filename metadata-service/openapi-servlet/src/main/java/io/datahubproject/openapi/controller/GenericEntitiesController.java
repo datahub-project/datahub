@@ -490,7 +490,7 @@ public abstract class GenericEntitiesController<
   @Tag(name = "Generic Aspects")
   @PatchMapping(
       value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}",
-      consumes = "application/json-patch+json",
+      consumes = {"application/json-patch+json", MediaType.APPLICATION_JSON_VALUE},
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Patch an entity aspect. (Experimental)")
   public ResponseEntity<E> patchAspect(
