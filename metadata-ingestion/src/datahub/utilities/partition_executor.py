@@ -27,7 +27,7 @@ from datahub.ingestion.api.closeable import Closeable
 
 logger = logging.getLogger(__name__)
 _R = TypeVar("_R")
-_Args = TypeVar("_Args", tuple)
+_Args = TypeVar("_Args", bound=tuple)
 _PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL = 0.05
 
 
