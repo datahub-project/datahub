@@ -1,7 +1,8 @@
-import { Button, Checkbox, Collapse, Form, Input, Typography } from 'antd';
+import { Button, Checkbox, Collapse, Form, Input, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
+import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -156,7 +157,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
 
     return (
         <>
-            <Form layout="vertical">
+            <RequiredFieldForm layout="vertical">
                 <Form.Item
                     required
                     label={
@@ -166,7 +167,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     }
                     style={{ marginBottom: 8 }}
                 >
-                    <Typography.Paragraph>Give this ingestion source a name.</Typography.Paragraph>
+                    <Typography.Paragraph>Give this data source a name</Typography.Paragraph>
                     <Input
                         data-testid="source-name-input"
                         className="source-name-input"
@@ -250,7 +251,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                         </Form.Item>
                     </Collapse.Panel>
                 </Collapse>
-            </Form>
+            </RequiredFieldForm>
             <ControlsContainer>
                 <Button onClick={prev}>Previous</Button>
                 <div>
@@ -261,13 +262,15 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     >
                         Save
                     </SaveButton>
-                    <Button
-                        disabled={!(state.name !== undefined && state.name.length > 0)}
-                        onClick={() => onClickCreate(true)}
-                        type="primary"
-                    >
-                        Save & Run
-                    </Button>
+                    <Tooltip showArrow={false} title="Save and starting syncing data source">
+                        <Button
+                            disabled={!(state.name !== undefined && state.name.length > 0)}
+                            onClick={() => onClickCreate(true)}
+                            type="primary"
+                        >
+                            Save & Run
+                        </Button>
+                    </Tooltip>
                 </div>
             </ControlsContainer>
         </>

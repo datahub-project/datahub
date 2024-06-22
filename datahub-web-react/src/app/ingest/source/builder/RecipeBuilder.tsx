@@ -10,6 +10,7 @@ import { SourceBuilderState, SourceConfig } from './types';
 import { CSV, LOOKER, LOOK_ML } from './constants';
 import { LookerWarning } from './LookerWarning';
 import { CSVInfo } from './CSVInfo';
+import { IngestionDocumentationHint } from './IngestionDocumentationHint';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -66,7 +67,8 @@ function RecipeBuilder(props: Props) {
     const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
     const { type } = state;
     const [isViewingForm, setIsViewingForm] = useState(true);
-
+    const [hideDocsHint, setHideDocsHint] = useState(false); 
+ 
     function switchViews(isFormView: boolean) {
         try {
             YAML.parse(displayRecipe);
@@ -81,12 +83,12 @@ function RecipeBuilder(props: Props) {
 
     return (
         <div>
+            {!hideDocsHint && sourceConfigs ? <IngestionDocumentationHint onHide={() => setHideDocsHint(true)} sourceConfigs={sourceConfigs} /> : null}
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
-
             <HeaderContainer>
                 <Title style={{ marginBottom: 0 }} level={5}>
-                    {sourceConfigs?.displayName} Recipe
+                    {sourceConfigs?.displayName} Details
                 </Title>
                 <ButtonsWrapper>
                     <StyledButton
@@ -127,7 +129,7 @@ function RecipeBuilder(props: Props) {
                         <Button disabled={isEditing} onClick={goToPrevious}>
                             Previous
                         </Button>
-                        <Button data-testid="recipe-builder-next-button" onClick={onClickNext}>
+                        <Button type="primary" data-testid="recipe-builder-next-button" onClick={onClickNext}>
                             Next
                         </Button>
                     </ControlsContainer>

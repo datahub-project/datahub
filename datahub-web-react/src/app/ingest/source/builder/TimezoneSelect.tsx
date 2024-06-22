@@ -1,6 +1,11 @@
 import { Select } from 'antd';
 import React from 'react';
 import moment from 'moment-timezone';
+import styled from 'styled-components';
+
+const StyledSelect = styled(Select)`
+    max-width: 300px;
+`;
 
 type Props = {
     value: string;
@@ -11,11 +16,11 @@ export const TimezoneSelect = ({ value, onChange }: Props) => {
     const timezones = moment.tz.names();
     return (
         <>
-            <Select showSearch value={value} onChange={onChange}>
+            <StyledSelect showSearch value={value} onChange={onChange}>
                 {timezones.map((timezone) => (
                     <Select.Option value={timezone}>{timezone}</Select.Option>
                 ))}
-            </Select>
+            </StyledSelect>
         </>
     );
 };

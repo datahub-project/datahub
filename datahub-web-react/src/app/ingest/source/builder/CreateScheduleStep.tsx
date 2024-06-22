@@ -10,6 +10,7 @@ import { TimezoneSelect } from './TimezoneSelect';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../entity/shared/constants';
 import { lowerFirstLetter } from '../../../shared/textUtil';
 import { IngestionSourceBuilderStep } from './steps';
+import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
 
 const Section = styled.div`
     display: flex;
@@ -31,10 +32,25 @@ const CronText = styled(Typography.Paragraph)`
     color: ${ANTD_GRAY[7]};
 `;
 
+const CronInput = styled(Input)`
+    margin-bottom: 8px;
+    max-width: 200px;
+`;
+
+const Schedule = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: start;
+`;
+
+const AdvancedSchedule = styled.div`
+    margin-left: 20px;
+`;
+
 const AdvancedCheckBox = styled(Typography.Text)`
     margin-right: 10px;
-    margin-bottom: 8px;
 `;
+
 const CronSuccessCheck = styled(CheckCircleOutlined)`
     color: ${REDESIGN_COLORS.BLUE};
     margin-right: 4px;
@@ -123,9 +139,9 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
             <Section>
                 <SelectTemplateHeader level={5}>Configure an Ingestion Schedule</SelectTemplateHeader>
             </Section>
-            <Form layout="vertical">
+            <RequiredFieldForm layout="vertical">
                 <Form.Item
-                    tooltip="Enable to run ingestion on a schedule. Running ingestion on a schedule helps to keep the information inside of DataHub up to date."
+                    tooltip="Enable to run ingestion syncs on a schedule. Running syncs on a schedule helps to keep information up to date."
                     label={
                         <Typography.Text strong>
                             Run on a schedule <Typography.Text type="secondary">(Recommended)</Typography.Text>
@@ -141,29 +157,31 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                     )}
                 </Form.Item>
                 <StyledFormItem required label={<Typography.Text strong>Schedule</Typography.Text>}>
-                    <div style={{ paddingBottom: 10, paddingLeft: 10 }}>
-                        <AdvancedCheckBox type="secondary">Advanced</AdvancedCheckBox>
-                        <Checkbox
-                            checked={advancedCronCheck}
-                            onChange={(event) => setAdvancedCronCheck(event.target.checked)}
-                        />
-                    </div>
-                    {advancedCronCheck ? (
-                        <Input
-                            placeholder={DAILY_MIDNIGHT_CRON_INTERVAL}
-                            autoFocus
-                            value={scheduleCronInterval}
-                            onChange={(e) => setScheduleCronInterval(e.target.value)}
-                        />
-                    ) : (
-                        <Cron
-                            value={scheduleCronInterval}
-                            setValue={setScheduleCronInterval}
-                            clearButton={false}
-                            className="cron-builder"
-                            leadingZero
-                        />
-                    )}
+                    <Schedule>
+                        {advancedCronCheck ? (
+                            <CronInput
+                                placeholder={DAILY_MIDNIGHT_CRON_INTERVAL}
+                                autoFocus
+                                value={scheduleCronInterval}
+                                onChange={(e) => setScheduleCronInterval(e.target.value)}
+                            />
+                        ) : (
+                            <Cron
+                                value={scheduleCronInterval}
+                                setValue={setScheduleCronInterval}
+                                clearButton={false}
+                                className="cron-builder"
+                                leadingZero
+                            />
+                        )}
+                        <AdvancedSchedule>
+                            <AdvancedCheckBox type="secondary">Show Advanced</AdvancedCheckBox>
+                            <Checkbox
+                                checked={advancedCronCheck}
+                                onChange={(event) => setAdvancedCronCheck(event.target.checked)}
+                            />
+                        </AdvancedSchedule>
+                    </Schedule>
                     <CronText>
                         {cronAsText.error && <>Invalid cron schedule. Cron must be of UNIX form:</>}
                         {!cronAsText.text && (
@@ -183,7 +201,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                     <ItemDescriptionText>Choose a timezone for the schedule.</ItemDescriptionText>
                     <TimezoneSelect value={scheduleTimezone} onChange={setScheduleTimezone} />
                 </Form.Item>
-            </Form>
+            </RequiredFieldForm>
             <ControlsContainer>
                 <Button onClick={prev}>Previous</Button>
                 <div>
@@ -191,6 +209,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                         data-testid="ingestion-schedule-next-button"
                         disabled={!interval || interval.length === 0 || cronAsText.error}
                         onClick={onClickNext}
+                        type="primary"
                     >
                         Next
                     </Button>
