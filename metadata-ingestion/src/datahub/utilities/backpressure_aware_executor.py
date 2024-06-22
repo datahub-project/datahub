@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import concurrent.futures
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any, Callable, Iterable, Iterator, Optional, Set, Tuple, TypeVar

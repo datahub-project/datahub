@@ -17,6 +17,7 @@ from typing import (
     List,
     NamedTuple,
     Optional,
+    Sequence,
     Set,
     Tuple,
     TypeVar,
@@ -26,6 +27,7 @@ from datahub.ingestion.api.closeable import Closeable
 
 logger = logging.getLogger(__name__)
 _R = TypeVar("_R")
+_Args = TypeVar("_Args", tuple)
 _PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL = 0.05
 
 
@@ -163,7 +165,7 @@ class PartitionExecutor(Closeable):
 
 class _BatchPartitionWorkItem(NamedTuple):
     key: str
-    args: tuple
+    args: _Args
     done_callback: Optional[Callable[[Future], None]]
 
 
@@ -176,7 +178,7 @@ class BatchPartitionExecutor(Closeable):
         self,
         max_workers: int,
         max_pending: int,
-        process_batch: Callable[[List[Tuple[Any, ...]]], None],
+        process_batch: Callable[[Sequence[_Args]], None],
         max_per_batch: int = 100,
         min_process_interval: Optional[timedelta] = None,
     ) -> None:
@@ -255,7 +257,7 @@ class BatchPartitionExecutor(Closeable):
                 pending = pending_key_completion.copy()
                 pending_key_completion.clear()
 
-                ready = []
+                ready: List[_BatchPartitionWorkItem] = []
                 for item in pending:
                     if (
                         len(ready) < self.max_per_batch

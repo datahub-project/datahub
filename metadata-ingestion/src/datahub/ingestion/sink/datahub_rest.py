@@ -121,6 +121,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         logger.debug("Setting gms config")
         set_gms_config(gms_config)
 
+        self.executor: Union[PartitionExecutor, BatchPartitionExecutor]
         if self.config.mode == RestSinkMode.ASYNC_BATCH:
             self.executor = BatchPartitionExecutor(
                 max_workers=self.config.max_threads,
@@ -234,7 +235,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             ]
         ],
     ) -> None:
-        events = []
+        events: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]] = []
         for record in records:
             event = record[0]
             if isinstance(event, MetadataChangeEvent):
