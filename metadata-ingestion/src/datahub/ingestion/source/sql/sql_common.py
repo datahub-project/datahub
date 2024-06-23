@@ -718,8 +718,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         self.warn(
                             logger,
                             f"{schema}.{table}",
-                            f"Ingestion error: {e} {traceback.format_exc()}",
+                            f"Ingestion error: {e}",
                         )
+                        logger.debug(
+                            f"Error processing table {schema}.{table}: Error was: {e} Traceback:",
+                            exc_info=e,
+                        )
+
             except Exception as e:
                 self.error(logger, f"{schema}", f"Tables error: {e}")
 

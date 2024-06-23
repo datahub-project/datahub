@@ -322,7 +322,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
         "sqlalchemy-bigquery>=1.4.1",
-        "tenacity<8.4.0",
+        "tenacity!=8.4.0",
     },
     "azure-ad": set(),
     "bigquery": sql_common
