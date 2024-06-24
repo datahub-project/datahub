@@ -19,6 +19,7 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
     :hover {
         ${(props) => props.showHover && 'background-color: #f5f7fa;'}
     }
+
     > a {
         margin: ${(props) => props.entity.type === EntityType.GlossaryTerm && '0px'};
     }
@@ -53,6 +54,7 @@ const RibbonDecoration = styled.div`
     height: 32px;
     position: relative;
     overflow: hidden;
+
     > span {
         top: -10px;
         padding: 5px;
@@ -60,7 +62,7 @@ const RibbonDecoration = styled.div`
 `;
 
 type Props = {
-    entity: GenericEntityProperties;
+    entity: GenericEntityProperties | null;
     styles?: CSSObject;
     displayTextStyle?: CSSObject;
     render?: (entity: GenericEntityProperties) => React.ReactNode;
@@ -70,9 +72,9 @@ type Props = {
 export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick }: Props) => {
     const entityRegistry = useEntityRegistry();
 
-    if (!entity.urn || !entity.type) return null;
+    if (!entity?.urn || !entity.type) return null;
 
-    const displayName = entityRegistry.getDisplayName(entity.type as EntityType, entity);
+    const displayName = entityRegistry.getDisplayName(entity.type, entity);
     // const subType = entity?.subTypes?.typeNames?.[0];
     // const SubTypeIcon = subType && getSubTypeIcon(subType);
     // console.log(displayName, subType, SubTypeIcon, entity);
@@ -97,30 +99,23 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick }
         ) : null;
     };
 
-    const defaultRender = () => {
-        return (
-            <HoverEntityTooltip entity={entity as Entity} showArrow={false} placement="bottom">
-                <LinkButton
-                    to={
-                        !onClick
-                            ? entityRegistry.getEntityUrl(entity.type as EntityType, entity.urn as string)
-                            : undefined
-                    }
-                    onClick={onClick}
-                >
-                    {/* {SubTypeIcon && <SubTypeIcon style={{ marginRight: '4px' }} />} */}
-                    {getPlatformIcon(entity)}
-                    <DisplayNameText entity={entity} style={{ ...displayTextStyle }}>
-                        {displayName}
-                    </DisplayNameText>
-                </LinkButton>
-            </HoverEntityTooltip>
-        );
-    };
-
     return (
         <Container showHover={!render} entity={entity}>
-            {render ? render(entity) : defaultRender()}
+            {render ? (
+                render(entity)
+            ) : (
+                <HoverEntityTooltip entity={entity as Entity} showArrow={false} placement="bottom">
+                    <LinkButton
+                        to={!onClick ? entityRegistry.getEntityUrl(entity.type, entity.urn) : undefined}
+                        onClick={onClick}
+                    >
+                        {getPlatformIcon(entity)}
+                        <DisplayNameText entity={entity} style={{ ...displayTextStyle }}>
+                            {displayName}
+                        </DisplayNameText>
+                    </LinkButton>
+                </HoverEntityTooltip>
+            )}
         </Container>
     );
 };

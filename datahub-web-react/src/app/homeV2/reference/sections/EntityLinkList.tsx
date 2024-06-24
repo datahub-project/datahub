@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Tooltip } from 'antd';
+import { Entity } from '../../../../types.generated';
 import { EntityLink } from './EntityLink';
 import { EntityLinkListSkeleton } from './EntityLinkListSkeleton';
 import { DefaultEmptyEntityList } from './DefaultEmptyEntityList';
@@ -37,7 +38,7 @@ type Props = {
     loading: boolean;
     title?: string;
     tip?: React.ReactNode;
-    entities: any[];
+    entities: (Entity | GenericEntityProperties | null | undefined)[];
     showMore?: boolean;
     showMoreComponent?: React.ReactNode;
     showMoreCount?: number;
@@ -79,7 +80,7 @@ export const EntityLinkList = ({
             <List>
                 {(!isEmpty &&
                     entities.map((entity) => {
-                        return <EntityLink key={`${title}-${entity.urn}`} entity={entity} render={render} />;
+                        return <EntityLink key={`${title}-${entity?.urn}`} entity={entity ?? null} render={render} />;
                     })) || <>{empty || <DefaultEmptyEntityList />}</>}
             </List>
             {showMore && (

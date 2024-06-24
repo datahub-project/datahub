@@ -36,9 +36,11 @@ const Title = styled.div`
 const Icon = styled.div`
     display: flex;
     margin-right: 8px;
+
     path {
         fill: #5280e2;
     }
+
     stroke: #87b2ea;
 `;
 
@@ -46,15 +48,14 @@ const ShowAll = styled(Link)`
     color: ${ANTD_GRAY[8]};
     font-size: 12px;
     font-weight: 700;
+
     :hover {
         cursor: pointer;
         text-decoration: underline;
     }
+
     white-space: nowrap;
 `;
-
-// function that returns the first 5 elements of a list
-const getFirstFive = (list: any[] | undefined | null) => list?.slice(0, 5) || [];
 
 export const PopularGlossaryTerms = () => {
     const { isUserInitializing } = useContext(OnboardingContext);
@@ -80,11 +81,11 @@ export const PopularGlossaryTerms = () => {
     );
     const glossaryRecommendationModule = glossaryRecommendationModules?.[0] || null;
     const recommendedGlossaryTerms =
-        getFirstFive(
-            glossaryRecommendationModule?.content?.map((contentItem) => {
+        glossaryRecommendationModule?.content
+            ?.map((contentItem) => {
                 return contentItem?.entity;
-            }),
-        ) || [];
+            })
+            ?.slice(0, 5) || [];
 
     // Register the insight module with parent component.
     useRegisterInsight('PopularGlossaryTerms', recommendedGlossaryTerms?.length);

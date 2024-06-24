@@ -13,6 +13,7 @@ import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import translateFieldPath from './dataset/profile/schema/utils/translateFieldPath';
+import DefaultEntity from './DefaultEntity';
 import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from './Entity';
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
 import PreviewContext from './shared/PreviewContext';
@@ -21,11 +22,11 @@ import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAsse
 import { EntityLineageV2Fragment } from '../../graphql/lineage.generated';
 import { EntitySidebarSection, EntitySidebarTab } from './shared/types';
 
-function validatedGet<K, V>(key: K, map: Map<K, V>): V {
+function validatedGet<K, V>(key: K, map: Map<K, V>, def: V): V {
     if (map.has(key)) {
         return map.get(key) as V;
     }
-    throw new Error(`Unrecognized key ${key} provided in map ${JSON.stringify(map)}`);
+    return def;
 }
 
 /**
@@ -51,7 +52,7 @@ export default class EntityRegistry {
     }
 
     getEntity(type: EntityType): Entity<any> {
-        return validatedGet(type, this.entityTypeToEntity);
+        return validatedGet(type, this.entityTypeToEntity, DefaultEntity);
     }
 
     hasEntity(type: EntityType): boolean {
@@ -93,26 +94,26 @@ export default class EntityRegistry {
     }
 
     getIcon(type: EntityType, fontSize?: number, styleType?: IconStyleType, color?: string): JSX.Element {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.icon(fontSize, styleType || IconStyleType.TAB_VIEW, color);
     }
 
     getCollectionName(type: EntityType): string {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getCollectionName();
     }
 
     getEntityName(type: EntityType): string | undefined {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getEntityName?.();
     }
 
     getTypeFromCollectionName(name: string): EntityType {
-        return validatedGet(name, this.collectionNameToEntityType);
+        return validatedGet(name, this.collectionNameToEntityType, DefaultEntity.type);
     }
 
     getPathName(type: EntityType): string {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getPathName();
     }
 
@@ -121,24 +122,20 @@ export default class EntityRegistry {
     }
 
     getTypeFromPathName(pathName: string): EntityType {
-        return validatedGet(pathName, this.pathNameToEntityType);
+        return validatedGet(pathName, this.pathNameToEntityType, DefaultEntity.type);
     }
 
     getTypeOrDefaultFromPathName(pathName: string, def?: EntityType): EntityType | undefined {
-        try {
-            return validatedGet(pathName, this.pathNameToEntityType);
-        } catch (e) {
-            return def;
-        }
+        return validatedGet(pathName, this.pathNameToEntityType, def);
     }
 
     renderProfile(type: EntityType, urn: string): JSX.Element {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.renderProfile(urn);
     }
 
     renderPreview<T>(entityType: EntityType, type: PreviewType, data: T, actions?: EntityMenuActions): JSX.Element {
-        const entity = validatedGet(entityType, this.entityTypeToEntity);
+        const entity = validatedGet(entityType, this.entityTypeToEntity, DefaultEntity);
         const genericEntityData = entity.getGenericEntityProperties(data);
         return (
             <PreviewContext.Provider value={genericEntityData}>
@@ -148,7 +145,7 @@ export default class EntityRegistry {
     }
 
     renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         const genericEntityData = entity.getGenericEntityProperties(searchResult.entity);
         return (
             <SearchResultProvider searchResult={searchResult}>
@@ -160,7 +157,7 @@ export default class EntityRegistry {
     }
 
     renderSearchMatches(type: EntityType, searchResult: SearchResult): JSX.Element {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return (
             <SearchResultProvider searchResult={searchResult}>
                 {entity?.renderSearchMatches?.(searchResult) || <></>}
@@ -169,18 +166,18 @@ export default class EntityRegistry {
     }
 
     renderBrowse<T>(type: EntityType, data: T): JSX.Element {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.renderPreview(PreviewType.BROWSE, data);
     }
 
     // render the regular profile if embedded profile doesn't exist. Compact context should be set to true.
     renderEmbeddedProfile(type: EntityType, urn: string): JSX.Element {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.renderEmbeddedProfile ? entity.renderEmbeddedProfile(urn) : entity.renderProfile(urn);
     }
 
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
         // combine fineGrainedLineages from this node as well as its siblings
         const fineGrainedLineages = getFineGrainedLineageWithSiblings(
@@ -223,7 +220,7 @@ export default class EntityRegistry {
     }
 
     getLineageVizConfigV2<T>(type: EntityType, data: T): FetchedEntityV2 | null {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
         if (!genericEntityProperties || !entity.getLineageVizConfig) return null;
 
@@ -280,27 +277,27 @@ export default class EntityRegistry {
     }
 
     getDisplayName<T>(type: EntityType, data: T): string {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.displayName(data);
     }
 
     getSidebarTabs(type: EntityType): EntitySidebarTab[] {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getSidebarTabs ? entity.getSidebarTabs() : [];
     }
 
     getSidebarSections(type: EntityType): EntitySidebarSection[] {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getSidebarSections ? entity.getSidebarSections() : [];
     }
 
     getGenericEntityProperties<T>(type: EntityType, data: T): GenericEntityProperties | null {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getGenericEntityProperties(data);
     }
 
     getSupportedEntityCapabilities(type: EntityType): Set<EntityCapabilityType> {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.supportedCapabilities();
     }
 
@@ -317,7 +314,7 @@ export default class EntityRegistry {
     }
 
     getGraphNameFromType(type: EntityType): string {
-        return validatedGet(type, this.entityTypeToEntity).getGraphName();
+        return validatedGet(type, this.entityTypeToEntity, DefaultEntity).getGraphName();
     }
 
     getEntityQuery(type: EntityType):
@@ -335,7 +332,7 @@ export default class EntityRegistry {
               }>
           >)
         | undefined {
-        const entity = validatedGet(type, this.entityTypeToEntity);
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.useEntityQuery;
     }
 }
