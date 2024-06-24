@@ -385,22 +385,25 @@ class RegularViewUpstream(AbstractViewUpstream):
         super().__init__(view_context, looker_view_id_cache, config, ctx)
         self.upstream_dataset_urn = None
 
-    def _get_upstream_dataset_urn(self) -> Urn:
+        self._get_upstream_dataset_urn = lru_cache(maxsize=1)(
+            self.__get_upstream_dataset_urn
+        )
+
+    def __get_upstream_dataset_urn(self) -> Urn:
         # In regular case view's upstream dataset is either same as view-name or mentioned in "sql_table_name" field
         # view_context.sql_table_name() handle this condition to return dataset name
-        if self.upstream_dataset_urn is None:
-            qualified_table_name: str = _generate_fully_qualified_name(
-                sql_table_name=self.view_context.sql_table_name(),
-                connection_def=self.view_context.view_connection,
-                reporter=self.view_context.reporter,
-            )
+        qualified_table_name: str = _generate_fully_qualified_name(
+            sql_table_name=self.view_context.sql_table_name(),
+            connection_def=self.view_context.view_connection,
+            reporter=self.view_context.reporter,
+        )
 
-            self.upstream_dataset_urn = make_dataset_urn_with_platform_instance(
-                platform=self.view_context.view_connection.platform,
-                name=qualified_table_name.lower(),
-                platform_instance=self.view_context.view_connection.platform_instance,
-                env=self.view_context.view_connection.platform_env or self.config.env,
-            )
+        self.upstream_dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.view_context.view_connection.platform,
+            name=qualified_table_name.lower(),
+            platform_instance=self.view_context.view_connection.platform_instance,
+            env=self.view_context.view_connection.platform_env or self.config.env,
+        )
 
         return self.upstream_dataset_urn
 
@@ -437,25 +440,28 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
         super().__init__(view_context, looker_view_id_cache, config, ctx)
         self.upstream_dataset_urn = []
 
-    def _get_upstream_dataset_urn(self) -> List[Urn]:
-        if not self.upstream_dataset_urn:
-            # In this case view_context.sql_table_name() refers to derived view name
-            looker_view_id = get_derived_looker_view_id(
-                qualified_table_name=_generate_fully_qualified_name(
-                    self.view_context.sql_table_name(),
-                    self.view_context.view_connection,
-                    self.view_context.reporter,
-                ),
-                base_folder_path=self.view_context.base_folder_path,
-                looker_view_id_cache=self.looker_view_id_cache,
-            )
+        self._get_upstream_dataset_urn = lru_cache(maxsize=1)(
+            self.__get_upstream_dataset_urn
+        )
 
-            if looker_view_id is not None:
-                self.upstream_dataset_urn = [
-                    looker_view_id.get_urn(
-                        config=self.config,
-                    )
-                ]
+    def __get_upstream_dataset_urn(self) -> List[Urn]:
+        # In this case view_context.sql_table_name() refers to derived view name
+        looker_view_id = get_derived_looker_view_id(
+            qualified_table_name=_generate_fully_qualified_name(
+                self.view_context.sql_table_name(),
+                self.view_context.view_connection,
+                self.view_context.reporter,
+            ),
+            base_folder_path=self.view_context.base_folder_path,
+            looker_view_id_cache=self.looker_view_id_cache,
+        )
+
+        if looker_view_id is not None:
+            self.upstream_dataset_urn = [
+                looker_view_id.get_urn(
+                    config=self.config,
+                )
+            ]
 
         return self.upstream_dataset_urn
 
