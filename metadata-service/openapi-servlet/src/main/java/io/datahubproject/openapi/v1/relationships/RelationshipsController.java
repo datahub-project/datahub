@@ -42,8 +42,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /*
-  Use v2 or v3 controllers instead
- */
+ Use v2 or v3 controllers instead
+*/
 @Deprecated
 @RestController
 @RequiredArgsConstructor
