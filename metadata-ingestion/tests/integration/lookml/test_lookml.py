@@ -12,6 +12,10 @@ from looker_sdk.sdk.api40.models import DBConnection
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
+from datahub.ingestion.source.looker.looker_template_language import (
+    SpecialVariable,
+    resolve_liquid_variable,
+)
 from datahub.ingestion.source.looker.lookml_source import (
     LookerModel,
     LookerRefinementResolver,
@@ -922,3 +926,79 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_special_liquid_variables():
+    text: str = """
+        SELECT
+          employee_id,
+          employee_name,
+          {% if dw_eff_dt_date._is_selected or finance_dw_eff_dt_date._is_selected %}
+            prod_core.data.r_metric_summary_v2
+          {% elsif dw_eff_dt_week._is_selected or finance_dw_eff_dt_week._in_query %}
+            prod_core.data.r_metric_summary_v3
+          {% elsif dw_eff_dt_week._is_selected or finance_dw_eff_dt_week._is_filtered %}
+            prod_core.data.r_metric_summary_v4
+          {% else %}
+            'default_table' as source
+          {% endif %},
+          employee_income
+        FROM source_table
+    """
+    input_liquid_variable: dict = {}
+
+    expected_liquid_variable: dict = {
+        **input_liquid_variable,
+        "dw_eff_dt_date": {"_is_selected": True},
+        "finance_dw_eff_dt_date": {"_is_selected": True},
+        "dw_eff_dt_week": {"_is_selected": True},
+        "finance_dw_eff_dt_week": {
+            "_in_query": True,
+            "_is_filtered": True,
+        },
+    }
+
+    actual_liquid_variable = SpecialVariable(
+        input_liquid_variable
+    ).liquid_variable_with_default(text)
+    assert (
+        expected_liquid_variable == actual_liquid_variable
+    )  # Here new keys with default value should get added
+
+    # change input
+    input_liquid_variable = {
+        "finance_dw_eff_dt_week": {"_is_filtered": False},
+    }
+
+    expected_liquid_variable = {
+        **input_liquid_variable,
+        "dw_eff_dt_date": {"_is_selected": True},
+        "finance_dw_eff_dt_date": {"_is_selected": True},
+        "dw_eff_dt_week": {"_is_selected": True},
+        "finance_dw_eff_dt_week": {
+            "_in_query": True,
+            "_is_filtered": False,
+        },
+    }
+
+    actual_liquid_variable = SpecialVariable(
+        input_liquid_variable
+    ).liquid_variable_with_default(text)
+    assert (
+        expected_liquid_variable == actual_liquid_variable
+    )  # should not overwrite the actual value present in
+    # input_liquid_variable
+
+    # Match template after resolution of liquid variables
+    actual_text = resolve_liquid_variable(
+        text=text,
+        liquid_variable=input_liquid_variable,
+    )
+
+    expected_text: str = (
+        "\n        SELECT\n          employee_id,\n          employee_name,\n          \n            "
+        "prod_core.data.r_metric_summary_v2\n          ,\n          employee_income\n        FROM "
+        "source_table\n    "
+    )
+    assert actual_text == expected_text
