@@ -2,7 +2,7 @@ import React from "react";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import { useBlogPost } from "@docusaurus/theme-common/internal";
-import styles from "./styles.module.css";
+import styles from "./styles.module.scss";
 
 export default function LearnItemCard() {
   const { metadata } = useBlogPost();

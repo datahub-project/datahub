@@ -8,7 +8,7 @@ import SearchMetadata from "@theme/SearchMetadata";
 import { BlogPostProvider } from "@docusaurus/theme-common/internal";
 import LearnItemCard from "../LearnItemCard";
 import Layout from "@theme/Layout";
-import styles from "./styles.module.css";
+import styles from "./styles.module.scss";
 
 function BlogListPageMetadata(props) {
   const { metadata } = props;
