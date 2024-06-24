@@ -9,7 +9,7 @@ const StyledSelect = styled(Select)`
 
 type Props = {
     value: string;
-    onChange: (newTimezone: string) => void;
+    onChange: (newTimezone: any) => void;
 };
 
 export const TimezoneSelect = ({ value, onChange }: Props) => {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Image } from 'antd';
 import styled from 'styled-components';
+
 import { REDESIGN_COLORS } from '../../../entity/shared/constants';
 
 const Container = styled(Button)`
@@ -61,12 +62,7 @@ export const DataPlatformCard = ({ logoUrl, logoComponent, name, description, on
             <LogoContainer>
                 {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
             </LogoContainer>
-            <Title
-                ellipsis={{
-                    rows: 4,
-                }}
-                level={5}
-            >
+            <Title>
                 {name}
             </Title>
             <Description>
