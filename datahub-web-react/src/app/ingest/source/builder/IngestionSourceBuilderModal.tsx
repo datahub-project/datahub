@@ -69,7 +69,7 @@ type Props = {
 
 export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
     const isEditing = initialState !== undefined;
-    const titleText = isEditing ? 'Edit Data Source Connection' : 'Connect Data Source';
+    const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
         ? IngestionSourceBuilderStep.DEFINE_RECIPE
         : IngestionSourceBuilderStep.SELECT_TEMPLATE;
