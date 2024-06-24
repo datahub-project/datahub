@@ -502,7 +502,7 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                     usename as username,
                     ddl,
                     sq.query as query_id,
-                    min(si.starttime) as starttime,
+                    min(si.starttime) as timestamp,
                     ANY_VALUE(pid) as session_id
                 from
                     stl_insert as si
@@ -678,6 +678,11 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
             AND ss.starttime < '{end_time}'
             AND sti.database = '{database}'
             AND sq.aborted = 0
+            AND NOT (
+                sq.querytxt LIKE 'small table validation: %'
+                OR sq.querytxt LIKE 'Small table conversion: %'
+                OR sq.querytxt LIKE 'padb_fetch_sample: %'
+            )
             ORDER BY ss.endtime DESC;
         """.strip()
 

@@ -25,6 +25,7 @@
   "dependencies": {
     "@ant-design/icons": "^4.7.0",
     "@docusaurus/core": "^2.4.1",
+    "@docusaurus/plugin-client-redirects": "2.4.3",
     "@docusaurus/plugin-content-docs": "2.4.1",
     "@docusaurus/plugin-ideal-image": "^2.4.1",
     "@docusaurus/preset-classic": "^2.4.1",

@@ -6,6 +6,7 @@ from typing import Dict, Iterable, Optional, Set, Type, cast
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import entity_supports_aspect
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.source_helpers import auto_stale_entity_removal
@@ -23,6 +24,7 @@ from datahub.ingestion.source.state.use_case_handler import (
 )
 from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -37,7 +39,7 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
         description="Soft-deletes the entities present in the last successful run but missing in the current run with stateful_ingestion enabled.",
     )
     fail_safe_threshold: float = pydantic.Field(
-        default=100.0,
+        default=40.0,
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
         le=100.0,
         ge=0.0,
@@ -48,9 +50,13 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
 @dataclass
 class StaleEntityRemovalSourceReport(StatefulIngestionReport):
     soft_deleted_stale_entities: LossyList[str] = field(default_factory=LossyList)
+    last_state_non_deletable_entities: LossyList[str] = field(default_factory=LossyList)
 
     def report_stale_entity_soft_deleted(self, urn: str) -> None:
         self.soft_deleted_stale_entities.append(urn)
+
+    def report_last_state_non_deletable_entities(self, urn: str) -> None:
+        self.last_state_non_deletable_entities.append(urn)
 
 
 class StaleEntityRemovalHandler(
@@ -164,6 +170,9 @@ class StaleEntityRemovalHandler(
     def is_checkpointing_enabled(self) -> bool:
         return self.checkpointing_enabled
 
+    def _get_state_obj(self):
+        return self.state_type_class()
+
     def create_checkpoint(self) -> Optional[Checkpoint]:
         if self.is_checkpointing_enabled() and not self._ignore_new_state():
             assert self.stateful_ingestion_config is not None
@@ -172,7 +181,7 @@ class StaleEntityRemovalHandler(
                 job_name=self.job_id,
                 pipeline_name=self.pipeline_name,
                 run_id=self.run_id,
-                state=self.state_type_class(),
+                state=self._get_state_obj(),
             )
         return None
 
@@ -221,6 +230,8 @@ class StaleEntityRemovalHandler(
 
         assert self.stateful_ingestion_config
 
+        copy_previous_state_and_fail = False
+
         # Check if the entity delta is below the fail-safe threshold.
         entity_difference_percent = cur_checkpoint_state.get_percent_entities_changed(
             last_checkpoint_state
@@ -239,33 +250,47 @@ class StaleEntityRemovalHandler(
                 f"Will not soft-delete entities, since we'd be deleting {entity_difference_percent:.1f}% of the existing entities. "
                 f"To force a deletion, increase the value of 'stateful_ingestion.fail_safe_threshold' (currently {self.stateful_ingestion_config.fail_safe_threshold})",
             )
-            return
+            copy_previous_state_and_fail = True
 
         if self.source.get_report().events_produced == 0:
-            # SUBTLE: By reporting this as a failure here, we also ensure that the
-            # new (empty) state doesn't get committed.
-            # TODO: Move back to using fail_safe_threshold once we're confident that we've squashed all the bugs.
             self.source.get_report().report_failure(
                 "stale-entity-removal",
                 "Skipping stale entity soft-deletion because the source produced no events. "
                 "This is a fail-safe mechanism to prevent accidental deletion of all entities.",
             )
-            return
+            copy_previous_state_and_fail = True
 
         # If the source already had a failure, skip soft-deletion.
-        # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far.
+        # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far, not just the source.
         if self.source.get_report().failures:
             self.source.get_report().report_warning(
                 "stale-entity-removal",
-                "Skipping stale entity soft-deletion since source already had failures.",
+                "Skipping stale entity soft-deletion and copying urns from last state since source already had failures.",
             )
+            copy_previous_state_and_fail = True
+
+        if copy_previous_state_and_fail:
+            logger.info(
+                f"Copying urns from last state (size {last_checkpoint_state.urns}) to current state (size {cur_checkpoint_state.urns}) "
+                "to ensure stale entities from previous runs are deleted on the next successful run."
+            )
+            for urn in last_checkpoint_state.urns:
+                self.add_entity_to_state("", urn)
             return
+
+        report = self.source.get_report()
+        assert isinstance(report, StaleEntityRemovalSourceReport)
 
         # Everything looks good, emit the soft-deletion workunits
         for urn in last_checkpoint_state.get_urns_not_in(
             type="*", other_checkpoint_state=cur_checkpoint_state
         ):
+            if not entity_supports_aspect(guess_entity_type(urn), StatusClass):
+                # If any entity does not support aspect 'status' then skip that entity urn
+                report.report_last_state_non_deletable_entities(urn)
+                continue
             if urn in self._urns_to_skip:
+                report.report_last_state_non_deletable_entities(urn)
                 logger.debug(
                     f"Not soft-deleting entity {urn} since it is in urns_to_skip"
                 )

@@ -17,6 +17,7 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutS
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { PageRoutes } from '../../../conf/Global';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -58,6 +59,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     getEntityName = () => 'Glossary Term';
 
     useEntityQuery = useGetGlossaryTermQuery;
+
+    getCustomCardUrlPath = () => PageRoutes.GLOSSARY;
 
     renderProfile = (urn) => {
         return (

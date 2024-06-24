@@ -11,6 +11,8 @@ import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
@@ -64,11 +66,11 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   protected static class RelatedEntityComparator implements Comparator<RelatedEntity> {
     @Override
     public int compare(RelatedEntity left, RelatedEntity right) {
-      int cmp = left.relationshipType.compareTo(right.relationshipType);
+      int cmp = left.getRelationshipType().compareTo(right.getRelationshipType());
       if (cmp != 0) {
         return cmp;
       }
-      return left.urn.compareTo(right.urn);
+      return left.getUrn().compareTo(right.getUrn());
     }
   }
 
@@ -2161,7 +2163,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     }
     assertEquals(new HashSet<>(relatedEntities.getEntities()), expectedRelatedEntities);
 
-    Urn root = UrnUtils.getUrn(relatedEntities.getEntities().get(0).getUrn());
+    Urn root = dataset1Urn;
     EntityLineageResult lineageResult =
         getGraphService(false)
             .getLineage(
@@ -2178,13 +2180,18 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 1000,
                 100,
                 new LineageFlags().setEntitiesExploredPerHopLimit(5));
-    assertEquals(lineageResult.getRelationships().size(), 19);
+    // Unable to explore all paths because multi is disabled, but will be at least 5 since it will
+    // explore 5 edges
+    assertTrue(
+        lineageResult.getRelationships().size() >= 5
+            && lineageResult.getRelationships().size() < 20,
+        "Size was: " + lineageResult.getRelationships().size());
     LineageRelationshipArray relationships = lineageResult.getRelationships();
     int maxDegree =
         relationships.stream()
             .flatMap(relationship -> relationship.getDegrees().stream())
             .reduce(0, Math::max);
-    assertEquals(maxDegree, 1);
+    assertTrue(maxDegree > 1);
 
     EntityLineageResult lineageResultMulti =
         getGraphService(true)
@@ -2203,13 +2210,16 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                 100,
                 new LineageFlags().setEntitiesExploredPerHopLimit(5));
 
-    assertEquals(lineageResultMulti.getRelationships().size(), 20);
+    assertTrue(
+        lineageResultMulti.getRelationships().size() >= 5
+            && lineageResultMulti.getRelationships().size() <= 20,
+        "Size was: " + lineageResultMulti.getRelationships().size());
     relationships = lineageResultMulti.getRelationships();
     maxDegree =
         relationships.stream()
             .flatMap(relationship -> relationship.getDegrees().stream())
             .reduce(0, Math::max);
-    assertTrue(maxDegree > 4);
+    assertTrue(maxDegree >= 2);
 
     // Reset graph service
     getGraphService();

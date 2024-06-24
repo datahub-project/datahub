@@ -6,6 +6,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.ContentParams;
 import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationParams;
@@ -52,7 +53,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   protected abstract boolean isValueUrn();
 
   /** Whether the urn candidate is valid */
-  protected boolean isValidCandidateUrn(Urn urn) {
+  protected boolean isValidCandidateUrn(@Nonnull OperationContext opContext, Urn urn) {
     return true;
   }
 
@@ -62,9 +63,9 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   }
 
   /** Whether the candidate is valid Calls different functions if candidate is an Urn */
-  protected <T> boolean isValidCandidate(T candidate) {
+  protected <T> boolean isValidCandidate(@Nonnull OperationContext opContext, T candidate) {
     if (candidate instanceof Urn) {
-      return isValidCandidateUrn((Urn) candidate);
+      return isValidCandidateUrn(opContext, (Urn) candidate);
     }
     return isValidCandidateValue(candidate.toString());
   }
@@ -72,10 +73,16 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
-      @Nonnull OperationContext opContext, @Nullable RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext,
+      @Nullable RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
     Map<String, Long> aggregationResult =
         entitySearchService.aggregateByValue(
-            opContext, getEntityNames(entityRegistry), getSearchFieldName(), null, getMaxContent());
+            opContext,
+            getEntityNames(entityRegistry),
+            getSearchFieldName(),
+            filter,
+            getMaxContent());
 
     if (aggregationResult.isEmpty()) {
       return Collections.emptyList();
@@ -83,7 +90,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
 
     // If the aggregated values are not urn, simply get top k values with the most counts
     if (!isValueUrn()) {
-      return getTopKValues(aggregationResult).stream()
+      return getTopKValues(opContext, aggregationResult).stream()
           .map(entry -> buildRecommendationContent(entry.getKey(), entry.getValue()))
           .collect(Collectors.toList());
     }
@@ -110,7 +117,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
     }
 
     // Get the top X valid platforms (ones with logo) with the most number of documents
-    return getTopKValues(urnCounts).stream()
+    return getTopKValues(opContext, urnCounts).stream()
         .map(entry -> buildRecommendationContent(entry.getKey(), entry.getValue()))
         .collect(Collectors.toList());
   }
@@ -123,15 +130,16 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
   }
 
   // Get top K entries with the most count
-  private <T> List<Map.Entry<T, Long>> getTopKValues(Map<T, Long> countMap) {
+  private <T> List<Map.Entry<T, Long>> getTopKValues(
+      @Nonnull OperationContext opContext, Map<T, Long> countMap) {
     final PriorityQueue<Map.Entry<T, Long>> queue =
         new PriorityQueue<>(getMaxContent(), Map.Entry.comparingByValue(Comparator.naturalOrder()));
     for (Map.Entry<T, Long> entry : countMap.entrySet()) {
-      if (queue.size() < getMaxContent() && isValidCandidate(entry.getKey())) {
+      if (queue.size() < getMaxContent() && isValidCandidate(opContext, entry.getKey())) {
         queue.add(entry);
       } else if (queue.size() > 0
           && queue.peek().getValue() < entry.getValue()
-          && isValidCandidate(entry.getKey())) {
+          && isValidCandidate(opContext, entry.getKey())) {
         queue.poll();
         queue.add(entry);
       }

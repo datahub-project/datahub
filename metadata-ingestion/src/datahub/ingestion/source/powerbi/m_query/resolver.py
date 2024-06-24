@@ -9,6 +9,7 @@ from lark import Tree
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
+    DataBricksPlatformDetail,
     DataPlatformPair,
     PlatformDetail,
     PowerBiDashboardSourceConfig,
@@ -154,6 +155,17 @@ class AbstractDataPlatformTableCreator(ABC):
             return None, None
 
         return arguments[0], arguments[1]
+
+    @staticmethod
+    def get_tokens(
+        arg_list: Tree,
+    ) -> List[str]:
+        arguments: List[str] = tree_function.strip_char_from_list(
+            values=tree_function.remove_whitespaces_from_list(
+                tree_function.token_values(arg_list)
+            ),
+        )
+        return arguments
 
     def parse_custom_sql(
         self, query: str, server: str, database: Optional[str], schema: Optional[str]
@@ -760,19 +772,69 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
 
 class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
+    def form_qualified_table_name(
+        self,
+        value_dict: Dict[Any, Any],
+        catalog_name: str,
+        data_platform_pair: DataPlatformPair,
+        server: str,
+    ) -> str:
+        # database and catalog names are same in M-Query
+        db_name: str = (
+            catalog_name if "Database" not in value_dict else value_dict["Database"]
+        )
+
+        schema_name: str = value_dict["Schema"]
+
+        table_name: str = value_dict["Table"]
+
+        platform_detail: PlatformDetail = (
+            self.platform_instance_resolver.get_platform_instance(
+                PowerBIPlatformDetail(
+                    data_platform_pair=data_platform_pair,
+                    data_platform_server=server,
+                )
+            )
+        )
+
+        metastore: Optional[str] = None
+
+        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+
+        if isinstance(platform_detail, DataBricksPlatformDetail):
+            metastore = platform_detail.metastore
+
+        if metastore is not None:
+            return f"{metastore}.{qualified_table_name}"
+
+        return qualified_table_name
+
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
         logger.debug(
             f"Processing Databrick data-access function detail {data_access_func_detail}"
         )
-        value_dict = {}
+        value_dict: Dict[str, str] = {}
         temp_accessor: Optional[
             Union[IdentifierAccessor, AbstractIdentifierAccessor]
         ] = data_access_func_detail.identifier_accessor
+
         while temp_accessor:
             if isinstance(temp_accessor, IdentifierAccessor):
-                value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+                # Condition to handle databricks M-query pattern where table, schema and database all are present in
+                # same invoke statement
+                if all(
+                    element in temp_accessor.items
+                    for element in ["Item", "Schema", "Catalog"]
+                ):
+                    value_dict["Schema"] = temp_accessor.items["Schema"]
+                    value_dict["Table"] = temp_accessor.items["Item"]
+                else:
+                    value_dict[temp_accessor.items["Kind"]] = temp_accessor.items[
+                        "Name"
+                    ]
+
                 if temp_accessor.next is not None:
                     temp_accessor = temp_accessor.next
                 else:
@@ -783,24 +845,30 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 )
                 return Lineage.empty()
 
-        db_name: str = value_dict["Database"]
-        schema_name: str = value_dict["Schema"]
-        table_name: str = value_dict["Table"]
-
-        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
-
-        server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
-        if server is None:
+        arguments = self.get_tokens(data_access_func_detail.arg_list)
+        if len(arguments) < 4:
             logger.info(
-                f"server information is not available for {qualified_table_name}. Skipping upstream table"
+                f"Databricks workspace and catalog information in arguments({arguments}). "
+                f"Skipping upstream table"
             )
             return Lineage.empty()
+
+        workspace_fqdn: str = arguments[0]
+
+        catalog_name: str = arguments[3]
+
+        qualified_table_name: str = self.form_qualified_table_name(
+            value_dict=value_dict,
+            catalog_name=catalog_name,
+            data_platform_pair=self.get_platform_pair(),
+            server=workspace_fqdn,
+        )
 
         urn = urn_creator(
             config=self.config,
             platform_instance_resolver=self.platform_instance_resolver,
             data_platform_pair=self.get_platform_pair(),
-            server=server,
+            server=workspace_fqdn,
             qualified_table_name=qualified_table_name,
         )
 
@@ -889,7 +957,7 @@ class GoogleBigQueryDataPlatformTableCreator(DefaultThreeStepDataAccessSources):
         return (
             data_access_func_detail.identifier_accessor.items["Name"]
             if data_access_func_detail.identifier_accessor is not None
-            else str()
+            else ""
         )
 
 
@@ -1027,6 +1095,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         self.current_data_platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[
             data_access_tokens[0]
         ]
+
         # First argument is the query
         sql_query: str = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
@@ -1062,12 +1131,18 @@ class FunctionName(Enum):
     DATABRICK_DATA_ACCESS = "Databricks.Catalogs"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
     AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
+    DATABRICK_MULTI_CLOUD_DATA_ACCESS = "DatabricksMultiCloud.Catalogs"
 
 
 class SupportedResolver(Enum):
-    DATABRICK_QUERY = (
+    DATABRICKS_QUERY = (
         DatabrickDataPlatformTableCreator,
         FunctionName.DATABRICK_DATA_ACCESS,
+    )
+
+    DATABRICKS_MULTI_CLOUD = (
+        DatabrickDataPlatformTableCreator,
+        FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS,
     )
 
     POSTGRES_SQL = (

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListTestsInput;
@@ -43,9 +44,9 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
 
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (canManageTests(context)) {
+          if (canManageTests(context) || canViewTests(context)) {
             final ListTestsInput input =
                 bindArgument(environment.getArgument("input"), ListTestsInput.class);
             final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
@@ -78,7 +79,9 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial Test objects which will be

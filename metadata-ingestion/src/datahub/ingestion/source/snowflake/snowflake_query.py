@@ -5,6 +5,8 @@ from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
 
+SHOW_VIEWS_MAX_PAGE_SIZE = 10000
+
 
 def create_deny_regex_sql_filter(
     deny_pattern: List[str], filter_cols: List[str]
@@ -202,48 +204,28 @@ class SnowflakeQuery:
         FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', '{SnowflakeObjectDomain.TABLE}'));
         """
 
-    # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
-    # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
     @staticmethod
-    def views_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        created AS "CREATED",
-        last_altered AS "LAST_ALTERED",
-        comment AS "COMMENT",
-        view_definition AS "VIEW_DEFINITION"
-        FROM {db_clause}information_schema.views t
-        WHERE table_schema != 'INFORMATION_SCHEMA'
-        order by table_schema, table_name"""
+    def show_views_for_database(
+        db_name: str,
+        limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
+        view_pagination_marker: Optional[str] = None,
+    ) -> str:
+        # While there is an information_schema.views view, that only shows the view definition if the role
+        # is an owner of the view. That doesn't work for us.
+        # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
 
-    # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
-    # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
-    @staticmethod
-    def views_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        created AS "CREATED",
-        last_altered AS "LAST_ALTERED",
-        comment AS "COMMENT",
-        view_definition AS "VIEW_DEFINITION"
-        FROM {db_clause}information_schema.views t
-        where table_schema='{schema_name}'
-        order by table_schema, table_name"""
+        # SHOW VIEWS can return a maximum of 10000 rows.
+        # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
+        assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
 
-    @staticmethod
-    def show_views_for_database(db_name: str) -> str:
-        return f"""show views in database "{db_name}";"""
-
-    @staticmethod
-    def show_views_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""show views in schema {db_clause}"{schema_name}";"""
+        # To work around this, we paginate through the results using the FROM clause.
+        from_clause = (
+            f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
+        )
+        return f"""\
+SHOW VIEWS IN DATABASE "{db_name}"
+LIMIT {limit} {from_clause};
+"""
 
     @staticmethod
     def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:
@@ -558,6 +540,7 @@ class SnowflakeQuery:
         include_top_n_queries: bool,
         email_domain: Optional[str],
         email_filter: AllowDenyPattern,
+        table_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0
@@ -565,6 +548,12 @@ class SnowflakeQuery:
             time_bucket_size == BucketDuration.DAY
             or time_bucket_size == BucketDuration.HOUR
         )
+
+        temp_table_filter = create_deny_regex_sql_filter(
+            table_deny_pattern,
+            ["object_name"],
+        )
+
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
         )
@@ -604,6 +593,7 @@ class SnowflakeQuery:
                 )
                 t,
                 lateral flatten(input => t.{objects_column}) object
+            {("where " + temp_table_filter) if temp_table_filter else ""}
         )
         ,
         field_access_history AS
@@ -773,7 +763,7 @@ class SnowflakeQuery:
             SELECT
                 r.value : "objectName" :: varchar AS upstream_table_name,
                 r.value : "objectDomain" :: varchar AS upstream_table_domain,
-                w.value : "objectName" :: varchar AS downstream_table_name,
+                REPLACE(w.value : "objectName" :: varchar, '__DBT_TMP', '') AS downstream_table_name,
                 w.value : "objectDomain" :: varchar AS downstream_table_domain,
                 wcols.value : "columnName" :: varchar AS downstream_column_name,
                 wcols_directSources.value : "objectName" as upstream_column_table_name,
@@ -1008,3 +998,25 @@ class SnowflakeQuery:
             ORDER BY
                 h.downstream_table_name
         """
+
+    @staticmethod
+    def dmf_assertion_results(start_time_millis: int, end_time_millis: int) -> str:
+        pattern = r"datahub\\_\\_%"
+        escape_pattern = r"\\"
+        return f"""
+            SELECT
+                MEASUREMENT_TIME AS "MEASUREMENT_TIME",
+                METRIC_NAME AS "METRIC_NAME",
+                TABLE_NAME AS "TABLE_NAME",
+                TABLE_SCHEMA AS "TABLE_SCHEMA",
+                TABLE_DATABASE AS "TABLE_DATABASE",
+                VALUE::INT AS "VALUE"
+            FROM
+                SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS
+            WHERE
+                MEASUREMENT_TIME >= to_timestamp_ltz({start_time_millis}, 3)
+                AND MEASUREMENT_TIME < to_timestamp_ltz({end_time_millis}, 3)
+                AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'
+                ORDER BY MEASUREMENT_TIME ASC;
+
+"""

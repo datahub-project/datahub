@@ -11,12 +11,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -34,7 +32,6 @@ import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
@@ -45,6 +42,8 @@ import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -96,37 +95,23 @@ public class ElasticSearchTimeseriesAspectService
 
   private static final Integer DEFAULT_LIMIT = 10000;
 
-  private final IndexConvention indexConvention;
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
   private final TimeseriesAspectIndexBuilders indexBuilders;
   private final RestHighLevelClient searchClient;
   private final ESAggregatedStatsDAO esAggregatedStatsDAO;
-  private final EntityRegistry entityRegistry;
-  private AspectRetriever aspectRetriever;
 
   public ElasticSearchTimeseriesAspectService(
       @Nonnull RestHighLevelClient searchClient,
-      @Nonnull IndexConvention indexConvention,
       @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
-      @Nonnull EntityRegistry entityRegistry,
       @Nonnull ESBulkProcessor bulkProcessor,
       int numRetries) {
-    this.indexConvention = indexConvention;
     this.indexBuilders = indexBuilders;
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
-    this.entityRegistry = entityRegistry;
     this.numRetries = numRetries;
 
-    esAggregatedStatsDAO = new ESAggregatedStatsDAO(indexConvention, searchClient, entityRegistry);
-  }
-
-  @Override
-  public ElasticSearchTimeseriesAspectService postConstruct(AspectRetriever aspectRetriever) {
-    this.aspectRetriever = aspectRetriever;
-    esAggregatedStatsDAO.setAspectRetriever(aspectRetriever);
-    return this;
+    esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient);
   }
 
   private static EnvelopedAspect parseDocument(@Nonnull SearchHit doc) {
@@ -217,19 +202,9 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
-  public void configure() {
-    indexBuilders.reindexAll();
-  }
-
-  @Override
-  public List<ReindexConfig> buildReindexConfigs() {
-    return indexBuilders.buildReindexConfigs();
-  }
-
-  @Override
-  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
-      Collection<StructuredPropertyDefinition> properties) throws IOException {
-    return indexBuilders.buildReindexConfigsWithAllStructProps(properties);
+  public List<ReindexConfig> buildReindexConfigs(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
+    return indexBuilders.buildReindexConfigs(properties);
   }
 
   public String reindexAsync(
@@ -239,17 +214,22 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
-  public void reindexAll() {
-    configure();
+  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    indexBuilders.reindexAll(properties);
   }
 
   @Override
   public void upsertDocument(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull String docId,
       @Nonnull JsonNode document) {
-    String indexName = indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    String indexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName);
     final UpdateRequest updateRequest =
         new UpdateRequest(indexName, docId)
             .detectNoop(false)
@@ -260,10 +240,11 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
-  public List<TimeseriesIndexSizeResult> getIndexSizes() {
+  public List<TimeseriesIndexSizeResult> getIndexSizes(@Nonnull OperationContext opContext) {
     List<TimeseriesIndexSizeResult> res = new ArrayList<>();
     try {
-      String indicesPattern = indexConvention.getAllTimeseriesAspectIndicesPattern();
+      String indicesPattern =
+          opContext.getSearchContext().getIndexConvention().getAllTimeseriesAspectIndicesPattern();
       Response r =
           searchClient
               .getLowLevelClient()
@@ -276,7 +257,10 @@ public class ElasticSearchTimeseriesAspectService
                 TimeseriesIndexSizeResult elemResult = new TimeseriesIndexSizeResult();
                 elemResult.setIndexName(entry.getKey());
                 Optional<Pair<String, String>> indexEntityAndAspect =
-                    indexConvention.getEntityAndAspectName(entry.getKey());
+                    opContext
+                        .getSearchContext()
+                        .getIndexConvention()
+                        .getEntityAndAspectName(entry.getKey());
                 if (indexEntityAndAspect.isPresent()) {
                   elemResult.setEntityName(indexEntityAndAspect.get().getFirst());
                   elemResult.setAspectName(indexEntityAndAspect.get().getSecond());
@@ -295,18 +279,26 @@ public class ElasticSearchTimeseriesAspectService
 
   @Override
   public long countByFilter(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nullable final Filter filter) {
-    final String indexName = indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    final String indexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         QueryBuilders.boolQuery()
             .must(
                 ESUtils.buildFilterQuery(
                     filter,
                     true,
-                    entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes(),
-                    aspectRetriever));
+                    opContext
+                        .getEntityRegistry()
+                        .getEntitySpec(entityName)
+                        .getSearchableFieldTypes(),
+                    opContext.getAspectRetriever()));
     CountRequest countRequest = new CountRequest();
     countRequest.query(filterQueryBuilder);
     countRequest.indices(indexName);
@@ -321,6 +313,7 @@ public class ElasticSearchTimeseriesAspectService
 
   @Override
   public List<EnvelopedAspect> getAspectValues(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
@@ -330,10 +323,12 @@ public class ElasticSearchTimeseriesAspectService
       @Nullable final Filter filter,
       @Nullable final SortCriterion sort) {
     Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes =
-        entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes();
+        opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes();
     final BoolQueryBuilder filterQueryBuilder =
         QueryBuilders.boolQuery()
-            .must(ESUtils.buildFilterQuery(filter, true, searchableFieldTypes, aspectRetriever));
+            .must(
+                ESUtils.buildFilterQuery(
+                    filter, true, searchableFieldTypes, opContext.getAspectRetriever()));
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
     // NOTE: We are interested only in the un-exploded rows as only they carry the `event` payload.
     filterQueryBuilder.mustNot(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, true));
@@ -344,7 +339,8 @@ public class ElasticSearchTimeseriesAspectService
               .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
               .setValue(startTimeMillis.toString());
       filterQueryBuilder.must(
-          ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true, searchableFieldTypes));
+          ESUtils.getQueryBuilderFromCriterion(
+              startTimeCriterion, true, searchableFieldTypes, opContext.getAspectRetriever()));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
@@ -353,7 +349,8 @@ public class ElasticSearchTimeseriesAspectService
               .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
               .setValue(endTimeMillis.toString());
       filterQueryBuilder.must(
-          ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true, searchableFieldTypes));
+          ESUtils.getQueryBuilderFromCriterion(
+              endTimeCriterion, true, searchableFieldTypes, opContext.getAspectRetriever()));
     }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
@@ -373,7 +370,11 @@ public class ElasticSearchTimeseriesAspectService
     final SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
 
-    String indexName = indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    String indexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName);
     searchRequest.indices(indexName);
 
     log.debug("Search request is: " + searchRequest);
@@ -395,13 +396,14 @@ public class ElasticSearchTimeseriesAspectService
   @Override
   @Nonnull
   public GenericTable getAggregatedStats(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull AggregationSpec[] aggregationSpecs,
       @Nullable Filter filter,
       @Nullable GroupingBucket[] groupingBuckets) {
     return esAggregatedStatsDAO.getAggregatedStats(
-        entityName, aspectName, aggregationSpecs, filter, groupingBuckets);
+        opContext, entityName, aspectName, aggregationSpecs, filter, groupingBuckets);
   }
 
   /**
@@ -419,14 +421,21 @@ public class ElasticSearchTimeseriesAspectService
   @Nonnull
   @Override
   public DeleteAspectValuesResult deleteAspectValues(
-      @Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter) {
-    final String indexName = indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull Filter filter) {
+    final String indexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         ESUtils.buildFilterQuery(
             filter,
             true,
-            entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes(),
-            aspectRetriever);
+            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
+            opContext.getAspectRetriever());
 
     final Optional<DeleteAspectValuesResult> result =
         bulkProcessor
@@ -447,17 +456,22 @@ public class ElasticSearchTimeseriesAspectService
   @Nonnull
   @Override
   public String deleteAspectValuesAsync(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull Filter filter,
       @Nonnull BatchWriteOperationsOptions options) {
-    final String indexName = indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    final String indexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         ESUtils.buildFilterQuery(
             filter,
             true,
-            entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes(),
-            aspectRetriever);
+            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
+            opContext.getAspectRetriever());
     final int batchSize = options.getBatchSize() > 0 ? options.getBatchSize() : DEFAULT_LIMIT;
     TimeValue timeout =
         options.getTimeoutSeconds() > 0
@@ -476,17 +490,22 @@ public class ElasticSearchTimeseriesAspectService
 
   @Override
   public String reindexAsync(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull Filter filter,
       @Nonnull BatchWriteOperationsOptions options) {
-    final String indexName = indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    final String indexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         ESUtils.buildFilterQuery(
             filter,
             true,
-            entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes(),
-            aspectRetriever);
+            opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
+            opContext.getAspectRetriever());
     try {
       return this.reindexAsync(indexName, filterQueryBuilder, options);
     } catch (Exception e) {
@@ -497,17 +516,19 @@ public class ElasticSearchTimeseriesAspectService
 
   @Nonnull
   @Override
-  public DeleteAspectValuesResult rollbackTimeseriesAspects(@Nonnull String runId) {
+  public DeleteAspectValuesResult rollbackTimeseriesAspects(
+      @Nonnull OperationContext opContext, @Nonnull String runId) {
     DeleteAspectValuesResult rollbackResult = new DeleteAspectValuesResult();
     // Construct the runId filter for deletion.
     Filter filter = QueryUtils.newFilter("runId", runId);
 
     // Delete the timeseries aspects across all entities with the runId.
-    for (Map.Entry<String, EntitySpec> entry : entityRegistry.getEntitySpecs().entrySet()) {
+    for (Map.Entry<String, EntitySpec> entry :
+        opContext.getEntityRegistry().getEntitySpecs().entrySet()) {
       for (AspectSpec aspectSpec : entry.getValue().getAspectSpecs()) {
         if (aspectSpec.isTimeseries()) {
           DeleteAspectValuesResult result =
-              this.deleteAspectValues(entry.getKey(), aspectSpec.getName(), filter);
+              this.deleteAspectValues(opContext, entry.getKey(), aspectSpec.getName(), filter);
           rollbackResult.setNumDocsDeleted(
               rollbackResult.getNumDocsDeleted() + result.getNumDocsDeleted());
           log.info(
@@ -526,6 +547,7 @@ public class ElasticSearchTimeseriesAspectService
   @Nonnull
   @Override
   public TimeseriesScrollResult scrollAspects(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nullable Filter filter,
@@ -536,10 +558,12 @@ public class ElasticSearchTimeseriesAspectService
       @Nullable Long endTimeMillis) {
 
     Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes =
-        entityRegistry.getEntitySpec(entityName).getSearchableFieldTypes();
+        opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes();
     final BoolQueryBuilder filterQueryBuilder =
         QueryBuilders.boolQuery()
-            .filter(ESUtils.buildFilterQuery(filter, true, searchableFieldTypes, aspectRetriever));
+            .filter(
+                ESUtils.buildFilterQuery(
+                    filter, true, searchableFieldTypes, opContext.getAspectRetriever()));
 
     if (startTimeMillis != null) {
       Criterion startTimeCriterion =
@@ -548,7 +572,8 @@ public class ElasticSearchTimeseriesAspectService
               .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
               .setValue(startTimeMillis.toString());
       filterQueryBuilder.filter(
-          ESUtils.getQueryBuilderFromCriterion(startTimeCriterion, true, searchableFieldTypes));
+          ESUtils.getQueryBuilderFromCriterion(
+              startTimeCriterion, true, searchableFieldTypes, opContext.getAspectRetriever()));
     }
     if (endTimeMillis != null) {
       Criterion endTimeCriterion =
@@ -557,12 +582,19 @@ public class ElasticSearchTimeseriesAspectService
               .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
               .setValue(endTimeMillis.toString());
       filterQueryBuilder.filter(
-          ESUtils.getQueryBuilderFromCriterion(endTimeCriterion, true, searchableFieldTypes));
+          ESUtils.getQueryBuilderFromCriterion(
+              endTimeCriterion, true, searchableFieldTypes, opContext.getAspectRetriever()));
     }
 
     SearchResponse response =
         executeScrollSearchQuery(
-            entityName, aspectName, filterQueryBuilder, sortCriterion, scrollId, count);
+            opContext.getSearchContext(),
+            entityName,
+            aspectName,
+            filterQueryBuilder,
+            sortCriterion,
+            scrollId,
+            count);
     int totalCount = (int) response.getHits().getTotalHits().value;
 
     List<Pair<EnvelopedAspect, GenericTimeseriesDocument>> resultPairs =
@@ -579,6 +611,7 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   private SearchResponse executeScrollSearchQuery(
+      @Nonnull SearchContext searchContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final QueryBuilder query,
@@ -602,7 +635,8 @@ public class ElasticSearchTimeseriesAspectService
     searchRequest.source(searchSourceBuilder);
     ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
 
-    searchRequest.indices(indexConvention.getTimeseriesAspectIndexName(entityName, aspectName));
+    searchRequest.indices(
+        searchContext.getIndexConvention().getTimeseriesAspectIndexName(entityName, aspectName));
 
     try (Timer.Context ignored =
         MetricUtils.timer(this.getClass(), "scrollAspects_search").time()) {

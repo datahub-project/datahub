@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.incident;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityIncidentsResult;
 import com.linkedin.datahub.graphql.generated.Incident;
@@ -45,7 +46,7 @@ public class EntityIncidentsResolver
 
   @Override
   public CompletableFuture<EntityIncidentsResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
@@ -77,10 +78,10 @@ public class EntityIncidentsResolver
             // Step 2: Hydrate the incident entities
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.INCIDENT_ENTITY_NAME,
                     new HashSet<>(incidentUrns),
-                    null,
-                    context.getAuthentication());
+                    null);
 
             // Step 3: Map GMS incident model to GraphQL model
             final List<EntityResponse> entityResult = new ArrayList<>();
@@ -103,7 +104,9 @@ public class EntityIncidentsResolver
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve incidents from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter buildIncidentsEntityFilter(

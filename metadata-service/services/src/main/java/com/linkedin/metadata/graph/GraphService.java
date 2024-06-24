@@ -1,12 +1,13 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -19,7 +20,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.collections.CollectionUtils;
 
-public interface GraphService {
+public interface GraphService extends GraphRetriever {
   /** Return lineage registry to construct graph index */
   LineageRegistry getLineageRegistry();
 
@@ -313,7 +314,7 @@ public interface GraphService {
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter);
 
-  void configure();
+  default void configure() {}
 
   /** Removes all edges and nodes from the graph. */
   void clear();
@@ -322,18 +323,4 @@ public interface GraphService {
   default boolean supportsMultiHop() {
     return false;
   }
-
-  @Nonnull
-  RelatedEntitiesScrollResult scrollRelatedEntities(
-      @Nullable List<String> sourceTypes,
-      @Nonnull Filter sourceEntityFilter,
-      @Nullable List<String> destinationTypes,
-      @Nonnull Filter destinationEntityFilter,
-      @Nonnull List<String> relationshipTypes,
-      @Nonnull RelationshipFilter relationshipFilter,
-      @Nonnull List<SortCriterion> sortCriterion,
-      @Nullable String scrollId,
-      int count,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis);
 }

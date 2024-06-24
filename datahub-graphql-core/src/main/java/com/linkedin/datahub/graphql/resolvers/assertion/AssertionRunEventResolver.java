@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
 import com.linkedin.datahub.graphql.generated.AssertionRunEvent;
@@ -14,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -40,7 +42,7 @@ public class AssertionRunEventResolver
 
   @Override
   public CompletableFuture<AssertionRunEventsResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
@@ -59,14 +61,17 @@ public class AssertionRunEventResolver
             // Step 1: Fetch aspects from GMS
             List<EnvelopedAspect> aspects =
                 _client.getTimeseriesAspectValues(
+                    context.getOperationContext(),
                     urn,
                     Constants.ASSERTION_ENTITY_NAME,
                     Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
                     maybeStartTimeMillis,
                     maybeEndTimeMillis,
                     maybeLimit,
-                    buildFilter(maybeFilters, maybeStatus),
-                    context.getAuthentication());
+                    buildFilter(
+                        maybeFilters,
+                        maybeStatus,
+                        context.getOperationContext().getAspectRetriever()));
 
             // Step 2: Bind profiles into GraphQL strong types.
             List<AssertionRunEvent> runEvents =
@@ -97,17 +102,31 @@ public class AssertionRunEventResolver
                                     && AssertionResultType.SUCCESS.equals(
                                         runEvent.getResult().getType()))
                         .count()));
+            result.setErrored(
+                Math.toIntExact(
+                    runEvents.stream()
+                        .filter(
+                            runEvent ->
+                                AssertionRunStatus.COMPLETE.equals(runEvent.getStatus())
+                                    && runEvent.getResult() != null
+                                    && AssertionResultType.ERROR.equals(
+                                        runEvent.getResult().getType()))
+                        .count()));
             result.setRunEvents(runEvents);
             return result;
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable
   public static Filter buildFilter(
-      @Nullable FilterInput filtersInput, @Nullable final String status) {
+      @Nullable FilterInput filtersInput,
+      @Nullable final String status,
+      @Nullable AspectRetriever aspectRetriever) {
     if (filtersInput == null && status == null) {
       return null;
     }
@@ -128,7 +147,7 @@ public class AssertionRunEventResolver
                     .setAnd(
                         new CriterionArray(
                             facetFilters.stream()
-                                .map(filter -> criterionFromFilter(filter, true))
+                                .map(filter -> criterionFromFilter(filter, true, aspectRetriever))
                                 .collect(Collectors.toList())))));
   }
 }

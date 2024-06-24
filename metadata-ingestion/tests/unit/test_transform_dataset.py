@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime, timezone
 from typing import (
     Any,
     Callable,
@@ -66,18 +67,29 @@ from datahub.ingestion.transformer.dataset_domain import (
     PatternAddDatasetDomain,
     SimpleAddDatasetDomain,
 )
+from datahub.ingestion.transformer.dataset_domain_based_on_tags import (
+    DatasetTagDomainMapper,
+)
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
 from datahub.ingestion.transformer.extract_dataset_tags import ExtractDatasetTags
 from datahub.ingestion.transformer.extract_ownership_from_tags import (
     ExtractOwnersFromTagsTransformer,
 )
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
+from datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user import (
+    PatternCleanupDatasetUsageUser,
+)
+from datahub.ingestion.transformer.pattern_cleanup_ownership import (
+    PatternCleanUpOwnership,
+)
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
+from datahub.ingestion.transformer.replace_external_url import ReplaceExternalUrl
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DatasetPropertiesClass,
+    DatasetUserUsageCountsClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnershipClass,
@@ -87,9 +99,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
-from src.datahub.ingestion.transformer.pattern_cleanup_ownership import (
-    PatternCleanUpOwnership,
-)
 
 
 def make_generic_dataset(
@@ -742,20 +751,18 @@ def test_extract_owners_from_tags():
         expected_owner_type_urn="urn:li:ownershipType:ad8557d6-dcb9-4d2a-83fc-b7d0d54f3e0f",
     )
     _test_owner(
-        tag="data_producer_owner_email:abc_xyz-email_com",
+        tag="data__producer__owner__email:abc--xyz-email_com",
         config={
             "tag_pattern": "(.*)_owner_email:",
-            "owner_character_mapping": {
+            "tag_character_mapping": {
                 "_": ".",
                 "-": "@",
                 "__": "_",
                 "--": "-",
-                "_-": "#",
-                "-_": " ",
             },
             "extract_owner_type_from_tag_pattern": True,
         },
-        expected_owner="urn:li:corpuser:abc.xyz@email.com",
+        expected_owner="urn:li:corpuser:abc-xyz@email.com",
         expected_owner_type=OwnershipTypeClass.CUSTOM,
         expected_owner_type_urn="urn:li:ownershipType:data_producer",
     )
@@ -3211,3 +3218,436 @@ def test_clean_owner_urn_transformation_should_not_remove_system_identifier(
     config: List[Union[re.Pattern, str]] = ["urn:li:corpuser:"]
 
     _test_clean_owner_urns(pipeline_context, in_owner_urns, config, in_owner_urns)
+
+
+def test_replace_external_url_word_replace(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_replace_external_url"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=ReplaceExternalUrl,
+        aspect=models.DatasetPropertiesClass(
+            externalUrl="https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
+            customProperties=EXISTING_PROPERTIES.copy(),
+        ),
+        config={"input_pattern": "datahub", "replacement": "starhub"},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert (
+        output[0].record.aspect.externalUrl
+        == "https://github.com/starhub/looker-demo/blob/master/foo.view.lkml"
+    )
+
+
+def test_replace_external_regex_replace_1(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_replace_external_url"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=ReplaceExternalUrl,
+        aspect=models.DatasetPropertiesClass(
+            externalUrl="https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
+            customProperties=EXISTING_PROPERTIES.copy(),
+        ),
+        config={"input_pattern": r"datahub/.*/", "replacement": "starhub/test/"},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert (
+        output[0].record.aspect.externalUrl
+        == "https://github.com/starhub/test/foo.view.lkml"
+    )
+
+
+def test_replace_external_regex_replace_2(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_replace_external_url"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=ReplaceExternalUrl,
+        aspect=models.DatasetPropertiesClass(
+            externalUrl="https://github.com/datahub/looker-demo/blob/master/foo.view.lkml",
+            customProperties=EXISTING_PROPERTIES.copy(),
+        ),
+        config={"input_pattern": r"\b\w*hub\b", "replacement": "test"},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert (
+        output[0].record.aspect.externalUrl
+        == "https://test.com/test/looker-demo/blob/master/foo.view.lkml"
+    )
+
+
+def test_pattern_cleanup_usage_statistics_user_1(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_pattern_cleanup_usage_statistics_user"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    TS_1 = datetime(year=2023, month=1, day=1, tzinfo=timezone.utc)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternCleanupDatasetUsageUser,
+        aspect=models.DatasetUsageStatisticsClass(
+            timestampMillis=int(TS_1.timestamp() * 1000),
+            userCounts=[
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("IAM:user1"),
+                    count=1,
+                    userEmail="user1@exaple.com",
+                ),
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("user2"),
+                    count=2,
+                    userEmail="user2@exaple.com",
+                ),
+            ],
+        ),
+        config={"pattern_for_cleanup": ["IAM:"]},
+        pipeline_context=pipeline_context,
+    )
+
+    expectedUsageStatistics = models.DatasetUsageStatisticsClass(
+        timestampMillis=int(TS_1.timestamp() * 1000),
+        userCounts=[
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("user1"),
+                count=1,
+                userEmail="user1@exaple.com",
+            ),
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("user2"),
+                count=2,
+                userEmail="user2@exaple.com",
+            ),
+        ],
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert len(output[0].record.aspect.userCounts) == 2
+    assert output[0].record.aspect.userCounts == expectedUsageStatistics.userCounts
+
+
+def test_pattern_cleanup_usage_statistics_user_2(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_pattern_cleanup_usage_statistics_user"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    TS_1 = datetime(year=2023, month=1, day=1, tzinfo=timezone.utc)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternCleanupDatasetUsageUser,
+        aspect=models.DatasetUsageStatisticsClass(
+            timestampMillis=int(TS_1.timestamp() * 1000),
+            userCounts=[
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("test_user_1"),
+                    count=1,
+                    userEmail="user1@exaple.com",
+                ),
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("test_user_2"),
+                    count=2,
+                    userEmail="user2@exaple.com",
+                ),
+            ],
+        ),
+        config={"pattern_for_cleanup": ["_user"]},
+        pipeline_context=pipeline_context,
+    )
+
+    expectedUsageStatistics = models.DatasetUsageStatisticsClass(
+        timestampMillis=int(TS_1.timestamp() * 1000),
+        userCounts=[
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("test_1"),
+                count=1,
+                userEmail="user1@exaple.com",
+            ),
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("test_2"),
+                count=2,
+                userEmail="user2@exaple.com",
+            ),
+        ],
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert len(output[0].record.aspect.userCounts) == 2
+    assert output[0].record.aspect.userCounts == expectedUsageStatistics.userCounts
+
+
+def test_pattern_cleanup_usage_statistics_user_3(
+    mock_datahub_graph,
+):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_pattern_cleanup_usage_statistics_user"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    TS_1 = datetime(year=2023, month=1, day=1, tzinfo=timezone.utc)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternCleanupDatasetUsageUser,
+        aspect=models.DatasetUsageStatisticsClass(
+            timestampMillis=int(TS_1.timestamp() * 1000),
+            userCounts=[
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("abc_user_1"),
+                    count=1,
+                    userEmail="user1@exaple.com",
+                ),
+                DatasetUserUsageCountsClass(
+                    user=builder.make_user_urn("xyz_user_2"),
+                    count=2,
+                    userEmail="user2@exaple.com",
+                ),
+            ],
+        ),
+        config={"pattern_for_cleanup": [r"_user_\d+"]},
+        pipeline_context=pipeline_context,
+    )
+
+    expectedUsageStatistics = models.DatasetUsageStatisticsClass(
+        timestampMillis=int(TS_1.timestamp() * 1000),
+        userCounts=[
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("abc"),
+                count=1,
+                userEmail="user1@exaple.com",
+            ),
+            DatasetUserUsageCountsClass(
+                user=builder.make_user_urn("xyz"),
+                count=2,
+                userEmail="user2@exaple.com",
+            ),
+        ],
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    assert len(output[0].record.aspect.userCounts) == 2
+    assert output[0].record.aspect.userCounts == expectedUsageStatistics.userCounts
+
+
+def test_domain_mapping_based_on_tags_with_valid_tags(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    server_domain = builder.make_domain_urn("test.io")
+
+    tag_one = builder.make_tag_urn("test:tag_1")
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(tags=[TagAssociationClass(tag=tag_one)])
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=DatasetTagDomainMapper,
+        aspect=models.DomainsClass(domains=[server_domain]),
+        config={"domain_mapping": {"test:tag_1": acryl_domain}},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert acryl_domain in transformed_aspect.domains
+    assert server_domain not in transformed_aspect.domains
+
+
+def test_domain_mapping_based_on_tags_with_no_matching_tags(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    server_domain = builder.make_domain_urn("test.io")
+    non_matching_tag = builder.make_tag_urn("nonMatching")
+
+    pipeline_context = PipelineContext(run_id="no_match_pipeline")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(tags=[TagAssociationClass(tag=non_matching_tag)])
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=DatasetTagDomainMapper,
+        aspect=models.DomainsClass(domains=[server_domain]),
+        config={
+            "domain_mapping": {"test:tag_1": acryl_domain},
+        },
+        pipeline_context=pipeline_context,
+    )
+    assert len(output) == 2
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    assert len(output[0].record.aspect.domains) == 1
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert acryl_domain not in transformed_aspect.domains
+    assert server_domain in transformed_aspect.domains
+
+
+def test_domain_mapping_based_on_tags_with_empty_config(mock_datahub_graph):
+    some_tag = builder.make_tag_urn("someTag")
+
+    pipeline_context = PipelineContext(run_id="empty_config_pipeline")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(tags=[TagAssociationClass(tag=some_tag)])
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=DatasetTagDomainMapper,
+        aspect=models.DomainsClass(domains=[]),
+        config={"domain_mapping": {}},
+        pipeline_context=pipeline_context,
+    )
+    assert len(output) == 2
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    assert len(output[0].record.aspect.domains) == 0
+
+
+def test_domain_mapping_based__r_on_tags_with_multiple_tags(mock_datahub_graph):
+    # Two tags that match different rules in the domain mapping configuration
+    tag_one = builder.make_tag_urn("test:tag_1")
+    tag_two = builder.make_tag_urn("test:tag_2")
+    existing_domain = builder.make_domain_urn("existing.io")
+    finance = builder.make_domain_urn("finance")
+    hr = builder.make_domain_urn("hr")
+
+    pipeline_context = PipelineContext(run_id="multiple_matches_pipeline")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(
+            tags=[TagAssociationClass(tag=tag_one), TagAssociationClass(tag=tag_two)]
+        )
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[existing_domain])
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=DatasetTagDomainMapper,
+        aspect=models.DomainsClass(domains=[existing_domain]),
+        config={
+            "domain_mapping": {"test:tag_1": finance, "test:tag_2": hr},
+            "semantics": "PATCH",
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    # Assertions to verify the expected outcome
+    assert len(output) == 2
+    assert output[0].record is not None
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+
+    # Expecting domains from both matched tags
+    assert set(output[0].record.aspect.domains) == {existing_domain, finance, hr}
+    assert len(transformed_aspect.domains) == 3
+
+
+def test_domain_mapping_based_on_tags_with_empty_tags(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    server_domain = builder.make_domain_urn("test.io")
+    pipeline_context = PipelineContext(run_id="empty_config_pipeline")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(tags=[])
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=DatasetTagDomainMapper,
+        aspect=models.DomainsClass(domains=[acryl_domain]),
+        config={"domain_mapping": {"test:tag_1": server_domain}},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    assert len(output[0].record.aspect.domains) == 1
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert acryl_domain in transformed_aspect.domains
+    assert server_domain not in transformed_aspect.domains
+
+
+def test_domain_mapping_based_on_tags_with_no_tags(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    server_domain = builder.make_domain_urn("test.io")
+    pipeline_context = PipelineContext(run_id="empty_config_pipeline")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_tags(entity_urn: str) -> Optional[models.GlobalTagsClass]:
+        return None
+
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=DatasetTagDomainMapper,
+        aspect=models.DomainsClass(domains=[acryl_domain]),
+        config={"domain_mapping": {"test:tag_1": server_domain}},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    assert len(output[0].record.aspect.domains) == 1
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert acryl_domain in transformed_aspect.domains
+    assert server_domain not in transformed_aspect.domains

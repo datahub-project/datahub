@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -91,7 +92,7 @@ public class ScrollAcrossLineageResolver
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug(
@@ -128,7 +129,10 @@ public class ScrollAcrossLineageResolver
                     entityNames,
                     sanitizedQuery,
                     maxHops,
-                    ResolverUtils.buildFilter(facetFilters, input.getOrFilters()),
+                    ResolverUtils.buildFilter(
+                        facetFilters,
+                        input.getOrFilters(),
+                        context.getOperationContext().getAspectRetriever()),
                     null,
                     scrollId,
                     keepAlive,
@@ -156,6 +160,8 @@ public class ScrollAcrossLineageResolver
                         count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

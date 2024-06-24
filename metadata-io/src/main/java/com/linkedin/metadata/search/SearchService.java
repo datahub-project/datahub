@@ -40,13 +40,20 @@ public class SearchService {
 
   public Map<String, Long> docCountPerEntity(
       @Nonnull OperationContext opContext, @Nonnull List<String> entityNames) {
+    return docCountPerEntity(opContext, entityNames, null);
+  }
+
+  public Map<String, Long> docCountPerEntity(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter) {
     return getEntitiesToSearch(opContext, entityNames, 0).stream()
         .collect(
             Collectors.toMap(
                 Function.identity(),
                 entityName ->
                     _entityDocCountCache
-                        .getEntityDocCount(opContext)
+                        .getEntityDocCount(opContext, filter)
                         .getOrDefault(entityName.toLowerCase(), 0L)));
   }
 

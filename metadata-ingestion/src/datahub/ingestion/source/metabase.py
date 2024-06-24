@@ -1,4 +1,7 @@
+import json
 import logging
+import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Tuple, Union
@@ -20,8 +23,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -49,7 +61,7 @@ logger = logging.getLogger(__name__)
 DATASOURCE_URN_RECURSION_LIMIT = 5
 
 
-class MetabaseConfig(DatasetLineageProviderConfigBase):
+class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
@@ -79,6 +91,11 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
         default="public",
         description="Default schema name to use when schema is not provided in an SQL query",
     )
+    exclude_other_user_collections: bool = Field(
+        default=False,
+        description="Flag that if true, exclude other user collections",
+    )
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
@@ -92,12 +109,17 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
         return values
 
 
+@dataclass
+class MetabaseReport(StaleEntityRemovalSourceReport):
+    pass
+
+
 @platform_name("Metabase")
 @config_class(MetabaseConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
-class MetabaseSource(Source):
+class MetabaseSource(StatefulIngestionSourceBase):
     """
     This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
     on PostgreSQL and H2 database.
@@ -142,17 +164,18 @@ class MetabaseSource(Source):
     """
 
     config: MetabaseConfig
-    report: SourceReport
+    report: MetabaseReport
     platform = "metabase"
 
     def __hash__(self):
         return id(self)
 
     def __init__(self, ctx: PipelineContext, config: MetabaseConfig):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.config = config
-        self.report = SourceReport()
+        self.report = MetabaseReport()
         self.setup_session()
+        self.source_config: MetabaseConfig = config
 
     def setup_session(self) -> None:
         login_response = requests.post(
@@ -209,6 +232,7 @@ class MetabaseSource(Source):
         try:
             collections_response = self.session.get(
                 f"{self.config.connect_uri}/api/collection/"
+                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
             )
             collections_response.raise_for_status()
             collections = collections_response.json()
@@ -286,9 +310,10 @@ class MetabaseSource(Source):
         chart_urns = []
         cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
-            chart_urn = builder.make_chart_urn(
-                self.platform, card_info.get("card").get("id", "")
-            )
+            card_id = card_info.get("card").get("id", "")
+            if not card_id:
+                continue  # most likely a virtual card without an id (text or heading), not relevant.
+            chart_urn = builder.make_chart_urn(self.platform, card_id)
             chart_urns.append(chart_urn)
 
         dashboard_info_class = DashboardInfoClass(
@@ -569,11 +594,12 @@ class MetabaseSource(Source):
                         )
                     ]
         else:
-            raw_query = (
+            raw_query_stripped = self.strip_template_expressions(
                 card_details.get("dataset_query", {}).get("native", {}).get("query", "")
             )
+
             result = create_lineage_sql_parsed_result(
-                query=raw_query,
+                query=raw_query_stripped,
                 default_db=database_name,
                 default_schema=database_schema or self.config.default_schema,
                 platform=platform,
@@ -583,16 +609,34 @@ class MetabaseSource(Source):
             )
             if result.debug_info.table_error:
                 logger.info(
-                    f"Failed to parse lineage from query {raw_query}: "
+                    f"Failed to parse lineage from query {raw_query_stripped}: "
                     f"{result.debug_info.table_error}"
                 )
                 self.report.report_warning(
                     key="metabase-query",
-                    reason=f"Unable to retrieve lineage from query: {raw_query}",
+                    reason=f"Unable to retrieve lineage from query: {raw_query_stripped}",
                 )
             return result.in_tables
 
         return None
+
+    @staticmethod
+    def strip_template_expressions(raw_query: str) -> str:
+        """
+        Workarounds for metabase raw queries containing most commonly used template expressions:
+
+        - strip conditional expressions "[[ .... ]]"
+        - replace all {{ filter expressions }} with "1"
+
+        reference: https://www.metabase.com/docs/latest/questions/native-editor/sql-parameters
+        """
+
+        # drop [[ WHERE {{FILTER}} ]]
+        query_patched = re.sub(r"\[\[.+?\]\]", r" ", raw_query)
+
+        # replace {{FILTER}} with 1
+        query_patched = re.sub(r"\{\{.+?\}\}", r"1", query_patched)
+        return query_patched
 
     @lru_cache(maxsize=None)
     def get_source_table_from_id(
@@ -732,6 +776,14 @@ class MetabaseSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = MetabaseConfig.parse_obj(config_dict)
         return cls(ctx, config)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_card_mces()

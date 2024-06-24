@@ -731,6 +731,11 @@ fragment schemaFieldFields on SchemaField {
                 ...structuredPropertiesFields
             }
         }
+        businessAttributes {
+            businessAttribute {
+                ...businessAttribute
+            }
+        }
     }
 }
 
@@ -985,9 +990,7 @@ fragment domainEntitiesFields on Domain {
     entities(input: { start: 0, count: 0 }) {
         total
     }
-    dataProducts: entities(
-        input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }
-    ) {
+    dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }) {
         total
     }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
@@ -1240,6 +1243,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         qualifiedName
         description
         cardinality
+        immutable
         valueType {
             info {
                 type
@@ -1376,7 +1380,6 @@ fragment entityHealth on Health {
     causes
 }
 
-
 fragment formsFields on Forms {
     completedForms {
         ...formAssociationFields
@@ -1406,4 +1409,50 @@ fragment entityPrivileges on EntityPrivileges {
     canManageEntity
     canManageChildren
     canEditProperties
+}
+
+fragment businessAttribute on BusinessAttributeAssociation {
+    businessAttribute {
+        urn
+        type
+        ownership {
+            ...ownershipFields
+        }
+        properties {
+            name
+            description
+            businessAttributeDataType: type
+            lastModified {
+                time
+            }
+            created {
+                time
+            }
+            tags {
+                tags {
+                    tag {
+                        urn
+                        name
+                        properties {
+                            name
+                        }
+                    }
+                    associatedUrn
+                }
+            }
+            glossaryTerms {
+                terms {
+                    term {
+                        urn
+                        type
+                        properties {
+                            name
+                        }
+                    }
+                    associatedUrn
+                }
+            }
+        }
+    }
+    associatedUrn
 }

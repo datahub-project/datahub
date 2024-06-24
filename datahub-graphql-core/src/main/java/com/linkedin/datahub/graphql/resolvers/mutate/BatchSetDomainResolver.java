@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -13,9 +14,11 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,11 +37,11 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
     final String maybeDomainUrn = input.getDomainUrn();
     final List<ResourceRefInput> resources = input.getResources();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the domain
-          validateDomain(maybeDomainUrn);
+          validateDomain(context.getOperationContext(), maybeDomainUrn);
           validateInputResources(resources, context);
 
           try {
@@ -51,12 +54,15 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
-  private void validateDomain(@Nullable String maybeDomainUrn) {
+  private void validateDomain(
+      @Nonnull OperationContext opContext, @Nullable String maybeDomainUrn) {
     if (maybeDomainUrn != null) {
-      DomainUtils.validateDomain(UrnUtils.getUrn(maybeDomainUrn), _entityService);
+      DomainUtils.validateDomain(opContext, UrnUtils.getUrn(maybeDomainUrn), _entityService);
     }
   }
 
@@ -73,7 +79,11 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(
-        resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
+        context.getOperationContext(),
+        resourceUrn,
+        resource.getSubResource(),
+        resource.getSubResourceType(),
+        _entityService);
   }
 
   private void batchSetDomains(
@@ -81,6 +91,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
     log.debug("Batch adding Domains. domainUrn: {}, resources: {}", maybeDomainUrn, resources);
     try {
       DomainUtils.setDomainForResources(
+          context.getOperationContext(),
           maybeDomainUrn == null ? null : UrnUtils.getUrn(maybeDomainUrn),
           resources,
           UrnUtils.getUrn(context.getActorUrn()),

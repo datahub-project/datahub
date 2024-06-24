@@ -15,6 +15,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -30,6 +31,10 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.List;
+
+import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import mock.MockEntityRegistry;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -43,21 +48,24 @@ public class AspectResourceTest {
   private UpdateIndicesService updateIndicesService;
   private PreProcessHooks preProcessHooks;
   private Authorizer authorizer;
+  private OperationContext opContext;
 
   @BeforeTest
   public void setup() {
     aspectResource = new AspectResource();
     aspectDao = mock(AspectDao.class);
     producer = mock(EventProducer.class);
-    entityRegistry = new MockEntityRegistry();
     updateIndicesService = mock(UpdateIndicesService.class);
     preProcessHooks = mock(PreProcessHooks.class);
-    entityService = new EntityServiceImpl(aspectDao, producer, entityRegistry, false,
+    entityService = new EntityServiceImpl(aspectDao, producer, false,
             preProcessHooks, true);
     entityService.setUpdateIndicesService(updateIndicesService);
     authorizer = mock(Authorizer.class);
     aspectResource.setAuthorizer(authorizer);
     aspectResource.setEntityService(entityService);
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    aspectResource.setSystemOperationContext(opContext);
+    entityRegistry = opContext.getEntityRegistry();
   }
 
   @Test
@@ -70,6 +78,7 @@ public class AspectResourceTest {
     mcp.setAspect(GenericRecordUtils.serializeAspect(properties));
     mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setSystemMetadata(new SystemMetadata());
 
     Authentication mockAuthentication = mock(Authentication.class);
     AuthenticationContext.setAuthentication(mockAuthentication);
@@ -88,7 +97,7 @@ public class AspectResourceTest {
             .recordTemplate(mcp.getAspect())
             .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
-            .build(entityService);
+            .build(opContext.getAspectRetrieverOpt().get());
     when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
         .thenReturn(
             List.of(List.of(

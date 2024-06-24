@@ -131,10 +131,10 @@ def run(
                 pipeline.run()
             except Exception as e:
                 logger.info(
-                    f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+                    f"Source ({pipeline.source_type}) report:\n{pipeline.source.get_report().as_string()}"
                 )
                 logger.info(
-                    f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+                    f"Sink ({pipeline.sink_type}) report:\n{pipeline.sink.get_report().as_string()}"
                 )
                 raise e
             else:
@@ -224,7 +224,7 @@ def run(
 @click.option(
     "--urn",
     type=str,
-    help="Urn of recipe to update",
+    help="Urn of recipe to update. Creates recipe if provided urn does not exist",
     required=False,
 )
 @click.option(
@@ -293,10 +293,6 @@ def deploy(
         variables["schedule"] = {"interval": schedule, "timezone": time_zone}
 
     if urn:
-        if not datahub_graph.exists(urn):
-            logger.error(f"Could not find recipe for provided urn: {urn}")
-            exit()
-        logger.info("Found recipe URN, will update recipe.")
 
         graphql_query: str = textwrap.dedent(
             """
@@ -588,6 +584,6 @@ def rollback(
                 for row in unsafe_entities:
                     writer.writerow([row.get("urn")])
 
-        except IOError as e:
+        except OSError as e:
             logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")

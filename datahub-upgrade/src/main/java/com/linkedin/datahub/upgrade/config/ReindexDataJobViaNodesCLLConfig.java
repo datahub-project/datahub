@@ -2,7 +2,9 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.vianodes.ReindexDataJobViaNodesCLL;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -14,9 +16,14 @@ public class ReindexDataJobViaNodesCLLConfig {
 
   @Bean
   public NonBlockingSystemUpgrade reindexDataJobViaNodesCLL(
-      EntityService<?> entityService,
+      final OperationContext opContext,
+      final EntityService<?> entityService,
+      final AspectDao aspectDao,
       @Value("${systemUpdate.dataJobNodeCLL.enabled}") final boolean enabled,
-      @Value("${systemUpdate.dataJobNodeCLL.batchSize}") final Integer batchSize) {
-    return new ReindexDataJobViaNodesCLL(entityService, enabled, batchSize);
+      @Value("${systemUpdate.dataJobNodeCLL.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.dataJobNodeCLL.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.dataJobNodeCLL.limit}") final Integer limit) {
+    return new ReindexDataJobViaNodesCLL(
+        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
   }
 }

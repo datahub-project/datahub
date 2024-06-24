@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PropertyValueInput;
 import com.linkedin.datahub.graphql.generated.UpsertStructuredPropertiesInput;
@@ -26,6 +27,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import graphql.com.google.common.collect.ImmutableSet;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +61,7 @@ public class UpsertStructuredPropertiesResolver
         .getStructuredPropertyInputParams()
         .forEach(param -> updateMap.put(param.getStructuredPropertyUrn(), param.getValues()));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // check authorization first
@@ -72,14 +74,14 @@ public class UpsertStructuredPropertiesResolver
             final AuditStamp auditStamp =
                 AuditStampUtils.createAuditStamp(authentication.getActor().toUrnStr());
 
-            if (!_entityClient.exists(assetUrn, authentication)) {
+            if (!_entityClient.exists(context.getOperationContext(), assetUrn)) {
               throw new RuntimeException(
                   String.format("Asset with provided urn %s does not exist", assetUrn));
             }
 
             // get or default the structured properties aspect
             StructuredProperties structuredProperties =
-                getStructuredProperties(assetUrn, authentication);
+                getStructuredProperties(context.getOperationContext(), assetUrn);
 
             // update the existing properties based on new value
             StructuredPropertyValueAssignmentArray properties =
@@ -95,24 +97,27 @@ public class UpsertStructuredPropertiesResolver
                 AspectUtils.buildMetadataChangeProposal(
                     assetUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
 
-            _entityClient.ingestProposal(structuredPropertiesProposal, authentication, false);
+            _entityClient.ingestProposal(
+                context.getOperationContext(), structuredPropertiesProposal, false);
 
             return StructuredPropertiesMapper.map(context, structuredProperties);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
-  private StructuredProperties getStructuredProperties(Urn assetUrn, Authentication authentication)
-      throws Exception {
+  private StructuredProperties getStructuredProperties(
+      @Nonnull OperationContext opContext, Urn assetUrn) throws Exception {
     EntityResponse response =
         _entityClient.getV2(
+            opContext,
             assetUrn.getEntityType(),
             assetUrn,
-            ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME),
-            authentication);
+            ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME));
     StructuredProperties structuredProperties = new StructuredProperties();
     structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray());
     if (response != null && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {

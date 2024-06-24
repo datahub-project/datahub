@@ -120,7 +120,7 @@ public class ListPostsResolverTest {
     when(_entityClient.search(
             any(), eq(POST_ENTITY_NAME), any(), eq(null), any(), anyInt(), anyInt()))
         .thenReturn(roleSearchResult);
-    when(_entityClient.batchGetV2(eq(POST_ENTITY_NAME), any(), any(), any()))
+    when(_entityClient.batchGetV2(any(), eq(POST_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     ListPostsResult result = _resolver.get(_dataFetchingEnvironment).join();

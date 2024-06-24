@@ -90,6 +90,9 @@ public class PoliciesConfig {
           "Manage Home Page Posts",
           "Create and delete home page posts");
 
+  public static final Privilege VIEW_TESTS_PRIVILEGE =
+      Privilege.of("VIEW_TESTS", "View Tests", "View Asset Tests.");
+
   public static final Privilege MANAGE_TESTS_PRIVILEGE =
       Privilege.of("MANAGE_TESTS", "Manage Tests", "Create and remove Asset Tests.");
 
@@ -130,6 +133,24 @@ public class PoliciesConfig {
           "Manage Ownership Types",
           "Create, update and delete Ownership Types.");
 
+  public static final Privilege CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE =
+      Privilege.of(
+          "CREATE_BUSINESS_ATTRIBUTE",
+          "Create Business Attribute",
+          "Create new Business Attribute.");
+
+  public static final Privilege MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_BUSINESS_ATTRIBUTE",
+          "Manage Business Attribute",
+          "Create, update, delete Business Attribute");
+
+  public static final Privilege MANAGE_CONNECTIONS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_CONNECTIONS",
+          "Manage Connections",
+          "Manage connections to external DataHub platforms.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -142,6 +163,7 @@ public class PoliciesConfig {
           MANAGE_SECRETS_PRIVILEGE,
           GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
           MANAGE_ACCESS_TOKENS,
+          VIEW_TESTS_PRIVILEGE,
           MANAGE_TESTS_PRIVILEGE,
           MANAGE_GLOSSARIES_PRIVILEGE,
           MANAGE_USER_CREDENTIALS_PRIVILEGE,
@@ -150,7 +172,10 @@ public class PoliciesConfig {
           CREATE_DOMAINS_PRIVILEGE,
           CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_GLOBAL_VIEWS,
-          MANAGE_GLOBAL_OWNERSHIP_TYPES);
+          MANAGE_GLOBAL_OWNERSHIP_TYPES,
+          CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
+          MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
+          MANAGE_CONNECTIONS_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -240,7 +265,7 @@ public class PoliciesConfig {
           "The ability to edit any information about an entity. Super user privileges for the entity.");
 
   static final Privilege DELETE_ENTITY_PRIVILEGE =
-      Privilege.of("DELETE_ENTITY", "Delete", "The ability to delete the delete this entity.");
+      Privilege.of("DELETE_ENTITY", "Delete", "The ability to delete this entity.");
 
   static final Privilege EDIT_LINEAGE_PRIVILEGE =
       Privilege.of(
@@ -322,6 +347,12 @@ public class PoliciesConfig {
           "Edit Dataset Queries",
           "The ability to edit the Queries for a Dataset.");
 
+  public static final Privilege EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_DATA_CONTRACT",
+          "Edit Data Contract",
+          "The ability to edit the Data Contract for an entity.");
+
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
       Privilege.of("EDIT_TAG_COLOR", "Edit Tag Color", "The ability to change the color of a Tag.");
@@ -388,7 +419,7 @@ public class PoliciesConfig {
   public static final Privilege RESTORE_INDICES_PRIVILEGE =
       Privilege.of(
           "RESTORE_INDICES_PRIVILEGE",
-          "Restore Indicies API",
+          "Restore Indices API",
           "The ability to use the Restore Indices API.");
 
   public static final Privilege GET_TIMESERIES_INDEX_SIZES_PRIVILEGE =
@@ -639,6 +670,19 @@ public class PoliciesConfig {
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
+  // Properties Privileges
+  public static final ResourcePrivileges STRUCTURED_PROPERTIES_PRIVILEGES =
+      ResourcePrivileges.of(
+          "structuredProperty",
+          "Structured Properties",
+          "Structured Properties",
+          ImmutableList.of(
+              CREATE_ENTITY_PRIVILEGE,
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE));
+
   // ERModelRelationship Privileges
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
@@ -646,6 +690,18 @@ public class PoliciesConfig {
           "ERModelRelationship",
           "update privileges for ermodelrelations",
           COMMON_ENTITY_PRIVILEGES);
+  public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "businessAttribute",
+          "Business Attribute",
+          "Business Attribute created on Datahub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE));
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -662,7 +718,9 @@ public class PoliciesConfig {
           CORP_USER_PRIVILEGES,
           NOTEBOOK_PRIVILEGES,
           DATA_PRODUCT_PRIVILEGES,
-          ER_MODEL_RELATIONSHIP_PRIVILEGES);
+          ER_MODEL_RELATIONSHIP_PRIVILEGES,
+          BUSINESS_ATTRIBUTE_PRIVILEGES,
+          STRUCTURED_PROPERTIES_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

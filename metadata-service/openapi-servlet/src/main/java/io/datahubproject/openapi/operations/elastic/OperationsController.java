@@ -3,7 +3,7 @@ package io.datahubproject.openapi.operations.elastic;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -54,7 +54,7 @@ import org.springframework.web.bind.annotation.RestController;
     name = "ElasticSearchOperations",
     description = "An API for managing your elasticsearch instance")
 public class OperationsController {
-  private final Authorizer authorizerChain;
+  private final AuthorizerChain authorizerChain;
   private final OperationContext systemOperationContext;
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
@@ -66,9 +66,10 @@ public class OperationsController {
       SystemMetadataService systemMetadataService,
       TimeseriesAspectService timeseriesAspectService,
       EntitySearchService searchService,
-      EntityService<?> entityService) {
+      EntityService<?> entityService,
+      AuthorizerChain authorizerChain) {
     this.systemOperationContext = systemOperationContext;
-    this.authorizerChain = systemOperationContext.getAuthorizerContext().getAuthorizer();
+    this.authorizerChain = authorizerChain;
     this.systemMetadataService = systemMetadataService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.searchService = searchService;
@@ -128,7 +129,16 @@ public class OperationsController {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(String.format(actorUrnStr + " is not authorized to get timeseries index sizes"));
     }
-    List<TimeseriesIndexSizeResult> indexSizeResults = timeseriesAspectService.getIndexSizes();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("getIndexSizes", List.of()),
+            authorizerChain,
+            authentication,
+            true);
+
+    List<TimeseriesIndexSizeResult> indexSizeResults =
+        timeseriesAspectService.getIndexSizes(opContext);
     JSONObject j = new JSONObject();
     j.put(
         "sizes",
@@ -220,7 +230,7 @@ public class OperationsController {
 
     if (!AuthUtil.isAPIAuthorized(
         authentication, authorizerChain, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
-      log.error("{} is not authorized to get timeseries index sizes", actorUrnStr);
+      log.error("{} is not authorized to get explain queries", actorUrnStr);
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
     OperationContext opContext =
@@ -267,6 +277,13 @@ public class OperationsController {
         authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            authorizerChain,
+            authentication,
+            true);
 
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()
@@ -282,9 +299,7 @@ public class OperationsController {
             .gePitEpochMs(gePitEpochMs)
             .lePitEpochMs(lePitEpochMs);
 
-    return ResponseEntity.of(
-        Optional.of(
-            entityService.streamRestoreIndices(args, log::info).collect(Collectors.toList())));
+    return ResponseEntity.of(Optional.of(entityService.restoreIndices(opContext, args, log::info)));
   }
 
   @Tag(name = "RestoreIndices")
@@ -302,10 +317,18 @@ public class OperationsController {
         authentication, authorizerChain, PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            authorizerChain,
+            authentication,
+            true);
 
     return ResponseEntity.of(
         Optional.of(
             entityService.restoreIndices(
+                opContext,
                 urns.stream().map(UrnUtils::getUrn).collect(Collectors.toSet()),
                 aspectNames,
                 batchSize)));

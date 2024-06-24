@@ -10,7 +10,7 @@ from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub.cli.cli_utils import get_system_auth
+from datahub.cli.cli_utils import fixup_gms_url, get_system_auth
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -72,7 +72,7 @@ class DataHubRestEmitter(Closeable, Emitter):
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
-        self._gms_server = gms_server
+        self._gms_server = fixup_gms_url(gms_server)
         self._token = token
         self.server_config: Dict[str, Any] = {}
 
@@ -249,6 +249,16 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         mcp_obj = pre_json_transform(mcp.to_obj())
         payload = json.dumps({"proposal": mcp_obj})
+
+        self._emit_generic(url, payload)
+
+    def emit_mcps(
+        self, mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
+    ) -> None:
+        url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
+
+        mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
+        payload = json.dumps({"proposals": mcp_objs})
 
         self._emit_generic(url, payload)
 

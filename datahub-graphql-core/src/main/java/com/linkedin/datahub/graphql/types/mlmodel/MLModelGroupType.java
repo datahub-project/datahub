@@ -75,10 +75,10 @@ public class MLModelGroupType
     try {
       final Map<Urn, EntityResponse> mlModelMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               ML_MODEL_GROUP_ENTITY_NAME,
               new HashSet<>(mlModelGroupUrns),
-              null,
-              context.getAuthentication());
+              null);
 
       final List<EntityResponse> gmsResults =
           mlModelGroupUrns.stream()
@@ -160,7 +160,7 @@ public class MLModelGroupType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(
-            MLModelUtils.getMLModelGroupUrn(urn), context.getAuthentication());
+            context.getOperationContext(), MLModelUtils.getMLModelGroupUrn(urn));
     return BrowsePathsMapper.map(context, result);
   }
 }
