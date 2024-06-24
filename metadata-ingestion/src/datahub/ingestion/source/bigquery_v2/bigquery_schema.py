@@ -377,7 +377,7 @@ class BigQuerySchemaApi:
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
             size_in_bytes=view.get("size_bytes"),
             rows_count=view.get("row_count"),
-            labels=parse_labels(view.labels) if hasattr(view, "labels") else None,
+            labels=parse_labels(view.labels) if view.get("labels") else None,
         )
 
     def get_policy_tags_for_column(
@@ -489,18 +489,20 @@ class BigQuerySchemaApi:
                             comment=column.comment,
                             is_partition_column=column.is_partitioning_column == "YES",
                             cluster_column_position=column.clustering_ordinal_position,
-                            policy_tags=list(
-                                self.get_policy_tags_for_column(
-                                    project_id,
-                                    dataset_name,
-                                    column.table_name,
-                                    column.column_name,
-                                    report,
-                                    rate_limiter,
+                            policy_tags=(
+                                list(
+                                    self.get_policy_tags_for_column(
+                                        project_id,
+                                        dataset_name,
+                                        column.table_name,
+                                        column.column_name,
+                                        report,
+                                        rate_limiter,
+                                    )
                                 )
-                            )
-                            if extract_policy_tags_from_catalog
-                            else [],
+                                if extract_policy_tags_from_catalog
+                                else []
+                            ),
                         )
                     )
 

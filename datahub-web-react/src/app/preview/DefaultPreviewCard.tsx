@@ -300,7 +300,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn expandWidth={!shouldShowRightColumn}>
+            <LeftColumn key="left-column" expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentContainer>
                         <PlatformContentView
