@@ -189,7 +189,9 @@ public class DatahubJob {
       MetadataChangeProposal dataJobInputOutputMcp = dataJobInputOutputPatchBuilder.build();
       log.info(
           "dataJobInputOutputMcp: {}",
-          dataJobInputOutputMcp.getAspect().getValue().asString(Charset.defaultCharset()));
+          Objects.requireNonNull(dataJobInputOutputMcp.getAspect())
+              .getValue()
+              .asString(Charset.defaultCharset()));
       mcps.add(dataJobInputOutputPatchBuilder.build());
 
     } else {
@@ -292,9 +294,9 @@ public class DatahubJob {
                     "upstreamLineagePatch: {}",
                     mcp.getAspect().getValue().asString(Charset.defaultCharset()));
                 mcps.add(mcp);
-              } else {
-                addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getLineage(), mcps);
               }
+            } else {
+              addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getLineage(), mcps);
             }
           }
         });

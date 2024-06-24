@@ -122,20 +122,22 @@ export function HeaderLinks(props: Props) {
                                 <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
                             </Link>
                         </MenuItem>
-                        {businessAttributesFlag && ( <MenuItem key="2">
-                            <Link to="/business-attribute">
-                                <NavTitleContainer>
-                                    <GlobalOutlined
-                                        style={{
-                                            fontSize: 14,
-                                            fontWeight: 'bold',
-                                        }}
-                                    />
-                                    <NavTitleText>Business Attribute</NavTitleText>
-                                </NavTitleContainer>
-                                <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
-                            </Link>
-                        </MenuItem>)}
+                        {businessAttributesFlag && (
+                            <MenuItem key="2">
+                                <Link to="/business-attribute">
+                                    <NavTitleContainer>
+                                        <GlobalOutlined
+                                            style={{
+                                                fontSize: 14,
+                                                fontWeight: 'bold',
+                                            }}
+                                        />
+                                        <NavTitleText>Business Attribute</NavTitleText>
+                                    </NavTitleContainer>
+                                    <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
+                                </Link>
+                            </MenuItem>
+                        )}
                     </Menu>
                 }
             >
