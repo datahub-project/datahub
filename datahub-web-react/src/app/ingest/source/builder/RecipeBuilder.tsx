@@ -67,8 +67,8 @@ function RecipeBuilder(props: Props) {
     const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
     const { type } = state;
     const [isViewingForm, setIsViewingForm] = useState(true);
-    const [hideDocsHint, setHideDocsHint] = useState(false); 
- 
+    const [hideDocsHint, setHideDocsHint] = useState(false);
+
     function switchViews(isFormView: boolean) {
         try {
             YAML.parse(displayRecipe);
@@ -83,7 +83,9 @@ function RecipeBuilder(props: Props) {
 
     return (
         <div>
-            {!hideDocsHint && sourceConfigs ? <IngestionDocumentationHint onHide={() => setHideDocsHint(true)} sourceConfigs={sourceConfigs} /> : null}
+            {!hideDocsHint && sourceConfigs ? (
+                <IngestionDocumentationHint onHide={() => setHideDocsHint(true)} sourceConfigs={sourceConfigs} />
+            ) : null}
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
             <HeaderContainer>

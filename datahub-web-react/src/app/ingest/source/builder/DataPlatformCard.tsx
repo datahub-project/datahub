@@ -41,11 +41,10 @@ const Title = styled.div`
     margin-bottom: 8px;
 `;
 
-
 const Description = styled.div`
     word-break: break-word;
     text-align: left;
-    color: #7C7C7C;
+    color: #7c7c7c;
 `;
 
 type Props = {
@@ -62,12 +61,8 @@ export const DataPlatformCard = ({ logoUrl, logoComponent, name, description, on
             <LogoContainer>
                 {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
             </LogoContainer>
-            <Title>
-                {name}
-            </Title>
-            <Description>
-                {description}
-            </Description>
+            <Title>{name}</Title>
+            <Description>{description}</Description>
         </Container>
     );
 };

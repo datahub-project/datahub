@@ -29,7 +29,7 @@ const Title = styled.div`
 const Description = styled.div`
     font-size: 14px;
     max-width: 90%;
-`; 
+`;
 
 const StyledCloseOutlined = styled(CloseOutlined)`
     color: ${ANTD_GRAY[6]};
@@ -37,7 +37,7 @@ const StyledCloseOutlined = styled(CloseOutlined)`
 
 interface Props {
     sourceConfigs: SourceConfig;
-    onHide: () => void; 
+    onHide: () => void;
 }
 
 export const IngestionDocumentationHint = ({ sourceConfigs, onHide }: Props) => {
@@ -45,11 +45,9 @@ export const IngestionDocumentationHint = ({ sourceConfigs, onHide }: Props) => 
     return (
         <Container>
             <Header>
-                <Title>
-                    Let&apos;s get connected! 🎉
-                </Title>
+                <Title>Let&apos;s get connected! 🎉</Title>
                 <Tooltip showArrow={false} title="Hide">
-                    <Button type="text" icon={<StyledCloseOutlined/>} onClick={onHide}/>
+                    <Button type="text" icon={<StyledCloseOutlined />} onClick={onHide} />
                 </Tooltip>
             </Header>
             <Description>
@@ -57,8 +55,12 @@ export const IngestionDocumentationHint = ({ sourceConfigs, onHide }: Props) => 
                     To import from {displayName}, we&apos;ll need some more information to connect to your instance.
                 </div>
                 <div>
-                    Check out the <a href={docsUrl} target="_blank" rel="noopener noreferrer">{displayName} Guide</a> to understand the prerequisites, learn about available settings,
-                    and view examples to help connect to the data source.
+                    Check out the{' '}
+                    <a href={docsUrl} target="_blank" rel="noopener noreferrer">
+                        {displayName} Guide
+                    </a>{' '}
+                    to understand the prerequisites, learn about available settings, and view examples to help connect
+                    to the data source.
                 </div>
             </Description>
         </Container>

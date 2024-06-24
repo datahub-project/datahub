@@ -286,8 +286,7 @@ const isProfilingEnabledFieldPath = 'source.config.profiling.enabled';
 export const TABLE_PROFILING_ENABLED: RecipeField = {
     name: 'profiling.enabled',
     label: 'Enable Table Profiling',
-    tooltip:
-        'Generate Data Profiles for extracted Tables. Enabling this may increase the duration of the sync.',
+    tooltip: 'Generate Data Profiles for extracted Tables. Enabling this may increase the duration of the sync.',
     type: FieldType.BOOLEAN,
     fieldPath: isProfilingEnabledFieldPath,
     rules: null,

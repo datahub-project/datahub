@@ -14,7 +14,7 @@ const Container = styled.div`
     max-height: 82vh;
     display: flex;
     flex-direction: column;
-`
+`;
 
 const Section = styled.div`
     display: flex;
@@ -22,7 +22,6 @@ const Section = styled.div`
     padding-bottom: 12px;
     overflow: hidden;
 `;
-
 
 const CancelButton = styled(Button)`
     max-width: 120px;
@@ -33,7 +32,7 @@ const SearchBarContainer = styled.div`
     justify-content: end;
     width: auto;
     padding-right: 12px;
-`
+`;
 
 const StyledSearchBar = styled(Input)`
     background-color: white;
@@ -46,7 +45,7 @@ const StyledSearchBar = styled(Input)`
 `;
 
 const StyledSearchOutlined = styled(SearchOutlined)`
-    color: #A9ADBD;
+    color: #a9adbd;
 `;
 
 const PlatformListContainer = styled.div`
@@ -56,7 +55,6 @@ const PlatformListContainer = styled.div`
     height: 100%;
     overflow-y: auto;
     padding-right: 12px;
-
 `;
 
 interface SourceOptionProps {
@@ -73,7 +71,15 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
         logoComponent = <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
     }
 
-    return <DataPlatformCard onClick={onClick} name={displayName} logoUrl={logoUrl} description={description} logoComponent={logoComponent} />;
+    return (
+        <DataPlatformCard
+            onClick={onClick}
+            name={displayName}
+            logoUrl={logoUrl}
+            description={description}
+            logoComponent={logoComponent}
+        />
+    );
 }
 
 /**

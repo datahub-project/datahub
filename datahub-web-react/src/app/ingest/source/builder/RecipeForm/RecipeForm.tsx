@@ -233,7 +233,9 @@ function RecipeForm(props: Props) {
                 <Button disabled={isEditing} onClick={goToPrevious}>
                     Previous
                 </Button>
-                <Button type="primary" htmlType="submit">Next</Button>
+                <Button type="primary" htmlType="submit">
+                    Next
+                </Button>
             </ControlsContainer>
         </RequiredFieldForm>
     );

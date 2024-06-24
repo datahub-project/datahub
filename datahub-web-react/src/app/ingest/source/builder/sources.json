@@ -5,7 +5,7 @@
         "displayName": "BigQuery",
         "description": "Import Projects, Datasets, Tables, Views, lineage, queries, and statistics from BigQuery.",
         "docsUrl": "https://datahubproject.io/docs/quick-ingestion-guides/bigquery/overview",
-        "recipe": "source:\n    type: bigquery\n    config:\n        include_table_lineage: true\n        include_usage_statistics: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"    
+        "recipe": "source:\n    type: bigquery\n    config:\n        include_table_lineage: true\n        include_usage_statistics: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:redshift",

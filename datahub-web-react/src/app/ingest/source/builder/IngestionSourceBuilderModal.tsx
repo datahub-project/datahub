@@ -14,7 +14,7 @@ const StyledModal = styled(Modal)`
         border-radius: 16px;
         overflow: hidden;
     }
-`
+`;
 
 const TitleContainer = styled.div`
     display: flex;
@@ -58,7 +58,7 @@ export enum IngestionSourceBuilderStep {
     NAME_SOURCE = 'NAME_SOURCE',
 }
 
-const modalBodyStyle = { padding: "16px 24px 16px 24px", backgroundColor: '#F6F6F6'}
+const modalBodyStyle = { padding: '16px 24px 16px 24px', backgroundColor: '#F6F6F6' };
 
 type Props = {
     initialState?: SourceBuilderState;
@@ -77,8 +77,8 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
     const [stepStack, setStepStack] = useState([initialStep]);
     const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>({
         schedule: {
-            interval: "0 0 * * *"
-        }
+            interval: '0 0 * * *',
+        },
     });
 
     const ingestionSources = JSON.parse(JSON.stringify(sourcesJson)); // TODO: replace with call to server once we have access to dynamic list of sources
@@ -141,13 +141,15 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
             visible={visible}
             onCancel={onCancel}
         >
-            {currentStepIndex > 0 ? <StepsContainer>
-                <Steps current={currentStepIndex}>
-                    {Object.keys(IngestionSourceBuilderStep).map((item) => (
-                        <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
-                    ))}
-                </Steps>
-            </StepsContainer> : null}
+            {currentStepIndex > 0 ? (
+                <StepsContainer>
+                    <Steps current={currentStepIndex}>
+                        {Object.keys(IngestionSourceBuilderStep).map((item) => (
+                            <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
+                        ))}
+                    </Steps>
+                </StepsContainer>
+            ) : null}
             <StepComponent
                 state={ingestionBuilderState}
                 updateState={setIngestionBuilderState}
