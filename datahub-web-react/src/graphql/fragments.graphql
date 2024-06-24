@@ -431,6 +431,9 @@ fragment dataJobFields on DataJob {
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
     }
+    assetOrigin {
+        ...originFields
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -532,6 +535,9 @@ fragment dashboardFields on Dashboard {
     health {
         ...entityHealth
     }
+    assetOrigin {
+        ...originFields
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {
@@ -605,6 +611,9 @@ fragment nonRecursiveMLFeature on MLFeature {
             }
         }
     }
+    assetOrigin {
+        ...originFields
+    }
 }
 
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
@@ -675,6 +684,9 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
             }
         }
     }
+    assetOrigin {
+        ...originFields
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -730,6 +742,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    assetOrigin {
+        ...originFields
     }
 }
 
@@ -952,6 +967,9 @@ fragment nonRecursiveMLModel on MLModel {
     browsePathV2 {
         ...browsePathV2Fields
     }
+    assetOrigin {
+        ...originFields
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
@@ -995,6 +1013,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    assetOrigin {
+        ...originFields
     }
 }
 
@@ -1646,4 +1667,41 @@ fragment businessAttribute on BusinessAttributeAssociation {
         }
     }
     associatedUrn
+}
+
+fragment sourceDetailsFields on SourceDetails {
+    source {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    platform {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+            ...entityDisplayNameFields
+        }
+    }
+    mechanism
+    properties {
+        key
+        value
+    }
+}
+
+fragment originFields on Origin {
+    type
+    externalType
+    resolvedSourceDetails {
+        ...sourceDetailsFields
+    }
+    rawSourceDetails {
+        ...sourceDetailsFields
+    }
 }

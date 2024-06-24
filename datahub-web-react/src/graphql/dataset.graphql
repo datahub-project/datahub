@@ -71,6 +71,9 @@ fragment nonSiblingDatasetFields on Dataset {
     parentContainers {
         ...parentContainersFields
     }
+    assetOrigin {
+        ...originFields
+    }
     usageStats(range: MONTH) {
         buckets {
             bucket

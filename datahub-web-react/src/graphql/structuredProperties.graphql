@@ -48,6 +48,9 @@ query getStructuredProperty($urn: String!) {
                     }
                 }
             }
+            assetOrigin {
+                ...originFields
+            }
         }
     }
 }

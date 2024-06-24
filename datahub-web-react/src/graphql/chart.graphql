@@ -125,6 +125,9 @@ query getChart($urn: String!) {
         forms {
             ...formsFields
         }
+        assetOrigin {
+            ...originFields
+        }
         termProposals: proposals(type: TERM_ASSOCIATION) {
             ...proposalsFragment
         }

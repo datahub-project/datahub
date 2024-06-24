@@ -80,7 +80,8 @@ public class DataJobType
           SUB_TYPES_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          SHARE_ASPECT_NAME);
+          SHARE_ASPECT_NAME,
+          ORIGIN_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
   private final EntityClient _entityClient;
 

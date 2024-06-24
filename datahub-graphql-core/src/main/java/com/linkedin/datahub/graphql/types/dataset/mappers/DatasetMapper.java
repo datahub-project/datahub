@@ -162,6 +162,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
+    mappingHelper.mapToResult(
+        ORIGIN_ASPECT_NAME,
+        (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);

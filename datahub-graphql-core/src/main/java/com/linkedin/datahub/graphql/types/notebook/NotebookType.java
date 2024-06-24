@@ -73,7 +73,8 @@ public class NotebookType
           DOMAINS_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-          BROWSE_PATHS_V2_ASPECT_NAME);
+          BROWSE_PATHS_V2_ASPECT_NAME,
+          ORIGIN_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

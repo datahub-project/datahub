@@ -60,5 +60,8 @@ query getGlossaryNode($urn: String!) {
         displayProperties {
             ...displayPropertiesFields
         }
+        assetOrigin {
+            ...originFields
+        }
     }
 }

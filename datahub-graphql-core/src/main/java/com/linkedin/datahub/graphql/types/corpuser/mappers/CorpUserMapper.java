@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Share;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
@@ -98,6 +100,9 @@ public class CorpUserMapper {
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
+    mappingHelper.mapToResult(
+        ORIGIN_ASPECT_NAME,
+        (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
 
     mapCorpUserSettings(
         result, aspectMap.getOrDefault(CORP_USER_SETTINGS_ASPECT_NAME, null), featureFlags);

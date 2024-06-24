@@ -10,6 +10,7 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Share;
 import com.linkedin.common.Status;
@@ -121,6 +122,9 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
+    mappingHelper.mapToResult(
+        ORIGIN_ASPECT_NAME,
+        (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLFeatureTable.class);

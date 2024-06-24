@@ -43,6 +43,11 @@ type StructuredPropertyEntity implements Entity {
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """

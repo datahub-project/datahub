@@ -10,6 +10,7 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Share;
 import com.linkedin.common.Status;
@@ -26,6 +27,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -125,6 +127,9 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
+    mappingHelper.mapToResult(
+        ORIGIN_ASPECT_NAME,
+        (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLFeature.class);

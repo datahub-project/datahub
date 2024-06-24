@@ -486,6 +486,7 @@ export const dataset3 = {
         ...entityPrivileges,
     },
     share: null,
+    assetOrigin: null,
     exists: true,
     lastIngested: null,
     dataPlatformInstance: null,
@@ -1356,6 +1357,7 @@ export const sampleTag = {
         colorHex: 'sample tag color',
     },
     autoRenderAspects: [],
+    assetOrigin: null,
 };
 
 export const dataFlow1 = {

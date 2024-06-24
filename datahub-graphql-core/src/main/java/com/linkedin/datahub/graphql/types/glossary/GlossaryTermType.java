@@ -61,7 +61,8 @@ public class GlossaryTermType
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
           DEPRECATION_ASPECT_NAME,
-          SHARE_ASPECT_NAME);
+          SHARE_ASPECT_NAME,
+          ORIGIN_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

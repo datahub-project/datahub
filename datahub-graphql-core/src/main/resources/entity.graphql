@@ -1831,6 +1831,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 type RoleAssociation {
@@ -2408,6 +2413,11 @@ type GlossaryTerm implements Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -2571,6 +2581,11 @@ type GlossaryNode implements Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -3029,6 +3044,11 @@ type Container implements Entity {
     The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
     """
     browsePathV2: BrowsePathV2
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -4104,6 +4124,11 @@ type CorpUser implements Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -4475,9 +4500,10 @@ type CorpGroup implements Entity {
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
     """
+    Deprecated in favor of assetOrigin for consistency with other entity types.
     Origin info about this group.
     """
-    origin: Origin
+    origin: Origin @deprecated
 
     """
     Deprecated, use properties field instead
@@ -4515,6 +4541,11 @@ type CorpGroup implements Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -4757,6 +4788,11 @@ type Tag implements Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -5495,6 +5531,11 @@ type Notebook implements Entity & BrowsableEntity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -5841,6 +5882,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -6177,6 +6223,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -6594,6 +6645,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -6854,6 +6910,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -10082,6 +10143,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -10219,6 +10285,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 type MLModelGroupProperties {
@@ -10369,6 +10440,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 type MLHyperParam {
@@ -10564,6 +10640,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 type MLPrimaryKeyProperties {
@@ -10717,6 +10798,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 type MLFeatureTableEditableProperties {
@@ -11139,6 +11225,11 @@ type Domain implements Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """
@@ -11533,6 +11624,68 @@ type Origin {
     Only populated if type is EXTERNAL. The externalType of the entity, such as the name of the identity provider.
     """
     externalType: String
+
+    """
+    Most relevant details about the source by which this asset was originated
+    """
+    resolvedSourceDetails: SourceDetails
+
+    """
+    Raw list of details about the source(s) by which this asset was originated
+    """
+    rawSourceDetails: [SourceDetails!]
+}
+
+"""
+Info about how this asset was brought into DataHub
+"""
+type SourceDetails {
+    """
+    Source of this asset ie. an ingestion source or acyl platform connection
+    """
+    source: Entity!
+
+    """
+    The platform this asset originates from such as snowflake or acryl.
+    """
+    platform: Entity!
+
+    """
+    Audit stamp for when this asset was synced
+    """
+    lastModified: ResolvedAuditStamp!
+
+    """
+    The means by which this asset got synchronized
+    """
+    mechanism: SyncMechanism!
+
+    """
+    Additional information related to the origin of this metadata
+    """
+    properties: [StringMapEntry!]
+}
+
+"""
+Enum to define where an entity originated from.
+"""
+enum SyncMechanism {
+    """
+    Synced via ingestion recipes
+    """
+    INGEST
+    """
+    Synced via metadata sharing with another Acryl instance
+    """
+    SHARE
+    """
+    Synced via the API (pushed from clients using the API directly)
+    """
+    API
+    """
+    Synced via some other mechanism
+    """
+    OTHER
 }
 
 """
@@ -12660,6 +12813,11 @@ type DataProduct implements Entity {
     Info about the results from sharing metadata for this entity
     """
     share: Share
+
+    """
+    Carries information about where an entity originated from.
+    """
+    assetOrigin: Origin
 }
 
 """

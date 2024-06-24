@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.structuredproperty;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.Origin;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringArrayMap;
@@ -16,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.StringValue;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyDefinition;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.TypeQualifier;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
@@ -49,6 +51,10 @@ public class StructuredPropertyMapper
     MappingHelper<StructuredPropertyEntity> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, (this::mapStructuredPropertyDefinition));
+    mappingHelper.mapToResult(
+        ORIGIN_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setAssetOrigin(OriginMapper.map(queryContext, new Origin(dataMap))));
     return mappingHelper.getResult();
   }
 

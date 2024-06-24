@@ -1,15 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataproduct.mappers;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SHARE_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.*;
 import com.linkedin.common.Forms;
@@ -22,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -99,6 +92,9 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
+    mappingHelper.mapToResult(
+        ORIGIN_ASPECT_NAME,
+        (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, DataProduct.class);

@@ -107,6 +107,9 @@ query getUser($urn: String!, $groupsCount: Int) {
                 }
             }
         }
+        assetOrigin {
+            ...originFields
+        }
     }
 }
 

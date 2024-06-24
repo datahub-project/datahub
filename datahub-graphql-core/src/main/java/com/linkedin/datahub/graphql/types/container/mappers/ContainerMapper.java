@@ -9,6 +9,7 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Share;
 import com.linkedin.common.Status;
@@ -169,6 +170,12 @@ public class ContainerMapper {
       result.setBrowsePathV2(
           BrowsePathsV2Mapper.map(
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedOrigin = aspects.get(ORIGIN_ASPECT_NAME);
+    if (envelopedOrigin != null) {
+      result.setAssetOrigin(
+          OriginMapper.map(context, new Origin(envelopedOrigin.getValue().data())));
     }
 
     return result;

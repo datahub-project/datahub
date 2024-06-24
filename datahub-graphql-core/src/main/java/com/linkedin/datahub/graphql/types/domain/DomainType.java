@@ -43,7 +43,8 @@ public class DomainType
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.FORMS_ASPECT_NAME,
           Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
-          Constants.SHARE_ASPECT_NAME);
+          Constants.SHARE_ASPECT_NAME,
+          Constants.ORIGIN_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   public DomainType(final EntityClient entityClient) {

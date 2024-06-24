@@ -84,6 +84,9 @@ query getContainer($urn: String!) {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        assetOrigin {
+            ...originFields
+        }
     }
 }
 

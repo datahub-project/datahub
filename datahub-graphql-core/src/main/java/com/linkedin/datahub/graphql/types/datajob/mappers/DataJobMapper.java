@@ -11,6 +11,7 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Share;
 import com.linkedin.common.Status;
@@ -33,6 +34,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAsp
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.FineGrainedLineagesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -142,6 +144,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                 result.setForms(FormsMapper.map(new Forms(data), entityUrn.toString()));
               } else if (SHARE_ASPECT_NAME.equals(name)) {
                 result.setShare(ShareMapper.map(context, new Share(data)));
+              } else if (ORIGIN_ASPECT_NAME.equals(name)) {
+                result.setAssetOrigin(OriginMapper.map(context, new Origin(data)));
               }
             });
 

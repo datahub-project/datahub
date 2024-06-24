@@ -8,6 +8,7 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
@@ -34,6 +35,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.ChangeAuditStampsMapper
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -105,6 +107,9 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
         BROWSE_PATHS_V2_ASPECT_NAME,
         (notebook, dataMap) ->
             notebook.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(dataMap))));
+    mappingHelper.mapToResult(
+        ORIGIN_ASPECT_NAME,
+        (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Notebook.class);
