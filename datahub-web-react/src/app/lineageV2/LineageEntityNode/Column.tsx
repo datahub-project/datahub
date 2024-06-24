@@ -103,7 +103,7 @@ export default function Column({ urn, entityType, fieldPath, highlighted, type, 
                     <CompactFieldIconWithTooltip type={type} nativeDataType={nativeDataType} />
                 </TypeWrapper>
             )}
-            <OverflowTitle title={columnName} />
+            <OverflowTitle title={columnName} placement="right" />
             <CustomHandle id={id} type="source" position={Position.Right} isConnectable={false} />
         </ColumnWrapper>
     );

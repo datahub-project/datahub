@@ -149,8 +149,7 @@ const TitleWrapper = styled.div`
 
 const Title = styled(OverflowTitle)`
     font-weight: 600;
-    font-size: 12px;
-    line-height: 125%;
+    line-height: 1.25em;
 `;
 
 const ExpandColumnsWrapper = styled.div`
