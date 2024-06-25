@@ -199,7 +199,6 @@ Cypress.Commands.add("clickOptionWithTextToScrollintoView", (text) => {
 });
 
 Cypress.Commands.add("clickOptionInScrollView", (text, selector) => {
-  // Ensure the selector targets the specific scrollable container, defaults to body if not specified
   cy.get(selector).within(() => {
     cy.contains(text).then(el => {
       // Scroll the element into view
