@@ -84,7 +84,7 @@ export function LineageColumnView({ defaultDirection }: Props) {
         setShouldRefetch(false);
     }
 
-    const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn) || '';
+    const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn);
     const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, urn);
     const impactAnalysisUrn = isColumnLevelLineage && selectedColumnUrn ? selectedColumnUrn : urn;
     const canEditLineage = !!entityData?.privileges?.canEditLineage;

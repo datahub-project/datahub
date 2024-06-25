@@ -88,7 +88,7 @@ export default function Column({ urn, entityType, fieldPath, highlighted, type, 
                         action: selectedColumn === id ? 'deselect' : 'select',
                         parentUrn: urn,
                         parentEntityType: entityType,
-                        entityUrn: generateSchemaFieldUrn(fieldPath, urn),
+                        entityUrn: generateSchemaFieldUrn(fieldPath, urn) || '',
                         entityType: EntityType.SchemaField,
                         dataType: type,
                     });

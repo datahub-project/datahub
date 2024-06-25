@@ -1,5 +1,6 @@
-import { encodeSchemaField } from '../../../../lineage/utils/columnLineageUtils';
+import { encodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
 
-export function generateSchemaFieldUrn(fieldPath: string, resourceUrn: string) {
+export function generateSchemaFieldUrn(fieldPath: string | undefined | null, resourceUrn: string): string | null {
+    if (!fieldPath) return null;
     return `urn:li:schemaField:(${resourceUrn},${encodeSchemaField(fieldPath)})`;
 }
