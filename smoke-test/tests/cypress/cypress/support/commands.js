@@ -107,7 +107,7 @@ Cypress.Commands.add("goToAccessTokenSettings", () => {
 
 Cypress.Commands.add("goToIngestionPage", () => {
   cy.visit("/ingestion");
-  cy.waitTextVisible("Manage Ingestion");
+  cy.waitTextVisible("Manage Data Sources");
 });
 
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
