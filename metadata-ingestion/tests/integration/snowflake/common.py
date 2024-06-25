@@ -252,26 +252,11 @@ def default_query_results(  # noqa: C901
             for view_idx in range(1, num_views + 1)
         ]
     elif query == SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"):
-        raise Exception("Information schema query returned too much data")
-    elif query in [
-        *[
-            SnowflakeQuery.columns_for_table(
-                f"TABLE_{tbl_idx}", "TEST_SCHEMA", "TEST_DB"
-            )
-            for tbl_idx in range(1, num_tables + 1)
-        ],
-        *[
-            SnowflakeQuery.columns_for_table(
-                f"VIEW_{view_idx}", "TEST_SCHEMA", "TEST_DB"
-            )
-            for view_idx in range(1, num_views + 1)
-        ],
-    ]:
         return [
             {
-                # "TABLE_CATALOG": "TEST_DB",
-                # "TABLE_SCHEMA": "TEST_SCHEMA",
-                # "TABLE_NAME": "TABLE_{}".format(tbl_idx),
+                "TABLE_CATALOG": "TEST_DB",
+                "TABLE_SCHEMA": "TEST_SCHEMA",
+                "TABLE_NAME": table_name,
                 "COLUMN_NAME": f"COL_{col_idx}",
                 "ORDINAL_POSITION": col_idx,
                 "IS_NULLABLE": "NO",
@@ -281,6 +266,10 @@ def default_query_results(  # noqa: C901
                 "NUMERIC_PRECISION": None if col_idx > 1 else 38,
                 "NUMERIC_SCALE": None if col_idx > 1 else 0,
             }
+            for table_name in (
+                [f"TABLE_{tbl_idx}" for tbl_idx in range(1, num_tables + 1)]
+                + [f"VIEW_{view_idx}" for view_idx in range(1, num_views + 1)]
+            )
             for col_idx in range(1, num_cols + 1)
         ]
     elif query in (
