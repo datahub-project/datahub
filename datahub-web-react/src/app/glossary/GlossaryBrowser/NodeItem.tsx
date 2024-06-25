@@ -63,12 +63,23 @@ interface Props {
     openToEntity?: boolean;
     refreshBrowser?: boolean;
     nodeUrnToHide?: string;
+    termUrnToHide?: string;
     selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
 }
 
 function NodeItem(props: Props) {
-    const { node, isSelecting, hideTerms, openToEntity, refreshBrowser, nodeUrnToHide, selectTerm, selectNode } = props;
+    const {
+        node,
+        isSelecting,
+        hideTerms,
+        openToEntity,
+        refreshBrowser,
+        nodeUrnToHide,
+        termUrnToHide,
+        selectTerm,
+        selectNode,
+    } = props;
     const shouldHideNode = nodeUrnToHide === node.urn;
 
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
@@ -171,6 +182,7 @@ function NodeItem(props: Props) {
                                         isSelecting={isSelecting}
                                         selectTerm={selectTerm}
                                         includeActiveTabPath
+                                        termUrnToHide={termUrnToHide}
                                     />
                                 ))}
                         </ChildrenWrapper>

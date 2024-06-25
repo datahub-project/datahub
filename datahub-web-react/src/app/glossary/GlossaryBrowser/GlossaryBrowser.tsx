@@ -27,6 +27,7 @@ interface Props {
     openToEntity?: boolean;
     refreshBrowser?: boolean;
     nodeUrnToHide?: string;
+    termUrnToHide?: string;
     selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
 }
@@ -40,6 +41,7 @@ function GlossaryBrowser(props: Props) {
         refreshBrowser,
         openToEntity,
         nodeUrnToHide,
+        termUrnToHide,
         selectTerm,
         selectNode,
     } = props;
@@ -88,6 +90,7 @@ function GlossaryBrowser(props: Props) {
                     nodeUrnToHide={nodeUrnToHide}
                     selectTerm={selectTerm}
                     selectNode={selectNode}
+                    termUrnToHide={termUrnToHide}
                 />
             ))}
             {!hideTerms &&

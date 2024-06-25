@@ -71,18 +71,20 @@ function AddRelatedTermsModal(props: Props) {
     const [termSearch, { data: termSearchData }] = useGetSearchResultsLazyQuery();
     const termSearchResults = termSearchData?.search?.searchResults || [];
 
-    const tagSearchOptions = termSearchResults.map((result: SearchResult) => {
-        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+    const tagSearchOptions = termSearchResults
+        .filter((result) => result?.entity?.urn !== entityDataUrn)
+        .map((result: SearchResult) => {
+            const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
 
-        return (
-            <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
-                <SearchResultContainer>
-                    <ParentEntities parentEntities={getParentEntities(result.entity) || []} />
-                    <TermLabel name={displayName} />
-                </SearchResultContainer>
-            </Select.Option>
-        );
-    });
+            return (
+                <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
+                    <SearchResultContainer>
+                        <ParentEntities parentEntities={getParentEntities(result.entity) || []} />
+                        <TermLabel name={displayName} />
+                    </SearchResultContainer>
+                </Select.Option>
+            );
+        });
 
     const handleSearch = (text: string) => {
         if (text.length > 0) {
@@ -206,7 +208,7 @@ function AddRelatedTermsModal(props: Props) {
                     {tagSearchOptions}
                 </StyledSelect>
                 <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
-                    <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
+                    <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} termUrnToHide={entityDataUrn} />
                 </BrowserWrapper>
             </ClickOutside>
         </Modal>

@@ -49,10 +49,12 @@ interface Props {
     isSelecting?: boolean;
     selectTerm?: (urn: string, displayName: string) => void;
     includeActiveTabPath?: boolean;
+    termUrnToHide?: string;
 }
 
 function TermItem(props: Props) {
-    const { term, isSelecting, selectTerm, includeActiveTabPath } = props;
+    const { term, isSelecting, selectTerm, includeActiveTabPath, termUrnToHide } = props;
+    const shouldHideTerm = termUrnToHide === term.urn;
 
     const { entityData } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
@@ -67,6 +69,7 @@ function TermItem(props: Props) {
 
     const isOnEntityPage = entityData && entityData.urn === term.urn;
 
+    if (shouldHideTerm) return null;
     return (
         <TermWrapper>
             {!isSelecting && (
