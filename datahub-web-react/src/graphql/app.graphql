@@ -68,6 +68,7 @@ query appConfig {
             nestedDomainsEnabled
             platformBrowseV2
             businessAttributeEntityEnabled
+            dataContractsEnabled
         }
     }
 }

@@ -12,9 +12,7 @@ describe('validateURL function', () => {
         const validator = validateURL('test url');
         await expect(validator.validator(null, 'http://example')).rejects.toThrowError('A valid test url is required.');
         await expect(validator.validator(null, 'example')).rejects.toThrowError('A valid test url is required.');
-        await expect(validator.validator(null, 'http://example')).rejects.toThrowError(
-            'A valid test url is required.',
-        );
+        await expect(validator.validator(null, 'http://example')).rejects.toThrowError('A valid test url is required.');
     });
 
     it('should resolve if the value is empty', async () => {

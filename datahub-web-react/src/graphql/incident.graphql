@@ -24,9 +24,11 @@ fragment incidentsFields on EntityIncidentsResult {
             time
             actor
         }
+        tags {
+            ...globalTagsFields
+        }
     }
 }
-
 
 fragment datasetSiblingIncidents on Dataset {
     siblings {

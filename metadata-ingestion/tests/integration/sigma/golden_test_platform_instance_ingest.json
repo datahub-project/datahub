@@ -39,6 +39,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "datasetId": "8891fd40-5470-4ff2-a74f-6e61ee44d3fc",
                 "path": "Acryl Data"
             },
             "externalUrl": "https://app.sigmacomputing.com/acryldata/b/49HFLTr6xytgrPly3PFsNC",
@@ -186,6 +187,7 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "datasetId": "bd6b86e8-cd4a-4b25-ab65-f258c2a68a8f",
                 "path": "Acryl Data/New Folder"
             },
             "externalUrl": "https://app.sigmacomputing.com/acryldata/b/5LqGLu14qUnqh3cN6wRJBd",
@@ -618,7 +620,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713794496054,
+        "lastObserved": 1718348049212,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1088,7 +1090,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713794496115,
+        "lastObserved": 1718348049268,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1239,7 +1241,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713794496188,
+        "lastObserved": 1718348049351,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1913,6 +1915,31 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,cloud_instance.49HFLTr6xytgrPly3PFsNC,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev_instance.long_tail_companions.adoption.pets,DEV)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1718348049380,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:Warning",
     "changeType": "UPSERT",
@@ -1940,31 +1967,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1713794496203,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,cloud_instance.49HFLTr6xytgrPly3PFsNC,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev_instance.long_tail_companions.adoption.pets,DEV)",
-                    "type": "COPY"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496202,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

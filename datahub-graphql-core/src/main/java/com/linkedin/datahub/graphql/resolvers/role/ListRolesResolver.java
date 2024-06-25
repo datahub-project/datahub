@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.ListRolesInput;
 import com.linkedin.datahub.graphql.generated.ListRolesResult;
@@ -47,7 +48,7 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // First, get all role Urns.
@@ -80,7 +81,9 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
           } catch (Exception e) {
             throw new RuntimeException("Failed to list roles", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static List<DataHubRole> mapEntitiesToRoles(

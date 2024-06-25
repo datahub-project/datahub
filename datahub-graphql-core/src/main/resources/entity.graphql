@@ -1158,6 +1158,11 @@ enum EntityType {
     """
     ROLE
 
+    """
+    A data contract
+    """
+    DATA_CONTRACT
+
     """"
     An structured property on entities
     """
@@ -7294,6 +7299,11 @@ type Assertion implements EntityWithRelationships & Entity {
     status: Status
 
     """
+    The standard tags for the Assertion
+    """
+    tags: GlobalTags
+
+    """
     Experimental API.
     For fetching extra aspects that do not have custom UI code yet
     """
@@ -7395,6 +7405,11 @@ type AssertionRunEvent implements TimeSeriesAspect {
   timestampMillis: Long!
 
   """
+  The time at which the run event was last observed by the DataHub system - ie, when it was reported by external systems
+  """
+  lastObservedMillis: Long
+
+  """
   Urn of assertion which is evaluated
   """
   assertionUrn: String!
@@ -7410,7 +7425,7 @@ type AssertionRunEvent implements TimeSeriesAspect {
   runId: String!
 
   """
-  The status of the assertion run as per this timeseries event.
+  The status of the assertion run as per this timeseries event
   """
   status: AssertionRunStatus!
 
@@ -7504,6 +7519,11 @@ The result type of an assertion, success or failure.
 """
 enum AssertionResultType {
     """
+    The assertion has not yet been fully evaluated.
+    """
+    INIT
+
+    """
     The assertion succeeded.
     """
     SUCCESS
@@ -7512,6 +7532,11 @@ enum AssertionResultType {
     The assertion failed.
     """
     FAILURE
+
+    """
+    The assertion errored.
+    """
+    ERROR
 }
 
 """
@@ -7639,6 +7664,16 @@ enum AssertionStdOperator {
     EQUAL_TO
 
     """
+    Value being asserted is not equal to value
+    """
+    NOT_EQUAL_TO
+
+    """
+    Value being asserted is null
+    """
+    NULL
+
+    """
     Value being asserted is not null
     """
     NOT_NULL
@@ -7672,6 +7707,16 @@ enum AssertionStdOperator {
     Value being asserted is not in one of the array values.
     """
     NOT_IN
+
+    """
+    Value being asserted is true
+    """
+    IS_TRUE
+
+    """
+    Value being asserted is false
+    """
+    IS_FALSE
 
     """
     Other
@@ -7818,6 +7863,11 @@ type AssertionRunEventsResult {
   The number of succeeded run events
   """
   succeeded: Int!
+
+  """
+  The number of errored run events
+  """
+  errored: Int!
 
   """
   The run events themselves
@@ -12535,4 +12585,19 @@ type ListBusinessAttributesResult {
     The Business Attributes
     """
     businessAttributes: [BusinessAttribute!]!
+}
+
+"""
+A cron schedule
+"""
+type CronSchedule {
+    """
+    A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+    """
+    cron: String!
+
+    """
+    Timezone in which the cron interval applies, e.g. America/Los_Angeles
+    """
+    timezone: String!
 }
