@@ -167,7 +167,7 @@ class SlackNotificationSink(NotificationSink):
                 attachments=attachments,
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"Failed to send notification after {max_attempts} attempts. Error: {e}"
             )
             return []
@@ -196,7 +196,7 @@ class SlackNotificationSink(NotificationSink):
                 attachments=attachments,
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"Failed to update messages after {max_attempts} attempts. Error: {e}"
             )
 
@@ -212,7 +212,7 @@ class SlackNotificationSink(NotificationSink):
         try:
             retry_with_backoff(self._try_reload_web_client, max_attempts=3)
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to reload Slack web client! This means slack configs may not be updated.",
                 e,
             )

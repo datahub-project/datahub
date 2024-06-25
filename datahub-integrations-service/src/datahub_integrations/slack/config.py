@@ -27,8 +27,8 @@ class _FrozenConnectionModel(ConnectionModel, frozen=True):
 class SlackAppConfigCredentials(_FrozenConnectionModel):
     """Used for creating and updating the App Manifest"""
 
-    access_token: str
-    refresh_token: str
+    access_token: Optional[str]
+    refresh_token: Optional[str]
 
     # Default is to consider the token already expired.
     exp: datetime = pydantic.Field(
