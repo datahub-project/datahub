@@ -94,6 +94,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
                         "client_id": "foo",
                         "client_secret": "bar",
                         "extract_usage_history": False,
+                        "platform_instance": "ap-south-1",
                     },
                 },
                 "sink": {
