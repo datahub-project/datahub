@@ -204,12 +204,12 @@ public class OperationsController {
           @Nullable
           Filter filters,
       @Parameter(
-              name = "sortCriterion",
+              name = "sortCriteria",
               required = false,
               description = "Criterion to sort results on.")
-          @RequestParam("sortCriterion")
+          @RequestParam("sortCriteria")
           @Nullable
-          SortCriterion sortCriterion,
+          List<SortCriterion> sortCriteria,
       @Parameter(
               name = "searchFlags",
               required = false,
@@ -248,7 +248,7 @@ public class OperationsController {
             documentId,
             entityName,
             filters,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             keepAlive,
             size,

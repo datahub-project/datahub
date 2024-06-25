@@ -86,7 +86,7 @@ public class TimeseriesController {
       throw new IllegalArgumentException("Only timeseries aspects are supported.");
     }
 
-    List<SortCriterion> sortCriterion =
+    List<SortCriterion> sortCriteria =
         List.of(
             SearchUtil.sortBy("timestampMillis", SortOrder.DESCENDING),
             SearchUtil.sortBy("messageId", SortOrder.DESCENDING));
@@ -97,7 +97,7 @@ public class TimeseriesController {
             entityName,
             aspectName,
             null,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             count,
             startTimeMillis,

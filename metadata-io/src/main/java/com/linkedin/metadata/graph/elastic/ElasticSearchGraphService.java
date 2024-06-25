@@ -317,7 +317,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nullable Filter destinationEntityFilter,
       @Nonnull List<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count,
       @Nullable Long startTimeMillis,
@@ -333,7 +333,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
             destinationEntityFilter,
             relationshipTypes,
             relationshipFilter,
-            sortCriterion,
+            sortCriteria,
             scrollId,
             count);
 

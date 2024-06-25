@@ -437,7 +437,7 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.any(),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
-                Mockito.eq(null),
+                Mockito.eq(Collections.emptyList()),
                 Mockito.eq(null)))
         .thenThrow(new RemoteInvocationException());
 
@@ -506,7 +506,7 @@ public class SearchAcrossEntitiesResolverTest {
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
-            Mockito.eq(null));
+            Mockito.eq(Collections.emptyList()));
   }
 
   private static void verifyMockViewService(ViewService mockService, Urn viewUrn) {
