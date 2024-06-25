@@ -116,7 +116,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
                         prefix={<StyledSearchOutlined />}
                     />
                 </SearchBarContainer>
-                <PlatformListContainer>
+                <PlatformListContainer data-testid="data-source-options">
                     {filteredSources.map((source) => (
                         <SourceOption key={source.urn} source={source} onClick={() => onSelectTemplate(source.name)} />
                     ))}
