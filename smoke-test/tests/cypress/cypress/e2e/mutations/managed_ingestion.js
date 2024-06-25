@@ -10,7 +10,7 @@ describe("run managed ingestion", () => {
     cy.login();
     cy.goToIngestionPage();
     cy.clickOptionWithText("Create new source");
-    cy.clickOptionWithTextToScrollintoView("Other");
+    cy.clickOptionInScrollView("Other", '[data-testid="data-source-options"]');
 
     cy.waitTextVisible("source-type");
     readyToTypeEditor().type("{ctrl}a").clear();
