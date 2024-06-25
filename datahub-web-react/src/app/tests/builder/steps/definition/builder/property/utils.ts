@@ -5,7 +5,12 @@ import {
     StdDataType,
 } from '../../../../../../../types.generated';
 import { PropertyPredicate } from '../types';
-import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID, STRUCTURED_PROPERTY_REFERENCE_REGEX } from './constants';
+import {
+    STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+    STRUCTURED_PROPERTY_REFERENCE_REGEX,
+    OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+    OWNERSHIP_TYPE_REFERENCE_REGEX,
+} from './constants';
 import { isUnaryOperator, Operator, OperatorId, OPERATOR_ID_TO_DETAILS } from './types/operators';
 import { entityProperties, Property } from './types/properties';
 import { ValueInputType, ValueOptions, ValueTypeId, VALUE_TYPE_ID_TO_DETAILS } from './types/values';
@@ -157,6 +162,28 @@ export const isStructuredPropertyId = (propertyId: string) => {
 };
 
 /**
+ * Attempts to determine whether the property id should be treated as a "ownership type id",
+ * which implies that the editor experience we show will be handled slightly differently than the default.
+ *
+ * There are 2 cases where we will consider the property to be related to ownership types:
+ *
+ * 1. The property id is equivalent to the "placeholder" property id used by the normal Property Select.
+ * This implies that the user has just selected "Ownership Type" from the list of possible entity properties,
+ * but has not yet selected a specific type (which is required to complete the test).
+ *
+ * 2. The property id is a reference to a specific ownership type, having the form "ownership.ownerTypes.urn:li:ownershipType:xyz".
+ * This implies that a property has already been chosen for testing by the user.
+ *
+ * @param propertyId the property id that may refer to the structured property concept.
+ */
+export const isOwnershipTypeId = (propertyId: string) => {
+    return (
+        propertyId === OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID ||
+        OWNERSHIP_TYPE_REFERENCE_REGEX.test(propertyId)
+    );
+};
+
+/**
  * Attempts to extract the URN of a structured property to reference using the property id.
  * Does this by extracting a regex group if there is a match:
  *
@@ -167,6 +194,20 @@ export const isStructuredPropertyId = (propertyId: string) => {
  */
 export const extractStructuredPropertyReferenceUrn = (propertyId: string) => {
     const match = propertyId.match(STRUCTURED_PROPERTY_REFERENCE_REGEX);
+    return match ? match[1] : undefined;
+};
+
+/**
+ * Attempts to extract the URN of a ownership type to reference using the property id.
+ * Does this by extracting a regex group if there is a match:
+ *
+ * ownership.ownerTypes.urn:li:ownershipType:xyz
+ *
+ * @param propertyId the property id that may contain reference to a specific ownership type.
+ * Returns undefined if a ownership type urn cannot be found (meaning one is not yet selected).
+ */
+export const extractOwnershipTypeReferenceUrn = (propertyId: string) => {
+    const match = propertyId.match(OWNERSHIP_TYPE_REFERENCE_REGEX);
     return match ? match[1] : undefined;
 };
 
@@ -214,6 +255,19 @@ export const getStructuredPropertiesOperatorOptions = (property: StructuredPrope
                 : baseTypes;
         }
     }
+};
+
+/**
+ * Returns a set of valid operator options given a ownership type definition.
+ */
+export const getOwnershipTypeOperatorOptions = () => {
+    return [
+               OPERATOR_ID_TO_DETAILS.get(OperatorId.EXISTS),
+               OPERATOR_ID_TO_DETAILS.get(OperatorId.EQUAL_TO),
+               OPERATOR_ID_TO_DETAILS.get(OperatorId.REGEX_MATCH),
+               OPERATOR_ID_TO_DETAILS.get(OperatorId.CONTAINS_STR),
+               OPERATOR_ID_TO_DETAILS.get(OperatorId.STARTS_WITH),
+           ];
 };
 
 /**
@@ -307,4 +361,17 @@ export const getStructuredPropertyValueOptions = (property: StructuredPropertyEn
                 options: undefined,
             };
     }
+};
+
+/**
+* Returns a set of valid operator options given a ownership type definition.
+*/
+export const getOwnershipTypeValueOptions = (predicate: PropertyPredicate): ValueOptions | undefined => {
+        if (!predicate.operator || isUnaryOperator(predicate.operator)) {
+                return undefined;
+        }
+        return {
+                   inputType: ValueInputType.TEXT,
+                   options: undefined,
+                };
 };
