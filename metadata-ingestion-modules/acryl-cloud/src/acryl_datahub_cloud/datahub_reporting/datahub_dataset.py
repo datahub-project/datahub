@@ -265,6 +265,7 @@ class DataHubBasedS3Dataset:
         bucket, key = self.get_file_uri().replace("s3://", "").split("/", 1)
         assert self.s3_client is not None
         assert self.local_file_path is not None
+        logger.info(f"Uploading {self.local_file_path} to s3://{bucket}/{key}")
         self.s3_client.upload_file(self.local_file_path, bucket, key)
 
     def _register_dataset(self) -> Iterable[MetadataChangeProposalWrapper]:

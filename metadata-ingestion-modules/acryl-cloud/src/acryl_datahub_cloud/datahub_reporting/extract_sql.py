@@ -211,23 +211,25 @@ class DataHubReportingExtractSQLSource(Source):
                     os.getcwd(), target_dir, os.path.basename(file_key)
                 )
 
+                logger.info(
+                    f"Downloading s3://{bucket}/{file_key} to {local_file_path}"
+                )
+
                 # Download file from S3
                 self.s3_client.download_file(bucket, file_key, local_file_path)
-                # print(f"Downloaded {file_key} to {local_file_path}")
         else:
             logger.warning(f"No objects found in {prefix}")
 
     @staticmethod
     def _zip_folder(folder_path: str, output_file: str) -> None:
+        logger.info(f"Zipping {folder_path} to {output_file}")
         with zipfile.ZipFile(output_file, "x", zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(folder_path):
                 for file in files:
                     file_path = os.path.join(root, file)
+                    logger.info(f"Adding {file_path} to ZIP file")
                     # Add file to zip archive with relative path
                     zipf.write(file_path, os.path.relpath(file_path, folder_path))
-
-    def _upload_file(self, bucket: str, prefix: str, file: str) -> None:
-        self.s3_client.upload_file(file, bucket, prefix)
 
     def get_report(self) -> SourceReport:
         return self.report
