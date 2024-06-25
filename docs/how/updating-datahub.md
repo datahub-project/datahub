@@ -19,6 +19,16 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #9857 (#10773) `lower` method was removed from `get_db_name` of `SQLAlchemySource` class. This change will affect the urns of all related to `SQLAlchemySource` entities.</br>
+  Old `urn`, where `data_base_name` is `Some_Database`:
+  ```
+  - urn:li:dataset:(urn:li:dataPlatform:paltform,some_database.schema.entitie,ENV)
+  ```
+  New `urn`, where `data_base_name` is `Some_Database`:
+  ```
+  - urn:li:dataset:(urn:li:dataPlatform:paltform,Some_Database.schema.entitie,ENV)
+  ```
+  Re-running with stateful ingestion should automatically clear up the entities with old URNS and add entities with new URNs, therefore not duplicating the containers or jobs. 
 
 - Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this 
   behavior is required.
