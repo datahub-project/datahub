@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 _R = TypeVar("_R")
 _Args = TypeVar("_Args", bound=tuple)
 _PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL = 0.05
+_DEFAULT_BATCHER_MIN_PROCESS_INTERVAL = timedelta(seconds=30)
 
 
 class PartitionExecutor(Closeable):
@@ -182,7 +183,7 @@ class BatchPartitionExecutor(Closeable):
         # class context like this.
         process_batch: Callable[[List], None],
         max_per_batch: int = 100,
-        min_process_interval: Optional[timedelta] = None,
+        min_process_interval: timedelta = _DEFAULT_BATCHER_MIN_PROCESS_INTERVAL,
     ) -> None:
         """Similar to PartitionExecutor, but with batching.
 
@@ -207,7 +208,7 @@ class BatchPartitionExecutor(Closeable):
         self.max_pending = max_pending
         self.max_per_batch = max_per_batch
         self.process_batch = process_batch
-        self.min_process_interval = min_process_interval or timedelta(seconds=5)
+        self.min_process_interval = min_process_interval
         assert self.max_workers > 1
 
         # We add one here to account for the clearinghouse worker thread.

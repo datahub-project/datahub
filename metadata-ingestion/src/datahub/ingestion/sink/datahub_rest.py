@@ -62,6 +62,9 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     max_threads: int = DEFAULT_REST_SINK_MAX_THREADS
     max_pending_requests: int = 2000
 
+    # Only applies in async batch mode.
+    max_per_batch: int = 100
+
 
 @dataclasses.dataclass
 class DataHubRestSinkReport(SinkReport):
@@ -127,7 +130,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 max_workers=self.config.max_threads,
                 max_pending=self.config.max_pending_requests,
                 process_batch=self._emit_batch_wrapper,
-                # TODO: make other things configurable
+                max_per_batch=self.config.max_per_batch,
             )
         else:
             self.executor = PartitionExecutor(
