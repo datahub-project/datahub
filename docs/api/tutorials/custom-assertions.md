@@ -285,6 +285,6 @@ query getAssertion {
     }
 }
 ```
-
+</TabItem>
 </Tabs>
 
