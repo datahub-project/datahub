@@ -114,6 +114,12 @@ class SnowflakeV2Config(
         description="Populates view->view and table->view column lineage using DataHub's sql parser.",
     )
 
+    lazy_schema_resolver: bool = Field(
+        default=False,
+        description="If enabled, uses lazy schema resolver to resolve schemas for tables and views. "
+        "This is useful if you have a large number of schemas and want to avoid bulk fetching the schema for each table/view.",
+    )
+
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
     _provision_role_removed = pydantic_removed_field("provision_role")
 
