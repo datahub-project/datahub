@@ -21,8 +21,8 @@ new_assertion_urn = graph.upsert_custom_assertion(
     platformUrn="urn:li:dataPlatform:great-expectations",  # OR you can provide 'platformName="My Custom Platform"'
     fieldPath="field_foo",  # Optional: if you want to associate it with a specific field
     externalUrl="https://my-monitoring-tool.com/result-for-this-assertion",  # Optional: link to monitoring tool
-    logic="SELECT * FROM X WHERE Y"  # Optional: custom SQL for the assertion, rendered in the UI
+    logic="SELECT * FROM X WHERE Y",  # Optional: custom SQL for the assertion, rendered in the UI
 ).get("urn")
 
 if new_assertion_urn is not None:
-    log.info(f'Upserted assertion URN: {new_assertion_urn}')
+    log.info(f"Upserted assertion URN: {new_assertion_urn}")

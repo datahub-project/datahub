@@ -18,12 +18,7 @@ res = graph.report_assertion_result(
     urn="urn:li:assertion:<your-new-assertion-id>",  # Replace with your actual assertion URN
     timestampMillis=int(time.time() * 1000),  # Current Unix timestamp in milliseconds
     type="SUCCESS",  # Can be 'SUCCESS', 'FAILURE', 'ERROR', or 'INIT'
-    properties=[
-        {
-            "key": "my_custom_key",
-            "value": "my_custom_value"
-        }
-    ],
+    properties=[{"key": "my_custom_key", "value": "my_custom_value"}],
     externalUrl="https://my-great-expectations.com/results/1234",  # Optional: URL to the results in the external tool
     # Uncomment the following section and use if type is 'ERROR'
     # errorType="UNKNOWN_ERROR",
@@ -31,4 +26,4 @@ res = graph.report_assertion_result(
 )
 
 if res:
-    log.info(f'Successfully reported Assertion Result!')
+    log.info("Successfully reported Assertion Result!")
