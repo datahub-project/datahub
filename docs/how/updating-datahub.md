@@ -20,6 +20,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this 
+  behavior is required.
+
 ### Potential Downtime
 
 ### Deprecations
