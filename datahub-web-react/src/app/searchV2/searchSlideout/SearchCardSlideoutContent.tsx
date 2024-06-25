@@ -15,6 +15,10 @@ type Props = {
 };
 
 const PaddingContainer = styled.div`
+    padding: 0px 8px;
+`;
+
+const OwnersContainer = styled(PaddingContainer)`
     margin-bottom: -6px;
 `;
 
@@ -40,37 +44,41 @@ export const SearchCardSlideoutContent = ({ item, expandedSection }: Props) => {
 
     if (cachedExpandedSection === PreviewSection.TAGS) {
         return (
-            <TagTermGroup
-                editableTags={genericProps?.globalTags}
-                showEmptyMessage
-                entityUrn={genericProps?.urn || ''}
-                entityType={genericProps?.type}
-                readOnly
-                fontSize={12}
-            />
+            <PaddingContainer>
+                <TagTermGroup
+                    editableTags={genericProps?.globalTags}
+                    showEmptyMessage
+                    entityUrn={genericProps?.urn || ''}
+                    entityType={genericProps?.type}
+                    readOnly
+                    fontSize={12}
+                />
+            </PaddingContainer>
         );
     }
 
     if (cachedExpandedSection === PreviewSection.GLOSSARY_TERMS) {
         return (
-            <TagTermGroup
-                editableGlossaryTerms={genericProps?.glossaryTerms}
-                showEmptyMessage
-                entityUrn={genericProps?.urn || ''}
-                entityType={genericProps?.type}
-                readOnly
-                fontSize={12}
-            />
+            <PaddingContainer>
+                <TagTermGroup
+                    editableGlossaryTerms={genericProps?.glossaryTerms}
+                    showEmptyMessage
+                    entityUrn={genericProps?.urn || ''}
+                    entityType={genericProps?.type}
+                    readOnly
+                    fontSize={12}
+                />
+            </PaddingContainer>
         );
     }
 
     if (cachedExpandedSection === PreviewSection.OWNERS) {
         return (
-            <PaddingContainer>
+            <OwnersContainer>
                 {genericProps?.ownership?.owners?.map((owner) => (
                     <ExpandedOwner key={owner.owner.urn} entityUrn={genericProps?.urn || ''} owner={owner} readOnly />
                 ))}
-            </PaddingContainer>
+            </OwnersContainer>
         );
     }
 

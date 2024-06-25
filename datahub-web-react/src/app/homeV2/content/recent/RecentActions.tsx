@@ -8,7 +8,7 @@ const Container = styled.div`
     display: flex;
     align-items: start;
     justify-content: start;
-    margin-top: 12px;
+    margin-top: 24px;
     padding: 16px 24px 24px 24px;
     overflow: hidden;
     background-color: #fff;
