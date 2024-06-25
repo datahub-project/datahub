@@ -2,8 +2,8 @@ package com.linkedin.metadata.search.utils;
 
 import static com.datahub.authorization.AuthUtil.VIEW_RESTRICTED_ENTITY_TYPES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.search.utils.ESUtils.*;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
-import static com.linkedin.metadata.utils.SearchUtil.KEYWORD_SUFFIX;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;

@@ -18,6 +18,7 @@ import com.linkedin.metadata.test.executor.elastic.ElasticTestDefinition;
 import com.linkedin.metadata.test.executor.elastic.ElasticTestDefinitionConvertor;
 import com.linkedin.metadata.test.executor.elastic.PredicateToFilter;
 import com.linkedin.metadata.test.query.TestQuery;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +66,7 @@ public class TestDefinitionExecutorTest {
     Mockito.when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(List.of());
 
     Predicate testPredicate = result.getOn().getConditions();
-    Filter filter = PredicateToFilter.transformPredicateToFilter(testPredicate);
+    Filter filter = PredicateToFilter.transformPredicateToFilter(testPredicate, Mockito.mock(OperationContext.class));
     assertEquals(
         filter.toString(),
         "{or=[{and=[{condition=EQUAL, field=platform, value=urn:li:dataPlatform:teradata, values=[urn:li:dataPlatform:teradata]}]}]}");
