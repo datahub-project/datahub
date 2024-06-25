@@ -4371,6 +4371,7 @@
                   "name" : "MLPrimaryKeyProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with a MLPrimaryKey",
+                  "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
                     "name" : "description",
                     "type" : "string",
@@ -4460,6 +4461,7 @@
                   "name" : "MLFeatureProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with a MLFeature",
+                  "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
                     "name" : "description",
                     "type" : "string",

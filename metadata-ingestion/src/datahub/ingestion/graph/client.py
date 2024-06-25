@@ -15,6 +15,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Literal,
     Optional,
     Tuple,
     Type,
@@ -1444,6 +1445,151 @@ class DataHubGraph(DatahubRestEmitter):
         )
 
         return res["runAssertionsForAsset"]
+
+    def get_entities_v2(
+        self,
+        entity_name: str,
+        urns: List[str],
+        aspects: List[str] = [],
+        with_system_metadata: bool = False,
+    ) -> Dict[str, Any]:
+        payload = {
+            "urns": urns,
+            "aspectNames": aspects,
+            "withSystemMetadata": with_system_metadata,
+        }
+        headers: Dict[str, Any] = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        url = f"{self.config.server}/openapi/v2/entity/batch/{entity_name}"
+        response = self._session.post(url, data=json.dumps(payload), headers=headers)
+        response.raise_for_status()
+
+        json_resp = response.json()
+        entities = json_resp.get("entities", [])
+        aspects_set = set(aspects)
+        retval: Dict[str, Any] = {}
+
+        for entity in entities:
+            entity_aspects = entity.get("aspects", {})
+            entity_urn = entity.get("urn", None)
+
+            if entity_urn is None:
+                continue
+            for aspect_key, aspect_value in entity_aspects.items():
+                # Include all aspects if aspect filter is empty
+                if len(aspects) == 0 or aspect_key in aspects_set:
+                    retval.setdefault(entity_urn, {})
+                    retval[entity_urn][aspect_key] = aspect_value
+        return retval
+
+    def upsert_custom_assertion(
+        self,
+        urn: Optional[str],
+        entity_urn: str,
+        type: str,
+        description: str,
+        platform_name: Optional[str] = None,
+        platform_urn: Optional[str] = None,
+        field_path: Optional[str] = None,
+        external_url: Optional[str] = None,
+        logic: Optional[str] = None,
+    ) -> Dict:
+        graph_query: str = """
+            mutation upsertCustomAssertion(
+                $assertionUrn: String,
+                $entityUrn: String!,
+                $type: String!,
+                $description: String!,
+                $fieldPath: String,
+                $platformName: String,
+                $platformUrn: String,
+                $externalUrl: String,
+                $logic: String
+            ) {
+                upsertCustomAssertion(urn: $assertionUrn, input: {
+                    entityUrn: $entityUrn
+                    type: $type
+                    description: $description
+                    fieldPath: $fieldPath
+                    platform: {
+                        urn: $platformUrn
+                        name: $platformName
+                    }
+                    externalUrl: $externalUrl
+                    logic: $logic
+                }) {
+                        urn
+                }
+            }
+        """
+
+        variables = {
+            "assertionUrn": urn,
+            "entityUrn": entity_urn,
+            "type": type,
+            "description": description,
+            "fieldPath": field_path,
+            "platformName": platform_name,
+            "platformUrn": platform_urn,
+            "externalUrl": external_url,
+            "logic": logic,
+        }
+
+        res = self.execute_graphql(
+            query=graph_query,
+            variables=variables,
+        )
+
+        return res["upsertCustomAssertion"]
+
+    def report_assertion_result(
+        self,
+        urn: str,
+        timestamp_millis: int,
+        type: Literal["SUCCESS", "FAILURE", "ERROR", "INIT"],
+        properties: Optional[List[Dict[str, str]]] = None,
+        external_url: Optional[str] = None,
+        error_type: Optional[str] = None,
+        error_message: Optional[str] = None,
+    ) -> bool:
+        graph_query: str = """
+            mutation reportAssertionResult(
+                $assertionUrn: String!,
+                $timestampMillis: Long!,
+                $type: AssertionResultType!,
+                $properties: [StringMapEntryInput!],
+                $externalUrl: String,
+                $error: AssertionResultErrorInput,
+            ) {
+                reportAssertionResult(urn: $assertionUrn, result: {
+                    timestampMillis: $timestampMillis
+                    type: $type
+                    properties: $properties
+                    externalUrl: $externalUrl
+                    error: $error
+                })
+            }
+        """
+
+        variables = {
+            "assertionUrn": urn,
+            "timestampMillis": timestamp_millis,
+            "type": type,
+            "properties": properties,
+            "externalUrl": external_url,
+            "error": {"type": error_type, "message": error_message}
+            if error_type
+            else None,
+        }
+
+        res = self.execute_graphql(
+            query=graph_query,
+            variables=variables,
+        )
+
+        return res["reportAssertionResult"]
 
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()
