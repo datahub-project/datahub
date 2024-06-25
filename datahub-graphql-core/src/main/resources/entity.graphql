@@ -7328,6 +7328,11 @@ type AssertionInfo {
     An optional human-readable description of the assertion
     """
     description: String
+
+    """
+    URL where assertion details are available
+    """
+    externalUrl: String
 }
 
 """
@@ -7405,6 +7410,11 @@ type AssertionRunEvent implements TimeSeriesAspect {
   timestampMillis: Long!
 
   """
+  The time at which the run event was last observed by the DataHub system - ie, when it was reported by external systems
+  """
+  lastObservedMillis: Long
+
+  """
   Urn of assertion which is evaluated
   """
   assertionUrn: String!
@@ -7420,7 +7430,7 @@ type AssertionRunEvent implements TimeSeriesAspect {
   runId: String!
 
   """
-  The status of the assertion run as per this timeseries event.
+  The status of the assertion run as per this timeseries event
   """
   status: AssertionRunStatus!
 
@@ -7485,6 +7495,75 @@ type AssertionResult {
     """
     nativeResults: [StringMapEntry!]
 
+    """
+    Error details, if type is ERROR
+    """
+    error: AssertionResultError
+}
+
+"""
+An error encountered when evaluating an AssertionResult
+"""
+type AssertionResultError {
+    """
+    The type of error encountered
+    """
+    type: AssertionResultErrorType!
+
+    """
+    Additional metadata depending on the type of error
+    """
+    properties: [StringMapEntry!]
+}
+
+"""
+The type of error encountered when evaluating an AssertionResult
+"""
+enum AssertionResultErrorType {
+    """
+    Source is unreachable
+    """
+    SOURCE_CONNECTION_ERROR
+
+    """
+    Source query failed to execute
+    """
+    SOURCE_QUERY_FAILED
+
+    """
+    Invalid parameters were detected
+    """
+    INVALID_PARAMETERS
+
+    """
+    Insufficient data to evaluate assertion
+    """
+    INSUFFICIENT_DATA
+
+    """
+    Event type not supported by the specified source
+    """
+    INVALID_SOURCE_TYPE
+
+    """
+    Platform not supported
+    """
+    UNSUPPORTED_PLATFORM
+
+    """
+    Error while executing a custom SQL assertion
+    """
+    CUSTOM_SQL_ERROR
+
+    """
+    Error while executing a field assertion
+    """
+    FIELD_ASSERTION_ERROR
+
+    """
+    Unknown error
+    """
+    UNKNOWN_ERROR
 }
 
 type BatchSpec {
@@ -7838,6 +7917,11 @@ enum AssertionType {
     A schema or structural assertion.
     """
     DATA_SCHEMA
+
+    """
+    A custom assertion.
+    """
+    CUSTOM
 }
 
 """
@@ -12580,4 +12664,19 @@ type ListBusinessAttributesResult {
     The Business Attributes
     """
     businessAttributes: [BusinessAttribute!]!
+}
+
+"""
+A cron schedule
+"""
+type CronSchedule {
+    """
+    A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+    """
+    cron: String!
+
+    """
+    Timezone in which the cron interval applies, e.g. America/Los_Angeles
+    """
+    timezone: String!
 }

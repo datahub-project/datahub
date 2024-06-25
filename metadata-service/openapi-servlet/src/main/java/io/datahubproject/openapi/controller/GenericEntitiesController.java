@@ -14,6 +14,7 @@ import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
@@ -133,7 +134,8 @@ public abstract class GenericEntitiesController<
   @Operation(summary = "Scroll entities")
   public ResponseEntity<S> getEntities(
       @PathVariable("entityName") String entityName,
-      @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspectNames,
+      @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspects1,
+      @RequestParam(value = "aspects", defaultValue = "") Set<String> aspects2,
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "query", defaultValue = "*") String query,
       @RequestParam(value = "scrollId", required = false) String scrollId,
@@ -187,7 +189,7 @@ public abstract class GenericEntitiesController<
         buildScrollResult(
             opContext,
             result.getEntities(),
-            aspectNames,
+            ImmutableSet.<String>builder().addAll(aspects1).addAll(aspects2).build(),
             withSystemMetadata,
             result.getScrollId()));
   }
@@ -199,7 +201,8 @@ public abstract class GenericEntitiesController<
   public ResponseEntity<E> getEntity(
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
-      @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspectNames,
+      @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspects1,
+      @RequestParam(value = "aspects", defaultValue = "") Set<String> aspects2,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata)
       throws URISyntaxException {
@@ -219,7 +222,12 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    return buildEntityList(opContext, List.of(urn), aspectNames, withSystemMetadata).stream()
+    return buildEntityList(
+            opContext,
+            List.of(urn),
+            ImmutableSet.<String>builder().addAll(aspects1).addAll(aspects2).build(),
+            withSystemMetadata)
+        .stream()
         .findFirst()
         .map(ResponseEntity::ok)
         .orElse(ResponseEntity.notFound().header(NOT_FOUND_HEADER, "ENTITY").build());
@@ -352,7 +360,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    entityService.deleteAspect(opContext, entityUrn, entitySpec.getKeyAspectName(), Map.of(), true);
+    entityService.deleteUrn(opContext, urn);
   }
 
   @Tag(name = "Generic Entities")
@@ -482,7 +490,7 @@ public abstract class GenericEntitiesController<
   @Tag(name = "Generic Aspects")
   @PatchMapping(
       value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}",
-      consumes = "application/json-patch+json",
+      consumes = {"application/json-patch+json", MediaType.APPLICATION_JSON_VALUE},
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Patch an entity aspect. (Experimental)")
   public ResponseEntity<E> patchAspect(

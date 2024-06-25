@@ -107,6 +107,10 @@ classification_lib = {
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
+    # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
+    # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
+    # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+    "numpy<2",
 }
 
 sql_common = (

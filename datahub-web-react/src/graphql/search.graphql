@@ -859,7 +859,7 @@ fragment searchResultsWithoutSchemaField on Entity {
 fragment searchResultFields on Entity {
     ...searchResultsWithoutSchemaField
     ... on SchemaFieldEntity {
-          ...entityField
+        ...entityField
     }
 }
 
@@ -969,23 +969,23 @@ fragment searchResults on SearchResults {
 }
 
 fragment entityField on SchemaFieldEntity {
-  urn
-  type
-  parent {
     urn
     type
-  }
-  fieldPath
-  structuredProperties {
-    properties {
-      ...structuredPropertiesFields
+    parent {
+        urn
+        type
     }
-  }
-  businessAttributes {
-    businessAttribute {
-      ...businessAttribute
+    fieldPath
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
     }
-  }
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
 }
 
 fragment schemaFieldEntityFields on SchemaFieldEntity {
