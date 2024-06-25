@@ -220,11 +220,6 @@ module.exports = {
           className: "saasOnly",
         },
         {
-          "Metadata Ingestion With Acryl": [
-            "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
-          ],
-        },
-        {
           "DataHub API": [
             {
               type: "doc",
@@ -815,6 +810,7 @@ module.exports = {
         "docs/api/tutorials/descriptions",
         "docs/api/tutorials/custom-properties",
         "docs/api/tutorials/assertions",
+        "docs/api/tutorials/custom-assertions",
         "docs/api/tutorials/incidents",
         "docs/api/tutorials/operations",
         "docs/api/tutorials/data-contracts",
