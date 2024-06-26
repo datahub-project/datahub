@@ -35,7 +35,7 @@ def _build_prefix_groups(names: List[str], max_batch_size: int) -> List[PrefixGr
         prefix_length = len(group.prefix) + 1
         subgroups = defaultdict(list)
         for name in group.names:
-            if len(name) <= prefix_length:
+            if len(name) < prefix_length:
                 # Handle cases where a single name is also the prefix for a large number of names.
                 # For example, if NAME and NAME_{1..10000} are both in the list.
                 result.append(PrefixGroup(prefix=name, names=[name], exact_match=True))

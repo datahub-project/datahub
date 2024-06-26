@@ -35,7 +35,7 @@ def test_build_prefix_batches_exceeds_max_batch_size():
     ]
     expected = [
         [PrefixGroup(prefix="app", names=["app"], exact_match=True)],
-        [PrefixGroup(prefix="app", names=["apple", "applet", "application"])],
+        [PrefixGroup(prefix="appl", names=["apple", "applet", "application"])],
         [PrefixGroup(prefix="b", names=["banana", "band", "bandana"])],
         [
             PrefixGroup(prefix="c", names=["candle", "candy"]),
