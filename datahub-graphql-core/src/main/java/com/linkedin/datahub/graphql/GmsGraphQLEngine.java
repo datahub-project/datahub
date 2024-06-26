@@ -115,6 +115,7 @@ import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SiblingProperties;
+import com.linkedin.datahub.graphql.generated.SourceDetails;
 import com.linkedin.datahub.graphql.generated.StructuredPropertiesEntry;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyDefinition;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParams;
@@ -778,6 +779,7 @@ public class GmsGraphQLEngine {
     configureBusinessAttributeAssociationResolver(builder);
     configureMetadataAttributionResolver(builder);
     configureConnectionResolvers(builder);
+    configureSourceDetailsResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -3238,5 +3240,20 @@ public class GmsGraphQLEngine {
                           ? connection.getPlatform().getUrn()
                           : null;
                     })));
+  }
+
+  private void configureSourceDetailsResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "SourceDetails",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "source",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((SourceDetails) env.getSource()).getSource()))
+                .dataFetcher(
+                    "platform",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((SourceDetails) env.getSource()).getPlatform())));
   }
 }
