@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Dropdown, Menu } from 'antd';
 import { BellFilled, BellOutlined } from '@ant-design/icons';
-import useSubscriptionSummary from '../useSubscriptionSummary';
 import { ActionMenuItem } from '../../../entityV2/shared/EntityDropdown/styledComponents';
 import SubscribeButtonMenu from './SubscribeButtonMenu';
 import { GenericEntityProperties } from '../../../entity/shared/types';
 import { EntityType } from '../../../../types.generated';
+import Loading from '../../Loading';
 
 const StyledBellFilled = styled(BellFilled)`
     && {
@@ -35,9 +35,18 @@ interface Props {
 }
 
 export const SubscribeMenuAction = ({ entityUrn, entityData, entityType }: Props) => {
-    const { isUserSubscribed, setIsUserSubscribed, refetchSubscriptionSummary } = useSubscriptionSummary({
-        entityUrn,
-    });
+    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [isFetchingSubscriptionSummary, setIsFetchingSubscriptionSummary] = useState(false);
+
+    const renderSubscribeIcon = () => {
+        if (isFetchingSubscriptionSummary) {
+            return <Loading height={13} />;
+        }
+        if (isSubscribed) {
+            return <StyledBellFilled />;
+        }
+        return <StyledBellOutlined />;
+    };
 
     return (
         <ActionMenuItem key="subscribe">
@@ -46,9 +55,8 @@ export const SubscribeMenuAction = ({ entityUrn, entityData, entityType }: Props
                 overlay={
                     <Menu>
                         <SubscribeButtonMenu
-                            isUserSubscribed={isUserSubscribed}
-                            setIsUserSubscribed={setIsUserSubscribed}
-                            refetchSubscriptionSummary={refetchSubscriptionSummary}
+                            setIsFetchingSubscriptionSummary={setIsFetchingSubscriptionSummary}
+                            setIsSubscribed={setIsSubscribed}
                             entityUrn={entityUrn}
                             entityData={entityData}
                             entityType={entityType}
@@ -56,7 +64,7 @@ export const SubscribeMenuAction = ({ entityUrn, entityData, entityType }: Props
                     </Menu>
                 }
             >
-                {isUserSubscribed ? <StyledBellFilled /> : <StyledBellOutlined />}
+                {renderSubscribeIcon()}
             </Dropdown>
         </ActionMenuItem>
     );

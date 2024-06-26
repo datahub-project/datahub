@@ -22,8 +22,8 @@ import { EntityType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 import ShareButtonMenu from '../../../shared/share/v2/ShareButtonMenu';
-import useSubscriptionSummary from '../../../shared/subscribe/useSubscriptionSummary';
 import SubscribeButtonMenu from '../../../shared/subscribe/v2/SubscribeButtonMenu';
+import Loading from '../../../shared/Loading';
 import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
@@ -136,10 +136,8 @@ const EntityDropdown = (props: Props) => {
         options?.skipDeleteWait,
     );
 
-    const { isUserSubscribed, setIsUserSubscribed, refetchSubscriptionSummary } = useSubscriptionSummary({
-        entityUrn: urn,
-    });
-
+    const [isFetchingSubscriptionSummary, setIsFetchingSubscriptionSummary] = useState(false);
+    const [isUserSubscribed, setIsUserSubscribed] = useState(false);
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
@@ -182,6 +180,16 @@ const EntityDropdown = (props: Props) => {
      * A default path to redirect to if the entity is deleted.
      */
     const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType, entityData);
+
+    const renderSubscribeIcon = () => {
+        if (isFetchingSubscriptionSummary) {
+            return <Loading height={13} />;
+        }
+        if (isUserSubscribed) {
+            return <BellFilled />;
+        }
+        return <BellOutlined />;
+    };
 
     return (
         <>
@@ -295,14 +303,14 @@ const EntityDropdown = (props: Props) => {
                                 disabled={false}
                                 title={
                                     <MenuItem>
-                                        {isUserSubscribed ? <BellFilled /> : <BellOutlined />} &nbsp;Subscribe
+                                        <div>{renderSubscribeIcon()}</div>
+                                        &nbsp;Subscribe
                                     </MenuItem>
                                 }
                             >
                                 <SubscribeButtonMenu
-                                    isUserSubscribed={isUserSubscribed}
-                                    setIsUserSubscribed={setIsUserSubscribed}
-                                    refetchSubscriptionSummary={refetchSubscriptionSummary}
+                                    setIsFetchingSubscriptionSummary={setIsFetchingSubscriptionSummary}
+                                    setIsSubscribed={setIsUserSubscribed}
                                     entityUrn={urn}
                                     entityData={entityData}
                                     entityType={entityType}

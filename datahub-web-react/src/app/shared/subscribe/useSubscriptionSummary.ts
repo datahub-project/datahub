@@ -12,15 +12,19 @@ const useSubscriptionSummary = ({ entityUrn, isEntityExists = true }: Props) => 
     const entityRegistry = useEntityRegistry();
     const [isUserSubscribed, setIsUserSubscribed] = useState(false);
     const skip = !isEntityExists;
-    const { data: entitySubscriptionSummaryData, refetch: refetchSubscriptionSummary } =
-        useGetEntitySubscriptionSummaryQuery({
-            skip,
-            variables: {
-                input: {
-                    entityUrn,
-                },
+    const {
+        data: entitySubscriptionSummaryData,
+        refetch: refetchSubscriptionSummary,
+        loading: isFetchingSubscriptionSummary,
+    } = useGetEntitySubscriptionSummaryQuery({
+        skip,
+        variables: {
+            input: {
+                entityUrn,
             },
-        });
+        },
+        fetchPolicy: 'cache-first',
+    });
 
     useEffect(() => {
         setIsUserSubscribed(entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.isUserSubscribed || false);
@@ -42,6 +46,7 @@ const useSubscriptionSummary = ({ entityUrn, isEntityExists = true }: Props) => 
         groupNames,
         setIsUserSubscribed,
         refetchSubscriptionSummary,
+        isFetchingSubscriptionSummary,
     };
 };
 

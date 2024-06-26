@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import SubscriptionDrawer from '../drawer/SubscriptionDrawer';
 import useSubscription from '../useSubscription';
 import useDeleteSubscription from '../useDeleteSubscription';
@@ -6,6 +6,7 @@ import useGroupRelationships from '../useGroupRelationships';
 import { StyledMenuItem } from '../../share/v2/styledComponents';
 import { EntityType } from '../../../../types.generated';
 import { GenericEntityProperties } from '../../../entity/shared/types';
+import useSubscriptionSummary from '../useSubscriptionSummary';
 
 const DROPDOWN_KEYS = {
     SUBSCRIBE_ME: 'SUBSCRIBE_ME',
@@ -14,18 +15,16 @@ const DROPDOWN_KEYS = {
 } as const;
 
 interface Props {
-    isUserSubscribed: boolean;
-    setIsUserSubscribed: React.Dispatch<React.SetStateAction<boolean>>;
-    refetchSubscriptionSummary: any;
+    setIsFetchingSubscriptionSummary: (isFetchingSubscriptionSummary: boolean) => void;
+    setIsSubscribed: (isSubscribed: boolean) => void;
     entityUrn: string;
     entityData: GenericEntityProperties | null;
     entityType: EntityType;
 }
 
 export default function SubscribeButtonMenu({
-    isUserSubscribed,
-    setIsUserSubscribed,
-    refetchSubscriptionSummary,
+    setIsFetchingSubscriptionSummary,
+    setIsSubscribed,
     entityUrn,
     entityData,
     entityType,
@@ -41,6 +40,16 @@ export default function SubscribeButtonMenu({
         entityUrn,
         groupUrn,
     });
+
+    const { isUserSubscribed, setIsUserSubscribed, refetchSubscriptionSummary, isFetchingSubscriptionSummary } =
+        useSubscriptionSummary({
+            entityUrn,
+        });
+
+    useEffect(() => {
+        setIsFetchingSubscriptionSummary(isFetchingSubscriptionSummary);
+        setIsSubscribed(isUserSubscribed);
+    }, [isFetchingSubscriptionSummary, isUserSubscribed, setIsFetchingSubscriptionSummary, setIsSubscribed]);
 
     const handleUpsertSubscription = () => setIsUserSubscribed(true);
 
@@ -102,11 +111,12 @@ export default function SubscribeButtonMenu({
 
     return (
         <>
-            {items.map((item) => (
-                <StyledMenuItem key={item.key} onClick={() => onClickMenuItem(item.key)}>
-                    {item.label}
-                </StyledMenuItem>
-            ))}
+            {!isFetchingSubscriptionSummary &&
+                items.map((item) => (
+                    <StyledMenuItem key={item.key} onClick={() => onClickMenuItem(item.key)}>
+                        {item.label}
+                    </StyledMenuItem>
+                ))}
             <SubscriptionDrawer
                 isOpen={isDrawerOpen}
                 onClose={onCloseDrawer}
