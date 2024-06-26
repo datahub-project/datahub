@@ -95,6 +95,15 @@ class SnowflakeV2Config(
         description="If enabled, populates the snowflake technical schema and descriptions.",
     )
 
+    include_primary_keys: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake primary keys.",
+    )
+    include_foreign_keys: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake foreign keys.",
+    )
+
     include_column_lineage: bool = Field(
         default=True,
         description="Populates table->table and view->table column lineage. Requires appropriate grants given to the role and the Snowflake Enterprise Edition or above.",
@@ -103,6 +112,12 @@ class SnowflakeV2Config(
     include_view_column_lineage: bool = Field(
         default=True,
         description="Populates view->view and table->view column lineage using DataHub's sql parser.",
+    )
+
+    lazy_schema_resolver: bool = Field(
+        default=False,
+        description="If enabled, uses lazy schema resolver to resolve schemas for tables and views. "
+        "This is useful if you have a large number of schemas and want to avoid bulk fetching the schema for each table/view.",
     )
 
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
