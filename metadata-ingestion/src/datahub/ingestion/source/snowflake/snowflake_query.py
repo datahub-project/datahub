@@ -4,6 +4,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
+from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 SHOW_VIEWS_MAX_PAGE_SIZE = 10000
 
@@ -228,50 +229,50 @@ LIMIT {limit} {from_clause};
 """
 
     @staticmethod
-    def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        select
-        table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        column_name AS "COLUMN_NAME",
-        ordinal_position AS "ORDINAL_POSITION",
-        is_nullable AS "IS_NULLABLE",
-        data_type AS "DATA_TYPE",
-        comment AS "COMMENT",
-        character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
-        numeric_precision AS "NUMERIC_PRECISION",
-        numeric_scale AS "NUMERIC_SCALE",
-        column_default AS "COLUMN_DEFAULT",
-        is_identity AS "IS_IDENTITY"
-        from {db_clause}information_schema.columns
-        WHERE table_schema='{schema_name}'
-        ORDER BY ordinal_position"""
-
-    @staticmethod
-    def columns_for_table(
-        table_name: str, schema_name: str, db_name: Optional[str]
+    def columns_for_schema(
+        schema_name: str,
+        db_name: str,
+        prefix_groups: Optional[List[PrefixGroup]] = None,
     ) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        select
-        table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        column_name AS "COLUMN_NAME",
-        ordinal_position AS "ORDINAL_POSITION",
-        is_nullable AS "IS_NULLABLE",
-        data_type AS "DATA_TYPE",
-        comment AS "COMMENT",
-        character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
-        numeric_precision AS "NUMERIC_PRECISION",
-        numeric_scale AS "NUMERIC_SCALE",
-        column_default AS "COLUMN_DEFAULT",
-        is_identity AS "IS_IDENTITY"
-        from {db_clause}information_schema.columns
-        WHERE table_schema='{schema_name}' and table_name='{table_name}'
-        ORDER BY ordinal_position"""
+        columns_template = """\
+SELECT
+  table_catalog AS "TABLE_CATALOG",
+  table_schema AS "TABLE_SCHEMA",
+  table_name AS "TABLE_NAME",
+  column_name AS "COLUMN_NAME",
+  ordinal_position AS "ORDINAL_POSITION",
+  is_nullable AS "IS_NULLABLE",
+  data_type AS "DATA_TYPE",
+  comment AS "COMMENT",
+  character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
+  numeric_precision AS "NUMERIC_PRECISION",
+  numeric_scale AS "NUMERIC_SCALE",
+  column_default AS "COLUMN_DEFAULT",
+  is_identity AS "IS_IDENTITY"
+FROM "{db_name}".information_schema.columns
+WHERE table_schema='{schema_name}' AND {extra_clause}"""
+
+        selects = []
+        if prefix_groups is None:
+            prefix_groups = [PrefixGroup(prefix="", names=[])]
+        for prefix_group in prefix_groups:
+            if prefix_group.prefix == "":
+                extra_clause = "TRUE"
+            elif prefix_group.exact_match:
+                extra_clause = f"table_name = '{prefix_group.prefix}'"
+            else:
+                extra_clause = f"table_name LIKE '{prefix_group.prefix}%'"
+
+            selects.append(
+                columns_template.format(
+                    db_name=db_name, schema_name=schema_name, extra_clause=extra_clause
+                )
+            )
+
+        return (
+            "\nUNION ALL\n".join(selects)
+            + """\nORDER BY table_name, ordinal_position"""
+        )
 
     @staticmethod
     def show_primary_keys_for_schema(schema_name: str, db_name: str) -> str:

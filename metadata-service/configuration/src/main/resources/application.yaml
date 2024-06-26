@@ -217,9 +217,9 @@ elasticsearch:
     exactMatch:
       exclusive: ${ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE:false} # if false will only apply weights, if true will exclude non-exact
       withPrefix: ${ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX:true} # include prefix exact matches
-      exactFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR:10.0} # boost multiplier when exact with case
-      prefixFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR:1.6} # boost multiplier when exact prefix
-      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.7} # stacked boost multiplier when case mismatch
+      exactFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR:16.0} # boost multiplier when exact with case
+      prefixFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR:1.1} # boost multiplier when exact prefix
+      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.0} # stacked boost multiplier when case mismatch
       enableStructured: ${ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED:true} # enable exact match on structured search
     wordGram:
       twoGramFactor: ${ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR:1.2} # boost multiplier when match on 2-gram tokens
@@ -230,8 +230,8 @@ elasticsearch:
       urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
     custom:
-      enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:false}
-      file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yml}
+      enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
+      file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yaml}
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
