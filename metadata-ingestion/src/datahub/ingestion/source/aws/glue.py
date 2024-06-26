@@ -3,6 +3,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field as dataclass_field
+from functools import lru_cache
 from typing import (
     Any,
     DefaultDict,
@@ -118,9 +119,10 @@ class GlueSourceConfig(
         description=f"The platform to use for the dataset URNs. Must be one of {VALID_PLATFORMS}.",
     )
 
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-owner
     extract_owners: Optional[bool] = Field(
         default=True,
-        description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",
+        description="When enabled, extracts ownership from Glue table property and overwrites existing owners (DATAOWNER). When disabled, ownership is left empty for datasets. Expects a corpGroup urn, a corpuser urn or only the identifier part for the latter. Not used in the normal course of AWS Glue operations.",
     )
     extract_transforms: Optional[bool] = Field(
         default=True, description="Whether to extract Glue transform jobs."
@@ -1062,20 +1064,6 @@ class GlueSource(StatefulIngestionSourceBase):
             f"extract record from table={table_name} for dataset={dataset_urn}"
         )
 
-        def get_owner() -> Optional[OwnershipClass]:
-            owner = table.get("Owner")
-            if owner:
-                owners = [
-                    OwnerClass(
-                        owner=f"urn:li:corpuser:{owner}",
-                        type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
-                return OwnershipClass(
-                    owners=owners,
-                )
-            return None
-
         def get_dataset_properties() -> DatasetPropertiesClass:
             return DatasetPropertiesClass(
                 description=table.get("Description"),
@@ -1285,6 +1273,20 @@ class GlueSource(StatefulIngestionSourceBase):
                 else None,
             )
 
+        @lru_cache(maxsize=None)
+        def _get_ownership(owner: str) -> Optional[OwnershipClass]:
+            if owner:
+                owners = [
+                    OwnerClass(
+                        owner=mce_builder.make_user_urn(owner),
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+                return OwnershipClass(
+                    owners=owners,
+                )
+            return None
+
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
             aspects=[
@@ -1299,8 +1301,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
         dataset_snapshot.aspects.append(get_data_platform_instance())
 
+        # Ownership
         if self.extract_owners:
-            optional_owner_aspect = get_owner()
+            owner = table.get("Owner")
+            optional_owner_aspect = _get_ownership(owner)
             if optional_owner_aspect is not None:
                 dataset_snapshot.aspects.append(optional_owner_aspect)
 
