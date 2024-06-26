@@ -79,6 +79,7 @@ POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "regtype": None,
     "regrole": None,
     "regnamespace": None,
+    "super": None,
     "uuid": StringType,
     "pg_lsn": None,
     "tsvector": None,  # text search vector

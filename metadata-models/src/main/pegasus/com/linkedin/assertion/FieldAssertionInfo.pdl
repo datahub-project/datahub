@@ -1,0 +1,57 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+import com.linkedin.dataset.DatasetFilter
+
+/**
+* Attributes defining a Field Assertion.
+**/
+record FieldAssertionInfo {
+    /**
+     * The type of the field assertion being monitored.
+     */
+    @Searchable = {}
+    type: enum FieldAssertionType {
+      /**
+       * An assertion used to validate the values contained with a field / column given a set of rows.
+       */
+       FIELD_VALUES
+       /**
+       * An assertion used to validate the value of a common field / column metric (e.g. aggregation) such as null count + percentage,
+       * min, max, median, and more.
+       */
+       FIELD_METRIC
+    }
+
+    /**
+    * The entity targeted by this Field check.
+    */
+    @Searchable = {
+      "fieldType": "URN"
+    }
+    @Relationship = {
+      "name": "Asserts",
+      "entityTypes": [ "dataset" ]
+    }
+    entity: Urn
+
+    /**
+    * The definition of an assertion that validates individual values of a field / column for a set of rows.
+    * This type of assertion verifies that each column value meets a particular requirement.
+    */
+    fieldValuesAssertion: optional FieldValuesAssertion
+
+    /**
+    * The definition of an assertion that validates a common metric obtained about a field / column for a set of rows.
+    * This type of assertion verifies that the value of a high-level metric obtained by aggregating over a column meets
+    * expectations
+    */
+    fieldMetricAssertion: optional FieldMetricAssertion
+
+    /**
+    * A definition of the specific filters that should be applied, when performing monitoring.
+    * If not provided, there is no filter, and the full table is under consideration.
+    * If using DataHub Dataset Profiles as the assertion source type, the value of this field will be ignored.
+    */
+    filter: optional DatasetFilter
+}

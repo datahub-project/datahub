@@ -211,6 +211,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
                 "Failed to perform post authentication steps. Error message: %s", e.getMessage()));
       }
 
+      log.info("OIDC callback authentication successful for user: {}", userName);
+
       // Successfully logged in - Generate GMS login token
       final String accessToken = authClient.generateSessionTokenForUser(corpUserUrn.getId());
       return result

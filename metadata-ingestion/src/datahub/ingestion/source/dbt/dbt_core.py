@@ -118,7 +118,7 @@ def get_columns(
         # information from the manifest file.
         logger.debug(f"Inferring schema info for {dbt_name} from manifest")
         catalog_columns = {
-            k: {"name": col["name"], "type": col["data_type"], "index": i}
+            k: {"name": col["name"], "type": col["data_type"] or "", "index": i}
             for i, (k, col) in enumerate(manifest_columns.items())
         }
     else:
@@ -245,6 +245,7 @@ def extract_dbt_entities(
         dbtNode = DBTNode(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
+            dbt_package_name=manifest_node.get("package_name"),
             database=manifest_node["database"],
             schema=manifest_node["schema"],
             name=name,
@@ -481,7 +482,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
-            with open(uri, "r") as f:
+            with open(uri) as f:
                 return json.load(f)
 
     def loadManifestAndCatalog(

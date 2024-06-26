@@ -16,7 +16,6 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
-    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -70,9 +69,9 @@ class DataJob:
         )
 
     def generate_ownership_aspect(self) -> Iterable[OwnershipClass]:
-        owners = set([builder.make_user_urn(owner) for owner in self.owners]) | set(
-            [builder.make_group_urn(owner) for owner in self.group_owners]
-        )
+        owners = {builder.make_user_urn(owner) for owner in self.owners} | {
+            builder.make_group_urn(owner) for owner in self.group_owners
+        }
         ownership = OwnershipClass(
             owners=[
                 OwnerClass(
@@ -168,5 +167,5 @@ class DataJob:
             for iolet in self.inlets + self.outlets:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=str(iolet),
-                    aspect=StatusClass(removed=False),
+                    aspect=iolet.to_key_aspect(),
                 )

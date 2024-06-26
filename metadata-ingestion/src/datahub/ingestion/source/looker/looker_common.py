@@ -92,6 +92,7 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     TagSnapshotClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
 
@@ -243,6 +244,56 @@ class ViewField:
     view_name: Optional[str] = None
     is_primary_key: bool = False
     upstream_fields: List[str] = dataclasses_field(default_factory=list)
+
+
+@dataclass
+class ExploreUpstreamViewField:
+    explore: LookmlModelExplore
+    field: LookmlModelExploreField
+
+    def _form_field_name(self):
+        assert self.field.name is not None
+
+        if len(self.field.name.split(".")) != 2:
+            return self.field.name  # Inconsistent info received
+
+        view_name: Optional[str] = self.explore.name
+
+        if (
+            self.field.original_view is not None
+        ):  # if `from` is used in explore then original_view is pointing to
+            # lookml view
+            view_name = self.field.original_view
+
+        field_name = self.field.name.split(".")[1]
+
+        return f"{view_name}.{field_name}"
+
+    def upstream(self) -> str:
+        assert self.field.name is not None
+
+        if self.field.dimension_group is None:  # It is not part of Dimensional Group
+            return self._form_field_name()
+
+        if self.field.field_group_variant is None:
+            return (
+                self._form_field_name()
+            )  # Variant i.e. Month, Day, Year ... is not available
+
+        if self.field.type is None or not self.field.type.startswith("date_"):
+            return (
+                self._form_field_name()
+            )  # for Dimensional Group the type is always start with date_[time|date]
+
+        if not self.field.name.endswith(f"_{self.field.field_group_variant.lower()}"):
+            return (
+                self._form_field_name()
+            )  # if the explore field is generated because of  Dimensional Group in View
+            # then the field_name should ends with field_group_variant
+
+        return self._form_field_name()[
+            : -(len(self.field.field_group_variant.lower()) + 1)
+        ]  # remove variant at the end. +1 for "_"
 
 
 def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
@@ -619,6 +670,7 @@ class LookerExplore:
     joins: Optional[List[str]] = None
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
     source_file: Optional[str] = None
+    tags: List[str] = dataclasses_field(default_factory=list)
 
     @validator("name")
     def remove_quotes(cls, v):
@@ -720,6 +772,7 @@ class LookerExplore:
             # This method is getting called from lookml_source's get_internal_workunits method
             # & upstream_views_file_path is not in use in that code flow
             upstream_views_file_path={},
+            tags=cast(List, dict.get("tags")) if dict.get("tags") is not None else [],
         )
 
     @classmethod  # noqa: C901
@@ -736,7 +789,6 @@ class LookerExplore:
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
-
             lkml_fields: List[
                 LookmlModelExploreField
             ] = explore_field_set_to_lkml_fields(explore)
@@ -793,6 +845,13 @@ class LookerExplore:
                         if dim_field.name is None:
                             continue
                         else:
+                            dimension_upstream_field: ExploreUpstreamViewField = (
+                                ExploreUpstreamViewField(
+                                    explore=explore,
+                                    field=dim_field,
+                                )
+                            )
+
                             view_fields.append(
                                 ViewField(
                                     name=dim_field.name,
@@ -823,7 +882,9 @@ class LookerExplore:
                                         if dim_field.primary_key
                                         else False
                                     ),
-                                    upstream_fields=[dim_field.name],
+                                    upstream_fields=[
+                                        dimension_upstream_field.upstream()
+                                    ],
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -831,6 +892,13 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
+                            measure_upstream_field: ExploreUpstreamViewField = (
+                                ExploreUpstreamViewField(
+                                    explore=explore,
+                                    field=measure_field,
+                                )
+                            )
+
                             view_fields.append(
                                 ViewField(
                                     name=measure_field.name,
@@ -857,7 +925,7 @@ class LookerExplore:
                                         if measure_field.primary_key
                                         else False
                                     ),
-                                    upstream_fields=[measure_field.name],
+                                    upstream_fields=[measure_upstream_field.upstream()],
                                 )
                             )
 
@@ -890,6 +958,7 @@ class LookerExplore:
                 ),
                 upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
+                tags=list(explore.tags) if explore.tags is not None else [],
             )
         except SDKError as e:
             if "<title>Looker Not Found (404)</title>" in str(e):
@@ -1066,6 +1135,13 @@ class LookerExplore:
             mce,
             mcp,
         ]
+
+        # Add tags
+        explore_tag_urns: List[TagAssociationClass] = [
+            TagAssociationClass(tag=TagUrn(tag).urn()) for tag in self.tags
+        ]
+        if explore_tag_urns:
+            dataset_snapshot.aspects.append(GlobalTagsClass(explore_tag_urns))
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if extract_embed_urls:
@@ -1301,6 +1377,7 @@ class LookerDashboardElement:
     input_fields: Optional[List[InputFieldElement]] = None
     folder_path: Optional[str] = None  # for independent looks.
     folder: Optional[LookerFolder] = None
+    owner: Optional[LookerUser] = None
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore

@@ -12,12 +12,12 @@ const cardsContent = [
   },
   {
     label: "Data Contracts",
-    title: "End-to-end Reliability in Data",
+    title: "Data Contracts: End-to-end Reliability in Data",
     url: "https://www.acryldata.io/blog/data-contracts-in-datahub-combining-verifiability-with-holistic-data-management?utm_source=datahub&utm_medium=referral&utm_content=blog",
   },
   {
     label: "Shift Left",
-    title: "Developer-friendly Data Governance",
+    title: "Data Governance and Lineage Impact Analysis",
     url: "https://www.acryldata.io/blog/the-3-must-haves-of-metadata-management-part-2?utm_source=datahub&utm_medium=referral&utm_content=blog",
   },
 ];

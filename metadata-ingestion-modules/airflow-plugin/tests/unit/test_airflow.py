@@ -365,13 +365,13 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
         )
 
-        assert mock_emitter.method_calls[5].args[0].aspectName == "status"
+        assert mock_emitter.method_calls[5].args[0].aspectName == "datasetKey"
         assert (
             mock_emitter.method_calls[5].args[0].entityUrn
             == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
         )
 
-        assert mock_emitter.method_calls[6].args[0].aspectName == "status"
+        assert mock_emitter.method_calls[6].args[0].aspectName == "datasetKey"
         assert (
             mock_emitter.method_calls[6].args[0].entityUrn
             == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
@@ -423,12 +423,12 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
                 mock_emitter.method_calls[12].args[0].entityUrn
                 == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
             )
-            assert mock_emitter.method_calls[13].args[0].aspectName == "status"
+            assert mock_emitter.method_calls[13].args[0].aspectName == "datasetKey"
             assert (
                 mock_emitter.method_calls[13].args[0].entityUrn
                 == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
             )
-            assert mock_emitter.method_calls[14].args[0].aspectName == "status"
+            assert mock_emitter.method_calls[14].args[0].aspectName == "datasetKey"
             assert (
                 mock_emitter.method_calls[14].args[0].entityUrn
                 == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"

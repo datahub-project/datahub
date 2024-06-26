@@ -11,6 +11,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
@@ -40,6 +41,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     _client = buildService();
     _client.setIdHashAlgo("MD5");
     _client.configure();
+    _client.reindexAll(Collections.emptySet());
   }
 
   @BeforeMethod
