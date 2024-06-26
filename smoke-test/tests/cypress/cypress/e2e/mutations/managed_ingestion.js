@@ -13,7 +13,7 @@ describe("run managed ingestion", () => {
     cy.clickOptionInScrollView("Other", '[data-testid="data-source-options"]');
 
     cy.waitTextVisible("source-type");
-    readyToTypeEditor().type("{ctrl}a").clear();
+    readyToTypeEditor().type("{ctrl}a").clear({ force: true });
     readyToTypeEditor().type("source:{enter}");
     readyToTypeEditor().type("    type: demo-data");
     readyToTypeEditor().type("{enter}");
