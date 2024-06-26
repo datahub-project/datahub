@@ -1,15 +1,15 @@
-import { Checkbox, List } from 'antd';
+import { Checkbox, Empty, List } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { EntityPath, EntityType, SearchResult } from '../../../../../../types.generated';
+import { EntityAndType } from '../../../../../entity/shared/types';
+import { useSearchContext } from '../../../../../search/context/SearchContext';
 import { MATCHES_CONTAINER_HEIGHT } from '../../../../../searchV2/SearchResultList';
 import { MatchContextContianer } from '../../../../../searchV2/matches/MatchContextContainer';
 import { PreviewSection } from '../../../../../shared/MatchesContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCards';
-import { useSearchContext } from '../../../../../search/context/SearchContext';
 import { REDESIGN_COLORS } from '../../../constants';
+import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCards';
 
 export const StyledList = styled(List)`
     height: 100%;
@@ -93,6 +93,7 @@ type Props = {
     bordered?: boolean;
     entityAction?: React.FC<EntityActionProps>;
     compactUserSearchCardStyle?: boolean;
+    noResultsMessage?: string;
 };
 
 const MatchContextAndEntityContainer = styled.div`
@@ -110,6 +111,7 @@ export const EntitySearchResults = ({
     bordered = true,
     entityAction,
     compactUserSearchCardStyle,
+    noResultsMessage,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
@@ -147,6 +149,16 @@ export const EntitySearchResults = ({
 
     return (
         <StyledList
+            locale={{
+                emptyText: (
+                    <>
+                        <Empty
+                            description={noResultsMessage || 'No results found'}
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
+                    </>
+                ),
+            }}
             bordered={bordered}
             dataSource={searchResults}
             renderItem={(searchResult) => {

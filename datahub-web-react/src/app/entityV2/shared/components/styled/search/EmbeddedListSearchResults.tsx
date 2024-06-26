@@ -158,6 +158,7 @@ interface Props {
     defaultViewCount?: number;
     allSearchCount?: number;
     view?: any;
+    errorMessage?: string;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -185,6 +186,7 @@ export const EmbeddedListSearchResults = ({
     defaultViewCount = 0,
     allSearchCount = 0,
     view,
+    errorMessage,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -249,6 +251,7 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {!loading && (
                         <EntitySearchResults
+                            noResultsMessage={errorMessage}
                             searchResults={searchResponse?.searchResults || []}
                             additionalPropertiesList={
                                 searchResponse?.searchResults?.map((searchResult) => ({

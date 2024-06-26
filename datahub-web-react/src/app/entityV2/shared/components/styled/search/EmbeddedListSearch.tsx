@@ -1,6 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
+import { SearchCfg } from '../../../../../../conf';
+import {
+    useGetSearchCountLazyQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '../../../../../../graphql/search.generated';
+import { useGetViewQuery } from '../../../../../../graphql/view.generated';
 import {
     EntityType,
     FacetFilterInput,
@@ -8,31 +14,25 @@ import {
     SearchAcrossEntitiesInput,
     SortCriterion,
 } from '../../../../../../types.generated';
-import { DEGREE_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
-import { SearchCfg } from '../../../../../../conf';
-import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
-import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
-import {
-    useGetSearchCountLazyQuery,
-    useGetSearchResultsForMultipleQuery,
-} from '../../../../../../graphql/search.generated';
-import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
-import { isListSubset } from '../../../utils';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { Message } from '../../../../../shared/Message';
-import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
-import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
-import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import {
-    DownloadSearchResultsParams,
-    DownloadSearchResultsInput,
-    DownloadSearchResults,
-} from '../../../../../search/utils/types';
-import { useEntityContext } from '../../../../../entity/shared/EntityContext';
-import { EntityActionProps } from './EntitySearchResults';
-import { useUserContext } from '../../../../../context/useUserContext';
 import analytics, { EventType } from '../../../../../analytics';
-import { useGetViewQuery } from '../../../../../../graphql/view.generated';
+import { useUserContext } from '../../../../../context/useUserContext';
+import { useEntityContext } from '../../../../../entity/shared/EntityContext';
+import { EntityAndType } from '../../../../../entity/shared/types';
+import { DEGREE_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
+import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
+import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
+import {
+    DownloadSearchResults,
+    DownloadSearchResultsInput,
+    DownloadSearchResultsParams,
+} from '../../../../../search/utils/types';
+import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
+import { Message } from '../../../../../shared/Message';
+import { isListSubset } from '../../../utils';
+import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
+import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
+import { EntityActionProps } from './EntitySearchResults';
+import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 
 const Container = styled.div`
     display: flex;
@@ -335,9 +335,15 @@ export const EmbeddedListSearch = ({
         });
     }
 
+    let errorMessage = '';
+    if (error) {
+        errorMessage =
+            'Failed to load results! An unexpected error occurred. This may be due to a timeout when fetching lineage results.';
+    }
+
     return (
         <Container>
-            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {error && <Message type="error" content={errorMessage} />}
             {showFilterBar && (
                 <EmbeddedListSearchHeader
                     onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
@@ -382,6 +388,7 @@ export const EmbeddedListSearch = ({
                 defaultViewCount={defaultViewCount}
                 view={view}
                 compactUserSearchCardStyle
+                errorMessage={errorMessage}
             />
         </Container>
     );
