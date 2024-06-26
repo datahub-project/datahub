@@ -33,6 +33,7 @@ import org.springframework.context.annotation.FilterType;
       "io.datahubproject.metadata.jobs.common.health.kafka",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.timeseries",
+      "com.linkedin.gms.factory.assertion",
     },
     excludeFilters = {
       @ComponentScan.Filter(
