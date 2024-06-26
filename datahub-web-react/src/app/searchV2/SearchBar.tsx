@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback, EventHandler, SyntheticEvent } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { Input, AutoComplete, Button, Skeleton } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
@@ -44,11 +44,23 @@ const SkeletonButton = styled(Skeleton.Button)`
     }
 `;
 
-const AutoCompleteContainer = styled.div`
+const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean }>`
     padding: 0 30px;
+    align-items: center;
+    border: 2px solid transparent;
+    transition: border-color 0.3s ease;
+
+    ${(props) =>
+        props.viewsEnabled &&
+        `
+        border-radius: 8px;
+        &:focus-within {
+            border-color: ${props.theme.styles['primary-color']};
+        }
+    `}
 `;
 
-const StyledSearchBar = styled(Input)<{ $textColor?: string; $placeholderColor?: string }>`
+const StyledSearchBar = styled(Input)<{ $textColor?: string; $placeholderColor?: string; viewsEnabled?: boolean }>`
     &&& {
         border-radius: 8px;
         height: 40px;
@@ -57,10 +69,12 @@ const StyledSearchBar = styled(Input)<{ $textColor?: string; $placeholderColor?:
         background-color: ${ANTD_GRAY_V2[2]};
         border: 2px solid transparent;
         padding-right: 2.5px;
-
+        ${(props) =>
+            !props.viewsEnabled &&
+            `
         &:focus-within {
-            border: 2px solid ${(props) => props.theme.styles['primary-color']};
-        }
+            border-color: ${props.theme.styles['primary-color']};
+        }`}
     }
 
     > .ant-input::placeholder {
@@ -86,6 +100,8 @@ const ClearIcon = styled(CloseCircleFilled)`
 
 const ViewSelectContainer = styled.div`
     color: #fff;
+    line-height: 20px;
+    padding-right: 5.6px;
 
     &&& {
         border-left: 0px solid ${ANTD_GRAY_V2[5]};
@@ -105,10 +121,6 @@ const renderRecommendedQuery = (query: string) => {
         label: <RecommendedOption text={query} />,
         type: RELEVANCE_QUERY_OPTION_TYPE,
     };
-};
-
-const handleStopPropagation: EventHandler<SyntheticEvent> = (e) => {
-    e.stopPropagation();
 };
 
 interface Props {
@@ -351,8 +363,18 @@ export const SearchBar = ({
         return () => null;
     }, [showCommandK]);
 
+    const viewsEnabledStyle = {
+        ...style,
+        backgroundColor: inputStyle?.backgroundColor,
+    };
+
     return (
-        <AutoCompleteContainer id={id} style={style} ref={searchBarWrapperRef}>
+        <AutoCompleteContainer
+            viewsEnabled={viewsEnabled}
+            id={id}
+            style={viewsEnabled ? viewsEnabledStyle : style}
+            ref={searchBarWrapperRef}
+        >
             {isLoading ? (
                 <SkeletonContainer>
                     <SkeletonButton shape="square" active block />
@@ -429,6 +451,7 @@ export const SearchBar = ({
                         data-testid="search-input"
                         onFocus={handleFocus}
                         onBlur={handleBlur}
+                        viewsEnabled={viewsEnabled}
                         allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}
                         prefix={
                             <>
@@ -444,33 +467,16 @@ export const SearchBar = ({
                             </>
                         }
                         ref={searchInputRef}
-                        suffix={
-                            <>
-                                {(showCommandK && !isFocused && <CommandK />) || null}
-                                {viewsEnabled && (
-                                    <ViewSelectContainer
-                                        id={V2_SEARCH_BAR_VIEWS}
-                                        onClick={handleStopPropagation}
-                                        onFocus={handleStopPropagation}
-                                        onMouseDown={(e) => {
-                                            e.stopPropagation();
-                                            // Send event to document to close nested dropdowns
-                                            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                                            // @ts-ignore
-                                            document.dispatchEvent(new MouseEvent(e.type, e));
-                                        }}
-                                        onKeyUp={handleStopPropagation}
-                                        onKeyDown={handleStopPropagation}
-                                    >
-                                        <ViewSelect />
-                                    </ViewSelectContainer>
-                                )}
-                            </>
-                        }
+                        suffix={<>{(showCommandK && !isFocused && <CommandK />) || null}</>}
                         $textColor={textColor}
                         $placeholderColor={placeholderColor}
                     />
                 </StyledAutoComplete>
+            )}
+            {viewsEnabled && (
+                <ViewSelectContainer id={V2_SEARCH_BAR_VIEWS}>
+                    <ViewSelect />
+                </ViewSelectContainer>
             )}
         </AutoCompleteContainer>
     );

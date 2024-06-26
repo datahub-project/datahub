@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { Dropdown, Form, Input, Select, Typography } from 'antd';
+import { Form, Input, Select, Typography } from 'antd';
 import { ViewBuilderState } from '../types';
 import { DataHubViewType } from '../../../../types.generated';
 import { ViewTypeLabel } from '../ViewTypeLabel';
@@ -88,49 +88,17 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                 <StyledFormItem label={<Typography.Text strong>Type</Typography.Text>}>
                     <Typography.Paragraph>Select the type of your new View.</Typography.Paragraph>
                     <Form.Item name="viewType">
-                        <Dropdown
-                            trigger={['click']}
+                        <Select
+                            onSelect={(value) => setViewType(value as DataHubViewType)}
                             disabled={!canManageGlobalViews || isEditing || mode === ViewBuilderMode.PREVIEW}
-                            menu={{
-                                items: [
-                                    {
-                                        key: DataHubViewType.Personal,
-                                        label: (
-                                            <ViewTypeLabel
-                                                type={DataHubViewType.Personal}
-                                                onClick={() => setViewType(DataHubViewType.Personal)}
-                                                color={ANTD_GRAY[9]}
-                                            />
-                                        ),
-                                    },
-                                    {
-                                        key: DataHubViewType.Global,
-                                        label: (
-                                            <ViewTypeLabel
-                                                type={DataHubViewType.Global}
-                                                onClick={() => setViewType(DataHubViewType.Global)}
-                                                color={ANTD_GRAY[9]}
-                                            />
-                                        ),
-                                    },
-                                ],
-                            }}
                         >
-                            <Select
-                                open={false}
-                                value={state.viewType}
-                                options={[
-                                    {
-                                        value: DataHubViewType.Personal,
-                                        label: <ViewTypeLabel type={DataHubViewType.Personal} color={ANTD_GRAY[9]} />,
-                                    },
-                                    {
-                                        value: DataHubViewType.Global,
-                                        label: <ViewTypeLabel type={DataHubViewType.Global} color={ANTD_GRAY[9]} />,
-                                    },
-                                ]}
-                            />
-                        </Dropdown>
+                            <Select.Option value={DataHubViewType.Personal}>
+                                <ViewTypeLabel type={DataHubViewType.Personal} color={ANTD_GRAY[9]} />
+                            </Select.Option>
+                            <Select.Option value={DataHubViewType.Global}>
+                                <ViewTypeLabel type={DataHubViewType.Global} color={ANTD_GRAY[9]} />
+                            </Select.Option>
+                        </Select>
                     </Form.Item>
                 </StyledFormItem>
                 <StyledFormItem label={<Typography.Text strong>Filters</Typography.Text>} style={{ marginBottom: 8 }}>
