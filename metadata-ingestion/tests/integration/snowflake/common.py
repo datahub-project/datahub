@@ -434,69 +434,6 @@ def default_query_results(  # noqa: C901
         ]
         return mock
     elif query in (
-        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-            1654473600000,
-            1654586220000,
-        ),
-        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-            1654473600000, 1654586220000, False
-        ),
-    ):
-        return [
-            {
-                "DOWNSTREAM_TABLE_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",
-                "UPSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                "UPSTREAM_TABLE_COLUMNS": json.dumps(
-                    [
-                        {"columnId": 0, "columnName": f"COL_{col_idx}"}
-                        for col_idx in range(1, num_cols + 1)
-                    ]
-                ),
-                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
-                    [
-                        {
-                            "columnId": 0,
-                            "columnName": f"COL_{col_idx}",
-                            "directSources": [
-                                {
-                                    "columnName": f"COL_{col_idx}",
-                                    "objectDomain": "Table",
-                                    "objectId": 0,
-                                    "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                                }
-                            ],
-                        }
-                        for col_idx in range(1, num_cols + 1)
-                    ]
-                ),
-            }
-            for op_idx in range(1, num_ops + 1)
-        ] + [
-            {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_1",
-                "UPSTREAM_TABLE_NAME": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
-                "UPSTREAM_TABLE_COLUMNS": json.dumps(
-                    [{"columnId": 0, "columnName": "COL_1"}]
-                ),
-                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
-                    [
-                        {
-                            "columnId": 0,
-                            "columnName": "COL_1",
-                            "directSources": [
-                                {
-                                    "columnName": "COL_1",
-                                    "objectDomain": "Table",
-                                    "objectId": 0,
-                                    "objectName": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
-                                }
-                            ],
-                        }
-                    ]
-                ),
-            }
-        ]
-    elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
             end_time_millis=1654586220000,
@@ -658,46 +595,6 @@ def default_query_results(  # noqa: C901
                             "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
                             "upstream_object_domain": "table",
                         }
-                    ]
-                ),
-            }
-        ]
-    elif query in [
-        snowflake_query.SnowflakeQuery.view_lineage_history(
-            1654473600000,
-            1654586220000,
-        ),
-        snowflake_query.SnowflakeQuery.view_lineage_history(
-            1654473600000, 1654586220000, False
-        ),
-    ]:
-        return [
-            {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_1",
-                "VIEW_NAME": "TEST_DB.TEST_SCHEMA.VIEW_1",
-                "VIEW_DOMAIN": "VIEW",
-                "VIEW_COLUMNS": json.dumps(
-                    [
-                        {"columnId": 0, "columnName": f"COL_{col_idx}"}
-                        for col_idx in range(1, num_cols + 1)
-                    ]
-                ),
-                "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
-                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
-                    [
-                        {
-                            "columnId": 0,
-                            "columnName": f"COL_{col_idx}",
-                            "directSources": [
-                                {
-                                    "columnName": f"COL_{col_idx}",
-                                    "objectDomain": "Table",
-                                    "objectId": 0,
-                                    "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                                }
-                            ],
-                        }
-                        for col_idx in range(1, num_cols + 1)
                     ]
                 ),
             }

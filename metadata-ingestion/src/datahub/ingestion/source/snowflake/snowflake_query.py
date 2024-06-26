@@ -328,45 +328,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         ;"""
 
     @staticmethod
-    def table_to_table_lineage_history(
-        start_time_millis: int,
-        end_time_millis: int,
-        include_column_lineage: bool = True,
-    ) -> str:
-        return f"""
-        WITH table_lineage_history AS (
-            SELECT
-                r.value:"objectName"::varchar AS upstream_table_name,
-                r.value:"objectDomain"::varchar AS upstream_table_domain,
-                r.value:"columns" AS upstream_table_columns,
-                w.value:"objectName"::varchar AS downstream_table_name,
-                w.value:"objectDomain"::varchar AS downstream_table_domain,
-                w.value:"columns" AS downstream_table_columns,
-                t.query_start_time AS query_start_time
-            FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
-                lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
-                lateral flatten(input => t.OBJECTS_MODIFIED) w
-            WHERE r.value:"objectId" IS NOT NULL
-            AND w.value:"objectId" IS NOT NULL
-            AND w.value:"objectName" NOT LIKE '%.GE_TMP_%'
-            AND w.value:"objectName" NOT LIKE '%.GE_TEMP_%'
-            AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-            AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
-        SELECT
-        upstream_table_name AS "UPSTREAM_TABLE_NAME",
-        downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-        upstream_table_columns AS "UPSTREAM_TABLE_COLUMNS",
-        downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
-        FROM table_lineage_history
-        WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
-        QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY downstream_table_name,
-            upstream_table_name{", downstream_table_columns" if include_column_lineage else ""}
-            ORDER BY query_start_time DESC
-        ) = 1"""
-
-    @staticmethod
     def view_dependencies() -> str:
         return """
         SELECT
@@ -384,58 +345,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
           snowflake.account_usage.object_dependencies
         WHERE
           referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
-        """
-
-    @staticmethod
-    def view_lineage_history(
-        start_time_millis: int,
-        end_time_millis: int,
-        include_column_lineage: bool = True,
-    ) -> str:
-        return f"""
-        WITH view_lineage_history AS (
-          SELECT
-            vu.value : "objectName"::varchar AS view_name,
-            vu.value : "objectDomain"::varchar AS view_domain,
-            vu.value : "columns" AS view_columns,
-            w.value : "objectName"::varchar AS downstream_table_name,
-            w.value : "objectDomain"::varchar AS downstream_table_domain,
-            w.value : "columns" AS downstream_table_columns,
-            t.query_start_time AS query_start_time
-          FROM
-            (
-              SELECT
-                *
-              FROM
-                snowflake.account_usage.access_history
-            ) t,
-            lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) vu,
-            lateral flatten(input => t.OBJECTS_MODIFIED) w
-          WHERE
-            vu.value : "objectId" IS NOT NULL
-            AND w.value : "objectId" IS NOT NULL
-            AND w.value : "objectName" NOT LIKE '%.GE_TMP_%'
-            AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
-            AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-            AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-        )
-        SELECT
-          view_name AS "VIEW_NAME",
-          view_domain AS "VIEW_DOMAIN",
-          view_columns AS "VIEW_COLUMNS",
-          downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-          downstream_table_domain AS "DOWNSTREAM_TABLE_DOMAIN",
-          downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
-        FROM
-          view_lineage_history
-        WHERE
-          view_domain in ('View', 'Materialized view')
-          QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY view_name,
-            downstream_table_name {", downstream_table_columns" if include_column_lineage else ""}
-            ORDER BY
-              query_start_time DESC
-          ) = 1
         """
 
     # Note on use of `upstreams_deny_pattern` to ignore temporary tables:
@@ -773,7 +682,12 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
+                (
+                    SELECT * from snowflake.account_usage.access_history
+                    WHERE
+                        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+                ) t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w,
                 lateral flatten(input => w.value : "columns", outer => true) wcols,
@@ -933,7 +847,12 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
+                (
+                    SELECT * from snowflake.account_usage.access_history
+                    WHERE
+                        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+                ) t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w
             WHERE
