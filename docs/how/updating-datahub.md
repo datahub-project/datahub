@@ -23,11 +23,11 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   
   Old `urn`, where `data_base_name` is `Some_Database`:
   ```
-  - urn:li:dataset:(urn:li:dataPlatform:paltform,some_database.schema.entitie,ENV)
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,demodata.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
   ```
   New `urn`, where `data_base_name` is `Some_Database`:
   ```
-  - urn:li:dataset:(urn:li:dataPlatform:paltform,Some_Database.schema.entitie,ENV)
+  - urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),Proc.With.SpecialChar)
   ```
   Re-running with stateful ingestion should automatically clear up the entities with old URNS and add entities with new URNs, therefore not duplicating the containers or jobs. 
 
