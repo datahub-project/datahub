@@ -1,11 +1,15 @@
+import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
+import { useGetSchemaFieldQuery } from '@graphql/schemaField.generated';
 import * as React from 'react';
-import { PicCenterOutlined } from '@ant-design/icons';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
+import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { PartitionOutlined, PicCenterOutlined } from '@ant-design/icons';
 import { EntityType, SchemaFieldEntity as SchemaField, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
-import { downgradeV2FieldPath } from '../../lineageV2/lineageUtils';
-import { decodeSchemaField } from '../../lineage/utils/columnLineageUtils';
 
 export class SchemaFieldEntity implements Entity<SchemaField> {
     type: EntityType = EntityType.SchemaField;
@@ -23,17 +27,29 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
     // Currently unused.
     getAutoCompleteFieldName = () => 'schemaField';
 
-    // Currently unused.
     getPathName = () => 'schemaField';
 
-    // Currently unused.
     getEntityName = () => 'Schema Field';
 
-    // Currently unused.
     getCollectionName = () => 'Schema Fields';
 
-    // Currently unused.
-    renderProfile = (_: string) => <></>;
+    renderProfile = (urn: string) => (
+        <EntityProfile
+            urn={urn}
+            entityType={EntityType.SchemaField}
+            useEntityQuery={useGetSchemaFieldQuery}
+            tabs={[
+                {
+                    name: 'Lineage',
+                    component: LineageTab,
+                    icon: PartitionOutlined,
+                },
+            ]}
+            sidebarSections={this.getSidebarSections()}
+        />
+    );
+
+    getSidebarSections = () => [{ component: SidebarEntityHeader }];
 
     getGraphName = () => 'schemaField';
 
@@ -46,7 +62,11 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
     displayName = (data: SchemaField) => decodeSchemaField(downgradeV2FieldPath(data?.fieldPath) || '') || data.urn;
 
     getGenericEntityProperties = (data: SchemaField) =>
-        getDataForEntityType({ data, entityType: this.type, getOverrideProperties: (newData) => newData });
+        getDataForEntityType({
+            data,
+            entityType: this.type,
+            getOverrideProperties: (newData) => newData,
+        });
 
     supportedCapabilities = () => new Set([]);
 }

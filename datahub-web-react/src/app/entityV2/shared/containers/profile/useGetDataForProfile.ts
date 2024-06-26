@@ -21,7 +21,7 @@ interface Props<T> {
             urn: string;
         }>
     >;
-    getOverrideProperties: (T) => GenericEntityProperties;
+    getOverrideProperties?: (T) => GenericEntityProperties;
 }
 
 export default function useGetDataForProfile<T>({ urn, entityType, useEntityQuery, getOverrideProperties }: Props<T>) {

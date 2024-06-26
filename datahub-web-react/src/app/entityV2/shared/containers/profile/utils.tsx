@@ -58,7 +58,7 @@ export function getDataForEntityType<T>({
 }: {
     data: T;
     entityType?: EntityType;
-    getOverrideProperties: (T) => GenericEntityProperties;
+    getOverrideProperties?: (T) => GenericEntityProperties;
     isHideSiblingMode?: boolean;
 }): GenericEntityProperties | null {
     if (!entityData) {
@@ -101,7 +101,7 @@ export function getDataForEntityType<T>({
 
     return {
         ...modifiedEntityData,
-        ...getOverrideProperties(entityData),
+        ...getOverrideProperties?.(entityData),
     };
 }
 

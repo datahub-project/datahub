@@ -29,7 +29,7 @@ export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
 }
 
 export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
-    const val = schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1].replace(',', '');
+    const val = schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1]?.replace(',', '') ?? '';
     try {
         return decodeURI(val);
     } catch (e) {

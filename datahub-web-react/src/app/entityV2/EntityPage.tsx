@@ -25,6 +25,22 @@ interface Props {
     entityType: EntityType;
 }
 
+const ALLOWED_ENTITY_TYPES = [
+    EntityType.Dataset,
+    EntityType.Dashboard,
+    EntityType.Chart,
+    EntityType.DataFlow,
+    EntityType.DataJob,
+    EntityType.Mlmodel,
+    EntityType.Mlfeature,
+    EntityType.MlprimaryKey,
+    EntityType.MlfeatureTable,
+    EntityType.MlmodelGroup,
+    EntityType.GlossaryTerm,
+    EntityType.GlossaryNode,
+    EntityType.SchemaField,
+];
+
 /**
  * Responsible for rendering an Entity Profile
  */
@@ -61,19 +77,7 @@ export const EntityPage = ({ entityType }: Props) => {
     }, [entityType, urn]);
 
     const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
-    const showNewPage =
-        entityType === EntityType.Dataset ||
-        entityType === EntityType.Dashboard ||
-        entityType === EntityType.Chart ||
-        entityType === EntityType.DataFlow ||
-        entityType === EntityType.DataJob ||
-        entityType === EntityType.Mlmodel ||
-        entityType === EntityType.Mlfeature ||
-        entityType === EntityType.MlprimaryKey ||
-        entityType === EntityType.MlfeatureTable ||
-        entityType === EntityType.MlmodelGroup ||
-        entityType === EntityType.GlossaryTerm ||
-        entityType === EntityType.GlossaryNode;
+    const showNewPage = ALLOWED_ENTITY_TYPES.includes(entityType);
 
     const isLineageV2 = useLineageV2();
     const showLineage = isLineageMode && isLineageSupported;

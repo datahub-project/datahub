@@ -1,0 +1,9 @@
+query getSchemaField($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on SchemaFieldEntity {
+            fieldPath
+        }
+    }
+}

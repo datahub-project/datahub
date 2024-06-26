@@ -74,7 +74,7 @@ type Props<T, U> = {
               >
             | undefined,
     ) => MutationTuple<U, { urn: string; input: GenericEntityUpdate }>;
-    getOverrideProperties: (T) => GenericEntityProperties;
+    getOverrideProperties?: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarTabs?: EntitySidebarTab[];
     sidebarSections?: EntitySidebarSection[]; // Deprecated.
