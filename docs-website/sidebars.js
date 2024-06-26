@@ -589,6 +589,8 @@ module.exports = {
         "docker/datahub-upgrade/README",
         "docs/advanced/no-code-modeling",
         "datahub-web-react/src/app/analytics/README",
+        "datahub-web-react/src/components/README",
+        "datahub-web-react/src/components/theme/README",
         "docs/how/migrating-graph-service-implementation",
         "docs/advanced/field-path-spec-v2",
         "metadata-ingestion/adding-source",
