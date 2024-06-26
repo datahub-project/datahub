@@ -156,13 +156,21 @@ class DataHubReportingExtractSQLSource(Source):
             time_partition_path = "year={}/month={:02d}/day={:02d}".format(
                 previous_date.year, previous_date.month, previous_date.day
             )
+            bucket_prefix = (
+                f"{self.config.sql_backup_config.path}/{time_partition_path}"
+            )
 
             self._clean_up_old_state(state_directory=tmp_dir)
-            self._download_files(
+
+            files_downloaded: bool = self._download_files(
                 bucket=self.config.sql_backup_config.bucket,
-                prefix=f"{self.config.sql_backup_config.path}/{time_partition_path}",
+                prefix=bucket_prefix,
                 target_dir=f"{tmp_dir}/download/",
             )
+            if not files_downloaded:
+                logger.warning(f"Skipping as no files were found in {bucket_prefix}")
+                return
+
             self._zip_folder(
                 folder_path=f"{tmp_dir}/download",
                 output_file=f"{tmp_dir}/{output_file}",
@@ -198,27 +206,29 @@ class DataHubReportingExtractSQLSource(Source):
         path = Path(f"{state_directory}/download/")
         path.mkdir(parents=True, exist_ok=True)
 
-    def _download_files(self, bucket: str, prefix: str, target_dir: str) -> None:
-        objects = self.s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-        if "Contents" in objects:
-            # Iterate over objects in the time partition path
-            for obj in objects["Contents"]:
-                # Extract file key
-                file_key = obj["Key"]
+    def _download_files(self, bucket: str, prefix: str, target_dir: str) -> bool:
+        objects = boto3.resource("s3").Bucket(bucket).objects.filter(Prefix=prefix)
 
-                # Generate local file path
-                local_file_path = os.path.join(
-                    os.getcwd(), target_dir, os.path.basename(file_key)
-                )
+        files_downloaded = False
 
-                logger.info(
-                    f"Downloading s3://{bucket}/{file_key} to {local_file_path}"
-                )
+        # Iterate over objects in the time partition path
+        for obj in objects:
+            # Extract file key
+            file_key = obj.key
 
-                # Download file from S3
-                self.s3_client.download_file(bucket, file_key, local_file_path)
-        else:
-            logger.warning(f"No objects found in {prefix}")
+            # Generate local file path
+            local_file_path = os.path.join(
+                os.getcwd(), target_dir, os.path.basename(file_key)
+            )
+
+            logger.info(f"Downloading s3://{bucket}/{file_key} to {local_file_path}")
+
+            # Download file from S3
+            self.s3_client.download_file(bucket, file_key, local_file_path)
+
+            files_downloaded = True
+
+        return files_downloaded
 
     @staticmethod
     def _zip_folder(folder_path: str, output_file: str) -> None:
