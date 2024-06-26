@@ -102,7 +102,9 @@ public class OpenLineageToDataHub {
     String namespace = dataset.getNamespace();
     String datasetName = dataset.getName();
     Optional<DatasetUrn> datahubUrn;
-    if (dataset.getFacets() != null && dataset.getFacets().getSymlinks() != null) {
+    if (dataset.getFacets() != null
+        && dataset.getFacets().getSymlinks() != null
+        && !mappingConfig.isDisableSymlinkResolution()) {
       Optional<DatasetUrn> originalUrn =
           getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
@@ -581,6 +583,7 @@ public class OpenLineageToDataHub {
     OpenLineage.Job job = event.getJob();
     DataJobInfo dji = new DataJobInfo();
 
+    log.debug("Datahub Config: {}", datahubConf);
     if (job.getName().contains(".")) {
 
       String jobName = job.getName().substring(job.getName().indexOf(".") + 1);

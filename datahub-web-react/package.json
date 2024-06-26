@@ -4,7 +4,7 @@
     "private": true,
     "dependencies": {
         "@analytics/amplitude": "0.0.3",
-        "@analytics/google-analytics": "^0.5.2",
+        "@analytics/google-analytics": "^1.0.7",
         "@analytics/mixpanel": "^0.3.1",
         "@ant-design/colors": "^5.0.0",
         "@ant-design/icons": "^4.3.0",
@@ -132,7 +132,7 @@
         "less": "^4.2.0",
         "prettier": "^2.8.8",
         "source-map-explorer": "^2.5.2",
-        "vite": "^4.5.2",
+        "vite": "^4.5.3",
         "vite-plugin-babel-macros": "^1.0.6",
         "vite-plugin-static-copy": "^0.17.0",
         "vite-plugin-svgr": "^4.1.0",
