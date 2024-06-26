@@ -237,7 +237,7 @@ def make_tag_urn(tag: str) -> str:
     """
     Makes a tag urn if the input is not a tag urn already
     """
-    if tag and tag.startswith("urn:li:tag"):
+    if tag and tag.startswith("urn:li:tag:"):
         return tag
     return str(TagUrn.create_from_id(id=tag))
 
