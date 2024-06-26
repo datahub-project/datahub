@@ -235,11 +235,11 @@ def make_group_urn(groupname: str) -> str:
 
 def make_tag_urn(tag: str) -> str:
     """
-    Makes a tag urn
+    Makes a tag urn if the input is not a tag urn already
     """
-    return TagUrn.create_from_id(
-        id=tag
-    )
+    if tag and tag.startswith("urn:li:tag"):
+        return tag
+    return str(TagUrn.create_from_id(id=tag))
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
