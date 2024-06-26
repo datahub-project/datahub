@@ -52,6 +52,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.tag_urn import TagUrn
 
 logger = logging.getLogger(__name__)
 Aspect = TypeVar("Aspect", bound=AspectAbstract)
@@ -234,12 +235,11 @@ def make_group_urn(groupname: str) -> str:
 
 def make_tag_urn(tag: str) -> str:
     """
-    Makes a tag urn if the input is not a tag urn already
+    Makes a tag urn
     """
-    if tag and tag.startswith("urn:li:tag:"):
-        return tag
-    else:
-        return f"urn:li:tag:{tag}"
+    return TagUrn.create_from_id(
+        id=tag
+    )
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
