@@ -14,20 +14,20 @@ public class SchemaFieldUtilsTest {
   public void testIsSchemaFieldsQueryTrueForSchemaFields() {
     TestQuery query = mock(TestQuery.class);
     when(query.getQueryParts())
-        .thenReturn(Collections.singletonList(SchemaFieldUtils.SCHEMA_FIELDS_PROPERTY));
-    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+        .thenReturn(Collections.singletonList(TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY));
+    when(query.getQuery()).thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
 
-    assertTrue(SchemaFieldUtils.isSchemaFieldsQuery(query));
+    assertTrue(TestsSchemaFieldUtils.isSchemaFieldsQuery(query));
   }
 
   @Test
   public void testIsSchemaFieldsQueryTrueForSchemaFieldsLength() {
     TestQuery query = mock(TestQuery.class);
     when(query.getQueryParts())
-        .thenReturn(Collections.singletonList(SchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY));
-    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
+        .thenReturn(Collections.singletonList(TestsSchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY));
+    when(query.getQuery()).thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
 
-    assertTrue(SchemaFieldUtils.isSchemaFieldsQuery(query));
+    assertTrue(TestsSchemaFieldUtils.isSchemaFieldsQuery(query));
   }
 
   @Test
@@ -36,7 +36,7 @@ public class SchemaFieldUtilsTest {
     when(query.getQueryParts()).thenReturn(Collections.singletonList("otherQuery"));
     when(query.getQuery()).thenReturn("otherQuery");
 
-    assertFalse(SchemaFieldUtils.isSchemaFieldsQuery(query));
+    assertFalse(TestsSchemaFieldUtils.isSchemaFieldsQuery(query));
   }
 
   @Test
@@ -44,7 +44,7 @@ public class SchemaFieldUtilsTest {
     TestQuery query = mock(TestQuery.class);
     when(query.getQueryParts()).thenReturn(Collections.emptyList());
 
-    assertFalse(SchemaFieldUtils.isSchemaFieldsQuery(query));
+    assertFalse(TestsSchemaFieldUtils.isSchemaFieldsQuery(query));
   }
 
   @Test
@@ -53,7 +53,7 @@ public class SchemaFieldUtilsTest {
     SchemaField schemaField = new SchemaField("path", "desc", "editableDesc");
     String expectedJson = mapper.writeValueAsString(schemaField);
 
-    assertEquals(SchemaFieldUtils.serializeSchemaField(schemaField), expectedJson);
+    assertEquals(TestsSchemaFieldUtils.serializeSchemaField(schemaField), expectedJson);
   }
 
   @Test
@@ -62,7 +62,7 @@ public class SchemaFieldUtilsTest {
         "{\"path\":\"path\",\"description\":\"desc\",\"editableDescription\":\"editableDesc\"}";
     SchemaField expectedField = new SchemaField("path", "desc", "editableDesc");
 
-    SchemaField resultField = SchemaFieldUtils.deserializeSchemaField(json);
+    SchemaField resultField = TestsSchemaFieldUtils.deserializeSchemaField(json);
     assertEquals(resultField.getPath(), expectedField.getPath());
     assertEquals(resultField.getDescription(), expectedField.getDescription());
     assertEquals(resultField.getEditableDescription(), expectedField.getEditableDescription());
@@ -70,6 +70,6 @@ public class SchemaFieldUtilsTest {
 
   @Test(expectedExceptions = RuntimeException.class)
   public void testDeserializeSchemaFieldException() {
-    SchemaFieldUtils.deserializeSchemaField("invalid json");
+    TestsSchemaFieldUtils.deserializeSchemaField("invalid json");
   }
 }

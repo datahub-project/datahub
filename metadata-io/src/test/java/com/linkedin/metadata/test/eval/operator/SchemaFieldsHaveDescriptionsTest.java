@@ -14,7 +14,7 @@ import com.linkedin.metadata.test.eval.ResolvedOperands;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.schemafield.SchemaField;
-import com.linkedin.metadata.test.query.schemafield.SchemaFieldUtils;
+import com.linkedin.metadata.test.query.schemafield.TestsSchemaFieldUtils;
 import java.util.Arrays;
 import java.util.Collections;
 import org.testng.annotations.BeforeMethod;
@@ -72,11 +72,11 @@ public class SchemaFieldsHaveDescriptionsTest {
 
     SchemaField field1 = new SchemaField("path1", "description1", null);
 
-    String serializedField1 = SchemaFieldUtils.serializeSchemaField(field1);
+    String serializedField1 = TestsSchemaFieldUtils.serializeSchemaField(field1);
 
     SchemaField field2 = new SchemaField("path2", null, "description2");
 
-    String serializedField2 = SchemaFieldUtils.serializeSchemaField(field2);
+    String serializedField2 = TestsSchemaFieldUtils.serializeSchemaField(field2);
 
     when(resolvedExpression.getValue())
         .thenReturn(Arrays.asList(serializedField1, serializedField2));
@@ -94,11 +94,11 @@ public class SchemaFieldsHaveDescriptionsTest {
 
     SchemaField field1 = new SchemaField("path1", null, null);
 
-    String serializedField1 = SchemaFieldUtils.serializeSchemaField(field1);
+    String serializedField1 = TestsSchemaFieldUtils.serializeSchemaField(field1);
 
     SchemaField field2 = new SchemaField("path2", null, null);
 
-    String serializedField2 = SchemaFieldUtils.serializeSchemaField(field2);
+    String serializedField2 = TestsSchemaFieldUtils.serializeSchemaField(field2);
 
     when(resolvedExpression.getValue())
         .thenReturn(Arrays.asList(serializedField1, serializedField2));
@@ -116,11 +116,11 @@ public class SchemaFieldsHaveDescriptionsTest {
 
     SchemaField field1 = new SchemaField("path1", null, null);
 
-    String serializedField1 = SchemaFieldUtils.serializeSchemaField(field1);
+    String serializedField1 = TestsSchemaFieldUtils.serializeSchemaField(field1);
 
     SchemaField field2 = new SchemaField("path2", null, "description2");
 
-    String serializedField2 = SchemaFieldUtils.serializeSchemaField(field2);
+    String serializedField2 = TestsSchemaFieldUtils.serializeSchemaField(field2);
 
     when(resolvedExpression.getValue())
         .thenReturn(Arrays.asList(serializedField1, serializedField2));
