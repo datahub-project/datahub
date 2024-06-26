@@ -1,8 +1,10 @@
 package com.linkedin.metadata.test.query.schemafield;
 
+import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -14,6 +16,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -23,6 +26,11 @@ import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PrimitivePropertyValueArray;
+import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -35,6 +43,9 @@ import org.testng.annotations.Test;
 public class SchemaFieldEvaluatorTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,TestDataset,PROD)");
+
+  private static final Urn STRUCTURED_PROPERTY_URN =
+      UrnUtils.getUrn("urn:li:structuredProperty:property");
   private SchemaFieldEvaluator evaluator;
   private EntityService<?> entityService;
   private OperationContext opContext;
@@ -49,7 +60,7 @@ public class SchemaFieldEvaluatorTest {
   @Test
   public void testIsEligibleTrueForSchemaFieldsQuery() {
     TestQuery query = mock(TestQuery.class);
-    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+    when(query.getQuery()).thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
     when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields"));
     assertTrue(evaluator.isEligible("dataset", query));
   }
@@ -57,7 +68,7 @@ public class SchemaFieldEvaluatorTest {
   @Test
   public void testIsEligibleTrueForSchemaFieldsLengthQuery() {
     TestQuery query = mock(TestQuery.class);
-    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
+    when(query.getQuery()).thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
     when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields", "length"));
     assertTrue(evaluator.isEligible("dataset", query));
   }
@@ -65,7 +76,7 @@ public class SchemaFieldEvaluatorTest {
   @Test
   public void testIsIneligibleBadEntityType() {
     TestQuery query = mock(TestQuery.class);
-    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
+    when(query.getQuery()).thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
     when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields", "length"));
     assertFalse(evaluator.isEligible("container", query));
   }
@@ -82,7 +93,7 @@ public class SchemaFieldEvaluatorTest {
   public void testValidateQueryValid() {
     TestQuery query = mock(TestQuery.class);
 
-    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+    when(query.getQuery()).thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
     when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields"));
 
     ValidationResult result = evaluator.validateQuery("dataset", query);
@@ -90,7 +101,7 @@ public class SchemaFieldEvaluatorTest {
 
     query = mock(TestQuery.class);
 
-    when(query.getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
+    when(query.getQuery()).thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_LENGTH_PROPERTY);
     when(query.getQueryParts()).thenReturn(ImmutableList.of("schemaFields", "length"));
 
     result = evaluator.validateQuery("dataset", query);
@@ -101,7 +112,8 @@ public class SchemaFieldEvaluatorTest {
   public void testEvaluateWithValidResponses() throws URISyntaxException {
     Set<Urn> urns = new HashSet<>(Arrays.asList(TEST_DATASET_URN));
     Set<TestQuery> queries = new HashSet<>(Arrays.asList(mock(TestQuery.class)));
-    when(queries.iterator().next().getQuery()).thenReturn(SchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+    when(queries.iterator().next().getQuery())
+        .thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
 
     SchemaMetadata schemaMetadata = new SchemaMetadata();
     schemaMetadata.setHash("hash");
@@ -130,13 +142,13 @@ public class SchemaFieldEvaluatorTest {
         TEST_DATASET_URN,
         new EntityResponse()
             .setUrn(TEST_DATASET_URN)
-            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setEntityName(DATASET_ENTITY_NAME)
             .setAspects(
                 new EnvelopedAspectMap(
                     ImmutableMap.of(
                         Constants.SCHEMA_METADATA_ASPECT_NAME,
                         new EnvelopedAspect().setValue(new Aspect(schemaMetadata.data())),
-                        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
                         new EnvelopedAspect()
                             .setValue(new Aspect(editableSchemaMetadata.data()))))));
 
@@ -144,10 +156,7 @@ public class SchemaFieldEvaluatorTest {
             eq(opContext),
             eq(Constants.DATASET_ENTITY_NAME),
             eq(Collections.singleton(TEST_DATASET_URN)),
-            eq(
-                ImmutableSet.of(
-                    Constants.SCHEMA_METADATA_ASPECT_NAME,
-                    Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+            eq(ImmutableSet.of(SCHEMA_METADATA_ASPECT_NAME, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
         .thenReturn(mockResponses);
 
     com.linkedin.metadata.test.query.schemafield.SchemaField expectedSchemaField =
@@ -160,6 +169,115 @@ public class SchemaFieldEvaluatorTest {
         results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().size(), 1);
     assertEquals(
         results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().get(0),
-        SchemaFieldUtils.serializeSchemaField(expectedSchemaField));
+        TestsSchemaFieldUtils.serializeSchemaField(expectedSchemaField));
+  }
+
+  @Test
+  public void testEvaluateStructuredPropWithValidResponses() throws URISyntaxException {
+    Set<Urn> urns = new HashSet<>(Arrays.asList(TEST_DATASET_URN));
+    TestQuery testQuery =
+        new TestQuery(
+            TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY
+                + "."
+                + STRUCTURED_PROPERTIES_ASPECT_NAME
+                + "."
+                + STRUCTURED_PROPERTY_URN);
+    Set<TestQuery> queries = new HashSet<>(Arrays.asList(testQuery));
+    Urn schemaFieldUrn =
+        SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN.toString(), "path");
+
+    SchemaMetadata schemaMetadata = new SchemaMetadata();
+    schemaMetadata.setHash("hash");
+    schemaMetadata.setPlatformSchema(SchemaMetadata.PlatformSchema.create(new OtherSchema()));
+    schemaMetadata.setVersion(0L);
+    schemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new MapType())))
+                    .setFieldPath("path")
+                    .setDescription("description"))));
+
+    EditableSchemaMetadata editableSchemaMetadata = new EditableSchemaMetadata();
+    editableSchemaMetadata.setEditableSchemaFieldInfo(
+        new EditableSchemaFieldInfoArray(
+            ImmutableList.of(
+                new EditableSchemaFieldInfo()
+                    .setDescription("editableDescription")
+                    .setFieldPath("path"))));
+
+    PrimitivePropertyValueArray primitivePropertyArray = new PrimitivePropertyValueArray();
+    PrimitivePropertyValue prop1 = new PrimitivePropertyValue();
+    prop1.setString("prop1");
+    primitivePropertyArray.add(prop1);
+    AuditStamp auditStamp =
+        new AuditStamp()
+            .setTime(System.currentTimeMillis())
+            .setActor(UrnUtils.getUrn("urn:li:corpuser:user"));
+    StructuredPropertyValueAssignment valueAssignment =
+        new StructuredPropertyValueAssignment()
+            .setValues(primitivePropertyArray)
+            .setPropertyUrn(STRUCTURED_PROPERTY_URN)
+            .setCreated(auditStamp)
+            .setLastModified(auditStamp);
+    StructuredPropertyValueAssignmentArray valueAssignments =
+        new StructuredPropertyValueAssignmentArray();
+    valueAssignments.add(valueAssignment);
+    StructuredProperties structuredProperties =
+        new StructuredProperties().setProperties(valueAssignments);
+
+    Map<Urn, EntityResponse> mockResponses = new HashMap<>();
+    mockResponses.put(
+        TEST_DATASET_URN,
+        new EntityResponse()
+            .setUrn(TEST_DATASET_URN)
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(schemaMetadata.data())),
+                        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setValue(new Aspect(editableSchemaMetadata.data()))))));
+
+    Map<Urn, EntityResponse> mockStructuredPropResponses = new HashMap<>();
+    mockStructuredPropResponses.put(
+        STRUCTURED_PROPERTY_URN,
+        new EntityResponse()
+            .setUrn(schemaFieldUrn)
+            .setEntityName(SCHEMA_FIELD_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        STRUCTURED_PROPERTIES_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(structuredProperties.data()))))));
+
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(DATASET_ENTITY_NAME),
+            eq(Collections.singleton(TEST_DATASET_URN)),
+            eq(ImmutableSet.of(SCHEMA_METADATA_ASPECT_NAME, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(mockResponses);
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(SCHEMA_FIELD_ENTITY_NAME),
+            eq(Collections.singleton(schemaFieldUrn)),
+            eq(ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(mockStructuredPropResponses);
+
+    com.linkedin.metadata.test.query.schemafield.SchemaField expectedSchemaField =
+        new com.linkedin.metadata.test.query.schemafield.SchemaField(
+            "path", "description", "editableDescription");
+
+    Map<Urn, Map<TestQuery, TestQueryResponse>> results =
+        evaluator.evaluate(opContext, "dataset", urns, queries);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().size(), 1);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().get(0),
+        STRUCTURED_PROPERTY_URN.toString());
   }
 }

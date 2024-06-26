@@ -8,7 +8,7 @@ import com.linkedin.metadata.test.eval.ResolvedOperand;
 import com.linkedin.metadata.test.eval.ResolvedOperands;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import com.linkedin.metadata.test.query.schemafield.SchemaField;
-import com.linkedin.metadata.test.query.schemafield.SchemaFieldUtils;
+import com.linkedin.metadata.test.query.schemafield.TestsSchemaFieldUtils;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,7 +41,7 @@ public class SchemaFieldsHaveDescriptions extends BaseOperatorEvaluator {
 
     // Strict validation of the input, requiring a schemaFields query result.
     final Query query = (Query) operands.get(0).getExpression();
-    if (!(SchemaFieldUtils.SCHEMA_FIELDS_PROPERTY.equals(query.getQuery().getQuery()))) {
+    if (!(TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY.equals(query.getQuery().getQuery()))) {
       throw new InvalidOperandException(
           "Invalid params for the exists operation: Requires schemaFields query result as input");
     }
@@ -74,7 +74,7 @@ public class SchemaFieldsHaveDescriptions extends BaseOperatorEvaluator {
   private boolean hasDescription(Object value) {
     if (value instanceof String) {
       // First, decode the string into a schema field.
-      SchemaField schemaField = SchemaFieldUtils.deserializeSchemaField((String) value);
+      SchemaField schemaField = TestsSchemaFieldUtils.deserializeSchemaField((String) value);
       // Simply check whether the description is not null and not empty.
       return (schemaField.getDescription() != null && !schemaField.getDescription().isEmpty())
           || (schemaField.getEditableDescription() != null
