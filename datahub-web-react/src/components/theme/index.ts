@@ -5,3 +5,4 @@ export * from './radii';
 export * from './shadows';
 export * from './spacing';
 export * from './tokens';
+export * from './utils';

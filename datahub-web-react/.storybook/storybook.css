@@ -1,0 +1,125 @@
+/* Storybook Theme CSS Overrides */
+
+body {
+	font-family: 'Mulish', sans-serif !important;
+}
+
+.sidebar-header img {
+	max-height: 25px !important;
+}
+
+.sb-bar {
+	box-shadow: none !important;
+	border-bottom: 1px solid hsla(203, 50%, 30%, 0.15) !important;
+}
+
+.sbdocs-preview,
+.docblock-argstable-body,
+.docblock-source {
+	box-shadow: none !important;
+	filter: none !important;
+}
+
+.docblock-source {
+	margin: 1rem 0 !important;
+	background-color: #1f243a !important;
+}
+
+.prismjs {
+	background-color: #1f243a !important;
+}
+
+.sidebar-item {
+	min-height: auto !important;
+	display: flex !important;
+	align-items: center !important;
+	padding-right: 0 !important;
+	padding: 6px 12px !important;
+	font-weight: normal !important;
+}
+
+.sidebar-item[data-parent-id="components-button"] {
+	margin-left: 14px !important;
+}
+
+.sidebar-item[data-selected="true"] {
+	font-weight: normal !important;
+}
+
+.sidebar-item>a {
+	align-items: center !important;
+	gap: 8px !important;
+	padding-left: 0 !important;
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+}
+
+.sidebar-subheading {
+	text-transform: none !important;
+	letter-spacing: normal !important;
+	font-size: 14px !important;
+}
+
+.sbdocs-wrapper {
+	padding: 2rem !important;
+}
+
+table,
+tr,
+tbody>tr>* {
+	border-color: hsla(203, 50%, 30%, 0.15) !important;
+	background-color: transparent;
+}
+
+:where(table:not(.sb-anchor, .sb-unstyled, .sb-unstyled table)) tr:nth-of-type(2n) {
+	background-color: transparent !important;
+}
+
+tr {
+	border-top: 0 !important;
+}
+
+th {
+	border: 0 !important;
+}
+
+h2#stories {
+	display: none;
+}
+
+.tabbutton {
+	border-bottom: none !important
+}
+
+.tabbutton.tabbutton-active {
+	color: rgb(120, 201, 230) !important;
+}
+
+.toc-wrapper {
+	margin-top: -2.5rem !important;
+	font-family: 'Mulish', sans-serif !important;
+}
+
+/* Custom Doc Styles */
+
+.custom-docs {
+	position: relative;
+	overflow: hidden;
+}
+
+.acrylBg {
+	position: fixed;
+	bottom: 0;
+	left: -20px;
+	background-repeat: repeat;
+	z-index: 0;
+}
+
+.acrylBg img {
+	filter: invert(8);
+}
+
+.custom-docs p {
+	font-size: 16px;
+	line-height: 1.75;
+}

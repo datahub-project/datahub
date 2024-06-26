@@ -1,0 +1,309 @@
+import { Meta, Source } from "@storybook/blocks";
+
+import { colors, getFontValues } from '../src/components/theme';
+
+import { 
+	Grid, 
+	FlexGrid, 
+	Card, 
+	ColorCard, 
+	CopyButton,
+	Seperator,
+	FontDisplayBlock,
+} from "./docLayoutComponents/DocsComponents";
+
+<Meta title="Style Guide" />
+
+<div className="custom-docs">
+	## Style Guide
+
+	The purpose of this Style Guide is to establish a unified and cohesive design language that ensures a consistent user experience across all Acryl products. By adhering to these guidelines, we can maintain a high standard of design quality and improve the usability of our applications.
+
+	### Theme
+
+	You can import the theme object into any component or file in your application and use it to style your components. The theme object is a single source of truth for your application's design system.
+
+	<Source
+		code={`import { colors, radii, tokens, text } from '@components/theme';`}
+		format
+		dark
+	/>
+
+	### Colors
+
+	Colors are managed via the `colors.ts` file in the `src/components/theme` directory. The colors are defined as a nested object with the following structure:
+
+	<Source
+		code={`
+			// colors.ts
+			export const colors = {
+				white: '#ffffff',
+				black: '#000000',
+				gray: {
+					25: '#f9fafc',
+					50: '#ebecf0',
+					...
+				},
+				...
+			};
+		`}
+		format
+		dark
+	/>
+
+	By default, all `500` values are considered the "default" value of that color range. For example, `gray.500` is the default gray color. The other values are used for shading and highlighting. Color values are defined in hex format and their values range between 25 and 1000. With 25 being the lighest and 1000 being the darkest.
+
+	#### Black & White 
+	<FlexGrid>
+		<ColorCard color={colors['black']}>
+			<span className="colorChip" />
+			<div>
+				<span className="colorValue">Black</span>
+				<span className="hex">{colors['black']}</span>
+			</div>
+		</ColorCard>
+		<ColorCard color={colors['white']}>
+			<span className="colorChip" />
+			<div>
+				<span className="colorValue">White</span>
+				<span className="hex">{colors['white']}</span>
+			</div>
+		</ColorCard>
+	</FlexGrid>
+
+	<Seperator />
+
+	#### Gray
+	<Grid>
+		{Object.keys(colors.gray).map((color) => (
+			<ColorCard key={color} color={colors['gray'][color]}>
+				<span className="colorChip" />
+				<div>
+					<span className="colorValue">
+						Gray {color} <CopyButton text={`gray.${color}`} />
+					</span>
+					<span className="hex">{colors['gray'][color]}</span>
+				</div>
+			</ColorCard>
+		))}
+	</Grid>
+
+	<Seperator />
+
+	#### Violet (Primary)
+	<Grid>
+		{Object.keys(colors.violet).map((color) => (
+			<ColorCard key={color} color={colors['violet'][color]}>
+				<span className="colorChip" />
+				<div>
+					<span className="colorValue">
+						Violet {color} <CopyButton text={`violet.${color}`} />
+					</span>
+					<span className="hex">{colors['violet'][color]}</span>
+				</div>
+			</ColorCard>
+		))}
+	</Grid>
+
+	<Seperator />
+
+	#### Blue
+	<Grid>
+		{Object.keys(colors.blue).map((color) => (
+			<ColorCard key={color} color={colors['blue'][color]}>
+				<span className="colorChip" />
+				<div>
+					<span className="colorValue">
+						Blue {color} <CopyButton text={`blue.${color}`} />
+					</span>
+					<span className="hex">{colors['blue'][color]}</span>
+				</div>
+			</ColorCard>
+		))}
+	</Grid>
+
+	<Seperator />
+
+	#### Green
+	<Grid>
+		{Object.keys(colors.green).map((color) => (
+			<ColorCard key={color} color={colors['green'][color]}>
+				<span className="colorChip" />
+				<div>
+					<span className="colorValue">
+						Green {color} <CopyButton text={`green.${color}`} />
+					</span>
+					<span className="hex">{colors['green'][color]}</span>
+				</div>
+			</ColorCard>
+		))}
+	</Grid>
+
+	<Seperator />
+
+	#### Yellow
+	<Grid>
+		{Object.keys(colors.yellow).map((color) => (
+			<ColorCard key={color} color={colors['yellow'][color]}>
+				<span className="colorChip" />
+				<div>
+					<span className="colorValue">
+						Yellow {color} <CopyButton text={`yellow.${color}`} />
+					</span>
+					<span className="hex">{colors['yellow'][color]}</span>
+				</div>
+			</ColorCard>
+		))}
+	</Grid>
+
+	<Seperator />
+
+	#### Red
+	<Grid>
+		{Object.keys(colors.red).map((color) => (
+			<ColorCard key={color} color={colors['red'][color]}>
+				<span className="colorChip" />
+				<div>
+					<span className="colorValue">
+						Red {color} <CopyButton text={`red.${color}`} />
+					</span>
+					<span className="hex">{colors['red'][color]}</span>
+				</div>
+			</ColorCard>
+		))}
+	</Grid>
+
+	### Typography
+
+	Font styles are managed via the `text.ts` file in the `src/components/theme` directory. The primary font family in use is `Mulish`. The font styles are defined as a nested object with the following structure:
+
+	<Source
+		code={`
+			// text.ts
+			const size = {
+				sm: '12px',
+				md: '14px',
+				lg: '16px',
+				xl: '18px',
+				xxl: '20px',
+				xxxl: '22px',
+				xxxxl: '24px',
+			};
+
+			const weight = {
+				light: 400,
+				normal: 500,
+				bold: 700,
+			};
+
+			const family = {
+				default: 'Mulish',
+			};
+
+			const lineHeight = {
+				normal: 'normal',
+			};
+		`}
+		format
+		dark
+	/>
+
+	#### Headings
+	<FontDisplayBlock font={getFontValues({ size: 'xxxxl', variant: 'heading' })}>
+		H1 ({getFontValues({ size: 'xxxxl', variant: 'heading' }).size} / {getFontValues({ size: 'xxxxl', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
+	</FontDisplayBlock>
+	<FontDisplayBlock font={getFontValues({ size: 'xxxl', variant: 'heading' })}>
+		H2 ({getFontValues({ size: 'xxxl', variant: 'heading' }).size} / {getFontValues({ size: 'xxxl', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
+	</FontDisplayBlock>
+	<FontDisplayBlock font={getFontValues({ size: 'xxl', variant: 'heading' })}>
+		H3 ({getFontValues({ size: 'xxl', variant: 'heading' }).size} / {getFontValues({ size: 'xxl', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
+	</FontDisplayBlock>
+	<FontDisplayBlock font={getFontValues({ size: 'xl', variant: 'heading' })}>
+		H4 ({getFontValues({ size: 'xl', variant: 'heading' }).size} / {getFontValues({ size: 'xl', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
+	</FontDisplayBlock>
+	<FontDisplayBlock font={getFontValues({ size: 'lg', variant: 'heading' })}>
+		H5 ({getFontValues({ size: 'lg', variant: 'heading' }).size} / {getFontValues({ size: 'lg', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
+	</FontDisplayBlock>
+	<FontDisplayBlock font={getFontValues({ size: 'md', variant: 'heading' })}>
+		H6 ({getFontValues({ size: 'md', variant: 'heading' }).size} / {getFontValues({ size: 'md', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
+	</FontDisplayBlock>
+
+	#### Subheadings
+	<FontDisplayBlock font={getFontValues({ size: 'xl', variant: 'subheading' })}>
+		Subheading ({getFontValues({ size: 'xl', variant: 'subheading' }).size} / {getFontValues({ size: 'xl', variant: 'subheading' }).weight}) The quick brown fox jumps over the lazy dog
+	</FontDisplayBlock>
+	<FontDisplayBlock font={getFontValues({ size: 'lg', variant: 'subheading' })}>
+		Subheading ({getFontValues({ size: 'lg', variant: 'subheading' }).size} / {getFontValues({ size: 'lg', variant: 'subheading' }).weight}) The quick brown fox jumps over the lazy dog
+	</FontDisplayBlock>
+
+	#### Body Content
+	<FontDisplayBlock font={getFontValues({ size: 'md', variant: 'body' })}>
+		Body ({getFontValues({ size: 'md', variant: 'body' }).size} / {getFontValues({ size: 'md', variant: 'body' }).weight}) Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+	</FontDisplayBlock>
+
+	#### Auxiliary Text
+	<FontDisplayBlock font={getFontValues({ size: 'md', variant: 'caption' })}>
+		Caption ({getFontValues({ size: 'md', variant: 'caption' }).size} / {getFontValues({ size: 'md', variant: 'caption' }).weight}) Lorem ipsum dolor sit amet.
+	</FontDisplayBlock>
+
+	### Border Radius 
+
+	A set smooth corner radius values defined by the radii key.
+
+	<Source
+		code={`
+			// radii.ts
+			export const radii = {
+				sm: '4px',
+				md: '8px',
+				lg: '12px',
+			}
+		`}
+		format
+		dark
+	/>
+
+	### Shadows
+
+	A set of shadow values defined by the shadows key.
+
+	<Source
+		code={`
+			// shadows.ts
+			export const shadows = {
+				sm: '0 4px 4px 0 rgba(0 0 0 / 0.25)',
+				md: '0 8px 8px 4px rgba(0 0 0 / 0.25)',
+			}
+		`}
+		format
+		dark
+	/>
+
+	### Spacing 
+
+	A set of spacing values defined by the spacing key.
+
+	<Source
+		code={`
+			// spacing.ts
+			export const spacing = {
+				none: '0px',
+				xxsm: '4px',
+				xsm: '8px',
+				sm: '12px',
+				md: '16px',
+				lg: '24px',
+				xlg: '32px',
+				xxlg: '48px',
+			}
+		`}
+		format
+		dark
+	/>
+
+
+	### Grid 
+
+	Coming soon…
+
+</div>

@@ -55,7 +55,7 @@ const colorStates = {
 colorStates.primary = colorStates.violet;
 
 // Filled Styles
-const filled = (color) => `
+const filled = (color, isLoading) => `
 	background-color: ${color.background.default};
 	border: 1px solid ${color.border.default};
 	color: ${color.text.default};
@@ -73,15 +73,20 @@ const filled = (color) => `
 		color: ${color.text.active};
 	}
 
-	&:disabled {
-		background-color: ${colors.gray[100]};
-		color: ${colors.gray[300]};
-		border-color: ${colors.gray[300]};
-	}
+	${
+        !isLoading &&
+        `
+		&:disabled {
+			background-color: ${colors.gray[100]};
+			color: ${colors.gray[300]};
+			border-color: ${colors.gray[300]};
+		}
+	`
+    }
 `;
 
 // Outline Styles
-const outline = (color, isAlpha) => `
+const outline = (color, isLoading, isAlpha) => `
 	background-color: transparent;
 	border: 1px solid ${color.border.default};
 	color: ${isAlpha ? color.text.default : color.border.default};
@@ -99,15 +104,20 @@ const outline = (color, isAlpha) => `
 		color: ${color.border.active};
 	}
 
-	&:disabled {
-		background-color: transparent;
-		color: ${colors.gray[300]};
-		border-color: ${colors.gray[300]};
-	}
+	${
+        !isLoading &&
+        `
+		&:disabled {
+			background-color: transparent;
+			color: ${colors.gray[300]};
+			border-color: ${colors.gray[300]};
+		}
+	`
+    }
 `;
 
 // Text Styles
-const text = (color, isAlpha) => `
+const text = (color, isLoading, isAlpha) => `
 	background-color: transparent;
 	border: none;
 	color: ${isAlpha ? color.text.default : color.background.default};
@@ -119,10 +129,15 @@ const text = (color, isAlpha) => `
 		color: ${isAlpha ? color.text.hover : color.background.hover};
 	}
 
-	&:disabled {
-		background-color: transparent;
-		color: ${colors.gray[300]};
-	}
+	${
+        !isLoading &&
+        `
+		&:disabled {
+			background-color: transparent;
+			color: ${colors.gray[300]};
+		}
+	`
+    }
 `;
 
 // Size Styles
@@ -160,24 +175,25 @@ export const ButtonBase = styled.button<{
     color?: ButtonProps['color'];
     size?: ButtonProps['size'];
     isCircle?: boolean;
+    isLoading?: ButtonProps['isLoading'];
 }>`
     display: flex;
     align-items: center;
     gap: ${spacing.xsm};
 
-    ${({ variant, color }) => {
+    ${({ variant, color, isLoading }) => {
         const selectedColor = colorStates[color || buttonDefaults.color || ''];
         const isAlpha = color?.includes('Alpha');
 
         switch (variant) {
             case 'filled':
-                return filled(selectedColor);
+                return filled(selectedColor, isLoading);
             case 'outline':
-                return outline(selectedColor, isAlpha);
+                return outline(selectedColor, isLoading, isAlpha);
             case 'text':
-                return text(selectedColor, isAlpha);
+                return text(selectedColor, isLoading, isAlpha);
             default: // default is 'filled'
-                return filled(buttonDefaults.color);
+                return filled(buttonDefaults.color, isLoading);
         }
     }}
 
@@ -200,6 +216,12 @@ export const ButtonBase = styled.button<{
 		color 0.15s;
 
     cursor: pointer;
+
+    ${({ isLoading }) =>
+        isLoading &&
+        `
+		cursor: not-allowed;
+	`}
 
     &:disabled {
         cursor: not-allowed;

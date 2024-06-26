@@ -1,0 +1,147 @@
+import { Meta, Source } from "@storybook/blocks";
+
+import { tokens } from "../src/components/theme";
+
+import { 
+	Grid,
+	Card,
+	ColorCard,
+	ShadowCard,
+	CopyButton,
+	FlexGrid
+} from "./docLayoutComponents/DocsComponents";
+
+<Meta title="Design Tokens" />
+
+<div className="custom-docs">
+	## Design Tokens
+
+	To streamline the design process and ensure consistency across all Acryl products, we use a set of design tokens that define the visual properties of our design system. These tokens include colors, typography, spacing, and other visual elements that can be used to create a cohesive user experience.
+
+	### Colors
+
+	<Source 
+		code={`
+			import { tokens: { colors } } from '@components/theme';
+
+			// Accessing a color via object path
+			const primaryColor = colors.primary.default;
+			<div style={{ color: primaryColor }}>Hello, World!</div>
+
+			// Using CSS variables
+			<div style={{ color: 'var(--alch-primary-default)' }}>Hello, World!</div>
+		`}
+		format
+		dark
+	/>
+
+	<table style={{ width: '100%' }}>
+		<thead style={{ textAlign: 'left' }}>
+			<tr>
+				<th>Token</th>
+				<th>Selector</th>
+				<th>CSS Variable <small>(coming soon)</small></th>
+			</tr>
+		</thead>
+		<tbody>
+			{Object.keys(tokens.colors).map((color) => {
+				const hasVariants = typeof tokens.colors[color] === 'object';
+
+				if (hasVariants) return (
+					Object.keys(tokens.colors[color]).map((variant) => {
+						const colorValue = tokens.colors[color][variant];
+						const colorName = `${color.replace('.', '-')}-${variant}` || color;
+						const objectKey = `colors.${color}.${variant}`;
+
+						return (
+							<tr key={colorName}>
+								<td>
+									<ColorCard color={colorValue} size="sm">
+										<span className="colorChip" />
+										<div>
+											<span className="colorValue">{colorName}</span>
+											<span className="hex">{colorValue}</span>
+										</div>
+									</ColorCard>
+								</td>
+								<td>
+									<span style={{ display: 'flex', alignItems: 'center', fontSize: 'inherit' }}>
+										{objectKey} <CopyButton text={objectKey} />
+									</span>
+								</td>
+								<td>{`--alch-${colorName}`}</td>
+							</tr>
+						)
+				}))
+
+				const colorValue = tokens.colors[color].default || tokens.colors[color];
+				const colorName = color.replace('.', '-') || color;
+				const objectKey = `colors.${color}`;
+
+				return (
+					<tr key={colorName}>
+						<td>
+							<ColorCard color={colorValue} size="sm">
+								<span className="colorChip" />
+								<div>
+									<span className="colorValue">{color}</span>
+									<span className="hex">{colorValue}</span>
+								</div>
+							</ColorCard>
+						</td>
+						<td>
+							<span style={{ display: 'flex', alignItems: 'center', fontSize: 'inherit' }}>
+								{objectKey} <CopyButton text={objectKey} />
+							</span>
+						</td>
+						<td>{`--alch-${colorName}`}</td>
+					</tr>
+				);
+			})}
+		</tbody>
+	</table>
+
+	### Shadows
+
+	<Source 
+		code={`
+			import { tokens: { shadows } } from '@components/theme';
+		`}
+		format
+		dark
+	/>
+
+	<table style={{ width: '100%' }}>
+		<thead style={{ textAlign: 'left' }}>
+			<tr>
+				<th>Token</th>
+				<th>Selector</th>
+				<th>CSS Variable <small>(coming soon)</small></th>
+			</tr>
+		</thead>
+		<tbody>
+			{Object.keys(tokens.shadows).map((shadow) => {
+
+				const shadowValue = tokens.shadows[shadow];
+				const shadowName = shadow.replace('.', '-');
+				const objectKey = `shadows.${shadow}`;
+
+				return (
+					<tr key={shadowName}>
+						<td>
+							<ShadowCard shadow={shadowValue}>
+								<span className="shadowChip" />
+							</ShadowCard>
+						</td>
+						<td>
+							<span style={{ display: 'flex', alignItems: 'center', fontSize: 'inherit' }}>
+								{objectKey} <CopyButton text={objectKey} />
+							</span>
+						</td>
+						<td>{`--alch-shadows-${shadowName}`}</td>
+					</tr>
+				);
+			})}
+		</tbody>
+	</table>
+</div>

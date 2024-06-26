@@ -24,6 +24,11 @@ const colors = {
         light: BaseColors.violet[300],
         dark: BaseColors.violet[700],
     },
+    secondary: {
+        default: BaseColors.blue[500],
+        light: BaseColors.blue[300],
+        dark: BaseColors.blue[700],
+    },
     error: BaseColors.red[500],
     success: BaseColors.green[500],
     warning: BaseColors.yellow[500],

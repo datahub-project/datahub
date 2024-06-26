@@ -8,6 +8,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     isCircle?: boolean;
     icon?: ReactElement;
     iconPosition?: 'left' | 'right';
+    isLoading?: boolean;
 }
 
 export const buttonDefaults = {
@@ -16,4 +17,5 @@ export const buttonDefaults = {
     size: 'md' as ButtonProps['size'],
     isCircle: false,
     iconPosition: 'left' as ButtonProps['iconPosition'],
+    isLoading: false,
 };

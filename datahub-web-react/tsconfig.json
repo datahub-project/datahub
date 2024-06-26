@@ -91,4 +91,7 @@
 		".eslintrc.js",
 		"functions"
 	],
+	"exclude": [
+		"docs",
+	]
 }
