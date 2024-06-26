@@ -1087,7 +1087,19 @@ jobs:
   sync_deployments:
     name: Sync ArgoCD deployments
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test]
+    needs:
+      [
+        setup,
+        gms_build,
+        frontend_build,
+        kafka_setup_build,
+        mysql_setup_build,
+        elasticsearch_setup_build,
+        mae_consumer_build,
+        mce_consumer_build,
+        datahub_upgrade_build,
+        datahub_ingestion_slim_build,
+      ]
     steps:
       - uses: aws-actions/configure-aws-credentials@v1
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'acryldata' && needs.setup.outputs.repository_name == 'datahub-fork' }}
