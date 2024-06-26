@@ -1,6 +1,7 @@
 #!/bin/sh
 
 echo "Generating user.props file..."
+mkdir -p /datahub-frontend/conf/
 touch /datahub-frontend/conf/user.props
 touch /datahub-frontend/conf/tmp.props
 
