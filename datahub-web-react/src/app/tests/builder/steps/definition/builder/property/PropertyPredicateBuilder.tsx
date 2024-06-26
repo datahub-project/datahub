@@ -34,7 +34,7 @@ enum PropertyPredicateBuilderType {
     /**
      * Display the ownership type property predicate builder. Used for generating predicates that reference specific custom ownership types
      */
-     OWNERSHIP_TYPE = 'OWNERSHIP_TYPE',
+    OWNERSHIP_TYPE = 'OWNERSHIP_TYPE',
     /**
      * Display the freeform custom property builder. Used when a property cannot be found (is not supported) by the default property select.
      */

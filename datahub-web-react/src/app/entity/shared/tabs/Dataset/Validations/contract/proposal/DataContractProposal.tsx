@@ -205,7 +205,7 @@ export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, 
                         <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 24 }} />
                     )}
                     <SummaryMessage>
-                        {(isActiveProposal && (
+                        {isActiveProposal && (
                             <>
                                 <SummaryTitle level={5}>
                                     There is a contract proposal pending review <StyledInfoCircleOutlined />
@@ -215,15 +215,6 @@ export const DataContractProposal = ({ showContractBuilder, refetch, entityUrn, 
                                     proposal={contractProposal as DataContractProposalParams}
                                 />
                             </>
-                        )) || (
-                            <SummaryTitle level={5}>
-                                No contract found
-                                <div>
-                                    <Typography.Text type="secondary">
-                                        A contract does not yet exist for this dataset
-                                    </Typography.Text>
-                                </div>
-                            </SummaryTitle>
                         )}
                     </SummaryMessage>
                 </SummaryDescription>

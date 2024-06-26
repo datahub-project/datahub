@@ -19,13 +19,14 @@ import { InferredAssertionBadge } from './InferredAssertionBadge';
 import { REDESIGN_COLORS } from '../../../constants';
 import { AssertionPlatformAvatar } from './AssertionPlatformAvatar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { getEntityUrnForAssertion, isMonitorActive } from './acrylUtils';
+import { isMonitorActive } from './acrylUtils';
 import { isAssertionPartOfContract } from './contract/utils';
 import { Actions } from './assertion/profile/actions/Actions';
 import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
 import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
 import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
+import { useEntityData } from '../../../EntityContext';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -79,11 +80,12 @@ export function DetailsColumn({
     onViewAssertionDetails,
 }: DetailsColumnProps) {
     const entityRegistry = useEntityRegistry();
+    const entityData = useEntityData();
+
     if (!assertion.info) {
         return <>No details found</>;
     }
     const disabled = (monitor && !isMonitorActive(monitor)) || false;
-    const assertionEntityUrn = getEntityUrnForAssertion(assertion);
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
     const assertionInfo = assertion.info;
     const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
@@ -126,7 +128,7 @@ export function DetailsColumn({
                     <InferredAssertionBadge />
                 </InferredAssertionPopover>
             ) : null}
-            {(isPartOfContract && assertionEntityUrn && (
+            {(isPartOfContract && entityData?.urn && (
                 <Tooltip
                     title={
                         <>
@@ -134,7 +136,7 @@ export function DetailsColumn({
                             <Link
                                 to={`${entityRegistry.getEntityUrl(
                                     EntityType.Dataset,
-                                    assertionEntityUrn,
+                                    entityData.urn,
                                 )}/Validation/Data Contract`}
                                 style={{ color: REDESIGN_COLORS.BLUE }}
                             >
@@ -146,7 +148,7 @@ export function DetailsColumn({
                     <Link
                         to={`${entityRegistry.getEntityUrl(
                             EntityType.Dataset,
-                            assertionEntityUrn,
+                            entityData.urn,
                         )}/Validation/Data Contract`}
                     >
                         <DataContractLogo />

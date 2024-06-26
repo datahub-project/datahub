@@ -19,17 +19,17 @@ export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: Pro
             scheduleText = `${capitalizeFirstLetter(cronstrue.toString(definition.cron?.cron as string))}.`;
             break;
         case FreshnessAssertionScheduleType.SinceTheLastCheck:
-            scheduleText = `Since the previous check, as of ${cronstrue
-                .toString(definition.cron?.cron as string)
-                .toLowerCase()}`;
+            scheduleText = definition?.cron?.cron
+                ? `Since the previous check, as of ${cronstrue.toString(definition.cron?.cron as string).toLowerCase()}`
+                : 'Since the previous check';
             break;
         case FreshnessAssertionScheduleType.FixedInterval:
             scheduleText = `In the past ${
                 definition.fixedInterval?.multiple
             } ${definition.fixedInterval?.unit.toLocaleLowerCase()}s${
-                (evaluationSchedule &&
-                    `, as of ${cronstrue.toString(evaluationSchedule.cron as string).toLowerCase()}`) ||
-                ''
+                evaluationSchedule
+                    ? `, as of ${cronstrue.toString(evaluationSchedule.cron as string).toLowerCase()}`
+                    : ''
             }`;
             break;
         default:

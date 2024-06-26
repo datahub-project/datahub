@@ -13,6 +13,7 @@ import {
     SNOWFLAKE_URN,
     DATABRICKS_URN,
 } from '../../../../../../../../../ingest/source/builder/constants';
+import { getIsRowCountChange, getVolumeTypeInfo } from '../../../../utils';
 
 // Source type config
 export type VolumeSourceType = {
@@ -280,35 +281,6 @@ export const getVolumeTypeOption = (optionKey: VolumeTypeOptionEnum) => {
     return VOLUME_TYPE_OPTIONS[optionKey];
 };
 
-export type VolumeTypeField =
-    | 'rowCountTotal'
-    | 'rowCountChange'
-    | 'incrementingSegmentRowCountTotal'
-    | 'incrementingSegmentRowCountChange';
-
-export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
-    switch (type) {
-        case VolumeAssertionType.RowCountTotal:
-            return 'rowCountTotal' as VolumeTypeField;
-        case VolumeAssertionType.RowCountChange:
-            return 'rowCountChange' as VolumeTypeField;
-        case VolumeAssertionType.IncrementingSegmentRowCountTotal:
-            return 'incrementingSegmentRowCountTotal' as VolumeTypeField;
-        case VolumeAssertionType.IncrementingSegmentRowCountChange:
-            return 'incrementingSegmentRowCountChange' as VolumeTypeField;
-        default:
-            throw new Error(`Unknown volume assertion type: ${type}`);
-    }
-};
-
-export const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
-    const result = volumeAssertion[getPropertyFromVolumeType(volumeAssertion.type)];
-    if (!result) {
-        return undefined;
-    }
-    return result;
-};
-
 export const getSelectedVolumeTypeOption = (volumeAssertionInfo?: VolumeAssertionInfo) => {
     if (!volumeAssertionInfo) return undefined;
 
@@ -321,10 +293,6 @@ export const getSelectedVolumeTypeOption = (volumeAssertionInfo?: VolumeAssertio
             VOLUME_TYPE_OPTIONS[optionKey].category === category &&
             VOLUME_TYPE_OPTIONS[optionKey].operator === typeInfo.operator,
     );
-};
-
-export const getIsRowCountChange = (type: VolumeAssertionType) => {
-    return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);
 };
 
 export const getParameterBuilderTitle = (type: VolumeAssertionType, operator: AssertionStdOperator) => {

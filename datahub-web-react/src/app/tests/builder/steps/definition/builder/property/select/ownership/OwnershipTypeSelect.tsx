@@ -15,7 +15,6 @@ type Types = {
  * Select a ownership type from a dropdown. Allow search values.
  */
 export const OwnershipTypeSelect = ({ selectedOwnershipType, onSelect, onClear }: Types) => {
-
     const [searchOwnershipTypes, { data: ownershipTypesSearchData }] = useSearchOwnershipTypesLazyQuery();
     const searchResults = ownershipTypesSearchData?.searchAcrossEntities?.searchResults || [];
     const ownershipTypes = searchResults.map((result) => result.entity) as OwnershipTypeEntity[];

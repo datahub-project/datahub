@@ -11,12 +11,12 @@ import {
 import {
     VolumeTypeOptionEnum,
     getDefaultVolumeParameters,
-    getPropertyFromVolumeType,
     getSelectedVolumeTypeOption,
     getVolumeTypeCategory,
     getVolumeTypeOption,
     getVolumeTypeOptions,
 } from './utils';
+import { getPropertyFromVolumeType } from '../../../../utils';
 
 const Container = styled.div`
     margin: 16px 0 24px;

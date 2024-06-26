@@ -177,10 +177,7 @@ export const isStructuredPropertyId = (propertyId: string) => {
  * @param propertyId the property id that may refer to the structured property concept.
  */
 export const isOwnershipTypeId = (propertyId: string) => {
-    return (
-        propertyId === OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID ||
-        OWNERSHIP_TYPE_REFERENCE_REGEX.test(propertyId)
-    );
+    return propertyId === OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID || OWNERSHIP_TYPE_REFERENCE_REGEX.test(propertyId);
 };
 
 /**
@@ -262,12 +259,12 @@ export const getStructuredPropertiesOperatorOptions = (property: StructuredPrope
  */
 export const getOwnershipTypeOperatorOptions = () => {
     return [
-               OPERATOR_ID_TO_DETAILS.get(OperatorId.EXISTS),
-               OPERATOR_ID_TO_DETAILS.get(OperatorId.EQUAL_TO),
-               OPERATOR_ID_TO_DETAILS.get(OperatorId.REGEX_MATCH),
-               OPERATOR_ID_TO_DETAILS.get(OperatorId.CONTAINS_STR),
-               OPERATOR_ID_TO_DETAILS.get(OperatorId.STARTS_WITH),
-           ];
+        OPERATOR_ID_TO_DETAILS.get(OperatorId.EXISTS),
+        OPERATOR_ID_TO_DETAILS.get(OperatorId.EQUAL_TO),
+        OPERATOR_ID_TO_DETAILS.get(OperatorId.REGEX_MATCH),
+        OPERATOR_ID_TO_DETAILS.get(OperatorId.CONTAINS_STR),
+        OPERATOR_ID_TO_DETAILS.get(OperatorId.STARTS_WITH),
+    ];
 };
 
 /**
@@ -364,14 +361,14 @@ export const getStructuredPropertyValueOptions = (property: StructuredPropertyEn
 };
 
 /**
-* Returns a set of valid operator options given a ownership type definition.
-*/
+ * Returns a set of valid operator options given a ownership type definition.
+ */
 export const getOwnershipTypeValueOptions = (predicate: PropertyPredicate): ValueOptions | undefined => {
-        if (!predicate.operator || isUnaryOperator(predicate.operator)) {
-                return undefined;
-        }
-        return {
-                   inputType: ValueInputType.TEXT,
-                   options: undefined,
-                };
+    if (!predicate.operator || isUnaryOperator(predicate.operator)) {
+        return undefined;
+    }
+    return {
+        inputType: ValueInputType.TEXT,
+        options: undefined,
+    };
 };

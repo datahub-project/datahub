@@ -35,8 +35,7 @@ export const OwnershipTypePredicateBuilder = ({
     onChangeValues,
 }: Props) => {
     const selectedPropertyUrn =
-        (selectedPredicate?.property && extractOwnershipTypeReferenceUrn(selectedPredicate?.property)) ||
-        undefined;
+        (selectedPredicate?.property && extractOwnershipTypeReferenceUrn(selectedPredicate?.property)) || undefined;
 
     // If a property is selected, we look up the property.
     const [resolvedPropertyDefinition, setResolvedPropertyDefinition] = useState<OwnershipTypeEntity | null>(null);
@@ -69,8 +68,7 @@ export const OwnershipTypePredicateBuilder = ({
      * List vs string vs number vs date vs boolean will have their own operators based
      * on the type of the property.
      */
-    const operatorOptions =
-        (resolvedPropertyDefinition && getOwnershipTypeOperatorOptions()) || undefined;
+    const operatorOptions = (resolvedPropertyDefinition && getOwnershipTypeOperatorOptions()) || undefined;
 
     /**
      * Get options required for rendering the options input once a ownership type has been selected.
@@ -82,7 +80,8 @@ export const OwnershipTypePredicateBuilder = ({
      * This Depends
      */
     const valueOptions =
-        (resolvedPropertyDefinition && selectedPredicate && getOwnershipTypeValueOptions(selectedPredicate)) || undefined;
+        (resolvedPropertyDefinition && selectedPredicate && getOwnershipTypeValueOptions(selectedPredicate)) ||
+        undefined;
 
     /**
      * When a ownership type is selected, we simply

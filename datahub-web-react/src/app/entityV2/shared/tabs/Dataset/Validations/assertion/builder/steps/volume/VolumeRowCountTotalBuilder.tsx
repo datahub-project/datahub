@@ -7,8 +7,8 @@ import {
     AssertionStdParameters,
     VolumeAssertionInfo,
 } from '../../../../../../../../../../types.generated';
-import { getPropertyFromVolumeType } from './utils';
 import { VolumeNumberInput } from './VolumeNumberInput';
+import { getPropertyFromVolumeType } from '../../../../utils';
 
 const Container = styled.div`
     display: flex;

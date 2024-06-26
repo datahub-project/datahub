@@ -372,6 +372,7 @@ export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, mayb
         return undefined;
     }
 };
+
 export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
     return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
         ...type,
