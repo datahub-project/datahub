@@ -151,11 +151,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     icon: CodeOutlined,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
-                            dataset?.dataset?.subTypes?.typeNames
+                            !!dataset?.dataset?.viewProperties?.logic ||
+                            !!dataset?.dataset?.subTypes?.typeNames
                                 ?.map((t) => t.toLocaleLowerCase())
-                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()) || false,
-                        enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
+                        enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
                     },
                 },
                 {

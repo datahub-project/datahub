@@ -122,11 +122,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: ViewDefinitionTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
-                            dataset?.dataset?.subTypes?.typeNames
+                            !!dataset?.dataset?.viewProperties?.logic ||
+                            !!dataset?.dataset?.subTypes?.typeNames
                                 ?.map((t) => t.toLocaleLowerCase())
-                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()) || false,
-                        enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
+                        enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
                     },
                 },
                 {
@@ -173,8 +173,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                 },
                 {
-                    name: 'Runs',
-                    // TODO: Rename this to DatasetRunsTab.
+                    name: 'Runs', // TODO: Rename this to DatasetRunsTab.
                     component: OperationsTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) => {
@@ -232,7 +231,7 @@ export class DatasetEntity implements Entity<Dataset> {
         {
             component: SidebarViewDefinitionSection,
             display: {
-                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties?.logic && true) || false,
+                visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
             },
         },
         {
@@ -247,8 +246,7 @@ export class DatasetEntity implements Entity<Dataset> {
         },
         {
             component: DataProductSection,
-        },
-        // TODO: Add back once entity-level recommendations are complete.
+        }, // TODO: Add back once entity-level recommendations are complete.
         // {
         //    component: SidebarRecommendationsSection,
         // },
