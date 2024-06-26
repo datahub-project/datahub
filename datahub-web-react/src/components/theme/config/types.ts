@@ -2,6 +2,10 @@
 	Theme type definitions that can be used anywhere in the app
 */
 
+// General types
+export type SizeOptions = 'sm' | 'md' | 'lg';
+
+// Color types
 export interface Color {
     25: string;
     50: string;
@@ -16,10 +20,23 @@ export interface Color {
     900: string;
     1000: string;
 }
+export type ColorOptions = 'white' | 'black' | 'violet' | 'green' | 'red' | 'blue' | 'gray';
+export type ColorShadeOptions = 'light' | 'default' | 'dark';
 
-export type ColorShade = 'light' | 'default' | 'dark';
-export type ColorType = 'white' | 'black' | 'gray' | 'violet' | 'green' | 'red' | 'blue';
+// Typography types
+export type FontSizeOptions = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+export type FontWeightOptions = 'light' | 'normal' | 'black';
+export type FontVariantOptions = 'heading' | 'subheading' | 'body' | 'caption';
+export type FontColorOptions = 'inherit' | ColorOptions;
 
-export type FontSize = 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'xxxl' | 'xxxxl';
-export type FontWeight = 'light' | 'normal' | 'bold';
-export type FontVariant = 'heading' | 'subheading' | 'body' | 'caption';
+// Border radius types
+export type BorderRadiusOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
+
+// Box shadow types
+export type BoxShadowOptions = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'inner' | 'outline' | 'none';
+
+// Spacing types
+export type SpacingOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | '3xl' | '4xl';
+
+// Transform types
+export type RotationOptions = '0' | '90' | '180' | '270';

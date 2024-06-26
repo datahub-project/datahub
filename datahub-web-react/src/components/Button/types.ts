@@ -1,10 +1,11 @@
 import { ReactElement, ButtonHTMLAttributes } from 'react';
+import type { SizeOptions, ColorOptions } from '../theme/config';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'filled' | 'outline' | 'text';
     // corresponds to the "colorStates" in the design system
-    color?: 'violet' | 'green' | 'red' | 'blue' | 'gray' | 'whiteAlpha';
-    size?: 'sm' | 'md' | 'lg';
+    color?: ColorOptions;
+    size?: SizeOptions;
     isCircle?: boolean;
     icon?: ReactElement;
     iconPosition?: 'left' | 'right';

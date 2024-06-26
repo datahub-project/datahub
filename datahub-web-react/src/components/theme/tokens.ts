@@ -60,7 +60,7 @@ const shadows = {
 
 const text = {
     weight: {
-        heading: BaseText.weight.bold,
+        heading: BaseText.weight.black,
         subheading: BaseText.weight.normal,
         body: BaseText.weight.normal,
         caption: BaseText.weight.light,

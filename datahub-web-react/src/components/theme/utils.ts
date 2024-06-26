@@ -5,26 +5,32 @@
 import { colors } from './colors';
 import { text } from './text';
 import { tokens } from './tokens';
+import { transform } from './transform';
 
 import {
-    ColorShade,
-    ColorType,
-    FontSize,
-    FontVariant,
+    FontVariantOptions,
+    FontSizeOptions,
+    FontColorOptions,
+    ColorOptions,
+    ColorShadeOptions,
+    RotationOptions,
+} from './config/types';
+
+import {
     LIGHT_VALUE,
     LIGHT_HOVER_VALUE,
     DEFAULT_VALUE,
     DEFAULT_HOVER_VALUE,
     DARK_VALUE,
     DARK_HOVER_VALUE,
-} from './config';
+} from './config/constants';
 
 /*
 	Get the color values for a given color and shade
 	@param color - the color to get the values for
 	@param shade - the shade of the color to get the values for
 */
-export const getColorValues = ({ color, shade = 'default' }: { color: ColorType; shade?: ColorShade }) => {
+export const getColorValues = ({ color, shade = 'default' }: { color: ColorOptions; shade?: ColorShadeOptions }) => {
     // If the color is not provided, throw an error
     if (!color) throw new Error('Color is required');
 
@@ -81,7 +87,7 @@ export const getColorValues = ({ color, shade = 'default' }: { color: ColorType;
 	@param size - the size of the font
 	@param variant - the variant of the font
 */
-export const getFontValues = ({ size = 'md', variant = 'body' }: { size?: string; variant?: FontVariant }) => {
+export const getFontValues = ({ size = 'md', variant = 'body' }: { size?: string; variant?: FontVariantOptions }) => {
     const { size: sizeValues } = text;
     const {
         text: { weight },
@@ -106,10 +112,42 @@ export const getFontValues = ({ size = 'md', variant = 'body' }: { size?: string
 
     // Return the font values
     return {
-        size: sizeValues[size as FontSize],
+        size: sizeValues[size as FontSizeOptions],
         weight: weight[variant],
         family: text.family.default,
         lineHeight: text.lineHeight.normal,
         color,
     };
+};
+
+/*
+	Get the font size value for a given size
+	@param size - the size of the font
+*/
+export const getFontSize = (size?: FontSizeOptions) => {
+    let sizeValue = size || '';
+    if (!size) sizeValue = 'md';
+    const { size: sizeValues } = text;
+    return sizeValues[sizeValue];
+};
+
+/*
+	Get the color value for a given color
+	@param color - the color to get the value for
+*/
+export const getColorValue = (color?: FontColorOptions) => {
+    if (!color) return colors.black;
+    if (color === 'inherit') return 'inherit';
+    if (color === 'white') return colors.white;
+    if (color === 'black') return colors.black;
+    return colors[color][DEFAULT_VALUE];
+};
+
+/*
+	Get the rotation transform value for a given rotation
+	@param r - the rotation to get the transform value for
+*/
+export const getRotationTransform = (rotate?: RotationOptions) => {
+    if (!rotate) return '';
+    return transform.rotate[rotate || '0'];
 };

@@ -2,20 +2,23 @@
 	Font values for the theme
 */
 
-const size = {
+import type { FontSizeOptions, FontWeightOptions } from './config/types';
+
+const size: Record<FontSizeOptions, string> = {
+    xs: '10px',
     sm: '12px',
     md: '14px',
     lg: '16px',
     xl: '18px',
-    xxl: '20px',
-    xxxl: '22px',
-    xxxxl: '24px',
+    '2xl': '20px',
+    '3xl': '22px',
+    '4xl': '24px',
 };
 
-const weight = {
+const weight: Record<FontWeightOptions, number> = {
     light: 400,
     normal: 500,
-    bold: 700,
+    black: 700,
 };
 
 const family = {

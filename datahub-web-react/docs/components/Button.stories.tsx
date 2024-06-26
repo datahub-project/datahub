@@ -1,9 +1,8 @@
 import React from 'react';
 
 import type { Meta, StoryObj } from '@storybook/react';
-import { PlusOutlined } from '@ant-design/icons';
 
-import { Button } from '../../src/components';
+import { Button, Icon } from '../../src/components';
 
 import { GridList } from '../docLayoutComponents/GridList';
 
@@ -26,9 +25,6 @@ const meta = {
 		variant: {
 			description: 'The variant of the Button.',
 			defaultValue: 'filled',
-			control: {
-				type: 'select',
-			},
 		},
 		color: {
 			description: 'The color of the Button.',
@@ -40,16 +36,10 @@ const meta = {
 		size: {
 			description: 'The size of the Button.',
 			defaultValue: 'md',
-			control: {
-				type: 'select',
-			},
 		},
 		isCircle: {
 			description: 'Whether the Button should be a circle. If this is selected, the Button will ignore children content, so add an Icon to the Button.',
 			defaultValue: false,
-			control: {
-				type: 'boolean',
-			},
 		},
 		icon: {
 			description: 'The icon to display in the Button.',
@@ -60,9 +50,6 @@ const meta = {
 		iconPosition: {
 			description: 'The position of the icon in the Button.',
 			defaultValue: 'left',
-			control: {
-				type: 'select',
-			},
 		},
 		isLoading: {
 			description: 'Whether the Button is in a loading state.',
@@ -111,7 +98,6 @@ export const Colors: Story = {
 				<Button {...args} color="red">Red Button</Button>
 				<Button {...args} color="blue">Blue Button</Button>
 				<Button {...args} color="gray">Gray Button</Button>
-				<Button {...args} color="whiteAlpha">WhiteAlpha Button</Button>
 			</GridList>
 		);
 	},
@@ -133,8 +119,8 @@ export const WithIcon: Story = {
 	render: function Render(args) {
 		return (
 			<GridList>
-				<Button {...args} icon={<PlusOutlined />}>Icon Left</Button>
-				<Button {...args} icon={<PlusOutlined />} iconPosition="right">Icon Right</Button>
+				<Button {...args} icon={<Icon icon="Add" />}>Icon Left</Button>
+				<Button {...args} icon={<Icon icon="Add" />} iconPosition="right">Icon Right</Button>
 			</GridList>
 		);
 	},
@@ -144,9 +130,9 @@ export const CircleShape: Story = {
 	render: function Render(args) {
 		return (
 			<GridList>
-				<Button {...args} icon={<PlusOutlined />} isCircle={true} size="sm" />
-				<Button {...args} icon={<PlusOutlined />} isCircle={true} />
-				<Button {...args} icon={<PlusOutlined />} isCircle={true} size="lg" />
+				<Button {...args} icon={<Icon icon="Add" size="sm" />} isCircle={true} size="sm" />
+				<Button {...args} icon={<Icon icon="Add" />} isCircle={true} />
+				<Button {...args} icon={<Icon icon="Add" size="lg" />} isCircle={true} size="lg" />
 			</GridList>
 		);
 	},

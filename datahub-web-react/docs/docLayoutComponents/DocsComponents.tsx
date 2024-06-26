@@ -136,6 +136,40 @@ export const FontDisplayBlock = styled.div<{ font: any }>`
 	}
 `;
 
+export const IconGrid = styled.div`
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+	gap: 16px;
+	margin-top: 16px;
+`;
+
+export const IconGridItem = styled.div`
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: space-between;
+
+	border: 1px solid ${colors.borders.light};
+	border-radius: 8px;
+	overflow: hidden;
+
+	& span {
+		width: 100%;
+		border-top: 1px solid ${colors.borders.light};
+		background-color: ${colors.background.lightGray};
+		text-align: center;
+		padding: 4px 8px;
+		font-size: 10px;
+	}
+`;
+
+export const IconDisplayBlock = styled.div`
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 50px;
+`;
+
 export const CopyButton = (props) => (
 	<div style={{ display: 'inline-block' }}>
 		<Button

@@ -38,7 +38,8 @@ body {
 	font-weight: normal !important;
 }
 
-.sidebar-item[data-parent-id="components-button"] {
+.sidebar-item[data-nodeType="document"],
+.sidebar-item[data-nodeType="story"] {
 	margin-left: 14px !important;
 }
 
