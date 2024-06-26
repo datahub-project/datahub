@@ -203,7 +203,7 @@ Cypress.Commands.add("clickOptionInScrollView", (text, selector) => {
     cy.contains(text).then((el) => {
       // Scroll the element into view
       el[0].scrollIntoView();
-      cy.wrap(el).click();
+      cy.wrap(el).click({ force: true });
     });
   });
 });
