@@ -6,7 +6,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from datahub_executor.common.client.fetcher.base import Fetcher
 from datahub_executor.common.types import ExecutionRequestSchedule
+from datahub_executor.config import DATAHUB_EXECUTOR_SWEEPER_INTERVAL
 from datahub_executor.coordinator.scheduler import ExecutionRequestScheduler
+from datahub_executor.coordinator.sweeper import DatahubExecutorSweeper
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,15 @@ class ExecutionRequestManager:
 
         # Create a background scheduler
         self.bg_scheduler = BackgroundScheduler()
+
+        # Create and schedule sweeper
+        self.sweeper = DatahubExecutorSweeper()
+        self.bg_scheduler.add_job(
+            self.sweeper.run,
+            args=[],
+            trigger="interval",
+            minutes=DATAHUB_EXECUTOR_SWEEPER_INTERVAL,
+        )
 
         # Schedule the refresh method to run.
         for fetcher in fetchers:

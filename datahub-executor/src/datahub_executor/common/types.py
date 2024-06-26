@@ -1313,3 +1313,11 @@ class FetcherConfig(PermissiveBaseModel):
     mode: FetcherMode = FetcherMode.DEFAULT
     executor_ids: Optional[List[str]] = None
     refresh_interval: int
+
+
+class ExecutionRequestStatus(PermissiveBaseModel):
+    execution_request_id: str
+    execution_request_urn: str
+    ingestion_source_urn: str
+    status: str
+    last_observed: datetime
