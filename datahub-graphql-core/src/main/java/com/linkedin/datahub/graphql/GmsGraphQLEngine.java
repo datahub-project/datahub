@@ -121,6 +121,8 @@ import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.ReportAssertionResultResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertCustomAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.DebugAccessResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenMetadataResolver;
@@ -377,6 +379,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
@@ -454,6 +457,7 @@ public class GmsGraphQLEngine {
   private final FormService formService;
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
+  private AssertionService assertionService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -575,6 +579,7 @@ public class GmsGraphQLEngine {
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
+    this.assertionService = args.assertionService;
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -1220,6 +1225,10 @@ public class GmsGraphQLEngine {
                   "createTestConnectionRequest",
                   new CreateTestConnectionRequestResolver(
                       this.entityClient, this.ingestionConfiguration))
+              .dataFetcher(
+                  "upsertCustomAssertion", new UpsertCustomAssertionResolver(assertionService))
+              .dataFetcher(
+                  "reportAssertionResult", new ReportAssertionResultResolver(assertionService))
               .dataFetcher(
                   "deleteAssertion",
                   new DeleteAssertionResolver(this.entityClient, this.entityService))

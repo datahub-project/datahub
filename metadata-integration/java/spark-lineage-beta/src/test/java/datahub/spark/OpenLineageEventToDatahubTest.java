@@ -26,7 +26,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.junit.Assert;
 
-public class SparkStreamingEventToDatahubTest extends TestCase {
+public class OpenLineageEventToDatahubTest extends TestCase {
   public void testGenerateUrnFromStreamingDescriptionFile() throws URISyntaxException {
     Config datahubConfig =
         ConfigFactory.parseMap(
@@ -481,6 +481,121 @@ public class SparkStreamingEventToDatahubTest extends TestCase {
       assertEquals(
           "urn:li:dataset:(urn:li:dataPlatform:s3,acryl-datahub-offline/tmp/daily_stats2,DEV)",
           dataset.getUrn().toString());
+    }
+  }
+
+  public void testProcessGlueOlEvent() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_glue.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:glue,my_glue_database.my_glue_table,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:hive,my_glue_database.my_output_glue_table,DEV)",
+          dataset.getUrn().toString());
+    }
+  }
+
+  public void testProcessGlueOlEventSymlinkDisabled() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.disableSymlinkResolution(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_glue.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket-test/sample_data/input_data.parquet,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket-test/sample_data/output_data.parquet,DEV)",
+          dataset.getUrn().toString());
+    }
+  }
+
+  public void testProcessGlueOlEventWithHiveAlias() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.hivePlatformAlias("glue");
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_glue.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:glue,my_glue_database.my_glue_table,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:glue,my_glue_database.my_output_glue_table,DEV)",
+          dataset.getUrn().toString());
+    }
+  }
+
+  public void testProcessRedshiftOutput() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.hivePlatformAlias("glue");
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/redshift_lineage_spark.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,DEV)",
+          dataset.getUrn().toString());
+    }
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.spark_redshift_load_test,DEV)",
+          dataset.getUrn().toString());
+      assertEquals(
+          dataset.getSchemaMetadata().getPlatform().toString(), "urn:li:dataPlatform:redshift");
     }
   }
 }

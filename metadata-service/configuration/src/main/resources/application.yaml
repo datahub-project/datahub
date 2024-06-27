@@ -217,9 +217,9 @@ elasticsearch:
     exactMatch:
       exclusive: ${ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE:false} # if false will only apply weights, if true will exclude non-exact
       withPrefix: ${ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX:true} # include prefix exact matches
-      exactFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR:10.0} # boost multiplier when exact with case
-      prefixFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR:1.6} # boost multiplier when exact prefix
-      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.7} # stacked boost multiplier when case mismatch
+      exactFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR:16.0} # boost multiplier when exact with case
+      prefixFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR:1.1} # boost multiplier when exact prefix
+      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.0} # stacked boost multiplier when case mismatch
       enableStructured: ${ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED:true} # enable exact match on structured search
     wordGram:
       twoGramFactor: ${ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR:1.2} # boost multiplier when match on 2-gram tokens
@@ -230,8 +230,8 @@ elasticsearch:
       urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
     custom:
-      enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:false}
-      file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yml}
+      enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
+      file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yaml}
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
@@ -370,6 +370,7 @@ featureFlags:
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
   businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
+  dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:false} # Enables the Data Contracts feature (Tab) in the UI
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -476,7 +477,7 @@ metadataChangeProposal:
       maxAttempts: ${MCP_VERSIONED_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_VERSIONED_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_VERSIONED_MULTIPLIER:10}
-      maxIntervalMs:  ${MCP_VERSIONED_MAX_INTERVAL_MS:30000}
+      maxIntervalMs: ${MCP_VERSIONED_MAX_INTERVAL_MS:30000}
     # Timeseries MCL topic
     timeseries:
       # Whether to throttle MCP processing based on MCL backlog
