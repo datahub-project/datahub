@@ -110,6 +110,7 @@ entities:
       - dataProcessInstanceProperties
       - dataProcessInstanceRelationships
       - dataProcessInstanceRunEvent
+      - status
   - name: chart
     category: core
     keyAspect: chartKey
