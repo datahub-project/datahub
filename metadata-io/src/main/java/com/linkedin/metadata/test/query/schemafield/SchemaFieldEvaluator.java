@@ -19,6 +19,8 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -137,16 +139,10 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
               .collect(Collectors.toList()));
     }
 
-    // Case 3: Query for a aspect of a schemaField entity, only structured properties support
-    // currently
+    // Case 3: Query for a structured property on schemaFields, returns filtered list from all
+    // schemaFields
     if (isStructuredPropertySchemaFieldQuery(query)) {
-      Set<Urn> schemaFieldUrns =
-          schemaMetadata.getFields().stream()
-              .map(
-                  schemaField ->
-                      SchemaFieldUtils.generateSchemaFieldUrn(
-                          urn.toString(), schemaField.getFieldPath()))
-              .collect(Collectors.toSet());
+      Set<Urn> schemaFieldUrns = getSchemaFieldUrns(schemaMetadata, urn);
       List<String> filteredResults =
           getStructuredPropertyNames(opContext, schemaFieldUrns).stream()
               .filter(structuredPropUrn -> query.getQuery().contains(structuredPropUrn))
@@ -156,24 +152,67 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
       results.addAll(filteredResults);
     }
 
+    // Case 4: Query for the set of structured properties shared by all schema fields
+    if (isSharedStructuredPropertySchemaFieldQuery(query)) {
+      Set<Urn> schemaFieldUrns = getSchemaFieldUrns(schemaMetadata, urn);
+      results.addAll(getSharedStructuredPropertyNames(opContext, schemaFieldUrns));
+    }
+
     return new TestQueryResponse(results);
+  }
+
+  private Set<Urn> getSchemaFieldUrns(@Nonnull SchemaMetadata schemaMetadata, @Nonnull Urn urn) {
+    return schemaMetadata.getFields().stream()
+        .map(
+            schemaField ->
+                SchemaFieldUtils.generateSchemaFieldUrn(urn.toString(), schemaField.getFieldPath()))
+        .collect(Collectors.toSet());
   }
 
   private List<String> getStructuredPropertyNames(
       @Nonnull OperationContext opContext, Set<Urn> urns) {
     Set<String> results = new HashSet<>();
+    Map<Urn, EntityResponse> responseMap = retrieveSchemaFieldAspects(opContext, urns);
+    responseMap.forEach(
+        (urn, response) ->
+            results.addAll(extractPropertyNames(extractStructuredProperties(response))));
+    return new ArrayList<>(results);
+  }
+
+  private List<String> getSharedStructuredPropertyNames(
+      @Nonnull OperationContext opContext, Set<Urn> urns) {
+    Set<String> results = new HashSet<>();
+    Map<Urn, EntityResponse> responseMap = retrieveSchemaFieldAspects(opContext, urns);
+    List<Pair<Urn, StructuredProperties>> structuredPropertiesMap =
+        responseMap.entrySet().stream()
+            .map(entry -> new Pair<>(entry.getKey(), extractStructuredProperties(entry.getValue())))
+            .collect(Collectors.toList());
+    Set<Urn> allProps =
+        structuredPropertiesMap.stream()
+            .flatMap(entry -> entry.getValue().getProperties().stream())
+            .map(StructuredPropertyValueAssignment::getPropertyUrn)
+            .collect(Collectors.toSet());
+    for (Urn propUrn : allProps) {
+      if (structuredPropertiesMap.stream()
+          .allMatch(
+              entry ->
+                  entry.getValue().getProperties().stream()
+                      .anyMatch(property -> propUrn.equals(property.getPropertyUrn())))) {
+        results.add(propUrn.toString());
+      }
+    }
+    return new ArrayList<>(results);
+  }
+
+  private Map<Urn, EntityResponse> retrieveSchemaFieldAspects(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
     try {
-      Map<Urn, EntityResponse> responseMap =
-          entityService.getEntitiesV2(
-              opContext, SCHEMA_FIELD_ENTITY_NAME, urns, SCHEMA_FIELD_ASPECT_NAMES);
-      responseMap.forEach(
-          (urn, response) ->
-              results.addAll(extractPropertyNames(extractStructuredProperties(response))));
+      return entityService.getEntitiesV2(
+          opContext, SCHEMA_FIELD_ENTITY_NAME, urns, SCHEMA_FIELD_ASPECT_NAMES);
     } catch (URISyntaxException e) {
       log.error("Error while fetching aspects for urns {}", urns, e);
       throw new RuntimeException(String.format("Error while fetching aspects for urns %s", urns));
     }
-    return new ArrayList<>(results);
   }
 
   @Nullable
