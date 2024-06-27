@@ -170,7 +170,7 @@ What if I want to be notified about different changes?
 </summary>
 To modify your subscription, use the dropdown menu next to the Subscribe button to modify the changes you want to be notified about.
 </details>
-
+<details>
 <summary>
 I want to configure multiple channels. How many slack channels or emails can I configure to get notified? 
 </summary>
