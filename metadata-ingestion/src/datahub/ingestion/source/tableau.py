@@ -401,7 +401,7 @@ class TableauConfig(
 
     ingest_multiple_sites: bool = Field(
         False,
-        description="When enabled, ingests multiple sites the user has access to. If the user doesn't have access to the default site, specify an initial site to query in the site property. By default all sites the user has access to will be ingested. You can filter sites with the site_name_pattern property.",
+        description="When enabled, ingests multiple sites the user has access to. If the user doesn't have access to the default site, specify an initial site to query in the site property. By default all sites the user has access to will be ingested. You can filter sites with the site_name_pattern property. This flag is currently only supported for Tableau Server. Tableau Cloud is not supported.",
     )
 
     site_name_pattern: AllowDenyPattern = Field(
@@ -409,7 +409,8 @@ class TableauConfig(
         description="Filter for specific Tableau sites. "
         "By default, all sites will be included in the ingestion. "
         "You can both allow and deny sites based on their name using their name, or a Regex pattern. "
-        "Deny patterns always take precedence over allow patterns. ",
+        "Deny patterns always take precedence over allow patterns. "
+        "This property is currently only supported for Tableau Server. Tableau Cloud is not supported. "
     )
 
     add_site_container: bool = Field(
@@ -2883,6 +2884,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         site.state != "Active"
                         or not self.config.site_name_pattern.allowed(site.name)
                     ):
+                        logger.info(f"Skip site '{site.name}' as it's excluded in site_name_pattern or inactive.")
                         continue
                     self.current_site = site
                     self.server.auth.switch_site(site)
