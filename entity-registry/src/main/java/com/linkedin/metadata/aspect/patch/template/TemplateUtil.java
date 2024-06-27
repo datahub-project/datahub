@@ -13,7 +13,6 @@ import com.linkedin.util.Pair;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonValue;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class TemplateUtil {
