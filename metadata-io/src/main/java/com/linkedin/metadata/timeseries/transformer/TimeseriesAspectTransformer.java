@@ -269,6 +269,7 @@ public class TimeseriesAspectTransformer {
 
   private static String getDocId(@Nonnull JsonNode document, String collectionId)
       throws IllegalArgumentException {
+    String hashAlgo = System.getenv("ELASTIC_ID_HASH_ALGO");
     String docId = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).toString();
     JsonNode eventGranularity = document.get(MappingsBuilder.EVENT_GRANULARITY);
     if (eventGranularity != null) {
