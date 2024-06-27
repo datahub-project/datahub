@@ -215,23 +215,23 @@
                 "duration": "<duration>",
                 "start_date": "<start_date>",
                 "end_date": "<end_date>",
-                "execution_date": "2023-09-27 21:34:38+00:00",
+                "execution_date": "2024-02-27 21:34:38+00:00",
                 "try_number": "0",
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "5",
-                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=create_cost_table&map_index=-1&tab=logs",
+                "log_url": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=create_cost_table&dag_id=sqlite_operator&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "create_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=create_cost_table&map_index=-1&tab=logs",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=create_cost_table&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_create_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1718715882139,
+                "time": 1719524589956,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -607,23 +607,23 @@
                 "duration": "<duration>",
                 "start_date": "<start_date>",
                 "end_date": "<end_date>",
-                "execution_date": "2023-09-27 21:34:38+00:00",
+                "execution_date": "2024-02-27 21:34:38+00:00",
                 "try_number": "0",
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "4",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=populate_cost_table&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=populate_cost_table&dag_id=sqlite_operator&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "populate_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=populate_cost_table&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=populate_cost_table&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_populate_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1718715886259,
+                "time": 1719524593685,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1000,23 +1000,23 @@
                 "duration": "<duration>",
                 "start_date": "<start_date>",
                 "end_date": "<end_date>",
-                "execution_date": "2023-09-27 21:34:38+00:00",
+                "execution_date": "2024-02-27 21:34:38+00:00",
                 "try_number": "0",
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "3",
-                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&map_index=-1&tab=logs",
+                "log_url": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=sqlite_operator&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "transform_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&map_index=-1&tab=logs",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1718715894274,
+                "time": 1719524597751,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1527,23 +1527,23 @@
                 "duration": "<duration>",
                 "start_date": "<start_date>",
                 "end_date": "<end_date>",
-                "execution_date": "2023-09-27 21:34:38+00:00",
+                "execution_date": "2024-02-27 21:34:38+00:00",
                 "try_number": "0",
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_costs&map_index=-1&tab=logs",
+                "log_url": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_costs&dag_id=sqlite_operator&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "cleanup_costs"
             },
-            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_costs&map_index=-1&tab=logs",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_costs&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_cleanup_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1718733767964,
+                "time": 1719524602113,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1721,23 +1721,23 @@
                 "duration": "<duration>",
                 "start_date": "<start_date>",
                 "end_date": "<end_date>",
-                "execution_date": "2023-09-27 21:34:38+00:00",
+                "execution_date": "2024-02-27 21:34:38+00:00",
                 "try_number": "0",
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_processed_costs&map_index=-1&tab=logs",
+                "log_url": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_processed_costs&dag_id=sqlite_operator&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "cleanup_processed_costs"
             },
-            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_processed_costs&map_index=-1&tab=logs",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_processed_costs&dag_id=sqlite_operator&map_index=-1",
             "name": "sqlite_operator_cleanup_processed_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1718733773354,
+                "time": 1719524606514,
                 "actor": "urn:li:corpuser:datahub"
             }
         }

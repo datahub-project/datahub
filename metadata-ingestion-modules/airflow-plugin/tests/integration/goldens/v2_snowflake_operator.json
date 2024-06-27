@@ -13,7 +13,7 @@
                 "doc_md": "None",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "None",
-                "start_date": "DateTime(2023, 8, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
+                "start_date": "DateTime(2024, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
                 "tags": "[]",
                 "timezone": "Timezone('UTC')"
             },
@@ -325,23 +325,23 @@
                 "duration": "<duration>",
                 "start_date": "<start_date>",
                 "end_date": "<end_date>",
-                "execution_date": "2023-09-27 21:34:38+00:00",
+                "execution_date": "2024-02-27 21:34:38+00:00",
                 "try_number": "0",
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "state": "running",
                 "operator": "SnowflakeOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=snowflake_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=snowflake_operator&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "snowflake_operator",
                 "task_id": "transform_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=snowflake_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2024-02-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=snowflake_operator&map_index=-1",
             "name": "snowflake_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1719522508527,
+                "time": 1719524543086,
                 "actor": "urn:li:corpuser:datahub"
             }
         }

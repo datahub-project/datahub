@@ -349,7 +349,7 @@ def test_airflow_plugin(
                 "dags",
                 "trigger",
                 "--exec-date",
-                "2023-09-27T21:34:38+00:00",
+                "2024-02-27T21:34:38+00:00",
                 "-r",
                 "manual_run_test",
                 dag_id,
