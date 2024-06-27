@@ -193,7 +193,6 @@ fragment assertionDetails on Assertion {
     }
 }
 
-
 fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
     field {
         path
