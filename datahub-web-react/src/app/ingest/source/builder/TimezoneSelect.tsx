@@ -18,8 +18,10 @@ export const TimezoneSelect = ({ value, onChange }: Props) => {
         <>
             <StyledSelect showSearch value={value} onChange={onChange}>
                 {timezones.map((timezone) => (
-                    <Select.Option key={timezone} value={timezone}>{timezone}</Select.Option>
-	            ))}
+                    <Select.Option key={timezone} value={timezone}>
+                        {timezone}
+                    </Select.Option>
+                ))}
             </StyledSelect>
         </>
     );
