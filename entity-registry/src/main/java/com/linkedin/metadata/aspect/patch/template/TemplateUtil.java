@@ -74,11 +74,7 @@ public class TemplateUtil {
     JsonNode transformedNodeClone = transformedNode.deepCopy();
     List<Pair<PatchOperationType, String>> paths = getPaths(jsonPatch);
     for (Pair<PatchOperationType, String> operationPath : paths) {
-      // a JsonPatch will have `~` encoded as `~0` and `/` encoded as `~1`
-      String[] keys =
-          Arrays.stream(operationPath.getSecond().split("/"))
-              .map(k -> k.replace("~0", "~").replace("~1", "/"))
-              .toArray(String[]::new);
+      String[] keys = operationPath.getSecond().split("/");
       JsonNode parent = transformedNodeClone;
 
       // if not remove, skip last key as we only need to populate top level
@@ -90,12 +86,18 @@ public class TemplateUtil {
       // Skip first as it will always be blank due to path starting with /
       for (int i = 1; i < endIdx; i++) {
         if (parent.get(keys[i]) == null) {
-          ((ObjectNode) parent).set(keys[i], instance.objectNode());
+          String decodedKey = decodeValue(keys[i]);
+          ((ObjectNode) parent).set(decodedKey, instance.objectNode());
         }
         parent = parent.get(keys[i]);
       }
     }
 
     return transformedNodeClone;
+  }
+
+  /** Simply decode a JSON-patch encoded value * */
+  private static String decodeValue(String value) {
+    return value.replace("~1", "/").replace("~0", "~");
   }
 }
