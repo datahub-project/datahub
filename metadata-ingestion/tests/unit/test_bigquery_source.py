@@ -235,10 +235,10 @@ def test_get_dataplatform_instance_aspect_returns_project_id(get_bq_client_mock)
     data_platform_instance = source.get_dataplatform_instance_aspect(
         "urn:li:test", project_id
     )
-    metadata = data_platform_instance.get_metadata()["metadata"]
+    metadata = data_platform_instance.metadata
 
-    assert data_platform_instance is not None
-    assert metadata.aspectName == "dataPlatformInstance"
+    assert isinstance(metadata, MetadataChangeProposalWrapper)
+    assert isinstance(metadata.aspect, DataPlatformInstanceClass)
     assert metadata.aspect.instance == expected_instance
 
 
@@ -250,10 +250,10 @@ def test_get_dataplatform_instance_default_no_instance(get_bq_client_mock):
     data_platform_instance = source.get_dataplatform_instance_aspect(
         "urn:li:test", "project_id"
     )
-    metadata = data_platform_instance.get_metadata()["metadata"]
+    metadata = data_platform_instance.metadata
 
-    assert data_platform_instance is not None
-    assert metadata.aspectName == "dataPlatformInstance"
+    assert isinstance(metadata, MetadataChangeProposalWrapper)
+    assert isinstance(metadata.aspect, DataPlatformInstanceClass)
     assert metadata.aspect.instance is None
 
 
