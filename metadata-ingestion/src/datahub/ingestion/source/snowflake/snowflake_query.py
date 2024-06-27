@@ -4,6 +4,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
+from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 SHOW_VIEWS_MAX_PAGE_SIZE = 10000
 
@@ -228,50 +229,50 @@ LIMIT {limit} {from_clause};
 """
 
     @staticmethod
-    def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        select
-        table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        column_name AS "COLUMN_NAME",
-        ordinal_position AS "ORDINAL_POSITION",
-        is_nullable AS "IS_NULLABLE",
-        data_type AS "DATA_TYPE",
-        comment AS "COMMENT",
-        character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
-        numeric_precision AS "NUMERIC_PRECISION",
-        numeric_scale AS "NUMERIC_SCALE",
-        column_default AS "COLUMN_DEFAULT",
-        is_identity AS "IS_IDENTITY"
-        from {db_clause}information_schema.columns
-        WHERE table_schema='{schema_name}'
-        ORDER BY ordinal_position"""
-
-    @staticmethod
-    def columns_for_table(
-        table_name: str, schema_name: str, db_name: Optional[str]
+    def columns_for_schema(
+        schema_name: str,
+        db_name: str,
+        prefix_groups: Optional[List[PrefixGroup]] = None,
     ) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        select
-        table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        column_name AS "COLUMN_NAME",
-        ordinal_position AS "ORDINAL_POSITION",
-        is_nullable AS "IS_NULLABLE",
-        data_type AS "DATA_TYPE",
-        comment AS "COMMENT",
-        character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
-        numeric_precision AS "NUMERIC_PRECISION",
-        numeric_scale AS "NUMERIC_SCALE",
-        column_default AS "COLUMN_DEFAULT",
-        is_identity AS "IS_IDENTITY"
-        from {db_clause}information_schema.columns
-        WHERE table_schema='{schema_name}' and table_name='{table_name}'
-        ORDER BY ordinal_position"""
+        columns_template = """\
+SELECT
+  table_catalog AS "TABLE_CATALOG",
+  table_schema AS "TABLE_SCHEMA",
+  table_name AS "TABLE_NAME",
+  column_name AS "COLUMN_NAME",
+  ordinal_position AS "ORDINAL_POSITION",
+  is_nullable AS "IS_NULLABLE",
+  data_type AS "DATA_TYPE",
+  comment AS "COMMENT",
+  character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
+  numeric_precision AS "NUMERIC_PRECISION",
+  numeric_scale AS "NUMERIC_SCALE",
+  column_default AS "COLUMN_DEFAULT",
+  is_identity AS "IS_IDENTITY"
+FROM "{db_name}".information_schema.columns
+WHERE table_schema='{schema_name}' AND {extra_clause}"""
+
+        selects = []
+        if prefix_groups is None:
+            prefix_groups = [PrefixGroup(prefix="", names=[])]
+        for prefix_group in prefix_groups:
+            if prefix_group.prefix == "":
+                extra_clause = "TRUE"
+            elif prefix_group.exact_match:
+                extra_clause = f"table_name = '{prefix_group.prefix}'"
+            else:
+                extra_clause = f"table_name LIKE '{prefix_group.prefix}%'"
+
+            selects.append(
+                columns_template.format(
+                    db_name=db_name, schema_name=schema_name, extra_clause=extra_clause
+                )
+            )
+
+        return (
+            "\nUNION ALL\n".join(selects)
+            + """\nORDER BY table_name, ordinal_position"""
+        )
 
     @staticmethod
     def show_primary_keys_for_schema(schema_name: str, db_name: str) -> str:
@@ -327,45 +328,6 @@ LIMIT {limit} {from_clause};
         ;"""
 
     @staticmethod
-    def table_to_table_lineage_history(
-        start_time_millis: int,
-        end_time_millis: int,
-        include_column_lineage: bool = True,
-    ) -> str:
-        return f"""
-        WITH table_lineage_history AS (
-            SELECT
-                r.value:"objectName"::varchar AS upstream_table_name,
-                r.value:"objectDomain"::varchar AS upstream_table_domain,
-                r.value:"columns" AS upstream_table_columns,
-                w.value:"objectName"::varchar AS downstream_table_name,
-                w.value:"objectDomain"::varchar AS downstream_table_domain,
-                w.value:"columns" AS downstream_table_columns,
-                t.query_start_time AS query_start_time
-            FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
-                lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
-                lateral flatten(input => t.OBJECTS_MODIFIED) w
-            WHERE r.value:"objectId" IS NOT NULL
-            AND w.value:"objectId" IS NOT NULL
-            AND w.value:"objectName" NOT LIKE '%.GE_TMP_%'
-            AND w.value:"objectName" NOT LIKE '%.GE_TEMP_%'
-            AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-            AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
-        SELECT
-        upstream_table_name AS "UPSTREAM_TABLE_NAME",
-        downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-        upstream_table_columns AS "UPSTREAM_TABLE_COLUMNS",
-        downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
-        FROM table_lineage_history
-        WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
-        QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY downstream_table_name,
-            upstream_table_name{", downstream_table_columns" if include_column_lineage else ""}
-            ORDER BY query_start_time DESC
-        ) = 1"""
-
-    @staticmethod
     def view_dependencies() -> str:
         return """
         SELECT
@@ -383,58 +345,6 @@ LIMIT {limit} {from_clause};
           snowflake.account_usage.object_dependencies
         WHERE
           referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
-        """
-
-    @staticmethod
-    def view_lineage_history(
-        start_time_millis: int,
-        end_time_millis: int,
-        include_column_lineage: bool = True,
-    ) -> str:
-        return f"""
-        WITH view_lineage_history AS (
-          SELECT
-            vu.value : "objectName"::varchar AS view_name,
-            vu.value : "objectDomain"::varchar AS view_domain,
-            vu.value : "columns" AS view_columns,
-            w.value : "objectName"::varchar AS downstream_table_name,
-            w.value : "objectDomain"::varchar AS downstream_table_domain,
-            w.value : "columns" AS downstream_table_columns,
-            t.query_start_time AS query_start_time
-          FROM
-            (
-              SELECT
-                *
-              FROM
-                snowflake.account_usage.access_history
-            ) t,
-            lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) vu,
-            lateral flatten(input => t.OBJECTS_MODIFIED) w
-          WHERE
-            vu.value : "objectId" IS NOT NULL
-            AND w.value : "objectId" IS NOT NULL
-            AND w.value : "objectName" NOT LIKE '%.GE_TMP_%'
-            AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
-            AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-            AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-        )
-        SELECT
-          view_name AS "VIEW_NAME",
-          view_domain AS "VIEW_DOMAIN",
-          view_columns AS "VIEW_COLUMNS",
-          downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-          downstream_table_domain AS "DOWNSTREAM_TABLE_DOMAIN",
-          downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
-        FROM
-          view_lineage_history
-        WHERE
-          view_domain in ('View', 'Materialized view')
-          QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY view_name,
-            downstream_table_name {", downstream_table_columns" if include_column_lineage else ""}
-            ORDER BY
-              query_start_time DESC
-          ) = 1
         """
 
     # Note on use of `upstreams_deny_pattern` to ignore temporary tables:
@@ -772,7 +682,12 @@ LIMIT {limit} {from_clause};
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
+                (
+                    SELECT * from snowflake.account_usage.access_history
+                    WHERE
+                        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+                ) t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w,
                 lateral flatten(input => w.value : "columns", outer => true) wcols,
@@ -932,7 +847,12 @@ LIMIT {limit} {from_clause};
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
+                (
+                    SELECT * from snowflake.account_usage.access_history
+                    WHERE
+                        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+                ) t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w
             WHERE
