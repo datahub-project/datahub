@@ -149,7 +149,6 @@ project.ext.externalDependency = [
     'hazelcastTest':"com.hazelcast:hazelcast:$hazelcastVersion:tests",
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.3',
-    'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
     'jacksonJDK8': "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion",
     'jacksonDataPropertyFormat': "com.fasterxml.jackson.dataformat:jackson-dataformat-properties:$jacksonVersion",
