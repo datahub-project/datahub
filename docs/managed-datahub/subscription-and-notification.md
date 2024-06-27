@@ -5,7 +5,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 DataHub's Subscriptions and Notifications feature gives you real-time change alerts on data assets of your choice.
-With this feature, you can set up subscriptions to specific changes for an Entity – and DataHub will notify you when those changes happen. Currently, DataHub supports notifications on Slack, with support for Microsoft Teams and email subscriptions forthcoming.
+With this feature, you can set up subscriptions to specific changes for an Entity – and DataHub will notify you when those changes happen. Currently, DataHub supports notifications on Slack and email with support for Microsoft Teams subscriptions forthcoming.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-notifications-in-slack.png"/>
@@ -13,6 +13,19 @@ With this feature, you can set up subscriptions to specific changes for an Entit
 
 This feature is especially useful in helping you stay on top of any upstream changes that could impact the assets you or your stakeholders rely on. It eliminates the need for you and your team to manually check for upstream changes, or for upstream stakeholders to identify and notify impacted users.
 As a user, you can subscribe to and receive notifications about changes such as deprecations, schema changes, changes in ownership, assertions, or incidents. You’ll always been in the know about potential data quality issues so you can proactively manage your data resources.
+
+
+## Platform Admin Notifications
+
+Datahub provides three levels of notifications: platform-level, group-level, and user-level. The group and user -level notifications are 
+described in the other sections of this doc. To set platform-level notifications (assuming you have 
+the correct permissions to do so) go to Settings > Notifications (under the Platform section - this is different than "My Notifications").
+
+The platform-level notifications are global notifications. This means if you tick the box for "An owner is added or removed from a data asset" 
+then the slack channel or email you've set up in this section will get a notification any time any asset has an owner added/removed.
+
+You'll also have the option to turn on notifications for ingestion failures (very useful to route to a platform channel to proactively ensure your
+Datahub metadata stays fresh).
 
 ## Prerequisites
 
@@ -156,6 +169,23 @@ You can unsubscribe from any asset to stop receiving notifications about it. On 
 What if I want to be notified about different changes?
 </summary>
 To modify your subscription, use the dropdown menu next to the Subscribe button to modify the changes you want to be notified about.
+</details>
+
+<summary>
+I want to configure multiple channels. How many slack channels or emails can I configure to get notified? 
+</summary>
+At the platform-level, you can configure one email and one slack channel.
+
+At the user and group -levels, you can configure one default email and slack channel as well as overwrite that email/channel when you
+go to a specific asset to subscribe to. 
+
+To configure multiple channels, as a prereq, ensure you have the appropriate privileges. And then:
+(1) create a datahub group for each channel you want notifications for. 
+(2) add yourself as a member to each of the groups.
+(3) go to each groups page (eg. through Settings > Users & Groups > Group Name OR by searching for your group's name)
+(4) Click on 'Notifications', enable the type of notifications you want, and add the appropriate email or slack channel id.
+(5) Now, when you visit an asset and go to subscribe, you'll see the option "Manage Group Subscriptions".
+
 </details>
 
 ## Reference
