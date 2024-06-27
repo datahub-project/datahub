@@ -239,7 +239,7 @@ def make_tag_urn(tag: str) -> str:
     """
     if tag and tag.startswith("urn:li:tag:"):
         return tag
-    return str(TagUrn.create_from_id(id=tag))
+    return str(TagUrn(tag))
 
 
 def make_owner_urn(owner: str, owner_type: OwnerType) -> str:
