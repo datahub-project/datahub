@@ -1812,7 +1812,14 @@ public class GmsGraphQLEngine {
                     "parent",
                     new EntityTypeResolver(
                         entityTypes, (env) -> ((SchemaFieldEntity) env.getSource()).getParent()))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService,
+                        restrictedService,
+                        this.authorizationConfiguration,
+                        featureFlags)));
   }
 
   private void configureEntityPathResolvers(final RuntimeWiring.Builder builder) {

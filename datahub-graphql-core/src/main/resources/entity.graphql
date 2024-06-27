@@ -3403,7 +3403,7 @@ type KeyValueSchema {
 Standalone schema field entity. Differs from the SchemaField struct because it is not directly nested inside a
 schema field
 """
-type SchemaFieldEntity implements Entity {
+type SchemaFieldEntity implements EntityWithRelationships & Entity {
     """
     Primary key of the schema field
     """
@@ -3438,6 +3438,11 @@ type SchemaFieldEntity implements Entity {
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 
     """
     Business Attribute associated with the field
