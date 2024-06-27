@@ -1,0 +1,31 @@
+namespace com.linkedin.metadata.search.features
+
+import com.linkedin.common.AuditStamp
+
+@Aspect = {
+  "name": "lineageFeatures"
+}
+record LineageFeatures {
+  /**
+   * Cached number of entities related by lineage, upstream.
+   */
+  @Searchable = {
+    "fieldName": "upstreamCountFeature",
+    "fieldType": "COUNT"
+  }
+  upstreamCount: int
+
+  /**
+   * Cached number of entities related by lineage, downstream.
+   */
+  @Searchable = {
+    "fieldName": "downstreamCountFeature",
+    "fieldType": "COUNT"
+  }
+  downstreamCount: int
+
+  /**
+   * Record of when and how lineage features were computed.
+   */
+  computedAt: AuditStamp
+}

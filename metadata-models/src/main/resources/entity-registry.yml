@@ -29,6 +29,7 @@ entities:
       - deprecation
       - usageFeatures
       - storageFeatures
+      - lineageFeatures
       - testResults
       - siblings
       - embed
@@ -91,6 +92,7 @@ entities:
       - incidentsSummary
       - share
       - origin
+      - lineageFeatures
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -116,6 +118,7 @@ entities:
       - subTypes
       - share
       - origin
+      - lineageFeatures
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -142,6 +145,7 @@ entities:
       - inputFields
       - testResults
       - usageFeatures
+      - lineageFeatures
       - chartUsageStatistics
       - embed
       - proposals
@@ -171,6 +175,7 @@ entities:
       - dashboardUsageStatistics
       - inputFields
       - usageFeatures
+      - lineageFeatures
       - testResults
       - subTypes
       - embed
@@ -400,6 +405,7 @@ entities:
       - forms
       - share
       - origin
+      - lineageFeatures
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -421,6 +427,7 @@ entities:
       - forms
       - share
       - origin
+      - lineageFeatures
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -453,6 +460,7 @@ entities:
       - forms
       - share
       - origin
+      - lineageFeatures
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -475,6 +483,7 @@ entities:
       - forms
       - share
       - origin
+      - lineageFeatures
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -495,6 +504,7 @@ entities:
       - forms
       - share
       - origin
+      - lineageFeatures
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -534,6 +544,7 @@ entities:
       - businessAttributes
       - schemaFieldProfile
       - documentation
+      - lineageFeatures
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -602,6 +613,7 @@ entities:
       - status
       - globalTags
       - glossaryTerms
+      - lineageFeatures
   - name: query
     category: core
     keyAspect: queryKey
@@ -612,6 +624,7 @@ entities:
       - dataPlatformInstance
       - subTypes
       - queryUsageFeatures
+      - lineageFeatures
   - name: dataProduct
     category: core
     keyAspect: dataProductKey
