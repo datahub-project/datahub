@@ -1,14 +1,16 @@
-import React from 'react';
-import styled from 'styled-components/macro';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { DisplayProperties, EntityType } from '../../types.generated';
-import { useEntityRegistry } from '../useEntityRegistry';
-import GlossaryNodeCard from './GlossaryNodeCard';
-import GlossaryTermItem from './GlossaryTermItem';
+import styled from 'styled-components/macro';
+import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
+import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
+import { DisplayProperties, EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { useEntityData } from '../entity/shared/EntityContext';
 import { GenericEntityProperties } from '../entity/shared/types';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { useEntityRegistry } from '../useEntityRegistry';
+import GlossaryNodeCard from './GlossaryNodeCard';
+import GlossaryTermItem from './GlossaryTermItem';
 
 const GlossaryItem = styled.div`
     align-items: center;
@@ -60,14 +62,71 @@ interface Props {
     description?: string;
     urn: string;
     type: EntityType;
-    count?: Maybe<number>;
+    descendants?: (GlossaryNode | GlossaryNodeFragment | GlossaryTerm | ChildGlossaryTermFragment)[];
     displayProperties?: Maybe<DisplayProperties>;
 }
 
+// iterates through the layers of descendents and counts the max number of layers
+function countMaxDepth(
+    descendents: (GlossaryNode | GlossaryNodeFragment | GlossaryTerm | ChildGlossaryTermFragment | undefined | null)[],
+    depth = 1,
+): number {
+    let maxDepth = depth;
+
+    descendents.forEach((desc) => {
+        if (!desc) return;
+        if (desc.type === EntityType.GlossaryNode) {
+            const subNode = desc as unknown as GlossaryNodeFragment;
+            if (subNode?.children?.relationships) {
+                const subDepth = countMaxDepth(
+                    subNode?.children?.relationships?.map(
+                        (rel) => rel?.entity as GlossaryNodeFragment | ChildGlossaryTermFragment,
+                    ),
+                    depth + 1,
+                );
+                maxDepth = Math.max(maxDepth, subDepth);
+            }
+        }
+    });
+
+    return maxDepth;
+}
+
+function countTermsAndNodes(
+    descendents: (GlossaryNode | GlossaryNodeFragment | GlossaryTerm | ChildGlossaryTermFragment)[],
+): {
+    termCount: number;
+    nodeCount: number;
+} {
+    let termCount = 0;
+    let nodeCount = 0; // Counting the root node itself
+
+    function traverse(entity: GlossaryNodeFragment | ChildGlossaryTermFragment) {
+        if (entity.type === EntityType.GlossaryTerm) {
+            termCount++;
+        } else if (entity.type === EntityType.GlossaryNode) {
+            nodeCount++;
+            const subNode = entity as unknown as GlossaryNodeFragment;
+            if (subNode?.children?.relationships) {
+                subNode.children.relationships.forEach((rel) =>
+                    traverse(rel?.entity as GlossaryNodeFragment | ChildGlossaryTermFragment),
+                );
+            }
+        }
+    }
+
+    descendents.forEach((desc) => traverse(desc));
+
+    return { termCount, nodeCount };
+}
+
 function GlossaryEntityItem(props: Props) {
-    const { name, description, urn, type, count, displayProperties } = props;
+    const { name, description, urn, type, descendants, displayProperties } = props;
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
+
+    const { termCount, nodeCount } = countTermsAndNodes(descendants || []);
+    const maxDepth = countMaxDepth(descendants || []);
 
     return (
         <ItemWrapper type={type} entityData={entityData}>
@@ -78,9 +137,11 @@ function GlossaryEntityItem(props: Props) {
                             name={name}
                             type={type}
                             description={description}
-                            count={count}
                             displayProperties={displayProperties}
                             urn={urn}
+                            termCount={termCount}
+                            nodeCount={nodeCount}
+                            maxDepth={maxDepth}
                         />
                     ) : (
                         <GlossaryTermItem
@@ -89,7 +150,6 @@ function GlossaryEntityItem(props: Props) {
                             type={type}
                             urn={urn}
                             entityData={entityData}
-                            count={count}
                         />
                     )}
                 </GlossaryItem>

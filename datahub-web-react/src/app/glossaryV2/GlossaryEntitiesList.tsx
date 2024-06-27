@@ -1,14 +1,14 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
-import { useEntityRegistry } from '../useEntityRegistry';
-import GlossaryEntityItem from './GlossaryEntityItem';
 import { useEntityData } from '../entity/shared/EntityContext';
 import { GenericEntityProperties } from '../entity/shared/types';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { useEntityRegistry } from '../useEntityRegistry';
+import GlossaryEntityItem from './GlossaryEntityItem';
 
 interface GlossaryEntityWrapperProps {
     termsTotal?: number | undefined;
@@ -66,7 +66,11 @@ function GlossaryEntitiesList(props: Props) {
                         description={node.properties?.description || ''}
                         urn={node.urn}
                         type={node.type}
-                        count={(node as GlossaryNodeFragment).children?.total}
+                        descendants={
+                            (node as GlossaryNodeFragment).children?.relationships
+                                ?.map((child) => child.entity)
+                                .filter((child) => child !== null) as (GlossaryNode | GlossaryTerm)[]
+                        }
                         displayProperties={node.displayProperties}
                     />
                 ))}

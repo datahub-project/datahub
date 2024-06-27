@@ -1,16 +1,16 @@
-import React from 'react';
 import { Button, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import TabToolbar from '../entityV2/shared/components/styled/TabToolbar';
-import { REDESIGN_COLORS, ANTD_GRAY } from '../entityV2/shared/constants';
-import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
-import GlossaryEntitiesList from './GlossaryEntitiesList';
-import EmptyGlossarySection from './EmptyGlossarySection';
-import { GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
-import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import { GetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
+import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import AddGlossaryIcon from '../../images/add-term-group.svg?react';
+import { GlossaryNode, GlossaryTerm } from '../../types.generated';
+import TabToolbar from '../entityV2/shared/components/styled/TabToolbar';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
+import EmptyGlossarySection from './EmptyGlossarySection';
+import GlossaryEntitiesList from './GlossaryEntitiesList';
 
 const MainContentWrapper = styled.div`
     display: flex;

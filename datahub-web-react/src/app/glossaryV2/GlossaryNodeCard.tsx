@@ -1,16 +1,20 @@
-import React from 'react';
-import { Typography } from 'antd';
-import styled from 'styled-components/macro';
+import { Tooltip, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import TermGroupIcon from '../../images/glossary_collections_bookmark.svg?react';
+import React from 'react';
+import styled from 'styled-components/macro';
 import TermIcon from '../../images/collections_bookmark.svg?react';
+import TermGroupIcon from '../../images/glossary_collections_bookmark.svg?react';
 import { DisplayProperties, EntityType } from '../../types.generated';
-import { REDESIGN_COLORS, ANTD_GRAY, ANTD_GRAY_V2 } from '../entityV2/shared/constants';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { generateColorFromPalette } from './colorUtils';
 
 interface GlossaryItemCardHeaderProps {
     color: string;
 }
+
+// there may be a good constant for this but I couldn't find one --Gabe
+// feel free to replace this color at a later date
+const DISABLED_TEXT_COLOR = '#c5c6c9';
 
 const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
     display: flex;
@@ -31,20 +35,25 @@ const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
     }
 `;
 
-const GlossaryItemCount = styled.span`
+const GlossaryItemCount = styled.span<{ count: number }>`
     display: flex;
     align-items: center;
     gap: 5px;
     border-radius: 20px;
-    background: ${ANTD_GRAY_V2[14]};
+    background: ${(props) => (props.count > 0 ? ANTD_GRAY_V2[14] : ANTD_GRAY_V2[14])};
+    color: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
     padding: 5px 10px;
     width: max-content;
     svg {
         height: 14px;
         width: 14px;
         path {
-            fill: ${REDESIGN_COLORS.SUB_TEXT};
+            fill: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
         }
+    }
+    border: 1px solid transparent;
+    :hover {
+        border: 1px solid ${(props) => (props.count > 0 ? ANTD_GRAY_V2[13] : 'transparent')};
     }
 `;
 
@@ -109,8 +118,7 @@ const GlossaryItemCardDescription = styled(Typography)`
     -webkit-box-orient: vertical;
 `;
 
-const CountText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.SUB_TEXT};
+const CountText = styled.span`
     font-size: 10px;
     font-weight: 400;
 `;
@@ -119,14 +127,27 @@ interface Props {
     name: string;
     type: EntityType;
     description: string | undefined;
-    count?: Maybe<number>;
+    termCount: number;
+    nodeCount: number;
     displayProperties?: Maybe<DisplayProperties>;
     urn: string;
+    maxDepth?: number;
 }
 
+const Icons = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+`;
+
+const MAX_DEPTH_QUERIED = 4;
+
 const GlossaryNodeCard = (props: Props) => {
-    const { name, type, description, count, displayProperties, urn } = props;
+    const { name, type, description, termCount, nodeCount, displayProperties, urn, maxDepth } = props;
     const glossaryColor = displayProperties?.colorHex || generateColorFromPalette(urn);
+
+    const isExceedingMaxDepth = (maxDepth || 0) > MAX_DEPTH_QUERIED;
 
     return (
         <GlossaryItemCard>
@@ -138,10 +159,28 @@ const GlossaryNodeCard = (props: Props) => {
             <GlossaryItemCardDetails>
                 <GlossaryItemCardDescription>{description || '--'}</GlossaryItemCardDescription>
                 {type === EntityType.GlossaryNode && (
-                    <GlossaryItemCount>
-                        <TermIcon />
-                        <CountText> {count} </CountText>
-                    </GlossaryItemCount>
+                    <Icons>
+                        <Tooltip title="Total number of Folders in this Glossary" placement="top">
+                            <GlossaryItemCount count={nodeCount}>
+                                <TermGroupIcon />
+                                <CountText>
+                                    {' '}
+                                    {nodeCount}
+                                    {isExceedingMaxDepth && `+`}
+                                </CountText>
+                            </GlossaryItemCount>
+                        </Tooltip>
+                        <Tooltip title="Total number of Terms in this Glossary" placement="top">
+                            <GlossaryItemCount count={termCount}>
+                                <TermIcon />
+                                <CountText>
+                                    {' '}
+                                    {termCount}
+                                    {isExceedingMaxDepth && `+`}
+                                </CountText>
+                            </GlossaryItemCount>
+                        </Tooltip>
+                    </Icons>
                 )}
             </GlossaryItemCardDetails>
         </GlossaryItemCard>
