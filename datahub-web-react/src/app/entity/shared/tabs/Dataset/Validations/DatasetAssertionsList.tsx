@@ -174,7 +174,9 @@ export const DatasetAssertionsList = ({
                                 assertionInfo={record.datasetAssertionInfo}
                             />
                         ) : (
-                            <AssertionDescriptionContainer>{description}</AssertionDescriptionContainer>
+                            <AssertionDescriptionContainer>
+                                {description ?? 'No description provided'}
+                            </AssertionDescriptionContainer>
                         )}
 
                         {(isPartOfContract && entityData?.urn && (
