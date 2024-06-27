@@ -18,15 +18,15 @@ const VerticalDivider = styled.hr<{ margin: number }>`
 
 interface Props {
     urn: string;
+    type: EntityType;
     direction: LineageDirection;
     display: boolean;
-    entityType: EntityType;
     fetchStatus: Record<LineageDirection, FetchStatus>;
 }
 
-export function ExpandLineageButton({ urn, direction, display, entityType, fetchStatus }: Props) {
-    const expandOneLevel = useOnClickExpandLineage(urn, direction, false);
-    const expandAll = useOnClickExpandLineage(urn, direction, true);
+export function ExpandLineageButton({ urn, type, direction, display, fetchStatus }: Props) {
+    const expandOneLevel = useOnClickExpandLineage(urn, type, direction, false);
+    const expandAll = useOnClickExpandLineage(urn, type, direction, true);
     const isFetchComplete = fetchStatus[direction] === FetchStatus.COMPLETE;
 
     const handleExpandOneLevel = (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
@@ -35,7 +35,7 @@ export function ExpandLineageButton({ urn, direction, display, entityType, fetch
             type: EventType.ExpandLineageEvent,
             direction,
             entityUrn: urn,
-            entityType,
+            entityType: type,
             levelsExpanded: '1',
         });
     };
@@ -46,7 +46,7 @@ export function ExpandLineageButton({ urn, direction, display, entityType, fetch
             type: EventType.ExpandLineageEvent,
             direction,
             entityUrn: urn,
-            entityType,
+            entityType: type,
             levelsExpanded: 'all',
         });
     };

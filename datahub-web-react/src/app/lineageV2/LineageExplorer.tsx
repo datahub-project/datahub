@@ -80,8 +80,8 @@ function useInitializeNodes(
         setNodeVersion((prev) => prev + 1);
     }, [urn, type, context.nodes, startTimeMillis, endTimeMillis, setNodeVersion]);
 
-    const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, context, LineageDirection.Upstream);
-    const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, context, LineageDirection.Downstream);
+    const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Upstream);
+    const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Downstream);
 
     return upstreamProcessed && downstreamProcessed;
 }

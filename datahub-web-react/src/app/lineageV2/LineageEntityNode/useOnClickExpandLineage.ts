@@ -1,12 +1,12 @@
 import { useContext } from 'react';
-import { LineageDirection } from '../../../types.generated';
+import { EntityType, LineageDirection } from '../../../types.generated';
 import { FetchStatus, LineageNodesContext } from '../common';
 import useSearchAcrossLineage from '../useSearchAcrossLineage';
 
-export function useOnClickExpandLineage(urn: string, direction: LineageDirection, maxDepth: boolean) {
+export function useOnClickExpandLineage(urn: string, type: EntityType, direction: LineageDirection, maxDepth: boolean) {
     const context = useContext(LineageNodesContext);
     const { nodes, setDataVersion, setDisplayVersion } = context;
-    const { fetchLineage } = useSearchAcrossLineage(urn, context, direction, true, maxDepth);
+    const { fetchLineage } = useSearchAcrossLineage(urn, type, context, direction, true, maxDepth);
 
     return function onClick(e?: React.MouseEvent<HTMLDivElement | HTMLSpanElement, MouseEvent>) {
         e?.stopPropagation();

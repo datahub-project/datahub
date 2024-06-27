@@ -1,4 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useContext } from 'react';
@@ -8,7 +9,6 @@ import { EntityType, LineageDirection } from '../../../types.generated';
 import { EventType } from '../../analytics';
 import analytics from '../../analytics/analytics';
 import { ANTD_GRAY, LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import { ContainerIconBase } from '../../entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
 import HealthIcon from '../../previewV2/HealthIcon';
 import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
 import OverflowTitle from '../../sharedV2/text/OverflowTitle';
@@ -17,12 +17,12 @@ import { FetchStatus, getNodeColor, LineageEntity, LineageNodesContext, onClickP
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { FetchedEntityV2 } from '../types';
 import Columns from './Columns';
+import { ContractLineageButton } from './ContractLineageButton';
 import { ExpandLineageButton } from './ExpandLineageButton';
+import ManageLineageMenu from './ManageLineageMenu';
 import NodeSkeleton from './NodeSkeleton';
 import useAvoidIntersections from './useAvoidIntersections';
 import { DisplayedColumns, LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './useDisplayedColumns';
-import { ContractLineageButton } from './ContractLineageButton';
-import ManageLineageMenu from './ManageLineageMenu';
 
 const NodeWrapper = styled.div<{
     selected: boolean;
@@ -276,11 +276,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         isUpstreamHidden) && (
                         <ExpandLineageButton
                             urn={urn}
+                            type={type}
                             direction={LineageDirection.Upstream}
                             display={
                                 fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED || !isExpandedUpstream
                             }
-                            entityType={type}
                             fetchStatus={fetchStatus}
                         />
                     )}
@@ -289,12 +289,12 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         isDownstreamHidden) && (
                         <ExpandLineageButton
                             urn={urn}
+                            type={type}
                             direction={LineageDirection.Downstream}
                             display={
                                 fetchStatus[LineageDirection.Downstream] === FetchStatus.UNFETCHED ||
                                 !isExpandedDownstream
                             }
-                            entityType={type}
                             fetchStatus={fetchStatus}
                         />
                     )}
@@ -381,53 +381,5 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 </>
             )}
         </NodeWrapper>
-    );
-}
-
-const ContainerPathWrapper = styled.div`
-    display: flex;
-    height: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    width: 100%;
-`;
-
-// TODO: Put ellipsis on last item correctly
-const ContainerEntry = styled.div<{ numItems?: number; isLast: boolean }>`
-    align-items: center;
-    color: ${ANTD_GRAY[9]};
-    display: flex;
-    flex-direction: row;
-    font-size: 12px;
-    max-width: ${({ numItems, isLast }) => (numItems && !isLast ? 100 / numItems : 100)}%;
-`;
-
-const ContainerText = styled.span`
-    font-size: 8px;
-    margin-left: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-`;
-
-function ContainerPath({ parentContainers }: Pick<FetchedEntityV2, 'parentContainers'>) {
-    const entityRegistry = useEntityRegistry();
-    const containers = parentContainers?.slice(0, 1);
-
-    if (!containers?.length) {
-        return null;
-    }
-
-    return (
-        <ContainerPathWrapper>
-            {containers?.map((container, i) => (
-                <ContainerEntry key={container.urn} isLast={i === containers.length - 1} numItems={containers.length}>
-                    {i > 0 && <VerticalDivider margin={4} />}
-                    <ContainerIconBase container={container} />
-                    <ContainerText>{entityRegistry.getDisplayName(EntityType.Container, container)}</ContainerText>
-                </ContainerEntry>
-            ))}
-        </ContainerPathWrapper>
     );
 }

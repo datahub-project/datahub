@@ -32,6 +32,7 @@ import {
  */
 export default function useSearchAcrossLineage(
     urn: string,
+    type: EntityType,
     context: NodeContext,
     direction: LineageDirection,
     lazy?: boolean,
@@ -48,6 +49,7 @@ export default function useSearchAcrossLineage(
     const input: SearchAcrossLineageInput = {
         urn,
         direction,
+        types: type === EntityType.SchemaField ? [EntityType.SchemaField] : undefined,
         start: 0,
         count: 10000,
         orFilters: [
@@ -74,6 +76,7 @@ export default function useSearchAcrossLineage(
         },
         searchFlags: {
             skipCache: !!skipCache,
+            groupingSpec: { groupingCriteria: [] },
         },
     };
 

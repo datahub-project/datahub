@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { useGetSchemaFieldQuery } from '@graphql/schemaField.generated';
@@ -67,6 +68,13 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
             entityType: this.type,
             getOverrideProperties: (newData) => newData,
         });
+
+    getLineageVizConfig = (entity: SchemaField) => ({
+        urn: entity.urn,
+        type: EntityType.SchemaField,
+        name: entity.fieldPath,
+        icon: (entity?.parent as GenericEntityProperties)?.platform?.properties?.logoUrl ?? undefined,
+    });
 
     supportedCapabilities = () => new Set([]);
 }

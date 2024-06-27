@@ -2,7 +2,7 @@ import { HomeOutlined } from '@ant-design/icons';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
-import { LineageDirection } from '../../../types.generated';
+import { EntityType, LineageDirection } from '../../../types.generated';
 import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { LineageDisplayContext, LineageEntity, LineageNodesContext, TRANSITION_DURATION_MS } from '../common';
 import useSearchAcrossLineage from '../useSearchAcrossLineage';
@@ -55,7 +55,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             onlyWithLineage,
         });
 
-    const refetch = useRefetchLineage(urn);
+    const refetch = useRefetchLineage(urn, type);
 
     return (
         <>
@@ -95,11 +95,12 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     );
 }
 
-function useRefetchLineage(urn: string) {
+function useRefetchLineage(urn: string, type: EntityType) {
     const nodeContext = useContext(LineageNodesContext);
 
     const { fetchLineage: fetchLineageUpstream } = useSearchAcrossLineage(
         urn,
+        type,
         nodeContext,
         LineageDirection.Upstream,
         true,
@@ -108,6 +109,7 @@ function useRefetchLineage(urn: string) {
     );
     const { fetchLineage: fetchLineageDownstream } = useSearchAcrossLineage(
         urn,
+        type,
         nodeContext,
         LineageDirection.Downstream,
         true,
