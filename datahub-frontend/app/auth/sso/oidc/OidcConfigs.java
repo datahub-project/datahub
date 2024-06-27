@@ -163,6 +163,8 @@ public class OidcConfigs extends SsoConfigs {
       responseType = getOptional(configs, OIDC_RESPONSE_TYPE);
       responseMode = getOptional(configs, OIDC_RESPONSE_MODE);
       useNonce = getOptional(configs, OIDC_USE_NONCE).map(Boolean::parseBoolean);
+      grantType = getOptional(configs, OIDC_GRANT_TYPE, DEFAULT_OIDC_GRANT_TYPE);
+      acrValues = getOptional(configs, OIDC_ACR_VALUES, DEFAULT_OIDC_ACR_VALUES);
       customParamResource = getOptional(configs, OIDC_CUSTOM_PARAM_RESOURCE);
       readTimeout = getOptional(configs, OIDC_READ_TIMEOUT, DEFAULT_OIDC_READ_TIMEOUT);
       extractJwtAccessTokenClaims =

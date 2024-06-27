@@ -48,7 +48,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     return SsoProtocol.OIDC;
   }
 
-  private Client<OidcCredentials> createPac4jClient() {
+  private Client<OidcCredentials, OidcProfile> createPac4jClient() {
     final OidcConfiguration oidcConfiguration = new OidcConfiguration();
     oidcConfiguration.setClientId(_oidcConfigs.getClientId());
     oidcConfiguration.setSecret(_oidcConfigs.getClientSecret());
@@ -75,6 +75,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
               oidcConfiguration.setPreferredJwsAlgorithm(preferred);
             });
 
+    oidcConfiguration.setCustomParams(ImmutableMap.of("grant_type", _oidcConfigs.getGrantType(), "acr_values", _oidcConfigs.getAcrValues()));
     final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration);
     oidcClient.setName(OIDC_CLIENT_NAME);
     oidcClient.setCallbackUrl(
