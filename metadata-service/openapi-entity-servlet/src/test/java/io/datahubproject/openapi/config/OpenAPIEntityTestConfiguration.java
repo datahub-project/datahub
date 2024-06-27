@@ -31,7 +31,7 @@ import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.generated.EntityResponse;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
 import io.datahubproject.openapi.v1.relationships.RelationshipsController;
-import io.datahubproject.openapi.v2.controller.TimelineController;
+import io.datahubproject.openapi.v2.controller.TimelineControllerV2;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.Map;
@@ -126,7 +126,7 @@ public class OpenAPIEntityTestConfiguration {
     return entitiesController;
   }
 
-  @MockBean public TimelineController timelineController;
+  @MockBean public TimelineControllerV2 timelineControllerV2;
 
   @MockBean public RelationshipsController relationshipsController;
 

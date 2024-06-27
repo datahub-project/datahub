@@ -49,6 +49,7 @@ from datahub.utilities.global_warning_util import (
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
+_REPORT_PRINT_INTERVAL_SECONDS = 60
 
 
 class LoggingCallback(WriteCallback):
@@ -403,7 +404,7 @@ class Pipeline:
     def _time_to_print(self) -> bool:
         self.num_intermediate_workunits += 1
         current_time = int(time.time())
-        if current_time - self.last_time_printed > 10:
+        if current_time - self.last_time_printed > _REPORT_PRINT_INTERVAL_SECONDS:
             # we print
             self.num_intermediate_workunits = 0
             self.last_time_printed = current_time

@@ -34,6 +34,7 @@ public class SparkConfigParser {
 
   public static final String COALESCE_KEY = "coalesce_jobs";
   public static final String PATCH_ENABLED = "patch.enabled";
+  public static final String DISABLE_SYMLINK_RESOLUTION = "disableSymlinkResolution";
 
   public static final String STAGE_METADATA_COALESCING = "stage_metadata_coalescing";
   public static final String STREAMING_JOB = "streaming_job";
@@ -150,6 +151,7 @@ public class SparkConfigParser {
     builder.commonDatasetPlatformInstance(SparkConfigParser.getCommonPlatformInstance(sparkConfig));
     builder.hivePlatformAlias(SparkConfigParser.getHivePlatformAlias(sparkConfig));
     builder.usePatch(SparkConfigParser.isPatchEnabled(sparkConfig));
+    builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
     try {
       String parentJob = SparkConfigParser.getParentJobKey(sparkConfig);
       if (parentJob != null) {
@@ -318,6 +320,14 @@ public class SparkConfigParser {
       return false;
     }
     return datahubConfig.hasPath(PATCH_ENABLED) && datahubConfig.getBoolean(PATCH_ENABLED);
+  }
+
+  public static boolean isDisableSymlinkResolution(Config datahubConfig) {
+    if (!datahubConfig.hasPath(DISABLE_SYMLINK_RESOLUTION)) {
+      return false;
+    }
+    return datahubConfig.hasPath(DISABLE_SYMLINK_RESOLUTION)
+        && datahubConfig.getBoolean(DISABLE_SYMLINK_RESOLUTION);
   }
 
   public static boolean isEmitCoalescePeriodically(Config datahubConfig) {
