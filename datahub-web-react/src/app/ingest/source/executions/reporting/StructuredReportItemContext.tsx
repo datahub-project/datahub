@@ -36,7 +36,8 @@ export function StructuredReportItemContext({ item }: Props) {
                 <Title>Context</Title>
             </Tooltip>
             {item.context.length
-                ? item.context.map((contextItem) => <Item>{contextItem}</Item>)
+                ? // eslint-disable-next-line react/no-array-index-key
+                  item.context.map((contextItem, index) => <Item key={`${contextItem}-${index}`}>{contextItem}</Item>)
                 : 'No additional context found.'}
         </Container>
     );
