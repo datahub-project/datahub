@@ -25,7 +25,7 @@ export const ShowMoreSection = ({ totalCount, visibleCount, setVisibleCount, pag
     const showMoreCount = visibleCount + pageSize > totalCount ? totalCount - visibleCount : pageSize;
     return (
         <ShowMoreButton onClick={() => setVisibleCount(visibleCount + pageSize)}>
-            {(showMoreCount && <>show {showMoreCount} more</>) || <>show more</>}
+            {showMoreCount ? `show ${showMoreCount} more` : 'show more'}
         </ShowMoreButton>
     );
 };
