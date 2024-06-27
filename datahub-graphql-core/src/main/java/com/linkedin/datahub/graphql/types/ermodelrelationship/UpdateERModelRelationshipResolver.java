@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.ERModelRelationshipUrn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipUpdateInput;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.mappers.ERModelRelationshipUpdateInputMapper;
@@ -36,7 +37,7 @@ public class UpdateERModelRelationshipResolver implements DataFetcher<Completabl
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug("Create ERModelRelation input: {}", input);
@@ -61,6 +62,8 @@ public class UpdateERModelRelationshipResolver implements DataFetcher<Completabl
                     "Failed to update erModelRelationship to resource with input %s", input),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

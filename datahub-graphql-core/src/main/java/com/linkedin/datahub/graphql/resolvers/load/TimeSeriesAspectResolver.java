@@ -5,11 +5,13 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -86,7 +88,7 @@ public class TimeSeriesAspectResolver
 
   @Override
   public CompletableFuture<List<TimeSeriesAspect>> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           // Fetch the urn, assuming the parent has an urn field.
@@ -119,7 +121,7 @@ public class TimeSeriesAspectResolver
                     maybeStartTimeMillis,
                     maybeEndTimeMillis,
                     maybeLimit,
-                    buildFilters(maybeFilters),
+                    buildFilters(maybeFilters, context.getOperationContext().getAspectRetriever()),
                     maybeSort);
 
             // Step 2: Bind profiles into GraphQL strong types.
@@ -129,10 +131,13 @@ public class TimeSeriesAspectResolver
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve aspects from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
-  private Filter buildFilters(@Nullable FilterInput maybeFilters) {
+  private Filter buildFilters(
+      @Nullable FilterInput maybeFilters, @Nullable AspectRetriever aspectRetriever) {
     if (maybeFilters == null) {
       return null;
     }
@@ -143,7 +148,7 @@ public class TimeSeriesAspectResolver
                     .setAnd(
                         new CriterionArray(
                             maybeFilters.getAnd().stream()
-                                .map(filter -> criterionFromFilter(filter, true))
+                                .map(filter -> criterionFromFilter(filter, true, aspectRetriever))
                                 .collect(Collectors.toList())))));
   }
 }

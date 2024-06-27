@@ -341,6 +341,24 @@ datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccou
 
 ## Entity Specific Commands
 
+### dataset (Dataset Entity)
+
+The `dataset` command allows you to interact with the dataset entity.
+
+The `get` operation can be used to read in a dataset into a yaml file.
+```shell
+datahub dataset get --urn "$URN" --to-file "$FILE_NAME"
+```
+
+The `upsert` operation can be used to create a new user or update an existing one.
+
+```shell
+datahub dataset upsert -f dataset.yaml
+```
+
+An example of `dataset.yaml` would look like as in [dataset.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/dataset/dataset.yaml).
+
+
 ### user (User Entity)
 
 The `user` command allows you to interact with the User entity.
@@ -351,7 +369,7 @@ For detailed information, please refer to [Creating Users and Groups with Datahu
 datahub user upsert -f users.yaml
 ```
 
-An example of `users.yaml` would look like the following. You can refer to the [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
+An example of `users.yaml` would look like as in [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
 
 ```yaml
 - id: bar@acryl.io
@@ -379,7 +397,7 @@ For more information, please refer to [Creating Users and Groups with Datahub CL
 datahub group upsert -f group.yaml
 ```
 
-An example of `group.yaml` would look like the following. You can refer to the [foo.group.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/group/foo.group.dhub.yaml) file for the complete code.
+An example of `group.yaml` would look like as in [foo.group.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/group/foo.group.dhub.yaml) file for the complete code.
 
 ```yaml
 id: foogroup@acryl.io
@@ -655,8 +673,8 @@ We use a plugin architecture so that you can install only the dependencies you a
 Please see our [Integrations page](https://datahubproject.io/integrations) if you want to filter on the features offered by each source.
 
 | Plugin Name                                                                                    | Install Command                                            | Provides                                |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |
-| [file](./generated/ingestion/sources/file.md)                                                  | _included by default_                                      | File source and sink                    |
+|------------------------------------------------------------------------------------------------| ---------------------------------------------------------- | --------------------------------------- |
+| [metadata-file](./generated/ingestion/sources/metadata-file.md)                                | _included by default_                                      | File source and sink                    |
 | [athena](./generated/ingestion/sources/athena.md)                                              | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                       |
 | [bigquery](./generated/ingestion/sources/bigquery.md)                                          | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                         |
 | [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)                    | _no additional dependencies_                               | Lineage File source                     |
@@ -696,12 +714,12 @@ Please see our [Integrations page](https://datahubproject.io/integrations) if yo
 
 ### Sinks
 
-| Plugin Name                                                 | Install Command                              | Provides                   |
-| ----------------------------------------------------------- | -------------------------------------------- | -------------------------- |
-| [file](../metadata-ingestion/sink_docs/file.md)             | _included by default_                        | File source and sink       |
-| [console](../metadata-ingestion/sink_docs/console.md)       | _included by default_                        | Console sink               |
-| [datahub-rest](../metadata-ingestion/sink_docs/datahub.md)  | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
-| [datahub-kafka](../metadata-ingestion/sink_docs/datahub.md) | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
+| Plugin Name                                                       | Install Command                              | Provides                   |
+|-------------------------------------------------------------------| -------------------------------------------- | -------------------------- |
+| [metadata-file](../metadata-ingestion/sink_docs/metadata-file.md) | _included by default_                        | File source and sink       |
+| [console](../metadata-ingestion/sink_docs/console.md)             | _included by default_                        | Console sink               |
+| [datahub-rest](../metadata-ingestion/sink_docs/datahub.md)        | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
+| [datahub-kafka](../metadata-ingestion/sink_docs/datahub.md)       | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
 
 These plugins can be mixed and matched as desired. For example:
 

@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
@@ -283,6 +284,15 @@ public class OperationContext {
 
   public Optional<RetrieverContext> getRetrieverContext() {
     return Optional.ofNullable(retrieverContext);
+  }
+
+  @Nullable
+  public AspectRetriever getAspectRetriever() {
+    return getAspectRetrieverOpt().orElse(null);
+  }
+
+  public Optional<AspectRetriever> getAspectRetrieverOpt() {
+    return getRetrieverContext().map(RetrieverContext::getAspectRetriever);
   }
 
   /**

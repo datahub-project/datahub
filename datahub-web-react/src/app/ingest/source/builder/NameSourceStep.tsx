@@ -178,10 +178,12 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 </Form.Item>
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
-                        <Form.Item label={<Typography.Text strong>Executor Id</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the executor id to route execution requests to. The built-in DataHub executor id
-                                is &apos;default&apos;. Do not change this unless you have configured a custom executor.
+                                Provide the ID of the executor that should execute this ingestion recipe. This ID is
+                                used to route execution requests of the recipe to the executor of the same ID. The
+                                built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
+                                configured a remote or custom executor.
                             </Typography.Paragraph>
                             <Input
                                 placeholder="default"

@@ -13,12 +13,13 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "owner": "root",
-                            "created-at": "2024-04-02T18:00:49.330494161Z",
+                            "created-at": "2024-05-22T14:09:15.234903700Z",
                             "write.format.default": "parquet",
                             "location": "s3a://warehouse/wh/nyc/another_taxis",
                             "format-version": "1",
-                            "snapshot-id": "4647875962334950697",
-                            "manifest-list": "s3a://warehouse/wh/nyc/another_taxis/metadata/snap-4647875962334950697-1-466ebb90-74eb-4a34-9829-1553e90539f6.avro"
+                            "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
+                            "snapshot-id": "1706020810864905360",
+                            "manifest-list": "s3a://warehouse/wh/nyc/another_taxis/metadata/snap-1706020810864905360-1-90ad8346-ac1b-4e73-bb30-dfd9b0b0e0dc.avro"
                         },
                         "tags": []
                     }
@@ -149,8 +150,7 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "iceberg-2020_04_14-07_00_00",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -167,8 +167,7 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "iceberg-2020_04_14-07_00_00",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -184,8 +183,7 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "iceberg-2020_04_14-07_00_00",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

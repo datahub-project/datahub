@@ -8,6 +8,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validateOrThrow;
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
@@ -207,7 +208,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               aspectNames == null
                   ? Collections.emptySet()
                   : new HashSet<>(Arrays.asList(aspectNames));
-          final Entity entity = entityService.getEntity(opContext, urn, projectedAspects);
+          final Entity entity = entityService.getEntity(opContext, urn, projectedAspects, true);
           if (entity == null) {
             throw RestliUtil.resourceNotFoundException(String.format("Did not find %s", urnStr));
           }
@@ -247,7 +248,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               aspectNames == null
                   ? Collections.emptySet()
                   : new HashSet<>(Arrays.asList(aspectNames));
-          return entityService.getEntities(opContext, urns, projectedAspects).entrySet().stream()
+          return entityService.getEntities(opContext, urns, projectedAspects, true).entrySet().stream()
               .collect(
                   Collectors.toMap(
                       entry -> entry.getKey().toString(),

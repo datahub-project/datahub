@@ -20,8 +20,11 @@ import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -39,6 +42,7 @@ public class OpenAPIV3Generator {
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
   private static final String NAME_ASYNC = "async";
   private static final String NAME_SCROLL_ID = "scrollId";
+  private static final String NAME_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
   private static final String PROPERTY_PATCH = "patch";
@@ -72,7 +76,8 @@ public class OpenAPIV3Generator {
     final Components components = new Components();
     // --> Aspect components
     // TODO: Correct handling of SystemMetadata and SortOrder
-    components.addSchemas("SystemMetadata", new Schema().type(TYPE_STRING));
+    components.addSchemas(
+        "SystemMetadata", new Schema().type(TYPE_OBJECT).additionalProperties(true));
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
     components.addSchemas("AspectPatch", buildAspectPatchSchema());
     entityRegistry
@@ -84,10 +89,10 @@ public class OpenAPIV3Generator {
               addAspectSchemas(components, a);
               components.addSchemas(
                   upperAspectName + ASPECT_REQUEST_SUFFIX,
-                  buildAspectRefSchema(upperAspectName, false));
+                  buildAspectRefRequestSchema(upperAspectName));
               components.addSchemas(
                   upperAspectName + ASPECT_RESPONSE_SUFFIX,
-                  buildAspectRefSchema(upperAspectName, true));
+                  buildAspectRefResponseSchema(upperAspectName));
             });
     // --> Entity components
     entityRegistry.getEntitySpecs().values().stream()
@@ -182,7 +187,6 @@ public class OpenAPIV3Generator {
     final Operation getOperation =
         new Operation()
             .summary(String.format("Get %s.", upperFirst))
-            .operationId(String.format("get%s", upperFirst))
             .parameters(parameters)
             .tags(List.of(entity.getName() + " Entity"))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse));
@@ -199,14 +203,18 @@ public class OpenAPIV3Generator {
     final Operation headOperation =
         new Operation()
             .summary(String.format("%s existence.", upperFirst))
-            .operationId(String.format("head%s", upperFirst))
             .parameters(
                 List.of(
                     new Parameter()
                         .in(NAME_PATH)
                         .name("urn")
                         .description("The entity's unique URN id.")
-                        .schema(new Schema().type(TYPE_STRING))))
+                        .schema(new Schema().type(TYPE_STRING)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_INCLUDE_SOFT_DELETE)
+                        .description("If enabled, soft deleted items will exist.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .tags(List.of(entity.getName() + " Entity"))
             .responses(
                 new ApiResponses()
@@ -220,7 +228,6 @@ public class OpenAPIV3Generator {
     final Operation deleteOperation =
         new Operation()
             .summary(String.format("Delete entity %s", upperFirst))
-            .operationId(String.format("delete%s", upperFirst))
             .parameters(
                 List.of(
                     new Parameter()
@@ -271,9 +278,9 @@ public class OpenAPIV3Generator {
     result.setGet(
         new Operation()
             .summary(String.format("Scroll/List %s.", upperFirst))
-            .operationId("scroll")
             .parameters(parameters)
             .tags(List.of(entity.getName() + " Entity"))
+            .description("Scroll indexed entities. Will not include soft deleted entities.")
             .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
 
     // Post Operation
@@ -318,7 +325,7 @@ public class OpenAPIV3Generator {
             .parameters(
                 List.of(
                     new Parameter()
-                        .in(NAME_ASYNC)
+                        .in(NAME_QUERY)
                         .name("async")
                         .description("Use async ingestion for high throughput.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(true)),
@@ -328,7 +335,6 @@ public class OpenAPIV3Generator {
                         .description("Include systemMetadata with response.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .summary("Create " + upperFirst + " entities.")
-            .operationId("createEntities")
             .tags(List.of(entity.getName() + " Entity"))
             .requestBody(
                 new RequestBody()
@@ -362,7 +368,7 @@ public class OpenAPIV3Generator {
             .schema(
                 new Schema()
                     .type(TYPE_ARRAY)
-                    ._default(PROPERTY_URN)
+                    ._default(List.of(PROPERTY_URN))
                     .items(
                         new Schema<>()
                             .type(TYPE_STRING)
@@ -383,7 +389,7 @@ public class OpenAPIV3Generator {
             .in(NAME_QUERY)
             .name("count")
             .description("Number of items per page.")
-            .example("10")
+            .example(10)
             .schema(new Schema().type(TYPE_INTEGER)._default(10).minimum(new BigDecimal(1))));
     components.addParameters(
         "ScrollQuery" + MODEL_VERSION,
@@ -409,7 +415,11 @@ public class OpenAPIV3Generator {
     final Schema schema =
         new Schema()
             .type(TYPE_ARRAY)
-            .items(new Schema().type(TYPE_STRING)._enum(aspectNames)._default(aspectNames));
+            .items(
+                new Schema()
+                    .type(TYPE_STRING)
+                    ._enum(aspectNames)
+                    ._default(aspectNames.stream().findFirst().orElse(null)));
     return new Parameter()
         .in(NAME_QUERY)
         .name("aspects")
@@ -434,6 +444,31 @@ public class OpenAPIV3Generator {
                   final String newDefinition =
                       definition.replaceAll("definitions", "components/schemas");
                   Schema s = Json.mapper().readValue(newDefinition, Schema.class);
+                  // Set enums to "string".
+                  if (s.getEnum() != null && !s.getEnum().isEmpty()) {
+                    s.setType("string");
+                  } else {
+                    Set<String> requiredNames =
+                        Optional.ofNullable(s.getRequired())
+                            .map(names -> Set.copyOf(names))
+                            .orElse(new HashSet());
+                    Map<String, Schema> properties =
+                        Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
+                    properties.forEach(
+                        (name, schema) -> {
+                          String $ref = schema.get$ref();
+                          boolean isNameRequired = requiredNames.contains(name);
+                          if ($ref != null && !isNameRequired) {
+                            // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+                            // object to allow the
+                            // property to be marked as nullable
+                            schema.setType(TYPE_OBJECT);
+                            schema.set$ref(null);
+                            schema.setAllOf(List.of(new Schema().$ref($ref)));
+                          }
+                          schema.setNullable(!isNameRequired);
+                        });
+                  }
                   components.addSchemas(n, s);
                 } catch (Exception e) {
                   throw new RuntimeException(e);
@@ -444,22 +479,25 @@ public class OpenAPIV3Generator {
     }
   }
 
-  private static Schema buildAspectRefSchema(
-      final String aspectName, final boolean withSystemMetadata) {
+  private static Schema buildAspectRefResponseSchema(final String aspectName) {
     final Schema result =
         new Schema<>()
             .type(TYPE_OBJECT)
             .description(ASPECT_DESCRIPTION)
             .required(List.of(PROPERTY_VALUE))
             .addProperty(PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspectName));
-    if (withSystemMetadata) {
-      result.addProperty(
-          "systemMetadata",
-          new Schema<>()
-              .$ref(PATH_DEFINITIONS + "SystemMetadata")
-              .description("System metadata for the aspect."));
-    }
+    result.addProperty(
+        "systemMetadata",
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .allOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+            .description("System metadata for the aspect.")
+            .nullable(true));
     return result;
+  }
+
+  private static Schema buildAspectRefRequestSchema(final String aspectName) {
+    return new Schema<>().$ref(PATH_DEFINITIONS + aspectName);
   }
 
   private static Schema buildEntitySchema(
@@ -508,14 +546,23 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
+    // A non-required $ref property must be wrapped in a { allOf: [ $ref ] }
+    // object to allow the
+    // property to be marked as nullable
     final Schema result = new Schema<>();
+
+    result.setType(TYPE_OBJECT);
+    result.set$ref(null);
+    result.setNullable(true);
+    final String internalRef;
     if (withSystemMetadata) {
-      result.set$ref(
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_RESPONSE_SUFFIX));
+      internalRef =
+          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_RESPONSE_SUFFIX);
     } else {
-      result.set$ref(
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX));
+      internalRef =
+          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
+    result.setAllOf(List.of(new Schema().$ref(internalRef)));
     return result;
   }
 
@@ -575,7 +622,6 @@ public class OpenAPIV3Generator {
     final Operation getOperation =
         new Operation()
             .summary(String.format("Get %s for %s.", aspect, entity.getName()))
-            .operationId(String.format("get%s", upperFirstAspect))
             .tags(tags)
             .parameters(List.of(getParameter))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse));
@@ -591,8 +637,14 @@ public class OpenAPIV3Generator {
     final Operation headOperation =
         new Operation()
             .summary(String.format("%s on %s existence.", aspect, upperFirstEntity))
-            .operationId(String.format("head%s", upperFirstAspect))
             .tags(tags)
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name(NAME_INCLUDE_SOFT_DELETE)
+                        .description("If enabled, soft deleted items will exist.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .responses(
                 new ApiResponses()
                     .addApiResponse("200", successHeadResponse)
@@ -605,7 +657,6 @@ public class OpenAPIV3Generator {
     final Operation deleteOperation =
         new Operation()
             .summary(String.format("Delete %s on entity %s", aspect, upperFirstEntity))
-            .operationId(String.format("delete%s", upperFirstAspect))
             .tags(tags)
             .responses(new ApiResponses().addApiResponse("200", successDeleteResponse));
     // Post Operation
@@ -641,7 +692,6 @@ public class OpenAPIV3Generator {
     final Operation postOperation =
         new Operation()
             .summary(String.format("Create aspect %s on %s ", aspect, upperFirstEntity))
-            .operationId(String.format("create%s", upperFirstAspect))
             .tags(tags)
             .requestBody(requestBody)
             .responses(new ApiResponses().addApiResponse("201", successPostResponse));
@@ -680,7 +730,6 @@ public class OpenAPIV3Generator {
                         .description("Include systemMetadata with response.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
             .summary(String.format("Patch aspect %s on %s ", aspect, upperFirstEntity))
-            .operationId(String.format("patch%s", upperFirstAspect))
             .tags(tags)
             .requestBody(patchRequestBody)
             .responses(new ApiResponses().addApiResponse("200", successPatchResponse));

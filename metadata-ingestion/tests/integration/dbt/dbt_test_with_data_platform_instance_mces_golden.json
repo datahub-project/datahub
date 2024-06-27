@@ -7,8 +7,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
         }
     },
@@ -54,6 +53,7 @@
                             "dbt_file_path": "models/transform/customer_details.sql",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.customer_details",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -338,9 +338,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
         }
     },
@@ -386,6 +384,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.monthly_billing_with_cust",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -555,8 +554,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
         }
     },
@@ -597,6 +595,7 @@
                             "catalog_type": "VIEW",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.payments_base",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -893,9 +892,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
         }
     },
@@ -936,6 +933,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.payments_by_customer_by_month",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1128,6 +1126,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.actor",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1357,6 +1356,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.address",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1653,6 +1653,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.category",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -1834,6 +1835,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.city",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -2041,6 +2043,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.country",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -2237,6 +2240,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.customer",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -2579,6 +2583,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_01",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -2833,6 +2838,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_02",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -3098,6 +3104,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_03",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -3348,6 +3355,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_04",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -3598,6 +3606,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_05",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",
@@ -3848,6 +3857,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_06",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
                             "manifest_adapter": "postgres",

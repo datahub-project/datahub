@@ -3,7 +3,6 @@ package com.linkedin.metadata.aspect.plugins.hooks;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.plugins.PluginSpec;
-import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import java.util.Collection;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -13,10 +12,6 @@ import javax.annotation.Nonnull;
 /** Given an MCL produce additional MCLs for writing */
 public abstract class MCLSideEffect extends PluginSpec
     implements BiFunction<Collection<MCLItem>, RetrieverContext, Stream<MCLItem>> {
-
-  public MCLSideEffect(AspectPluginConfig aspectPluginConfig) {
-    super(aspectPluginConfig);
-  }
 
   /**
    * Given a list of MCLs, output additional MCLs

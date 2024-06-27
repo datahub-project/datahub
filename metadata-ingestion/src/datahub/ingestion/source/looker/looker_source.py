@@ -102,7 +102,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SubTypesClass,
 )
-from datahub.utilities.advanced_thread_executor import BackpressureAwareExecutor
+from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -437,6 +437,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     for exp in explores
                 ],
                 input_fields=input_fields,
+                owner=None,
             )
 
         # Dashboard elements can *alternatively* link to an existing look
@@ -488,6 +489,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         if element.look.folder
                         else None
                     ),
+                    owner=self._get_looker_user(element.look.user_id),
                 )
 
         # Failing the above two approaches, pick out details from result_maker
@@ -558,6 +560,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     LookerExplore(model_name=model, name=exp) for exp in explores
                 ],
                 input_fields=input_fields,
+                owner=None,
             )
 
         logger.debug(f"Element {element.title}: Unable to parse LookerDashboardElement")
@@ -644,9 +647,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             customProperties={
                 "upstream_fields": (
                     ",".join(
-                        sorted(
-                            set(field.name for field in dashboard_element.input_fields)
-                        )
+                        sorted({field.name for field in dashboard_element.input_fields})
                     )
                     if dashboard_element.input_fields
                     else ""
@@ -690,6 +691,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         if dashboard is not None:
             ownership = self.get_ownership(dashboard)
+            if ownership is not None:
+                chart_snapshot.aspects.append(ownership)
+        elif dashboard is None and dashboard_element is not None:
+            ownership = self.get_ownership(dashboard_element)
             if ownership is not None:
                 chart_snapshot.aspects.append(ownership)
 
@@ -969,14 +974,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         dashboard_events = self._make_dashboard_metadata_events(
             looker_dashboard, list(chart_urns)
         )
-        for dashboard_event in dashboard_events:
-            yield dashboard_event
+        yield from dashboard_events
 
     def get_ownership(
-        self, looker_dashboard: LookerDashboard
+        self, looker_dashboard_look: Union[LookerDashboard, LookerDashboardElement]
     ) -> Optional[OwnershipClass]:
-        if looker_dashboard.owner is not None:
-            owner_urn = looker_dashboard.owner.get_urn(
+        if looker_dashboard_look.owner is not None:
+            owner_urn = looker_dashboard_look.owner.get_urn(
                 self.source_config.strip_user_ids_from_email
             )
             if owner_urn is not None:
@@ -1384,7 +1388,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_start("extract_independent_looks")
 
         logger.debug("Extracting looks not part of Dashboard")
-        look_fields: List[str] = ["id", "title", "description", "query_id", "folder"]
+        look_fields: List[str] = [
+            "id",
+            "title",
+            "description",
+            "query_id",
+            "folder",
+            "user_id",
+        ]
         query_fields: List[str] = [
             "id",
             "view",
@@ -1429,7 +1440,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     subtitle_text=look.description,
                     look_id=look.id,
                     dashboard_id=None,  # As this is independent look
-                    look=LookWithQuery(query=query, folder=look.folder),
+                    look=LookWithQuery(
+                        query=query, folder=look.folder, user_id=look.user_id
+                    ),
                 ),
             )
 

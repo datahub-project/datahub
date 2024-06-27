@@ -13,7 +13,7 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | `glossaryTerms`     | - [Simple Add Dataset glossaryTerms ](#simple-add-dataset-glossaryterms)<br/> - [Pattern Add Dataset glossaryTerms](#pattern-add-dataset-glossaryterms)                                                           |
 | `schemaMetadata`    | - [Pattern Add Dataset Schema Field glossaryTerms](#pattern-add-dataset-schema-field-glossaryterms)<br/> - [Pattern Add Dataset Schema Field globalTags](#pattern-add-dataset-schema-field-globaltags)            |
 | `datasetProperties` | - [Simple Add Dataset datasetProperties](#simple-add-dataset-datasetproperties)<br/> - [Add Dataset datasetProperties](#add-dataset-datasetproperties)                                                            |
-| `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)                                                                                      | 
+| `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)<br/> - [Domain Mapping Based on Tags](#domain-mapping-based-on-tags)                                                                                    |
 | `dataProduct`       | - [Simple Add Dataset dataProduct ](#simple-add-dataset-dataproduct)<br/> - [Pattern Add Dataset dataProduct](#pattern-add-dataset-dataproduct)<br/> - [Add Dataset dataProduct](#add-dataset-dataproduct)  
 
 ## Extract Ownership from Tags
@@ -126,7 +126,7 @@ transformers:
 |--------------------|----------|--------------|-------------|---------------------------------------------------------------------|
 | `owner_urns`       | ✅        | list[string] |             | List of owner urns.                                                 |
 | `ownership_type`   |          | string       | "DATAOWNER" | ownership type of the owners (either as enum or ownership type urn) |
-| `replace_existing` |          | boolean      | `false`     | Whether to remove owners from entity sent by ingestion source.      |
+| `replace_existing` |          | boolean      | `false`     | Whether to remove ownership from entity sent by ingestion source.      |
 | `semantics`        |          | enum         | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.    |
 
 For transformer behaviour on `replace_existing` and `semantics`, please refer section [Relationship Between replace_existing And semantics](#relationship-between-replace_existing-and-semantics).
@@ -270,7 +270,7 @@ Note that whatever owners you send via `simple_remove_dataset_ownership` will ov
 |-----------------------------|----------|--------------|---------------|------------------------------------------------------------------|
 | `extract_tags_from`         | ✅       | string       |  `urn`             | Which field to extract tag from. Currently only `urn` is supported.  |
 | `extract_tags_regex`        | ✅       | string       |  `.*`             | Regex to use to extract tag.|
-| `replace_existing`          |          | boolean      | `false`       | Whether to remove owners from entity sent by ingestion source.   |
+| `replace_existing`          |          | boolean      | `false`       | Whether to remove globalTags from entity sent by ingestion source.   |
 | `semantics`                 |          | enum         | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
 
 Let’s suppose we’d like to add a dataset tags based on part of urn. To do so, we can use the `extract_dataset_tags` transformer that’s included in the ingestion framework.
@@ -297,7 +297,7 @@ a tag called `USA-ops-team` and `Canada-marketing` will be added to them respect
 | Field                       | Required | Type         | Default       | Description                                                      |
 |-----------------------------|----------|--------------|---------------|------------------------------------------------------------------|
 | `tag_urns`                  | ✅        | list[string] |               | List of globalTags urn.                                          |
-| `replace_existing`          |          | boolean      | `false`       | Whether to remove owners from entity sent by ingestion source.   |
+| `replace_existing`          |          | boolean      | `false`       | Whether to remove globalTags from entity sent by ingestion source.   |
 | `semantics`                 |          | enum         | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
 
 Let’s suppose we’d like to add a set of dataset tags. To do so, we can use the `simple_add_dataset_tags` transformer that’s included in the ingestion framework.
@@ -350,7 +350,7 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
 | Field                       | Required | Type                 | Default     | Description                                                                           |
 |-----------------------------|----------|----------------------|-------------|---------------------------------------------------------------------------------------|
 | `tag_pattern`               | ✅        | map[regx, list[urn]] |             | Entity urn with regular expression and list of tags urn apply to matching entity urn. |
-| `replace_existing`          |          | boolean              | `false`     | Whether to remove owners from entity sent by ingestion source.                        |
+| `replace_existing`          |          | boolean              | `false`     | Whether to remove globalTags from entity sent by ingestion source.                        |
 | `semantics`                 |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                      |
 
 Let’s suppose we’d like to append a series of tags to specific datasets. To do so, we can use the `pattern_add_dataset_tags` module that’s included in the ingestion framework.  This will match the regex pattern to `urn` of the dataset and assign the respective tags urns given in the array.
@@ -407,7 +407,7 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
 | Field                       | Required | Type                                       | Default       | Description                                                                |
 |-----------------------------|----------|--------------------------------------------|---------------|----------------------------------------------------------------------------|
 | `get_tags_to_add`           | ✅        | callable[[str], list[TagAssociationClass]] |               | A function which takes entity urn as input and return TagAssociationClass. |
-| `replace_existing`          |          | boolean                                    | `false`       | Whether to remove owners from entity sent by ingestion source.             |
+| `replace_existing`          |          | boolean                                    | `false`       | Whether to remove globalTags from entity sent by ingestion source.             |
 | `semantics`                 |          | enum                                       | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.           |
 
 If you'd like to add more complex logic for assigning tags, you can use the more generic add_dataset_tags transformer, which calls a user-provided function to determine the tags for each dataset.
@@ -477,7 +477,7 @@ Finally, you can install and use your custom transformer as [shown here](#instal
 | Field                       | Required | Type         | Default      | Description                                                      |
 |-----------------------------|----------|--------------|--------------|------------------------------------------------------------------|
 | `path_templates`            | ✅        | list[string] |              | List of path templates.                                          |
-| `replace_existing`          |          | boolean      | `false`      | Whether to remove owners from entity sent by ingestion source.   |
+| `replace_existing`          |          | boolean      | `false`      | Whether to remove browsePath from entity sent by ingestion source.   |
 | `semantics`                 |          | enum         | `OVERWRITE`  | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
 
 If you would like to add to browse paths of dataset can use this transformer. There are 3 optional variables that you can use to get information from the dataset `urn`:
@@ -562,7 +562,7 @@ In this case, the resulting dataset will have only 1 browse path, the one from t
 | Field                       | Required | Type         | Default       | Description                                                      |
 |-----------------------------|----------|--------------|---------------|------------------------------------------------------------------|
 | `term_urns`                  | ✅        | list[string] |               | List of glossaryTerms urn.                                          |
-| `replace_existing`          |          | boolean      | `false`       | Whether to remove owners from entity sent by ingestion source.   |
+| `replace_existing`          |          | boolean      | `false`       | Whether to remove glossaryTerms from entity sent by ingestion source.   |
 | `semantics`                 |          | enum         | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
 
 We can use a similar convention to associate [Glossary Terms](../../../docs/generated/ingestion/sources/business-glossary.md) to datasets. 
@@ -617,7 +617,7 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
 | Field                       | Required | Type                 | Default      | Description                                                                                     |
 |-----------------------------|--------|----------------------|--------------|-------------------------------------------------------------------------------------------------|
 | `term_pattern`              | ✅      | map[regx, list[urn]] |              |  entity urn with regular expression and list of glossaryTerms urn apply to matching entity urn. |
-| `replace_existing`          |        | boolean              | `false`      | Whether to remove owners from entity sent by ingestion source.                                  |
+| `replace_existing`          |        | boolean              | `false`      | Whether to remove glossaryTerms from entity sent by ingestion source.                                  |
 | `semantics`                 |        | enum                 | `OVERWRITE`  | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                |
 
 We can add glossary terms to datasets based on a regex filter.
@@ -673,7 +673,7 @@ We can add glossary terms to datasets based on a regex filter.
 | Field                       | Required | Type                 | Default     | Description                                                                                    |
 |-----------------------------|---------|----------------------|-------------|------------------------------------------------------------------------------------------------|
 | `term_pattern`              | ✅       | map[regx, list[urn]] |             | entity urn with regular expression and list of glossaryTerms urn apply to matching entity urn. |
-| `replace_existing`          |         | boolean              | `false`     | Whether to remove owners from entity sent by ingestion source.                                 |
+| `replace_existing`          |         | boolean              | `false`     | Whether to remove glossaryTerms from entity sent by ingestion source.                                 |
 | `semantics`                 |         | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                               |
 
 We can add glossary terms to schema fields based on a regex filter.
@@ -730,7 +730,7 @@ Note that only terms from the first matching pattern will be applied.
 | Field                       | Required | Type                 | Default     | Description                                                                           |
 |-----------------------------|----------|----------------------|-------------|---------------------------------------------------------------------------------------|
 | `tag_pattern`               | ✅        | map[regx, list[urn]] |             | entity urn with regular expression and list of tags urn apply to matching entity urn. |
-| `replace_existing`          |          | boolean              | `false`     | Whether to remove owners from entity sent by ingestion source.                        |
+| `replace_existing`          |          | boolean              | `false`     | Whether to remove globalTags from entity sent by ingestion source.                        |
 | `semantics`                 |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                      |
 
 
@@ -790,7 +790,7 @@ The config would look like this:
 | Field              | Required | Type           | Default     | Description                                                      |
 |--------------------|---------|----------------|-------------|------------------------------------------------------------------|
 | `properties`       | ✅       | dict[str, str] |             | Map of key value pair.                                           |
-| `replace_existing` |         | boolean        | `false`     | Whether to remove owners from entity sent by ingestion source.   |
+| `replace_existing` |         | boolean        | `false`     | Whether to remove datasetProperties from entity sent by ingestion source.   |
 | `semantics`        |         | enum           | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
 
 `simple_add_dataset_properties` transformer assigns the properties to dataset entity from the configuration.
@@ -817,8 +817,6 @@ overwrite the previous value.
           properties:
             prop1: value1
             prop2: value2
-
-
     ```
 - Add dataset-properties, however overwrite the dataset-properties available for the dataset on DataHub GMS
     ```yaml
@@ -829,8 +827,6 @@ overwrite the previous value.
           properties:
             prop1: value1
             prop2: value2
-
-
     ```
 - Add dataset-properties, however keep the dataset-properties available for the dataset on DataHub GMS
     ```yaml
@@ -841,7 +837,6 @@ overwrite the previous value.
           properties:
             prop1: value1
             prop2: value2
-
     ```
 
 ## Add Dataset datasetProperties
@@ -849,7 +844,7 @@ overwrite the previous value.
 | Field                          | Required | Type                                       | Default     | Description                                                      |
 |--------------------------------|----------|--------------------------------------------|-------------|------------------------------------------------------------------|
 | `add_properties_resolver_class`| ✅        | Type[AddDatasetPropertiesResolverBase] |             | A class extends from `AddDatasetPropertiesResolverBase`          |
-| `replace_existing`             |          | boolean                                    | `false`     | Whether to remove owners from entity sent by ingestion source.   |
+| `replace_existing`             |          | boolean                                    | `false`     | Whether to remove datasetProperties from entity sent by ingestion source.   |
 | `semantics`                    |          | enum                                       | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
 
 If you'd like to add more complex logic for assigning properties, you can use the `add_dataset_properties` transformer, which calls a user-provided class (that extends from `AddDatasetPropertiesResolverBase` class) to determine the properties for each dataset.
@@ -948,7 +943,7 @@ transformers:
 | Field              | Required | Type                   | Default       | Description                                                      |
 |--------------------|----------|------------------------|---------------|------------------------------------------------------------------|
 | `domains`          | ✅        | list[union[urn, str]]  |               | List of simple domain name or domain urns.                       |
-| `replace_existing` |          | boolean                | `false`       | Whether to remove owners from entity sent by ingestion source.   |
+| `replace_existing` |          | boolean                | `false`       | Whether to remove domains from entity sent by ingestion source.   |
 | `semantics`        |          | enum                   | `OVERWRITE`   | Whether to OVERWRITE or PATCH the entity present on DataHub GMS. |
 
 For transformer behaviour on `replace_existing` and `semantics`, please refer section [Relationship Between replace_existing And semantics](#relationship-between-replace_existing-and-semantics).
@@ -973,7 +968,7 @@ transformers:
 `simple_add_dataset_domain` can be configured in below different way 
 
 - Add domains, however replace existing domains sent by ingestion source
-```yaml
+    ```yaml
     transformers:
       - type: "simple_add_dataset_domain"
         config:
@@ -981,9 +976,9 @@ transformers:
           domains:
             - "urn:li:domain:engineering"
             - "urn:li:domain:hr"
- ```
+   ```
 - Add domains, however overwrite the domains available for the dataset on DataHub GMS
-```yaml
+    ```yaml
     transformers:
       - type: "simple_add_dataset_domain"
         config:
@@ -991,9 +986,9 @@ transformers:
           domains:
             - "urn:li:domain:engineering"
             - "urn:li:domain:hr"
-  ```
+    ```
 - Add domains, however keep the domains available for the dataset on DataHub GMS
-```yaml
+    ```yaml
     transformers:
       - type: "simple_add_dataset_domain"
         config:
@@ -1001,14 +996,14 @@ transformers:
           domains:
             - "urn:li:domain:engineering"
             - "urn:li:domain:hr"
-  ```
+    ```
 
 ## Pattern Add Dataset domains 
 ### Config Details
 | Field                      | Required  | Type                            | Default         | Description                                                                                                                |
 |----------------------------|-----------|---------------------------------|-----------------|----------------------------------------------------------------------------------------------------------------------------|
 | `domain_pattern`           | ✅         | map[regx, list[union[urn, str]] |                 | dataset urn with regular expression and list of simple domain name or domain urn need to be apply on matching dataset urn. |
-| `replace_existing`         |           | boolean                         | `false`         | Whether to remove owners from entity sent by ingestion source.                                                             |
+| `replace_existing`         |           | boolean                         | `false`         | Whether to remove domains from entity sent by ingestion source.                                                             |
 | `semantics`                |           | enum                            | `OVERWRITE`     | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                                           |
 
 Let’s suppose we’d like to append a series of domain to specific datasets. To do so, we can use the pattern_add_dataset_domain transformer that’s included in the ingestion framework. 
@@ -1019,20 +1014,20 @@ Here we can set domain list to either urn (i.e. urn:li:domain:hr) or simple doma
 in both of the cases domain should be provisioned on DataHub GMS
 
   ```yaml
-    transformers:
-      - type: "pattern_add_dataset_domain"
-        config:
-          semantics: OVERWRITE
-          domain_pattern:
-            rules:
-              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
-              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"]
+  transformers:
+    - type: "pattern_add_dataset_domain"
+      config:
+        semantics: OVERWRITE
+        domain_pattern:
+          rules:
+            'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
+            'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"]
   ```
 
 `pattern_add_dataset_domain` can be configured in below different way 
 
 - Add domains, however replace existing domains sent by ingestion source
-```yaml
+    ```yaml
     transformers:
       - type: "pattern_add_dataset_domain"
         config:
@@ -1041,29 +1036,84 @@ in both of the cases domain should be provisioned on DataHub GMS
             rules:
               'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
               'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
-  ```
+    ```
 - Add domains, however overwrite the domains available for the dataset on DataHub GMS
-```yaml
-      transformers:
-        - type: "pattern_add_dataset_domain"
-          config:
-            semantics: OVERWRITE  # OVERWRITE is default behaviour 
-            domain_pattern:
-              rules:
-                'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
-                'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
-  ```
+    ```yaml
+    transformers:
+      - type: "pattern_add_dataset_domain"
+        config:
+          semantics: OVERWRITE  # OVERWRITE is default behaviour 
+          domain_pattern:
+            rules:
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
+    ```
 - Add domains, however keep the domains available for the dataset on DataHub GMS
+    ```yaml
+    transformers:
+      - type: "pattern_add_dataset_domain"
+        config:
+          semantics: PATCH
+          domain_pattern:
+            rules:
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
+    ```
+
+
+
+## Domain Mapping Based on Tags
+### Config Details
+
+| Field           | Required | Type                    | Default     | Description                                                                                             |
+|-----------------|----------|-------------------------|-------------|---------------------------------------------------------------------------------------------------------|
+| `domain_mapping`| ✅       | Dict[str, str]     |             | Dataset Entity tag as key and domain urn or name as value to map with dataset as asset.           |
+| `semantics`     |          | enum                  | "OVERWRITE" | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.|
+
+<br/>
+
+let’s suppose we’d like to add domain to dataset based on tag, in this case you can use `domain_mapping_based_on_tags` transformer.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+Here we can set domains to either urn (i.e. urn:li:domain:engineering) or simple domain name (i.e. engineering) in both of the cases domain should be provisioned on DataHub GMS
+
+When specifying tags within the domain mapping, use the tag's simple name rather than the full tag URN.
+
+For example, instead of using the tag URN urn:li:tag:NeedsDocumentation, you should specify just the simple tag name NeedsDocumentation in the domain mapping configuration
+
 ```yaml
-      transformers:
-        - type: "pattern_add_dataset_domain"
-          config:
-            semantics: PATCH
-            domain_pattern:
-              rules:
-                'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
-                'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
-  ```
+transformers:
+  - type: "domain_mapping_based_on_tags"
+    config:
+      domain_mapping:
+        'NeedsDocumentation': "urn:li:domain:documentation"
+```
+
+
+`domain_mapping_based_on_tags` can be configured in below different way
+
+- Add domains based on tags, however overwrite the domains available for the dataset on DataHub GMS
+    ```yaml
+    transformers:
+      - type: "domain_mapping_based_on_tags"
+        config:
+          semantics: OVERWRITE  # OVERWRITE is default behaviour
+          domain_mapping:
+            'example1': "urn:li:domain:engineering"
+            'example2': "urn:li:domain:hr"
+    ```
+- Add domains based on tags, however keep the domains available for the dataset on DataHub GMS
+    ```yaml
+    transformers:
+      - type: "domain_mapping_based_on_tags"
+        config:
+          semantics: PATCH
+          domain_mapping:
+            'example1': "urn:li:domain:engineering"
+            'example2': "urn:li:domain:hr"
+    ```
+
 ## Simple Add Dataset dataProduct
 ### Config Details
 | Field                         | Required | Type            | Default       | Description                                                                            |
@@ -1258,18 +1308,18 @@ Let's begin by adding a `create()` method for parsing our configuration dictiona
 
 @classmethod
 def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddCustomOwnership":
-  config = AddCustomOwnershipConfig.parse_obj(config_dict)
-  return cls(config, ctx)
+    config = AddCustomOwnershipConfig.parse_obj(config_dict)
+    return cls(config, ctx)
 ```
 
 Next we need to tell the helper classes which entity types and aspect we are interested in transforming. In this case, we want to only process `dataset` entities and transform the `ownership` aspect.
 
 ```python
 def entity_types(self) -> List[str]:
-        return ["dataset"]
+    return ["dataset"]
 
-    def aspect_name(self) -> str:
-        return "ownership"
+def aspect_name(self) -> str:
+    return "ownership"
 ```
 
 Finally we need to implement the `transform_aspect()` method that does the work of adding our custom ownership classes. This method will be called be the framework with an optional aspect value filled out if the upstream source produced a value for this aspect. The framework takes care of pre-processing both MCE-s and MCP-s so that the `transform_aspect()` function is only called one per entity. Our job is merely to inspect the incoming aspect (or absence) and produce a transformed value for this aspect. Returning `None` from this method will effectively suppress this aspect from being emitted.
@@ -1277,24 +1327,24 @@ Finally we need to implement the `transform_aspect()` method that does the work 
 ```python
 # add this as a function of AddCustomOwnership
 
-  def transform_aspect(  # type: ignore
-      self, entity_urn: str, aspect_name: str, aspect: Optional[OwnershipClass]
-  ) -> Optional[OwnershipClass]:
+def transform_aspect(  # type: ignore
+    self, entity_urn: str, aspect_name: str, aspect: Optional[OwnershipClass]
+) -> Optional[OwnershipClass]:
 
-      owners_to_add = self.owners
-      assert aspect is None or isinstance(aspect, OwnershipClass)
+    owners_to_add = self.owners
+    assert aspect is None or isinstance(aspect, OwnershipClass)
 
-      if owners_to_add:
-          ownership = (
-              aspect
-              if aspect
-              else OwnershipClass(
-                  owners=[],
-              )
-          )
-          ownership.owners.extend(owners_to_add)
+    if owners_to_add:
+        ownership = (
+            aspect
+            if aspect
+            else OwnershipClass(
+                owners=[],
+            )
+        )
+        ownership.owners.extend(owners_to_add)
 
-      return ownership
+    return ownership
 ```
 
 ### More Sophistication: Making calls to DataHub during Transformation
@@ -1328,27 +1378,27 @@ e.g. Here is how the AddDatasetOwnership transformer can now support PATCH seman
 
 ```python
 def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-            return mce
-        owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
-        if owners_to_add:
-            ownership = builder.get_or_add_aspect(
-                mce,
-                OwnershipClass(
-                    owners=[],
-                ),
-            )
-            ownership.owners.extend(owners_to_add)
-
-            if self.config.semantics == Semantics.PATCH:
-                assert self.ctx.graph
-                patch_ownership = AddDatasetOwnership.get_ownership_to_set(
-                    self.ctx.graph, mce.proposedSnapshot.urn, ownership
-                )
-                builder.set_aspect(
-                    mce, aspect=patch_ownership, aspect_type=OwnershipClass
-                )
+    if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
         return mce
+    owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
+    if owners_to_add:
+        ownership = builder.get_or_add_aspect(
+            mce,
+            OwnershipClass(
+                owners=[],
+            ),
+        )
+        ownership.owners.extend(owners_to_add)
+
+        if self.config.semantics == Semantics.PATCH:
+            assert self.ctx.graph
+            patch_ownership = AddDatasetOwnership.get_ownership_to_set(
+                self.ctx.graph, mce.proposedSnapshot.urn, ownership
+            )
+            builder.set_aspect(
+                mce, aspect=patch_ownership, aspect_type=OwnershipClass
+            )
+    return mce
 ```
 
 ### Installing the package

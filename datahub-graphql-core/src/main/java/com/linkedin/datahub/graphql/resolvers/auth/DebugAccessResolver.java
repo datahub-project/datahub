@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DebugAccessResult;
 import com.linkedin.entity.EntityResponse;
@@ -54,7 +55,7 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
   @Override
   public CompletableFuture<DebugAccessResult> get(DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
 
@@ -65,7 +66,9 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
           final String userUrn = environment.getArgument("userUrn");
 
           return populateDebugAccessResult(userUrn, context);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public DebugAccessResult populateDebugAccessResult(String userUrn, QueryContext context) {

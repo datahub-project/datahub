@@ -116,6 +116,7 @@ _DBT_GRAPHQL_NODE_COMMON_FIELDS = """
 """
 
 _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
+  packageName
   alias
   error
   status
@@ -375,7 +376,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     max_loaded_at = None
 
         columns = []
-        if "columns" in node:
+        if "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = [
                 self._parse_into_dbt_column(column)
@@ -433,6 +434,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             dbt_name=key,
             # TODO: Get the dbt adapter natively.
             dbt_adapter=self.config.target_platform,
+            dbt_package_name=node.get("packageName"),
             database=node.get("database"),
             schema=node.get("schema"),
             name=name,

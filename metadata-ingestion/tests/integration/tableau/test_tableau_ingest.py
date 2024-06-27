@@ -572,6 +572,7 @@ def test_lineage_overrides():
     assert (
         TableauUpstreamReference(
             "presto_catalog",
+            "test-database-id",
             "test-schema",
             "test-table",
             "presto",
@@ -586,6 +587,7 @@ def test_lineage_overrides():
     assert (
         TableauUpstreamReference(
             "presto_catalog",
+            "test-database-id",
             "test-schema",
             "test-table",
             "presto",
@@ -603,6 +605,7 @@ def test_lineage_overrides():
     assert (
         TableauUpstreamReference(
             None,
+            None,
             "test-schema",
             "test-table",
             "hive",
@@ -614,6 +617,40 @@ def test_lineage_overrides():
             ),
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_hostname_to_platform_instance_map():
+    enable_logging()
+    # Simple - snowflake table
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(env=DEFAULT_ENV, platform_instance_map={})
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-database-name.test-schema.test-table,PROD)"
+    )
+
+    # Finding platform instance based off hostname to platform instance mappings
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={},
+            database_hostname_to_platform_instance_map={
+                "test-hostname": "test-platform-instance"
+            },
+            database_server_hostname_map={"test-database-id": "test-hostname"},
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-platform-instance.test-database-name.test-schema.test-table,PROD)"
     )
 
 

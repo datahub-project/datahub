@@ -67,7 +67,7 @@
       }
     },
     {
-      "Path": "docs/generated/ingestion/sources/csv",
+      "Path": "docs/generated/ingestion/sources/csv-enricher",
       "imgPath": "img/datahub-logo-color-mark.svg",
       "Title": "CSV",
       "Description": "An ingestion source for enriching metadata provided in CSV format provided by DataHub",
@@ -177,7 +177,7 @@
       }
     },
     {
-      "Path": "docs/generated/ingestion/sources/file",
+      "Path": "docs/generated/ingestion/sources/metadata-file",
       "imgPath": "img/datahub-logo-color-mark.svg",
       "Title": "File",
       "Description": "An ingestion source for single files provided by DataHub",
