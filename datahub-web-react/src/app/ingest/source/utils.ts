@@ -9,11 +9,18 @@ import {
 } from '@ant-design/icons';
 import YAML from 'yamljs';
 import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '../../../graphql/ingestion.generated';
-import { EntityType, FacetMetadata } from '../../../types.generated';
+import { EntityType, ExecutionRequestResult, FacetMetadata } from '../../../types.generated';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
 import { SourceConfig } from './builder/types';
+import {
+    STRUCTURED_REPORT_ITEM_RAW_TYPE_TO_DETAILS,
+    STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS,
+    StructuredReport,
+    StructuredReportItem,
+    StructuredReportItemType,
+} from './types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -42,6 +49,7 @@ export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: st
 
 export const RUNNING = 'RUNNING';
 export const SUCCESS = 'SUCCESS';
+export const SUCCEEDED_WITH_WARNINGS = 'SUCCEEDED_WITH_WARNINGS';
 export const WARNING = 'WARNING';
 export const FAILURE = 'FAILURE';
 export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
@@ -56,13 +64,32 @@ export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
 export const SCHEDULED_INGESTION_SOURCE = 'SCHEDULED_INGESTION_SOURCE';
 export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
 
+export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
+    if (!result) {
+        return undefined;
+    }
+
+    const status = result.status;
+    const structuredReport = getStructuredReport(result);
+
+    /**
+     * Simply map SUCCESS in the presence of warnings to SUCCEEDED_WITH_WARNINGS
+     *
+     * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
+     */
+    if (status === SUCCESS && !!structuredReport?.source?.report?.warnings?.length) {
+        return SUCCEEDED_WITH_WARNINGS;
+    }
+    // Else return the raw status.
+    return status;
+};
+
 export const getExecutionRequestStatusIcon = (status: string) => {
     return (
         (status === RUNNING && LoadingOutlined) ||
         (status === SUCCESS && CheckCircleOutlined) ||
-        (status === WARNING && ExclamationCircleOutlined) ||
+        (status === SUCCEEDED_WITH_WARNINGS && CheckCircleOutlined) ||
         (status === FAILURE && CloseCircleOutlined) ||
-        (status === CONNECTION_FAILURE && CloseCircleOutlined) ||
         (status === CANCELLED && StopOutlined) ||
         (status === UP_FOR_RETRY && ClockCircleOutlined) ||
         (status === ROLLED_BACK && WarningOutlined) ||
@@ -76,9 +103,8 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
     return (
         (status === RUNNING && 'Running') ||
         (status === SUCCESS && 'Succeeded') ||
-        (status === WARNING && 'Completed') ||
+        (status === SUCCEEDED_WITH_WARNINGS && 'Succeeded With Warnings') ||
         (status === FAILURE && 'Failed') ||
-        (status === CONNECTION_FAILURE && 'Connection Failed') ||
         (status === CANCELLED && 'Cancelled') ||
         (status === UP_FOR_RETRY && 'Up for Retry') ||
         (status === ROLLED_BACK && 'Rolled Back') ||
@@ -93,13 +119,11 @@ export const getExecutionRequestSummaryText = (status: string) => {
         case RUNNING:
             return 'Ingestion is running...';
         case SUCCESS:
-            return 'Ingestion succeeded with no errors or suspected missing data.';
-        case WARNING:
-            return 'Ingestion completed with minor or intermittent errors.';
+            return 'Ingestion completed with no errors or warnings.';
+        case SUCCEEDED_WITH_WARNINGS:
+            return 'Ingestion completed with some warnings.';
         case FAILURE:
-            return 'Ingestion failed to complete, or completed with serious errors.';
-        case CONNECTION_FAILURE:
-            return 'Ingestion failed due to network, authentication, or permission issues.';
+            return 'Ingestion failed to complete, or completed with errors.';
         case CANCELLED:
             return 'Ingestion was cancelled.';
         case ROLLED_BACK:
@@ -117,9 +141,8 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
     return (
         (status === RUNNING && REDESIGN_COLORS.BLUE) ||
         (status === SUCCESS && 'green') ||
-        (status === WARNING && 'orangered') ||
+        (status === SUCCEEDED_WITH_WARNINGS && '#b88806') ||
         (status === FAILURE && 'red') ||
-        (status === CONNECTION_FAILURE && 'crimson') ||
         (status === UP_FOR_RETRY && 'orange') ||
         (status === CANCELLED && ANTD_GRAY[9]) ||
         (status === ROLLED_BACK && 'orange') ||
@@ -140,6 +163,106 @@ export const validateURL = (fieldName: string) => {
             return Promise.reject(new Error(`A valid ${fieldName} is required.`));
         },
     };
+};
+
+const tryMapRawTypeToStructuredTypeByName = (rawType: string): StructuredReportItemType => {
+    const normalizedType = rawType.toLocaleUpperCase();
+    return (
+        StructuredReportItemType[normalizedType as keyof typeof StructuredReportItemType] ||
+        StructuredReportItemType.UNKNOWN
+    );
+};
+
+const getStructuredReportItemType = (rawType: string): StructuredReportItemType => {
+    return STRUCTURED_REPORT_ITEM_RAW_TYPE_TO_DETAILS.has(rawType)
+        ? STRUCTURED_REPORT_ITEM_RAW_TYPE_TO_DETAILS.get(rawType).type
+        : tryMapRawTypeToStructuredTypeByName(rawType);
+};
+
+const getStructuredReportItemTitle = (rawType: string): string => {
+    const type = getStructuredReportItemType(rawType);
+    return STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS.get(type)?.title;
+};
+
+const getStructuredReportItemMessage = (rawType: string): string => {
+    const stdType = getStructuredReportItemType(rawType);
+    return StructuredReportItemType.UNKNOWN ? rawType : STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS.get(stdType)?.message;
+};
+
+const transformToStructuredReport = (structuredReportObj: any): StructuredReport | null => {
+    if (!structuredReportObj) {
+        return null;
+    }
+
+    /* Legacy help function to map backend failure or warning ingestion objects into StructuredReportItems */
+    const mapItemObject = (items: { [key: string]: string[] }): StructuredReportItem[] => {
+        return Object.entries(items).map(([rawType, context]) => ({
+            title: getStructuredReportItemTitle(rawType),
+            message: getStructuredReportItemMessage(rawType),
+            context,
+            rawType,
+        }));
+    };
+
+    /* V2 help function to map backend failure or warning lists into StructuredReportItems */
+    const mapItemArray = (items): StructuredReportItem[] => {
+        return items.map((item) => ({
+            title: getStructuredReportItemTitle(item.type),
+            message: !item.message ? getStructuredReportItemMessage(item.type) : item.message,
+            context: item.context,
+            rawType: item.type,
+        }));
+    };
+
+    const sourceReport = structuredReportObj.source?.report;
+
+    if (!sourceReport) {
+        return null;
+    }
+
+    // Map failures and warnings from the report
+    const failures = !!sourceReport.failureList
+        ? /* Use V2 failureList if present */
+          mapItemArray(sourceReport.failureList || [])
+        : /* Else use the legacy object type */
+          mapItemObject(sourceReport.failures || {});
+
+    const warnings = !!sourceReport.warningList
+        ? /* Use V2 failureList if present */
+          mapItemArray(sourceReport.warningList || [])
+        : /* Else use the legacy object type */
+          mapItemObject(sourceReport.warnings || {});
+
+    // Construct the final structured report
+    const structuredReport: StructuredReport = {
+        source: {
+            type: structuredReportObj.source?.type || 'unknown', // Default to 'unknown' if not specified
+            report: {
+                failures,
+                warnings, // Note the singular 'warning' in your type
+            },
+        },
+    };
+
+    return structuredReport;
+};
+
+export const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
+    // 1. Extract Serialized Structured Report
+    const structuredReportStr = result?.structuredReport?.serializedValue;
+
+    if (!structuredReportStr) {
+        return null;
+    }
+
+    // 2. Convert into JSON
+    const structuredReportObject = JSON.parse(structuredReportStr);
+
+    // 3. Transform into the typed model that we have.
+    const structuredReport = transformToStructuredReport(structuredReportObject);
+
+    // 4. Return JSON report
+    return structuredReport;
 };
 
 const ENTITIES_WITH_SUBTYPES = new Set([
