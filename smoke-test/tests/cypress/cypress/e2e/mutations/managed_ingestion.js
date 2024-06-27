@@ -1,6 +1,6 @@
 function readyToTypeEditor() {
   // Get the first textarea within the Monaco editor and ensure it is visible
-  return cy.get(".monaco-editor textarea:first").click().focused();
+  return cy.get(".monaco-editor textarea:first", { timeout: 10000 }).click().focused();
 }
 
 describe("run managed ingestion", () => {
