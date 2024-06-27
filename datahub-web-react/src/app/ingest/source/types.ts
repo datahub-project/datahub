@@ -11,9 +11,9 @@ export enum StructuredReportItemLevel {
      */
     WARN,
     /**
-     * An info log - generally unused. 
+     * An info log - generally unused.
      */
-    INFO
+    INFO,
 }
 
 /**

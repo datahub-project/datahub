@@ -166,14 +166,24 @@ const getStructuredReportItemTitle = (rawType: string): string => {
 
 const getStructuredReportItemLevel = (rawLevel: string) => {
     const normalizedLevel = rawLevel.toLocaleUpperCase();
-    return (
-        StructuredReportItemLevel[normalizedLevel as keyof typeof StructuredReportItemType]
-    );
+    return StructuredReportItemLevel[normalizedLevel as keyof typeof StructuredReportItemType];
 };
 
 const getStructuredReportItemMessage = (rawType: string): string => {
     const stdType = getStructuredReportItemType(rawType);
     return StructuredReportItemType.UNKNOWN ? rawType : STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS.get(stdType)?.message;
+};
+
+const createStructuredReport = (items: StructuredReportItem[]): StructuredReport => {
+    const errorCount = items.filter((item) => item.level === StructuredReportItemLevel.ERROR).length;
+    const warnCount = items.filter((item) => item.level === StructuredReportItemLevel.WARN).length;
+    const infoCount = items.filter((item) => item.level === StructuredReportItemLevel.INFO).length;
+    return {
+        errorCount,
+        warnCount,
+        infoCount,
+        items,
+    };
 };
 
 const transformToStructuredReport = (structuredReportObj: any): StructuredReport | null => {
@@ -182,7 +192,10 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     }
 
     /* Legacy help function to map backend failure or warning ingestion objects into StructuredReportItems */
-    const mapItemObject = (items: { [key: string]: string[] }, level: StructuredReportItemLevel): StructuredReportItem[] => {
+    const mapItemObject = (
+        items: { [key: string]: string[] },
+        level: StructuredReportItemLevel,
+    ): StructuredReportItem[] => {
         return Object.entries(items).map(([rawType, context]) => ({
             level,
             title: getStructuredReportItemTitle(rawType),
@@ -209,33 +222,28 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
         return null;
     }
 
-    // extract the report. 
-    let items: StructuredReportItem[] = []
+    // extract the report.
+    let structuredReport: StructuredReport;
 
     if (sourceReport.structured_logs) {
-        items = mapItemArray(sourceReport.structured_logs || [])
+        // If the report has NEW structured logs fields, use that field.
+        structuredReport = createStructuredReport(mapItemArray(sourceReport.structured_logs || []));
     } else {
+        // Else fallback to using the legacy fields
+        const failures = sourceReport.failure_list
+            ? /* Use V2 failureList if present */
+              mapItemArray(sourceReport.failure_list || [])
+            : /* Else use the legacy object type */
+              mapItemObject(sourceReport.failures || {}, StructuredReportItemLevel.ERROR);
 
+        const warnings = sourceReport.warning_list
+            ? /* Use V2 warning if present */
+              mapItemArray(sourceReport.warning_list || [])
+            : /* Else use the legacy object type */
+              mapItemObject(sourceReport.warnings || {}, StructuredReportItemLevel.WARN);
+
+        structuredReport = createStructuredReport([...failures, ...warnings]);
     }
-
-    // Map failures and warnings from the report
-    const failures = sourceReport.failure_list
-        ? /* Use V2 failureList if present */
-          mapItemArray(sourceReport.failure_list || [])
-        : /* Else use the legacy object type */
-          mapItemObject(sourceReport.failures || {}, StructuredReportItemLevel.ERROR);
-
-    const warnings = sourceReport.warning_list
-        ? /* Use V2 warning if present */
-          mapItemArray(sourceReport.warning_list || [])
-        : /* Else use the legacy object type */
-          mapItemObject(sourceReport.warnings || {}, StructuredReportItemLevel.WARN);
-
-          
-    // Construct the final structured report
-    const structuredReport: StructuredReport = {
-        items
-    };
 
     return structuredReport;
 };
@@ -271,7 +279,7 @@ export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult
      *
      * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
      */
-    if (status === SUCCESS && !!structuredReport?.warningCount > 0) {
+    if (status === SUCCESS && (structuredReport?.warnCount || 0) > 0) {
         return SUCCEEDED_WITH_WARNINGS;
     }
     // Else return the raw status.
