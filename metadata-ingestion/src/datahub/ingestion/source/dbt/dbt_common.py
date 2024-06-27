@@ -1,3 +1,4 @@
+import contextlib
 import itertools
 import logging
 import re
@@ -114,7 +115,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.urns import DatasetUrn, TagUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SchemaInfo,
@@ -132,6 +133,7 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -1483,7 +1485,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             transformed_tag_list = self.get_transformed_tags_by_prefix(
                 tag_aspect.tags,
                 mce.proposedSnapshot.urn,
-                mce_builder.make_tag_urn(self.config.tag_prefix),
+                tag_prefix=self.config.tag_prefix,
             )
             tag_aspect.tags = transformed_tag_list
 
@@ -1874,16 +1876,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         new_tags: List[TagAssociationClass],
         entity_urn: str,
-        tags_prefix_filter: str,
+        tag_prefix: str,
     ) -> List[TagAssociationClass]:
         tag_set = {new_tag.tag for new_tag in new_tags}
 
         if self.ctx.graph:
             existing_tags_class = self.ctx.graph.get_tags(entity_urn)
             if existing_tags_class and existing_tags_class.tags:
-                for exiting_tag in existing_tags_class.tags:
-                    if not exiting_tag.tag.startswith(tags_prefix_filter):
-                        tag_set.add(exiting_tag.tag)
+                for existing_tag in existing_tags_class.tags:
+                    with contextlib.suppress(InvalidUrnError):
+                        existing_tag_urn = TagUrn.from_string(existing_tag.tag)
+                        if tag_prefix and existing_tag_urn.name.startswith(tag_prefix):
+                            continue
+                    tag_set.add(existing_tag.tag)
         return [TagAssociationClass(tag) for tag in sorted(tag_set)]
 
     # This method attempts to read-modify and return the glossary terms of a dataset.
