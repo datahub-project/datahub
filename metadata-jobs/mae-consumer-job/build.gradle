@@ -30,6 +30,7 @@ dependencies {
     implementation externalDependency.logbackClassic
 
     testImplementation project(':metadata-dao-impl:kafka-producer')
+    testImplementation project(':metadata-jobs:pe-consumer')
     testImplementation externalDependency.springBootTest
     testImplementation externalDependency.mockito
     testImplementation externalDependency.testng
