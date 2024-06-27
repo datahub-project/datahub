@@ -18,6 +18,7 @@ import {
     STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS,
     StructuredReport,
     StructuredReportItem,
+    StructuredReportItemLevel,
     StructuredReportItemType,
 } from './types';
 
@@ -163,6 +164,13 @@ const getStructuredReportItemTitle = (rawType: string): string => {
     return STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS.get(type)?.title;
 };
 
+const getStructuredReportItemLevel = (rawLevel: string) => {
+    const normalizedLevel = rawLevel.toLocaleUpperCase();
+    return (
+        StructuredReportItemLevel[normalizedLevel as keyof typeof StructuredReportItemType]
+    );
+};
+
 const getStructuredReportItemMessage = (rawType: string): string => {
     const stdType = getStructuredReportItemType(rawType);
     return StructuredReportItemType.UNKNOWN ? rawType : STRUCTURED_REPORT_ITEM_TYPE_TO_DETAILS.get(stdType)?.message;
@@ -174,8 +182,9 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     }
 
     /* Legacy help function to map backend failure or warning ingestion objects into StructuredReportItems */
-    const mapItemObject = (items: { [key: string]: string[] }): StructuredReportItem[] => {
+    const mapItemObject = (items: { [key: string]: string[] }, level: StructuredReportItemLevel): StructuredReportItem[] => {
         return Object.entries(items).map(([rawType, context]) => ({
+            level,
             title: getStructuredReportItemTitle(rawType),
             message: getStructuredReportItemMessage(rawType),
             context,
@@ -186,6 +195,7 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     /* V2 help function to map backend failure or warning lists into StructuredReportItems */
     const mapItemArray = (items): StructuredReportItem[] => {
         return items.map((item) => ({
+            level: getStructuredReportItemLevel(item.level),
             title: getStructuredReportItemTitle(item.type),
             message: !item.message ? getStructuredReportItemMessage(item.type) : item.message,
             context: item.context,
@@ -199,28 +209,32 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
         return null;
     }
 
+    // extract the report. 
+    let items: StructuredReportItem[] = []
+
+    if (sourceReport.structured_logs) {
+        items = mapItemArray(sourceReport.structured_logs || [])
+    } else {
+
+    }
+
     // Map failures and warnings from the report
-    const failures = sourceReport.failureList
+    const failures = sourceReport.failure_list
         ? /* Use V2 failureList if present */
-          mapItemArray(sourceReport.failureList || [])
+          mapItemArray(sourceReport.failure_list || [])
         : /* Else use the legacy object type */
-          mapItemObject(sourceReport.failures || {});
+          mapItemObject(sourceReport.failures || {}, StructuredReportItemLevel.ERROR);
 
-    const warnings = sourceReport.warningList
-        ? /* Use V2 warningList if present */
-          mapItemArray(sourceReport.warningList || [])
+    const warnings = sourceReport.warning_list
+        ? /* Use V2 warning if present */
+          mapItemArray(sourceReport.warning_list || [])
         : /* Else use the legacy object type */
-          mapItemObject(sourceReport.warnings || {});
+          mapItemObject(sourceReport.warnings || {}, StructuredReportItemLevel.WARN);
 
+          
     // Construct the final structured report
     const structuredReport: StructuredReport = {
-        source: {
-            type: structuredReportObj.source?.type || 'unknown', // Default to 'unknown' if not specified
-            report: {
-                failures,
-                warnings, // Note the singular 'warning' in your type
-            },
-        },
+        items
     };
 
     return structuredReport;
@@ -257,7 +271,7 @@ export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult
      *
      * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
      */
-    if (status === SUCCESS && !!structuredReport?.source?.report?.warnings?.length) {
+    if (status === SUCCESS && !!structuredReport?.warningCount > 0) {
         return SUCCEEDED_WITH_WARNINGS;
     }
     // Else return the raw status.
