@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
+import { CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+
 import { StructuredReport as StructuredReportType } from '../../types';
 import { StructuredReportItemList } from './StructuredReportItemList';
-import { CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 
 const Container = styled.div`
     display: flex;
@@ -18,8 +19,7 @@ interface Props {
 }
 
 export function StructuredReport({ report }: Props) {
-    const failures = report.source.report.failures;
-    const warnings = report.source.report.warnings;
+    const { failures, warnings } = report.source.report;
 
     if (!failures.length && !warnings.length) {
         return null;

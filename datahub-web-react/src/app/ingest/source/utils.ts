@@ -2,7 +2,6 @@ import {
     CheckCircleOutlined,
     ClockCircleOutlined,
     CloseCircleOutlined,
-    ExclamationCircleOutlined,
     LoadingOutlined,
     StopOutlined,
     WarningOutlined,
@@ -63,26 +62,6 @@ export const CLI_EXECUTOR_ID = '__datahub_cli_';
 export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
 export const SCHEDULED_INGESTION_SOURCE = 'SCHEDULED_INGESTION_SOURCE';
 export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
-
-export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
-    if (!result) {
-        return undefined;
-    }
-
-    const status = result.status;
-    const structuredReport = getStructuredReport(result);
-
-    /**
-     * Simply map SUCCESS in the presence of warnings to SUCCEEDED_WITH_WARNINGS
-     *
-     * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
-     */
-    if (status === SUCCESS && !!structuredReport?.source?.report?.warnings?.length) {
-        return SUCCEEDED_WITH_WARNINGS;
-    }
-    // Else return the raw status.
-    return status;
-};
 
 export const getExecutionRequestStatusIcon = (status: string) => {
     return (
@@ -221,14 +200,14 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     }
 
     // Map failures and warnings from the report
-    const failures = !!sourceReport.failureList
+    const failures = sourceReport.failureList
         ? /* Use V2 failureList if present */
           mapItemArray(sourceReport.failureList || [])
         : /* Else use the legacy object type */
           mapItemObject(sourceReport.failures || {});
 
-    const warnings = !!sourceReport.warningList
-        ? /* Use V2 failureList if present */
+    const warnings = sourceReport.warningList
+        ? /* Use V2 warningList if present */
           mapItemArray(sourceReport.warningList || [])
         : /* Else use the legacy object type */
           mapItemObject(sourceReport.warnings || {});
@@ -263,6 +242,26 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
 
     // 4. Return JSON report
     return structuredReport;
+};
+
+export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
+    if (!result) {
+        return undefined;
+    }
+
+    const { status } = result;
+    const structuredReport = getStructuredReport(result);
+
+    /**
+     * Simply map SUCCESS in the presence of warnings to SUCCEEDED_WITH_WARNINGS
+     *
+     * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
+     */
+    if (status === SUCCESS && !!structuredReport?.source?.report?.warnings?.length) {
+        return SUCCEEDED_WITH_WARNINGS;
+    }
+    // Else return the raw status.
+    return status;
 };
 
 const ENTITIES_WITH_SUBTYPES = new Set([

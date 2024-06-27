@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Collapse } from 'antd';
+
 import { StructuredReportItem as StructuredReportItemType } from '../../types';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { applyOpacity } from '../../../../shared/styleUtils';
-import { Collapse } from 'antd';
 import { StructuredReportItemContext } from './StructuredReportItemContext';
 
 const StyledCollapse = styled(Collapse)<{ color: string }>`
