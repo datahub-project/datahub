@@ -13,13 +13,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.Assert;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 @Slf4j
 @Controller
@@ -57,14 +55,10 @@ public class GrafanaController {
   @RequestMapping(
       value = "/**",
       method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.HEAD, RequestMethod.OPTIONS})
-  protected ModelAndView handleRequest(
-      @RequestBody(required = false) String body,
-      HttpMethod method,
-      @Nonnull HttpServletRequest request,
-      @Nonnull HttpServletResponse response)
-      throws Exception {
+  protected @ResponseBody void handleRequest(
+      @Nonnull HttpServletRequest request, @Nonnull HttpServletResponse response) throws Exception {
+
     Assert.state(this.grafanaServlet != null, "No Servlet instance");
     this.grafanaServlet.service(request, response);
-    return null;
   }
 }

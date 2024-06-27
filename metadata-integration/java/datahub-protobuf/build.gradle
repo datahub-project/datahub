@@ -29,7 +29,7 @@ dependencies {
     implementation externalDependency.jgrapht
     implementation externalDependency.gson
     compileOnly externalDependency.commonsCli
-    implementation externalDependency.httpAsyncClient
+    implementation externalDependency.httpClient
     implementation externalDependency.slf4jApi
     implementation externalDependency.jacksonCore
     compileOnly externalDependency.lombok

@@ -15,10 +15,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpResponse;
+import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
@@ -259,7 +260,8 @@ public class GrafanaServlet extends ProxyServlet {
   }
 
   @Override
-  protected void copyRequestHeaders(HttpServletRequest servletRequest, HttpRequest proxyRequest) {
+  protected void copyRequestHeaders(
+      HttpServletRequest servletRequest, ClassicHttpRequest proxyRequest) {
     super.copyRequestHeaders(servletRequest, proxyRequest);
     proxyRequest.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + grafanaConfig.getGrafanaToken());
     proxyRequest.setHeader(HttpHeaders.HOST, grafanaConfig.getGrafanaUri().getHost());
@@ -267,9 +269,9 @@ public class GrafanaServlet extends ProxyServlet {
 
   @Override
   protected void copyResponseEntity(
-      HttpResponse proxyResponse,
+      ClassicHttpResponse proxyResponse,
       HttpServletResponse servletResponse,
-      HttpRequest proxyRequest,
+      ClassicHttpRequest proxyRequest,
       HttpServletRequest servletRequest)
       throws IOException {
     HttpEntity entity = proxyResponse.getEntity();
