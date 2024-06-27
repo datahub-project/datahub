@@ -77,8 +77,10 @@ export const DatasetAssertionsSummary = ({ summary }: Props) => {
     const summaryIcon = getSummaryIcon(summary);
     const summaryMessage = getSummaryMessage(summary);
     const errorMessage = summary.erroredRuns
-        ? `, ${summary.erroredRuns} error${summary.erroredRuns > 1 ? 's' : ''}.`
-        : '.';
+        ? `, ${summary.erroredRuns} error${summary.erroredRuns > 1 ? 's' : ''}`
+        : '';
+    const inactiveAssertionsCount = summary.totalAssertions - summary.totalRuns;
+    const inactiveAssertionsMessage = inactiveAssertionsCount ? `, ${inactiveAssertionsCount} inactive.` : '.';
     const subtitleMessage = `${summary.succeededRuns} successful assertions, ${summary.failedRuns} failed assertions`;
     return (
         <SummaryHeader>
@@ -91,6 +93,7 @@ export const DatasetAssertionsSummary = ({ summary }: Props) => {
                             <Typography.Text type="secondary">
                                 {subtitleMessage}
                                 {errorMessage}
+                                {inactiveAssertionsMessage}
                             </Typography.Text>
                         </SummaryMessage>
                     </div>

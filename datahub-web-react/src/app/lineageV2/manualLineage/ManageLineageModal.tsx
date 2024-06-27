@@ -50,7 +50,7 @@ interface Props {
 
 export default function ManageLineageModal({ node, direction, closeModal, refetch }: Props) {
     const nodeContext = useContext(LineageNodesContext);
-    const expandOneLevel = useOnClickExpandLineage(node.urn, direction, false);
+    const expandOneLevel = useOnClickExpandLineage(node.urn, node.type, direction, false);
     const { user } = useUserContext();
     const entityRegistry = useEntityRegistry();
     const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);

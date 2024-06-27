@@ -45,9 +45,10 @@ type Props = {
 export const AssertionGroupHeader = ({ group }: Props) => {
     const { summary } = group;
     const summaryIcon = getAssertionGroupSummaryIcon(summary);
+    const inactiveCount = summary.totalAssertions - summary.total;
     const summaryMessage = `${summary.passing} passing, ${summary.failing} failing${
         summary.erroring ? `, ${summary.erroring} errors` : ''
-    }`;
+    }${inactiveCount ? `, ${inactiveCount} inactive` : ''}`;
     return (
         <Container>
             {summaryIcon && <SummaryIcon>{summaryIcon}</SummaryIcon>}
