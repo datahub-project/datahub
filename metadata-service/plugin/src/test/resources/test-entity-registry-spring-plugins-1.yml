@@ -1,0 +1,52 @@
+id: test-registry-spring-1
+entities: []
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.datahub.plugins.metadata.aspect.SpringPluginFactoryTest$TestValidator'
+      packageScan:
+        - com.datahub.plugins.metadata.aspect.test
+      spring:
+        enabled: true
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: status
+  mutationHooks:
+    - className: 'com.datahub.plugins.metadata.aspect.SpringPluginFactoryTest$TestMutator'
+      packageScan:
+        - com.datahub.plugins.metadata.aspect.test
+      spring:
+        enabled: true
+      supportedOperations:
+        - UPSERT
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: schemaMetadata
+  mclSideEffects:
+    - className: 'com.datahub.plugins.metadata.aspect.SpringPluginFactoryTest$TestMCLSideEffect'
+      packageScan:
+        - com.datahub.plugins.metadata.aspect.test
+      spring:
+        enabled: true
+      supportedOperations:
+        - UPSERT
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: chart
+          aspectName: chartInfo
+  mcpSideEffects:
+    - className: 'com.datahub.plugins.metadata.aspect.SpringPluginFactoryTest$TestMCPSideEffect'
+      packageScan:
+        - com.datahub.plugins.metadata.aspect.test
+      spring:
+        enabled: true
+      supportedOperations:
+        - UPSERT
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: dataset
+          aspectName: datasetKey
