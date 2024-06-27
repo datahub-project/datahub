@@ -8,7 +8,7 @@ SNOWFLAKE_PROCESSED_TABLE = "processed_costs"
 
 with DAG(
     "snowflake_operator",
-    start_date=datetime(2023, 1, 1),
+    start_date=datetime(2024, 1, 1),
     schedule_interval=None,
     catchup=False,
 ) as dag:
