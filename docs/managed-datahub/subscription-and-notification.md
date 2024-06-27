@@ -180,11 +180,11 @@ At the user and group -levels, you can configure one default email and slack cha
 go to a specific asset to subscribe to. 
 
 To configure multiple channels, as a prereq, ensure you have the appropriate privileges. And then:
-(1) create a datahub group for each channel you want notifications for. 
-(2) add yourself as a member to each of the groups.
-(3) go to each groups page (eg. through Settings > Users & Groups > Group Name OR by searching for your group's name)
-(4) Click on 'Notifications', enable the type of notifications you want, and add the appropriate email or slack channel id.
-(5) Now, when you visit an asset and go to subscribe, you'll see the option "Manage Group Subscriptions".
+1. create a datahub group for each channel you want notifications for. 
+2. add yourself as a member to each of the groups.
+3. go to each groups page (eg. through Settings > Users & Groups > Group Name OR by searching for your group's name)
+4. Click on 'Notifications', enable the type of notifications you want, and add the appropriate email or slack channel id.
+5. Now, when you visit an asset and go to subscribe, you'll see the option "Manage Group Subscriptions".
 
 </details>
 
