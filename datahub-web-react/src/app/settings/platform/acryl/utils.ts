@@ -10,9 +10,20 @@ export const getConnectionBlob = (url: string, token: string): string => {
     return JSON.stringify(jsonObject);
 };
 
-export const getURLfromJson = (json) => {
+export const getURLFromJson = (json) => {
     const parsedJson = JSON.parse(json);
     const server = parsedJson.connection?.server;
     const url = server?.endsWith('/gms') ? server.replace('/gms', '') : server;
     return url;
+};
+
+export const getTokenFromJson = (json) => {
+    const parsedJson = JSON.parse(json);
+    const token = parsedJson.connection?.token;
+    return token;
+};
+
+export const showToken = (token, noOfCharacters) => {
+    const tokenToDisplay = `**************${token.slice(-noOfCharacters)}`;
+    return tokenToDisplay;
 };

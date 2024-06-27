@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 // import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import { Button, Divider, Form, Input, Typography, message } from 'antd';
@@ -6,7 +6,7 @@ import { useApolloClient } from '@apollo/client';
 import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
 import { DataHubConnection, DataHubConnectionDetailsType } from '../../../../types.generated';
 import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
-import { ACRYL_PLATFORM_URN, getConnectionBlob, getURLfromJson } from './utils';
+import { ACRYL_PLATFORM_URN, getConnectionBlob, getTokenFromJson, getURLFromJson, showToken } from './utils';
 import { updateInstancesList } from './cacheUtils';
 
 const Container = styled.div`
@@ -96,7 +96,10 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
     const [updateConnection] = useUpdateConnectionMutation();
     const client = useApolloClient();
 
-    const instanceURL = isEditForm ? getURLfromJson(selectedInstance?.details?.json?.blob) : '';
+    const instanceURL = getURLFromJson(selectedInstance?.details?.json?.blob);
+    const initialToken = getTokenFromJson(selectedInstance?.details.json?.blob);
+
+    const [isTokenEdited, setIsTokenEdited] = useState(false);
 
     const showSuccessMessage = () => {
         message.success({
@@ -142,7 +145,7 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
                 platformUrn: ACRYL_PLATFORM_URN,
                 type: DataHubConnectionDetailsType.Json,
                 json: {
-                    blob: selectedInstance?.details?.json?.blob || '',
+                    blob: getConnectionBlob(formData.url, isTokenEdited ? formData.token : initialToken),
                 },
             };
 
@@ -172,6 +175,10 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
         setOpenNewInstance(false);
     };
 
+    const handleTokenChange = () => {
+        setIsTokenEdited(true);
+    };
+
     // Commenting to be used later
     // const testConnection = () => {
     //     console.log('Testing connection');
@@ -195,7 +202,9 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
                 name="upsertInstanceForm"
                 onFinish={isEditForm ? updateInstance : addInstance}
                 initialValues={
-                    isEditForm ? { name: selectedInstance?.details.name, url: instanceURL, token: '***********' } : {}
+                    isEditForm
+                        ? { name: selectedInstance?.details.name, url: instanceURL, token: showToken(initialToken, 5) }
+                        : {}
                 }
             >
                 <FormItemContainer>
@@ -208,7 +217,6 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
                                 message: 'Please enter the instance name',
                             },
                             { whitespace: true },
-                            { min: 3, max: 50 },
                         ]}
                     >
                         <Input placeholder="Instance name" />
@@ -241,7 +249,7 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
                             { whitespace: true },
                         ]}
                     >
-                        <Input placeholder="Instance Token" disabled={isEditForm} />
+                        <Input placeholder="Instance Token" onChange={handleTokenChange} />
                     </StyledFormItem>
                 </FormItemContainer>
                 <FormItemContainer>
