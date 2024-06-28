@@ -14,6 +14,7 @@ const StyledModal = styled(Modal)`
         border-radius: 16px;
         overflow: hidden;
     }
+    min-width: 400px;
 `;
 
 const TitleContainer = styled.div`
