@@ -694,7 +694,7 @@ class RedashSource(Source):
         title = f"{query_data.get('name')} {viz_data.get('name', '')}"
 
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
