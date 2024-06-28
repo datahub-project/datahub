@@ -834,7 +834,7 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
@@ -843,6 +843,7 @@
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
+      "RVW" : "Designates review fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
       "UAT" : "Designates user acceptance testing fabrics"
@@ -1231,12 +1232,12 @@
           "items" : "Urn"
         }
       },
-      "doc" : "Owners to ownership type map, populated with mutation hook.",
+      "doc" : "Ownership type to Owners map, populated via mutation hook.",
       "default" : { },
       "optional" : true,
       "Searchable" : {
         "/*" : {
-          "fieldType" : "OBJECT",
+          "fieldType" : "MAP_ARRAY",
           "queryByDefault" : false
         }
       }
@@ -2070,11 +2071,12 @@
     "name" : "ChangeType",
     "namespace" : "com.linkedin.events.metadata",
     "doc" : "Descriptor for a change action",
-    "symbols" : [ "UPSERT", "CREATE", "UPDATE", "DELETE", "PATCH", "RESTATE" ],
+    "symbols" : [ "UPSERT", "CREATE", "UPDATE", "DELETE", "PATCH", "RESTATE", "CREATE_ENTITY" ],
     "symbolDocs" : {
-      "CREATE" : "NOT SUPPORTED YET\ninsert if not exists. otherwise fail",
-      "DELETE" : "NOT SUPPORTED YET\ndelete action",
-      "PATCH" : "NOT SUPPORTED YET\npatch the changes instead of full replace",
+      "CREATE" : "insert if not exists. otherwise fail",
+      "CREATE_ENTITY" : "insert if entity not exists. otherwise fail",
+      "DELETE" : "delete action",
+      "PATCH" : "patch the changes instead of full replace",
       "RESTATE" : "Restate an aspect, eg. in a index refresh.",
       "UPDATE" : "NOT SUPPORTED YET\nupdate if exists. otherwise fail",
       "UPSERT" : "insert if not exists. otherwise update"
@@ -2487,7 +2489,13 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who last modified the status and when."
+      "doc" : "Audit stamp containing who last modified the status and when.",
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "statusLastModifiedAt",
+          "fieldType" : "COUNT"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "corpUserStatus"
@@ -2859,8 +2867,9 @@
             }, {
               "name" : "label",
               "type" : "string",
-              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.",
+              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.\n\nNote that this field is deprecated and is not surfaced in the UI.",
               "optional" : true,
+              "Deprecated" : true,
               "Searchable" : {
                 "boostScore" : 0.2,
                 "fieldName" : "fieldLabels",
@@ -3285,6 +3294,7 @@
       "name" : "MLFeatureProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a MLFeature",
+      "include" : [ "com.linkedin.common.CustomProperties" ],
       "fields" : [ {
         "name" : "description",
         "type" : "string",
@@ -4113,6 +4123,18 @@
         } ],
         "returns" : "string"
       }, {
+        "name" : "ingestProposalBatch",
+        "javaMethodName" : "ingestProposalBatch",
+        "parameters" : [ {
+          "name" : "proposals",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.mxe.MetadataChangeProposal\" }"
+        }, {
+          "name" : "async",
+          "type" : "string",
+          "default" : "unset"
+        } ],
+        "returns" : "string"
+      }, {
         "name" : "restoreIndices",
         "javaMethodName" : "restoreIndices",
         "parameters" : [ {
@@ -4134,6 +4156,18 @@
         }, {
           "name" : "batchSize",
           "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "limit",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "gePitEpochMs",
+          "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "lePitEpochMs",
+          "type" : "long",
           "optional" : true
         } ],
         "returns" : "string"

@@ -1,4 +1,5 @@
 import uuid
+from collections import namedtuple
 from unittest import mock
 from unittest.mock import patch
 
@@ -67,17 +68,6 @@ def register_mock_data(workspace_client):
         CatalogInfo.from_dict(d)
         for d in [
             {
-                "name": "main",
-                "owner": "account users",
-                "comment": "Main catalog (auto-created)",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "created_at": 1666185153376,
-                "created_by": "abc@acryl.io",
-                "updated_at": 1666186071115,
-                "updated_by": "abc@acryl.io",
-                "catalog_type": "MANAGED_CATALOG",
-            },
-            {
                 "name": "quickstart_catalog",
                 "owner": "account users",
                 "comment": "",
@@ -87,50 +77,13 @@ def register_mock_data(workspace_client):
                 "updated_at": 1666186064332,
                 "updated_by": "abc@acryl.io",
                 "catalog_type": "MANAGED_CATALOG",
-            },
-            {
-                "name": "system",
-                "owner": SERVICE_PRINCIPAL_ID_2,
-                "comment": "System catalog (auto-created)",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "created_at": 1666185153391,
-                "created_by": "System user",
-                "updated_at": 1666185153391,
-                "updated_by": "System user",
-                "catalog_type": "SYSTEM_CATALOG",
-            },
+            }
         ]
     ]
 
     workspace_client.schemas.list.return_value = [
         SchemaInfo.from_dict(d)
         for d in [
-            {
-                "name": "default",
-                "catalog_name": "quickstart_catalog",
-                "owner": "abc@acryl.io",
-                "comment": "Default schema (auto-created)",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "full_name": "quickstart_catalog.default",
-                "created_at": 1666185610021,
-                "created_by": "abc@acryl.io",
-                "updated_at": 1666185610021,
-                "updated_by": "abc@acryl.io",
-                "catalog_type": "MANAGED_CATALOG",
-            },
-            {
-                "name": "information_schema",
-                "catalog_name": "quickstart_catalog",
-                "owner": SERVICE_PRINCIPAL_ID_1,
-                "comment": "Information schema (auto-created)",
-                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
-                "full_name": "quickstart_catalog.information_schema",
-                "created_at": 1666185610024,
-                "created_by": "System user",
-                "updated_at": 1666185610024,
-                "updated_by": "System user",
-                "catalog_type": "MANAGED_CATALOG",
-            },
             {
                 "name": "quickstart_schema",
                 "catalog_name": "quickstart_catalog",
@@ -199,7 +152,57 @@ def register_mock_data(workspace_client):
                 "updated_by": "abc@acryl.io",
                 "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
             }
-        )
+        ),
+        databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "quickstart_table_external",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "EXTERNAL",
+                "data_source_format": "DELTA",
+                "columns": [
+                    {
+                        "name": "columnA",
+                        "type_text": "int",
+                        "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                        "type_name": "INT",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 0,
+                        "nullable": True,
+                    },
+                    {
+                        "name": "columnB",
+                        "type_text": "string",
+                        "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                        "type_name": "STRING",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 1,
+                        "nullable": True,
+                    },
+                ],
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "owner": "account users",
+                "properties": {
+                    "delta.lastCommitTimestamp": "1666185711000",
+                    "delta.lastUpdateVersion": "1",
+                    "delta.minReaderVersion": "1",
+                    "delta.minWriterVersion": "2",
+                    "spark.sql.statistics.numRows": "10",
+                    "spark.sql.statistics.totalSize": "512",
+                },
+                "generation": 2,
+                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                "full_name": "quickstart_catalog.quickstart_schema.quickstart_table_external",
+                "data_access_configuration_id": "00000000-0000-0000-0000-000000000000",
+                "created_at": 1666185698688,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186049633,
+                "updated_by": "abc@acryl.io",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+            }
+        ),
     ]
 
     workspace_client.tables.get = lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
@@ -270,6 +273,9 @@ def register_mock_data(workspace_client):
             },
         ]
     ]
+
+
+TableEntry = namedtuple("TableEntry", ["database", "tableName", "isTemporary"])
 
 
 def mock_hive_sql(query):
@@ -345,6 +351,35 @@ def mock_hive_sql(query):
                 "",
             ),
         ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`external_metastore`":
+        return [
+            ("betStatusId", "bigint", None),
+            ("channelId", "bigint", None),
+            (
+                "combination",
+                "struct<combinationRef:bigint,currentOdds:double,eachWay:boolean,liveBetting:boolean,odds:double,outcomes:array<struct<betOfferTypeId:bigint,criterionId:bigint,criterionName:string,currentOdds:double,eventGroupId:bigint,eventGroupPath:array<struct<id:bigint,name:string>>,eventId:bigint,eventName:string,eventStartDate:string,live:boolean,odds:double,outcomeIds:array<bigint>,outcomeLabel:string,sportId:string,status:string,voidReason:string>>,payout:double,rewardExtraPayout:double,stake:double>",
+                None,
+            ),
+            ("", "", ""),
+            ("# Detailed Table Information", "", ""),
+            ("Catalog", "hive_metastore", ""),
+            ("Database", "bronze_kambi", ""),
+            ("Table", "external_metastore", ""),
+            ("Created Time", "Wed Jun 22 05:14:56 UTC 2022", ""),
+            ("Last Access", "UNKNOWN", ""),
+            ("Created By", "Spark 3.2.1", ""),
+            ("Statistics", "1024 bytes, 3 rows", ""),
+            ("Type", "EXTERNAL", ""),
+            ("Location", "s3://external_metastore/", ""),
+            ("Provider", "delta", ""),
+            ("Owner", "root", ""),
+            ("Is_managed_location", "true", ""),
+            (
+                "Table Properties",
+                "[delta.autoOptimize.autoCompact=true,delta.autoOptimize.optimizeWrite=true,delta.minReaderVersion=1,delta.minWriterVersion=2]",
+                "",
+            ),
+        ]
     elif query == "DESCRIBE EXTENDED `bronze_kambi`.`view1`":
         return [
             ("betStatusId", "bigint", None),
@@ -365,12 +400,25 @@ def mock_hive_sql(query):
             ("Type", "VIEW", ""),
             ("Owner", "root", ""),
         ]
+    elif query == "DESCRIBE EXTENDED `bronze_kambi`.`delta_error_table`":
+        raise Exception(
+            "[DELTA_PATH_DOES_NOT_EXIST] doesn't exist, or is not a Delta table."
+        )
     elif query == "SHOW CREATE TABLE `bronze_kambi`.`view1`":
         return [
             (
                 "CREATE VIEW `hive_metastore`.`bronze_kambi`.`view1` AS SELECT * FROM `hive_metastore`.`bronze_kambi`.`bet`",
             )
         ]
+    elif query == "SHOW TABLES FROM `bronze_kambi`":
+        return [
+            TableEntry("bronze_kambi", "bet", False),
+            TableEntry("bronze_kambi", "external_metastore", False),
+            TableEntry("bronze_kambi", "delta_error_table", False),
+            TableEntry("bronze_kambi", "view1", False),
+        ]
+    elif query == "SHOW VIEWS FROM `bronze_kambi`":
+        return [TableEntry("bronze_kambi", "view1", False)]
 
     return []
 
@@ -383,17 +431,19 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
 
     output_file_name = "unity_catalog_mcps.json"
 
-    with patch("databricks.sdk.WorkspaceClient") as WorkspaceClient, patch.object(
+    with patch(
+        "datahub.ingestion.source.unity.proxy.WorkspaceClient"
+    ) as mock_client, patch.object(
         HiveMetastoreProxy, "get_inspector"
-    ) as get_inspector, patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql:
+    ) as get_inspector, patch.object(
+        HiveMetastoreProxy, "_execute_sql"
+    ) as execute_sql:
         workspace_client: mock.MagicMock = mock.MagicMock()
-        WorkspaceClient.return_value = workspace_client
+        mock_client.return_value = workspace_client
         register_mock_data(workspace_client)
 
         inspector = mock.MagicMock()
         inspector.get_schema_names.return_value = ["bronze_kambi"]
-        inspector.get_view_names.return_value = ["view1"]
-        inspector.get_table_names.return_value = ["bet", "view1"]
         get_inspector.return_value = inspector
 
         execute_sql.side_effect = mock_hive_sql
@@ -409,6 +459,11 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
                     "include_ownership": True,
                     "include_hive_metastore": True,
                     "warehouse_id": "test",
+                    "emit_siblings": True,
+                    "delta_lake_options": {
+                        "platform_instance_name": None,
+                        "env": "PROD",
+                    },
                     "profiling": {
                         "enabled": True,
                         "method": "analyze",

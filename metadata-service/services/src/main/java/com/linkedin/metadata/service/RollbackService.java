@@ -1,15 +1,12 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -17,7 +14,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.key.ExecutionRequestKey;
@@ -32,9 +28,9 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -57,18 +53,17 @@ public class RollbackService {
   private final EntityService<?> entityService;
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final boolean restApiAuthorizationEnabled;
 
   public List<AspectRowSummary> rollbackTargetAspects(@Nonnull String runId, boolean hardDelete) {
     return systemMetadataService.findByRunId(runId, hardDelete, 0, MAX_RESULT_SIZE);
   }
 
   public RollbackResponse rollbackIngestion(
+      @Nonnull OperationContext opContext,
       @Nonnull String runId,
       boolean dryRun,
       boolean hardDelete,
-      Authorizer authorizer,
-      @Nonnull Authentication authentication)
+      Authorizer authorizer)
       throws AuthenticationException {
 
     if (runId.equals(DEFAULT_RUN_ID)) {
@@ -79,11 +74,11 @@ public class RollbackService {
     }
 
     if (!dryRun) {
-      updateExecutionRequestStatus(runId, ROLLING_BACK_STATUS);
+      updateExecutionRequestStatus(opContext, runId, ROLLING_BACK_STATUS);
     }
 
     List<AspectRowSummary> aspectRowsToDelete = rollbackTargetAspects(runId, hardDelete);
-    if (!isAuthorized(authorizer, aspectRowsToDelete, authentication)) {
+    if (!isAuthorized(authorizer, aspectRowsToDelete, opContext.getSessionAuthentication())) {
       throw new AuthenticationException("User is NOT unauthorized to delete entities.");
     }
 
@@ -158,7 +153,7 @@ public class RollbackService {
     }
 
     RollbackRunResult rollbackRunResult =
-        entityService.rollbackRun(aspectRowsToDelete, runId, hardDelete);
+        entityService.rollbackRun(opContext, aspectRowsToDelete, runId, hardDelete);
     final List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
     int rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
 
@@ -169,14 +164,15 @@ public class RollbackService {
       aspectRowsToDelete = systemMetadataService.findByRunId(runId, hardDelete, 0, MAX_RESULT_SIZE);
       log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       log.info("deleting...");
-      rollbackRunResult = entityService.rollbackRun(aspectRowsToDelete, runId, hardDelete);
+      rollbackRunResult =
+          entityService.rollbackRun(opContext, aspectRowsToDelete, runId, hardDelete);
       deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
       rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
     }
 
     // Rollback timeseries aspects
     DeleteAspectValuesResult timeseriesRollbackResult =
-        timeseriesAspectService.rollbackTimeseriesAspects(runId);
+        timeseriesAspectService.rollbackTimeseriesAspects(opContext, runId);
     rowsDeletedFromEntityDeletion += timeseriesRollbackResult.getNumDocsDeleted();
 
     log.info("finished deleting {} rows", deletedRows.size());
@@ -237,7 +233,7 @@ public class RollbackService {
 
     log.info("calculation done.");
 
-    updateExecutionRequestStatus(runId, ROLLED_BACK_STATUS);
+    updateExecutionRequestStatus(opContext, runId, ROLLED_BACK_STATUS);
 
     return new RollbackResponse()
         .setAspectsAffected(affectedAspects)
@@ -249,13 +245,15 @@ public class RollbackService {
         .setAspectRowSummaries(rowSummaries);
   }
 
-  public void updateExecutionRequestStatus(@Nonnull String runId, @Nonnull String status) {
+  public void updateExecutionRequestStatus(
+      @Nonnull OperationContext opContext, @Nonnull String runId, @Nonnull String status) {
     try {
       final Urn executionRequestUrn =
           EntityKeyUtils.convertEntityKeyToUrn(
               new ExecutionRequestKey().setId(runId), Constants.EXECUTION_REQUEST_ENTITY_NAME);
       EnvelopedAspect aspect =
           entityService.getLatestEnvelopedAspect(
+              opContext,
               executionRequestUrn.getEntityType(),
               executionRequestUrn,
               Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
@@ -272,6 +270,7 @@ public class RollbackService {
         proposal.setChangeType(ChangeType.UPSERT);
 
         entityService.ingestProposal(
+            opContext,
             proposal,
             new AuditStamp()
                 .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
@@ -291,23 +290,15 @@ public class RollbackService {
       final Authorizer authorizer,
       @Nonnull List<AspectRowSummary> rowSummaries,
       @Nonnull Authentication authentication) {
-    DisjunctivePrivilegeGroup orGroup =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE.getType()))));
 
-    List<Optional<EntitySpec>> resourceSpecs =
+    return AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication,
+        authorizer,
+        DELETE,
         rowSummaries.stream()
             .map(AspectRowSummary::getUrn)
             .map(UrnUtils::getUrn)
-            .map(urn -> Optional.of(new EntitySpec(urn.getEntityType(), urn.toString())))
-            .distinct()
-            .collect(Collectors.toList());
-
-    return !restApiAuthorizationEnabled
-        || AuthUtil.isAuthorizedForResources(
-            authorizer, authentication.getActor().toUrnStr(), resourceSpecs, orGroup);
+            .collect(Collectors.toSet()));
   }
 
   private static String stringifyRowCount(int size) {

@@ -49,6 +49,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:cockroachdb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "cockroachdb",
+      "displayName": "CockroachDb",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/cockroachdblogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:couchbase",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -175,6 +185,16 @@
       "displayName": "MySQL",
       "type": "RELATIONAL_DB",
       "logoUrl": "/assets/platforms/mysqllogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:db2",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "db2",
+      "displayName": "DB2",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/db2logo.png"
     }
   },
   {
@@ -633,6 +653,16 @@
       "type": "OTHERS",
       "datasetNameDelimiter": "/",
       "logoUrl": "/assets/platforms/excel-logo.svg"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:sigma",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "sigma",
+      "displayName": "Sigma",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/sigmalogo.png"
     }
   }
 ]

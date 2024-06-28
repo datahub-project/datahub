@@ -1,5 +1,5 @@
 import random
-from typing import Dict, Iterator, List, Set, TypeVar, Union
+from typing import Dict, Generic, Iterable, Iterator, List, Set, TypeVar, Union
 
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 
@@ -8,7 +8,7 @@ _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
 
 
-class LossyList(List[T]):
+class LossyList(List[T], Generic[T]):
     """A list that performs reservoir sampling of a much larger list"""
 
     def __init__(self, max_elements: int = 10) -> None:
@@ -30,6 +30,10 @@ class LossyList(List[T]):
             return super().append((self.total_elements, __object))  # type: ignore
         finally:
             self.total_elements += 1
+
+    def extend(self, __iterable: Iterable[T]) -> None:
+        for item in __iterable:
+            self.append(item)
 
     def __len__(self) -> int:
         return self.total_elements
@@ -60,7 +64,7 @@ class LossyList(List[T]):
         return base_list
 
 
-class LossySet(Set[T]):
+class LossySet(Set[T], Generic[T]):
     """A set that only preserves a sample of elements in a set. Currently this is a very simple greedy sampling set"""
 
     def __init__(self, max_elements: int = 10) -> None:
@@ -101,7 +105,7 @@ class LossySet(Set[T]):
         return base_list
 
 
-class LossyDict(Dict[_KT, _VT]):
+class LossyDict(Dict[_KT, _VT], Generic[_KT, _VT]):
     """A structure that only preserves a sample of elements in a dictionary using reservoir sampling."""
 
     def __init__(self, max_elements: int = 10) -> None:

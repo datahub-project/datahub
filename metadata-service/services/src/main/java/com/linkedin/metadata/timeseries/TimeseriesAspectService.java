@@ -2,7 +2,6 @@ package com.linkedin.metadata.timeseries;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -11,21 +10,15 @@ import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public interface TimeseriesAspectService {
 
-  /**
-   * Set aspect retriever after construction to prevent circular dependencies
-   *
-   * @param aspectRetriever
-   */
-  TimeseriesAspectService postConstruct(AspectRetriever aspectRetriever);
-
   /** Configure the Time-Series aspect service one time at boot-up. */
-  void configure();
+  default void configure() {}
 
   /**
    * Count the number of entries using a filter
@@ -36,6 +29,7 @@ public interface TimeseriesAspectService {
    * @return The count of the number of entries that match the filter
    */
   public long countByFilter(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nullable final Filter filter);
@@ -65,6 +59,7 @@ public interface TimeseriesAspectService {
    */
   @Nonnull
   default List<EnvelopedAspect> getAspectValues(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
@@ -73,7 +68,15 @@ public interface TimeseriesAspectService {
       @Nullable final Integer limit,
       @Nullable final Filter filter) {
     return getAspectValues(
-        urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit, filter, null);
+        opContext,
+        urn,
+        entityName,
+        aspectName,
+        startTimeMillis,
+        endTimeMillis,
+        limit,
+        filter,
+        null);
   }
 
   /**
@@ -103,6 +106,7 @@ public interface TimeseriesAspectService {
    */
   @Nonnull
   List<EnvelopedAspect> getAspectValues(
+      @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
@@ -129,6 +133,7 @@ public interface TimeseriesAspectService {
    */
   @Nonnull
   GenericTable getAggregatedStats(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final AggregationSpec[] aggregationSpecs,
@@ -145,6 +150,7 @@ public interface TimeseriesAspectService {
    */
   @Nonnull
   DeleteAspectValuesResult deleteAspectValues(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final Filter filter);
@@ -160,6 +166,7 @@ public interface TimeseriesAspectService {
    */
   @Nonnull
   String deleteAspectValuesAsync(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final Filter filter,
@@ -175,6 +182,7 @@ public interface TimeseriesAspectService {
    * @return The Job ID of the reindex operation
    */
   String reindexAsync(
+      @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull Filter filter,
@@ -188,7 +196,8 @@ public interface TimeseriesAspectService {
    * @return a summary of the aspects which were deleted
    */
   @Nonnull
-  DeleteAspectValuesResult rollbackTimeseriesAspects(@Nonnull final String runId);
+  DeleteAspectValuesResult rollbackTimeseriesAspects(
+      @Nonnull OperationContext opContext, @Nonnull final String runId);
 
   /**
    * Upsert a raw timeseries aspect into a timeseries index. Note that this is a bit of a hack, and
@@ -203,15 +212,17 @@ public interface TimeseriesAspectService {
    * @param document the raw document to insert.
    */
   void upsertDocument(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final String docId,
       @Nonnull final JsonNode document);
 
-  List<TimeseriesIndexSizeResult> getIndexSizes();
+  List<TimeseriesIndexSizeResult> getIndexSizes(@Nonnull OperationContext opContext);
 
   @Nonnull
   TimeseriesScrollResult scrollAspects(
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nullable Filter filter,

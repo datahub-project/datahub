@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -40,7 +41,7 @@ public class ListAccessTokensResolver
   @Override
   public CompletableFuture<ListAccessTokenResult> get(DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final ListAccessTokenInput input =
@@ -69,7 +70,10 @@ public class ListAccessTokensResolver
                           .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.ACCESS_TOKEN_ENTITY_NAME,
                       "",
-                      buildFilter(filters, Collections.emptyList()),
+                      buildFilter(
+                          filters,
+                          Collections.emptyList(),
+                          context.getOperationContext().getAspectRetriever()),
                       sortCriterion,
                       start,
                       count);
@@ -98,7 +102,9 @@ public class ListAccessTokensResolver
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

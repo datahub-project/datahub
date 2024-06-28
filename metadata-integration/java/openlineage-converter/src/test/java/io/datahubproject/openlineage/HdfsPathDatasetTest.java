@@ -137,7 +137,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(new URI("s3a://my-bucket/foo/tests/bar.avro"), datahubConfig);
     Assert.assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,instance.my-bucket/foo/tests,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)",
         dataset.urn().toString());
   }
 

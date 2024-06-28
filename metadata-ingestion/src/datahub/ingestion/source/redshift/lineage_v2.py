@@ -13,7 +13,11 @@ from datahub.ingestion.source.redshift.lineage import (
     LineageCollectorType,
     RedshiftLineageExtractor,
 )
-from datahub.ingestion.source.redshift.query import RedshiftQuery
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
 from datahub.ingestion.source.redshift.redshift_schema import (
     LineageRow,
     RedshiftDataDictionary,
@@ -30,6 +34,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     SqlParsingAggregator,
 )
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +69,10 @@ class RedshiftSqlLineageV2:
         )
         self.report.sql_aggregator = self.aggregator.report
 
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
+        if self.config.is_serverless:
+            self.queries = RedshiftServerlessQuery()
+
         self._lineage_v1 = RedshiftLineageExtractor(
             config=config,
             report=report,
@@ -85,7 +94,7 @@ class RedshiftSqlLineageV2:
         db_schemas: Dict[str, Dict[str, RedshiftSchema]],
     ) -> None:
         # Assume things not in `all_tables` as temp tables.
-        self.known_urns = set(
+        self.known_urns = {
             DatasetUrn.create_from_ids(
                 self.platform,
                 f"{db}.{schema}.{table.name}",
@@ -95,7 +104,7 @@ class RedshiftSqlLineageV2:
             for db, schemas in all_tables.items()
             for schema, tables in schemas.items()
             for table in tables
-        )
+        }
         self.aggregator.is_temp_table = lambda urn: urn not in self.known_urns
 
         # Handle all the temp tables up front.
@@ -107,7 +116,11 @@ class RedshiftSqlLineageV2:
                     default_schema=self.config.default_schema,
                     session_id=temp_row.session_id,
                     query_timestamp=temp_row.start_time,
-                    is_known_temp_table=True,
+                    # The "temp table" query actually returns all CREATE TABLE statements, even if they
+                    # aren't explicitly a temp table. As such, setting is_known_temp_table=True
+                    # would not be correct. We already have mechanisms to autodetect temp tables,
+                    # so we won't lose anything by not setting it.
+                    is_known_temp_table=False,
                 )
 
         populate_calls: List[Tuple[LineageCollectorType, str, Callable]] = []
@@ -131,7 +144,7 @@ class RedshiftSqlLineageV2:
             LineageMode.MIXED,
         }:
             # Populate lineage by parsing table creating sqls
-            query = RedshiftQuery.list_insert_create_queries_sql(
+            query = self.queries.list_insert_create_queries_sql(
                 db_name=self.database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -148,7 +161,7 @@ class RedshiftSqlLineageV2:
             LineageMode.MIXED,
         }:
             # Populate lineage by getting upstream tables from stl_scan redshift table
-            query = RedshiftQuery.stl_scan_based_lineage_query(
+            query = self.queries.stl_scan_based_lineage_query(
                 self.database,
                 self.start_time,
                 self.end_time,
@@ -159,13 +172,13 @@ class RedshiftSqlLineageV2:
 
         if self.config.include_views and self.config.include_view_lineage:
             # Populate lineage for views
-            query = RedshiftQuery.view_lineage_query()
+            query = self.queries.view_lineage_query()
             populate_calls.append(
                 (LineageCollectorType.VIEW, query, self._process_view_lineage)
             )
 
             # Populate lineage for late binding views
-            query = RedshiftQuery.list_late_view_ddls_query()
+            query = self.queries.list_late_view_ddls_query()
             populate_calls.append(
                 (
                     LineageCollectorType.VIEW_DDL_SQL_PARSING,
@@ -176,7 +189,7 @@ class RedshiftSqlLineageV2:
 
         if self.config.include_copy_lineage:
             # Populate lineage for copy commands.
-            query = RedshiftQuery.list_copy_commands_sql(
+            query = self.queries.list_copy_commands_sql(
                 db_name=self.database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -187,7 +200,7 @@ class RedshiftSqlLineageV2:
 
         if self.config.include_unload_lineage:
             # Populate lineage for unload commands.
-            query = RedshiftQuery.list_unload_commands_sql(
+            query = self.queries.list_unload_commands_sql(
                 db_name=self.database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -218,13 +231,17 @@ class RedshiftSqlLineageV2:
         try:
             logger.debug(f"Processing {lineage_type.name} lineage query: {query}")
 
-            for lineage_row in RedshiftDataDictionary.get_lineage_rows(
-                conn=connection, query=query
-            ):
-                processor(lineage_row)
+            timer = self.report.lineage_phases_timer.setdefault(
+                lineage_type.name, PerfTimer()
+            )
+            with timer:
+                for lineage_row in RedshiftDataDictionary.get_lineage_rows(
+                    conn=connection, query=query
+                ):
+                    processor(lineage_row)
         except Exception as e:
             self.report.warning(
-                f"extract-{lineage_type.name}",
+                f"lineage-v2-extract-{lineage_type.name}",
                 f"Error was {e}, {traceback.format_exc()}",
             )
             self._lineage_v1.report_status(f"extract-{lineage_type.name}", False)

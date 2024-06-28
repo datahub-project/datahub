@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Search
+# Search
 
 <FeatureAvailability/>
 
@@ -20,9 +20,12 @@ Search is available for all users. Although Search works out of the box, the mor
 
 Searching is as easy as typing in relevant business terms and pressing 'enter' to view matching data assets. 
 
-By default, search terms will match against different aspects of a data assets. This includes asset names, descriptions, tags, terms, owners, and even specific attributes like the names of columns in a table. 
+By default, search terms will match against different aspects of a data assets. This includes asset names, descriptions, tags, terms, owners, and even specific attributes like the names of columns in a table.
 
- 
+### Search Operators
+
+The default boolean logic used to interpret text in a query string is `AND`. For example, a query of `information about orders` is interpreted as `information AND about AND orders`.
+
 ### Filters
 
 The filters sidebar sits on the left hand side of search results, and lets users find assets by drilling down. You can quickly filter by Data Platform (e.g. Snowflake), Tags, Glossary Terms, Domain, Owners, and more with a single click. 
@@ -288,11 +291,11 @@ If enabled in #2 above, those queries will
 appear in the `should` section of the `boolean query`[[4](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-bool-query.html)].
 4. `functionScore` - The Elasticsearch `function score`[[5](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-function-score-query.html#score-functions)] section of the overall query.
 
-### Examples
+#### Examples
 
 These examples assume a match-all `queryRegex` of `.*` so that it would impact any search query for simplicity.
 
-#### Example 1: Ranking By Tags/Terms
+##### Example 1: Ranking By Tags/Terms
 
 Boost entities with tags of `primary` or `gold` and an example glossary term's uuid.
 
@@ -324,7 +327,7 @@ queryConfigurations:
       boost_mode: multiply
 ```
 
-#### Example 2: Preferred Data Platform
+##### Example 2: Preferred Data Platform
 
 Boost the `urn:li:dataPlatform:hive` platform.
 
@@ -347,7 +350,7 @@ queryConfigurations:
       boost_mode: multiply
 ```
 
-#### Example 3: Exclusion & Bury
+##### Example 3: Exclusion & Bury
 
 This configuration extends the 3 built-in queries with a rule to exclude `deprecated` entities from search results
 because they are not generally relevant as well as reduces the score of `materialized`.
@@ -374,6 +377,73 @@ queryConfigurations:
                 value: true
           weight: 0.5
       score_mode: multiply
+      boost_mode: multiply
+```
+
+### Search Autocomplete Configuration
+
+Similar to the options provided in the previous section for search configuration, there are autocomplete specific options
+which can be configured.
+
+Note: The scoring functions defined in the previous section are inherited for autocomplete by default, unless
+overrides are provided in the autocomplete section.
+
+For the most part the configuration options are identical to the search customization options in the previous
+section, however they are located under `autocompleteConfigurations` in the yaml configuration file.
+
+1. `queryRegex` - Responsible for selecting the search customization based on the [regex matching](https://www.w3schools.com/java/java_regex.asp) the search query string.
+   *The first match is applied.*
+2. The following boolean enables/disables the function score inheritance from the normal search configuration: [`inheritFunctionScore`]
+   This flag will automatically be set to `false` when the `functionScore` section is provided. If set to `false` with no
+   `functionScore` provided, the default Elasticsearch `_score` is used.
+3. Built-in query booleans - There is 1 built-in query which can be enabled/disabled. These include
+   the `default autocomplete query` query,
+   enabled with the following booleans
+   respectively [`defaultQuery`]
+4. `boolQuery` - The base Elasticsearch `boolean query`[[4](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-bool-query.html)].
+   If enabled in #2 above, those queries will
+   appear in the `should` section of the `boolean query`[[4](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-bool-query.html)].
+5. `functionScore` - The Elasticsearch `function score`[[5](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-function-score-query.html#score-functions)] section of the overall query.
+
+#### Examples
+
+These examples assume a match-all `queryRegex` of `.*` so that it would impact any search query for simplicity. Also
+note that the `queryRegex` is applied individually for `searchConfigurations` and `autocompleteConfigurations` and they
+do not have to be identical.
+
+##### Example 1: Exclude `deprecated` entities from autocomplete
+
+```yaml
+autocompleteConfigurations:
+  - queryRegex: .*
+    defaultQuery: true
+
+    boolQuery:
+      must:
+        - term:
+            deprecated: 'false'
+```
+
+#### Example 2: Override scoring for autocomplete
+
+```yaml
+autocompleteConfigurations:
+  - queryRegex: .*
+    defaultQuery: true
+
+    functionScore:
+      functions:
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 1.1
+        - filter:
+            term:
+              deprecated:
+                value: false
+          weight: 0.5
+      score_mode: avg
       boost_mode: multiply
 ```
 
@@ -479,7 +549,7 @@ Response in plain text
 
 -->
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
 
 ### Related Features
 

@@ -1,5 +1,7 @@
 import textwrap
+from enum import Enum
 
+import pytest
 import sqlglot
 
 from datahub.sql_parsing.sql_parsing_common import QueryType
@@ -9,6 +11,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.sql_parsing.sqlglot_utils import (
     generalize_query,
+    generalize_query_fast,
     get_dialect,
     get_query_fingerprint,
     is_dialect_instance,
@@ -49,49 +52,67 @@ def test_query_types():
     ) == (QueryType.CREATE_VIEW, {"kind": "VIEW"})
 
 
-def test_query_generalization():
-    # Basic keyword normalization.
-    assert (
-        generalize_query("select * from foo", dialect="redshift") == "SELECT * FROM foo"
-    )
+class QueryGeneralizationTestMode(Enum):
+    FULL = "full"
+    FAST = "fast"
+    BOTH = "both"
 
-    # Comment removal and whitespace normalization.
-    assert (
-        generalize_query(
-            "/* query system = foo, id = asdf */\nselect /* inline comment */ *\nfrom foo",
-            dialect="redshift",
-        )
-        == "SELECT * FROM foo"
-    )
 
-    # Parameter normalization.
-    assert (
-        generalize_query(
+@pytest.mark.parametrize(
+    "query, dialect, expected, mode",
+    [
+        # Basic keyword normalization.
+        (
+            "select * from foo",
+            "redshift",
+            "SELECT * FROM foo",
+            QueryGeneralizationTestMode.FULL,
+        ),
+        # Comment removal and whitespace normalization.
+        (
+            "/* query system = foo, id = asdf */\nSELECT /* inline comment */ *\nFROM foo",
+            "redshift",
+            "SELECT * FROM foo",
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        # Parameter normalization.
+        (
             "UPDATE  \"books\" SET page_count = page_count + 1, author_count = author_count + 1 WHERE book_title = 'My New Book'",
-            dialect="redshift",
-        )
-        == 'UPDATE "books" SET page_count = page_count + ?, author_count = author_count + ? WHERE book_title = ?'
-    )
-    assert (
-        generalize_query(
-            "select * from foo where date = '2021-01-01'", dialect="redshift"
-        )
-        == "SELECT * FROM foo WHERE date = ?"
-    )
-    assert (
-        generalize_query(
-            "select * from books where category in ('fiction', 'biography', 'fantasy')",
-            dialect="redshift",
-        )
-        == "SELECT * FROM books WHERE category IN (?)"
-    )
-    assert (
-        generalize_query(
+            "redshift",
+            'UPDATE "books" SET page_count = page_count + ?, author_count = author_count + ? WHERE book_title = ?',
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        (
+            "SELECT * FROM foo WHERE date = '2021-01-01'",
+            "redshift",
+            "SELECT * FROM foo WHERE date = ?",
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        (
+            "SELECT * FROM books WHERE category IN ('fiction', 'biography', 'fantasy')",
+            "redshift",
+            "SELECT * FROM books WHERE category IN (?)",
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        (
+            textwrap.dedent(
+                """\
+                INSERT INTO MyTable
+                (Column1, Column2, Column3)
+                VALUES
+                ('John', 123, 'Lloyds Office');
+                """
+            ),
+            "mssql",
+            "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?)",
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        (
             textwrap.dedent(
                 """\
                 /* Copied from https://stackoverflow.com/a/452934/5004662 */
                 INSERT INTO MyTable
-                ( Column1, Column2, Column3 )
+                (Column1, Column2, Column3)
                 VALUES
                 /* multiple value rows */
                 ('John', 123, 'Lloyds Office'),
@@ -100,17 +121,49 @@ def test_query_generalization():
                 ('Miranda', 126, 'Bristol Office');
                 """
             ),
-            dialect="mssql",
+            "mssql",
+            "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?), (?), (?), (?)",
+            QueryGeneralizationTestMode.FULL,
+        ),
+        # Test table name normalization.
+        # These are only supported with fast normalization.
+        (
+            "SELECT * FROM datahub_community.fivetran_interval_unconstitutional_staging.datahub_slack_mess-staging-480fd5a7-58f4-4cc9-b6fb-87358788efe6",
+            "bigquery",
+            "SELECT * FROM datahub_community.fivetran_interval_unconstitutional_staging.datahub_slack_mess-staging-00000000-0000-0000-0000-000000000000",
+            QueryGeneralizationTestMode.FAST,
+        ),
+        (
+            "SELECT * FROM datahub_community.maggie.commonroom_slack_members_20240315",
+            "bigquery",
+            "SELECT * FROM datahub_community.maggie.commonroom_slack_members_YYYYMMDD",
+            QueryGeneralizationTestMode.FAST,
+        ),
+        (
+            "SELECT COUNT(*) FROM ge_temp_aa91f1fd",
+            "bigquery",
+            "SELECT COUNT(*) FROM ge_temp_abcdefgh",
+            QueryGeneralizationTestMode.FAST,
+        ),
+    ],
+)
+def test_query_generalization(
+    query: str, dialect: str, expected: str, mode: QueryGeneralizationTestMode
+) -> None:
+    if mode in {QueryGeneralizationTestMode.FULL, QueryGeneralizationTestMode.BOTH}:
+        assert generalize_query(query, dialect=dialect) == expected
+    if mode in {QueryGeneralizationTestMode.FAST, QueryGeneralizationTestMode.BOTH}:
+        assert (
+            generalize_query_fast(query, dialect=dialect, change_table_names=True)
+            == expected
         )
-        == "INSERT INTO MyTable (Column1, Column2, Column3) VALUES (?), (?), (?), (?)"
-    )
 
 
 def test_query_fingerprint():
     assert get_query_fingerprint(
-        "select * /* everything */ from foo where ts = 34", dialect="redshift"
-    ) == get_query_fingerprint("SELECT * FROM foo where ts = 38", dialect="redshift")
+        "select * /* everything */ from foo where ts = 34", platform="redshift"
+    ) == get_query_fingerprint("SELECT * FROM foo where ts = 38", platform="redshift")
 
     assert get_query_fingerprint(
-        "select 1 + 1", dialect="postgres"
-    ) != get_query_fingerprint("select 2", dialect="postgres")
+        "select 1 + 1", platform="postgres"
+    ) != get_query_fingerprint("select 2", platform="postgres")

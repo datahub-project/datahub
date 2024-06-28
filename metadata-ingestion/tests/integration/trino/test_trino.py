@@ -5,6 +5,11 @@ import requests
 from freezegun import freeze_time
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.glossary.classifier import (
+    ClassificationConfig,
+    DynamicTypedClassifierConfig,
+)
+from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSinkConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
@@ -87,6 +92,18 @@ def test_trino_ingest(
                         include_field_histogram=True,
                         include_field_sample_values=True,
                     ),
+                    classification=ClassificationConfig(
+                        enabled=True,
+                        classifiers=[
+                            DynamicTypedClassifierConfig(
+                                type="datahub",
+                                config=DataHubClassifierConfig(
+                                    minimum_values_threshold=1,
+                                ),
+                            )
+                        ],
+                        max_workers=1,
+                    ),
                     catalog_to_connector_details={
                         "postgresqldb": ConnectorDetail(
                             connector_database="postgres",
@@ -131,6 +148,18 @@ def test_trino_hive_ingest(
                 database="hivedb",
                 username="foo",
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
+                classification=ClassificationConfig(
+                    enabled=True,
+                    classifiers=[
+                        DynamicTypedClassifierConfig(
+                            type="datahub",
+                            config=DataHubClassifierConfig(
+                                minimum_values_threshold=1,
+                            ),
+                        )
+                    ],
+                    max_workers=1,
+                ),
             ).dict(),
         },
         "sink": {

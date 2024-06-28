@@ -7,18 +7,19 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateSecretInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.types.ingest.secret.mapper.DataHubSecretValueMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.key.DataHubSecretKey;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -41,7 +42,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
     final CreateSecretInput input =
         bindArgument(environment.getArgument("input"), CreateSecretInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (IngestionAuthUtils.canManageSecrets(context)) {
 
@@ -52,8 +53,8 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
               key.setId(input.getName());
 
               if (_entityClient.exists(
-                  EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME),
-                  context.getAuthentication())) {
+                  context.getOperationContext(),
+                  EntityKeyUtils.convertEntityKeyToUrn(key, SECRETS_ENTITY_NAME))) {
                 throw new IllegalArgumentException("This Secret already exists!");
               }
 
@@ -71,7 +72,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithKey(
                       key, SECRETS_ENTITY_NAME, SECRET_VALUE_ASPECT_NAME, value);
-              return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to create new secret with name %s", input.getName()), e);
@@ -79,6 +80,8 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

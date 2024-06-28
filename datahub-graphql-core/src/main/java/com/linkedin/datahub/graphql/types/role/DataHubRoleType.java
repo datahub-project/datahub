@@ -52,10 +52,10 @@ public class DataHubRoleType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               DATAHUB_ROLE_ENTITY_NAME,
               new HashSet<>(roleUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : roleUrns) {
@@ -67,7 +67,7 @@ public class DataHubRoleType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataHubRole>newResult()
-                          .data(DataHubRoleMapper.map(gmsResult))
+                          .data(DataHubRoleMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

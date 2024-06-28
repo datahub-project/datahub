@@ -1,6 +1,9 @@
 query getMLFeature($urn: String!) {
     mlFeature(urn: $urn) {
         ...nonRecursiveMLFeature
+        privileges {
+            ...entityPrivileges
+        }
         featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }

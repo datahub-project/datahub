@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataproduct.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
@@ -17,6 +18,8 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
@@ -35,17 +38,20 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DataProductMapper implements ModelMapper<EntityResponse, DataProduct> {
 
   public static final DataProductMapper INSTANCE = new DataProductMapper();
 
-  public static DataProduct map(@Nonnull final EntityResponse entityResponse) {
-    return INSTANCE.apply(entityResponse);
+  public static DataProduct map(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(context, entityResponse);
   }
 
   @Override
-  public DataProduct apply(@Nonnull final EntityResponse entityResponse) {
+  public DataProduct apply(
+      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
     final DataProduct result = new DataProduct();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -60,37 +66,43 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     mappingHelper.mapToResult(
         GLOBAL_TAGS_ASPECT_NAME,
         (dataProduct, dataMap) ->
-            dataProduct.setTags(GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn)));
+            dataProduct.setTags(GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         GLOSSARY_TERMS_ASPECT_NAME,
         (dataProduct, dataMap) ->
             dataProduct.setGlossaryTerms(
-                GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
+                GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         DOMAINS_ASPECT_NAME,
         (dataProduct, dataMap) ->
             dataProduct.setDomain(
-                DomainAssociationMapper.map(new Domains(dataMap), dataProduct.getUrn())));
+                DomainAssociationMapper.map(context, new Domains(dataMap), dataProduct.getUrn())));
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (dataProduct, dataMap) ->
-            dataProduct.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+            dataProduct.setOwnership(
+                OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataProduct, dataMap) ->
             dataProduct.setInstitutionalMemory(
-                InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
 
-    return result;
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(result, DataProduct.class);
+    } else {
+      return result;
+    }
   }
 
   private void mapDataProductProperties(

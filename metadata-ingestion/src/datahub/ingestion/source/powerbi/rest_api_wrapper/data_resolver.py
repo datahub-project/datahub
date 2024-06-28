@@ -3,7 +3,7 @@ import math
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import msal
 import requests
@@ -11,18 +11,27 @@ from requests import Response
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.powerbi.config import Constant
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Column,
     Dashboard,
+    Measure,
+    MeasureProfile,
     Page,
     PowerBIDataset,
     Report,
+    Table,
     Tile,
     User,
     Workspace,
     new_powerbi_dataset,
 )
+from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
+    process_column_result,
+    process_sample_result,
+)
+from datahub.ingestion.source.powerbi.rest_api_wrapper.query import DaxQuery
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -63,7 +72,7 @@ class DataResolverBase(ABC):
         self.__access_token_expiry_time: Optional[datetime] = None
         self.__tenant_id = tenant_id
         # Test connection by generating access token
-        logger.info("Trying to connect to {}".format(self._get_authority_url()))
+        logger.info(f"Trying to connect to {self._get_authority_url()}")
         # Power-Bi Auth (Service Principal Auth)
         self.__msal_client = msal.ConfidentialClientApplication(
             client_id,
@@ -72,7 +81,7 @@ class DataResolverBase(ABC):
         )
         self.get_access_token()
 
-        logger.info("Connected to {}".format(self._get_authority_url()))
+        logger.info(f"Connected to {self._get_authority_url()}")
         self._request_session = requests.Session()
         # set re-try parameter for request_session
         self._request_session.mount(
@@ -108,6 +117,16 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
+    def profile_dataset(
+        self,
+        dataset: PowerBIDataset,
+        table: Table,
+        workspace_name: str,
+        profile_pattern: Optional[AllowDenyPattern],
+    ) -> None:
+        pass
+
+    @abstractmethod
     def get_dataset(
         self, workspace_id: str, dataset_id: str
     ) -> Optional[PowerBIDataset]:
@@ -124,7 +143,7 @@ class DataResolverBase(ABC):
         pass
 
     def _get_authority_url(self):
-        return "{}{}".format(DataResolverBase.AUTHORITY, self.__tenant_id)
+        return f"{DataResolverBase.AUTHORITY}{self.__tenant_id}"
 
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
@@ -193,7 +212,7 @@ class DataResolverBase(ABC):
                 id=instance.get(Constant.ID),
                 isReadOnly=instance.get(Constant.IS_READ_ONLY),
                 displayName=instance.get(Constant.DISPLAY_NAME),
-                description=instance.get(Constant.DESCRIPTION, str()),
+                description=instance.get(Constant.DESCRIPTION, ""),
                 embedUrl=instance.get(Constant.EMBED_URL),
                 webUrl=instance.get(Constant.WEB_URL),
                 workspace_id=workspace.id,
@@ -276,7 +295,7 @@ class DataResolverBase(ABC):
                 name=raw_instance.get(Constant.NAME),
                 webUrl=raw_instance.get(Constant.WEB_URL),
                 embedUrl=raw_instance.get(Constant.EMBED_URL),
-                description=raw_instance.get(Constant.DESCRIPTION, str()),
+                description=raw_instance.get(Constant.DESCRIPTION, ""),
                 pages=self._get_pages_by_report(
                     workspace=workspace, report_id=raw_instance[Constant.ID]
                 ),
@@ -387,6 +406,7 @@ class RegularAPIResolver(DataResolverBase):
         Constant.REPORT_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}",
         Constant.REPORT_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports",
         Constant.PAGE_BY_REPORT: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/pages",
+        Constant.DATASET_EXECUTE_QUERIES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/executeQueries",
     }
 
     def get_dataset(
@@ -514,6 +534,134 @@ class RegularAPIResolver(DataResolverBase):
 
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
         return []  # User list is not available in regular access
+
+    def _execute_profiling_query(self, dataset: PowerBIDataset, query: str) -> dict:
+        dataset_query_endpoint: str = self.API_ENDPOINTS[
+            Constant.DATASET_EXECUTE_QUERIES
+        ]
+        # Replace place holders
+        dataset_query_endpoint = dataset_query_endpoint.format(
+            POWERBI_BASE_URL=self.BASE_URL,
+            WORKSPACE_ID=dataset.workspace_id,
+            DATASET_ID=dataset.id,
+        )
+        # Hit PowerBi
+        logger.info(f"Request to query endpoint URL={dataset_query_endpoint}")
+
+        # Serializer is configured to include nulls so that the queried fields
+        # exist in the returned payloads. Only failed queries will result in KeyError
+        payload = {
+            "queries": [
+                {
+                    "query": query,
+                }
+            ],
+            "serializerSettings": {
+                "includeNulls": True,
+            },
+        }
+        response = self._request_session.post(
+            dataset_query_endpoint,
+            json=payload,
+            headers=self.get_authorization_header(),
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def _get_row_count(self, dataset: PowerBIDataset, table: Table) -> int:
+        query = DaxQuery.row_count_query(table.name)
+        try:
+            data = self._execute_profiling_query(dataset, query)
+            rows = data["results"][0]["tables"][0]["rows"]
+            count = rows[0]["[count]"]
+            return count
+        except requests.exceptions.RequestException as ex:
+            logger.warning(getattr(ex.response, "text", ""))
+            logger.warning(
+                f"Profiling failed for getting row count for dataset {dataset.id}, with status code {getattr(ex.response, 'status_code', None)}",
+            )
+        except (KeyError, IndexError) as ex:
+            logger.warning(
+                f"Profiling failed for getting row count for dataset {dataset.id}, with {ex}"
+            )
+        return 0
+
+    def _get_data_sample(self, dataset: PowerBIDataset, table: Table) -> dict:
+        try:
+            query = DaxQuery.data_sample_query(table.name)
+            data = self._execute_profiling_query(dataset, query)
+            return process_sample_result(data)
+        except requests.exceptions.RequestException as ex:
+            logger.warning(getattr(ex.response, "text", ""))
+            logger.warning(
+                f"Getting sample with TopN failed for dataset {dataset.id}, with status code {getattr(ex.response, 'status_code', None)}",
+            )
+        except (KeyError, IndexError) as ex:
+            logger.warning(
+                f"Getting sample with TopN failed for dataset {dataset.id}, with {ex}"
+            )
+        return {}
+
+    def _get_column_data(
+        self, dataset: PowerBIDataset, table: Table, column: Union[Column, Measure]
+    ) -> dict:
+        try:
+            logger.debug(f"Column data query for {dataset.name}, {column.name}")
+            query = DaxQuery.column_data_query(table.name, column.name)
+            data = self._execute_profiling_query(dataset, query)
+            return process_column_result(data)
+        except requests.exceptions.RequestException as ex:
+            logger.warning(getattr(ex.response, "text", ""))
+            logger.warning(
+                f"Getting column statistics failed for dataset {dataset.name}, {column.name}, with status code {getattr(ex.response, 'status_code', None)}",
+            )
+        except (KeyError, IndexError) as ex:
+            logger.warning(
+                f"Getting column statistics failed for dataset {dataset.name}, {column.name}, with {ex}"
+            )
+        return {}
+
+    def profile_dataset(
+        self,
+        dataset: PowerBIDataset,
+        table: Table,
+        workspace_name: str,
+        profile_pattern: Optional[AllowDenyPattern],
+    ) -> None:
+        if not profile_pattern:
+            logger.info("Profile pattern not configured, not profiling")
+            return
+
+        if not profile_pattern.allowed(f"{workspace_name}.{dataset.name}.{table.name}"):
+            logger.info(
+                f"Table {table.name} in {dataset.name}, not allowed for profiling"
+            )
+            return
+
+        logger.info(f"Profiling table: {table.name}")
+        row_count = self._get_row_count(dataset, table)
+        sample = self._get_data_sample(dataset, table)
+
+        table.row_count = row_count
+        column_count = 0
+
+        columns: List[Union[Column, Measure]] = [
+            *(table.columns or []),
+            *(table.measures or []),
+        ]
+        for column in columns:
+            if column.isHidden:
+                continue
+
+            column_sample = sample.get(column.name, None) if sample else None
+            column_stats = self._get_column_data(dataset, table, column)
+
+            column.measure_profile = MeasureProfile(
+                sample_values=column_sample, **column_stats
+            )
+            column_count += 1
+
+        table.column_count = column_count
 
 
 class AdminAPIResolver(DataResolverBase):
@@ -809,7 +957,7 @@ class AdminAPIResolver(DataResolverBase):
 
         # Return scan_id of Scan created for the given workspace
         workspace_ids = [row["id"] for row in res.json()]
-        logger.debug("modified workspace_ids: {}".format(workspace_ids))
+        logger.debug(f"modified workspace_ids: {workspace_ids}")
         return workspace_ids
 
     def get_dataset_parameters(
@@ -817,3 +965,13 @@ class AdminAPIResolver(DataResolverBase):
     ) -> Dict[str, str]:
         logger.debug("Get dataset parameter is unsupported in Admin API")
         return {}
+
+    def profile_dataset(
+        self,
+        dataset: PowerBIDataset,
+        table: Table,
+        workspace_name: str,
+        profile_pattern: Optional[AllowDenyPattern],
+    ) -> None:
+        logger.debug("Profile dataset is unsupported in Admin API")
+        return None

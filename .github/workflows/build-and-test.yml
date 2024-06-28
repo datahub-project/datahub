@@ -79,11 +79,13 @@ jobs:
           ./gradlew build \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
-            -x docs-website:build \
+            -x :docs-website:build \
             -x :metadata-integration:java:spark-lineage:test \
             -x :metadata-io:test \
             -x :metadata-ingestion-modules:airflow-plugin:build \
             -x :metadata-ingestion-modules:airflow-plugin:check \
+            -x :metadata-ingestion-modules:dagster-plugin:build \
+            -x :metadata-ingestion-modules:dagster-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
             --parallel

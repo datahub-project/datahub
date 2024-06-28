@@ -9,10 +9,12 @@ dependencies {
   api project(':metadata-service:auth-config')
   api project(':metadata-service:plugin')
   api project(':metadata-service:configuration')
+  implementation project(':metadata-service:restli-client')
   implementation project(':datahub-graphql-core')
   implementation project(':metadata-service:restli-servlet-impl')
   implementation project(':metadata-dao-impl:kafka-producer')
   implementation project(':ingestion-scheduler')
+  implementation project(':metadata-service:schema-registry-api')
 
   implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'
@@ -65,5 +67,4 @@ dependencies {
 configurations.all{
   exclude group: "commons-io", module:"commons-io"
   exclude group: "jline", module:"jline"
-  exclude group: 'software.amazon.awssdk', module: 'third-party-jackson-core'
 }

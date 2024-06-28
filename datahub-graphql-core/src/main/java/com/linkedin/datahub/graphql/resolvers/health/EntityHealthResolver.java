@@ -5,6 +5,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
@@ -31,6 +32,7 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -85,7 +87,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
   public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment)
       throws Exception {
     final Entity parent = environment.getSource();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final HealthStatuses statuses =
@@ -94,7 +96,9 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
           } catch (Exception e) {
             throw new RuntimeException("Failed to resolve asset's health status.", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**
@@ -195,7 +199,8 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
               .map(relationship -> relationship.getEntity().toString())
               .collect(Collectors.toSet());
 
-      final GenericTable assertionRunResults = getAssertionRunsTable(entityUrn);
+      final GenericTable assertionRunResults =
+          getAssertionRunsTable(context.getOperationContext(), entityUrn);
 
       if (!assertionRunResults.hasRows() || assertionRunResults.getRows().size() == 0) {
         // No assertion run results found. Return empty health!
@@ -224,8 +229,10 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     return null;
   }
 
-  private GenericTable getAssertionRunsTable(final String asserteeUrn) {
+  private GenericTable getAssertionRunsTable(
+      @Nonnull OperationContext opContext, final String asserteeUrn) {
     return _timeseriesAspectService.getAggregatedStats(
+        opContext,
         Constants.ASSERTION_ENTITY_NAME,
         Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
         createAssertionAggregationSpecs(),

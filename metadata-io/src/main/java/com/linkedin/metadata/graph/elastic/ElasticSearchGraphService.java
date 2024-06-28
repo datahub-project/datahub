@@ -1,23 +1,24 @@
 package com.linkedin.metadata.graph.elastic;
 
-import static com.linkedin.metadata.graph.elastic.GraphRelationshipMappingsBuilder.*;
+import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
-import com.linkedin.metadata.graph.RelatedEntities;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
-import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -34,14 +35,11 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -67,8 +65,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
   private final ESIndexBuilder _indexBuilder;
-
-  private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "graph_service_v1";
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
@@ -123,25 +119,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     return searchDocument.toString();
   }
 
-  private String toDocId(@Nonnull final Edge edge) {
-    String rawDocId =
-        edge.getSource().toString()
-            + DOC_DELIMETER
-            + edge.getRelationshipType()
-            + DOC_DELIMETER
-            + edge.getDestination().toString();
-
-    try {
-      byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
-      MessageDigest md = MessageDigest.getInstance("MD5");
-      byte[] thedigest = md.digest(bytesOfRawDocID);
-      return Base64.getEncoder().encodeToString(thedigest);
-    } catch (NoSuchAlgorithmException e) {
-      e.printStackTrace();
-      return rawDocId;
-    }
-  }
-
   @Override
   public LineageRegistry getLineageRegistry() {
     return _lineageRegistry;
@@ -149,7 +126,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void addEdge(@Nonnull final Edge edge) {
-    String docId = toDocId(edge);
+    String docId = edge.toDocId();
     String edgeDocument = toDocument(edge);
     _graphWriteDAO.upsertDocument(docId, edgeDocument);
   }
@@ -161,7 +138,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void removeEdge(@Nonnull final Edge edge) {
-    String docId = toDocId(edge);
+    String docId = edge.toDocId();
     _graphWriteDAO.deleteDocument(docId);
   }
 
@@ -209,6 +186,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Nonnull
   @WithSpan
   @Override
+  @Deprecated
   public EntityLineageResult getLineage(
       @Nonnull Urn entityUrn,
       @Nonnull LineageDirection direction,
@@ -217,8 +195,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       int count,
       int maxHops) {
     ESGraphQueryDAO.LineageResponse lineageResponse =
-        _graphReadDAO.getLineage(
-            entityUrn, direction, graphFilters, offset, count, maxHops, null, null);
+        _graphReadDAO.getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null);
     return new EntityLineageResult()
         .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)
@@ -236,18 +213,10 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       int offset,
       int count,
       int maxHops,
-      @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable LineageFlags lineageFlags) {
     ESGraphQueryDAO.LineageResponse lineageResponse =
         _graphReadDAO.getLineage(
-            entityUrn,
-            direction,
-            graphFilters,
-            offset,
-            count,
-            maxHops,
-            startTimeMillis,
-            endTimeMillis);
+            entityUrn, direction, graphFilters, offset, count, maxHops, lineageFlags);
     return new EntityLineageResult()
         .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)
@@ -306,10 +275,10 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
-  public void configure() {
+  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     log.info("Setting up elastic graph index");
     try {
-      for (ReindexConfig config : buildReindexConfigs()) {
+      for (ReindexConfig config : buildReindexConfigs(properties)) {
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException e) {
@@ -318,23 +287,13 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
-  public List<ReindexConfig> buildReindexConfigs() throws IOException {
+  public List<ReindexConfig> buildReindexConfigs(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
     return List.of(
         _indexBuilder.buildReindexState(
             _indexConvention.getIndexName(INDEX_NAME),
             GraphRelationshipMappingsBuilder.getMappings(),
             Collections.emptyMap()));
-  }
-
-  @Override
-  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
-      Collection<StructuredPropertyDefinition> properties) throws IOException {
-    return buildReindexConfigs();
-  }
-
-  @Override
-  public void reindexAll() {
-    configure();
   }
 
   @VisibleForTesting

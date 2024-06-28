@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -18,7 +18,11 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
-from datahub.ingestion.source.redshift.query import RedshiftQuery
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
 from datahub.ingestion.source.redshift.redshift_schema import (
     LineageRow,
     RedshiftDataDictionary,
@@ -158,6 +162,10 @@ class RedshiftLineageExtractor:
         self.context = context
         self._lineage_map: Dict[str, LineageItem] = defaultdict()
 
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
+        if self.config.is_serverless:
+            self.queries = RedshiftServerlessQuery()
+
         self.redundant_run_skip_handler = redundant_run_skip_handler
         self.start_time, self.end_time = (
             self.report.lineage_start_time,
@@ -256,12 +264,22 @@ class RedshiftLineageExtractor:
         # TODO: Remove this method.
         self.report.warning(key, reason)
 
-    def _get_s3_path(self, path: str) -> str:
+    def _get_s3_path(self, path: str) -> Optional[str]:
         if self.config.s3_lineage_config:
             for path_spec in self.config.s3_lineage_config.path_specs:
                 if path_spec.allowed(path):
                     _, table_path = path_spec.extract_table_name_and_path(path)
                     return table_path
+
+            if (
+                self.config.s3_lineage_config.ignore_non_path_spec_path
+                and len(self.config.s3_lineage_config.path_specs) > 0
+            ):
+                self.report.num_lineage_dropped_s3_path += 1
+                logger.debug(
+                    f"Skipping s3 path {path} as it does not match any path spec."
+                )
+                return None
 
             if self.config.s3_lineage_config.strip_urls:
                 if "/" in urlparse(path).path:
@@ -315,13 +333,14 @@ class RedshiftLineageExtractor:
             ),
         )
 
-    def _build_s3_path_from_row(self, filename: str) -> str:
+    def _build_s3_path_from_row(self, filename: str) -> Optional[str]:
         path = filename.strip()
         if urlparse(path).scheme != "s3":
             raise ValueError(
                 f"Only s3 source supported with copy/unload. The source was: {path}"
             )
-        return strip_s3_prefix(self._get_s3_path(path))
+        s3_path = self._get_s3_path(path)
+        return strip_s3_prefix(s3_path) if s3_path else None
 
     def _get_sources(
         self,
@@ -361,7 +380,11 @@ class RedshiftLineageExtractor:
                     )
                     self.report.num_lineage_dropped_not_support_copy_path += 1
                     return [], None
-                path = strip_s3_prefix(self._get_s3_path(path))
+                s3_path = self._get_s3_path(path)
+                if s3_path is None:
+                    return [], None
+
+                path = strip_s3_prefix(s3_path)
                 urn = make_dataset_urn_with_platform_instance(
                     platform=platform.value,
                     name=path,
@@ -531,6 +554,8 @@ class RedshiftLineageExtractor:
                 target_platform = LineageDatasetPlatform.S3
                 # Following call requires 'filename' key in lineage_row
                 target_path = self._build_s3_path_from_row(lineage_row.filename)
+                if target_path is None:
+                    return None
                 urn = make_dataset_urn_with_platform_instance(
                     platform=target_platform.value,
                     name=target_path,
@@ -636,7 +661,7 @@ class RedshiftLineageExtractor:
         if self.config.resolve_temp_table_in_lineage:
             self._init_temp_table_schema(
                 database=database,
-                temp_tables=self.get_temp_tables(connection=connection),
+                temp_tables=list(self.get_temp_tables(connection=connection)),
             )
 
         populate_calls: List[Tuple[str, LineageCollectorType]] = []
@@ -659,7 +684,7 @@ class RedshiftLineageExtractor:
             LineageMode.MIXED,
         }:
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
-            query = RedshiftQuery.stl_scan_based_lineage_query(
+            query = self.queries.stl_scan_based_lineage_query(
                 self.config.database,
                 self.start_time,
                 self.end_time,
@@ -670,7 +695,7 @@ class RedshiftLineageExtractor:
             LineageMode.MIXED,
         }:
             # Populate table level lineage by parsing table creating sqls
-            query = RedshiftQuery.list_insert_create_queries_sql(
+            query = self.queries.list_insert_create_queries_sql(
                 db_name=database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -679,15 +704,15 @@ class RedshiftLineageExtractor:
 
         if self.config.include_views and self.config.include_view_lineage:
             # Populate table level lineage for views
-            query = RedshiftQuery.view_lineage_query()
+            query = self.queries.view_lineage_query()
             populate_calls.append((query, LineageCollectorType.VIEW))
 
             # Populate table level lineage for late binding views
-            query = RedshiftQuery.list_late_view_ddls_query()
+            query = self.queries.list_late_view_ddls_query()
             populate_calls.append((query, LineageCollectorType.VIEW_DDL_SQL_PARSING))
 
         if self.config.include_copy_lineage:
-            query = RedshiftQuery.list_copy_commands_sql(
+            query = self.queries.list_copy_commands_sql(
                 db_name=database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -695,7 +720,7 @@ class RedshiftLineageExtractor:
             populate_calls.append((query, LineageCollectorType.COPY))
 
         if self.config.include_unload_lineage:
-            query = RedshiftQuery.list_unload_commands_sql(
+            query = self.queries.list_unload_commands_sql(
                 db_name=database,
                 start_time=self.start_time,
                 end_time=self.end_time,
@@ -831,7 +856,7 @@ class RedshiftLineageExtractor:
         # new urn -> prev urn
         table_renames: Dict[str, str] = {}
 
-        query = RedshiftQuery.alter_table_rename_query(
+        query = self.queries.alter_table_rename_query(
             db_name=database,
             start_time=self.start_time,
             end_time=self.end_time,
@@ -868,23 +893,19 @@ class RedshiftLineageExtractor:
 
     def get_temp_tables(
         self, connection: redshift_connector.Connection
-    ) -> List[TempTableRow]:
-        ddl_query: str = RedshiftQuery.temp_table_ddl_query(
+    ) -> Iterable[TempTableRow]:
+        ddl_query: str = self.queries.temp_table_ddl_query(
             start_time=self.config.start_time,
             end_time=self.config.end_time,
         )
 
         logger.debug(f"Temporary table ddl query = {ddl_query}")
 
-        temp_table_rows: List[TempTableRow] = []
-
         for row in RedshiftDataDictionary.get_temporary_rows(
             conn=connection,
             query=ddl_query,
         ):
-            temp_table_rows.append(row)
-
-        return temp_table_rows
+            yield row
 
     def find_temp_tables(
         self, temp_table_rows: List[TempTableRow], temp_table_names: List[str]
@@ -892,9 +913,9 @@ class RedshiftLineageExtractor:
         matched_temp_tables: List[TempTableRow] = []
 
         for table_name in temp_table_names:
-            prefixes = RedshiftQuery.get_temp_table_clause(table_name)
+            prefixes = self.queries.get_temp_table_clause(table_name)
             prefixes.extend(
-                RedshiftQuery.get_temp_table_clause(table_name.split(".")[-1])
+                self.queries.get_temp_table_clause(table_name.split(".")[-1])
             )
 
             for row in temp_table_rows:

@@ -4,7 +4,12 @@ import { Theme } from './conf/theme/types';
 import defaultThemeConfig from './conf/theme/theme_light.config.json';
 import { CustomThemeContext } from './customThemeContext';
 
-const CustomThemeProvider = ({ children }: { children: React.ReactNode }) => {
+interface Props {
+    children: React.ReactNode;
+    skipSetTheme?: boolean;
+}
+
+const CustomThemeProvider = ({ children, skipSetTheme }: Props) => {
     const [currentTheme, setTheme] = useState<Theme>(defaultThemeConfig);
 
     useEffect(() => {
@@ -12,7 +17,7 @@ const CustomThemeProvider = ({ children }: { children: React.ReactNode }) => {
             import(/* @vite-ignore */ `./conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
                 setTheme(theme);
             });
-        } else {
+        } else if (!skipSetTheme) {
             // Send a request to the server to get the theme config.
             fetch(`/assets/conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`)
                 .then((response) => response.json())
@@ -20,7 +25,7 @@ const CustomThemeProvider = ({ children }: { children: React.ReactNode }) => {
                     setTheme(theme);
                 });
         }
-    }, []);
+    }, [skipSetTheme]);
 
     return (
         <CustomThemeContext.Provider value={{ theme: currentTheme, updateTheme: setTheme }}>

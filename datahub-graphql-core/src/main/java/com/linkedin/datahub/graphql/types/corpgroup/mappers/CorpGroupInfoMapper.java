@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.types.corpgroup.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -17,12 +19,14 @@ public class CorpGroupInfoMapper
   public static final CorpGroupInfoMapper INSTANCE = new CorpGroupInfoMapper();
 
   public static CorpGroupInfo map(
+      @Nullable QueryContext context,
       @Nonnull final com.linkedin.identity.CorpGroupInfo corpGroupInfo) {
-    return INSTANCE.apply(corpGroupInfo);
+    return INSTANCE.apply(context, corpGroupInfo);
   }
 
   @Override
-  public CorpGroupInfo apply(@Nonnull final com.linkedin.identity.CorpGroupInfo info) {
+  public CorpGroupInfo apply(
+      @Nullable QueryContext context, @Nonnull final com.linkedin.identity.CorpGroupInfo info) {
     final CorpGroupInfo result = new CorpGroupInfo();
     result.setEmail(info.getEmail());
     result.setDescription(info.getDescription());

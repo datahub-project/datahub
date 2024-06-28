@@ -1,6 +1,9 @@
 query getDataJob($urn: String!) {
     dataJob(urn: $urn) {
         ...dataJobFields
+        privileges {
+            ...entityPrivileges
+        }
         runs(start: 0, count: 20) {
             count
             start

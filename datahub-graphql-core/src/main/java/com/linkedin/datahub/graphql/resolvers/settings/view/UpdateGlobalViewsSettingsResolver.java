@@ -6,6 +6,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalViewsSettingsInput;
 import com.linkedin.metadata.service.SettingsService;
@@ -37,13 +38,13 @@ public class UpdateGlobalViewsSettingsResolver implements DataFetcher<Completabl
     final UpdateGlobalViewsSettingsInput input =
         bindArgument(environment.getArgument("input"), UpdateGlobalViewsSettingsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (AuthorizationUtils.canManageGlobalViews(context)) {
             try {
               // First, fetch the existing global settings. This does a R-M-F.
               final GlobalSettingsInfo maybeGlobalSettings =
-                  _settingsService.getGlobalSettings(context.getAuthentication());
+                  _settingsService.getGlobalSettings(context.getOperationContext());
 
               final GlobalSettingsInfo newGlobalSettings =
                   maybeGlobalSettings != null ? maybeGlobalSettings : new GlobalSettingsInfo();
@@ -58,7 +59,8 @@ public class UpdateGlobalViewsSettingsResolver implements DataFetcher<Completabl
               newGlobalSettings.setViews(newGlobalViewsSettings);
 
               // Finally, write back to GMS.
-              _settingsService.updateGlobalSettings(newGlobalSettings, context.getAuthentication());
+              _settingsService.updateGlobalSettings(
+                  context.getOperationContext(), newGlobalSettings);
               return true;
             } catch (Exception e) {
               throw new RuntimeException(
@@ -67,7 +69,9 @@ public class UpdateGlobalViewsSettingsResolver implements DataFetcher<Completabl
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static void updateViewsSettings(

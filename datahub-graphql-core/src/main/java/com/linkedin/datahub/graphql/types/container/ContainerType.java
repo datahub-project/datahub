@@ -85,12 +85,12 @@ public class ContainerType
     try {
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.CONTAINER_ENTITY_NAME,
               new HashSet<>(containerUrns),
-              ASPECTS_TO_FETCH,
-              context.getAuthentication());
+              ASPECTS_TO_FETCH);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : containerUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
@@ -100,7 +100,7 @@ public class ContainerType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<Container>newResult()
-                          .data(ContainerMapper.map(gmsResult))
+                          .data(ContainerMapper.map(context, gmsResult))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -133,7 +133,7 @@ public class ContainerType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -147,6 +147,6 @@ public class ContainerType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), ENTITY_NAME, query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 }

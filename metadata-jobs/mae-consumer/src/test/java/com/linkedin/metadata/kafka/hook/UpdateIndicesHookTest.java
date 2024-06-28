@@ -1,9 +1,9 @@
 package com.linkedin.metadata.kafka.hook;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
 import static com.linkedin.metadata.kafka.hook.MCLProcessingTestDataGenerator.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static org.mockito.ArgumentMatchers.any;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InputField;
@@ -27,11 +27,10 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
-import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.key.ChartKey;
@@ -53,6 +52,8 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.NumberType;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldDataType;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -125,10 +126,14 @@ public class UpdateIndicesHookTest {
             mockSystemMetadataService,
             searchDocumentTransformer,
             mockEntityIndexBuilders);
-    updateIndicesService.initializeAspectRetriever(
-        EntityClientAspectRetriever.builder().entityRegistry(ENTITY_REGISTRY).build());
+
+    OperationContext systemOperationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization();
+
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
+    updateIndicesHook.init(systemOperationContext);
     reprocessUIHook = new UpdateIndicesHook(updateIndicesService, true, true);
+    reprocessUIHook.init(systemOperationContext);
   }
 
   @Test
@@ -140,10 +145,23 @@ public class UpdateIndicesHookTest {
     Urn downstreamUrn =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
+    Urn lifeCycleOwner =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)");
     MetadataChangeLog event = createUpstreamLineageMCL(upstreamUrn, downstreamUrn);
     updateIndicesHook.invoke(event);
 
-    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null, null);
+    Edge edge =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
     Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
@@ -164,11 +182,24 @@ public class UpdateIndicesHookTest {
     Urn downstreamUrn =
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
+    Urn lifeCycleOwner =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)");
     MetadataChangeLog event =
         createUpstreamLineageMCL(upstreamUrn, downstreamUrn, ChangeType.RESTATE);
     updateIndicesHook.invoke(event);
 
-    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null, null);
+    Edge edge =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
     Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
@@ -180,6 +211,7 @@ public class UpdateIndicesHookTest {
                     RelationshipDirection.OUTGOING)));
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(
+            any(OperationContext.class),
             Mockito.eq(DATASET_ENTITY_NAME),
             Mockito.any(),
             Mockito.eq(
@@ -204,9 +236,10 @@ public class UpdateIndicesHookTest {
             mockSystemMetadataService,
             searchDocumentTransformer,
             mockEntityIndexBuilders);
-    updateIndicesService.initializeAspectRetriever(
-        EntityClientAspectRetriever.builder().entityRegistry(mockEntityRegistry).build());
+
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
+    updateIndicesHook.init(
+        TestOperationContexts.userContextNoSearchAuthorization(mockEntityRegistry));
 
     updateIndicesHook.invoke(event);
 
@@ -243,6 +276,7 @@ public class UpdateIndicesHookTest {
     // Update document
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(
+            any(OperationContext.class),
             Mockito.eq(DATASET_ENTITY_NAME),
             Mockito.any(),
             Mockito.eq(URLEncoder.encode(TEST_DATASET_URN, StandardCharsets.UTF_8)));
@@ -262,7 +296,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any());
     // No document change
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     /*
      * addLineage
@@ -280,7 +314,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any());
     // Document update for new upstream
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     /*
      * restateAddLineage
@@ -296,7 +330,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     /*
      * noOpUpsert
@@ -312,7 +346,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     /*
      * restateNoOp
@@ -328,7 +362,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     /*
      * systemMetadataChange
@@ -345,7 +379,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     /*
      * restateSystemMetadataChange
@@ -362,7 +396,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     /*
      * modifyNonSearchableField
@@ -380,7 +414,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
 
     /*
      * force reindexing
@@ -398,7 +432,7 @@ public class UpdateIndicesHookTest {
     Mockito.verify(mockGraphService, Mockito.times(2)).addEdge(Mockito.any());
     // Forced document update
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
   }
 
   @Test
@@ -438,7 +472,7 @@ public class UpdateIndicesHookTest {
     reprocessUIHook.invoke(changeLog);
     Mockito.verify(mockGraphService, Mockito.times(3)).addEdge(Mockito.any());
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
-        .upsertDocument(Mockito.any(), Mockito.any(), Mockito.any());
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
   }
 
   private EntityRegistry createMockEntityRegistry() {

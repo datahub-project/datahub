@@ -20,6 +20,8 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
     KafkaAuditHeaderClass,
     MetadataChangeProposalClass,
     OwnerClass,
@@ -74,6 +76,15 @@ class Ownership(ConfigModel):
         return v
 
 
+class InstitutionMemoryElement(ConfigModel):
+    url: str
+    description: str
+
+
+class InstitutionMemory(ConfigModel):
+    elements: Optional[List[InstitutionMemoryElement]] = None
+
+
 class DataProduct(ConfigModel):
     """This is a DataProduct class which represents a DataProduct
 
@@ -81,6 +92,7 @@ class DataProduct(ConfigModel):
         id (str): The id of the Data Product
         domain (str): The domain that the Data Product belongs to. Either as a name or a fully-qualified urn.
         owners (Optional[List[str, Ownership]]): A list of owners and their types.
+        institutional_memory (Optional[InstitutionMemory]): A list of institutional memory elements
         display_name (Optional[str]): The name of the Data Product to display in the UI
         description (Optional[str]): A documentation string for the Data Product
         tags (Optional[List[str]]): An array of tags (either bare ids or urns) for the Data Product
@@ -94,6 +106,7 @@ class DataProduct(ConfigModel):
     assets: Optional[List[str]] = None
     display_name: Optional[str] = None
     owners: Optional[List[Union[str, Ownership]]] = None
+    institutional_memory: Optional[InstitutionMemory] = None
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
@@ -251,6 +264,22 @@ class DataProduct(ConfigModel):
             )
             yield mcp
 
+        if self.institutional_memory and self.institutional_memory.elements:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=InstitutionalMemoryClass(
+                    elements=[
+                        InstitutionalMemoryMetadataClass(
+                            url=element.url,
+                            description=element.description,
+                            createStamp=self._mint_auditstamp("yaml"),
+                        )
+                        for element in self.institutional_memory.elements
+                    ]
+                ),
+            )
+            yield mcp
+
         # Finally emit status
         yield MetadataChangeProposalWrapper(
             entityUrn=self.urn, aspect=StatusClass(removed=False)
@@ -276,7 +305,7 @@ class DataProduct(ConfigModel):
         cls,
         file: Path,
         graph: DataHubGraph,
-    ) -> "DataProduct":
+    ) -> DataProduct:
         with open(file) as fp:
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             orig_dictionary = yaml.load(fp)
@@ -291,7 +320,7 @@ class DataProduct(ConfigModel):
             return parsed_data_product
 
     @classmethod
-    def from_datahub(cls, graph: DataHubGraph, id: str) -> "DataProduct":
+    def from_datahub(cls, graph: DataHubGraph, id: str) -> DataProduct:
         data_product_properties: Optional[
             DataProductPropertiesClass
         ] = graph.get_aspect(id, DataProductPropertiesClass)
@@ -384,7 +413,7 @@ class DataProduct(ConfigModel):
                         patches_drop[i] = o
 
         # Figure out what if any are new owners to add
-        new_owners_to_add = set(o for o in new_owner_type_map) - set(owners_matched)
+        new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)
         if new_owners_to_add:
             for new_owner in new_owners_to_add:
                 new_owner_type = new_owner_type_map[new_owner]

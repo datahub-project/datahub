@@ -8,7 +8,7 @@ configurations {
 }
 
 dependencies {
-    implementation externalDependency.jsonPatch
+    implementation 'com.github.java-json-tools:json-patch:1.13' // TODO: Replace with jakarta.json
     implementation project(':entity-registry')
     implementation project(':metadata-utils')
     implementation project(':metadata-events:mxe-avro')
@@ -17,7 +17,11 @@ dependencies {
     api project(path: ':metadata-models', configuration: 'dataTemplate')
     api project(':metadata-models')
 
-    implementation project(':metadata-service:restli-client')
+    // Consider using the restli-client-api instead of dependency on project(':metadata-service:restli-client')
+    // to avoid circular dependencies with the restli/pegasus code gen
+    implementation project(':metadata-service:restli-client-api')
+    implementation project(':metadata-auth:auth-api')
+    implementation project(':metadata-operation-context')
     implementation project(':metadata-service:configuration')
 
     implementation externalDependency.slf4jApi

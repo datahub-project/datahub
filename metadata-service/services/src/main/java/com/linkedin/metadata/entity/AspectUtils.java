@@ -1,6 +1,5 @@
 package com.linkedin.metadata.entity;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -13,6 +12,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -25,14 +25,14 @@ public class AspectUtils {
   private AspectUtils() {}
 
   public static Map<Urn, Aspect> batchGetLatestAspect(
+      @Nonnull OperationContext opContext,
       String entity,
       Set<Urn> urns,
       String aspectName,
-      EntityClient entityClient,
-      Authentication authentication)
+      EntityClient entityClient)
       throws Exception {
     final Map<Urn, EntityResponse> gmsResponse =
-        entityClient.batchGetV2(entity, urns, ImmutableSet.of(aspectName), authentication);
+        entityClient.batchGetV2(opContext, entity, urns, ImmutableSet.of(aspectName));
     final Map<Urn, Aspect> finalResult = new HashMap<>();
     for (Urn urn : urns) {
       EntityResponse response = gmsResponse.get(urn);

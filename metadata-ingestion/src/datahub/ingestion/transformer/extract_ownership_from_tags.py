@@ -1,10 +1,11 @@
 import logging
 import re
 from functools import lru_cache
-from typing import List, Optional, Sequence, Union, cast
+from typing import Dict, List, Optional, Sequence, Union, cast
 
-from datahub.configuration.common import TransformerSemanticsConfigModel
-from datahub.emitter.mce_builder import Aspect
+from datahub.configuration.common import ConfigModel
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mce_builder import Aspect, make_ownership_type_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTagsTransformer
@@ -22,12 +23,18 @@ from datahub.utilities.urns.tag_urn import TagUrn
 logger = logging.getLogger(__name__)
 
 
-class ExtractOwnersFromTagsConfig(TransformerSemanticsConfigModel):
-    tag_prefix: str
+class ExtractOwnersFromTagsConfig(ConfigModel):
+    tag_pattern: str = ""
     is_user: bool = True
+    tag_character_mapping: Optional[Dict[str, str]] = None
     email_domain: Optional[str] = None
+    extract_owner_type_from_tag_pattern: bool = False
     owner_type: str = "TECHNICAL_OWNER"
     owner_type_urn: Optional[str] = None
+
+    _rename_tag_prefix_to_tag_pattern = pydantic_renamed_field(
+        "tag_prefix", "tag_pattern"
+    )
 
 
 @lru_cache(maxsize=10)
@@ -63,6 +70,36 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
             return owner_str + "@" + self.config.email_domain
         return owner_str
 
+    def convert_tag_as_per_mapping(self, tag: str) -> str:
+        """
+        Function to modify tag as per provided tag character mapping. It also handles the overlappings in the mapping.
+        Eg: '--':'-' & '-':'@' should not cause incorrect mapping.
+        """
+        if self.config.tag_character_mapping:
+            # indices list to keep track of the indices where replacements have been made
+            indices: List[int] = list()
+            for old_char in sorted(
+                self.config.tag_character_mapping.keys(),
+                key=len,
+                reverse=True,
+            ):
+                new_char = self.config.tag_character_mapping[old_char]
+                index = tag.find(old_char)
+                while index != -1:
+                    if index not in indices:
+                        tag = tag[:index] + new_char + tag[index + len(old_char) :]
+                        # Adjust indices for overlapping replacements
+                        indices = [
+                            each + (len(new_char) - len(old_char))
+                            if each > index
+                            else each
+                            for each in indices
+                        ]
+                        indices.append(index)
+                    # Find the next occurrence of old_char, starting from the next index
+                    index = tag.find(old_char, index + len(new_char))
+        return tag
+
     def handle_end_of_stream(
         self,
     ) -> Sequence[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
@@ -79,29 +116,41 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
         owners: List[OwnerClass] = []
 
         for tag_class in tags:
-            tag_urn = TagUrn.from_string(tag_class.tag)
-            tag_str = tag_urn.entity_ids[0]
-            re_match = re.search(self.config.tag_prefix, tag_str)
+            tag_str = TagUrn.from_string(tag_class.tag).name
+            tag_str = self.convert_tag_as_per_mapping(tag_str)
+            re_match = re.search(self.config.tag_pattern, tag_str)
             if re_match:
                 owner_str = tag_str[re_match.end() :].strip()
                 owner_urn_str = self.get_owner_urn(owner_str)
-                if self.config.is_user:
-                    owner_urn = str(CorpuserUrn(owner_urn_str))
-                else:
-                    owner_urn = str(CorpGroupUrn(owner_urn_str))
-                owner_type = get_owner_type(self.config.owner_type)
-                if owner_type == OwnershipTypeClass.CUSTOM:
-                    assert (
-                        self.config.owner_type_urn is not None
-                    ), "owner_type_urn must be set if owner_type is CUSTOM"
-
-                owners.append(
-                    OwnerClass(
-                        owner=owner_urn,
-                        type=owner_type,
-                        typeUrn=self.config.owner_type_urn,
-                    )
+                owner_urn = (
+                    str(CorpuserUrn(owner_urn_str))
+                    if self.config.is_user
+                    else str(CorpGroupUrn(owner_urn_str))
                 )
+
+                if self.config.extract_owner_type_from_tag_pattern:
+                    if re_match.groups():
+                        owners.append(
+                            OwnerClass(
+                                owner=owner_urn,
+                                type=OwnershipTypeClass.CUSTOM,
+                                typeUrn=make_ownership_type_urn(re_match.group(1)),
+                            )
+                        )
+                else:
+                    owner_type = get_owner_type(self.config.owner_type)
+                    if owner_type == OwnershipTypeClass.CUSTOM:
+                        assert (
+                            self.config.owner_type_urn is not None
+                        ), "owner_type_urn must be set if owner_type is CUSTOM"
+
+                    owners.append(
+                        OwnerClass(
+                            owner=owner_urn,
+                            type=owner_type,
+                            typeUrn=self.config.owner_type_urn,
+                        )
+                    )
 
         self.owner_mcps.append(
             MetadataChangeProposalWrapper(
@@ -111,5 +160,4 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
                 ),
             )
         )
-
-        return None
+        return aspect
