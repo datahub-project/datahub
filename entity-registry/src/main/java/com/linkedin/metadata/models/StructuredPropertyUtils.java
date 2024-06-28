@@ -81,6 +81,34 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * Given a structured property input field or facet name, return a valid structured property facet
+   * name
+   *
+   * @param fieldOrFacetName input name
+   * @param aspectRetriever aspect retriever
+   * @return guranteed facet name
+   */
+  public static Optional<String> toStructuredPropertyFacetName(
+      @Nonnull String fieldOrFacetName, @Nullable AspectRetriever aspectRetriever) {
+    return lookupDefinitionFromFilterOrFacetName(fieldOrFacetName, aspectRetriever)
+        .map(
+            urnDefinition -> {
+              switch (getLogicalValueType(urnDefinition.getSecond())) {
+                case DATE:
+                case NUMBER:
+                  return STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
+                      + StructuredPropertyUtils.toElasticsearchFieldName(
+                          urnDefinition.getFirst(), urnDefinition.getSecond());
+                default:
+                  return STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
+                      + StructuredPropertyUtils.toElasticsearchFieldName(
+                          urnDefinition.getFirst(), urnDefinition.getSecond())
+                      + ".keyword";
+              }
+            });
+  }
+
+  /**
    * Lookup structured property definition given the name used for the field in APIs such as a
    * search filter or aggregation query facet name.
    *
