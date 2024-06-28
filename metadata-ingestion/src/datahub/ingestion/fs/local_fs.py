@@ -19,10 +19,8 @@ class LocalFileSystem(FileSystem):
         p = pathlib.Path(path)
         if p.is_file():
             return [self.file_status(path)]
-        elif p.is_dir():
-            return iter([self.file_status(str(x)) for x in p.iterdir()])
         else:
-            raise Exception(f"Failed to process {path}")
+            return iter([self.file_status(str(x)) for x in p.iterdir()])
 
     def file_status(self, path: str) -> FileInfo:
         if os.path.isfile(path):
