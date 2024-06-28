@@ -96,8 +96,8 @@ class CommonProperty:
 
 @dataclass
 class Metastore(CommonProperty):
-    global_metastore_id: str  # Global across clouds and regions
-    metastore_id: str
+    global_metastore_id: Optional[str]  # Global across clouds and regions
+    metastore_id: Optional[str]
     owner: Optional[str]
     cloud: Optional[str]
     region: Optional[str]
@@ -107,7 +107,7 @@ class Metastore(CommonProperty):
 class Catalog(CommonProperty):
     metastore: Optional[Metastore]
     owner: Optional[str]
-    type: Union[CatalogType, CustomCatalogType]
+    type: Optional[Union[CatalogType, CustomCatalogType]]
 
 
 @dataclass
@@ -224,14 +224,14 @@ class Table(CommonProperty):
     columns: List[Column]
     storage_location: Optional[str]
     data_source_format: Optional[DataSourceFormat]
-    table_type: Union[TableType, HiveTableType]
+    table_type: Optional[Union[TableType, HiveTableType]]
     owner: Optional[str]
     generation: Optional[int]
     created_at: Optional[datetime]
     created_by: Optional[str]
     updated_at: Optional[datetime]
     updated_by: Optional[str]
-    table_id: str
+    table_id: Optional[str]
     view_definition: Optional[str]
     properties: Dict[str, str]
     upstreams: Dict[TableReference, Dict[str, List[str]]] = field(default_factory=dict)
@@ -252,16 +252,16 @@ class Table(CommonProperty):
 
 @dataclass
 class Query:
-    query_id: str
+    query_id: Optional[str]
     query_text: str
-    statement_type: QueryStatementType
+    statement_type: Optional[QueryStatementType]
     start_time: datetime
     end_time: datetime
     # User who ran the query
-    user_id: int
+    user_id: Optional[int]
     user_name: Optional[str]  # Email or username
     # User whose credentials were used to run the query
-    executed_as_user_id: int
+    executed_as_user_id: Optional[int]
     executed_as_user_name: Optional[str]
 
 
@@ -310,9 +310,9 @@ class ColumnProfile:
 class Notebook:
     id: NotebookId
     path: str
-    language: Language
-    created_at: datetime
-    modified_at: datetime
+    language: Optional[Language]
+    created_at: Optional[datetime]
+    modified_at: Optional[datetime]
 
     upstreams: FrozenSet[TableReference] = field(default_factory=frozenset)
 

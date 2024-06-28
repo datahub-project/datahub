@@ -2,10 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
@@ -26,7 +27,8 @@ public class DeleteGlossaryEntityResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService mockService = getMockEntityService();
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_TERM_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_URN)), eq(true)))
+        .thenReturn(true);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -38,8 +40,7 @@ public class DeleteGlossaryEntityResolverTest {
     assertTrue(resolver.get(mockEnv).get());
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(
-            Mockito.eq(Urn.createFromString(TEST_TERM_URN)), Mockito.any(Authentication.class));
+        .deleteEntity(any(), Mockito.eq(Urn.createFromString(TEST_TERM_URN)));
   }
 
   @Test
@@ -47,10 +48,11 @@ public class DeleteGlossaryEntityResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .deleteEntity(Mockito.any(), Mockito.any(Authentication.class));
+        .deleteEntity(any(), Mockito.any());
 
     EntityService mockService = getMockEntityService();
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_TERM_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_URN)), eq(true)))
+        .thenReturn(true);
 
     DeleteGlossaryEntityResolver resolver =
         new DeleteGlossaryEntityResolver(mockClient, mockService);

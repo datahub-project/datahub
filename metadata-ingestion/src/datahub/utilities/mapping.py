@@ -6,8 +6,13 @@ import time
 from functools import reduce
 from typing import Any, Dict, List, Mapping, Match, Optional, Union, cast
 
+from datahub.configuration.common import ConfigModel
 from datahub.emitter import mce_builder
-from datahub.emitter.mce_builder import OwnerType
+from datahub.emitter.mce_builder import (
+    OwnerType,
+    make_user_urn,
+    validate_ownership_type,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     InstitutionalMemoryClass,
@@ -29,6 +34,23 @@ def _get_best_match(the_match: Match, group_name: str) -> str:
         return the_match.group(1)
 
     return the_match.group(0)
+
+
+def _make_owner_category_list(
+    owner_type: OwnerType,
+    owner_category: Any,
+    owner_category_urn: Optional[str],
+    owner_ids: List[str],
+) -> List[Dict]:
+
+    return [
+        {
+            "urn": mce_builder.make_owner_urn(owner_id, owner_type),
+            "category": owner_category,
+            "categoryUrn": owner_category_urn,
+        }
+        for owner_id in owner_ids
+    ]
 
 
 _match_regexp = re.compile(r"{{\s*\$match\s*}}", flags=re.MULTILINE)
@@ -64,6 +86,36 @@ class Constants:
     TAG_DIST_KEY = "DIST_KEY"
     TAG_SORT_KEY = "SORT_KEY"
     SEPARATOR = "separator"
+
+
+class _MappingOwner(ConfigModel):
+    owner: str
+    owner_type: str = OwnershipTypeClass.DATAOWNER
+
+
+class _DatahubProps(ConfigModel):
+    owners: List[Union[str, _MappingOwner]]
+
+    def make_owner_category_list(self) -> List[Dict]:
+        res = []
+        for owner in self.owners:
+            if isinstance(owner, str):
+                owner_id = owner
+                owner_category = OwnershipTypeClass.DATAOWNER
+            else:
+                owner_id = owner.owner
+                owner_category = owner.owner_type
+            owner_id = make_user_urn(owner_id)
+            owner_category, owner_category_urn = validate_ownership_type(owner_category)
+
+            res.append(
+                {
+                    "urn": owner_id,
+                    "category": owner_category,
+                    "categoryUrn": owner_category_urn,
+                }
+            )
+        return res
 
 
 class OperationProcessor:
@@ -111,7 +163,7 @@ class OperationProcessor:
         self.owner_source_type = owner_source_type
         self.match_nested_props = match_nested_props
 
-    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:
+    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:  # noqa: C901
         # Defining the following local variables -
         # operations_map - the final resulting map when operations are processed.
         # Against each operation the values to be applied are stored.
@@ -120,9 +172,35 @@ class OperationProcessor:
         # operation config: map which contains the parameters to carry out that operation.
         # For e.g for add_tag operation config will have the tag value.
         # operation_type: the type of operation (add_tag, add_term, etc.)
-        aspect_map: Dict[str, Any] = {}  # map of aspect name to aspect object
+
+        # Process the special "datahub" property, which supports tags, terms, and owners.
+        operations_map: Dict[str, list] = {}
         try:
-            operations_map: Dict[str, Union[set, list]] = {}
+            datahub_prop = raw_props.get("datahub")
+            if datahub_prop and isinstance(datahub_prop, dict):
+                if datahub_prop.get("tags"):
+                    # Note that tags get converted to urns later because we need to support the tag prefix.
+                    tags = datahub_prop["tags"]
+                    operations_map.setdefault(Constants.ADD_TAG_OPERATION, []).extend(
+                        tags
+                    )
+
+                if datahub_prop.get("terms"):
+                    terms = datahub_prop["terms"]
+                    operations_map.setdefault(Constants.ADD_TERM_OPERATION, []).extend(
+                        mce_builder.make_term_urn(term) for term in terms
+                    )
+
+                if datahub_prop.get("owners"):
+                    owners = _DatahubProps.parse_obj_allow_extras(datahub_prop)
+                    operations_map.setdefault(Constants.ADD_OWNER_OPERATION, []).extend(
+                        owners.make_owner_category_list()
+                    )
+        except Exception as e:
+            logger.error(f"Error while processing datahub property: {e}")
+
+        # Process the actual directives.
+        try:
             for operation_key in self.operation_defs:
                 operation_type = self.operation_defs.get(operation_key, {}).get(
                     Constants.OPERATION
@@ -149,43 +227,53 @@ class OperationProcessor:
                     operation = self.get_operation_value(
                         operation_key, operation_type, operation_config, maybe_match
                     )
+
                     if operation_type == Constants.ADD_TERMS_OPERATION:
                         # add_terms operation is a special case where the operation value is a list of terms.
                         # We want to aggregate these values with the add_term operation.
                         operation_type = Constants.ADD_TERM_OPERATION
 
                     if operation:
-                        if isinstance(operation, (str, list)):
-                            operations_value_set = operations_map.get(
-                                operation_type, set()
+                        if (
+                            isinstance(operation, list)
+                            and operation_type == Constants.ADD_OWNER_OPERATION
+                        ):
+                            operations_map.setdefault(operation_type, []).extend(
+                                operation
                             )
-                            if isinstance(operation, list):
-                                operations_value_set.update(operation)  # type: ignore
-                            else:
-                                operations_value_set.add(operation)  # type: ignore
-                            operations_map[operation_type] = operations_value_set
+
+                        elif isinstance(operation, (str, list)):
+                            operations_map.setdefault(operation_type, []).extend(
+                                operation
+                                if isinstance(operation, list)
+                                else [operation]
+                            )
                         else:
-                            operations_value_list = operations_map.get(
-                                operation_type, list()
+                            operations_map.setdefault(operation_type, []).append(
+                                operation
                             )
-                            operations_value_list.append(operation)  # type: ignore
-                            operations_map[operation_type] = operations_value_list
-            aspect_map = self.convert_to_aspects(operations_map)
         except Exception as e:
             logger.error(f"Error while processing operation defs over raw_props: {e}")
+
+        aspect_map: Dict[str, Any] = {}  # map of aspect name to aspect object
+        try:
+            aspect_map = self.convert_to_aspects(operations_map)
+        except Exception as e:
+            logger.error(f"Error while converting operations map to aspects: {e}")
         return aspect_map
 
-    def convert_to_aspects(
-        self, operation_map: Dict[str, Union[set, list]]
-    ) -> Dict[str, Any]:
+    def convert_to_aspects(self, operation_map: Dict[str, list]) -> Dict[str, Any]:
         aspect_map: Dict[str, Any] = {}
 
         if Constants.ADD_TAG_OPERATION in operation_map:
             tag_aspect = mce_builder.make_global_tag_aspect_with_tag_list(
-                sorted(operation_map[Constants.ADD_TAG_OPERATION])
+                sorted(set(operation_map[Constants.ADD_TAG_OPERATION]))
             )
+
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
+
         if Constants.ADD_OWNER_OPERATION in operation_map:
+
             owner_aspect = OwnershipClass(
                 owners=[
                     OwnerClass(
@@ -202,11 +290,12 @@ class OperationProcessor:
                     )
                 ]
             )
+
             aspect_map[Constants.ADD_OWNER_OPERATION] = owner_aspect
 
         if Constants.ADD_TERM_OPERATION in operation_map:
             term_aspect = mce_builder.make_glossary_terms_aspect_from_urn_list(
-                sorted(operation_map[Constants.ADD_TERM_OPERATION])
+                sorted(set(operation_map[Constants.ADD_TERM_OPERATION]))
             )
             aspect_map[Constants.ADD_TERM_OPERATION] = term_aspect
 
@@ -262,7 +351,7 @@ class OperationProcessor:
         operation_type: str,
         operation_config: Dict,
         match: Match,
-    ) -> Optional[Union[str, Dict, List[str]]]:
+    ) -> Optional[Union[str, Dict, List[str], List[Dict]]]:
         if (
             operation_type == Constants.ADD_TAG_OPERATION
             and operation_config[Constants.TAG]
@@ -278,30 +367,34 @@ class OperationProcessor:
             and operation_config[Constants.OWNER_TYPE]
         ):
             owner_id = _get_best_match(match, "owner")
+
+            owner_ids: List[str] = [_id.strip() for _id in owner_id.split(",")]
+
             owner_category = (
                 operation_config.get(Constants.OWNER_CATEGORY)
                 or OwnershipTypeClass.DATAOWNER
             )
-            owner_category_urn = None
-            if owner_category.startswith("urn:li:"):
-                owner_category_urn = owner_category
-                owner_category = OwnershipTypeClass.DATAOWNER
-            else:
-                owner_category = owner_category.upper()
+            owner_category, owner_category_urn = validate_ownership_type(owner_category)
+
             if self.strip_owner_email_id:
-                owner_id = self.sanitize_owner_ids(owner_id)
-            if operation_config[Constants.OWNER_TYPE] == Constants.USER_OWNER:
-                return {
-                    "urn": mce_builder.make_owner_urn(owner_id, OwnerType.USER),
-                    "category": owner_category,
-                    "categoryUrn": owner_category_urn,
-                }
-            elif operation_config[Constants.OWNER_TYPE] == Constants.GROUP_OWNER:
-                return {
-                    "urn": mce_builder.make_owner_urn(owner_id, OwnerType.GROUP),
-                    "category": owner_category,
-                    "categoryUrn": owner_category_urn,
-                }
+                owner_ids = [
+                    self.sanitize_owner_ids(owner_id) for owner_id in owner_ids
+                ]
+
+            owner_type_mapping: Dict[str, OwnerType] = {
+                Constants.USER_OWNER: OwnerType.USER,
+                Constants.GROUP_OWNER: OwnerType.GROUP,
+            }
+            if operation_config[Constants.OWNER_TYPE] in owner_type_mapping:
+                return _make_owner_category_list(
+                    owner_ids=owner_ids,
+                    owner_category=owner_category,
+                    owner_category_urn=owner_category_urn,
+                    owner_type=owner_type_mapping[
+                        operation_config[Constants.OWNER_TYPE]
+                    ],
+                )
+
         elif (
             operation_type == Constants.ADD_TERM_OPERATION
             and operation_config[Constants.TERM]

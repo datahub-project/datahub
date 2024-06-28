@@ -8,8 +8,18 @@ import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
+from datahub.emitter.mce_builder import (
+    make_chart_urn,
+    make_dashboard_urn,
+    make_dataset_urn,
+    make_domain_urn,
+)
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -49,6 +59,7 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +83,9 @@ chart_type_from_viz_type = {
 }
 
 
-class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
+class SupersetConfig(
+    StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
+):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(
@@ -81,6 +94,10 @@ class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
     display_uri: Optional[str] = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
+    )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description="regex patterns for tables to filter to assign domain_key. ",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
@@ -92,10 +109,7 @@ class SupersetConfig(StatefulIngestionConfigBase, ConfigModel):
 
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
-    env: str = Field(
-        default=DEFAULT_ENV,
-        description="Environment to use in namespace when constructing URNs",
-    )
+
     # TODO: Check and remove this if no longer needed.
     # Config database_alias is removed from sql sources.
     database_alias: Dict[str, str] = Field(
@@ -156,7 +170,6 @@ class SupersetSource(StatefulIngestionSourceBase):
     config: SupersetConfig
     report: StaleEntityRemovalSourceReport
     platform = "superset"
-    stale_entity_removal_handler: StaleEntityRemovalHandler
 
     def __hash__(self):
         return id(self)
@@ -188,6 +201,12 @@ class SupersetSource(StatefulIngestionSourceBase):
             }
         )
 
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[domain_id for domain_id in self.config.domain],
+                graph=self.ctx.graph,
+            )
+
         # Test the connection
         test_response = self.session.get(f"{self.config.connect_uri}/api/v1/dashboard/")
         if test_response.status_code == 200:
@@ -206,8 +225,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         ).json()
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
         if sqlalchemy_uri is None:
-            return database_response.get("result", {}).get("backend", "external")
-        return get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
+            platform_name = database_response.get("result", {}).get(
+                "backend", "external"
+            )
+        else:
+            platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
+        if platform_name == "awsathena":
+            return "athena"
+        return platform_name
 
     @lru_cache(maxsize=None)
     def get_datasource_urn_from_id(self, datasource_id):
@@ -223,19 +248,21 @@ class SupersetSource(StatefulIngestionSourceBase):
         database_name = self.config.database_alias.get(database_name, database_name)
 
         if database_id and table_name:
-            platform = self.get_platform_from_database_id(database_id)
-            platform_urn = f"urn:li:dataPlatform:{platform}"
-            dataset_urn = (
-                f"urn:li:dataset:("
-                f"{platform_urn},{database_name + '.' if database_name else ''}"
-                f"{schema_name + '.' if schema_name else ''}"
-                f"{table_name},{self.config.env})"
+            return make_dataset_urn(
+                platform=self.get_platform_from_database_id(database_id),
+                name=".".join(
+                    name for name in [database_name, schema_name, table_name] if name
+                ),
+                env=self.config.env,
             )
-            return dataset_urn
         return None
 
     def construct_dashboard_from_api_data(self, dashboard_data):
-        dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_data['id']})"
+        dashboard_urn = make_dashboard_urn(
+            platform=self.platform,
+            name=dashboard_data["id"],
+            platform_instance=self.config.platform_instance,
+        )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[Status(removed=False)],
@@ -264,16 +291,42 @@ class SupersetSource(StatefulIngestionSourceBase):
             if not key.startswith("CHART-"):
                 continue
             chart_urns.append(
-                f"urn:li:chart:({self.platform},{value.get('meta', {}).get('chartId', 'unknown')})"
+                make_chart_urn(
+                    platform=self.platform,
+                    name=value.get("meta", {}).get("chartId", "unknown"),
+                    platform_instance=self.config.platform_instance,
+                )
             )
 
+        # Build properties
+        custom_properties = {
+            "Status": str(dashboard_data.get("status")),
+            "IsPublished": str(dashboard_data.get("published", False)).lower(),
+            "Owners": ", ".join(
+                map(
+                    lambda owner: owner.get("username", "unknown"),
+                    dashboard_data.get("owners", []),
+                )
+            ),
+            "IsCertified": str(
+                True if dashboard_data.get("certified_by") else False
+            ).lower(),
+        }
+
+        if dashboard_data.get("certified_by"):
+            custom_properties["CertifiedBy"] = dashboard_data.get("certified_by")
+            custom_properties["CertificationDetails"] = str(
+                dashboard_data.get("certification_details")
+            )
+
+        # Create DashboardInfo object
         dashboard_info = DashboardInfoClass(
             description="",
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
             dashboardUrl=dashboard_url,
-            customProperties={},
+            customProperties=custom_properties,
         )
         dashboard_snapshot.aspects.append(dashboard_info)
         return dashboard_snapshot
@@ -305,9 +358,17 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
                 yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                yield from self._get_domain_wu(
+                    title=dashboard_data.get("dashboard_title", ""),
+                    entity_urn=dashboard_snapshot.urn,
+                )
 
     def construct_chart_from_chart_data(self, chart_data):
-        chart_urn = f"urn:li:chart:({self.platform},{chart_data['id']})"
+        chart_urn = make_chart_urn(
+            platform=self.platform,
+            name=chart_data["id"],
+            platform_instance=self.config.platform_instance,
+        )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[Status(removed=False)],
@@ -404,6 +465,10 @@ class SupersetSource(StatefulIngestionSourceBase):
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
                 yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+                yield from self._get_domain_wu(
+                    title=chart_data.get("slice_name", ""),
+                    entity_urn=chart_snapshot.urn,
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
@@ -419,3 +484,18 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
+
+    def _get_domain_wu(self, title: str, entity_urn: str) -> Iterable[MetadataWorkUnit]:
+        domain_urn = None
+        for domain, pattern in self.config.domain.items():
+            if pattern.allowed(title):
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
+                break
+
+        if domain_urn:
+            yield from add_domain_to_entity_wu(
+                entity_urn=entity_urn,
+                domain_urn=domain_urn,
+            )

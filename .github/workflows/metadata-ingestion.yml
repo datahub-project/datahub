@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/metadata-ingestion.yml"
       - "metadata-ingestion/**"
+      - "metadata-ingestion-modules/**"
       - "metadata-models/**"
   pull_request:
     branches:
@@ -13,6 +14,7 @@ on:
     paths:
       - ".github/workflows/metadata-ingestion.yml"
       - "metadata-ingestion/**"
+      - "metadata-ingestion-modules/**"
       - "metadata-models/**"
   release:
     types: [published]
@@ -31,7 +33,7 @@ jobs:
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.7", "3.10"]
+        python-version: ["3.8", "3.10"]
         command:
           [
             "testQuick",
@@ -40,7 +42,7 @@ jobs:
             "testIntegrationBatch2",
           ]
         include:
-          - python-version: "3.7"
+          - python-version: "3.8"
           - python-version: "3.10"
       fail-fast: false
     steps:
@@ -49,7 +51,17 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: actions/checkout@v3
+      - uses: gradle/gradle-build-action@v2
+      - uses: acryldata/sane-checkout-action@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
@@ -78,6 +90,7 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
+            !**/binary/**
       - name: Upload coverage to Codecov
         if: ${{ always() && matrix.python-version == '3.10' }}
         uses: codecov/codecov-action@v3

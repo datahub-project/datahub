@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.schema.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import io.datahubproject.schema_registry.openapi.generated.CompatibilityCheckResponse;
@@ -22,10 +23,12 @@ import io.swagger.api.SchemasApi;
 import io.swagger.api.SubjectsApi;
 import io.swagger.api.V1Api;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import javax.servlet.http.HttpServletRequest;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -33,6 +36,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 /** DataHub Rest Controller implementation for Confluent's Schema Registry OpenAPI spec. */
@@ -56,6 +60,8 @@ public class SchemaRegistryController
   private final ObjectMapper objectMapper;
 
   private final HttpServletRequest request;
+  private static final Set<String> SCHEMA_VERSIONS =
+      ImmutableSet.of(String.valueOf(Constants.FIXED_SCHEMA_VERSION), "latest");
 
   @Qualifier("schemaRegistryService")
   private final SchemaRegistryService _schemaRegistryService;
@@ -109,8 +115,30 @@ public class SchemaRegistryController
   @Override
   public ResponseEntity<Schema> getSchemaByVersion(
       String subject, String version, Boolean deleted) {
-    log.error("[SubjectsApi] getSchemaByVersion method not implemented");
-    return SubjectsApi.super.getSchemaByVersion(subject, version, deleted);
+    final String topicName = subject.replaceFirst("-value", "");
+
+    if (!SCHEMA_VERSIONS.contains(version)) {
+      log.error(
+          "[SubjectsApi] getSchemaByVersion subject {} version {} not found.", subject, version);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    return _schemaRegistryService
+        .getSchemaForTopic(topicName)
+        .map(
+            schema -> {
+              Schema result = new Schema();
+              result.setSubject(subject);
+              result.setVersion(Constants.FIXED_SCHEMA_VERSION);
+              result.setId(_schemaRegistryService.getSchemaIdForTopic(topicName).get());
+              result.setSchema(schema.toString());
+              return new ResponseEntity<>(result, HttpStatus.OK);
+            })
+        .orElseGet(
+            () -> {
+              log.error("[SubjectsApi] getSchemaByVersion couldn't find topic {}.", topicName);
+              return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            });
   }
 
   @Override
@@ -129,8 +157,19 @@ public class SchemaRegistryController
   @Override
   public ResponseEntity<List<Integer>> listVersions(
       String subject, Boolean deleted, Boolean deletedOnly) {
-    log.error("[SubjectsApi] listVersions method not implemented");
-    return SubjectsApi.super.listVersions(subject, deleted, deletedOnly);
+    final String topicName = subject.replaceFirst("-value", "");
+    return _schemaRegistryService
+        .getSchemaForTopic(topicName)
+        .map(
+            schema -> {
+              return new ResponseEntity<>(
+                  Arrays.asList(Constants.FIXED_SCHEMA_VERSION), HttpStatus.OK);
+            })
+        .orElseGet(
+            () -> {
+              log.error("[SubjectsApi] listVersions couldn't find topic with name {}.", topicName);
+              return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            });
   }
 
   @Override
@@ -211,14 +250,21 @@ public class SchemaRegistryController
 
   @Override
   public ResponseEntity<Config> getSubjectLevelConfig(String subject, Boolean defaultToGlobal) {
-    log.error("[ConfigApi] getSubjectLevelConfig method not implemented");
-    return ConfigApi.super.getSubjectLevelConfig(subject, defaultToGlobal);
+    return getTopLevelConfig();
   }
 
+  @RequestMapping(
+      value = {"/config", "/config/"},
+      produces = {
+        "application/vnd.schemaregistry.v1+json",
+        "application/vnd.schemaregistry+json; qs=0.9",
+        "application/json; qs=0.5"
+      },
+      method = RequestMethod.GET)
   @Override
   public ResponseEntity<Config> getTopLevelConfig() {
-    log.error("[ConfigApi] getTopLevelConfig method not implemented");
-    return ConfigApi.super.getTopLevelConfig();
+    return ResponseEntity.ok(
+        new Config().compatibilityLevel(Config.CompatibilityLevelEnum.BACKWARD));
   }
 
   @Override
@@ -274,8 +320,9 @@ public class SchemaRegistryController
         .map(
             schema -> {
               SchemaString result = new SchemaString();
-              result.setMaxId(id);
-              result.setSchemaType("AVRO");
+              if (fetchMaxId) {
+                result.setMaxId(id);
+              }
               result.setSchema(schema.toString());
               return new ResponseEntity<>(result, HttpStatus.OK);
             })

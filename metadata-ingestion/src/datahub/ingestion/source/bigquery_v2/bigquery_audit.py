@@ -12,6 +12,7 @@ from datahub.utilities.parsing_util import (
     get_first_missing_key,
     get_first_missing_key_any,
 )
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 AuditLogEntry = Any
 
@@ -80,7 +81,9 @@ class BigqueryTableIdentifier:
     @classmethod
     def from_string_name(cls, table: str) -> "BigqueryTableIdentifier":
         parts = table.split(".")
-        return cls(parts[0], parts[1], parts[2])
+        # If the table name contains dollar sign, it is a referrence to a partitioned table and we have to strip it
+        table = parts[2].split("$", 1)[0]
+        return cls(parts[0], parts[1], table)
 
     def raw_table_name(self):
         return f"{self.project_id}.{self.dataset}.{self.table}"
@@ -91,6 +94,7 @@ class BigqueryTableIdentifier:
             - removes shard suffix (table_yyyymmdd-> table)
             - removes wildcard part (table_yyyy* -> table)
             - remove time decorator (table@1624046611000 -> table)
+            - removes partition ids (table$20210101 -> table or table$__UNPARTITIONED__ -> table)
         """
         # if table name ends in _* or * or _yyyy* or _yyyymm* then we strip it as that represents a query on a sharded table
         shortened_table_name = re.sub(self._BIGQUERY_WILDCARD_REGEX, "", self.table)
@@ -100,6 +104,12 @@ class BigqueryTableIdentifier:
             shortened_table_name = matches.group(1)
             logger.debug(
                 f"Found table snapshot. Using {shortened_table_name} as the table name."
+            )
+
+        if "$" in shortened_table_name:
+            shortened_table_name = shortened_table_name.split("$", maxsplit=1)[0]
+            logger.debug(
+                f"Found partitioned table. Using {shortened_table_name} as the table name."
             )
 
         table_name, _ = self.get_table_and_shard(shortened_table_name)
@@ -177,6 +187,17 @@ class BigQueryTableRef:
         ):
             raise ValueError(f"invalid BigQuery table reference: {ref}")
         return cls(BigqueryTableIdentifier(parts[1], parts[3], parts[5]))
+
+    @classmethod
+    def from_urn(cls, urn: str) -> "BigQueryTableRef":
+        """Raises: ValueError if urn is not a valid BigQuery table URN."""
+        dataset_urn = DatasetUrn.create_from_string(urn)
+        split = dataset_urn.get_dataset_name().rsplit(".", 3)
+        if len(split) == 3:
+            project, dataset, table = split
+        else:
+            _, project, dataset, table = split
+        return cls(BigqueryTableIdentifier(project, dataset, table))
 
     def is_temporary_table(self, prefixes: List[str]) -> bool:
         for prefix in prefixes:
@@ -566,7 +587,7 @@ class ReadEvent:
         query_event: QueryEvent,
         debug_include_full_payloads: bool = False,
     ) -> "ReadEvent":
-        readEvent = ReadEvent(
+        return ReadEvent(
             actor_email=query_event.actor_email,
             timestamp=query_event.timestamp,
             resource=read_resource,
@@ -576,8 +597,6 @@ class ReadEvent:
             payload=query_event.payload if debug_include_full_payloads else None,
             from_query=True,
         )
-
-        return readEvent
 
     @classmethod
     def from_exported_bigquery_audit_metadata(

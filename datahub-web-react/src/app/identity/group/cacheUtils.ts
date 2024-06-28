@@ -44,6 +44,10 @@ const createFullGroup = (baseGroup) => {
             email: null,
         },
         memberCount: null,
+        roles: null,
+        editableProperties: {
+            pictureLink: null,
+        },
     };
 };
 

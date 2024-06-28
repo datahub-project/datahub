@@ -2,17 +2,15 @@ package com.linkedin.datahub.graphql.resolvers.tag;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTagInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
-import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -45,7 +43,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
     final CreateTagInput input =
         bindArgument(environment.getArgument("input"), CreateTagInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canCreateTags(context)) {
             throw new AuthorizationException(
@@ -61,8 +59,8 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
             key.setName(id);
 
             if (_entityClient.exists(
-                EntityKeyUtils.convertEntityKeyToUrn(key, TAG_ENTITY_NAME),
-                context.getAuthentication())) {
+                context.getOperationContext(),
+                EntityKeyUtils.convertEntityKeyToUrn(key, TAG_ENTITY_NAME))) {
               throw new IllegalArgumentException("This Tag already exists!");
             }
 
@@ -71,16 +69,10 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
                 buildMetadataChangeProposalWithKey(
                     key, TAG_ENTITY_NAME, TAG_PROPERTIES_ASPECT_NAME, mapTagProperties(input));
             String tagUrn =
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-            OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
-            if (!_entityService.exists(
-                UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
-              log.warn("Technical owner does not exist, defaulting to None ownership.");
-              ownershipType = OwnershipType.NONE;
-            }
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
             OwnerUtils.addCreatorAsOwner(
-                context, tagUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
+                context, tagUrn, OwnerEntityType.CORP_USER, _entityService);
             return tagUrn;
           } catch (Exception e) {
             log.error(
@@ -93,7 +85,9 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
                     "Failed to create Tag with id: %s, name: %s", input.getId(), input.getName()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private TagProperties mapTagProperties(final CreateTagInput input) {

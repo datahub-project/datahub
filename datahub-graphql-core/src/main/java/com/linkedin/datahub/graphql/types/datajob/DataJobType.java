@@ -40,7 +40,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -78,7 +77,9 @@ public class DataJobType
           DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           DATA_PRODUCTS_ASPECT_NAME,
           BROWSE_PATHS_V2_ASPECT_NAME,
-          SUB_TYPES_ASPECT_NAME);
+          SUB_TYPES_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
   private final EntityClient _entityClient;
 
@@ -111,14 +112,15 @@ public class DataJobType
       final List<String> urnStrs, @Nonnull final QueryContext context) throws Exception {
     final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     try {
+
       final Map<Urn, EntityResponse> dataJobMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               Constants.DATA_JOB_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
-      final List<EntityResponse> gmsResults = new ArrayList<>();
+      final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
         gmsResults.add(dataJobMap.getOrDefault(urn, null));
       }
@@ -128,7 +130,7 @@ public class DataJobType
                   gmsDataJob == null
                       ? null
                       : DataFetcherResult.<DataJob>newResult()
-                          .data(DataJobMapper.map(gmsDataJob))
+                          .data(DataJobMapper.map(context, gmsDataJob))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -147,14 +149,13 @@ public class DataJobType
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
     final SearchResult searchResult =
         _entityClient.search(
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
             "dataJob",
             query,
             facetFilters,
             start,
-            count,
-            context.getAuthentication(),
-            new SearchFlags().setFulltext(true));
-    return UrnSearchResultsMapper.map(searchResult);
+            count);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -166,8 +167,8 @@ public class DataJobType
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
-        _entityClient.autoComplete("dataJob", query, filters, limit, context.getAuthentication());
-    return AutoCompleteResultsMapper.map(result);
+        _entityClient.autoComplete(context.getOperationContext(), "dataJob", query, filters, limit);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -183,16 +184,22 @@ public class DataJobType
         path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
     final BrowseResult result =
         _entityClient.browse(
-            "dataJob", pathStr, facetFilters, start, count, context.getAuthentication());
-    return BrowseResultMapper.map(result);
+            context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)),
+            "dataJob",
+            pathStr,
+            facetFilters,
+            start,
+            count);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context)
       throws Exception {
     final StringArray result =
-        _entityClient.getBrowsePaths(DataJobUrn.createFromString(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+        _entityClient.getBrowsePaths(
+            context.getOperationContext(), DataJobUrn.createFromString(urn));
+    return BrowsePathsMapper.map(context, result);
   }
 
   @Override
@@ -200,14 +207,13 @@ public class DataJobType
       @Nonnull String urn, @Nonnull DataJobUpdateInput input, @Nonnull QueryContext context)
       throws Exception {
     if (isAuthorized(urn, input, context)) {
-      final CorpuserUrn actor =
-          CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
       final Collection<MetadataChangeProposal> proposals =
-          DataJobUpdateInputMapper.map(input, actor);
+          DataJobUpdateInputMapper.map(context, input, actor);
       proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
       try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+        _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
       } catch (RemoteInvocationException e) {
         throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
       }
@@ -224,7 +230,7 @@ public class DataJobType
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context.getActorUrn(),
         PoliciesConfig.DATA_JOB_PRIVILEGES.getResourceType(),
         urn,
         orPrivilegeGroups);

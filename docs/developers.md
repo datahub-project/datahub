@@ -9,10 +9,8 @@ title: "Local Development"
 - [Java 17 JDK](https://openjdk.org/projects/jdk/17/)
 - [Python 3.10](https://www.python.org/downloads/release/python-3100/)
 - [Docker](https://www.docker.com/)
-- [Docker Compose](https://docs.docker.com/compose/)
+- [Docker Compose >=2.20](https://docs.docker.com/compose/)
 - Docker engine with at least 8GB of memory to run tests.
-
-:::
 
 On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
@@ -101,13 +99,13 @@ Replace whatever container you want in the existing deployment.
 I.e, replacing datahub's backend (GMS):
 
 ```shell
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-gms)
+(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-gms)
 ```
 
 Running the local version of the frontend
 
 ```shell
-(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-frontend-react)
+(cd docker && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose -p datahub -f docker-compose-without-neo4j.yml -f docker-compose-without-neo4j.override.yml -f docker-compose.dev.yml up -d --no-deps --force-recreate --build datahub-frontend-react)
 ```
 
 ## IDE Support
@@ -171,3 +169,28 @@ This means you're running out of space on your disk to build. Please free up som
 #### `Build failed` for task `./gradlew :datahub-frontend:dist -x yarnTest -x yarnLint`
 
 This could mean that you need to update your [Yarn](https://yarnpkg.com/getting-started/install) version
+
+#### `:buildSrc:compileJava` task fails with `package com.linkedin.metadata.models.registry.config does not exist` and `cannot find symbol` error for `Entity`
+
+There are currently two symbolic links within the [buildSrc](https://github.com/datahub-project/datahub/tree/master/buildSrc) directory for the [com.linkedin.metadata.aspect.plugins.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/aspect/plugins/config) and [com.linkedin.metadata.models.registry.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/models/registry/config
+) packages, which points to the corresponding packages in the [entity-registry](https://github.com/datahub-project/datahub/tree/master/entity-registry) subproject.
+
+When the repository is checked out using Windows 10/11 - even if WSL is later used for building using the mounted Windows filesystem in `/mnt/` - the symbolic links might have not been created correctly, instead the symbolic links were checked out as plain files. Although it is technically possible to use the mounted Windows filesystem in `/mnt/` for building in WSL, it is **strongly recommended** to checkout the repository within the Linux filesystem (e.g., in `/home/`) and building it from there, because accessing the Windows filesystem from Linux is relatively slow compared to the Linux filesystem and slows down the whole building process.
+
+To be able to create symbolic links in Windows 10/11 the [Developer Mode](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) has to be enabled first. Then the following commands can be used to enable [symbolic links in Git](https://git-scm.com/docs/git-config#Documentation/git-config.txt-coresymlinks) and recreating the symbolic links:
+
+```shell
+# enable core.symlinks config
+git config --global core.symlinks true
+
+# check the current core.sysmlinks config and scope
+git config --show-scope --show-origin core.symlinks
+
+# in case the core.sysmlinks config is still set locally to false, remove the local config
+git config --unset core.symlinks
+
+# reset the current branch to recreate the missing symbolic links (alternatively it is also possibly to switch branches away and back)
+git reset --hard
+```
+
+See also [here](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) for more information on how to enable symbolic links on Windows 10/11 and Git.

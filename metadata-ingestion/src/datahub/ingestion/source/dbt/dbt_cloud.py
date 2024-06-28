@@ -2,10 +2,11 @@ import logging
 from datetime import datetime
 from json import JSONDecodeError
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
-from pydantic import Field
+from pydantic import Field, root_validator
 
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -32,10 +33,17 @@ logger = logging.getLogger(__name__)
 
 
 class DBTCloudConfig(DBTCommonConfig):
+    access_url: str = Field(
+        description="The base URL of the dbt Cloud instance to use. This should be the URL you use to access the dbt Cloud UI. It should include the scheme (http/https) and not include a trailing slash. See the access url for your dbt Cloud region here: https://docs.getdbt.com/docs/cloud/about-cloud/regions-ip-addresses",
+        default="https://cloud.getdbt.com",
+    )
+
     metadata_endpoint: str = Field(
         default="https://metadata.cloud.getdbt.com/graphql",
-        description="The dbt Cloud metadata API endpoint.",
+        description="The dbt Cloud metadata API endpoint. This is deprecated, and will be removed in a future release. Please use access_url instead.",
+        deprecated=True,
     )
+
     token: str = Field(
         description="The API token to use to authenticate with DBT Cloud.",
     )
@@ -54,6 +62,15 @@ class DBTCloudConfig(DBTCommonConfig):
         None,
         description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
     )
+
+    @root_validator(pre=True)
+    def set_metadata_endpoint(cls, values: dict) -> dict:
+        if values.get("access_url") and not values.get("metadata_endpoint"):
+            parsed_uri = urlparse(values["access_url"])
+            values[
+                "metadata_endpoint"
+            ] = f"{parsed_uri.scheme}://metadata.{parsed_uri.netloc}/graphql"
+        return values
 
 
 _DBT_GRAPHQL_COMMON_FIELDS = """
@@ -99,6 +116,7 @@ _DBT_GRAPHQL_NODE_COMMON_FIELDS = """
 """
 
 _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
+  packageName
   alias
   error
   status
@@ -358,7 +376,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     max_loaded_at = None
 
         columns = []
-        if "columns" in node:
+        if "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = [
                 self._parse_into_dbt_column(column)
@@ -416,6 +434,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             dbt_name=key,
             # TODO: Get the dbt adapter natively.
             dbt_adapter=self.config.target_platform,
+            dbt_package_name=node.get("packageName"),
             database=node.get("database"),
             schema=node.get("schema"),
             name=name,
@@ -437,7 +456,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             compiled_code=compiled_code,
             columns=columns,
             test_info=test_info,
-            test_result=test_result,
+            test_results=[test_result] if test_result else [],
+            model_performances=[],  # TODO: support model performance with dbt Cloud
         )
 
     def _parse_into_dbt_column(
@@ -456,4 +476,4 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         # TODO: Once dbt Cloud supports deep linking to specific files, we can use that.
-        return f"https://cloud.getdbt.com/develop/{self.config.account_id}/projects/{self.config.project_id}"
+        return f"{self.config.access_url}/develop/{self.config.account_id}/projects/{self.config.project_id}"

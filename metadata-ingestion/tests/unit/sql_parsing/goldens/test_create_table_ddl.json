@@ -1,5 +1,7 @@
 {
-    "query_type": "CREATE",
+    "query_type": "CREATE_DDL",
+    "query_type_props": {},
+    "query_fingerprint": "22a615c14258f9fc2e1da76c26882cc4bc175eab53caf3c2591e1978df49d22e",
     "in_tables": [],
     "out_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:sqlite,costs,PROD)"
@@ -57,5 +59,9 @@
             },
             "upstreams": []
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE TABLE IF NOT EXISTS costs (id INTEGER PRIMARY KEY, month TEXT NOT NULL, total_cost REAL NOT NULL, area REAL NOT NULL)"
+    }
 }

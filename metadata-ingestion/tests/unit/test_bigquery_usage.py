@@ -34,6 +34,7 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     TimeWindowSizeClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.testing.compare_metadata_json import diff_metadata_json
 from tests.performance.bigquery.bigquery_events import generate_events, ref_from_table
 from tests.performance.data_generation import generate_data, generate_queries
@@ -189,7 +190,7 @@ def config() -> BigQueryV2Config:
         end_time=TS_2 + timedelta(minutes=1),
         usage=BigQueryUsageConfig(
             include_top_n_queries=True,
-            top_n_queries=3,
+            top_n_queries=30,
             bucket_duration=BucketDuration.DAY,
             include_operational_stats=False,
         ),
@@ -202,7 +203,10 @@ def usage_extractor(config: BigQueryV2Config) -> BigQueryUsageExtractor:
     return BigQueryUsageExtractor(
         config,
         report,
-        lambda ref: make_dataset_urn("bigquery", str(ref.table_identifier)),
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        dataset_urn_builder=lambda ref: make_dataset_urn(
+            "bigquery", str(ref.table_identifier)
+        ),
     )
 
 
@@ -874,6 +878,125 @@ def test_usage_counts_no_columns(
         assert not caplog.records
 
 
+def test_usage_counts_no_columns_and_top_n_limit_hit(
+    caplog: pytest.LogCaptureFixture,
+    usage_extractor: BigQueryUsageExtractor,
+    config: BigQueryV2Config,
+) -> None:
+    config.usage.top_n_queries = 1
+
+    job_name = "job_name"
+    ref = BigQueryTableRef(
+        BigqueryTableIdentifier(PROJECT_1, DATABASE_1.name, TABLE_1.name)
+    )
+    events = [
+        AuditEvent.create(
+            ReadEvent(
+                jobName=job_name,
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                resource=ref,
+                fieldsRead=[],
+                readReason="JOB",
+                payload=None,
+            ),
+        ),
+        AuditEvent.create(
+            ReadEvent(
+                jobName="job_name_2",
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                resource=ref,
+                fieldsRead=[],
+                readReason="JOB",
+                payload=None,
+            ),
+        ),
+        AuditEvent.create(
+            ReadEvent(
+                jobName="job_name_3",
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                resource=ref,
+                fieldsRead=[],
+                readReason="JOB",
+                payload=None,
+            ),
+        ),
+        AuditEvent.create(
+            QueryEvent(
+                job_name=job_name,
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                query="SELECT * FROM table_1",
+                statementType="SELECT",
+                project_id=PROJECT_1,
+                destinationTable=None,
+                referencedTables=[ref],
+                referencedViews=[],
+                payload=None,
+            )
+        ),
+        AuditEvent.create(
+            QueryEvent(
+                job_name="job_name_2",
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                query="SELECT * FROM table_1",
+                statementType="SELECT",
+                project_id=PROJECT_1,
+                destinationTable=None,
+                referencedTables=[ref],
+                referencedViews=[],
+                payload=None,
+            )
+        ),
+        AuditEvent.create(
+            QueryEvent(
+                job_name="job_name_3",
+                timestamp=TS_1,
+                actor_email=ACTOR_1,
+                query="SELECT my_column FROM table_1",
+                statementType="SELECT",
+                project_id=PROJECT_1,
+                destinationTable=None,
+                referencedTables=[ref],
+                referencedViews=[],
+                payload=None,
+            )
+        ),
+    ]
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        workunits = usage_extractor._get_workunits_internal(
+            events, [TABLE_REFS[TABLE_1.name]]
+        )
+        expected = [
+            make_usage_workunit(
+                table=TABLE_1,
+                dataset_usage_statistics=DatasetUsageStatisticsClass(
+                    timestampMillis=int(TS_1.timestamp() * 1000),
+                    eventGranularity=TimeWindowSizeClass(
+                        unit=BucketDuration.DAY, multiple=1
+                    ),
+                    totalSqlQueries=3,
+                    topSqlQueries=["SELECT * FROM table_1"],
+                    uniqueUserCount=1,
+                    userCounts=[
+                        DatasetUserUsageCountsClass(
+                            user=ACTOR_1_URN,
+                            count=3,
+                            userEmail=ACTOR_1,
+                        ),
+                    ],
+                    fieldCounts=[],
+                ),
+            )
+        ]
+        compare_workunits(workunits, expected)
+        assert not caplog.records
+
+
 @freeze_time(FROZEN_TIME)
 @patch.object(BigQueryUsageExtractor, "_generate_usage_workunits")
 def test_operational_stats(
@@ -918,12 +1041,16 @@ def test_operational_stats(
                 timestampMillis=int(FROZEN_TIME.timestamp() * 1000),
                 lastUpdatedTimestamp=int(query.timestamp.timestamp() * 1000),
                 actor=f"urn:li:corpuser:{query.actor.split('@')[0]}",
-                operationType=query.type
-                if query.type in OPERATION_STATEMENT_TYPES.values()
-                else "CUSTOM",
-                customOperationType=None
-                if query.type in OPERATION_STATEMENT_TYPES.values()
-                else query.type,
+                operationType=(
+                    query.type
+                    if query.type in OPERATION_STATEMENT_TYPES.values()
+                    else "CUSTOM"
+                ),
+                customOperationType=(
+                    None
+                    if query.type in OPERATION_STATEMENT_TYPES.values()
+                    else query.type
+                ),
                 affectedDatasets=list(
                     dict.fromkeys(  # Preserve order
                         BigQueryTableRef.from_string_name(
@@ -961,21 +1088,21 @@ def test_operational_stats(
 
 def test_get_tables_from_query(usage_extractor):
     assert usage_extractor.get_tables_from_query(
-        PROJECT_1, "SELECT * FROM project-1.database_1.view_1"
+        "SELECT * FROM project-1.database_1.view_1", default_project=PROJECT_1
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
     ]
 
     assert usage_extractor.get_tables_from_query(
-        PROJECT_1, "SELECT * FROM database_1.view_1"
+        "SELECT * FROM database_1.view_1", default_project=PROJECT_1
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "view_1"))
     ]
 
     assert sorted(
         usage_extractor.get_tables_from_query(
-            PROJECT_1,
             "SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
+            default_project=PROJECT_1,
         )
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),
@@ -984,8 +1111,8 @@ def test_get_tables_from_query(usage_extractor):
 
     assert sorted(
         usage_extractor.get_tables_from_query(
-            PROJECT_1,
             "CREATE TABLE database_1.new_table AS SELECT v.id, v.name, v.total, t.name as name1 FROM database_1.view_1 as v inner join database_1.table_1 as t on v.id=t.id",
+            default_project=PROJECT_1,
         )
     ) == [
         BigQueryTableRef(BigqueryTableIdentifier("project-1", "database_1", "table_1")),

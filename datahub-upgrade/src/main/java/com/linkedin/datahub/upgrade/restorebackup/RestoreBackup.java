@@ -8,7 +8,7 @@ import com.linkedin.datahub.upgrade.common.steps.ClearGraphServiceStep;
 import com.linkedin.datahub.upgrade.common.steps.ClearSearchServiceStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSDisableWriteModeStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSEnableWriteModeStep;
-import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -24,9 +24,9 @@ public class RestoreBackup implements Upgrade {
 
   public RestoreBackup(
       @Nullable final Database server,
-      final EntityService entityService,
+      final EntityService<?> entityService,
       final EntityRegistry entityRegistry,
-      final SystemRestliEntityClient entityClient,
+      final SystemEntityClient entityClient,
       final GraphService graphClient,
       final EntitySearchService searchClient) {
     if (server != null) {
@@ -50,9 +50,9 @@ public class RestoreBackup implements Upgrade {
 
   private List<UpgradeStep> buildSteps(
       final Database server,
-      final EntityService entityService,
+      final EntityService<?> entityService,
       final EntityRegistry entityRegistry,
-      final SystemRestliEntityClient entityClient,
+      final SystemEntityClient entityClient,
       final GraphService graphClient,
       final EntitySearchService searchClient) {
     final List<UpgradeStep> steps = new ArrayList<>();

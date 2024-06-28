@@ -7,9 +7,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
-import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -17,6 +18,7 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -30,16 +32,16 @@ import lombok.SneakyThrows;
 import lombok.Value;
 
 /**
- * Service coupled with an {@link EntityServiceImpl} to handle aspect record retention.
+ * Service coupled with an {@link EntityService} to handle aspect record retention.
  *
  * <p>TODO: This class is abstract with storage-specific implementations. It'd be nice to pull
- * storage and retention concerns apart, let (into {@link AspectDao}) deal with storage, and merge
- * all retention concerns into a single class.
+ * storage and retention concerns apart, let AspectDaos deal with storage, and merge all retention
+ * concerns into a single class.
  */
-public abstract class RetentionService {
+public abstract class RetentionService<U extends ChangeMCP> {
   protected static final String ALL = "*";
 
-  protected abstract EntityService getEntityService();
+  protected abstract EntityService<U> getEntityService();
 
   /**
    * Fetch retention policies given the entityName and aspectName Uses the entity service to fetch
@@ -49,13 +51,16 @@ public abstract class RetentionService {
    * @param aspectName Name of the aspect
    * @return retention policies to apply to the input entity and aspect
    */
-  public Retention getRetention(@Nonnull String entityName, @Nonnull String aspectName) {
+  public Retention getRetention(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
     // Prioritized list of retention keys to fetch
     List<Urn> retentionUrns = getRetentionKeys(entityName, aspectName);
     Map<Urn, List<RecordTemplate>> fetchedAspects =
         getEntityService()
             .getLatestAspects(
-                new HashSet<>(retentionUrns), ImmutableSet.of(Constants.DATAHUB_RETENTION_ASPECT));
+                opContext,
+                new HashSet<>(retentionUrns),
+                ImmutableSet.of(Constants.DATAHUB_RETENTION_ASPECT));
     // Find the first retention info that is set among the prioritized list of retention keys above
     Optional<DataHubRetentionConfig> retentionInfo =
         retentionUrns.stream()
@@ -93,6 +98,7 @@ public abstract class RetentionService {
    */
   @SneakyThrows
   public boolean setRetention(
+      @Nonnull OperationContext opContext,
       @Nullable String entityName,
       @Nullable String aspectName,
       @Nonnull DataHubRetentionConfig retentionConfig) {
@@ -120,13 +126,17 @@ public abstract class RetentionService {
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
-    AspectsBatch batch = buildAspectsBatch(List.of(keyProposal, aspectProposal));
+    AspectsBatch batch =
+        buildAspectsBatch(opContext, List.of(keyProposal, aspectProposal), auditStamp);
 
-    return getEntityService().ingestProposal(batch, auditStamp, false).stream()
+    return getEntityService().ingestProposal(opContext, batch, false).stream()
         .anyMatch(IngestResult::isSqlCommitted);
   }
 
-  protected abstract AspectsBatch buildAspectsBatch(List<MetadataChangeProposal> mcps);
+  protected abstract AspectsBatch buildAspectsBatch(
+      @Nonnull OperationContext opContext,
+      List<MetadataChangeProposal> mcps,
+      @Nonnull AuditStamp auditStamp);
 
   /**
    * Delete the retention policy set for given entity and aspect.
@@ -136,13 +146,16 @@ public abstract class RetentionService {
    * @param aspectName Aspect name to apply policy to. If null, set as "*", meaning it will delete
    *     the default policy for any aspects without specified policy
    */
-  public void deleteRetention(@Nullable String entityName, @Nullable String aspectName) {
+  public void deleteRetention(
+      @Nonnull OperationContext opContext,
+      @Nullable String entityName,
+      @Nullable String aspectName) {
     DataHubRetentionKey retentionKey = new DataHubRetentionKey();
     retentionKey.setEntityName(entityName != null ? entityName : ALL);
     retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
     Urn retentionUrn =
         EntityKeyUtils.convertEntityKeyToUrn(retentionKey, Constants.DATAHUB_RETENTION_ENTITY);
-    getEntityService().deleteUrn(retentionUrn);
+    getEntityService().deleteUrn(opContext, retentionUrn);
   }
 
   private void validateRetention(Retention retention) {
@@ -166,14 +179,16 @@ public abstract class RetentionService {
    * @param retentionContexts urn, aspect name, and additional context that could be used to apply
    *     retention
    */
-  public void applyRetentionWithPolicyDefaults(@Nonnull List<RetentionContext> retentionContexts) {
+  public void applyRetentionWithPolicyDefaults(
+      @Nonnull OperationContext opContext, @Nonnull List<RetentionContext> retentionContexts) {
     List<RetentionContext> withDefaults =
         retentionContexts.stream()
             .map(
                 context -> {
                   if (context.getRetentionPolicy().isEmpty()) {
                     Retention retentionPolicy =
-                        getRetention(context.getUrn().getEntityType(), context.getAspectName());
+                        getRetention(
+                            opContext, context.getUrn().getEntityType(), context.getAspectName());
                     return context.toBuilder()
                         .retentionPolicy(Optional.of(retentionPolicy))
                         .build();

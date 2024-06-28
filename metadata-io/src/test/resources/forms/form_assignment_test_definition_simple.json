@@ -1,0 +1,67 @@
+{
+  "on": {
+    "types": ["dataset", "container", "dataJob", "dataFlow", "chart", "dashboard"],
+    "conditions": {
+      "or": [
+        {
+          "or": [
+            {
+              "property": "forms.incompleteForms.urn",
+              "operator": "equals",
+              "values": ["urn:li:form:test"]
+            },
+            {
+              "property": "forms.completedForms.urn",
+              "operator": "equals",
+              "values": ["urn:li:form:test"]
+            }
+          ]
+        },
+        {
+          "or": [
+            {
+              "and": [
+                {
+                  "property": "dataPlatformInstance.platform",
+                  "operator": "equals",
+                  "values": ["urn:li:dataPlatform:hive"]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "rules": {
+    "or": [
+      {
+        "and": [
+          {
+            "property": "dataPlatformInstance.platform",
+            "operator": "equals",
+            "values": ["urn:li:dataPlatform:hive"]
+          }
+        ]
+      }
+    ]
+  },
+  "actions": {
+    "passing": [
+      {
+        "type": "ASSIGN_FORM",
+        "params": {
+          "formUrn": "urn:li:form:test"
+        }
+      }
+    ],
+    "failing": [
+      {
+        "type": "UNASSIGN_FORM",
+        "params": {
+          "formUrn": "urn:li:form:test"
+        }
+      }
+    ]
+  }
+}

@@ -49,6 +49,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:cockroachdb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "cockroachdb",
+      "displayName": "CockroachDb",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/cockroachdblogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:couchbase",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -178,6 +188,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:db2",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "db2",
+      "displayName": "DB2",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/db2logo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:mariadb",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -244,7 +264,7 @@
       "name": "tableau",
       "displayName": "Tableau",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/tableaulogo.png"
+      "logoUrl": "/assets/platforms/tableaulogo.svg"
     }
   },
   {
@@ -323,7 +343,7 @@
       "name": "looker",
       "displayName": "Looker",
       "type": "OTHERS",
-      "logoUrl": "/assets/platforms/lookerlogo.png"
+      "logoUrl": "/assets/platforms/lookerlogo.svg"
     }
   },
   {
@@ -556,6 +576,26 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:slack",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "Slack",
+      "displayName": "Slack",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/slacklogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:microsoft-teams",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "Microsoft Teams",
+      "displayName": "Microsoft Teams",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/teamslogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:dynamodb",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -583,6 +623,46 @@
       "displayName": "CSV",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/csv-logo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:qlik-sense",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "qlik-sense",
+      "displayName": "Qlik Sense",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/qliklogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:file",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "file",
+      "displayName": "File",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/file-logo.svg"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:excel",
+    "aspect": {
+      "name": "excel",
+      "displayName": "Excel",
+      "type": "OTHERS",
+      "datasetNameDelimiter": "/",
+      "logoUrl": "/assets/platforms/excel-logo.svg"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:sigma",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "sigma",
+      "displayName": "Sigma",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/sigmalogo.png"
     }
   }
 ]

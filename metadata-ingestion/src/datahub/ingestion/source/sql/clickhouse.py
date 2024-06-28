@@ -286,7 +286,7 @@ def get_view_names(self, connection, schema=None, **kw):
 # when reflecting schema for multiple tables at once.
 @reflection.cache  # type: ignore
 def _get_schema_column_info(self, connection, schema=None, **kw):
-    schema_clause = "database = '{schema}'".format(schema=schema) if schema else "1"
+    schema_clause = f"database = '{schema}'" if schema else "1"
     all_columns = defaultdict(list)
     result = connection.execute(
         text(
@@ -346,7 +346,7 @@ def _get_column_info(self, name, format_type, comment):
 @reflection.cache  # type: ignore
 def get_columns(self, connection, table_name, schema=None, **kw):
     if not schema:
-        query = "DESCRIBE TABLE {}".format(self._quote_table_name(table_name))
+        query = f"DESCRIBE TABLE {self._quote_table_name(table_name)}"
         cols = self._execute(connection, query)
     else:
         cols = self._get_clickhouse_columns(connection, table_name, schema, **kw)
@@ -501,15 +501,17 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
         try:
             for db_row in engine.execute(text(query)):
-                if not self.config.schema_pattern.allowed(
+                dataset_name = f'{db_row["target_schema"]}.{db_row["target_table"]}'
+                if not self.config.database_pattern.allowed(
                     db_row["target_schema"]
-                ) or not self.config.table_pattern.allowed(db_row["target_table"]):
+                ) or not self.config.table_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
                     continue
 
                 # Target
                 target_path = (
                     f'{self.config.platform_instance+"." if self.config.platform_instance else ""}'
-                    f'{db_row["target_schema"]}.{db_row["target_table"]}'
+                    f"{dataset_name}"
                 )
                 target = LineageItem(
                     dataset=LineageDataset(

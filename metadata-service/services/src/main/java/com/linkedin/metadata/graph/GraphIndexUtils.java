@@ -4,6 +4,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -54,6 +55,17 @@ public class GraphIndexUtils {
   }
 
   @Nullable
+  private static List<Urn> getViaList(
+      @Nullable final String path, @Nonnull final RecordTemplate aspect) {
+    if (path == null) {
+      return null;
+    }
+    final PathSpec viaPathSpec = new PathSpec(path.split("/"));
+    final Object value = RecordUtils.getNullableFieldValue(aspect, viaPathSpec);
+    return (List<Urn>) value;
+  }
+
+  @Nullable
   private static boolean isValueListValid(
       @Nullable final List<?> entryList, final int valueListSize) {
     if (entryList == null) {
@@ -94,6 +106,15 @@ public class GraphIndexUtils {
     return null;
   }
 
+  @Nullable
+  private static Urn getVia(
+      @Nullable final List<Urn> viaList, final int index, final int valueListSize) {
+    if (isValueListValid(viaList, valueListSize)) {
+      return viaList.get(index);
+    }
+    return null;
+  }
+
   /**
    * Used to create new edges for the graph db, adding all the metadata associated with each edge
    * based on the aspect. Returns a list of Edges to be consumed by the graph service.
@@ -116,12 +137,14 @@ public class GraphIndexUtils {
         extractedFieldsEntry.getKey().getRelationshipAnnotation().getUpdatedActor();
     final String propertiesPath =
         extractedFieldsEntry.getKey().getRelationshipAnnotation().getProperties();
+    final String viaNodePath = extractedFieldsEntry.getKey().getRelationshipAnnotation().getVia();
 
     final List<Long> createdOnList = getTimestampList(createdOnPath, aspect);
     final List<Urn> createdActorList = getActorList(createdActorPath, aspect);
     final List<Long> updatedOnList = getTimestampList(updatedOnPath, aspect);
     final List<Urn> updatedActorList = getActorList(updatedActorPath, aspect);
     final List<Map<String, Object>> propertiesList = getPropertiesList(propertiesPath, aspect);
+    final List<Urn> viaList = getViaList(viaNodePath, aspect);
 
     int index = 0;
     for (Object fieldValue : extractedFieldsEntry.getValue()) {
@@ -144,6 +167,11 @@ public class GraphIndexUtils {
       final Map<String, Object> properties =
           propertiesList != null
               ? getProperties(propertiesList, index, extractedFieldsEntry.getValue().size())
+              : null;
+
+      Urn viaNode =
+          viaNodePath != null
+              ? getVia(viaList, index, extractedFieldsEntry.getValue().size())
               : null;
 
       SystemMetadata systemMetadata;
@@ -177,7 +205,9 @@ public class GraphIndexUtils {
                 createdActor,
                 updatedOn,
                 updatedActor,
-                properties));
+                properties,
+                null,
+                viaNode));
       } catch (URISyntaxException e) {
         log.error("Invalid destination urn: {}", fieldValue, e);
       }
@@ -198,6 +228,8 @@ public class GraphIndexUtils {
         null,
         newEdge.getUpdatedOn(),
         newEdge.getUpdatedActor(),
-        newEdge.getProperties());
+        newEdge.getProperties(),
+        oldEdge.getLifecycleOwner(),
+        oldEdge.getVia());
   }
 }

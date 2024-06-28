@@ -8,11 +8,14 @@ import client.AuthServiceClient;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.google.inject.name.Named;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
+import com.linkedin.metadata.models.registry.EmptyEntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
@@ -20,6 +23,13 @@ import config.ConfigurationProvider;
 import controllers.SsoCallbackController;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+
+import io.datahubproject.metadata.context.ActorContext;
+import io.datahubproject.metadata.context.AuthorizerContext;
+import io.datahubproject.metadata.context.EntityRegistryContext;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.SearchContext;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -52,6 +62,8 @@ public class AuthModule extends AbstractModule {
   private static final String PAC4J_SESSIONSTORE_PROVIDER_CONF = "pac4j.sessionStore.provider";
   private static final String ENTITY_CLIENT_RETRY_INTERVAL = "entityClient.retryInterval";
   private static final String ENTITY_CLIENT_NUM_RETRIES = "entityClient.numRetries";
+  private static final String ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE = "entityClient.restli.get.batchSize";
+  private static final String ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY = "entityClient.restli.get.batchConcurrency";
   private static final String GET_SSO_SETTINGS_ENDPOINT = "auth/getSsoSettings";
 
   private final com.typesafe.config.Config _configs;
@@ -103,7 +115,7 @@ public class AuthModule extends AbstractModule {
           .toConstructor(
               SsoCallbackController.class.getConstructor(
                   SsoManager.class,
-                  Authentication.class,
+                  OperationContext.class,
                   SystemEntityClient.class,
                   AuthServiceClient.class,
                   org.pac4j.core.config.Config.class,
@@ -154,6 +166,32 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
+  @Named("systemOperationContext")
+  protected OperationContext provideOperationContext(
+          final Authentication systemAuthentication,
+          final ConfigurationProvider configurationProvider) {
+    ActorContext systemActorContext =
+            ActorContext.builder()
+                    .systemAuth(true)
+                    .authentication(systemAuthentication)
+                    .build();
+    OperationContextConfig systemConfig = OperationContextConfig.builder()
+            .viewAuthorizationConfiguration(configurationProvider.getAuthorization().getView())
+            .allowSystemAuthentication(true)
+            .build();
+
+    return OperationContext.builder()
+            .operationContextConfig(systemConfig)
+            .systemActorContext(systemActorContext)
+            .searchContext(SearchContext.EMPTY)
+            .entityRegistryContext(EntityRegistryContext.builder().build(EmptyEntityRegistry.EMPTY))
+            // Authorizer.EMPTY doesn't actually apply to system auth
+            .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
+            .build(systemAuthentication);
+  }
+
+  @Provides
+  @Singleton
   protected ConfigurationProvider provideConfigurationProvider() {
     AnnotationConfigApplicationContext context =
         new AnnotationConfigApplicationContext(ConfigurationProvider.class);
@@ -163,14 +201,16 @@ public class AuthModule extends AbstractModule {
   @Provides
   @Singleton
   protected SystemEntityClient provideEntityClient(
-      final Authentication systemAuthentication,
+      @Named("systemOperationContext") final OperationContext systemOperationContext,
       final ConfigurationProvider configurationProvider) {
+
     return new SystemRestliEntityClient(
         buildRestliClient(),
         new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)),
         _configs.getInt(ENTITY_CLIENT_NUM_RETRIES),
-        systemAuthentication,
-        configurationProvider.getCache().getClient().getEntityClient());
+        configurationProvider.getCache().getClient().getEntityClient(),
+        Math.max(1, _configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE)),
+        Math.max(1, _configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY)));
   }
 
   @Provides

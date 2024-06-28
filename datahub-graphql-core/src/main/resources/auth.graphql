@@ -11,6 +11,19 @@ extend type Query {
     List access tokens stored in DataHub.
     """
     listAccessTokens(input: ListAccessTokenInput!): ListAccessTokenResult!
+
+    """
+    Fetches the metadata of an access token.
+    This is useful to debug when you have a raw token but don't know the actor.
+    """
+    getAccessTokenMetadata(token: String!): AccessTokenMetadata!
+
+    """
+    Experimental API to debug Access for users.
+    Backward incompatible changes will be made without notice in the future.
+    Do not build on top of this API.
+    """
+    debugAccess(userUrn: String!): DebugAccessResult!
 }
 
 extend type Mutation {
@@ -268,4 +281,52 @@ type EntityPrivileges {
   Whether or not a user can update the Queries for the entity (e.g. dataset)
   """
   canEditQueries: Boolean
+
+  """
+  Whether or not a user can update the properties for the entity (e.g. dataset)
+  """
+  canEditProperties: Boolean
+}
+
+"""
+Experimental API result to debug Access for users.
+Backward incompatible changes will be made without notice in the future.
+"""
+type DebugAccessResult {
+  """
+  Roles that the user has.
+  """
+  roles: [String!]!
+
+  """
+  Groups that the user belongs to.
+  """
+  groups: [String!]!
+
+  """
+  List of groups that the user is assigned to AND where the group has a role.
+  This is a subset of the groups property.
+  """
+  groupsWithRoles: [String!]!
+
+  """
+  Final set of roles that are coming through groups.
+  If not role assigned to groups, then this would be empty.
+  """
+  rolesViaGroups: [String!]!
+
+  """
+  Union of `roles` + `rolesViaGroups` that the user has.
+  """
+  allRoles: [String!]!
+
+  """
+  List of Policy that apply to this user directly or indirectly.
+  """
+  policies: [String!]!
+
+  """
+  List of privileges that this user has directly or indirectly.
+  """
+  privileges: [String!]!
 }

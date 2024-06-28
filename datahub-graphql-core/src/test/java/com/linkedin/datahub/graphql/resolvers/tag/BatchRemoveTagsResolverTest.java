@@ -2,10 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.tag;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
@@ -20,7 +21,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -45,22 +46,28 @@ public class BatchRemoveTagsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.GLOBAL_TAGS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.GLOBAL_TAGS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_1))).thenReturn(true);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_2))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+        .thenReturn(true);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_TAG_1_URN))).thenReturn(true);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_TAG_2_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
+        .thenReturn(true);
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 
@@ -109,6 +116,7 @@ public class BatchRemoveTagsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.GLOBAL_TAGS_ASPECT_NAME),
                 Mockito.eq(0L)))
@@ -123,16 +131,21 @@ public class BatchRemoveTagsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.GLOBAL_TAGS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(oldTags2);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_1))).thenReturn(true);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_2))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+        .thenReturn(true);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_TAG_1_URN))).thenReturn(true);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_TAG_2_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_2_URN)), eq(true)))
+        .thenReturn(true);
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 
@@ -168,20 +181,25 @@ public class BatchRemoveTagsResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.GLOBAL_TAGS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.GLOBAL_TAGS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_1))).thenReturn(false);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_2))).thenReturn(true);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_TAG_1_URN))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(false);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TAG_1_URN)), eq(true)))
+        .thenReturn(true);
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 
@@ -199,10 +217,7 @@ public class BatchRemoveTagsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(AspectsBatchImpl.class),
-            Mockito.any(AuditStamp.class),
-            Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
   }
 
   @Test
@@ -225,10 +240,7 @@ public class BatchRemoveTagsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0))
-        .ingestProposal(
-            Mockito.any(AspectsBatchImpl.class),
-            Mockito.any(AuditStamp.class),
-            Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
   }
 
   @Test
@@ -237,10 +249,7 @@ public class BatchRemoveTagsResolverTest {
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .ingestProposal(
-            Mockito.any(AspectsBatchImpl.class),
-            Mockito.any(AuditStamp.class),
-            Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 

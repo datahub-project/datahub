@@ -49,7 +49,6 @@ class Constant:
     DATASET_ID = "datasetId"
     REPORT_ID = "reportId"
     SCAN_ID = "ScanId"
-    Dataset_URN = "DatasetURN"
     CHART_URN = "ChartURN"
     CHART = "chart"
     CORP_USER = "corpuser"
@@ -207,6 +206,16 @@ class PlatformDetail(ConfigModel):
     )
 
 
+class DataBricksPlatformDetail(PlatformDetail):
+    """
+    metastore is an additional field used in Databricks connector to generate the dataset urn
+    """
+
+    metastore: str = pydantic.Field(
+        description="Databricks Unity Catalog metastore name.",
+    )
+
+
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
         default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
@@ -269,11 +278,14 @@ class PowerBiDashboardSourceConfig(
         hidden_from_docs=True,
     )
     # PowerBI datasource's server to platform instance mapping
-    server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+    server_to_platform_instance: Dict[
+        str, Union[PlatformDetail, DataBricksPlatformDetail]
+    ] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
-        " :port is optional and only needed if your datasource server is running on non-standard port."
-        "For Google BigQuery the datasource's server is google bigquery project name",
+        " :port is optional and only needed if your datasource server is running on non-standard port. "
+        "For Google BigQuery the datasource's server is google bigquery project name. "
+        "For Databricks Unity Catalog the datasource's server is workspace FQDN.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
@@ -392,10 +404,11 @@ class PowerBiDashboardSourceConfig(
 
     # Enable advance sql construct
     enable_advance_lineage_sql_construct: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to enable advance native sql construct for parsing like join, sub-queries. "
         "along this flag , the native_query_parsing should be enabled. "
-        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage "
+        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous "
+        "ingestion execution then it may break lineage"
         "as this option generates the upstream datasets URN in lowercase.",
     )
 
@@ -403,7 +416,8 @@ class PowerBiDashboardSourceConfig(
     extract_column_level_lineage: bool = pydantic.Field(
         default=False,
         description="Whether to extract column level lineage. "
-        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are enabled.  "
+        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
+        "enabled."
         "Works for M-Query where native SQL is used for transformation.",
     )
 

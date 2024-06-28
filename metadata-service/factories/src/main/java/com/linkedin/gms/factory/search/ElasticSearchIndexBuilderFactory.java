@@ -9,15 +9,14 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -25,11 +24,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, GitVersionFactory.class})
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ElasticSearchIndexBuilderFactory {
 
   @Autowired
@@ -60,6 +57,9 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("#{new Boolean('${elasticsearch.index.enableMappingsReindex}')}")
   private boolean enableMappingsReindex;
 
+  @Value("#{new Boolean('${structuredProperties.systemUpdateEnabled}')}")
+  private boolean enableStructuredPropertiesReindex;
+
   @Bean(name = "elasticSearchIndexSettingsOverrides")
   @Nonnull
   protected Map<String, Map<String, String>> getIndexSettingsOverrides(
@@ -88,6 +88,7 @@ public class ElasticSearchIndexBuilderFactory {
         overrides,
         enableSettingsReindex,
         enableMappingsReindex,
+        enableStructuredPropertiesReindex,
         configurationProvider.getElasticSearch(),
         gitVersion);
   }

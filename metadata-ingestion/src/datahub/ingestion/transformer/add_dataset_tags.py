@@ -1,7 +1,6 @@
 import logging
-from typing import Callable, List, Optional, cast
+from typing import Callable, Dict, List, Optional, Union, cast
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
     KeyValuePattern,
     TransformerSemanticsConfigModel,
@@ -13,8 +12,8 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTagsTransformer
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
+    MetadataChangeProposalClass,
     TagAssociationClass,
-    TagKeyClass,
 )
 from datahub.utilities.urns.tag_urn import TagUrn
 
@@ -32,13 +31,13 @@ class AddDatasetTags(DatasetTagsTransformer):
 
     ctx: PipelineContext
     config: AddDatasetTagsConfig
-    processed_tags: List[TagAssociationClass]
+    processed_tags: Dict[str, TagAssociationClass]
 
     def __init__(self, config: AddDatasetTagsConfig, ctx: PipelineContext):
         super().__init__()
         self.ctx = ctx
         self.config = config
-        self.processed_tags = []
+        self.processed_tags = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetTags":
@@ -57,33 +56,30 @@ class AddDatasetTags(DatasetTagsTransformer):
         tags_to_add = self.config.get_tags_to_add(entity_urn)
         if tags_to_add is not None:
             out_global_tags_aspect.tags.extend(tags_to_add)
-            self.processed_tags.extend(
-                tags_to_add
-            )  # Keep track of tags added so that we can create them in handle_end_of_stream
+            # Keep track of tags added so that we can create them in handle_end_of_stream
+            for tag in tags_to_add:
+                self.processed_tags.setdefault(tag.tag, tag)
 
         return self.get_result_semantics(
             self.config, self.ctx.graph, entity_urn, out_global_tags_aspect
         )
 
-    def handle_end_of_stream(self) -> List[MetadataChangeProposalWrapper]:
+    def handle_end_of_stream(
+        self,
+    ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
 
-        mcps: List[MetadataChangeProposalWrapper] = []
+        mcps: List[
+            Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+        ] = []
 
         logger.debug("Generating tags")
 
-        for tag_association in self.processed_tags:
-            ids: List[str] = TagUrn.create_from_string(
-                tag_association.tag
-            ).get_entity_id()
-
-            assert len(ids) == 1, "Invalid Tag Urn"
-
-            tag_name: str = ids[0]
-
+        for tag_association in self.processed_tags.values():
+            tag_urn = TagUrn.create_from_string(tag_association.tag)
             mcps.append(
                 MetadataChangeProposalWrapper(
-                    entityUrn=builder.make_tag_urn(tag=tag_name),
-                    aspect=TagKeyClass(name=tag_name),
+                    entityUrn=tag_urn.urn(),
+                    aspect=tag_urn.to_key_aspect(),
                 )
             )
 
@@ -121,7 +117,6 @@ class PatternAddDatasetTags(AddDatasetTags):
     """Transformer that adds a specified set of tags to each dataset."""
 
     def __init__(self, config: PatternDatasetTagsConfig, ctx: PipelineContext):
-        config.tag_pattern.all
         tag_pattern = config.tag_pattern
         generic_config = AddDatasetTagsConfig(
             get_tags_to_add=lambda _: [

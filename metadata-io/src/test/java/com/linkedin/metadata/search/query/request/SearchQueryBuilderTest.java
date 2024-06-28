@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COM
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.URN_SEARCH_ANALYZER;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -27,6 +28,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
 import java.util.List;
@@ -46,6 +49,7 @@ import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
@@ -53,7 +57,9 @@ import org.testng.annotations.Test;
 @Import(SearchCommonTestConfiguration.class)
 public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
 
-  @Autowired private EntityRegistry entityRegistry;
+  @Autowired
+  @Qualifier("queryOperationContext")
+  private OperationContext operationContext;
 
   public static SearchConfiguration testQueryConfig;
 
@@ -86,12 +92,14 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   public static final SearchQueryBuilder TEST_BUILDER =
       new SearchQueryBuilder(testQueryConfig, null);
 
+  public OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
   @Test
   public void testQueryBuilderFulltext() {
     FunctionScoreQueryBuilder result =
         (FunctionScoreQueryBuilder)
             TEST_BUILDER.buildQuery(
-                ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true);
+                opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", true);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
     assertEquals(shouldQueries.size(), 2);
@@ -140,7 +148,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "urn.delimited", 7.0f,
             "textArrayField.delimited", 0.4f,
             "nestedArrayStringField.delimited", 0.4f,
-            "wordGramField.delimited", 0.4f));
+            "wordGramField.delimited", 0.4f,
+            "customProperties.delimited", 0.4f));
 
     BoolQueryBuilder boolPrefixQuery = (BoolQueryBuilder) shouldQueries.get(1);
     assertTrue(boolPrefixQuery.should().size() > 0);
@@ -165,7 +174,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                 })
             .collect(Collectors.toList());
 
-    assertEquals(prefixFieldWeights.size(), 28);
+    assertEquals(prefixFieldWeights.size(), 29);
 
     List.of(
             Pair.of("urn", 100.0f),
@@ -191,7 +200,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     FunctionScoreQueryBuilder result =
         (FunctionScoreQueryBuilder)
             TEST_BUILDER.buildQuery(
-                ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", false);
+                opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery", false);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
     assertEquals(shouldQueries.size(), 2);
@@ -200,7 +209,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     assertEquals(keywordQuery.queryString(), "testQuery");
     assertNull(keywordQuery.analyzer());
     Map<String, Float> keywordFields = keywordQuery.fields();
-    assertEquals(keywordFields.size(), 21);
+    assertEquals(keywordFields.size(), 22);
     assertEquals(keywordFields.get("keyPart1").floatValue(), 10.0f);
     assertFalse(keywordFields.containsKey("keyPart3"));
     assertEquals(keywordFields.get("textFieldOverride").floatValue(), 1.0f);
@@ -234,7 +243,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
-                  ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
+                  opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
@@ -248,7 +257,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
-                  ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
+                  opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
@@ -284,7 +293,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
       FunctionScoreQueryBuilder result =
           (FunctionScoreQueryBuilder)
               TEST_CUSTOM_BUILDER.buildQuery(
-                  ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
+                  opContext, ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
@@ -324,7 +333,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     List<EntitySpec> entitySpecs =
         Stream.concat(SEARCHABLE_ENTITY_TYPES.stream(), AUTO_COMPLETE_ENTITY_TYPES.stream())
             .map(entityType -> entityType.toString().toLowerCase().replaceAll("_", ""))
-            .map(entityRegistry::getEntitySpec)
+            .map(entityType -> operationContext.getEntityRegistry().getEntitySpec(entityType))
             .collect(Collectors.toList());
     assertTrue(entitySpecs.size() > 30, "Expected at least 30 searchable entities in the registry");
 
@@ -334,12 +343,18 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                 // Standard urn fields plus entitySpec sourced fields
                 Stream.of("urn", "urn.delimited"),
                 entitySpecs.stream()
-                    .flatMap(spec -> TEST_CUSTOM_BUILDER.getFieldsFromEntitySpec(spec).stream())
+                    .flatMap(
+                        spec ->
+                            TEST_CUSTOM_BUILDER
+                                .getFieldsFromEntitySpec(operationContext.getEntityRegistry(), spec)
+                                .stream())
                     .map(SearchFieldConfig::fieldName))
             .collect(Collectors.toSet());
 
     Set<String> actualFieldNames =
-        TEST_CUSTOM_BUILDER.getStandardFields(entitySpecs).stream()
+        TEST_CUSTOM_BUILDER
+            .getStandardFields(operationContext.getEntityRegistry(), entitySpecs)
+            .stream()
             .map(SearchFieldConfig::fieldName)
             .collect(Collectors.toSet());
 
@@ -359,8 +374,9 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testGetStandardFields() {
     Set<SearchFieldConfig> fieldConfigs =
-        TEST_CUSTOM_BUILDER.getStandardFields(ImmutableList.of(TestEntitySpecBuilder.getSpec()));
-    assertEquals(fieldConfigs.size(), 21);
+        TEST_CUSTOM_BUILDER.getStandardFields(
+            mock(EntityRegistry.class), ImmutableList.of(TestEntitySpecBuilder.getSpec()));
+    assertEquals(fieldConfigs.size(), 22);
     assertEquals(
         fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()),
         Set.of(
@@ -384,7 +400,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "wordGramField.wordGrams3",
             "textFieldOverride.delimited",
             "urn",
-            "wordGramField.wordGrams2"));
+            "wordGramField.wordGrams2",
+            "customProperties.delimited")); // customProperties.delimited Saas only
 
     assertEquals(
         fieldConfigs.stream()
@@ -405,12 +422,12 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .map(SearchFieldConfig::boost),
         Optional.of(1.0F));
 
-    EntitySpec mockEntitySpec = Mockito.mock(EntitySpec.class);
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
     Mockito.when(mockEntitySpec.getSearchableFieldSpecs())
         .thenReturn(
             List.of(
                 new SearchableFieldSpec(
-                    Mockito.mock(PathSpec.class),
+                    mock(PathSpec.class),
                     new SearchableAnnotation(
                         "fieldDoesntExistInOriginal",
                         SearchableAnnotation.FieldType.TEXT,
@@ -424,10 +441,11 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.empty(),
                         Optional.empty(),
                         Map.of(),
-                        List.of()),
-                    Mockito.mock(DataSchema.class)),
+                        List.of(),
+                        false),
+                    mock(DataSchema.class)),
                 new SearchableFieldSpec(
-                    Mockito.mock(PathSpec.class),
+                    mock(PathSpec.class),
                     new SearchableAnnotation(
                         "keyPart1",
                         SearchableAnnotation.FieldType.KEYWORD,
@@ -441,10 +459,11 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.empty(),
                         Optional.empty(),
                         Map.of(),
-                        List.of()),
-                    Mockito.mock(DataSchema.class)),
+                        List.of(),
+                        false),
+                    mock(DataSchema.class)),
                 new SearchableFieldSpec(
-                    Mockito.mock(PathSpec.class),
+                    mock(PathSpec.class),
                     new SearchableAnnotation(
                         "textFieldOverride",
                         SearchableAnnotation.FieldType.WORD_GRAM,
@@ -458,15 +477,17 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         Optional.empty(),
                         Optional.empty(),
                         Map.of(),
-                        List.of()),
-                    Mockito.mock(DataSchema.class))));
+                        List.of(),
+                        false),
+                    mock(DataSchema.class))));
 
     fieldConfigs =
         TEST_CUSTOM_BUILDER.getStandardFields(
+            mock(EntityRegistry.class),
             ImmutableList.of(TestEntitySpecBuilder.getSpec(), mockEntitySpec));
-    // Same 21 from the original entity + newFieldNotInOriginal + 3 word gram fields from the
+    // Same 22 from the original entity + newFieldNotInOriginal + 3 word gram fields from the
     // textFieldOverride
-    assertEquals(fieldConfigs.size(), 26);
+    assertEquals(fieldConfigs.size(), 27);
     assertEquals(
         fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()),
         Set.of(
@@ -495,7 +516,8 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             "fieldDoesntExistInOriginal.delimited",
             "textFieldOverride.wordGrams2",
             "textFieldOverride.wordGrams3",
-            "textFieldOverride.wordGrams4"));
+            "textFieldOverride.wordGrams4",
+            "customProperties.delimited"));
 
     // Field which only exists in first one: Should be the same
     assertEquals(
@@ -518,5 +540,17 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
             .findFirst()
             .map(SearchFieldConfig::boost),
         Optional.of(2.0F));
+  }
+
+  @Test
+  public void testStandardFieldsQueryByDefault() {
+    assertTrue(
+        TEST_BUILDER
+            .getStandardFields(
+                opContext.getEntityRegistry(),
+                opContext.getEntityRegistry().getEntitySpecs().values())
+            .stream()
+            .allMatch(SearchFieldConfig::isQueryByDefault),
+        "Expect all search fields to be queryByDefault.");
   }
 }

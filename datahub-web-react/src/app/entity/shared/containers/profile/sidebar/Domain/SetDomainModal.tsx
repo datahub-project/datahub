@@ -15,6 +15,9 @@ import { BrowserWrapper } from '../../../../../../shared/tags/AddTagsTermsModal'
 import DomainNavigator from '../../../../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import ClickOutside from '../../../../../../shared/ClickOutside';
 import { ANTD_GRAY } from '../../../../constants';
+import { getModalDomContainer } from '../../../../../../../utils/focus';
+import ParentEntities from '../../../../../../search/filters/ParentEntities';
+import { getParentDomains } from '../../../../../../domain/utils';
 
 type Props = {
     urns: string[];
@@ -41,6 +44,12 @@ const LoadingWrapper = styled.div`
         width: 15px;
         color: ${ANTD_GRAY[8]};
     }
+`;
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 `;
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
@@ -87,7 +96,10 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
             <Select.Option value={entity.urn} key={entity.urn}>
-                <DomainLabel name={displayName} />
+                <SearchResultContainer>
+                    <ParentEntities parentEntities={getParentDomains(entity, entityRegistry)} />
+                    <DomainLabel name={displayName} />
+                </SearchResultContainer>
             </Select.Option>
         );
     };
@@ -195,6 +207,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <Form component={false}>
                 <Form.Item>

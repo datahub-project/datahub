@@ -28,6 +28,15 @@ import com.datahub.plugins.loader.PluginPermissionManagerImpl;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
+import jakarta.inject.Named;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,17 +46,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.inject.Inject;
-import javax.inject.Named;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
@@ -58,13 +58,13 @@ import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 @Slf4j
 public class AuthenticationFilter implements Filter {
 
-  @Inject private ConfigurationProvider configurationProvider;
+  @Autowired private ConfigurationProvider configurationProvider;
 
-  @Inject
+  @Autowired
   @Named("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
-  @Inject
+  @Autowired
   @Named("dataHubTokenService")
   private StatefulTokenService _tokenService;
 
@@ -252,7 +252,7 @@ public class AuthenticationFilter implements Filter {
     authenticatorChain.register(
         systemAuthenticator); // Always register authenticator for internal system.
 
-    // Register authenticator define in application.yml
+    // Register authenticator define in application.yaml
     final List<AuthenticatorConfiguration> authenticatorConfigurations =
         this.configurationProvider.getAuthentication().getAuthenticators();
     for (AuthenticatorConfiguration internalAuthenticatorConfig : authenticatorConfigurations) {

@@ -7,9 +7,8 @@
 version: '3.9'
 services:
   datahub-frontend-react:
-    container_name: datahub-frontend-react
     hostname: datahub-frontend-react
-    image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_FRONTEND_IMAGE:-acryldata/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
       - 9002:9002
     build:
@@ -22,7 +21,6 @@ services:
     volumes:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-actions:
-    container_name: datahub-actions
     hostname: actions
     image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
     env_file: datahub-actions/env/docker.env
@@ -33,9 +31,8 @@ services:
       datahub-gms:
         condition: service_healthy
   datahub-gms:
-    container_name: datahub-gms
     hostname: datahub-gms
-    image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_GMS_IMAGE:-acryldata/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
       - 8080:8080
     build:
@@ -54,7 +51,6 @@ services:
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:
-    container_name: datahub-upgrade
     hostname: datahub-upgrade
     image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
     command:
@@ -76,7 +72,6 @@ services:
       schema-registry:
         condition: service_healthy
   cassandra-setup:
-    container_name: cassandra-setup
     hostname: cassandra-setup
     image: cassandra:3.11
     command: /bin/bash -c "cqlsh cassandra -f /init.cql"
@@ -89,9 +84,8 @@ services:
       datahub_setup_job: true
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
-    container_name: elasticsearch-setup
     hostname: elasticsearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-acryldata/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     build:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
@@ -105,7 +99,6 @@ services:
     labels:
       datahub_setup_job: true
   cassandra:
-    container_name: cassandra
     hostname: cassandra
     image: cassandra:3.11
     ports:
@@ -118,7 +111,6 @@ services:
     volumes:
       - cassandradata:/var/lib/cassandra
   elasticsearch:
-    container_name: elasticsearch
     hostname: elasticsearch
     image: ${DATAHUB_SEARCH_IMAGE:-elasticsearch}:${DATAHUB_SEARCH_TAG:-7.10.1}
     ports:
@@ -136,7 +128,6 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
   neo4j:
-    container_name: neo4j
     hostname: neo4j
     image: neo4j:4.0.6
     ports:
@@ -152,7 +143,6 @@ services:
     volumes:
       - neo4jdata:/data
   schema-registry:
-    container_name: schema-registry
     hostname: schema-registry
     image: confluentinc/cp-schema-registry:7.4.0
     ports:
@@ -168,7 +158,6 @@ services:
       broker:
         condition: service_healthy
   broker:
-    container_name: broker
     hostname: broker
     image: confluentinc/cp-kafka:7.4.0
     ports:
@@ -187,7 +176,6 @@ services:
     volumes:
       - broker:/var/lib/kafka/data/
   zookeeper:
-    container_name: zookeeper
     hostname: zookeeper
     image: confluentinc/cp-zookeeper:7.4.0
     ports:

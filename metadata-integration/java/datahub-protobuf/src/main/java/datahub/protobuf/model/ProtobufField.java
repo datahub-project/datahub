@@ -277,13 +277,18 @@ public class ProtobufField implements ProtobufElement {
       messageType = messageType.getNestedType(value);
     }
 
-    if (pathList.get(pathSize - 2) == DescriptorProto.FIELD_FIELD_NUMBER
-        && pathList.get(pathSize - 1) != DescriptorProto.RESERVED_RANGE_FIELD_NUMBER
-        && pathList.get(pathSize - 1) != DescriptorProto.RESERVED_NAME_FIELD_NUMBER) {
-      return messageType.getField(pathList.get(pathSize - 1));
-    } else {
-      return null;
+    int fieldIndex = pathList.get(pathList.size() - 1);
+    if (isFieldPath(pathList)
+        && pathSize % 2 == 0
+        && fieldIndex < messageType.getFieldList().size()) {
+      return messageType.getField(fieldIndex);
     }
+
+    return null;
+  }
+
+  private boolean isFieldPath(List<Integer> pathList) {
+    return pathList.get(pathList.size() - 2) == DescriptorProto.FIELD_FIELD_NUMBER;
   }
 
   private boolean isEnumType(List<Integer> pathList) {

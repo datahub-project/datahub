@@ -11,7 +11,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "Status": "published",
+                            "IsPublished": "true",
+                            "Owners": "test_username_1, test_username_2",
+                            "IsCertified": "true",
+                            "CertifiedBy": "Certification team",
+                            "CertificationDetails": "Approved"
+                        },
                         "title": "test_dashboard_title_1",
                         "description": "",
                         "charts": [
@@ -37,7 +44,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -83,7 +92,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -129,7 +140,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -175,7 +188,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -221,7 +236,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -236,7 +253,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 }
 ]

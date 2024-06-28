@@ -1,7 +1,7 @@
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
 from datahub.emitter.mce_builder import (
@@ -9,6 +9,7 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_group_urn,
     make_schema_field_urn,
     make_user_urn,
 )
@@ -24,6 +25,7 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     gen_containers,
 )
+from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -38,8 +40,16 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import (
+    create_dataset_owners_patch_builder,
+    create_dataset_props_patch_builder,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
+from datahub.ingestion.source.aws import s3_util
+from datahub.ingestion.source.aws.s3_util import (
+    make_s3_urn_for_lineage,
+    strip_s3_prefix,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -67,6 +77,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
     Catalog,
     Column,
+    CustomCatalogType,
     Metastore,
     Notebook,
     NotebookId,
@@ -77,9 +88,13 @@ from datahub.ingestion.source.unity.proxy_types import (
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
+from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
     FineGrainedLineage,
     FineGrainedLineageUpstreamType,
+    Upstream,
+    UpstreamLineage,
     ViewProperties,
 )
 from datahub.metadata.schema_classes import (
@@ -100,6 +115,12 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
+)
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    sqlglot_lineage,
+    view_definition_lineage_helper,
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
@@ -137,12 +158,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     unity_catalog_api_proxy: UnityCatalogApiProxy
     platform: str = "databricks"
     platform_instance_name: Optional[str]
+    sql_parser_schema_resolver: Optional[SchemaResolver] = None
 
     def get_report(self) -> UnityCatalogReport:
         return self.report
 
     def __init__(self, ctx: PipelineContext, config: UnityCatalogSourceConfig):
-        super(UnityCatalogSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
 
         self.config = config
         self.report: UnityCatalogReport = UnityCatalogReport()
@@ -175,10 +197,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         # Global map of service principal application id -> ServicePrincipal
         self.service_principals: Dict[str, ServicePrincipal] = {}
+        self.groups: List[str] = []
         # Global set of table refs
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
+        self.view_definitions: FileBackedDict[
+            Tuple[TableReference, str]
+        ] = FileBackedDict()
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
@@ -188,9 +214,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_hive_metastore:
             try:
                 self.hive_metastore_proxy = HiveMetastoreProxy(
-                    self.config.get_sql_alchemy_url(HIVE_METASTORE), self.config.options
+                    self.config.get_sql_alchemy_url(HIVE_METASTORE),
+                    self.config.options,
+                    self.report,
                 )
                 self.report.hive_metastore_catalog_found = True
+
+                if self.config.include_table_lineage:
+                    self.sql_parser_schema_resolver = SchemaResolver(
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
             except Exception as e:
                 logger.debug("Exception", exc_info=True)
                 self.warn(
@@ -202,7 +237,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        return UnityCatalogConnectionTest(config_dict).get_connection_test()
+        try:
+            config = UnityCatalogSourceConfig.parse_obj_allow_extras(config_dict)
+        except Exception as e:
+            return TestConnectionReport(
+                internal_failure=True,
+                internal_failure_reason=f"Failed to parse config due to {e}",
+            )
+        return UnityCatalogConnectionTest(config).get_connection_test()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -237,11 +279,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_ownership:
             self.report.report_ingestion_stage_start("Ingest service principals")
             self.build_service_principal_map()
+            self.build_groups_map()
         if self.config.include_notebooks:
             self.report.report_ingestion_stage_start("Ingest notebooks")
             yield from self.process_notebooks()
 
         yield from self.process_metastores()
+
+        yield from self.get_view_lineage()
 
         if self.config.include_notebooks:
             self.report.report_ingestion_stage_start("Notebook lineage")
@@ -294,6 +339,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 "service-principals", f"Unable to fetch service principals: {e}"
             )
 
+    def build_groups_map(self) -> None:
+        try:
+            self.groups += self.unity_catalog_api_proxy.groups()
+        except Exception as e:
+            self.report.report_warning("groups", f"Unable to fetch groups: {e}")
+
     def process_notebooks(self) -> Iterable[MetadataWorkUnit]:
         for notebook in self.unity_catalog_api_proxy.workspace_notebooks():
             if not self.config.notebook_pattern.allowed(notebook.path):
@@ -304,21 +355,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._gen_notebook_workunits(notebook)
 
     def _gen_notebook_workunits(self, notebook: Notebook) -> Iterable[MetadataWorkUnit]:
+        properties = {"path": notebook.path}
+        if notebook.language:
+            properties["language"] = notebook.language.value
+
         mcps = MetadataChangeProposalWrapper.construct_many(
             entityUrn=self.gen_notebook_urn(notebook),
             aspects=[
                 DatasetPropertiesClass(
                     name=notebook.path.rsplit("/", 1)[-1],
-                    customProperties={
-                        "path": notebook.path,
-                        "language": notebook.language.value,
-                    },
+                    customProperties=properties,
                     externalUrl=urljoin(
                         self.config.workspace_url, f"#notebook/{notebook.id}"
                     ),
-                    created=TimeStampClass(int(notebook.created_at.timestamp() * 1000)),
-                    lastModified=TimeStampClass(
-                        int(notebook.modified_at.timestamp() * 1000)
+                    created=(
+                        TimeStampClass(int(notebook.created_at.timestamp() * 1000))
+                        if notebook.created_at
+                        else None
+                    ),
+                    lastModified=(
+                        TimeStampClass(int(notebook.modified_at.timestamp() * 1000))
+                        if notebook.modified_at
+                        else None
                     ),
                 ),
                 SubTypesClass(typeNames=[DatasetSubTypes.NOTEBOOK]),
@@ -352,6 +410,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         metastore: Optional[Metastore] = None
         if self.config.include_metastore:
             metastore = self.unity_catalog_api_proxy.assigned_metastore()
+            if not metastore:
+                self.report.report_failure("Metastore", "Not found")
+                return
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
         if metastore and self.config.include_metastore:
@@ -436,8 +497,55 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
-                self.notebooks[str(notebook_id)] = Notebook.add_upstream(
-                    table.ref, self.notebooks[str(notebook_id)]
+                if str(notebook_id) in self.notebooks:
+                    self.notebooks[str(notebook_id)] = Notebook.add_upstream(
+                        table.ref, self.notebooks[str(notebook_id)]
+                    )
+
+        # Sql parsing is required only for hive metastore view lineage
+        if (
+            self.sql_parser_schema_resolver
+            and table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+        ):
+            self.sql_parser_schema_resolver.add_schema_metadata(
+                dataset_urn, schema_metadata
+            )
+            if table.view_definition:
+                self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
+
+        if (
+            table_props.customProperties.get("table_type")
+            in {"EXTERNAL", "HIVE_EXTERNAL_TABLE"}
+            and table_props.customProperties.get("data_source_format") == "DELTA"
+            and self.config.emit_siblings
+        ):
+            storage_location = str(table_props.customProperties.get("storage_location"))
+            if any(
+                storage_location.startswith(prefix) for prefix in s3_util.S3_PREFIXES
+            ):
+                browse_path = strip_s3_prefix(storage_location)
+                source_dataset_urn = make_dataset_urn_with_platform_instance(
+                    "delta-lake",
+                    browse_path,
+                    self.config.delta_lake_options.platform_instance_name,
+                    self.config.delta_lake_options.env,
+                )
+
+                yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
+                yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
+
+        if ownership:
+            patch_builder = create_dataset_owners_patch_builder(dataset_urn, ownership)
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+
+        if table_props:
+            patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
                 )
 
         yield from [
@@ -445,12 +553,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             for mcp in MetadataChangeProposalWrapper.construct_many(
                 entityUrn=dataset_urn,
                 aspects=[
-                    table_props,
                     view_props,
                     sub_type,
                     schema_metadata,
                     domain,
-                    ownership,
                     data_platform_instance,
                     lineage,
                 ],
@@ -543,9 +649,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if upstreams:
             return UpstreamLineageClass(
                 upstreams=upstreams,
-                fineGrainedLineages=finegrained_lineages
-                if self.config.include_column_lineage
-                else None,
+                fineGrainedLineages=(
+                    finegrained_lineages if self.config.include_column_lineage else None
+                ),
             )
         else:
             return None
@@ -558,6 +664,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_owner_urn(self, user: Optional[str]) -> Optional[str]:
         if self.config.include_ownership and user is not None:
+            if user in self.groups:
+                return make_group_urn(user)
             return self.gen_user_urn(user)
         return None
 
@@ -622,9 +730,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             name=catalog.name,
             sub_types=[DatasetContainerSubTypes.CATALOG],
             domain_urn=domain_urn,
-            parent_container_key=self.gen_metastore_key(catalog.metastore)
-            if self.config.include_metastore and catalog.metastore
-            else None,
+            parent_container_key=(
+                self.gen_metastore_key(catalog.metastore)
+                if self.config.include_metastore and catalog.metastore
+                else None
+            ),
             description=catalog.comment,
             owner_urn=self.get_owner_urn(catalog.owner),
             external_url=f"{self.external_url_base}/{catalog.name}",
@@ -705,13 +815,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if table.generation is not None:
             custom_properties["generation"] = str(table.generation)
 
-        custom_properties["table_type"] = table.table_type.value
+        if table.table_type:
+            custom_properties["table_type"] = table.table_type.value
 
         if table.created_by:
             custom_properties["created_by"] = table.created_by
         if table.properties:
             custom_properties.update({k: str(v) for k, v in table.properties.items()})
-        custom_properties["table_id"] = table.table_id
+        if table.table_id:
+            custom_properties["table_id"] = table.table_id
         if table.owner:
             custom_properties["owner"] = table.owner
         if table.updated_by:
@@ -762,11 +874,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.ingest_data_platform_instance_aspect:
             return DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(
-                    self.platform, self.platform_instance_name
-                )
-                if self.platform_instance_name
-                else None,
+                instance=(
+                    make_dataplatform_instance_urn(
+                        self.platform, self.platform_instance_name
+                    )
+                    if self.platform_instance_name
+                    else None
+                ),
             )
         return None
 
@@ -817,8 +931,109 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
             ]
 
+    def _run_sql_parser(
+        self, view_ref: TableReference, query: str, schema_resolver: SchemaResolver
+    ) -> Optional[SqlParsingResult]:
+        raw_lineage = sqlglot_lineage(
+            query,
+            schema_resolver=schema_resolver,
+            default_db=view_ref.catalog,
+            default_schema=view_ref.schema,
+        )
+        view_urn = self.gen_dataset_urn(view_ref)
+
+        if raw_lineage.debug_info.table_error:
+            logger.debug(
+                f"Failed to parse lineage for view {view_ref}: "
+                f"{raw_lineage.debug_info.table_error}"
+            )
+            self.report.num_view_definitions_failed_parsing += 1
+            self.report.view_definitions_parsing_failures.append(
+                f"Table-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.table_error}"
+            )
+            return None
+
+        elif raw_lineage.debug_info.column_error:
+            self.report.num_view_definitions_failed_column_parsing += 1
+            self.report.view_definitions_parsing_failures.append(
+                f"Column-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.column_error}"
+            )
+        else:
+            self.report.num_view_definitions_parsed += 1
+        return view_definition_lineage_helper(raw_lineage, view_urn)
+
+    def get_view_lineage(self) -> Iterable[MetadataWorkUnit]:
+        if not (
+            self.config.include_hive_metastore
+            and self.config.include_table_lineage
+            and self.sql_parser_schema_resolver
+        ):
+            return
+        # This is only used for parsing view lineage. Usage, Operations are emitted elsewhere
+        builder = SqlParsingBuilder(
+            generate_lineage=True,
+            generate_usage_statistics=False,
+            generate_operations=False,
+        )
+        for dataset_name in self.view_definitions.keys():
+            view_ref, view_definition = self.view_definitions[dataset_name]
+            result = self._run_sql_parser(
+                view_ref,
+                view_definition,
+                self.sql_parser_schema_resolver,
+            )
+            if result and result.out_tables:
+                # This does not yield any workunits but we use
+                # yield here to execute this method
+                yield from builder.process_sql_parsing_result(
+                    result=result,
+                    query=view_definition,
+                    is_view_ddl=True,
+                    include_column_lineage=self.config.include_view_column_lineage,
+                )
+        yield from builder.gen_workunits()
+
     def close(self):
         if self.hive_metastore_proxy:
             self.hive_metastore_proxy.close()
+        if self.view_definitions:
+            self.view_definitions.close()
+        if self.sql_parser_schema_resolver:
+            self.sql_parser_schema_resolver.close()
 
         super().close()
+
+    def gen_siblings_workunit(
+        self,
+        dataset_urn: str,
+        source_dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate sibling workunit for both unity-catalog dataset and its connector source dataset
+        """
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=Siblings(primary=False, siblings=[source_dataset_urn]),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=source_dataset_urn,
+            aspect=Siblings(primary=True, siblings=[dataset_urn]),
+        ).as_workunit(is_primary_source=False)
+
+    def gen_lineage_workunit(
+        self,
+        dataset_urn: str,
+        source_dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate dataset to source connector lineage workunit
+        """
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=UpstreamLineage(
+                upstreams=[
+                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
+                ]
+            ),
+        ).as_workunit()

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -107,10 +108,10 @@ public class EntityAssertionsResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(assertionUrn)),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             ImmutableMap.of(
                 assertionUrn,
@@ -118,6 +119,9 @@ public class EntityAssertionsResolverTest {
                     .setEntityName(Constants.ASSERTION_ENTITY_NAME)
                     .setUrn(assertionUrn)
                     .setAspects(new EnvelopedAspectMap(assertionAspects))));
+
+    Mockito.when(mockClient.exists(any(), Mockito.any(Urn.class), Mockito.eq(false)))
+        .thenReturn(true);
 
     EntityAssertionsResolver resolver = new EntityAssertionsResolver(mockClient, graphClient);
 
@@ -128,6 +132,8 @@ public class EntityAssertionsResolverTest {
 
     Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("start"), Mockito.eq(0))).thenReturn(0);
     Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("count"), Mockito.eq(200))).thenReturn(10);
+    Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("includeSoftDeleted"), Mockito.eq(false)))
+        .thenReturn(false);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     Dataset parentEntity = new Dataset();
@@ -147,6 +153,9 @@ public class EntityAssertionsResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .batchGetV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+    Mockito.verify(mockClient, Mockito.times(1))
+        .exists(Mockito.any(), Mockito.any(), Mockito.any());
 
     // Assert that GraphQL assertion run event matches expectations
     assertEquals(result.getStart(), 0);

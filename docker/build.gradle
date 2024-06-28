@@ -8,15 +8,17 @@ import com.avast.gradle.dockercompose.tasks.ComposeDownForced
 apply from: "../gradle/versioning/versioning.gradle"
 
 ext {
-    quickstart_modules = [
+    backend_profile_modules = [
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
             ':docker:kafka-setup',
             ':datahub-upgrade',
+            ':metadata-service:war',
+    ]
+    quickstart_modules = backend_profile_modules + [
             ':metadata-jobs:mce-consumer-job',
             ':metadata-jobs:mae-consumer-job',
-            ':metadata-service:war',
-            ':datahub-frontend',
+            ':datahub-frontend'
     ]
 
     debug_modules = quickstart_modules - [':metadata-jobs:mce-consumer-job',
@@ -31,15 +33,28 @@ ext {
     pg_quickstart_modules = quickstart_modules - [':docker:mysql-setup'] + [':docker:postgres-setup']
 }
 
+tasks.register('minDockerCompose2.20', Exec) {
+    executable 'bash'
+    args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
+}
+
 tasks.register('quickstart') {}
 tasks.register('quickstartSlim') {}
 tasks.register('quickstartDebug') {}
 tasks.register('quickstartPg') {}
+tasks.register('quickstartStorage') {}
 
-tasks.withType(ComposeDownForced) {
-    removeVolumes = true
+tasks.register('quickstartNuke') {
+    doFirst {
+        dockerCompose.quickstart.removeVolumes = true
+        dockerCompose.quickstartPg.removeVolumes = true
+        dockerCompose.quickstartSlim.removeVolumes = true
+        dockerCompose.quickstartDebug.removeVolumes = true
+    }
+    finalizedBy(tasks.withType(ComposeDownForced))
 }
-task quickstartNuke {
+
+tasks.register('quickstartDown') {
     finalizedBy(tasks.withType(ComposeDownForced))
 }
 
@@ -49,6 +64,7 @@ dockerCompose {
         composeAdditionalArgs = ['--profile', 'quickstart-consumers']
 
         environment.put 'DATAHUB_VERSION', "v${version}"
+        environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
 
         useComposeFiles = ['profiles/docker-compose.yml']
         projectName = 'datahub'
@@ -57,6 +73,8 @@ dockerCompose {
         buildBeforePull = false
         stopContainers = false
         removeVolumes = false
+        captureContainersOutput = true
+        captureContainersOutputToFiles = project.file('build/container-logs')
     }
 
     quickstartPg {
@@ -64,6 +82,7 @@ dockerCompose {
         composeAdditionalArgs = ['--profile', 'quickstart-postgres']
 
         environment.put 'DATAHUB_VERSION', "v${version}"
+        environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
 
         useComposeFiles = ['profiles/docker-compose.yml']
         projectName = 'datahub'
@@ -74,15 +93,38 @@ dockerCompose {
         removeVolumes = false
     }
 
+    /**
+     * The smallest disk footprint required for Spark integration tests
+     *
+     * No frontend, mae, mce, or other services
+     */
     quickstartSlim {
         isRequiredBy(tasks.named('quickstartSlim'))
-        composeAdditionalArgs = ['--profile', 'quickstart-consumers']
+        composeAdditionalArgs = ['--profile', 'quickstart-backend']
 
         environment.put 'DATAHUB_VERSION', "v${version}"
         environment.put "DATAHUB_ACTIONS_IMAGE", "acryldata/datahub-ingestion"
         environment.put "ACTIONS_VERSION", "v${version}-slim"
         environment.put "ACTIONS_EXTRA_PACKAGES", 'acryl-datahub-actions[executor] acryl-datahub-actions'
         environment.put "ACTIONS_CONFIG", 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
+        environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
+
+        useComposeFiles = ['profiles/docker-compose.yml']
+        projectName = 'datahub'
+        projectNamePrefix = ''
+        buildBeforeUp = false
+        buildBeforePull = false
+        stopContainers = false
+        removeVolumes = false
+        captureContainersOutput = true
+        captureContainersOutputToFiles = project.file('build/container-logs')
+    }
+
+    quickstartDebug {
+        isRequiredBy(tasks.named('quickstartDebug'))
+        composeAdditionalArgs = ['--profile', 'debug']
+
+        environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false' // disabled when built locally
 
         useComposeFiles = ['profiles/docker-compose.yml']
         projectName = 'datahub'
@@ -93,9 +135,9 @@ dockerCompose {
         removeVolumes = false
     }
 
-    quickstartDebug {
-        isRequiredBy(tasks.named('quickstartDebug'))
-        composeAdditionalArgs = ['--profile', 'debug']
+    quickstartStorage {
+        isRequiredBy(tasks.named('quickstartStorage'))
+        composeAdditionalArgs = ['--profile', 'quickstart-storage']
 
         useComposeFiles = ['profiles/docker-compose.yml']
         projectName = 'datahub'
@@ -111,15 +153,15 @@ tasks.getByName('quickstartComposeUp').dependsOn(
 tasks.getByName('quickstartPgComposeUp').dependsOn(
         pg_quickstart_modules.collect { it + ':dockerTag' })
 tasks.getByName('quickstartSlimComposeUp').dependsOn(
-        ([':docker:datahub-ingestion'] + quickstart_modules)
+        ([':docker:datahub-ingestion'] + backend_profile_modules)
                 .collect { it + ':dockerTag' })
 tasks.getByName('quickstartDebugComposeUp').dependsOn(
         debug_modules.collect { it + ':dockerTagDebug' }
 )
 tasks.withType(ComposeUp).configureEach {
     shouldRunAfter('quickstartNuke')
+    dependsOn tasks.named("minDockerCompose2.20")
 }
-
 
 task debugReload(type: Exec) {
     def cmd = ['docker compose -p datahub --profile debug'] + compose_args + ['restart'] + debug_reloadable

@@ -1,0 +1,37 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "727911301a80a595a80671e784793aa2ea1be2e2924e10eba3e0c622e5082b0d",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "max_col",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)",
+                    "column": "col1"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)",
+                    "column": "col2"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT GREATEST(`col1`, COL2, `this_will_not_resolve`) AS max_col FROM mytable"
+    }
+}

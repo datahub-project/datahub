@@ -9,7 +9,7 @@ import click
 from click.shell_completion import CompletionItem
 from click_default_group import DefaultGroup
 
-from datahub.cli.cli_utils import (
+from datahub.cli.config_utils import (
     DATAHUB_ROOT_FOLDER,
     DatahubConfig,
     get_client_config,

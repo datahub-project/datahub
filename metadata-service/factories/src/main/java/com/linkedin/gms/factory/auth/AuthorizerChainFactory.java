@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.auth;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.DataHubAuthorizer;
@@ -18,9 +17,10 @@ import com.datahub.plugins.factory.PluginConfigFactory;
 import com.datahub.plugins.loader.IsolatedClassLoader;
 import com.datahub.plugins.loader.PluginPermissionManagerImpl;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.client.JavaEntityClient;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import io.datahubproject.metadata.context.OperationContext;
+import jakarta.annotation.Nonnull;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -28,58 +28,46 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({DataHubAuthorizerFactory.class})
 public class AuthorizerChainFactory {
   @Autowired
   @Qualifier("configurationProvider")
   private ConfigurationProvider configurationProvider;
 
-  @Autowired
-  @Qualifier("dataHubAuthorizer")
-  private DataHubAuthorizer dataHubAuthorizer;
-
-  @Autowired
-  @Qualifier("systemAuthentication")
-  private Authentication systemAuthentication;
-
-  @Autowired
-  @Qualifier("javaEntityClient")
-  private JavaEntityClient entityClient;
-
   @Bean(name = "authorizerChain")
   @Scope("singleton")
   @Nonnull
-  protected AuthorizerChain getInstance() {
-    final EntitySpecResolver resolver = initResolver();
+  protected AuthorizerChain getInstance(
+      final DataHubAuthorizer dataHubAuthorizer, final SystemEntityClient systemEntityClient) {
+    final EntitySpecResolver resolver =
+        initResolver(dataHubAuthorizer.getSystemOpContext(), systemEntityClient);
 
     // Extract + initialize customer authorizers from application configs.
     final List<Authorizer> authorizers = new ArrayList<>(initCustomAuthorizers(resolver));
 
     if (configurationProvider.getAuthorization().getDefaultAuthorizer().isEnabled()) {
       AuthorizerContext ctx = new AuthorizerContext(Collections.emptyMap(), resolver);
-      this.dataHubAuthorizer.init(Collections.emptyMap(), ctx);
+      dataHubAuthorizer.init(Collections.emptyMap(), ctx);
       log.info("Default DataHubAuthorizer is enabled. Appending it to the authorization chain.");
-      authorizers.add(this.dataHubAuthorizer);
+      authorizers.add(dataHubAuthorizer);
     }
 
     return new AuthorizerChain(authorizers, dataHubAuthorizer);
   }
 
-  private EntitySpecResolver initResolver() {
-    return new DefaultEntitySpecResolver(systemAuthentication, entityClient);
+  private EntitySpecResolver initResolver(
+      @Nonnull OperationContext systemOpContext, SystemEntityClient systemEntityClient) {
+    return new DefaultEntitySpecResolver(systemOpContext, systemEntityClient);
   }
 
   private List<Authorizer> initCustomAuthorizers(EntitySpecResolver resolver) {
@@ -121,7 +109,7 @@ public class AuthorizerChainFactory {
     // Get security mode set by user
     SecurityMode securityMode =
         SecurityMode.valueOf(
-            this.configurationProvider.getDatahub().getPlugin().getPluginSecurityMode());
+            configurationProvider.getDatahub().getPlugin().getPluginSecurityMode());
     // Create permission manager with security mode
     PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(securityMode);
 

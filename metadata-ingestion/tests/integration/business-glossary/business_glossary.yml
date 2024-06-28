@@ -10,6 +10,8 @@ nodes:
     knowledge_links:
       - label: Wiki link for classification
         url: "https://en.wikipedia.org/wiki/Classification"
+    custom_properties:
+      is_confidential: true
     terms:
       - name: Sensitive
         description: Sensitive Data
@@ -33,6 +35,7 @@ nodes:
     owners:
       users:
         - mjames
+      type: DATAOWNER
     terms:
       - name: Email
         description: An individual's email address
@@ -52,6 +55,7 @@ nodes:
     owners:
       groups:
         - finance
+      type: urn:li:ownershipType:my_cutom_type
     terms:
       - name: Account
         description: Container for records associated with a business arrangement for regular transactions and services

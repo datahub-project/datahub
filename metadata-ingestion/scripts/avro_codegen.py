@@ -148,11 +148,27 @@ def merge_schemas(schemas_obj: List[dict]) -> str:
     # Combine schemas as a "union" of all of the types.
     merged = ["null"] + schemas_obj
 
+    # Check that we don't have the same class name in multiple namespaces.
+    names_to_spaces: Dict[str, str] = {}
+
     # Patch add_name method to NOT complain about duplicate names.
     class NamesWithDups(avro.schema.Names):
         def add_name(self, name_attr, space_attr, new_schema):
+
             to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
+            assert to_add.name
+            assert to_add.space
             assert to_add.fullname
+
+            if to_add.name in names_to_spaces:
+                if names_to_spaces[to_add.name] != to_add.space:
+                    raise ValueError(
+                        f"Duplicate name {to_add.name} in namespaces {names_to_spaces[to_add.name]} and {to_add.space}. "
+                        "This will cause conflicts in the generated code."
+                    )
+            else:
+                names_to_spaces[to_add.name] = to_add.space
+
             self.names[to_add.fullname] = new_schema
             return to_add
 
@@ -172,6 +188,7 @@ autogen_header = """# mypy: ignore-errors
 
 # pylint: skip-file
 # fmt: off
+# isort: skip_file
 """
 autogen_footer = """
 # fmt: on

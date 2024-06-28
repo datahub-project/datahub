@@ -1,6 +1,9 @@
 package com.linkedin.metadata;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import java.util.Arrays;
+import java.util.List;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -13,6 +16,15 @@ public class Constants {
   public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
+  public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
+  public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
+  public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
+  public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
+      STRUCTURED_PROPERTY_MAPPING_FIELD + ".";
+  public static final String STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD = "_versioned";
+  public static final String STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX =
+      String.join(
+          ".", STRUCTURED_PROPERTY_MAPPING_FIELD, STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, "");
 
   // !!!!!!! IMPORTANT !!!!!!!
   // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
@@ -56,7 +68,9 @@ public class Constants {
   public static final String TAG_ENTITY_NAME = "tag";
   public static final String CONTAINER_ENTITY_NAME = "container";
   public static final String DOMAIN_ENTITY_NAME = "domain";
+  public static final String ER_MODEL_RELATIONSHIP_ENTITY_NAME = "erModelRelationship";
   public static final String ASSERTION_ENTITY_NAME = "assertion";
+  public static final String INCIDENT_ENTITY_NAME = "incident";
   public static final String INGESTION_SOURCE_ENTITY_NAME = "dataHubIngestionSource";
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
@@ -73,6 +87,14 @@ public class Constants {
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
+  public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
+      UrnUtils.getUrn("urn:li:ownershipType:__system__none");
+  public static final String STRUCTURED_PROPERTY_ENTITY_NAME = "structuredProperty";
+  public static final String DATA_TYPE_ENTITY_NAME = "dataType";
+  public static final String ENTITY_TYPE_ENTITY_NAME = "entityType";
+  public static final String FORM_ENTITY_NAME = "form";
+  public static final String RESTRICTED_ENTITY_NAME = "restricted";
+  public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
 
   /** Aspects */
   // Common
@@ -93,6 +115,7 @@ public class Constants {
   public static final String ORIGIN_ASPECT_NAME = "origin";
   public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
   public static final String EMBED_ASPECT_NAME = "embed";
+  public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -106,6 +129,7 @@ public class Constants {
   public static final String ROLE_MEMBERSHIP_ASPECT_NAME = "roleMembership";
 
   public static final String CORP_USER_SETTINGS_ASPECT_NAME = "corpUserSettings";
+  public static final String CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME = "statusLastModifiedAt";
 
   // Group
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
@@ -125,6 +149,8 @@ public class Constants {
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
 
+  public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
+  public static final String FORMS_ASPECT_NAME = "forms";
   // Aspect support
   public static final String FINE_GRAINED_LINEAGE_DATASET_TYPE = "DATASET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_SET_TYPE = "FIELD_SET";
@@ -251,17 +277,29 @@ public class Constants {
 
   public static final String DOMAIN_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
 
+  // ERModelRelationship
+  public static final String ER_MODEL_RELATIONSHIP_KEY_ASPECT_NAME = "erModelRelationshipKey";
+  public static final String ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME =
+      "erModelRelationshipProperties";
+  public static final String EDITABLE_ER_MODEL_RELATIONSHIP_PROPERTIES_ASPECT_NAME =
+      "editableERModelRelationshipProperties";
+
   // Assertion
   public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
+  public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
 
   // Tests
   public static final String TEST_ENTITY_NAME = "test";
   public static final String TEST_KEY_ASPECT_NAME = "testKey";
   public static final String TEST_INFO_ASPECT_NAME = "testInfo";
   public static final String TEST_RESULTS_ASPECT_NAME = "testResults";
+
+  // Incident
+  public static final String INCIDENT_KEY_ASPECT_NAME = "incidentKey";
+  public static final String INCIDENT_INFO_ASPECT_NAME = "incidentInfo";
 
   // DataHub Ingestion Source
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
@@ -306,10 +344,35 @@ public class Constants {
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
   public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
 
+  // Structured Property
+  public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
+  public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
+
+  // Form
+  public static final String FORM_INFO_ASPECT_NAME = "formInfo";
+  public static final String FORM_KEY_ASPECT_NAME = "formKey";
+  public static final String DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME = "dynamicFormAssignment";
+
+  // Data Type
+  public static final String DATA_TYPE_INFO_ASPECT_NAME = "dataTypeInfo";
+
+  // Entity Type
+  public static final String ENTITY_TYPE_INFO_ASPECT_NAME = "entityTypeInfo";
+
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+
+  // Connection
+  public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
+  public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
+
+  // Data Contracts
+  public static final String DATA_CONTRACT_ENTITY_NAME = "dataContract";
+  public static final String DATA_CONTRACT_PROPERTIES_ASPECT_NAME = "dataContractProperties";
+  public static final String DATA_CONTRACT_KEY_ASPECT_NAME = "dataContractKey";
+  public static final String DATA_CONTRACT_STATUS_ASPECT_NAME = "dataContractStatus";
 
   // Relationships
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
@@ -335,6 +398,14 @@ public class Constants {
       "dataProcessInstanceRunEvent";
   public static final String DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME =
       "dataProcessInstanceRelationships";
+
+  // Business Attribute
+  public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";
+  public static final String BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME = "businessAttributeInfo";
+  public static final String BUSINESS_ATTRIBUTE_ASSOCIATION = "businessAttributeAssociation";
+  public static final String BUSINESS_ATTRIBUTE_ASPECT = "businessAttributes";
+  public static final List<String> SKIP_REFERENCE_ASPECT =
+      Arrays.asList("ownership", "status", "institutionalMemory");
 
   // Posts
   public static final String POST_INFO_ASPECT_NAME = "postInfo";
@@ -362,6 +433,9 @@ public class Constants {
   public static final String PARENT_INSTANCE_URN_KEY = "parentInstanceUrn";
   public static final String DATA_FLOW_URN_KEY = "dataFlowUrn";
   public static final String DATA_JOB_URN_KEY = "dataJobUrn";
+
+  // Incidents
+  public static final String ENTITY_REF = "entities";
 
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";

@@ -30,11 +30,11 @@ import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
-import io.ebean.PagedList;
 import io.ebean.Transaction;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -201,7 +201,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return keys.stream()
         .map(this::getAspect)
         .filter(Objects::nonNull)
-        .collect(Collectors.toMap(EntityAspect::toAspectIdentifier, aspect -> aspect));
+        .collect(Collectors.toMap(EntityAspectIdentifier::fromEntityAspect, aspect -> aspect));
   }
 
   @Override
@@ -492,7 +492,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Nonnull
-  public PagedList<EbeanAspectV2> getPagedAspects(final RestoreIndicesArgs args) {
+  public PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args) {
     // Not implemented
     return null;
   }
@@ -500,8 +500,30 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   @Override
   public Stream<EntityAspect> streamAspects(String entityName, String aspectName) {
-    // Not implemented
-    return null;
+    SimpleStatement ss =
+        selectFrom(CassandraAspect.TABLE_NAME)
+            .all()
+            // assumes alpha characters after the entityType prefix
+            .whereColumn(CassandraAspect.URN_COLUMN)
+            .isGreaterThan(literal(String.join(":", List.of("urn", "li", entityName, ""))))
+            .whereColumn(CassandraAspect.URN_COLUMN)
+            .isLessThan(
+                literal(
+                    String.join(
+                        ":",
+                        List.of(
+                            "urn",
+                            "li",
+                            entityName,
+                            "|")))) // this is used for slicing prefixes with alpha characters
+            .whereColumn(CassandraAspect.ASPECT_COLUMN)
+            .isEqualTo(literal(aspectName))
+            .allowFiltering() // performance impact, however # of properties expected to be
+            // relatively small
+            .build();
+
+    ResultSet rs = _cqlSession.execute(ss);
+    return rs.all().stream().map(CassandraAspect::rowToEntityAspect);
   }
 
   @Override

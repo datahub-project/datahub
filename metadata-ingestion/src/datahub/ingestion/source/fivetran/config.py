@@ -4,9 +4,15 @@ from typing import Dict, List, Optional
 
 import pydantic
 from pydantic import Field, root_validator
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.report import Report
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryConnectionConfig,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -15,6 +21,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +46,7 @@ class Constant:
     TIME_STAMP = "time_stamp"
     STATUS = "status"
     USER_ID = "user_id"
-    GIVEN_NAME = "given_name"
-    FAMILY_NAME = "family_name"
+    EMAIL = "email"
     CONNECTOR_ID = "connector_id"
     CONNECTOR_NAME = "connector_name"
     CONNECTOR_TYPE_ID = "connector_type_id"
@@ -60,28 +66,44 @@ KNOWN_DATA_PLATFORM_MAPPING = {
 }
 
 
-class DestinationConfig(BaseSnowflakeConfig):
+class SnowflakeDestinationConfig(BaseSnowflakeConfig):
     database: str = Field(description="The fivetran connector log database.")
     log_schema: str = Field(description="The fivetran connector log schema.")
 
 
+class BigQueryDestinationConfig(BigQueryConnectionConfig):
+    dataset: str = Field(description="The fivetran connector log dataset.")
+
+
 class FivetranLogConfig(ConfigModel):
-    destination_platform: str = pydantic.Field(
+    destination_platform: Literal["snowflake", "bigquery"] = pydantic.Field(
         default="snowflake",
         description="The destination platform where fivetran connector log tables are dumped.",
     )
-    destination_config: Optional[DestinationConfig] = pydantic.Field(
+    snowflake_destination_config: Optional[SnowflakeDestinationConfig] = pydantic.Field(
         default=None,
         description="If destination platform is 'snowflake', provide snowflake configuration.",
+    )
+    bigquery_destination_config: Optional[BigQueryDestinationConfig] = pydantic.Field(
+        default=None,
+        description="If destination platform is 'bigquery', provide bigquery configuration.",
+    )
+    _rename_destination_config = pydantic_renamed_field(
+        "destination_config", "snowflake_destination_config"
     )
 
     @root_validator(pre=True)
     def validate_destination_platfrom_and_config(cls, values: Dict) -> Dict:
         destination_platform = values["destination_platform"]
         if destination_platform == "snowflake":
-            if "destination_config" not in values:
+            if "snowflake_destination_config" not in values:
                 raise ValueError(
                     "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe."
+                )
+        elif destination_platform == "bigquery":
+            if "bigquery_destination_config" not in values:
+                raise ValueError(
+                    "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe."
                 )
         else:
             raise ValueError(
@@ -91,9 +113,25 @@ class FivetranLogConfig(ConfigModel):
 
 
 @dataclass
+class MetadataExtractionPerfReport(Report):
+    connectors_metadata_extraction_sec: PerfTimer = dataclass_field(
+        default_factory=PerfTimer
+    )
+    connectors_lineage_extraction_sec: PerfTimer = dataclass_field(
+        default_factory=PerfTimer
+    )
+    connectors_jobs_extraction_sec: PerfTimer = dataclass_field(
+        default_factory=PerfTimer
+    )
+
+
+@dataclass
 class FivetranSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
     filtered_connectors: List[str] = dataclass_field(default_factory=list)
+    metadata_extraction_perf: MetadataExtractionPerfReport = dataclass_field(
+        default_factory=MetadataExtractionPerfReport
+    )
 
     def report_connectors_scanned(self, count: int = 1) -> None:
         self.connectors_scanned += count
@@ -142,4 +180,8 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     destination_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of destination dataset to platform instance. Use destination id as key.",
+    )
+    history_sync_lookback_period: int = pydantic.Field(
+        7,
+        description="The number of days to look back when extracting connectors' sync history.",
     )

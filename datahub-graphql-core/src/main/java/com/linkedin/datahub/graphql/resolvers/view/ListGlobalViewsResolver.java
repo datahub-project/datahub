@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataHubViewType;
@@ -15,7 +16,7 @@ import com.linkedin.datahub.graphql.generated.ListGlobalViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -30,6 +31,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolver used for listing global DataHub Views. */
@@ -58,7 +60,7 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
     final ListGlobalViewsInput input =
         bindArgument(environment.getArgument("input"), ListGlobalViewsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
           final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
@@ -68,14 +70,13 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
 
             final SearchResult gmsResult =
                 _entityClient.search(
+                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
-                    buildFilters(),
+                    buildFilters(context.getOperationContext().getAspectRetriever()),
                     DEFAULT_SORT_CRITERION,
                     start,
-                    count,
-                    context.getAuthentication(),
-                    new SearchFlags().setFulltext(true));
+                    count);
 
             final ListViewsResult result = new ListViewsResult();
             result.setStart(gmsResult.getFrom());
@@ -90,7 +91,9 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
           } catch (Exception e) {
             throw new RuntimeException("Failed to list global Views", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial View objects which will be
@@ -106,7 +109,7 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
     return results;
   }
 
-  private Filter buildFilters() {
+  private Filter buildFilters(@Nullable AspectRetriever aspectRetriever) {
     final AndFilterInput globalCriteria = new AndFilterInput();
     List<FacetFilterInput> andConditions = new ArrayList<>();
     andConditions.add(
@@ -117,6 +120,6 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
             false,
             FilterOperator.EQUAL));
     globalCriteria.setAnd(andConditions);
-    return buildFilter(Collections.emptyList(), ImmutableList.of(globalCriteria));
+    return buildFilter(Collections.emptyList(), ImmutableList.of(globalCriteria), aspectRetriever);
   }
 }

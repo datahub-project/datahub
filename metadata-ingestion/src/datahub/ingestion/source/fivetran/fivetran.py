@@ -66,7 +66,7 @@ class FivetranSource(StatefulIngestionSourceBase):
     platform: str = "fivetran"
 
     def __init__(self, config: FivetranSourceConfig, ctx: PipelineContext):
-        super(FivetranSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = FivetranSourceReport()
 
@@ -119,15 +119,13 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
             input_dataset_urn_list.append(input_dataset_urn)
 
-            output_dataset_urn: Optional[DatasetUrn] = None
-            if self.audit_log.fivetran_log_database:
-                output_dataset_urn = DatasetUrn.create_from_ids(
-                    platform_id=self.config.fivetran_log_config.destination_platform,
-                    table_name=f"{self.audit_log.fivetran_log_database.lower()}.{table_lineage.destination_table}",
-                    env=destination_platform_detail.env,
-                    platform_instance=destination_platform_detail.platform_instance,
-                )
-                output_dataset_urn_list.append(output_dataset_urn)
+            output_dataset_urn = DatasetUrn.create_from_ids(
+                platform_id=self.config.fivetran_log_config.destination_platform,
+                table_name=f"{self.audit_log.fivetran_log_database.lower()}.{table_lineage.destination_table}",
+                env=destination_platform_detail.env,
+                platform_instance=destination_platform_detail.platform_instance,
+            )
+            output_dataset_urn_list.append(output_dataset_urn)
 
             if self.config.include_column_lineage:
                 for column_lineage in table_lineage.column_lineage:
@@ -175,11 +173,12 @@ class FivetranSource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
+        owner_email = self.audit_log.get_user_email(connector.user_id)
         datajob = DataJob(
             id=connector.connector_id,
             flow_urn=dataflow_urn,
             name=connector.connector_name,
-            owners={connector.user_name} if connector.user_name else set(),
+            owners={owner_email} if owner_email else set(),
         )
 
         job_property_bag: Dict[str, str] = {}
@@ -282,11 +281,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         Datahub Ingestion framework invoke this method
         """
         logger.info("Fivetran plugin execution is started")
-        connectors = self.audit_log.get_connectors_list()
+        connectors = self.audit_log.get_allowed_connectors_list(
+            self.config.connector_patterns,
+            self.report,
+            self.config.history_sync_lookback_period,
+        )
         for connector in connectors:
-            if not self.config.connector_patterns.allowed(connector.connector_name):
-                self.report.report_connectors_dropped(connector.connector_name)
-                continue
             logger.info(f"Processing connector id: {connector.connector_id}")
             yield from self._get_connector_workunits(connector)
 

@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ListSecretsInput;
 import com.linkedin.datahub.graphql.generated.ListSecretsResult;
@@ -17,7 +18,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -61,12 +61,15 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // First, get all secrets
               final SearchResult gmsResult =
                   _entityClient.search(
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.SECRETS_ENTITY_NAME,
                       query,
                       null,
@@ -74,20 +77,18 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
                           .setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME)
                           .setOrder(SortOrder.DESCENDING),
                       start,
-                      count,
-                      context.getAuthentication(),
-                      new SearchFlags().setFulltext(true));
+                      count);
 
               // Then, resolve all secrets
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.SECRETS_ENTITY_NAME,
                       new HashSet<>(
                           gmsResult.getEntities().stream()
                               .map(SearchEntity::getEntity)
                               .collect(Collectors.toList())),
-                      ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME),
-                      context.getAuthentication());
+                      ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME));
 
               // Now that we have entities we can bind this to a result.
               final ListSecretsResult result = new ListSecretsResult();
@@ -105,7 +106,9 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
             } catch (Exception e) {
               throw new RuntimeException("Failed to list secrets", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

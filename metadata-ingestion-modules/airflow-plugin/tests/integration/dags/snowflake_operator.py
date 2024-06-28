@@ -6,12 +6,21 @@ from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 SNOWFLAKE_COST_TABLE = "costs"
 SNOWFLAKE_PROCESSED_TABLE = "processed_costs"
 
+
+def _fake_snowflake_execute(*args, **kwargs):
+    raise ValueError("mocked snowflake execute to not run queries")
+
+
 with DAG(
     "snowflake_operator",
     start_date=datetime(2023, 1, 1),
     schedule_interval=None,
     catchup=False,
 ) as dag:
+    # HACK: We don't want to send real requests to Snowflake. As a workaround,
+    # we can simply monkey-patch the operator.
+    SnowflakeOperator.execute = _fake_snowflake_execute  # type: ignore
+
     transform_cost_table = SnowflakeOperator(
         snowflake_conn_id="my_snowflake",
         task_id="transform_cost_table",

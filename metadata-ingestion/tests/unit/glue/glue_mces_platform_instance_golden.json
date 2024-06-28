@@ -10,7 +10,11 @@
                 "platform": "glue",
                 "instance": "some_instance_name",
                 "env": "PROD",
-                "database": "flights-database"
+                "database": "flights-database",
+                "param1": "value1",
+                "param2": "value2",
+                "LocationUri": "s3://test-bucket/test-prefix",
+                "CreateTime": "June 9, 2021 at 14:14:19"
             },
             "name": "flights-database",
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database"
@@ -115,6 +119,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=int].yr",
                                 "nullable": true,
+                                "description": "test comment",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -206,6 +211,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
                                 "nullable": true,
+                                "description": "partition test comment",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -233,6 +239,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -290,7 +297,8 @@
                 "platform": "glue",
                 "instance": "some_instance_name",
                 "env": "PROD",
-                "database": "test-database"
+                "database": "test-database",
+                "CreateTime": "June 1, 2021 at 14:55:02"
             },
             "name": "test-database",
             "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/test-database"
@@ -472,6 +480,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -658,6 +667,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"

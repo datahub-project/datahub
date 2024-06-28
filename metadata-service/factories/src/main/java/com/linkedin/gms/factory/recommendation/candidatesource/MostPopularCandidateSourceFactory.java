@@ -31,7 +31,7 @@ public class MostPopularCandidateSourceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService entityService;
+  private EntityService<?> entityService;
 
   @Bean(name = "mostPopularCandidateSource")
   @Nonnull

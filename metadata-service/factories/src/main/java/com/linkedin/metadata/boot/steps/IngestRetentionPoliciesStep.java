@@ -13,13 +13,14 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.retention.DataHubRetentionConfig;
+import io.datahubproject.metadata.context.OperationContext;
+import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -28,8 +29,8 @@ import org.springframework.core.io.ClassPathResource;
 @RequiredArgsConstructor
 public class IngestRetentionPoliciesStep implements BootstrapStep {
 
-  private final RetentionService _retentionService;
-  private final EntityService _entityService;
+  private final RetentionService<?> _retentionService;
+  private final EntityService<?> _entityService;
   private final boolean _enableRetention;
   private final boolean _applyOnBootstrap;
   private final String pluginPath;
@@ -61,9 +62,10 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws IOException, URISyntaxException {
+  public void execute(@Nonnull OperationContext systemOperationContext)
+      throws IOException, URISyntaxException {
     // 0. Execute preflight check to see whether we need to ingest policies
-    if (_entityService.exists(UPGRADE_ID_URN)) {
+    if (_entityService.exists(systemOperationContext, UPGRADE_ID_URN, true)) {
       log.info("Retention was applied. Skipping.");
       return;
     }
@@ -87,7 +89,10 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
     boolean hasUpdate = false;
     for (DataHubRetentionKey key : retentionPolicyMap.keySet()) {
       if (_retentionService.setRetention(
-          key.getEntityName(), key.getAspectName(), retentionPolicyMap.get(key))) {
+          systemOperationContext,
+          key.getEntityName(),
+          key.getAspectName(),
+          retentionPolicyMap.get(key))) {
         hasUpdate = true;
       }
     }
@@ -98,7 +103,7 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
       _retentionService.batchApplyRetention(null, null);
     }
 
-    BootstrapStep.setUpgradeResult(UPGRADE_ID_URN, _entityService);
+    BootstrapStep.setUpgradeResult(systemOperationContext, UPGRADE_ID_URN, _entityService);
   }
 
   // Parse input yaml file or yaml files in the input directory to generate a retention policy map

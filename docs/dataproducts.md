@@ -132,7 +132,7 @@ There are many more advanced cli commands for managing Data Products as code. Ta
 
 The following features are next on the roadmap for Data Products
 - Support for marking data assets in a Data Product as private versus shareable for other teams to consume
-- Support for declaring lineage manually to upstream and downstream data products
+- Support for declaring data lineage manually to upstream and downstream data products
 - Support for declaring logical schema for Data Products
 - Support for associating data contracts with Data Products
 - Support for semantic versioning of the Data Product entity
@@ -145,4 +145,4 @@ The following features are next on the roadmap for Data Products
 * [Tags](./tags.md)
 
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+

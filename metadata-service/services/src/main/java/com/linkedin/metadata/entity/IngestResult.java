@@ -1,7 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.transactions.AbstractBatchItem;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import lombok.Builder;
 import lombok.Value;
 
@@ -9,7 +9,7 @@ import lombok.Value;
 @Value
 public class IngestResult {
   Urn urn;
-  AbstractBatchItem request;
+  BatchItem request;
   boolean publishedMCL;
   boolean processedMCL;
   boolean publishedMCP;

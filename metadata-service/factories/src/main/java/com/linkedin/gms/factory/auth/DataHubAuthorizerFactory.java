@@ -1,32 +1,17 @@
 package com.linkedin.gms.factory.auth;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authorization.DataHubAuthorizer;
-import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
-import com.linkedin.metadata.client.JavaEntityClient;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
+import com.linkedin.entity.client.SystemEntityClient;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@Import({RestliEntityClientFactory.class})
 public class DataHubAuthorizerFactory {
-
-  @Autowired
-  @Qualifier("systemAuthentication")
-  private Authentication systemAuthentication;
-
-  @Autowired
-  @Qualifier("javaEntityClient")
-  private JavaEntityClient entityClient;
 
   @Value("${authorization.defaultAuthorizer.cacheRefreshIntervalSecs}")
   private Integer policyCacheRefreshIntervalSeconds;
@@ -40,7 +25,9 @@ public class DataHubAuthorizerFactory {
   @Bean(name = "dataHubAuthorizer")
   @Scope("singleton")
   @Nonnull
-  protected DataHubAuthorizer getInstance() {
+  protected DataHubAuthorizer dataHubAuthorizer(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      final SystemEntityClient systemEntityClient) {
 
     final DataHubAuthorizer.AuthorizationMode mode =
         policiesEnabled
@@ -48,8 +35,8 @@ public class DataHubAuthorizerFactory {
             : DataHubAuthorizer.AuthorizationMode.ALLOW_ALL;
 
     return new DataHubAuthorizer(
-        systemAuthentication,
-        entityClient,
+        systemOpContext,
+        systemEntityClient,
         10,
         policyCacheRefreshIntervalSeconds,
         mode,

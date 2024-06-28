@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchSetDataProductInput;
 import com.linkedin.metadata.service.DataProductService;
@@ -31,7 +32,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
     final String maybeDataProductUrn = input.getDataProductUrn();
     final List<String> resources = input.getResourceUrns();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           verifyResources(resources, context);
           verifyDataProduct(maybeDataProductUrn, context);
@@ -51,13 +52,15 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void verifyResources(List<String> resources, QueryContext context) {
     for (String resource : resources) {
       if (!_dataProductService.verifyEntityExists(
-          UrnUtils.getUrn(resource), context.getAuthentication())) {
+          context.getOperationContext(), UrnUtils.getUrn(resource))) {
         throw new RuntimeException(
             String.format(
                 "Failed to batch set Data Product, %s in resources does not exist", resource));
@@ -74,7 +77,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
   private void verifyDataProduct(String maybeDataProductUrn, QueryContext context) {
     if (maybeDataProductUrn != null
         && !_dataProductService.verifyEntityExists(
-            UrnUtils.getUrn(maybeDataProductUrn), context.getAuthentication())) {
+            context.getOperationContext(), UrnUtils.getUrn(maybeDataProductUrn))) {
       throw new RuntimeException(
           String.format(
               "Failed to batch set Data Product, Data Product urn %s does not exist",
@@ -90,9 +93,9 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
         resources);
     try {
       _dataProductService.batchSetDataProduct(
+          context.getOperationContext(),
           UrnUtils.getUrn(dataProductUrn),
           resources,
-          context.getAuthentication(),
           UrnUtils.getUrn(context.getActorUrn()));
     } catch (Exception e) {
       throw new RuntimeException(
@@ -108,7 +111,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
     try {
       for (Urn resource : resources) {
         _dataProductService.unsetDataProduct(
-            resource, context.getAuthentication(), UrnUtils.getUrn(context.getActorUrn()));
+            context.getOperationContext(), resource, UrnUtils.getUrn(context.getActorUrn()));
       }
     } catch (Exception e) {
       throw new RuntimeException(

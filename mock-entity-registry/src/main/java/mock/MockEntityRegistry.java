@@ -1,10 +1,10 @@
 package mock;
 
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;

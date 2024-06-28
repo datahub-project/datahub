@@ -53,6 +53,8 @@ ip-192-168-64-56.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-ek
 ip-192-168-8-126.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-eks-d1db3c
 ```
 
+Once your cluster is running, make sure to install the EBS CSI driver, Core DNS, and VPC CNI plugin for Kubernetes. [add-ons](https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html)
+
 ## Setup DataHub using Helm
 
 Once the kubernetes cluster has been set up, you can deploy DataHub and it’s prerequisites using helm. Please follow the
@@ -135,7 +137,7 @@ file used to deploy datahub). Change datahub-frontend values to the following.
 datahub-frontend:
   enabled: true
   image:
-    repository: linkedin/datahub-frontend-react
+    repository: acryldata/datahub-frontend-react
     tag: "latest"
   ingress:
     enabled: true
@@ -303,7 +305,7 @@ a different way of creating time based indices.
   elasticsearchSetupJob:
     enabled: true
     image:
-      repository: linkedin/datahub-elasticsearch-setup
+      repository: acryldata/datahub-elasticsearch-setup
       tag: "***"
     extraEnvs:
       - name: USE_AWS_ELASTICSEARCH
@@ -330,7 +332,7 @@ and [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/facto
 .
 
 A mapping between the property name used in the above two files and the name used in docker/env file can be
-found [here](../../metadata-service/configuration/src/main/resources/application.yml).
+found [here](../../metadata-service/configuration/src/main/resources/application.yaml).
 
 ### Managed Streaming for Apache Kafka (MSK)
 

@@ -14,6 +14,7 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import EnvConfigMixin
 
 if TYPE_CHECKING:
+    from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_glue import GlueClient
     from mypy_boto3_s3 import S3Client, S3ServiceResource
     from mypy_boto3_sagemaker import SageMakerClient
@@ -34,7 +35,7 @@ class AwsAssumeRoleConfig(PermissiveConfigModel):
 
 def assume_role(
     role: AwsAssumeRoleConfig,
-    aws_region: str,
+    aws_region: Optional[str],
     credentials: Optional[dict] = None,
 ) -> dict:
     credentials = credentials or {}
@@ -93,7 +94,7 @@ class AwsConnectionConfig(ConfigModel):
         default=None,
         description="Named AWS profile to use. Only used if access key / secret are unset. If not set the default will be used",
     )
-    aws_region: str = Field(description="AWS region code.")
+    aws_region: Optional[str] = Field(None, description="AWS region code.")
 
     aws_endpoint_url: Optional[str] = Field(
         default=None,
@@ -214,6 +215,9 @@ class AwsConnectionConfig(ConfigModel):
     def get_glue_client(self) -> "GlueClient":
         return self.get_session().client("glue", config=self._aws_config())
 
+    def get_dynamodb_client(self) -> "DynamoDBClient":
+        return self.get_session().client("dynamodb", config=self._aws_config())
+
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker", config=self._aws_config())
 
@@ -224,6 +228,7 @@ class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
 
     Currently used by:
         - Glue source
+        - DynamoDB source
         - SageMaker source
     """
 

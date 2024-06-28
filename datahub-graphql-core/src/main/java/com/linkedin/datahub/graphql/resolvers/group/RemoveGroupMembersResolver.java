@@ -10,6 +10,7 @@ import com.linkedin.common.OriginType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -47,7 +48,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
     final List<Urn> userUrnList =
         input.getUserUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
-    if (!_groupService.groupExists(groupUrn)) {
+    if (!_groupService.groupExists(context.getOperationContext(), groupUrn)) {
       // The group doesn't exist.
       throw new DataHubGraphQLException(
           String.format(
@@ -55,13 +56,14 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
           DataHubGraphQLErrorCode.NOT_FOUND);
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          Origin groupOrigin = _groupService.getGroupOrigin(groupUrn);
+          Origin groupOrigin =
+              _groupService.getGroupOrigin(context.getOperationContext(), groupUrn);
           if (groupOrigin == null || !groupOrigin.hasType()) {
             try {
               _groupService.migrateGroupMembershipToNativeGroupMembership(
-                  groupUrn, context.getActorUrn(), context.getAuthentication());
+                  context.getOperationContext(), groupUrn, context.getActorUrn());
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format(
@@ -75,11 +77,14 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
                     groupUrnStr));
           }
           try {
-            _groupService.removeExistingNativeGroupMembers(groupUrn, userUrnList, authentication);
+            _groupService.removeExistingNativeGroupMembers(
+                context.getOperationContext(), groupUrn, userUrnList);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

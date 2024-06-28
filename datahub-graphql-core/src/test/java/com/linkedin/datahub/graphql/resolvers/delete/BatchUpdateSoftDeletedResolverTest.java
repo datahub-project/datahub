@@ -2,10 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.delete;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -15,7 +16,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResol
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -36,6 +37,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.STATUS_ASPECT_NAME),
                 Mockito.eq(0L)))
@@ -43,13 +45,16 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.STATUS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_1))).thenReturn(true);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_2))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+        .thenReturn(true);
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 
@@ -83,6 +88,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.STATUS_ASPECT_NAME),
                 Mockito.eq(0L)))
@@ -90,13 +96,16 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.STATUS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(originalStatus);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_1))).thenReturn(true);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_2))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+        .thenReturn(true);
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 
@@ -128,19 +137,23 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
                 Mockito.eq(Constants.STATUS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
     Mockito.when(
             mockService.getAspect(
+                any(),
                 Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)),
                 Mockito.eq(Constants.STATUS_ASPECT_NAME),
                 Mockito.eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_1))).thenReturn(false);
-    Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN_2))).thenReturn(true);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_1)), eq(true)))
+        .thenReturn(false);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN_2)), eq(true)))
+        .thenReturn(true);
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 
@@ -184,10 +197,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .ingestProposal(
-            Mockito.any(AspectsBatchImpl.class),
-            Mockito.any(AuditStamp.class),
-            Mockito.anyBoolean());
+        .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), Mockito.anyBoolean());
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 

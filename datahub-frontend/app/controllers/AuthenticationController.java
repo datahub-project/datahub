@@ -15,12 +15,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
+import org.apache.commons.httpclient.InvalidRedirectLocationException;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.Cookie;
@@ -39,7 +42,6 @@ import play.mvc.Result;
 import play.mvc.Results;
 import security.AuthenticationManager;
 
-// TODO add logging.
 public class AuthenticationController extends Controller {
   public static final String AUTH_VERBOSE_LOGGING = "auth.verbose.logging";
   private static final String AUTH_REDIRECT_URI_PARAM = "redirect_uri";
@@ -86,7 +88,17 @@ public class AuthenticationController extends Controller {
 
     final Optional<String> maybeRedirectPath =
         Optional.ofNullable(request.getQueryString(AUTH_REDIRECT_URI_PARAM));
-    final String redirectPath = maybeRedirectPath.orElse("/");
+    String redirectPath = maybeRedirectPath.orElse("/");
+    try {
+      URI redirectUri = new URI(redirectPath);
+      if (redirectUri.getScheme() != null || redirectUri.getAuthority() != null) {
+        throw new InvalidRedirectLocationException("Redirect location must be relative to the base url, cannot "
+            + "redirect to other domains: " + redirectPath, redirectPath);
+      }
+    } catch (URISyntaxException | InvalidRedirectLocationException e) {
+      _logger.warn(e.getMessage());
+      redirectPath = "/";
+    }
 
     if (AuthUtils.hasValidSessionCookie(request)) {
       return Results.redirect(redirectPath);
@@ -170,10 +182,12 @@ public class AuthenticationController extends Controller {
     boolean loginSucceeded = tryLogin(username, password);
 
     if (!loginSucceeded) {
+      _logger.info("Login failed for user: {}", username);
       return Results.badRequest(invalidCredsJson);
     }
 
     final Urn actorUrn = new CorpuserUrn(username);
+    _logger.info("Login successful for user: {}, urn: {}", username, actorUrn);
     final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
     return createSession(actorUrn.toString(), accessToken);
   }
@@ -237,6 +251,7 @@ public class AuthenticationController extends Controller {
     final Urn userUrn = new CorpuserUrn(email);
     final String userUrnString = userUrn.toString();
     _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
+    _logger.info("Signed up user {} using invite tokens", userUrnString);
     final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
     return createSession(userUrnString, accessToken);
   }
@@ -338,15 +353,15 @@ public class AuthenticationController extends Controller {
     // First try jaas login, if enabled
     if (_jaasConfigs.isJAASEnabled()) {
       try {
-        _logger.debug("Attempting jaas authentication");
+        _logger.debug("Attempting JAAS authentication for user: {}", username);
         AuthenticationManager.authenticateJaasUser(username, password);
-        _logger.debug("Jaas authentication successful. Login succeeded");
+        _logger.debug("JAAS authentication successful. Login succeeded");
         loginSucceeded = true;
       } catch (Exception e) {
         if (_verbose) {
-          _logger.debug("Jaas authentication error. Login failed", e);
+          _logger.debug("JAAS authentication error. Login failed", e);
         } else {
-          _logger.debug("Jaas authentication error. Login failed");
+          _logger.debug("JAAS authentication error. Login failed");
         }
       }
     }

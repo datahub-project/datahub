@@ -13,6 +13,11 @@
     * Ownership of or `SELECT` privilege on any tables and views you want to ingest
     * [Ownership documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/ownership.html)
     * [Privileges documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/privileges.html)
+  + To ingest legacy hive_metastore catalog (`include_hive_metastore` - enabled by default), your service principal must have all of the following:
+    * `READ_METADATA` and `USAGE` privilege on `hive_metastore` catalog
+    * `READ_METADATA` and `USAGE` privilege on schemas you want to ingest
+    * `READ_METADATA` and `USAGE` privilege on tables and views you want to ingest
+    * [Hive Metastore Privileges documentation](https://docs.databricks.com/en/sql/language-manual/sql-ref-privileges-hms.html)
   + To ingest your workspace's notebooks and respective lineage, your service principal must have `CAN_READ` privileges on the folders containing the notebooks you want to ingest: [guide](https://docs.databricks.com/en/security/auth-authz/access-control/workspace-acl.html#folder-permissions).
   + To `include_usage_statistics` (enabled by default), your service principal must have `CAN_MANAGE` permissions on any SQL Warehouses you want to ingest: [guide](https://docs.databricks.com/security/auth-authz/access-control/sql-endpoint-acl.html).
   + To ingest `profiling` information with `method: ge`, you need `SELECT` privileges on all profiled tables.

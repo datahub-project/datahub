@@ -5,13 +5,14 @@ import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -34,17 +35,13 @@ public class TimeseriesAspectServiceUnitTest {
   private final IndexConvention _indexConvention = mock(IndexConvention.class);
   private final TimeseriesAspectIndexBuilders _timeseriesAspectIndexBuilders =
       mock(TimeseriesAspectIndexBuilders.class);
-  private final EntityRegistry _entityRegistry = mock(EntityRegistry.class);
   private final ESBulkProcessor _bulkProcessor = mock(ESBulkProcessor.class);
   private final RestClient _restClient = mock(RestClient.class);
   private final TimeseriesAspectService _timeseriesAspectService =
       new ElasticSearchTimeseriesAspectService(
-          _searchClient,
-          _indexConvention,
-          _timeseriesAspectIndexBuilders,
-          _entityRegistry,
-          _bulkProcessor,
-          0);
+          _searchClient, _timeseriesAspectIndexBuilders, _bulkProcessor, 0);
+  private final OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization(_indexConvention);
 
   private static final String INDEX_PATTERN = "indexPattern";
 
@@ -71,7 +68,7 @@ public class TimeseriesAspectServiceUnitTest {
         .thenReturn(IOUtils.toInputStream(jsonNode.toString(), StandardCharsets.UTF_8));
     when(_restClient.performRequest(any(Request.class))).thenReturn(response);
 
-    List<TimeseriesIndexSizeResult> results = _timeseriesAspectService.getIndexSizes();
+    List<TimeseriesIndexSizeResult> results = _timeseriesAspectService.getIndexSizes(opContext);
 
     Assert.assertEquals(results.get(0).getSizeInMb(), 8078.398031);
   }

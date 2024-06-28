@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.AuditStamp;
@@ -11,12 +10,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
-import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.domain.DomainProperties;
@@ -54,7 +53,7 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
     final Urn parentDomain =
         input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canCreateDomains(context)) {
             throw new AuthorizationException(
@@ -70,13 +69,13 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
             key.setId(id);
 
             if (_entityClient.exists(
-                EntityKeyUtils.convertEntityKeyToUrn(key, DOMAIN_ENTITY_NAME),
-                context.getAuthentication())) {
+                context.getOperationContext(),
+                EntityKeyUtils.convertEntityKeyToUrn(key, DOMAIN_ENTITY_NAME))) {
               throw new IllegalArgumentException("This Domain already exists!");
             }
 
             if (parentDomain != null
-                && !_entityClient.exists(parentDomain, context.getAuthentication())) {
+                && !_entityClient.exists(context.getOperationContext(), parentDomain)) {
               throw new IllegalArgumentException("Parent Domain does not exist!");
             }
 
@@ -99,15 +98,9 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
             proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
             String domainUrn =
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
-            OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
-            if (!_entityService.exists(
-                UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
-              log.warn("Technical owner does not exist, defaulting to None ownership.");
-              ownershipType = OwnershipType.NONE;
-            }
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             OwnerUtils.addCreatorAsOwner(
-                context, domainUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
+                context, domainUrn, OwnerEntityType.CORP_USER, _entityService);
             return domainUrn;
           } catch (DataHubGraphQLException e) {
             throw e;
@@ -123,7 +116,9 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
                     input.getId(), input.getName()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private DomainProperties mapDomainProperties(

@@ -2,10 +2,10 @@ package io.swagger.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Controller;
 
-@javax.annotation.Generated(
+@jakarta.annotation.Generated(
     value = "io.swagger.codegen.v3.generators.java.SpringCodegen",
     date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @Controller

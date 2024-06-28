@@ -15,6 +15,7 @@ dependencies {
     implementation project(':metadata-jobs:mae-consumer')
     // TODO: Extract PE consumer into separate pod.
     implementation project(':metadata-jobs:pe-consumer')
+    implementation project(':metadata-jobs:common')
 
     implementation(externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
@@ -29,6 +30,7 @@ dependencies {
     implementation externalDependency.logbackClassic
 
     testImplementation project(':metadata-dao-impl:kafka-producer')
+    testImplementation project(':metadata-jobs:pe-consumer')
     testImplementation externalDependency.springBootTest
     testImplementation externalDependency.mockito
     testImplementation externalDependency.testng

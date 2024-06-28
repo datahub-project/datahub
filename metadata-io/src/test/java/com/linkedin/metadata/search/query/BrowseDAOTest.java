@@ -9,9 +9,11 @@ import static org.testng.Assert.assertEquals;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
-import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -31,22 +33,20 @@ import org.testng.annotations.Test;
 
 @Import(SearchCommonTestConfiguration.class)
 public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
-  private RestHighLevelClient _mockClient;
-  private ESBrowseDAO _browseDAO;
+  private RestHighLevelClient mockClient;
+  private ESBrowseDAO browseDAO;
+  private OperationContext opContext;
 
-  @Autowired private SearchConfiguration _searchConfiguration;
-  @Autowired private CustomSearchConfiguration _customSearchConfiguration;
+  @Autowired private SearchConfiguration searchConfiguration;
+  @Autowired private CustomSearchConfiguration customSearchConfiguration;
 
   @BeforeMethod
-  public void setup() {
-    _mockClient = mock(RestHighLevelClient.class);
-    _browseDAO =
-        new ESBrowseDAO(
-            new TestEntityRegistry(),
-            _mockClient,
-            new IndexConventionImpl("es_browse_dao_test"),
-            _searchConfiguration,
-            _customSearchConfiguration);
+  public void setup() throws RemoteInvocationException, URISyntaxException {
+    mockClient = mock(RestHighLevelClient.class);
+    opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            new IndexConventionImpl("es_browse_dao_test"));
+    browseDAO = new ESBrowseDAO(mockClient, searchConfiguration, customSearchConfiguration);
   }
 
   public static Urn makeUrn(Object id) {
@@ -68,24 +68,24 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // Test when there is no search hit for getBrowsePaths
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[0]);
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(_mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
-    assertEquals(_browseDAO.getBrowsePaths("dataset", dummyUrn).size(), 0);
+    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    assertEquals(browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn).size(), 0);
 
     // Test the case of single search hit & browsePaths field doesn't exist
     sourceMap.remove("browse_paths");
     when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(_mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
-    assertEquals(_browseDAO.getBrowsePaths("dataset", dummyUrn).size(), 0);
+    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    assertEquals(browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn).size(), 0);
 
     // Test the case of single search hit & browsePaths field exists
     sourceMap.put("browsePaths", Collections.singletonList("foo"));
     when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(_mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
-    List<String> browsePaths = _browseDAO.getBrowsePaths("dataset", dummyUrn);
+    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    List<String> browsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
     assertEquals(browsePaths.size(), 1);
     assertEquals(browsePaths.get(0), "foo");
   }

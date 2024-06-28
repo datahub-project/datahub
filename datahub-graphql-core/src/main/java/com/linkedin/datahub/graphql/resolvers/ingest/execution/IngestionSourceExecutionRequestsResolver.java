@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.IngestionSourceExecutionRequests;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
@@ -54,7 +55,7 @@ public class IngestionSourceExecutionRequestsResolver
     final Integer count =
         environment.getArgument("count") != null ? environment.getArgument("count") : 10;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -67,6 +68,7 @@ public class IngestionSourceExecutionRequestsResolver
 
             final SearchResult executionsSearchResult =
                 _entityClient.filter(
+                    context.getOperationContext(),
                     Constants.EXECUTION_REQUEST_ENTITY_NAME,
                     new Filter()
                         .setOr(
@@ -78,8 +80,7 @@ public class IngestionSourceExecutionRequestsResolver
                         .setField(REQUEST_TIME_MS_FIELD_NAME)
                         .setOrder(SortOrder.DESCENDING),
                     start,
-                    count,
-                    context.getAuthentication());
+                    count);
 
             // 2. Batch fetch the related ExecutionRequests
             final Set<Urn> relatedExecRequests =
@@ -89,12 +90,12 @@ public class IngestionSourceExecutionRequestsResolver
 
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     Constants.EXECUTION_REQUEST_ENTITY_NAME,
                     relatedExecRequests,
                     ImmutableSet.of(
                         Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME),
-                    context.getAuthentication());
+                        Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME));
 
             // 3. Map the GMS ExecutionRequests into GraphQL Execution Requests
             final IngestionSourceExecutionRequests result = new IngestionSourceExecutionRequests();
@@ -103,6 +104,7 @@ public class IngestionSourceExecutionRequestsResolver
             result.setTotal(executionsSearchResult.getNumEntities());
             result.setExecutionRequests(
                 IngestionResolverUtils.mapExecutionRequests(
+                    context,
                     executionsSearchResult.getEntities().stream()
                         .map(searchResult -> entities.get(searchResult.getEntity()))
                         .filter(Objects::nonNull)
@@ -115,6 +117,8 @@ public class IngestionSourceExecutionRequestsResolver
                     urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

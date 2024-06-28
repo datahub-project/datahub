@@ -11,6 +11,9 @@ query getTag($urn: String!) {
         ownership {
             ...ownershipFields
         }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
     }
 }
 

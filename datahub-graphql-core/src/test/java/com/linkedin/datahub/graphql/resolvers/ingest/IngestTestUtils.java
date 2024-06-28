@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -21,6 +22,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.secret.DataHubSecretValue;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
 
 public class IngestTestUtils {
@@ -43,6 +45,7 @@ public class IngestTestUtils {
 
     Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
     return mockContext;
   }
 

@@ -1,5 +1,9 @@
 package com.linkedin.metadata.boot.steps;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
@@ -12,6 +16,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.models.AspectSpec;
@@ -19,13 +24,13 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -48,13 +53,15 @@ public class UpgradeDefaultBrowsePathsStepTest {
   @Test
   public void testExecuteNoExistingBrowsePaths() throws Exception {
 
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry registry = new TestEntityRegistry();
-    Mockito.when(mockService.getEntityRegistry()).thenReturn(registry);
+    final OperationContext mockContext = mock(OperationContext.class);
+    when(mockContext.getEntityRegistry()).thenReturn(registry);
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
     Mockito.when(
             mockService.getEntityV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
                 Mockito.eq(upgradeEntityUrn),
                 Mockito.eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
@@ -64,6 +71,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
 
     Mockito.when(
             mockService.listLatestAspects(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(Constants.BROWSE_PATHS_ASPECT_NAME),
                 Mockito.eq(0),
@@ -81,10 +89,11 @@ public class UpgradeDefaultBrowsePathsStepTest {
 
     UpgradeDefaultBrowsePathsStep upgradeDefaultBrowsePathsStep =
         new UpgradeDefaultBrowsePathsStep(mockService);
-    upgradeDefaultBrowsePathsStep.execute();
+    upgradeDefaultBrowsePathsStep.execute(mockContext);
 
     Mockito.verify(mockService, Mockito.times(1))
         .listLatestAspects(
+            any(OperationContext.class),
             Mockito.eq(Constants.DATASET_ENTITY_NAME),
             Mockito.eq(Constants.BROWSE_PATHS_ASPECT_NAME),
             Mockito.eq(0),
@@ -93,7 +102,10 @@ public class UpgradeDefaultBrowsePathsStepTest {
     // ingesting
     Mockito.verify(mockService, Mockito.times(2))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(), Mockito.eq(false));
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(),
+            Mockito.eq(false));
   }
 
   @Test
@@ -104,17 +116,15 @@ public class UpgradeDefaultBrowsePathsStepTest {
     Urn testUrn2 =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset2,PROD)");
 
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry registry = new TestEntityRegistry();
-    Mockito.when(mockService.getEntityRegistry()).thenReturn(registry);
-    Mockito.when(mockService.buildDefaultBrowsePath(Mockito.eq(testUrn1)))
-        .thenReturn(new BrowsePaths().setPaths(new StringArray(ImmutableList.of("/prod/kafka"))));
-    Mockito.when(mockService.buildDefaultBrowsePath(Mockito.eq(testUrn2)))
-        .thenReturn(new BrowsePaths().setPaths(new StringArray(ImmutableList.of("/prod/kafka"))));
+    final OperationContext mockContext = mock(OperationContext.class);
+    when(mockContext.getEntityRegistry()).thenReturn(registry);
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
     Mockito.when(
             mockService.getEntityV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
                 Mockito.eq(upgradeEntityUrn),
                 Mockito.eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
@@ -149,6 +159,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
 
     Mockito.when(
             mockService.listLatestAspects(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(Constants.BROWSE_PATHS_ASPECT_NAME),
                 Mockito.eq(0),
@@ -166,10 +177,11 @@ public class UpgradeDefaultBrowsePathsStepTest {
 
     UpgradeDefaultBrowsePathsStep upgradeDefaultBrowsePathsStep =
         new UpgradeDefaultBrowsePathsStep(mockService);
-    upgradeDefaultBrowsePathsStep.execute();
+    upgradeDefaultBrowsePathsStep.execute(mockContext);
 
     Mockito.verify(mockService, Mockito.times(1))
         .listLatestAspects(
+            any(OperationContext.class),
             Mockito.eq(Constants.DATASET_ENTITY_NAME),
             Mockito.eq(Constants.BROWSE_PATHS_ASPECT_NAME),
             Mockito.eq(0),
@@ -178,7 +190,10 @@ public class UpgradeDefaultBrowsePathsStepTest {
     // pahts
     Mockito.verify(mockService, Mockito.times(4))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(), Mockito.eq(false));
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(),
+            Mockito.eq(false));
   }
 
   @Test
@@ -193,13 +208,15 @@ public class UpgradeDefaultBrowsePathsStepTest {
             "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset4,PROD)"); // Do not
     // migrate
 
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
     final EntityRegistry registry = new TestEntityRegistry();
-    Mockito.when(mockService.getEntityRegistry()).thenReturn(registry);
+    final OperationContext mockContext = mock(OperationContext.class);
+    when(mockContext.getEntityRegistry()).thenReturn(registry);
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
     Mockito.when(
             mockService.getEntityV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
                 Mockito.eq(upgradeEntityUrn),
                 Mockito.eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
@@ -236,6 +253,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
 
     Mockito.when(
             mockService.listLatestAspects(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(Constants.BROWSE_PATHS_ASPECT_NAME),
                 Mockito.eq(0),
@@ -253,10 +271,11 @@ public class UpgradeDefaultBrowsePathsStepTest {
 
     UpgradeDefaultBrowsePathsStep upgradeDefaultBrowsePathsStep =
         new UpgradeDefaultBrowsePathsStep(mockService);
-    upgradeDefaultBrowsePathsStep.execute();
+    upgradeDefaultBrowsePathsStep.execute(mockContext);
 
     Mockito.verify(mockService, Mockito.times(1))
         .listLatestAspects(
+            any(OperationContext.class),
             Mockito.eq(Constants.DATASET_ENTITY_NAME),
             Mockito.eq(Constants.BROWSE_PATHS_ASPECT_NAME),
             Mockito.eq(0),
@@ -264,12 +283,17 @@ public class UpgradeDefaultBrowsePathsStepTest {
     // Verify that 2 aspects are ingested, only those for the upgrade step
     Mockito.verify(mockService, Mockito.times(2))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class), Mockito.any(), Mockito.eq(false));
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(),
+            Mockito.eq(false));
   }
 
   @Test
   public void testDoesNotRunWhenAlreadyExecuted() throws Exception {
-    final EntityService mockService = Mockito.mock(EntityService.class);
+    final EntityService<?> mockService = Mockito.mock(EntityService.class);
+    final OperationContext mockContext = mock(OperationContext.class);
+    when(mockContext.getEntityRegistry()).thenReturn(mock(EntityRegistry.class));
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
     com.linkedin.upgrade.DataHubUpgradeRequest upgradeRequest =
@@ -282,22 +306,24 @@ public class UpgradeDefaultBrowsePathsStepTest {
         new EntityResponse().setAspects(new EnvelopedAspectMap(upgradeRequestAspects));
     Mockito.when(
             mockService.getEntityV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
                 Mockito.eq(upgradeEntityUrn),
                 Mockito.eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
         .thenReturn(response);
 
     UpgradeDefaultBrowsePathsStep step = new UpgradeDefaultBrowsePathsStep(mockService);
-    step.execute();
+    step.execute(mockContext);
 
     Mockito.verify(mockService, Mockito.times(0))
         .ingestProposal(
-            Mockito.any(MetadataChangeProposal.class),
-            Mockito.any(AuditStamp.class),
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
             Mockito.anyBoolean());
   }
 
-  private void initMockServiceOtherEntities(EntityService mockService) {
+  private void initMockServiceOtherEntities(EntityService<?> mockService) {
     List<String> skippedEntityTypes =
         ImmutableList.of(
             Constants.DASHBOARD_ENTITY_NAME,
@@ -307,6 +333,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
     for (String entityType : skippedEntityTypes) {
       Mockito.when(
               mockService.listLatestAspects(
+                  any(OperationContext.class),
                   Mockito.eq(entityType),
                   Mockito.eq(Constants.BROWSE_PATHS_ASPECT_NAME),
                   Mockito.eq(0),

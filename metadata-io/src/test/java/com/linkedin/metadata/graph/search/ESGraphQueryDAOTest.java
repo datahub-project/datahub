@@ -7,9 +7,11 @@ import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -23,16 +25,40 @@ import org.testng.annotations.Test;
 
 public class ESGraphQueryDAOTest {
 
-  private static final String TEST_QUERY_FILE =
-      "elasticsearch/sample_filters/lineage_query_filters_1.json";
+  private static final String TEST_QUERY_FILE_LIMITED =
+      "elasticsearch/sample_filters/lineage_query_filters_limited.json";
+  private static final String TEST_QUERY_FILE_FULL =
+      "elasticsearch/sample_filters/lineage_query_filters_full.json";
+  private static final String TEST_QUERY_FILE_FULL_EMPTY_FILTERS =
+      "elasticsearch/sample_filters/lineage_query_filters_full_empty_filters.json";
+  private static final String TEST_QUERY_FILE_FULL_MULTIPLE_FILTERS =
+      "elasticsearch/sample_filters/lineage_query_filters_full_multiple_filters.json";
 
   @Test
   private static void testGetQueryForLineageFullArguments() throws Exception {
 
-    URL url = Resources.getResource(TEST_QUERY_FILE);
-    String expectedQuery = Resources.toString(url, StandardCharsets.UTF_8);
+    URL urlLimited = Resources.getResource(TEST_QUERY_FILE_LIMITED);
+    String expectedQueryLimited = Resources.toString(urlLimited, StandardCharsets.UTF_8);
+    URL urlFull = Resources.getResource(TEST_QUERY_FILE_FULL);
+    String expectedQueryFull = Resources.toString(urlFull, StandardCharsets.UTF_8);
+    URL urlFullEmptyFilters = Resources.getResource(TEST_QUERY_FILE_FULL_EMPTY_FILTERS);
+    String expectedQueryFullEmptyFilters =
+        Resources.toString(urlFullEmptyFilters, StandardCharsets.UTF_8);
+    URL urlFullMultipleFilters = Resources.getResource(TEST_QUERY_FILE_FULL_MULTIPLE_FILTERS);
+    String expectedQueryFullMultipleFilters =
+        Resources.toString(urlFullMultipleFilters, StandardCharsets.UTF_8);
 
-    List<Urn> urns = new ArrayList<>();
+    List<Urn> urns = List.of(Urn.createFromString("urn:li:dataset:test-urn"));
+    List<Urn> urnsMultiple1 =
+        ImmutableList.of(
+            UrnUtils.getUrn("urn:li:dataset:test-urn"),
+            UrnUtils.getUrn("urn:li:dataset:test-urn2"),
+            UrnUtils.getUrn("urn:li:dataset:test-urn3"));
+    List<Urn> urnsMultiple2 =
+        ImmutableList.of(
+            UrnUtils.getUrn("urn:li:chart:test-urn"),
+            UrnUtils.getUrn("urn:li:chart:test-urn2"),
+            UrnUtils.getUrn("urn:li:chart:test-urn3"));
     List<LineageRegistry.EdgeInfo> edgeInfos =
         new ArrayList<>(
             ImmutableList.of(
@@ -40,14 +66,68 @@ public class ESGraphQueryDAOTest {
                     "DownstreamOf",
                     RelationshipDirection.INCOMING,
                     Constants.DATASET_ENTITY_NAME)));
+    List<LineageRegistry.EdgeInfo> edgeInfosMultiple1 =
+        ImmutableList.of(
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf", RelationshipDirection.OUTGOING, Constants.DATASET_ENTITY_NAME),
+            new LineageRegistry.EdgeInfo(
+                "Consumes", RelationshipDirection.OUTGOING, Constants.DATASET_ENTITY_NAME));
+    List<LineageRegistry.EdgeInfo> edgeInfosMultiple2 =
+        ImmutableList.of(
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf", RelationshipDirection.OUTGOING, Constants.DATA_JOB_ENTITY_NAME),
+            new LineageRegistry.EdgeInfo(
+                "Consumes", RelationshipDirection.OUTGOING, Constants.DATA_JOB_ENTITY_NAME));
+    String entityType = "testEntityType";
+    Map<String, List<Urn>> urnsPerEntityType = Map.of(entityType, urns);
+    Map<String, List<Urn>> urnsPerEntityTypeMultiple =
+        Map.of(
+            Constants.DATASET_ENTITY_NAME,
+            urnsMultiple1,
+            Constants.CHART_ENTITY_NAME,
+            urnsMultiple2);
+    Map<String, List<LineageRegistry.EdgeInfo>> edgesPerEntityType = Map.of(entityType, edgeInfos);
+    Map<String, List<LineageRegistry.EdgeInfo>> edgesPerEntityTypeMultiple =
+        Map.of(
+            Constants.DATASET_ENTITY_NAME, edgeInfosMultiple1,
+            Constants.DATA_JOB_ENTITY_NAME, edgeInfosMultiple2);
     GraphFilters graphFilters = new GraphFilters(ImmutableList.of(Constants.DATASET_ENTITY_NAME));
+    GraphFilters graphFiltersMultiple =
+        new GraphFilters(
+            ImmutableList.of(
+                Constants.DATASET_ENTITY_NAME,
+                Constants.DASHBOARD_ENTITY_NAME,
+                Constants.DATA_JOB_ENTITY_NAME));
     Long startTime = 0L;
     Long endTime = 1L;
 
-    QueryBuilder builder =
-        ESGraphQueryDAO.getQueryForLineage(urns, edgeInfos, graphFilters, startTime, endTime);
+    ESGraphQueryDAO graphQueryDAO =
+        new ESGraphQueryDAO(null, null, null, new GraphQueryConfiguration());
+    QueryBuilder limitedBuilder =
+        graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos, graphFilters);
 
-    Assert.assertEquals(builder.toString(), expectedQuery);
+    QueryBuilder fullBuilder =
+        graphQueryDAO.getLineageQuery(
+            urnsPerEntityType,
+            edgesPerEntityType,
+            graphFilters,
+            new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime));
+
+    QueryBuilder fullBuilderEmptyFilters =
+        graphQueryDAO.getLineageQuery(
+            urnsPerEntityType, edgesPerEntityType, GraphFilters.emptyGraphFilters, null);
+
+    QueryBuilder fullBuilderMultipleFilters =
+        graphQueryDAO.getLineageQuery(
+            urnsPerEntityTypeMultiple,
+            edgesPerEntityTypeMultiple,
+            graphFiltersMultiple,
+            new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime));
+
+    Assert.assertEquals(limitedBuilder.toString(), expectedQueryLimited);
+    Assert.assertEquals(fullBuilder.toString(), expectedQueryFull);
+    Assert.assertEquals(fullBuilderEmptyFilters.toString(), expectedQueryFullEmptyFilters);
+    Assert.assertEquals(fullBuilderMultipleFilters.toString(), expectedQueryFullMultipleFilters);
   }
 
   @Test

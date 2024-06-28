@@ -12,8 +12,9 @@ import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -31,7 +33,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
 
   private static final String PLATFORM_ASPECT_NAME = "dataPlatformInfo";
 
-  private final EntityService _entityService;
+  private final EntityService<?> _entityService;
 
   @Override
   public String name() {
@@ -39,7 +41,8 @@ public class IngestDataPlatformsStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws IOException, URISyntaxException {
+  public void execute(@Nonnull OperationContext systemOperationContext)
+      throws IOException, URISyntaxException {
 
     final ObjectMapper mapper = new ObjectMapper();
     int maxSize =
@@ -62,7 +65,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
     }
 
     // 2. For each JSON object, cast into a DataPlatformSnapshot object.
-    List<UpsertBatchItem> dataPlatformAspects =
+    List<ChangeItemImpl> dataPlatformAspects =
         StreamSupport.stream(
                 Spliterators.spliteratorUnknownSize(dataPlatforms.iterator(), Spliterator.ORDERED),
                 false)
@@ -82,19 +85,32 @@ public class IngestDataPlatformsStep implements BootstrapStep {
                       RecordUtils.toRecordTemplate(
                           DataPlatformInfo.class, dataPlatform.get("aspect").toString());
 
-                  return UpsertBatchItem.builder()
-                      .urn(urn)
-                      .aspectName(PLATFORM_ASPECT_NAME)
-                      .aspect(info)
-                      .build(_entityService.getEntityRegistry());
+                  try {
+                    return ChangeItemImpl.builder()
+                        .urn(urn)
+                        .aspectName(PLATFORM_ASPECT_NAME)
+                        .recordTemplate(info)
+                        .auditStamp(
+                            new AuditStamp()
+                                .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                                .setTime(System.currentTimeMillis()))
+                        .build(
+                            systemOperationContext
+                                .getRetrieverContext()
+                                .get()
+                                .getAspectRetriever());
+                  } catch (URISyntaxException e) {
+                    throw new RuntimeException(e);
+                  }
                 })
             .collect(Collectors.toList());
 
     _entityService.ingestAspects(
-        AspectsBatchImpl.builder().items(dataPlatformAspects).build(),
-        new AuditStamp()
-            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis()),
+        systemOperationContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(systemOperationContext.getRetrieverContext().get())
+            .items(dataPlatformAspects)
+            .build(),
         true,
         false);
   }

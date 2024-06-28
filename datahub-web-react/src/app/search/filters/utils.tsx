@@ -8,7 +8,7 @@ import {
     TagOutlined,
     UserOutlined,
 } from '@ant-design/icons';
-import React from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 import {
     AggregationMetadata,
@@ -39,7 +39,7 @@ import {
 } from '../utils/constants';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { ReactComponent as DomainsIcon } from '../../../images/domain.svg';
+import DomainsIcon from '../../../images/domain.svg?react';
 import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
 import { FACETS_TO_ENTITY_TYPES } from './constants';
 import { FilterOptionType } from './types';
@@ -345,4 +345,28 @@ export function getParentEntities(entity: Entity): Entity[] | null {
         return (entity as Domain).parentDomains?.domains || [];
     }
     return null;
+}
+
+/**
+ * Utility function to get the dimensions of a DOM element.
+ * @param {React.MutableRefObject<HTMLElement | null>} ref - Reference to the DOM element.
+ * @returns {Object} - Object containing width and height of the element.
+ */
+export function useElementDimensions(ref) {
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+    useLayoutEffect(() => {
+        const updateDimensions = () => {
+            if (ref.current) {
+                setDimensions({
+                    width: ref.current.offsetWidth,
+                    height: ref.current.offsetHeight,
+                });
+            }
+        };
+
+        updateDimensions();
+    }, [ref]);
+
+    return dimensions;
 }

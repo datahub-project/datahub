@@ -1,0 +1,14 @@
+{
+  "namespace": "org.acryl",
+  "type": "record",
+  "name": "ClickEvent",
+  "fields": [
+    { "name": "ip", "type": "string" },
+    { "name": "url", "type": "string" },
+    { "name": "time", "type": "long" },
+    { "name": "referer", "type": ["string", "null"] },
+    { "name": "user_agent", "type": ["string", "null"] },
+    { "name": "user_id", "type": ["string", "null"] },
+    { "name": "session_id", "type": ["string", "null"] }
+  ]
+}

@@ -195,6 +195,7 @@ class PowerBiAPI:
             groups = self._get_resolver().get_groups()
         except:
             self.log_http_error(message="Unable to fetch list of workspaces")
+            raise  # we want this exception to bubble up
 
         workspaces = [
             Workspace(

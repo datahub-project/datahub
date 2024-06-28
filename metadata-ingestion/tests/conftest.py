@@ -33,6 +33,12 @@ try:
 except ImportError:
     pass
 
+import freezegun  # noqa: F401,E402
+
+# The freezegun library has incomplete type annotations.
+# See https://github.com/spulec/freezegun/issues/469
+freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"])  # type: ignore[attr-defined]
+
 
 @pytest.fixture
 def mock_time(monkeypatch):
@@ -63,7 +69,7 @@ def pytest_collection_modifyitems(
     integration_path = root / "tests/integration"
 
     for item in items:
-        test_path = pathlib.Path(item.fspath)
+        test_path = item.path
 
         if (
             "docker_compose_runner" in item.fixturenames  # type: ignore[attr-defined]

@@ -10,9 +10,9 @@ import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteMultipleResults;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
@@ -20,6 +20,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -61,13 +62,22 @@ public class AutoCompleteForMultipleResolver
     final DataHubViewInfo maybeResolvedView =
         (input.getViewUrn() != null)
             ? resolveView(
-                _viewService, UrnUtils.getUrn(input.getViewUrn()), context.getAuthentication())
+                context.getOperationContext(), _viewService, UrnUtils.getUrn(input.getViewUrn()))
             : null;
 
     List<EntityType> types = getEntityTypes(input.getTypes(), maybeResolvedView);
+    types =
+        types != null
+            ? types.stream()
+                .filter(AUTO_COMPLETE_ENTITY_TYPES::contains)
+                .collect(Collectors.toList())
+            : null;
     if (types != null && types.size() > 0) {
       return AutocompleteUtils.batchGetAutocompleteResults(
-          types.stream().map(_typeToEntity::get).collect(Collectors.toList()),
+          types.stream()
+              .map(_typeToEntity::get)
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList()),
           sanitizedQuery,
           input,
           environment,
@@ -76,7 +86,10 @@ public class AutoCompleteForMultipleResolver
 
     // By default, autocomplete only against the Default Set of Autocomplete entities
     return AutocompleteUtils.batchGetAutocompleteResults(
-        AUTO_COMPLETE_ENTITY_TYPES.stream().map(_typeToEntity::get).collect(Collectors.toList()),
+        AUTO_COMPLETE_ENTITY_TYPES.stream()
+            .map(_typeToEntity::get)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList()),
         sanitizedQuery,
         input,
         environment,

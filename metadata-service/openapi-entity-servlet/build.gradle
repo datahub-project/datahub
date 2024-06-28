@@ -9,8 +9,11 @@ dependencies {
   implementation project(':metadata-service:auth-impl')
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:openapi-servlet')
+  implementation project(':metadata-service:openapi-servlet:models')
   implementation project(':metadata-models')
 
+  implementation externalDependency.servletApi
+  implementation externalDependency.springBootStarterValidation
   implementation externalDependency.springBoot
   implementation externalDependency.springCore
   implementation externalDependency.springDocUI
@@ -73,7 +76,7 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: [mergeApiComponents, 
           'java11'             : "true",
           'modelPropertyNaming': "original",
           'modelPackage'       : "io.datahubproject.openapi.generated",
-          'apiPackage'         : "io.datahubproject.openapi.generated.controller",
+          'apiPackage'         : "io.datahubproject.openapi.v2.generated.controller",
           'delegatePattern'    : "false"
   ]
 }

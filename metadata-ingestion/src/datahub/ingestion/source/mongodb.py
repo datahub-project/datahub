@@ -4,7 +4,6 @@ from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
 import bson.timestamp
-import pymongo
 import pymongo.collection
 from packaging import version
 from pydantic import PositiveInt, validator
@@ -72,7 +71,7 @@ logger = logging.getLogger(__name__)
 # See https://docs.mongodb.com/manual/reference/local-database/ and
 # https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
-DENY_DATABASE_LIST = set(["admin", "config", "local"])
+DENY_DATABASE_LIST = {"admin", "config", "local"}
 
 
 class HostingEnvironment(Enum):
@@ -102,7 +101,7 @@ class MongoDBConfig(
     )
     schemaSamplingSize: Optional[PositiveInt] = Field(
         default=1000,
-        description="Number of documents to use when inferring schema size. If set to `0`, all documents will be scanned.",
+        description="Number of documents to use when inferring schema size. If set to `null`, all documents will be scanned.",
     )
     useRandomSampling: bool = Field(
         default=True,
@@ -225,13 +224,15 @@ def construct_schema_pymongo(
         ]
     if use_random_sampling:
         # get sample documents in collection
-        aggregations.append({"$sample": {"size": sample_size}})
+        if sample_size:
+            aggregations.append({"$sample": {"size": sample_size}})
         documents = collection.aggregate(
             aggregations,
             allowDiskUse=True,
         )
     else:
-        aggregations.append({"$limit": sample_size})
+        if sample_size:
+            aggregations.append({"$limit": sample_size})
         documents = collection.aggregate(aggregations, allowDiskUse=True)
 
     return construct_schema(list(documents), delimiter)
@@ -280,7 +281,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
             **self.config.options,
         }
 
-        self.mongo_client = pymongo.MongoClient(self.config.connect_uri, **options)  # type: ignore
+        # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
+        self.mongo_client = MongoClient(self.config.connect_uri, datetime_conversion="DATETIME_AUTO", **options)  # type: ignore
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient
@@ -377,6 +379,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     platform_instance=self.config.platform_instance,
                 )
 
+                # Initialize data_platform_instance with a default value
+                data_platform_instance = None
                 if self.config.platform_instance:
                     data_platform_instance = DataPlatformInstanceClass(
                         platform=make_data_platform_urn(platform),
@@ -389,6 +393,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     tags=[],
                     customProperties={},
                 )
+
+                schema_metadata: Optional[SchemaMetadata] = None
 
                 if self.config.enableSchemaInference:
                     assert self.config.maxDocumentSize is not None
@@ -415,11 +421,6 @@ class MongoDBSource(StatefulIngestionSourceBase):
                             key=dataset_urn,
                             reason=f"Downsampling the collection schema because it has {collection_schema_size} fields. Threshold is {max_schema_size}",
                         )
-                        collection_fields = sorted(
-                            collection_schema.values(),
-                            key=lambda x: x["count"],
-                            reverse=True,
-                        )[0:max_schema_size]
                         # Add this information to the custom properties so user can know they are looking at downsampled schema
                         dataset_properties.customProperties[
                             "schema.downsampled"
@@ -433,8 +434,12 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     )
                     # append each schema field (sort so output is consistent)
                     for schema_field in sorted(
-                        collection_fields, key=lambda x: x["delimited_name"]
-                    ):
+                        collection_fields,
+                        key=lambda x: (
+                            -x["count"],
+                            x["delimited_name"],
+                        ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
+                    )[0:max_schema_size]:
                         field = SchemaField(
                             fieldPath=schema_field["delimited_name"],
                             nativeDataType=self.get_pymongo_type_string(

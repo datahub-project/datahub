@@ -10,6 +10,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -162,7 +163,11 @@ public class DataMigrationStep implements UpgradeStep {
           // 6. Write the row back using the EntityService
           boolean emitMae = oldAspect.getKey().getVersion() == 0L;
           _entityService.ingestAspects(
-              urn, List.of(Pair.of(newAspectName, aspectRecord)), toAuditStamp(oldAspect), null);
+              context.opContext(),
+              urn,
+              List.of(Pair.of(newAspectName, aspectRecord)),
+              toAuditStamp(oldAspect),
+              null);
 
           // 7. If necessary, emit a browse path aspect.
           if (entitySpec.getAspectSpecMap().containsKey(BROWSE_PATHS_ASPECT_NAME)
@@ -170,13 +175,16 @@ public class DataMigrationStep implements UpgradeStep {
             // Emit a browse path aspect.
             final BrowsePaths browsePaths;
             try {
-              browsePaths = _entityService.buildDefaultBrowsePath(urn);
+              browsePaths =
+                  DefaultAspectsUtil.buildDefaultBrowsePath(
+                      context.opContext(), urn, _entityService);
 
               final AuditStamp browsePathsStamp = new AuditStamp();
               browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));
               browsePathsStamp.setTime(System.currentTimeMillis());
 
               _entityService.ingestAspects(
+                  context.opContext(),
                   urn,
                   List.of(Pair.of(BROWSE_PATHS_ASPECT_NAME, browsePaths)),
                   browsePathsStamp,

@@ -95,6 +95,15 @@ class SnowflakeV2Config(
         description="If enabled, populates the snowflake technical schema and descriptions.",
     )
 
+    include_primary_keys: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake primary keys.",
+    )
+    include_foreign_keys: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake foreign keys.",
+    )
+
     include_column_lineage: bool = Field(
         default=True,
         description="Populates table->table and view->table column lineage. Requires appropriate grants given to the role and the Snowflake Enterprise Edition or above.",
@@ -103,6 +112,12 @@ class SnowflakeV2Config(
     include_view_column_lineage: bool = Field(
         default=True,
         description="Populates view->view and table->view column lineage using DataHub's sql parser.",
+    )
+
+    lazy_schema_resolver: bool = Field(
+        default=False,
+        description="If enabled, uses lazy schema resolver to resolve schemas for tables and views. "
+        "This is useful if you have a large number of schemas and want to avoid bulk fetching the schema for each table/view.",
     )
 
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
@@ -140,7 +155,9 @@ class SnowflakeV2Config(
     # This is required since access_history table does not capture whether the table was temporary table.
     temporary_tables_pattern: List[str] = Field(
         default=DEFAULT_TABLES_DENY_LIST,
-        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to match the entire table name in database.schema.table format. Defaults are to set in such a way to ignore the temporary staging tables created by known ETL tools.",
+        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to "
+        "match the entire table name in database.schema.table format. Defaults are to set in such a way "
+        "to ignore the temporary staging tables created by known ETL tools.",
     )
 
     rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
@@ -150,13 +167,22 @@ class SnowflakeV2Config(
     shares: Optional[Dict[str, SnowflakeShareConfig]] = Field(
         default=None,
         description="Required if current account owns or consumes snowflake share."
-        " If specified, connector creates lineage and siblings relationship between current account's database tables and consumer/producer account's database tables."
+        "If specified, connector creates lineage and siblings relationship between current account's database tables "
+        "and consumer/producer account's database tables."
         " Map of share name -> details of share.",
     )
 
     email_as_user_identifier: bool = Field(
         default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
+        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
+        "provided, generates email addresses for snowflake users with unset emails, based on their "
+        "username.",
+    )
+
+    include_assertion_results: bool = Field(
+        default=False,
+        description="Whether to ingest assertion run results for assertions created using Datahub"
+        " assertions CLI in snowflake",
     )
 
     @validator("convert_urns_to_lowercase")
@@ -215,7 +241,7 @@ class SnowflakeV2Config(
             and values["stateful_ingestion"].remove_stale_metadata
         )
 
-        # TODO: Allow lineage extraction and profiling irrespective of basic schema extraction,
+        # TODO: Allow profiling irrespective of basic schema extraction,
         # as it seems possible with some refactor
         if not include_technical_schema and any(
             [include_profiles, delete_detection_enabled]

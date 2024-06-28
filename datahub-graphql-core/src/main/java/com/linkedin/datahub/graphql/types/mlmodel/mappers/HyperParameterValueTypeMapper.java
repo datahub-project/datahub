@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BooleanBox;
 import com.linkedin.datahub.graphql.generated.FloatBox;
 import com.linkedin.datahub.graphql.generated.HyperParameterValueType;
 import com.linkedin.datahub.graphql.generated.IntBox;
 import com.linkedin.datahub.graphql.generated.StringBox;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import javax.annotation.Nullable;
 import lombok.NonNull;
 
 public class HyperParameterValueTypeMapper
@@ -15,12 +17,14 @@ public class HyperParameterValueTypeMapper
   public static final HyperParameterValueTypeMapper INSTANCE = new HyperParameterValueTypeMapper();
 
   public static HyperParameterValueType map(
+      @Nullable QueryContext context,
       @NonNull final com.linkedin.ml.metadata.HyperParameterValueType input) {
-    return INSTANCE.apply(input);
+    return INSTANCE.apply(context, input);
   }
 
   @Override
   public HyperParameterValueType apply(
+      @Nullable QueryContext context,
       @NonNull final com.linkedin.ml.metadata.HyperParameterValueType input) {
     HyperParameterValueType result = null;
 
@@ -33,7 +37,7 @@ public class HyperParameterValueTypeMapper
     } else if (input.isDouble()) {
       result = new FloatBox(input.getDouble());
     } else if (input.isFloat()) {
-      result = new FloatBox(new Double(input.getFloat()));
+      result = new FloatBox(Double.valueOf(input.getFloat()));
     } else {
       throw new RuntimeException("Type is not one of the Union Types, Type: " + input.toString());
     }

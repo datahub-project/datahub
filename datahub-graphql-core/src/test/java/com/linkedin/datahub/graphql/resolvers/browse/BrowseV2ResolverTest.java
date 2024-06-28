@@ -1,8 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.browse;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultGroupV2Array;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
@@ -26,6 +28,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
@@ -44,6 +47,7 @@ public class BrowseV2ResolverTest {
 
   @Test
   public static void testBrowseV2Success() throws Exception {
+    FormService mockFormService = Mockito.mock(FormService.class);
     ViewService mockService = Mockito.mock(ViewService.class);
     EntityClient mockClient =
         initMockEntityClient(
@@ -70,7 +74,8 @@ public class BrowseV2ResolverTest {
                 .setFrom(0)
                 .setPageSize(10));
 
-    final BrowseV2Resolver resolver = new BrowseV2Resolver(mockClient, mockService);
+    final BrowseV2Resolver resolver =
+        new BrowseV2Resolver(mockClient, mockService, mockFormService);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -87,6 +92,7 @@ public class BrowseV2ResolverTest {
 
   @Test
   public static void testBrowseV2SuccessWithQueryAndFilter() throws Exception {
+    FormService mockFormService = Mockito.mock(FormService.class);
     ViewService mockService = Mockito.mock(ViewService.class);
 
     List<AndFilterInput> orFilters = new ArrayList<>();
@@ -96,7 +102,7 @@ public class BrowseV2ResolverTest {
     facetFilterInput.setValues(ImmutableList.of("urn:li:corpuser:test"));
     andFilterInput.setAnd(ImmutableList.of(facetFilterInput));
     orFilters.add(andFilterInput);
-    Filter filter = ResolverUtils.buildFilter(null, orFilters);
+    Filter filter = ResolverUtils.buildFilter(null, orFilters, mock(AspectRetriever.class));
 
     EntityClient mockClient =
         initMockEntityClient(
@@ -123,7 +129,8 @@ public class BrowseV2ResolverTest {
                 .setFrom(0)
                 .setPageSize(10));
 
-    final BrowseV2Resolver resolver = new BrowseV2Resolver(mockClient, mockService);
+    final BrowseV2Resolver resolver =
+        new BrowseV2Resolver(mockClient, mockService, mockFormService);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -143,6 +150,7 @@ public class BrowseV2ResolverTest {
   @Test
   public static void testBrowseV2SuccessWithView() throws Exception {
     DataHubViewInfo viewInfo = createViewInfo(new StringArray());
+    FormService mockFormService = Mockito.mock(FormService.class);
     ViewService viewService = initMockViewService(TEST_VIEW_URN, viewInfo);
 
     EntityClient mockClient =
@@ -170,7 +178,8 @@ public class BrowseV2ResolverTest {
                 .setFrom(0)
                 .setPageSize(10));
 
-    final BrowseV2Resolver resolver = new BrowseV2Resolver(mockClient, viewService);
+    final BrowseV2Resolver resolver =
+        new BrowseV2Resolver(mockClient, viewService, mockFormService);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -249,21 +258,20 @@ public class BrowseV2ResolverTest {
     EntityClient client = Mockito.mock(EntityClient.class);
     Mockito.when(
             client.browseV2(
+                Mockito.any(),
                 Mockito.eq(ImmutableList.of(entityName)),
                 Mockito.eq(path),
                 Mockito.eq(filter),
                 Mockito.eq(query),
                 Mockito.eq(start),
-                Mockito.eq(limit),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(limit)))
         .thenReturn(result);
     return client;
   }
 
   private static ViewService initMockViewService(Urn viewUrn, DataHubViewInfo viewInfo) {
     ViewService service = Mockito.mock(ViewService.class);
-    Mockito.when(service.getViewInfo(Mockito.eq(viewUrn), Mockito.any(Authentication.class)))
-        .thenReturn(viewInfo);
+    Mockito.when(service.getViewInfo(any(), Mockito.eq(viewUrn))).thenReturn(viewInfo);
     return service;
   }
 

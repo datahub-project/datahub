@@ -20,6 +20,8 @@ public class SearchableAnnotation {
 
   public static final String FIELD_NAME_ALIASES = "fieldNameAliases";
   public static final String ANNOTATION_NAME = "Searchable";
+  public static final Set<FieldType> OBJECT_FIELD_TYPES =
+      ImmutableSet.of(FieldType.OBJECT, FieldType.MAP_ARRAY);
   private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES =
       ImmutableSet.of(
           FieldType.TEXT,
@@ -54,6 +56,9 @@ public class SearchableAnnotation {
   Map<Object, Double> weightsPerFieldValue;
   // (Optional) Aliases for this given field that can be used for sorting etc.
   List<String> fieldNameAliases;
+  // Whether to create a missing field aggregation when querying the corresponding field,
+  // only adds to query time not mapping
+  boolean includeQueryEmptyAggregation;
 
   public enum FieldType {
     KEYWORD,
@@ -68,7 +73,8 @@ public class SearchableAnnotation {
     OBJECT,
     BROWSE_PATH_V2,
     WORD_GRAM,
-    DOUBLE
+    DOUBLE,
+    MAP_ARRAY
   }
 
   @Nonnull
@@ -114,6 +120,8 @@ public class SearchableAnnotation {
     final Optional<Map> weightsPerFieldValueMap =
         AnnotationUtils.getField(map, "weightsPerFieldValue", Map.class)
             .map(m -> (Map<Object, Double>) m);
+    final Optional<Boolean> includeQueryEmptyAggregation =
+        AnnotationUtils.getField(map, "includeQueryEmptyAggregation", Boolean.class);
     final List<String> fieldNameAliases = getFieldNameAliases(map);
 
     final FieldType resolvedFieldType = getFieldType(fieldType, schemaDataType);
@@ -130,7 +138,8 @@ public class SearchableAnnotation {
         hasValuesFieldName,
         numValuesFieldName,
         weightsPerFieldValueMap.orElse(ImmutableMap.of()),
-        fieldNameAliases);
+        fieldNameAliases,
+        includeQueryEmptyAggregation.orElse(false));
   }
 
   private static FieldType getFieldType(
@@ -144,10 +153,12 @@ public class SearchableAnnotation {
   private static FieldType getDefaultFieldType(DataSchema.Type schemaDataType) {
     switch (schemaDataType) {
       case INT:
-      case FLOAT:
         return FieldType.COUNT;
       case MAP:
         return FieldType.KEYWORD;
+      case FLOAT:
+      case DOUBLE:
+        return FieldType.DOUBLE;
       default:
         return FieldType.TEXT;
     }

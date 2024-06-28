@@ -436,8 +436,7 @@ class AvroToMceSchemaConverter:
             val: Any,
         ) -> Iterable[avro.schema.Schema]:
             if isinstance(val, (list, tuple)):
-                for i in val:
-                    yield i
+                yield from val
             else:
                 yield val
 

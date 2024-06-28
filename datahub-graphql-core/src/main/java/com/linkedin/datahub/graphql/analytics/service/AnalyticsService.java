@@ -10,7 +10,7 @@ import com.linkedin.datahub.graphql.generated.NamedBar;
 import com.linkedin.datahub.graphql.generated.NamedLine;
 import com.linkedin.datahub.graphql.generated.NumericDataPoint;
 import com.linkedin.datahub.graphql.generated.Row;
-import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.List;
 import java.util.Map;
@@ -220,7 +220,8 @@ public class AnalyticsService {
         .collect(Collectors.toList());
   }
 
-  public Row buildRow(String groupByValue, Function<String, Cell> groupByValueToCell, int count) {
+  public static Row buildRow(
+      String groupByValue, Function<String, Cell> groupByValueToCell, int count) {
     List<String> values = ImmutableList.of(groupByValue, String.valueOf(count));
     List<Cell> cells =
         ImmutableList.of(
