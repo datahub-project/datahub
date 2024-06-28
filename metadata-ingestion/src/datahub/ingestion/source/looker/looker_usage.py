@@ -37,7 +37,6 @@ from datahub.ingestion.source.looker.looker_query_model import (
 )
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
-    ChangeTypeClass,
     ChartUsageStatisticsClass,
     ChartUserUsageCountsClass,
     DashboardUsageStatisticsClass,
@@ -207,7 +206,7 @@ class BaseStatGenerator(ABC):
         pass
 
     @abstractmethod
-    def _get_mcp_attributes(self, model: ModelForUsage) -> Dict:
+    def _get_urn(self, model: ModelForUsage) -> str:
         pass
 
     @abstractmethod
@@ -228,8 +227,8 @@ class BaseStatGenerator(ABC):
         self, model: ModelForUsage, aspect: Aspect
     ) -> MetadataChangeProposalWrapper:
         return MetadataChangeProposalWrapper(
+            entityUrn=self._get_urn(model=model),
             aspect=aspect,
-            **self._get_mcp_attributes(model=model),
         )
 
     def _round_time(self, date_time: str) -> int:
@@ -274,7 +273,7 @@ class BaseStatGenerator(ABC):
         logger.debug("Entering fill user stat aspect")
 
         # We first resolve all the users using a threadpool to warm up the cache
-        user_ids = set([self._get_user_identifier(row) for row in user_wise_rows])
+        user_ids = {self._get_user_identifier(row) for row in user_wise_rows}
         start_time = datetime.datetime.now()
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads
@@ -359,7 +358,7 @@ class BaseStatGenerator(ABC):
                 rows = [r for r in rows if self.get_id_from_row(r) in self.id_vs_model]
                 logger.debug("Filtered down to %d rows", len(rows))
         except Exception as e:
-            logger.warning(f"Failed to execute {query_name} query", e)
+            logger.warning(f"Failed to execute {query_name} query: {e}")
 
         return rows
 
@@ -450,20 +449,14 @@ class DashboardStatGenerator(BaseStatGenerator):
             row[HistoryViewField.HISTORY_CREATED_DATE],
         )
 
-    def _get_mcp_attributes(self, model: ModelForUsage) -> Dict:
-        dashboard: Dashboard = cast(Dashboard, model)
-        if dashboard is None or dashboard.id is None:  # to pass mypy lint
-            return {}
+    def _get_urn(self, model: ModelForUsage) -> str:
+        assert isinstance(model, LookerDashboardForUsage)
+        assert model.id is not None
 
-        return {
-            "entityUrn": builder.make_dashboard_urn(
-                self.config.platform_name,
-                looker_common.get_urn_looker_dashboard_id(dashboard.id),
-            ),
-            "entityType": "dashboard",
-            "changeType": ChangeTypeClass.UPSERT,
-            "aspectName": "dashboardUsageStatistics",
-        }
+        return builder.make_dashboard_urn(
+            self.config.platform_name,
+            looker_common.get_urn_looker_dashboard_id(model.id),
+        )
 
     def to_entity_absolute_stat_aspect(
         self, looker_object: ModelForUsage
@@ -514,7 +507,7 @@ class DashboardStatGenerator(BaseStatGenerator):
         user_urn: Optional[str] = user.get_urn(self.config.strip_user_ids_from_email)
 
         if user_urn is None:
-            logger.warning("user_urn not found for the user {}".format(user))
+            logger.warning(f"user_urn not found for the user {user}")
             return
 
         dashboard_stat_aspect.userCounts.append(
@@ -569,20 +562,14 @@ class LookStatGenerator(BaseStatGenerator):
             row[HistoryViewField.HISTORY_CREATED_DATE],
         )
 
-    def _get_mcp_attributes(self, model: ModelForUsage) -> Dict:
-        look: LookerChartForUsage = cast(LookerChartForUsage, model)
-        if look is None or look.id is None:
-            return {}
+    def _get_urn(self, model: ModelForUsage) -> str:
+        assert isinstance(model, LookerChartForUsage)
+        assert model.id is not None
 
-        return {
-            "entityUrn": builder.make_chart_urn(
-                self.config.platform_name,
-                looker_common.get_urn_looker_element_id(str(look.id)),
-            ),
-            "entityType": "chart",
-            "changeType": ChangeTypeClass.UPSERT,
-            "aspectName": "chartUsageStatistics",
-        }
+        return builder.make_chart_urn(
+            self.config.platform_name,
+            looker_common.get_urn_looker_element_id(str(model.id)),
+        )
 
     def to_entity_absolute_stat_aspect(
         self, looker_object: ModelForUsage
@@ -627,7 +614,7 @@ class LookStatGenerator(BaseStatGenerator):
         user_urn: Optional[str] = user.get_urn(self.config.strip_user_ids_from_email)
 
         if user_urn is None:
-            logger.warning("user_urn not found for the user {}".format(user))
+            logger.warning(f"user_urn not found for the user {user}")
             return
 
         chart_stat_aspect.userCounts.append(

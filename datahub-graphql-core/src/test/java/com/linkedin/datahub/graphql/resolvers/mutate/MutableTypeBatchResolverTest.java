@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
@@ -74,6 +75,7 @@ public class MutableTypeBatchResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+
     BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> batchMutableType =
         new DatasetType(mockClient);
 
@@ -118,10 +120,10 @@ public class MutableTypeBatchResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(new HashSet<>(ImmutableSet.of(datasetUrn1, datasetUrn2))),
-                Mockito.any(),
-                Mockito.any(Authentication.class)))
+                Mockito.any()))
         .thenReturn(
             ImmutableMap.of(
                 datasetUrn1,
@@ -150,14 +152,14 @@ public class MutableTypeBatchResolverTest {
     ArgumentCaptor<Collection<MetadataChangeProposal>> changeProposalCaptor =
         ArgumentCaptor.forClass((Class) Collection.class);
     Mockito.verify(mockClient, Mockito.times(1))
-        .batchIngestProposals(changeProposalCaptor.capture(), Mockito.any(), Mockito.eq(false));
+        .batchIngestProposals(any(), changeProposalCaptor.capture(), Mockito.eq(false));
     Mockito.verify(mockClient, Mockito.times(1))
         .batchGetV2(
+            any(),
             Mockito.eq(Constants.DATASET_ENTITY_NAME),
             Mockito.eq(ImmutableSet.of(datasetUrn1, datasetUrn2)),
             // Dataset aspects to fetch are private, but aren't important for this test
-            Mockito.any(),
-            Mockito.any(Authentication.class));
+            Mockito.any());
     Collection<MetadataChangeProposal> changeProposals = changeProposalCaptor.getValue();
 
     assertEquals(changeProposals.size(), 2);
@@ -167,6 +169,7 @@ public class MutableTypeBatchResolverTest {
   @Test
   public void testGetFailureUnauthorized() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+
     BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> batchMutableType =
         new DatasetType(mockClient);
 

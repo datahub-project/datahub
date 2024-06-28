@@ -45,7 +45,7 @@ public class ClearSearchServiceStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        _entitySearchService.clear();
+        _entitySearchService.clear(context.opContext());
       } catch (Exception e) {
         context.report().addLine("Failed to clear search service", e);
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);

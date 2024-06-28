@@ -7,10 +7,24 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -33,6 +47,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.customers",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -217,10 +232,24 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "Table",
-                "View"
+                "Model"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -243,6 +272,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.orders",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -446,9 +476,24 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -471,6 +516,7 @@
                             "catalog_type": "view",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.stg_customers",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -554,7 +600,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -585,9 +631,24 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -610,6 +671,7 @@
                             "catalog_type": "view",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.stg_orders",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -705,7 +767,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -736,9 +798,24 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Model",
-                "View"
+                "Model"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
         }
     },
     "systemMetadata": {
@@ -761,6 +838,7 @@
                             "catalog_type": "view",
                             "language": "sql",
                             "dbt_unique_id": "model.jaffle_shop.stg_payments",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -856,7 +934,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -898,6 +976,22 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
@@ -911,6 +1005,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "seed.jaffle_shop.raw_customers",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -1014,6 +1109,22 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
@@ -1027,6 +1138,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "seed.jaffle_shop.raw_orders",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",
@@ -1142,6 +1254,22 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
@@ -1155,6 +1283,7 @@
                             "catalog_type": "table",
                             "language": "sql",
                             "dbt_unique_id": "seed.jaffle_shop.raw_payments",
+                            "dbt_package_name": "jaffle_shop",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
                             "manifest_adapter": "bigquery",

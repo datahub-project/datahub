@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.tag;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -9,8 +10,8 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -43,7 +44,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
     final Urn tagUrn = Urn.createFromString(environment.getArgument("urn"));
     final String colorHex = environment.getArgument("colorHex");
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // If user is not authorized, then throw exception.
@@ -53,7 +54,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
           }
 
           // If tag does not exist, then throw exception.
-          if (!_entityService.exists(tagUrn, true)) {
+          if (!_entityService.exists(context.getOperationContext(), tagUrn, true)) {
             throw new IllegalArgumentException(
                 String.format("Failed to set Tag %s color. Tag does not exist.", tagUrn));
           }
@@ -62,7 +63,11 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
             TagProperties tagProperties =
                 (TagProperties)
                     EntityUtils.getAspectFromEntity(
-                        tagUrn.toString(), TAG_PROPERTIES_ASPECT_NAME, _entityService, null);
+                        context.getOperationContext(),
+                        tagUrn.toString(),
+                        TAG_PROPERTIES_ASPECT_NAME,
+                        _entityService,
+                        null);
 
             if (tagProperties == null) {
               throw new IllegalArgumentException(
@@ -75,21 +80,23 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(
                     tagUrn, TAG_PROPERTIES_ASPECT_NAME, tagProperties);
-            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             return true;
           } catch (Exception e) {
             log.error("Failed to set color for Tag with urn {}: {}", tagUrn, e.getMessage());
             throw new RuntimeException(
                 String.format("Failed to set color for Tag with urn %s", tagUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static boolean isAuthorizedToSetTagColor(@Nonnull QueryContext context, Urn entityUrn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
             ImmutableList.of(
-                AuthUtils.ALL_PRIVILEGES_GROUP,
+                ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.EDIT_TAG_COLOR_PRIVILEGE.getType()))));
 

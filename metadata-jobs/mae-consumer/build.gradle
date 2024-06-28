@@ -1,5 +1,5 @@
 plugins {
-    id 'java'
+    id 'java-library'
 }
 
 apply plugin: 'pegasus'
@@ -16,7 +16,7 @@ dependencies {
         exclude group: 'org.neo4j.test'
     }
     implementation project(':metadata-service:auth-config')
-    implementation project(':metadata-service:restli-client')
+    implementation project(':metadata-service:restli-client-api')
     implementation project(':metadata-io')
     implementation project(':ingestion-scheduler')
     implementation project(':metadata-utils')
@@ -32,7 +32,7 @@ dependencies {
     implementation externalDependency.neo4jJavaDriver
 
     implementation externalDependency.springKafka
-    implementation externalDependency.springActuator
+    implementation externalDependency.annotationApi
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok

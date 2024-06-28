@@ -24,7 +24,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.data_reader import DataReader
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SQLSourceReport,
@@ -120,15 +120,10 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
 )
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "vertica")
+        super().__init__(config, ctx, "vertica")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.config: VerticaConfig = config
 
@@ -138,17 +133,8 @@ class VerticaSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from super().get_workunits_internal()
         sql_config = self.config
-        if logger.isEnabledFor(logging.DEBUG):
-            # If debug logging is enabled, we also want to echo each SQL query issued.
-            sql_config.options.setdefault("echo", True)
-
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled():
-            sql_config.options.setdefault(
-                "max_overflow", sql_config.profiling.max_workers
-            )
 
         for inspector in self.get_inspectors():
             profiler = None
@@ -175,11 +161,6 @@ class VerticaSource(SQLAlchemySource):
                     ),
                 )
 
-                if sql_config.include_tables:
-                    yield from self.loop_tables(inspector, schema, sql_config)
-
-                if sql_config.include_views:
-                    yield from self.loop_views(inspector, schema, sql_config)
                 if sql_config.include_projections:
                     yield from self.loop_projections(inspector, schema, sql_config)
                 if sql_config.include_models:
@@ -194,6 +175,15 @@ class VerticaSource(SQLAlchemySource):
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: VerticaInspector, **kwargs: Any
+    ) -> str:
+        regular = f"{schema}.{entity}"
+        if self.config.database:
+            return f"{self.config.database}.{regular}"
+        current_database = self.get_db_name(inspector)
+        return f"{current_database}.{regular}"
 
     def get_database_properties(
         self, inspector: VerticaInspector, database: str

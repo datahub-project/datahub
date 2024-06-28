@@ -119,11 +119,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: ViewDefinitionTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
-                            dataset?.dataset?.subTypes?.typeNames
+                            !!dataset?.dataset?.viewProperties?.logic ||
+                            !!dataset?.dataset?.subTypes?.typeNames
                                 ?.map((t) => t.toLocaleLowerCase())
-                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()) || false,
-                        enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.viewProperties?.logic && true) || false,
+                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
+                        enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
                     },
                 },
                 {
@@ -178,18 +178,14 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Operations',
+                    name: 'Runs', // TODO: Rename this to DatasetRunsTab.
                     component: OperationsTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
-                            );
+                            return (dataset?.dataset?.runs?.total || 0) > 0;
                         },
                         enabled: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
-                            );
+                            return (dataset?.dataset?.runs?.total || 0) > 0;
                         },
                     },
                 },
@@ -198,7 +194,11 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: AccessManagement,
                     display: {
                         visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, _2) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            const accessAspect = dataset?.dataset?.access;
+                            const rolesList = accessAspect?.roles;
+                            return !!accessAspect && !!rolesList && rolesList.length > 0;
+                        },
                     },
                 },
                 {
@@ -233,7 +233,7 @@ export class DatasetEntity implements Entity<Dataset> {
         {
             component: SidebarViewDefinitionSection,
             display: {
-                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties?.logic && true) || false,
+                visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
             },
         },
         {
@@ -248,8 +248,7 @@ export class DatasetEntity implements Entity<Dataset> {
         },
         {
             component: DataProductSection,
-        },
-        // TODO: Add back once entity-level recommendations are complete.
+        }, // TODO: Add back once entity-level recommendations are complete.
         // {
         //    component: SidebarRecommendationsSection,
         // },

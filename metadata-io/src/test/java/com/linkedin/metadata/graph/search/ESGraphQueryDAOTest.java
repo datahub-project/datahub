@@ -11,6 +11,7 @@ import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -107,19 +108,21 @@ public class ESGraphQueryDAOTest {
 
     QueryBuilder fullBuilder =
         graphQueryDAO.getLineageQuery(
-            urnsPerEntityType, edgesPerEntityType, graphFilters, startTime, endTime);
+            urnsPerEntityType,
+            edgesPerEntityType,
+            graphFilters,
+            new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime));
 
     QueryBuilder fullBuilderEmptyFilters =
         graphQueryDAO.getLineageQuery(
-            urnsPerEntityType, edgesPerEntityType, GraphFilters.emptyGraphFilters, null, null);
+            urnsPerEntityType, edgesPerEntityType, GraphFilters.emptyGraphFilters, null);
 
     QueryBuilder fullBuilderMultipleFilters =
         graphQueryDAO.getLineageQuery(
             urnsPerEntityTypeMultiple,
             edgesPerEntityTypeMultiple,
             graphFiltersMultiple,
-            startTime,
-            endTime);
+            new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime));
 
     Assert.assertEquals(limitedBuilder.toString(), expectedQueryLimited);
     Assert.assertEquals(fullBuilder.toString(), expectedQueryFull);

@@ -3,9 +3,6 @@ package com.linkedin.metadata.timeseries.search;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -27,7 +24,6 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.StringMapArray;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
@@ -47,7 +43,6 @@ import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectSer
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.timeseries.AggregationSpec;
@@ -59,8 +54,11 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -105,8 +103,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
-  private AspectRetriever aspectRetriever;
-  private IndexConvention indexConvention;
+  private OperationContext opContext;
   private ElasticSearchTimeseriesAspectService elasticSearchTimeseriesAspectService;
   private AspectSpec aspectSpec;
 
@@ -126,13 +123,13 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
             TestEntityProfile.class
                 .getClassLoader()
                 .getResourceAsStream("test-entity-registry.yml"));
-    aspectRetriever = mock(AspectRetriever.class);
-    when(aspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
-    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
 
-    indexConvention = new IndexConventionImpl("es_timeseries_aspect_service_test");
+    opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            entityRegistry, new IndexConventionImpl("es_timeseries_aspect_service_test"));
+
     elasticSearchTimeseriesAspectService = buildService();
-    elasticSearchTimeseriesAspectService.configure();
+    elasticSearchTimeseriesAspectService.reindexAll(Collections.emptySet());
     EntitySpec entitySpec = entityRegistry.getEntitySpec(ENTITY_NAME);
     aspectSpec = entitySpec.getAspectSpec(ASPECT_NAME);
   }
@@ -140,14 +137,13 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   @Nonnull
   private ElasticSearchTimeseriesAspectService buildService() {
     return new ElasticSearchTimeseriesAspectService(
-            getSearchClient(),
-            indexConvention,
-            new TimeseriesAspectIndexBuilders(
-                getIndexBuilder(), aspectRetriever.getEntityRegistry(), indexConvention),
-            aspectRetriever.getEntityRegistry(),
-            getBulkProcessor(),
-            1)
-        .postConstruct(aspectRetriever);
+        getSearchClient(),
+        new TimeseriesAspectIndexBuilders(
+            getIndexBuilder(),
+            opContext.getEntityRegistry(),
+            opContext.getSearchContext().getIndexConvention()),
+        getBulkProcessor(),
+        1);
   }
 
   /*
@@ -161,7 +157,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     documents.forEach(
         (key, value) ->
             elasticSearchTimeseriesAspectService.upsertDocument(
-                ENTITY_NAME, ASPECT_NAME, key, value));
+                opContext, ENTITY_NAME, ASPECT_NAME, key, value));
   }
 
   private TestEntityProfile makeTestProfile(long eventTime, long stat, String messageId) {
@@ -273,7 +269,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
-            urn, ENTITY_NAME, ASPECT_NAME, null, null, testEntityProfiles.size(), null);
+            opContext, urn, ENTITY_NAME, ASPECT_NAME, null, null, testEntityProfiles.size(), null);
     assertEquals(resultAspects.size(), testEntityProfiles.size());
   }
 
@@ -301,7 +297,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAspectTimeseriesValuesAll() {
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
-            TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null, NUM_PROFILES, null);
+            opContext, TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null, NUM_PROFILES, null);
     validateAspectValues(resultAspects, NUM_PROFILES);
 
     TestEntityProfile firstProfile =
@@ -325,6 +321,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   public void testGetAspectTimeseriesValuesAllSorted() {
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
+            opContext,
             TEST_URN,
             ENTITY_NAME,
             ASPECT_NAME,
@@ -360,7 +357,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     filter.setCriteria(new CriterionArray(hasStatEqualsTwenty));
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
-            TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null, NUM_PROFILES, filter);
+            opContext, TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null, NUM_PROFILES, filter);
     validateAspectValues(resultAspects, 1);
   }
 
@@ -369,6 +366,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     int expectedNumRows = 10;
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
+            opContext,
             TEST_URN,
             ENTITY_NAME,
             ASPECT_NAME,
@@ -384,6 +382,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     int expectedNumRows = 10;
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
+            opContext,
             TEST_URN,
             ENTITY_NAME,
             ASPECT_NAME,
@@ -399,6 +398,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     int expectedNumRows = 1;
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
+            opContext,
             TEST_URN,
             ENTITY_NAME,
             ASPECT_NAME,
@@ -414,6 +414,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     int expectedNumRows = 1;
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
+            opContext,
             TEST_URN,
             ENTITY_NAME,
             ASPECT_NAME,
@@ -431,7 +432,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
     Urn nonExistingUrn = new TestEntityUrn("missing", "missing", "missing");
     List<EnvelopedAspect> resultAspects =
         elasticSearchTimeseriesAspectService.getAspectValues(
-            nonExistingUrn, ENTITY_NAME, ASPECT_NAME, null, null, NUM_PROFILES, null);
+            opContext, nonExistingUrn, ENTITY_NAME, ASPECT_NAME, null, null, NUM_PROFILES, null);
     validateAspectValues(resultAspects, 0);
   }
 
@@ -475,6 +476,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {latestStatAggregationSpec},
@@ -534,6 +536,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {latestStatAggregationSpec},
@@ -593,6 +596,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {latestStatAggregationSpec},
@@ -654,6 +658,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {latestStatAggregationSpec},
@@ -717,6 +722,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {latestStatAggregationSpec},
@@ -777,6 +783,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {latestStatAggregationSpec},
@@ -846,6 +853,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {latestStatAggregationSpec},
@@ -917,6 +925,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {latestStatAggregationSpec},
@@ -991,6 +1000,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {sumAggregationSpec},
@@ -1058,6 +1068,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {sumStatAggregationSpec},
@@ -1117,6 +1128,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {cardinalityStatAggregationSpec},
@@ -1171,6 +1183,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     GenericTable resultTable =
         elasticSearchTimeseriesAspectService.getAggregatedStats(
+            opContext,
             ENTITY_NAME,
             ASPECT_NAME,
             new AggregationSpec[] {cardinalityStatAggregationSpec},
@@ -1211,7 +1224,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
         QueryUtils.getFilterFromCriteria(
             ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
     DeleteAspectValuesResult result =
-        elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
+        elasticSearchTimeseriesAspectService.deleteAspectValues(
+            opContext, ENTITY_NAME, ASPECT_NAME, filter);
     // For day1, we expect 24 (number of hours) * 3 (each testEntityProfile aspect expands 3 elastic
     // docs:
     //  1 original + 2 for componentProfiles) = 72 total.
@@ -1226,7 +1240,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion));
     DeleteAspectValuesResult result =
-        elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
+        elasticSearchTimeseriesAspectService.deleteAspectValues(
+            opContext, ENTITY_NAME, ASPECT_NAME, filter);
     // Of the 300 elastic docs upserted for TEST_URN, 72 got deleted by deleteAspectValues1 test
     // group leaving 228.
     assertEquals(result.getNumDocsDeleted(), Long.valueOf(228L));
@@ -1241,7 +1256,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion));
     long count =
-        elasticSearchTimeseriesAspectService.countByFilter(ENTITY_NAME, ASPECT_NAME, filter);
+        elasticSearchTimeseriesAspectService.countByFilter(
+            opContext, ENTITY_NAME, ASPECT_NAME, filter);
     assertEquals(count, 300L);
 
     // Test with filter with multiple criteria
@@ -1261,12 +1277,13 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
             ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
     count =
         elasticSearchTimeseriesAspectService.countByFilter(
-            ENTITY_NAME, ASPECT_NAME, urnAndTimeFilter);
+            opContext, ENTITY_NAME, ASPECT_NAME, urnAndTimeFilter);
     assertEquals(count, 72L);
 
     // test without filter
     count =
-        elasticSearchTimeseriesAspectService.countByFilter(ENTITY_NAME, ASPECT_NAME, new Filter());
+        elasticSearchTimeseriesAspectService.countByFilter(
+            opContext, ENTITY_NAME, ASPECT_NAME, new Filter());
     // There may be other entities in there from other tests
     assertTrue(count >= 300L);
   }
@@ -1281,7 +1298,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion));
     long count =
-        elasticSearchTimeseriesAspectService.countByFilter(ENTITY_NAME, ASPECT_NAME, filter);
+        elasticSearchTimeseriesAspectService.countByFilter(
+            opContext, ENTITY_NAME, ASPECT_NAME, filter);
     assertEquals(count, 228L);
 
     // Test with filter with multiple criteria
@@ -1301,7 +1319,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
             ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
     count =
         elasticSearchTimeseriesAspectService.countByFilter(
-            ENTITY_NAME, ASPECT_NAME, urnAndTimeFilter);
+            opContext, ENTITY_NAME, ASPECT_NAME, urnAndTimeFilter);
     assertEquals(count, 0L);
   }
 
@@ -1309,7 +1327,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
       groups = {"getAggregatedStats"},
       dependsOnGroups = {"upsert"})
   public void testGetIndexSizes() {
-    List<TimeseriesIndexSizeResult> result = elasticSearchTimeseriesAspectService.getIndexSizes();
+    List<TimeseriesIndexSizeResult> result =
+        elasticSearchTimeseriesAspectService.getIndexSizes(opContext);
     // CHECKSTYLE:OFF
     /*
     Example result:

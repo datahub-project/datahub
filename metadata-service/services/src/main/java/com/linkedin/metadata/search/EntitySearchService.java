@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -16,24 +15,23 @@ import org.opensearch.action.explain.ExplainResponse;
 
 public interface EntitySearchService {
 
-  /**
-   * Set aspect retriever after construction to prevent circular dependencies
-   *
-   * @param aspectRetriever
-   */
-  EntitySearchService postConstruct(AspectRetriever aspectRetriever);
-
-  void configure();
+  default void configure() {}
 
   /** Clear all data within the service */
-  void clear();
+  void clear(@Nonnull OperationContext opContext);
 
   /**
    * Get the number of documents corresponding to the entity
    *
    * @param entityName name of the entity
+   * @param filter optional filter
    */
-  long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName);
+  long docCount(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter);
+
+  default long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
+    return docCount(opContext, entityName, null);
+  }
 
   /**
    * Updates or inserts the given search document.
@@ -42,7 +40,11 @@ public interface EntitySearchService {
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
-  void upsertDocument(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId);
+  void upsertDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String document,
+      @Nonnull String docId);
 
   /**
    * Deletes the document with the given document ID from the index.
@@ -50,7 +52,8 @@ public interface EntitySearchService {
    * @param entityName name of the entity
    * @param docId the ID of the document to delete
    */
-  void deleteDocument(@Nonnull String entityName, @Nonnull String docId);
+  void deleteDocument(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId);
 
   /**
    * Appends a run id to the list for a certain document
@@ -59,7 +62,11 @@ public interface EntitySearchService {
    * @param urn the urn of the user
    * @param runId the ID of the run
    */
-  void appendRunId(@Nonnull String entityName, @Nonnull Urn urn, @Nullable String runId);
+  void appendRunId(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull Urn urn,
+      @Nullable String runId);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -247,7 +254,8 @@ public interface EntitySearchService {
    * @return all paths related to a given urn
    */
   @Nonnull
-  List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn);
+  List<String> getBrowsePaths(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and

@@ -100,7 +100,7 @@ public class NotebookType
             facetFilters,
             start,
             count);
-    return UrnSearchResultsMapper.map(searchResult);
+    return UrnSearchResultsMapper.map(context, searchResult);
   }
 
   @Override
@@ -114,7 +114,7 @@ public class NotebookType
     final AutoCompleteResult result =
         _entityClient.autoComplete(
             context.getOperationContext(), NOTEBOOK_ENTITY_NAME, query, filters, limit);
-    return AutoCompleteResultsMapper.map(result);
+    return AutoCompleteResultsMapper.map(context, result);
   }
 
   @Override
@@ -139,7 +139,7 @@ public class NotebookType
             facetFilters,
             start,
             count);
-    return BrowseResultMapper.map(result);
+    return BrowseResultMapper.map(context, result);
   }
 
   @Override
@@ -147,8 +147,8 @@ public class NotebookType
       throws Exception {
     final StringArray result =
         _entityClient.getBrowsePaths(
-            NotebookUrn.createFromString(urn), context.getAuthentication());
-    return BrowsePathsMapper.map(result);
+            context.getOperationContext(), NotebookUrn.createFromString(urn));
+    return BrowsePathsMapper.map(context, result);
   }
 
   @Override
@@ -173,10 +173,10 @@ public class NotebookType
     try {
       final Map<Urn, EntityResponse> notebookMap =
           _entityClient.batchGetV2(
+              context.getOperationContext(),
               NOTEBOOK_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE,
-              context.getAuthentication());
+              ASPECTS_TO_RESOLVE);
 
       return urns.stream()
           .map(urn -> notebookMap.getOrDefault(urn, null))
@@ -185,7 +185,7 @@ public class NotebookType
                   entityResponse == null
                       ? null
                       : DataFetcherResult.<Notebook>newResult()
-                          .data(NotebookMapper.map(entityResponse))
+                          .data(NotebookMapper.map(context, entityResponse))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
@@ -207,13 +207,13 @@ public class NotebookType
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    CorpuserUrn actor =
-        CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-    Collection<MetadataChangeProposal> proposals = NotebookUpdateInputMapper.map(input, actor);
+    CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
+    Collection<MetadataChangeProposal> proposals =
+        NotebookUpdateInputMapper.map(context, input, actor);
     proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
     try {
-      _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+      _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
     }
@@ -227,7 +227,7 @@ public class NotebookType
     final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
     return AuthorizationUtils.isAuthorized(
         context.getAuthorizer(),
-        context.getAuthentication().getActor().toUrnStr(),
+        context.getActorUrn(),
         PoliciesConfig.NOTEBOOK_PRIVILEGES.getResourceType(),
         urn,
         orPrivilegeGroups);

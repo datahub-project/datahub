@@ -6,7 +6,6 @@ import static org.testng.Assert.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.TestEntitySpecBuilder;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -43,15 +42,17 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 @Import(SearchCommonTestConfiguration.class)
 public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
-  @Autowired private AspectRetriever aspectRetriever;
 
-  @Autowired private OperationContext operationContext;
+  @Autowired
+  @Qualifier("queryOperationContext")
+  private OperationContext operationContext;
 
   public static SearchConfiguration testQueryConfig;
 
@@ -83,9 +84,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testDatasetFieldsAndHighlights() {
-    EntitySpec entitySpec = aspectRetriever.getEntityRegistry().getEntitySpec("dataset");
+    EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec("dataset");
     SearchRequestHandler datasetHandler =
-        SearchRequestHandler.getBuilder(entitySpec, testQueryConfig, null, aspectRetriever);
+        SearchRequestHandler.getBuilder(entitySpec, testQueryConfig, null);
 
     /*
       Ensure efficient query performance, we do not expect upstream/downstream/fineGrained lineage
@@ -104,8 +105,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testSearchRequestHandlerHighlightingTurnedOff() {
     SearchRequestHandler requestHandler =
-        SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
+        SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
             operationContext.withSearchFlags(
@@ -135,7 +135,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                   MISSING_SPECIAL_TYPE
                       + AGGREGATION_SPECIAL_TYPE_DELIMITER
                       + "textFieldOverride")) {
-        fail("Found unexepected aggregation: " + aggBuilder.getName());
+        fail("Found unexpected aggregation: " + aggBuilder.getName());
       }
     }
     // Highlights should not be present
@@ -145,11 +145,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testSearchRequestHandler() {
     SearchRequestHandler requestHandler =
-        SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
+        SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
-            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            operationContext.withSearchFlags(
+                flags ->
+                    flags.setFulltext(false).setSkipHighlighting(false).setSkipAggregates(false)),
             "testQuery",
             null,
             null,
@@ -175,7 +176,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                   MISSING_SPECIAL_TYPE
                       + AGGREGATION_SPECIAL_TYPE_DELIMITER
                       + "textFieldOverride")) {
-        fail("Found unexepected aggregation: " + aggBuilder.getName());
+        fail("Found unexpected aggregation: " + aggBuilder.getName());
       }
     }
     // Highlights
@@ -207,8 +208,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testAggregationsInSearch() {
     SearchRequestHandler requestHandler =
-        SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
+        SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
     final String nestedAggString =
         String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
     SearchRequest searchRequest =
@@ -276,8 +276,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   public void testFilteredSearch() {
 
     final SearchRequestHandler requestHandler =
-        SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
+        SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
 
     final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
@@ -633,8 +632,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         SearchRequestHandler.getFilterQuery(
             operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
             filter,
-            new HashMap<>(),
-            aspectRetriever);
+            new HashMap<>());
 
     assertEquals(test.should().size(), 1);
 
@@ -657,8 +655,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                         .setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))));
 
     final SearchRequestHandler requestHandler =
-        SearchRequestHandler.getBuilder(
-            TestEntitySpecBuilder.getSpec(), testQueryConfig, null, aspectRetriever);
+        SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig, null);
 
     return (BoolQueryBuilder)
         requestHandler

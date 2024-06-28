@@ -8,9 +8,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBaseNoVia;
-import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -822,7 +822,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
   }
 
   @Override
-  public void testPopulatedGraphServiceGetLineageMultihop(boolean attemptMultiHop) {
+  public void testPopulatedGraphServiceGetLineageMultihop(Boolean attemptMultiHop) {
     // TODO: Remove this overridden method once the multihop for dGraph is implemented!
   }
 
@@ -848,5 +848,10 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
       throws Exception {
     super.testFindRelatedEntitiesSourceType(
         datasetType, relationshipTypes, relationships, expectedRelatedEntities);
+  }
+
+  @Override
+  public void testHighlyConnectedGraphWalk() throws Exception {
+    // TODO: explore limit not supported for DGraph
   }
 }

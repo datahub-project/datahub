@@ -49,6 +49,11 @@ class S3LineageProviderConfig(ConfigModel):
         description="Strip filename from s3 url. It only applies if path_specs are not specified.",
     )
 
+    ignore_non_path_spec_path: bool = Field(
+        default=False,
+        description="Ignore paths that are not match in path_specs. It only applies if path_specs are specified.",
+    )
+
 
 class S3DatasetLineageProviderConfigBase(ConfigModel):
     """
@@ -108,7 +113,7 @@ class RedshiftConfig(
     )
 
     use_lineage_v2: bool = Field(
-        default=False,
+        default=True,
         description="Whether to use the new SQL-based lineage collector.",
     )
     lineage_v2_generate_queries: bool = Field(

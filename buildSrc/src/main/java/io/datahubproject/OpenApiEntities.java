@@ -60,6 +60,7 @@ public class OpenApiEntities {
                 .add("dataProductProperties")
                 .add("institutionalMemory")
                 .add("forms").add("formInfo").add("dynamicFormAssignment")
+                .add("businessAttributeInfo")
                 .build();
 
     private final static ImmutableSet<String> ENTITY_EXCLUSIONS = ImmutableSet.<String>builder()
@@ -460,6 +461,22 @@ public class OpenApiEntities {
         ObjectNode postMethod = NODE_FACTORY.objectNode()
                 .put("summary", "Create " + upperFirst)
                 .put("operationId", String.format("create", upperFirst));
+        ArrayNode postParameters = NODE_FACTORY.arrayNode();
+        postMethod.set("parameters", postParameters);
+        postParameters.add(NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "createIfNotExists")
+                .put("description", "Create the aspect if it does not already exist.")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "boolean")
+                        .put("default", false)));
+        postParameters.add(NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "createEntityIfNotExists")
+                .put("description", "Create the entity ONLY if it does not already exist. Fails in case when the entity exists.")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "boolean")
+                        .put("default", false)));
         postMethod.set("requestBody", NODE_FACTORY.objectNode()
                 .put("description", "Create " + entity.getName() + " entities.")
                 .put("required", true)
@@ -610,6 +627,22 @@ public class OpenApiEntities {
         ObjectNode postMethod = NODE_FACTORY.objectNode()
                 .put("summary", String.format("Create aspect %s on %s ", aspect, upperFirstEntity))
                 .put("operationId", String.format("create%s", upperFirstAspect));
+        ArrayNode postParameters = NODE_FACTORY.arrayNode();
+        postMethod.set("parameters", postParameters);
+        postParameters.add(NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "createIfNotExists")
+                .put("description", "Create the aspect if it does not already exist.")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "boolean")
+                        .put("default", false)));
+        postParameters.add(NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "createEntityIfNotExists")
+                .put("description", "Create the entity if it does not already exist. Fails in case when the entity exists.")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "boolean")
+                        .put("default", false)));
         postMethod.set("requestBody", NODE_FACTORY.objectNode()
                 .put("description", String.format("Create aspect %s on %s entity.", aspect, upperFirstEntity))
                 .put("required", true).set("content", NODE_FACTORY.objectNode()

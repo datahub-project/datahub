@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateDataProductInput;
 import com.linkedin.datahub.graphql.generated.DataProduct;
@@ -34,9 +35,9 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
     final Authentication authentication = context.getAuthentication();
     final Urn domainUrn = UrnUtils.getUrn(input.getDomainUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!_dataProductService.verifyEntityExists(domainUrn, context.getAuthentication())) {
+          if (!_dataProductService.verifyEntityExists(context.getOperationContext(), domainUrn)) {
             throw new IllegalArgumentException("The Domain provided dos not exist");
           }
           if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, domainUrn)) {
@@ -47,16 +48,19 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
           try {
             final Urn dataProductUrn =
                 _dataProductService.createDataProduct(
+                    context.getOperationContext(),
                     input.getId(),
                     input.getProperties().getName(),
-                    input.getProperties().getDescription(),
-                    authentication);
+                    input.getProperties().getDescription());
             _dataProductService.setDomain(
-                dataProductUrn, UrnUtils.getUrn(input.getDomainUrn()), authentication);
+                context.getOperationContext(),
+                dataProductUrn,
+                UrnUtils.getUrn(input.getDomainUrn()));
             EntityResponse response =
-                _dataProductService.getDataProductEntityResponse(dataProductUrn, authentication);
+                _dataProductService.getDataProductEntityResponse(
+                    context.getOperationContext(), dataProductUrn);
             if (response != null) {
-              return DataProductMapper.map(response);
+              return DataProductMapper.map(context, response);
             }
             // should never happen
             log.error(String.format("Unable to find data product with urn %s", dataProductUrn));
@@ -65,6 +69,8 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to create a new DataProduct from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

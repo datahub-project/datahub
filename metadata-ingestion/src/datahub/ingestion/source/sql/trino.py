@@ -35,7 +35,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
-from datahub.ingestion.source.sql.data_reader import DataReader
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -86,7 +86,7 @@ if version.parse(trino.__version__) >= version.parse("0.317.0"):
     register_custom_type(datatype.JSON, RecordTypeClass)
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def gen_catalog_connector_dict(engine: Engine) -> Dict[str, str]:
     query = dedent(
         """
@@ -226,11 +226,6 @@ class TrinoConfig(BasicSQLAlchemyConfig):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 class TrinoSource(SQLAlchemySource):
     """
 
@@ -478,7 +473,7 @@ def _parse_struct_fields(parts):
         "type": "record",
         "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
         "fields": fields,
-        "native_data_type": "ROW({})".format(parts),
+        "native_data_type": f"ROW({parts})",
     }
 
 

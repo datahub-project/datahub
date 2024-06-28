@@ -187,8 +187,7 @@ dbt source snapshot-freshness
 dbt build
 cp target/run_results.json target/run_results_backup.json
 dbt docs generate
-
-# Reference target/run_results_backup.json in the dbt source config.
+cp target/run_results_backup.json target/run_results.json
 ```
 
 :::
@@ -269,3 +268,30 @@ source:
     catalog_path: data_mart/target/catalog.json
     # ... other configs
 ```
+
+<details>
+  <summary>[Experimental] Reducing "composed of" sprawl with multiproject setups</summary>
+
+When many dbt projects use a single table as a source, the "Composed Of" relationships can become very large and difficult to navigate.
+To address this, we are experimenting with an alternative approach to handling multiproject setups: not including sources.
+
+The benefit is that your entire dbt estate becomes much easier to navigate, and the borders between projects less noticeable.
+The downside is that we will not pick up any documentation or meta mappings applied to dbt sources.
+
+To enable this, set a few additional flags in your dbt source config:
+
+```yaml
+source:
+  type: dbt
+  config:
+    platform_instance: analytics
+    target_platform: postgres
+    manifest_path: analytics/target/manifest.json
+    catalog_path: analytics/target/catalog.json
+    # ... other configs
+    entities_enabled:
+      sources: No
+    skip_sources_in_lineage: true
+```
+
+</details>

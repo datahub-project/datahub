@@ -48,7 +48,11 @@ public class SendMAEStep implements UpgradeStep {
 
     @Override
     public RestoreIndicesResult call() {
-      return _entityService.restoreIndices(args, context.report()::addLine);
+      return _entityService
+          .restoreIndices(context.opContext(), args, context.report()::addLine)
+          .stream()
+          .findFirst()
+          .get();
     }
   }
 
@@ -85,7 +89,10 @@ public class SendMAEStep implements UpgradeStep {
   private RestoreIndicesArgs getArgs(UpgradeContext context) {
     RestoreIndicesArgs result = new RestoreIndicesArgs();
     result.batchSize = getBatchSize(context.parsedArgs());
+    // this class assumes batch size == limit
+    result.limit = getBatchSize(context.parsedArgs());
     context.report().addLine(String.format("batchSize is %d", result.batchSize));
+    context.report().addLine(String.format("limit is %d", result.limit));
     result.numThreads = getThreadCount(context.parsedArgs());
     context.report().addLine(String.format("numThreads is %d", result.numThreads));
     result.batchDelayMs = getBatchDelayMs(context.parsedArgs());

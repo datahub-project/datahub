@@ -4,7 +4,6 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -85,8 +84,7 @@ public class ListOwnershipTypesResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     Mockito.verify(mockClient, Mockito.times(0))
         .search(
             any(),
@@ -103,8 +101,7 @@ public class ListOwnershipTypesResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .batchGetV2(
-            Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
+        .batchGetV2(any(), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     ListOwnershipTypesResolver resolver = new ListOwnershipTypesResolver(mockClient);
 
     // Execute resolver

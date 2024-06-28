@@ -15,10 +15,13 @@ import lombok.EqualsAndHashCode;
 public abstract class PluginSpec {
   protected static String ENTITY_WILDCARD = "*";
 
-  private final AspectPluginConfig aspectPluginConfig;
+  @Nonnull
+  public abstract AspectPluginConfig getConfig();
 
-  protected AspectPluginConfig getConfig() {
-    return this.aspectPluginConfig;
+  public abstract PluginSpec setConfig(@Nonnull AspectPluginConfig config);
+
+  public boolean enabled() {
+    return true;
   }
 
   public boolean shouldApply(
@@ -62,7 +65,10 @@ public abstract class PluginSpec {
 
   protected boolean isAspectSupported(@Nonnull String aspectName) {
     return getConfig().getSupportedEntityAspectNames().stream()
-        .anyMatch(supported -> supported.getAspectName().equals(aspectName));
+        .anyMatch(
+            supported ->
+                ENTITY_WILDCARD.equals(supported.getAspectName())
+                    || supported.getAspectName().equals(aspectName));
   }
 
   protected boolean isChangeTypeSupported(@Nullable ChangeType changeType) {
