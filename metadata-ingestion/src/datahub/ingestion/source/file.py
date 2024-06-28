@@ -238,11 +238,12 @@ class GenericFileSource(TestableSource):
         super().close()
 
     def _iterate_file(self, file_status: FileInfo) -> Iterable[Any]:
-        if self.config.read_mode == FileReadMode.AUTO:
+        file_read_mode = self.config.read_mode
+        if file_read_mode == FileReadMode.AUTO:
             if file_status.size < self.config._minsize_for_streaming_mode_in_bytes:
-                self.config.read_mode = FileReadMode.BATCH
+                file_read_mode = FileReadMode.BATCH
             else:
-                self.config.read_mode = FileReadMode.STREAM
+                file_read_mode = FileReadMode.STREAM
 
         # Open the file.
         schema = get_path_schema(file_status.path)
@@ -253,7 +254,7 @@ class GenericFileSource(TestableSource):
         fp = fs.open(file_status.path)
 
         with fp:
-            if self.config.read_mode == FileReadMode.STREAM:
+            if file_read_mode == FileReadMode.STREAM:
                 yield from self._iterate_file_streaming(fp)
             else:
                 yield from self._iterate_file_batch(fp)
