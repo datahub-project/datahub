@@ -83,7 +83,7 @@ function RecipeBuilder(props: Props) {
 
     return (
         <div>
-            {!hideDocsHint && sourceConfigs ? (
+            {!hideDocsHint && isViewingForm && sourceConfigs ? (
                 <IngestionDocumentationHint onHide={() => setHideDocsHint(true)} sourceConfigs={sourceConfigs} />
             ) : null}
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
