@@ -6,9 +6,6 @@ import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSect
 import { getChartPopularityTier, userExists } from '../../shared/utils';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { formatNumber } from '../../../../../../../shared/formatNumber';
-import Freshness, { getFreshnessTitle } from '../../../../../../../previewV2/Freshness';
-
-import { getDashboardLastUpdatedMs } from '../../../../../utils';
 import { getPopularityColumn, SidebarStatsColumn } from '../../../utils';
 
 const StatContent = styled.div`
@@ -22,8 +19,6 @@ const SidebarChartHeaderSection = () => {
     const chart = entityData as any;
 
     const columns: SidebarStatsColumn[] = [];
-
-    const timeData = getDashboardLastUpdatedMs(chart?.properties);
 
     /**
      * Popularity tab
@@ -68,16 +63,6 @@ const SidebarChartHeaderSection = () => {
         columns.push({
             title: 'Users',
             content: <StatContent>{formatNumber(chart?.statsSummary?.uniqueUserCountLast30Days)} users</StatContent>,
-        });
-    }
-
-    /**
-     * Freshness column
-     */
-    if (timeData?.lastUpdatedMs) {
-        columns.push({
-            title: getFreshnessTitle(timeData?.property),
-            content: <Freshness time={timeData?.lastUpdatedMs} timeProperty={timeData?.property} />,
         });
     }
 

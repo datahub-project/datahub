@@ -38,7 +38,7 @@ import { SidebarDatasetViewDefinitionSection } from '../shared/containers/profil
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
-import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getDatasetPopularityTier, isValuePresent } from '../shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
@@ -242,7 +242,7 @@ export class DatasetEntity implements Entity<Dataset> {
     getSidebarSections = () => [
         { component: SidebarEntityHeader },
         { component: SidebarDatasetHeaderSection },
-        { component: SyncedAssetSection },
+        { component: StatusSection },
         { component: SharingAssetSection },
         { component: SidebarQueryOperationsSection },
         { component: SidebarNotesSection },

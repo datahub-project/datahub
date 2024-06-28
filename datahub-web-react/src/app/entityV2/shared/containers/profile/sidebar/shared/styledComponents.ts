@@ -4,10 +4,11 @@ import { REDESIGN_COLORS } from '../../../../constants';
 
 export const RelativeTime = styled.div<{ isRecentlyUpdated?: boolean }>`
     display: flex;
-    padding: 3px 8px;
+    padding: 2px 8px;
     border-radius: 20px;
-    background-color: ${(props) =>
-        props.isRecentlyUpdated ? `${REDESIGN_COLORS.GREEN_LIGHT}` : `${REDESIGN_COLORS.RED_LIGHT}`};
+    border: 1px solid;
+    border-color: ${(props) =>
+        props.isRecentlyUpdated ? `${REDESIGN_COLORS.GREEN_NORMAL}` : `${REDESIGN_COLORS.RED_NORMAL}`};
     color: ${(props) =>
         props.isRecentlyUpdated ? `${REDESIGN_COLORS.GREEN_NORMAL}` : `${REDESIGN_COLORS.RED_NORMAL}`};
 `;

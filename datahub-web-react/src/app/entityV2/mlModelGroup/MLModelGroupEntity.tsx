@@ -19,7 +19,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { isOutputPort } from '../shared/utils';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
@@ -103,7 +103,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             component: SidebarEntityHeader,
         },
         {
-            component: SyncedAssetSection,
+            component: StatusSection,
         },
         {
             component: SharingAssetSection,

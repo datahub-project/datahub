@@ -19,7 +19,7 @@ import SidebarEntitiesSection from '../shared/containers/profile/sidebar/Domain/
 import { DomainSummaryTab } from './summary/DomainSummaryTab';
 import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 
@@ -132,7 +132,7 @@ export class DomainEntity implements Entity<Domain> {
             component: SidebarEntityHeader,
         },
         {
-            component: SyncedAssetSection,
+            component: StatusSection,
         },
         {
             component: SharingAssetSection,

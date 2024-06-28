@@ -30,7 +30,7 @@ import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEnt
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
-import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getChartPopularityTier, isValuePresent } from '../shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
@@ -203,7 +203,7 @@ export class ChartEntity implements Entity<Chart> {
             component: SidebarChartHeaderSection,
         },
         {
-            component: SyncedAssetSection,
+            component: StatusSection,
         },
         {
             component: SharingAssetSection,

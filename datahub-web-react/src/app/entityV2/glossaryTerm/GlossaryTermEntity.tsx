@@ -28,7 +28,7 @@ import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
 import GlossaryTermIcon from '../../../images/collections_bookmark.svg?react';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import SyncedAssetSection from '../shared/containers/profile/sidebar/shared/SyncedAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
 const headerDropdownItems = new Set([
@@ -139,7 +139,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             component: SidebarEntityHeader,
         },
         {
-            component: SyncedAssetSection,
+            component: StatusSection,
         },
         {
             component: SharingAssetSection,

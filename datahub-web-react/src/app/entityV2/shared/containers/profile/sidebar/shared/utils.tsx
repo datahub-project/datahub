@@ -11,6 +11,8 @@ export enum PopularityTier {
     TIER_4, // Least Popular
 }
 
+export const ACRYL_PLATFORM = 'Acryl';
+
 /**
  * Retrieve a tier of popularity for dataset given statistics about the dataset.
  * The tier is a function of the query count + unique users
