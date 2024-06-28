@@ -11,6 +11,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -52,10 +53,13 @@ import org.springframework.stereotype.Component;
 public class FormAssignmentHook implements MetadataChangeLogHook {
 
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
-      ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
+      ImmutableSet.of(
+          ChangeType.UPSERT, ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.RESTATE);
 
   private final FormService _formService;
   private final boolean _isEnabled;
+
+  private OperationContext systemOperationContext;
 
   @Autowired
   public FormAssignmentHook(
@@ -66,7 +70,10 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void init() {}
+  public FormAssignmentHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+    return this;
+  }
 
   @Override
   public boolean isEnabled() {
@@ -92,7 +99,8 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             DynamicFormAssignment.class);
 
     // 2. Register a automation to assign it.
-    _formService.upsertFormAssignmentRunner(event.getEntityUrn(), formFilters);
+    _formService.upsertFormAssignmentRunner(
+        systemOperationContext, event.getEntityUrn(), formFilters);
   }
 
   /**

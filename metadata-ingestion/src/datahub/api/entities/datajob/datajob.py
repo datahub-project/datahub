@@ -16,7 +16,6 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
-    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -61,18 +60,18 @@ class DataJob:
 
     def __post_init__(self):
         job_flow_urn = DataFlowUrn.create_from_ids(
-            env=self.flow_urn.get_env(),
-            orchestrator=self.flow_urn.get_orchestrator_name(),
-            flow_id=self.flow_urn.get_flow_id(),
+            env=self.flow_urn.cluster,
+            orchestrator=self.flow_urn.orchestrator,
+            flow_id=self.flow_urn.flow_id,
         )
         self.urn = DataJobUrn.create_from_ids(
             data_flow_urn=str(job_flow_urn), job_id=self.id
         )
 
     def generate_ownership_aspect(self) -> Iterable[OwnershipClass]:
-        owners = set([builder.make_user_urn(owner) for owner in self.owners]) | set(
-            [builder.make_group_urn(owner) for owner in self.group_owners]
-        )
+        owners = {builder.make_user_urn(owner) for owner in self.owners} | {
+            builder.make_group_urn(owner) for owner in self.group_owners
+        }
         ownership = OwnershipClass(
             owners=[
                 OwnerClass(
@@ -87,7 +86,7 @@ class DataJob:
             ],
             lastModified=AuditStampClass(
                 time=0,
-                actor=builder.make_user_urn(self.flow_urn.get_orchestrator_name()),
+                actor=builder.make_user_urn(self.flow_urn.orchestrator),
             ),
         )
         return [ownership]
@@ -168,5 +167,5 @@ class DataJob:
             for iolet in self.inlets + self.outlets:
                 yield MetadataChangeProposalWrapper(
                     entityUrn=str(iolet),
-                    aspect=StatusClass(removed=False),
+                    aspect=iolet.to_key_aspect(),
                 )

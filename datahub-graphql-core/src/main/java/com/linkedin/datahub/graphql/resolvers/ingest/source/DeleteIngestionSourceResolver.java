@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -27,10 +28,10 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
     if (IngestionAuthUtils.canManageIngestion(context)) {
       final String ingestionSourceUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(ingestionSourceUrn);
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
-              _entityClient.deleteEntity(urn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
               return ingestionSourceUrn;
             } catch (Exception e) {
               throw new RuntimeException(
@@ -39,7 +40,9 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
                       ingestionSourceUrn),
                   e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

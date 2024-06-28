@@ -7,6 +7,7 @@ import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.VerifyFormInput;
 import com.linkedin.metadata.service.FormService;
@@ -40,24 +41,26 @@ public class VerifyFormResolver implements DataFetcher<CompletableFuture<Boolean
     final Authentication authentication = context.getAuthentication();
     final Urn actorUrn = UrnUtils.getUrn(authentication.getActor().toUrnStr());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final List<Urn> groupsForUser =
-                _groupService.getGroupsForUser(actorUrn, authentication);
+                _groupService.getGroupsForUser(context.getOperationContext(), actorUrn);
             if (!_formService.isFormAssignedToUser(
-                formUrn, entityUrn, actorUrn, groupsForUser, authentication)) {
+                context.getOperationContext(), formUrn, entityUrn, actorUrn, groupsForUser)) {
               throw new AuthorizationException(
                   String.format(
                       "Failed to authorize form on entity as form with urn %s is not assigned to user",
                       formUrn));
             }
-            _formService.verifyFormForEntity(formUrn, entityUrn, authentication);
+            _formService.verifyFormForEntity(context.getOperationContext(), formUrn, entityUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

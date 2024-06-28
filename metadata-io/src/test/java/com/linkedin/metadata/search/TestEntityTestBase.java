@@ -4,16 +4,16 @@ import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELAST
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
@@ -22,15 +22,13 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
@@ -54,11 +52,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
   @Nonnull
   protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
-  @Autowired
-  @Qualifier("snapshotRegistryAspectRetriever")
-  AspectRetriever aspectRetriever;
-
-  private IndexConvention indexConvention;
   private SettingsBuilder settingsBuilder;
   private ElasticSearchService elasticSearchService;
   private OperationContext opContext;
@@ -67,25 +60,17 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
 
   @BeforeClass
   public void setup() {
-    indexConvention = new IndexConventionImpl("es_service_test");
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            aspectRetriever.getEntityRegistry(), indexConvention);
+            new SnapshotEntityRegistry(new Snapshot()), new IndexConventionImpl("es_service_test"));
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildService();
-    elasticSearchService.configure();
-  }
-
-  @BeforeClass
-  public void disableAssert() {
-    PathSpecBasedSchemaAnnotationVisitor.class
-        .getClassLoader()
-        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+    elasticSearchService.reindexAll(Collections.emptySet());
   }
 
   @BeforeMethod
   public void wipe() throws Exception {
-    elasticSearchService.clear();
+    elasticSearchService.clear(opContext);
   }
 
   @Nonnull
@@ -93,33 +78,22 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     EntityIndexBuilders indexBuilders =
         new EntityIndexBuilders(
             getIndexBuilder(),
-            aspectRetriever.getEntityRegistry(),
-            indexConvention,
+            opContext.getEntityRegistry(),
+            opContext.getSearchContext().getIndexConvention(),
             settingsBuilder);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
-            indexConvention,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
             null);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            getSearchClient(),
-            indexConvention,
-            getSearchConfiguration(),
-            getCustomSearchConfiguration());
-    ESWriteDAO writeDAO =
-        new ESWriteDAO(
-            aspectRetriever.getEntityRegistry(),
-            getSearchClient(),
-            indexConvention,
-            getBulkProcessor(),
-            1);
+            getSearchClient(), getSearchConfiguration(), getCustomSearchConfiguration());
+    ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
     ElasticSearchService searchService =
         new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
-    searchService.postConstruct(aspectRetriever);
     return searchService;
   }
 
@@ -166,7 +140,8 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document.set("foreignKey", JsonNodeFactory.instance.textNode("urn:li:tag:Node.Value"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(
+        opContext, ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     searchResult =
@@ -230,7 +205,8 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(
+        opContext, ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     searchResult =
@@ -278,8 +254,8 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             10),
         ImmutableMap.of("textFieldOverride", 1L, "textFieldOverride2", 1L));
 
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(opContext, ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(opContext, ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
     searchResult =
         elasticSearchService.search(
@@ -336,7 +312,8 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document.set("foreignKey", JsonNodeFactory.instance.textNode("urn:li:tag:Node.Value"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(
+        opContext, ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     searchResult =
@@ -370,7 +347,8 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
     document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(
+        opContext, ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     searchResult =
@@ -398,8 +376,8 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             10),
         ImmutableMap.of("textFieldOverride", 1L, "textFieldOverride2", 1L));
 
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(opContext, ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(opContext, ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
     searchResult =
         elasticSearchService.search(

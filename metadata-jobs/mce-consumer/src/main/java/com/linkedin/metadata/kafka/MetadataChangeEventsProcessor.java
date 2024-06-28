@@ -3,12 +3,9 @@ package com.linkedin.metadata.kafka;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import com.datahub.authentication.Authentication;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
-import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
-import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -17,6 +14,7 @@ import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
 import com.linkedin.mxe.Topics;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 import lombok.NonNull;
@@ -38,16 +36,12 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeProposalProcessorCondition.class)
-@Import({
-  RestliEntityClientFactory.class,
-  KafkaEventConsumerFactory.class,
-  DataHubKafkaProducerFactory.class
-})
+@Import({RestliEntityClientFactory.class})
 @EnableKafka
 @RequiredArgsConstructor
 public class MetadataChangeEventsProcessor {
 
-  @NonNull private final Authentication systemAuthentication;
+  @NonNull private final OperationContext systemOperationContext;
   private final SystemEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
@@ -67,10 +61,21 @@ public class MetadataChangeEventsProcessor {
               + Topics.METADATA_CHANGE_EVENT
               + "}}",
       containerFactory = "kafkaEventConsumer")
+  @Deprecated
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
       final GenericRecord record = consumerRecord.value();
+
+      log.info(
+          "Got MCE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+          consumerRecord.key(),
+          consumerRecord.topic(),
+          consumerRecord.partition(),
+          consumerRecord.offset(),
+          consumerRecord.serializedValueSize(),
+          consumerRecord.timestamp());
+
       log.debug("Record {}", record);
 
       MetadataChangeEvent event = new MetadataChangeEvent();
@@ -116,12 +121,13 @@ public class MetadataChangeEventsProcessor {
     return fmce;
   }
 
+  @Deprecated
   private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent)
       throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
     final Entity entity = new Entity().setValue(snapshotUnion);
     // TODO: GMS Auth Part 2: Get the actor identity from the event header itself.
     entityClient.updateWithSystemMetadata(
-        entity, metadataChangeEvent.getSystemMetadata(), this.systemAuthentication);
+        systemOperationContext, entity, metadataChangeEvent.getSystemMetadata());
   }
 }

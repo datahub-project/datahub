@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.analytics.resolver.GetHighlightsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetMetadataAnalyticsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.IsAnalyticsEnabledResolver;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AccessToken;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
@@ -33,6 +34,8 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePathEntry;
 import com.linkedin.datahub.graphql.generated.BrowseResultGroupV2;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.BusinessAttribute;
+import com.linkedin.datahub.graphql.generated.BusinessAttributeAssociation;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.Container;
@@ -46,19 +49,23 @@ import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DashboardUserUsageCounts;
 import com.linkedin.datahub.graphql.generated.DataFlow;
+import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
+import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.FormActorAssignment;
+import com.linkedin.datahub.graphql.generated.FreshnessContract;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryNodesResult;
 import com.linkedin.datahub.graphql.generated.GetRootGlossaryTermsResult;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -69,6 +76,7 @@ import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
+import com.linkedin.datahub.graphql.generated.ListBusinessAttributesResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
 import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
@@ -96,6 +104,7 @@ import com.linkedin.datahub.graphql.generated.QuerySubject;
 import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
+import com.linkedin.datahub.graphql.generated.SchemaContract;
 import com.linkedin.datahub.graphql.generated.SchemaField;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
@@ -112,17 +121,33 @@ import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
-import com.linkedin.datahub.graphql.resolvers.auth.*;
+import com.linkedin.datahub.graphql.resolvers.assertion.ReportAssertionResultResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertCustomAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.DebugAccessResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenMetadataResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.ListAccessTokensResolver;
+import com.linkedin.datahub.graphql.resolvers.auth.RevokeAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.EntityBrowsePathsResolver;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.AddBusinessAttributeResolver;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.CreateBusinessAttributeResolver;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.DeleteBusinessAttributeResolver;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.ListBusinessAttributesResolver;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.RemoveBusinessAttributeResolver;
+import com.linkedin.datahub.graphql.resolvers.businessattribute.UpdateBusinessAttributeResolver;
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsResolver;
+import com.linkedin.datahub.graphql.resolvers.datacontract.EntityDataContractResolver;
+import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchSetDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
@@ -130,6 +155,7 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsR
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
+import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
@@ -291,9 +317,11 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.aspect.AspectType;
 import com.linkedin.datahub.graphql.types.assertion.AssertionType;
 import com.linkedin.datahub.graphql.types.auth.AccessTokenMetadataType;
+import com.linkedin.datahub.graphql.types.businessattribute.BusinessAttributeType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.connection.DataHubConnectionType;
 import com.linkedin.datahub.graphql.types.container.ContainerType;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
@@ -336,12 +364,14 @@ import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
@@ -349,25 +379,26 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
-import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
-import com.linkedin.metadata.service.RestrictedService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.usage.UsageClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.StaticDataFetcher;
 import graphql.schema.idl.RuntimeWiring;
+import io.datahubproject.metadata.services.RestrictedService;
+import io.datahubproject.metadata.services.SecretService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -377,7 +408,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -389,7 +419,7 @@ import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
 /**
- * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS
+ * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the GMS
  * graph.
  */
 @Slf4j
@@ -399,7 +429,7 @@ public class GmsGraphQLEngine {
   private final EntityClient entityClient;
   private final SystemEntityClient systemEntityClient;
   private final GraphClient graphClient;
-  private final UsageClient usageClient;
+  private final UsageStatsJavaClient usageClient;
   private final SiblingGraphService siblingGraphService;
 
   private final EntityService entityService;
@@ -426,7 +456,10 @@ public class GmsGraphQLEngine {
   private final ERModelRelationshipService erModelRelationshipService;
   private final FormService formService;
   private final RestrictedService restrictedService;
+  private ConnectionService connectionService;
+  private AssertionService assertionService;
 
+  private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
 
   private final IngestionConfiguration ingestionConfiguration;
@@ -458,6 +491,7 @@ public class GmsGraphQLEngine {
   private final GlossaryTermType glossaryTermType;
   private final GlossaryNodeType glossaryNodeType;
   private final AspectType aspectType;
+  private final DataHubConnectionType connectionType;
   private final ContainerType containerType;
   private final DomainType domainType;
   private final NotebookType notebookType;
@@ -483,6 +517,9 @@ public class GmsGraphQLEngine {
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
+  private final boolean graphQLQueryIntrospectionEnabled;
+
+  private final BusinessAttributeType businessAttributeType;
 
   /** A list of GraphQL Plugins that extend the core engine */
   private final List<GmsGraphQLPlugin> graphQLPlugins;
@@ -541,7 +578,10 @@ public class GmsGraphQLEngine {
     this.dataProductService = args.dataProductService;
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
+    this.connectionService = args.connectionService;
+    this.assertionService = args.assertionService;
 
+    this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
     this.authenticationConfiguration = Objects.requireNonNull(args.authenticationConfiguration);
     this.authorizationConfiguration = Objects.requireNonNull(args.authorizationConfiguration);
@@ -570,6 +610,7 @@ public class GmsGraphQLEngine {
     this.glossaryTermType = new GlossaryTermType(entityClient);
     this.glossaryNodeType = new GlossaryNodeType(entityClient);
     this.aspectType = new AspectType(entityClient);
+    this.connectionType = new DataHubConnectionType(entityClient, secretService);
     this.containerType = new ContainerType(entityClient);
     this.domainType = new DomainType(entityClient);
     this.notebookType = new NotebookType(entityClient);
@@ -595,49 +636,54 @@ public class GmsGraphQLEngine {
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
+    this.graphQLQueryIntrospectionEnabled = args.graphQLQueryIntrospectionEnabled;
 
+    this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists
     this.entityTypes =
-        ImmutableList.of(
-            datasetType,
-            roleType,
-            corpUserType,
-            corpGroupType,
-            dataPlatformType,
-            chartType,
-            dashboardType,
-            tagType,
-            mlModelType,
-            mlModelGroupType,
-            mlFeatureType,
-            mlFeatureTableType,
-            mlPrimaryKeyType,
-            dataFlowType,
-            dataJobType,
-            glossaryTermType,
-            glossaryNodeType,
-            containerType,
-            notebookType,
-            domainType,
-            assertionType,
-            versionedDatasetType,
-            dataPlatformInstanceType,
-            accessTokenMetadataType,
-            testType,
-            dataHubPolicyType,
-            dataHubRoleType,
-            schemaFieldType,
-            erModelRelationshipType,
-            dataHubViewType,
-            queryType,
-            dataProductType,
-            ownershipType,
-            structuredPropertyType,
-            dataTypeType,
-            entityTypeType,
-            formType,
-            incidentType,
-            restrictedType);
+        new ArrayList<>(
+            ImmutableList.of(
+                datasetType,
+                roleType,
+                corpUserType,
+                corpGroupType,
+                dataPlatformType,
+                chartType,
+                dashboardType,
+                tagType,
+                mlModelType,
+                mlModelGroupType,
+                mlFeatureType,
+                mlFeatureTableType,
+                mlPrimaryKeyType,
+                dataFlowType,
+                dataJobType,
+                glossaryTermType,
+                glossaryNodeType,
+                connectionType,
+                containerType,
+                notebookType,
+                domainType,
+                assertionType,
+                versionedDatasetType,
+                dataPlatformInstanceType,
+                accessTokenMetadataType,
+                testType,
+                dataHubPolicyType,
+                dataHubRoleType,
+                schemaFieldType,
+                erModelRelationshipType,
+                dataHubViewType,
+                queryType,
+                dataProductType,
+                ownershipType,
+                structuredPropertyType,
+                dataTypeType,
+                entityTypeType,
+                formType,
+                incidentType,
+                restrictedType,
+                businessAttributeType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     // Extend loadable types with types from the plugins
     // This allows us to offer search and browse capabilities out of the box for those types
@@ -711,12 +757,13 @@ public class GmsGraphQLEngine {
     configureDomainResolvers(builder);
     configureDataProductResolvers(builder);
     configureAssertionResolvers(builder);
+    configureContractResolvers(builder);
     configurePolicyResolvers(builder);
     configureDataProcessInstanceResolvers(builder);
     configureVersionedDatasetResolvers(builder);
     configureAccessAccessTokenMetadataResolvers(builder);
     configureTestResultResolvers(builder);
-    configureRoleResolvers(builder);
+    configureDataHubRoleResolvers(builder);
     configureSchemaFieldResolvers(builder);
     configureERModelRelationshipResolvers(builder);
     configureEntityPathResolvers(builder);
@@ -729,6 +776,10 @@ public class GmsGraphQLEngine {
     configureFormResolvers(builder);
     configureIncidentResolvers(builder);
     configureRestrictedResolvers(builder);
+    configureRoleResolvers(builder);
+    configureBusinessAttributeResolver(builder);
+    configureBusinessAttributeAssociationResolver(builder);
+    configureConnectionResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -779,7 +830,10 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -795,9 +849,10 @@ public class GmsGraphQLEngine {
     builder
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
-        .configureRuntimeWiring(this::configureRuntimeWiring)
         .setGraphQLQueryComplexityLimit(graphQLQueryComplexityLimit)
-        .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit);
+        .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit)
+        .setGraphQLQueryIntrospectionEnabled(graphQLQueryIntrospectionEnabled)
+        .configureRuntimeWiring(this::configureRuntimeWiring);
     return builder;
   }
 
@@ -966,13 +1021,16 @@ public class GmsGraphQLEngine {
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
                 .dataFetcher("listGroups", new ListGroupsResolver(this.entityClient))
                 .dataFetcher(
-                    "listRecommendations", new ListRecommendationsResolver(recommendationsService))
-                .dataFetcher("getEntityCounts", new EntityCountsResolver(this.entityClient))
+                    "listRecommendations",
+                    new ListRecommendationsResolver(recommendationsService, viewService))
+                .dataFetcher(
+                    "getEntityCounts", new EntityCountsResolver(this.entityClient, viewService))
                 .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
                 .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
                 .dataFetcher(
                     "getAccessTokenMetadata",
                     new GetAccessTokenMetadataResolver(statefulTokenService, this.entityClient))
+                .dataFetcher("debugAccess", new DebugAccessResolver(this.entityClient, graphClient))
                 .dataFetcher("container", getResolver(containerType))
                 .dataFetcher("listDomains", new ListDomainsResolver(this.entityClient))
                 .dataFetcher("listSecrets", new ListSecretsResolver(this.entityClient))
@@ -1016,20 +1074,25 @@ public class GmsGraphQLEngine {
                     "listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
                 .dataFetcher(
                     "browseV2",
-                    new BrowseV2Resolver(this.entityClient, this.viewService, this.formService)));
+                    new BrowseV2Resolver(this.entityClient, this.viewService, this.formService))
+                .dataFetcher("businessAttribute", getResolver(businessAttributeType))
+                .dataFetcher(
+                    "listBusinessAttributes",
+                    new ListBusinessAttributesResolver(this.entityClient)));
   }
 
   private DataFetcher getEntitiesResolver() {
     return new BatchGetEntitiesResolver(
         entityTypes,
         (env) -> {
+          final QueryContext context = env.getContext();
           List<String> urns = env.getArgument(URNS_FIELD_NAME);
           return urns.stream()
+              .map(UrnUtils::getUrn)
               .map(
                   (urn) -> {
                     try {
-                      Urn entityUrn = Urn.createFromString(urn);
-                      return UrnToEntityMapper.map(entityUrn);
+                      return UrnToEntityMapper.map(context, urn);
                     } catch (Exception e) {
                       throw new RuntimeException("Failed to get entity", e);
                     }
@@ -1043,8 +1106,9 @@ public class GmsGraphQLEngine {
         entityTypes,
         (env) -> {
           try {
+            final QueryContext context = env.getContext();
             Urn urn = Urn.createFromString(env.getArgument(URN_FIELD_NAME));
-            return UrnToEntityMapper.map(urn);
+            return UrnToEntityMapper.map(context, urn);
           } catch (Exception e) {
             throw new RuntimeException("Failed to get entity", e);
           }
@@ -1067,191 +1131,214 @@ public class GmsGraphQLEngine {
   private void configureMutationResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "Mutation",
-        typeWiring ->
+        typeWiring -> {
+          typeWiring
+              .dataFetcher("updateDataset", new MutableTypeResolver<>(datasetType))
+              .dataFetcher("updateDatasets", new MutableTypeBatchResolver<>(datasetType))
+              .dataFetcher(
+                  "createTag", new CreateTagResolver(this.entityClient, this.entityService))
+              .dataFetcher("updateTag", new MutableTypeResolver<>(tagType))
+              .dataFetcher("setTagColor", new SetTagColorResolver(entityClient, entityService))
+              .dataFetcher("deleteTag", new DeleteTagResolver(entityClient))
+              .dataFetcher("updateChart", new MutableTypeResolver<>(chartType))
+              .dataFetcher("updateDashboard", new MutableTypeResolver<>(dashboardType))
+              .dataFetcher("updateNotebook", new MutableTypeResolver<>(notebookType))
+              .dataFetcher("updateDataJob", new MutableTypeResolver<>(dataJobType))
+              .dataFetcher("updateDataFlow", new MutableTypeResolver<>(dataFlowType))
+              .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
+              .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
+              .dataFetcher(
+                  "updateERModelRelationship",
+                  new UpdateERModelRelationshipResolver(this.entityClient))
+              .dataFetcher(
+                  "createERModelRelationship",
+                  new CreateERModelRelationshipResolver(
+                      this.entityClient, this.erModelRelationshipService))
+              .dataFetcher("addTag", new AddTagResolver(entityService))
+              .dataFetcher("addTags", new AddTagsResolver(entityService))
+              .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))
+              .dataFetcher("removeTag", new RemoveTagResolver(entityService))
+              .dataFetcher("batchRemoveTags", new BatchRemoveTagsResolver(entityService))
+              .dataFetcher("addTerm", new AddTermResolver(entityService))
+              .dataFetcher("batchAddTerms", new BatchAddTermsResolver(entityService))
+              .dataFetcher("addTerms", new AddTermsResolver(entityService))
+              .dataFetcher("removeTerm", new RemoveTermResolver(entityService))
+              .dataFetcher("batchRemoveTerms", new BatchRemoveTermsResolver(entityService))
+              .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
+              .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
+              .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
+              .dataFetcher(
+                  "updateDescription",
+                  new UpdateDescriptionResolver(entityService, this.entityClient))
+              .dataFetcher("addOwner", new AddOwnerResolver(entityService))
+              .dataFetcher("addOwners", new AddOwnersResolver(entityService))
+              .dataFetcher("batchAddOwners", new BatchAddOwnersResolver(entityService))
+              .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
+              .dataFetcher("batchRemoveOwners", new BatchRemoveOwnersResolver(entityService))
+              .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
+              .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
+              .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
+              .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
+              .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))
+              .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
+              .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
+              .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
+              .dataFetcher(
+                  "createDomain", new CreateDomainResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
+              .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
+              .dataFetcher(
+                  "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
+              .dataFetcher("batchSetDomain", new BatchSetDomainResolver(this.entityService))
+              .dataFetcher(
+                  "updateDeprecation",
+                  new UpdateDeprecationResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "batchUpdateDeprecation", new BatchUpdateDeprecationResolver(entityService))
+              .dataFetcher(
+                  "unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
+              .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
+              .dataFetcher(
+                  "updateSecret", new UpdateSecretResolver(this.entityClient, this.secretService))
+              .dataFetcher(
+                  "createAccessToken", new CreateAccessTokenResolver(this.statefulTokenService))
+              .dataFetcher(
+                  "revokeAccessToken",
+                  new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
+              .dataFetcher(
+                  "createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
+              .dataFetcher(
+                  "updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
+              .dataFetcher(
+                  "deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
+              .dataFetcher(
+                  "createIngestionExecutionRequest",
+                  new CreateIngestionExecutionRequestResolver(
+                      this.entityClient, this.ingestionConfiguration))
+              .dataFetcher(
+                  "cancelIngestionExecutionRequest",
+                  new CancelIngestionExecutionRequestResolver(this.entityClient))
+              .dataFetcher(
+                  "createTestConnectionRequest",
+                  new CreateTestConnectionRequestResolver(
+                      this.entityClient, this.ingestionConfiguration))
+              .dataFetcher(
+                  "upsertCustomAssertion", new UpsertCustomAssertionResolver(assertionService))
+              .dataFetcher(
+                  "reportAssertionResult", new ReportAssertionResultResolver(assertionService))
+              .dataFetcher(
+                  "deleteAssertion",
+                  new DeleteAssertionResolver(this.entityClient, this.entityService))
+              .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
+              .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient))
+              .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
+              .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
+              .dataFetcher(
+                  "createGlossaryTerm",
+                  new CreateGlossaryTermResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "createGlossaryNode",
+                  new CreateGlossaryNodeResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "updateParentNode",
+                  new UpdateParentNodeResolver(this.entityService, this.entityClient))
+              .dataFetcher(
+                  "deleteGlossaryEntity",
+                  new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "updateName", new UpdateNameResolver(this.entityService, this.entityClient))
+              .dataFetcher(
+                  "addRelatedTerms",
+                  new AddRelatedTermsResolver(this.entityService, this.entityClient))
+              .dataFetcher(
+                  "removeRelatedTerms",
+                  new RemoveRelatedTermsResolver(this.entityService, this.entityClient))
+              .dataFetcher(
+                  "createNativeUserResetToken",
+                  new CreateNativeUserResetTokenResolver(this.nativeUserService))
+              .dataFetcher(
+                  "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
+              .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
+              .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
+              .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+              .dataFetcher(
+                  "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
+              .dataFetcher(
+                  "acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
+              .dataFetcher("createPost", new CreatePostResolver(this.postService))
+              .dataFetcher("deletePost", new DeletePostResolver(this.postService))
+              .dataFetcher("updatePost", new UpdatePostResolver(this.postService))
+              .dataFetcher(
+                  "batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
+              .dataFetcher("createView", new CreateViewResolver(this.viewService))
+              .dataFetcher("updateView", new UpdateViewResolver(this.viewService))
+              .dataFetcher("deleteView", new DeleteViewResolver(this.viewService))
+              .dataFetcher(
+                  "updateGlobalViewsSettings",
+                  new UpdateGlobalViewsSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateCorpUserViewsSettings",
+                  new UpdateCorpUserViewsSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateLineage",
+                  new UpdateLineageResolver(this.entityService, this.lineageService))
+              .dataFetcher("updateEmbed", new UpdateEmbedResolver(this.entityService))
+              .dataFetcher("createQuery", new CreateQueryResolver(this.queryService))
+              .dataFetcher("updateQuery", new UpdateQueryResolver(this.queryService))
+              .dataFetcher("deleteQuery", new DeleteQueryResolver(this.queryService))
+              .dataFetcher(
+                  "createDataProduct", new CreateDataProductResolver(this.dataProductService))
+              .dataFetcher(
+                  "updateDataProduct", new UpdateDataProductResolver(this.dataProductService))
+              .dataFetcher(
+                  "deleteDataProduct", new DeleteDataProductResolver(this.dataProductService))
+              .dataFetcher(
+                  "batchSetDataProduct", new BatchSetDataProductResolver(this.dataProductService))
+              .dataFetcher(
+                  "createOwnershipType", new CreateOwnershipTypeResolver(this.ownershipTypeService))
+              .dataFetcher(
+                  "updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
+              .dataFetcher(
+                  "deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
+              .dataFetcher("submitFormPrompt", new SubmitFormPromptResolver(this.formService))
+              .dataFetcher("batchAssignForm", new BatchAssignFormResolver(this.formService))
+              .dataFetcher(
+                  "createDynamicFormAssignment",
+                  new CreateDynamicFormAssignmentResolver(this.formService))
+              .dataFetcher(
+                  "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
+              .dataFetcher("batchRemoveForm", new BatchRemoveFormResolver(this.formService))
+              .dataFetcher(
+                  "upsertStructuredProperties",
+                  new UpsertStructuredPropertiesResolver(this.entityClient))
+              .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
+              .dataFetcher(
+                  "updateIncidentStatus",
+                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService));
+          if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
-                .dataFetcher("updateDataset", new MutableTypeResolver<>(datasetType))
-                .dataFetcher("updateDatasets", new MutableTypeBatchResolver<>(datasetType))
                 .dataFetcher(
-                    "createTag", new CreateTagResolver(this.entityClient, this.entityService))
-                .dataFetcher("updateTag", new MutableTypeResolver<>(tagType))
-                .dataFetcher("setTagColor", new SetTagColorResolver(entityClient, entityService))
-                .dataFetcher("deleteTag", new DeleteTagResolver(entityClient))
-                .dataFetcher("updateChart", new MutableTypeResolver<>(chartType))
-                .dataFetcher("updateDashboard", new MutableTypeResolver<>(dashboardType))
-                .dataFetcher("updateNotebook", new MutableTypeResolver<>(notebookType))
-                .dataFetcher("updateDataJob", new MutableTypeResolver<>(dataJobType))
-                .dataFetcher("updateDataFlow", new MutableTypeResolver<>(dataFlowType))
-                .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
-                .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
+                    "createBusinessAttribute",
+                    new CreateBusinessAttributeResolver(
+                        this.entityClient, this.entityService, this.businessAttributeService))
                 .dataFetcher(
-                    "updateERModelRelationship",
-                    new UpdateERModelRelationshipResolver(this.entityClient))
+                    "updateBusinessAttribute",
+                    new UpdateBusinessAttributeResolver(
+                        this.entityClient, this.businessAttributeService))
                 .dataFetcher(
-                    "createERModelRelationship",
-                    new CreateERModelRelationshipResolver(
-                        this.entityClient, this.erModelRelationshipService))
-                .dataFetcher("addTag", new AddTagResolver(entityService))
-                .dataFetcher("addTags", new AddTagsResolver(entityService))
-                .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))
-                .dataFetcher("removeTag", new RemoveTagResolver(entityService))
-                .dataFetcher("batchRemoveTags", new BatchRemoveTagsResolver(entityService))
-                .dataFetcher("addTerm", new AddTermResolver(entityService))
-                .dataFetcher("batchAddTerms", new BatchAddTermsResolver(entityService))
-                .dataFetcher("addTerms", new AddTermsResolver(entityService))
-                .dataFetcher("removeTerm", new RemoveTermResolver(entityService))
-                .dataFetcher("batchRemoveTerms", new BatchRemoveTermsResolver(entityService))
-                .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
-                .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
-                .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
+                    "deleteBusinessAttribute",
+                    new DeleteBusinessAttributeResolver(this.entityClient))
                 .dataFetcher(
-                    "updateDescription",
-                    new UpdateDescriptionResolver(entityService, this.entityClient))
-                .dataFetcher("addOwner", new AddOwnerResolver(entityService))
-                .dataFetcher("addOwners", new AddOwnersResolver(entityService))
-                .dataFetcher("batchAddOwners", new BatchAddOwnersResolver(entityService))
-                .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
-                .dataFetcher("batchRemoveOwners", new BatchRemoveOwnersResolver(entityService))
-                .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
-                .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
-                .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
+                    "addBusinessAttribute", new AddBusinessAttributeResolver(this.entityService))
                 .dataFetcher(
-                    "removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
-                .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))
-                .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
-                .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
-                .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
-                .dataFetcher(
-                    "createDomain", new CreateDomainResolver(this.entityClient, this.entityService))
-                .dataFetcher(
-                    "moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
-                .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
-                .dataFetcher(
-                    "setDomain", new SetDomainResolver(this.entityClient, this.entityService))
-                .dataFetcher("batchSetDomain", new BatchSetDomainResolver(this.entityService))
-                .dataFetcher(
-                    "updateDeprecation",
-                    new UpdateDeprecationResolver(this.entityClient, this.entityService))
-                .dataFetcher(
-                    "batchUpdateDeprecation", new BatchUpdateDeprecationResolver(entityService))
-                .dataFetcher(
-                    "unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
-                .dataFetcher(
-                    "createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
-                .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
-                .dataFetcher(
-                    "updateSecret", new UpdateSecretResolver(this.entityClient, this.secretService))
-                .dataFetcher(
-                    "createAccessToken", new CreateAccessTokenResolver(this.statefulTokenService))
-                .dataFetcher(
-                    "revokeAccessToken",
-                    new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
-                .dataFetcher(
-                    "createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
-                .dataFetcher(
-                    "updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
-                .dataFetcher(
-                    "deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
-                .dataFetcher(
-                    "createIngestionExecutionRequest",
-                    new CreateIngestionExecutionRequestResolver(
-                        this.entityClient, this.ingestionConfiguration))
-                .dataFetcher(
-                    "cancelIngestionExecutionRequest",
-                    new CancelIngestionExecutionRequestResolver(this.entityClient))
-                .dataFetcher(
-                    "createTestConnectionRequest",
-                    new CreateTestConnectionRequestResolver(
-                        this.entityClient, this.ingestionConfiguration))
-                .dataFetcher(
-                    "deleteAssertion",
-                    new DeleteAssertionResolver(this.entityClient, this.entityService))
-                .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
-                .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient))
-                .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
-                .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
-                .dataFetcher(
-                    "createGlossaryTerm",
-                    new CreateGlossaryTermResolver(this.entityClient, this.entityService))
-                .dataFetcher(
-                    "createGlossaryNode",
-                    new CreateGlossaryNodeResolver(this.entityClient, this.entityService))
-                .dataFetcher(
-                    "updateParentNode",
-                    new UpdateParentNodeResolver(this.entityService, this.entityClient))
-                .dataFetcher(
-                    "deleteGlossaryEntity",
-                    new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
-                .dataFetcher(
-                    "updateName", new UpdateNameResolver(this.entityService, this.entityClient))
-                .dataFetcher("addRelatedTerms", new AddRelatedTermsResolver(this.entityService))
-                .dataFetcher(
-                    "removeRelatedTerms", new RemoveRelatedTermsResolver(this.entityService))
-                .dataFetcher(
-                    "createNativeUserResetToken",
-                    new CreateNativeUserResetTokenResolver(this.nativeUserService))
-                .dataFetcher(
-                    "batchUpdateSoftDeleted",
-                    new BatchUpdateSoftDeletedResolver(this.entityService))
-                .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
-                .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
-                .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
-                .dataFetcher(
-                    "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
-                .dataFetcher(
-                    "acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
-                .dataFetcher("createPost", new CreatePostResolver(this.postService))
-                .dataFetcher("deletePost", new DeletePostResolver(this.postService))
-                .dataFetcher("updatePost", new UpdatePostResolver(this.postService))
-                .dataFetcher(
-                    "batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
-                .dataFetcher("createView", new CreateViewResolver(this.viewService))
-                .dataFetcher("updateView", new UpdateViewResolver(this.viewService))
-                .dataFetcher("deleteView", new DeleteViewResolver(this.viewService))
-                .dataFetcher(
-                    "updateGlobalViewsSettings",
-                    new UpdateGlobalViewsSettingsResolver(this.settingsService))
-                .dataFetcher(
-                    "updateCorpUserViewsSettings",
-                    new UpdateCorpUserViewsSettingsResolver(this.settingsService))
-                .dataFetcher(
-                    "updateLineage",
-                    new UpdateLineageResolver(this.entityService, this.lineageService))
-                .dataFetcher("updateEmbed", new UpdateEmbedResolver(this.entityService))
-                .dataFetcher("createQuery", new CreateQueryResolver(this.queryService))
-                .dataFetcher("updateQuery", new UpdateQueryResolver(this.queryService))
-                .dataFetcher("deleteQuery", new DeleteQueryResolver(this.queryService))
-                .dataFetcher(
-                    "createDataProduct", new CreateDataProductResolver(this.dataProductService))
-                .dataFetcher(
-                    "updateDataProduct", new UpdateDataProductResolver(this.dataProductService))
-                .dataFetcher(
-                    "deleteDataProduct", new DeleteDataProductResolver(this.dataProductService))
-                .dataFetcher(
-                    "batchSetDataProduct", new BatchSetDataProductResolver(this.dataProductService))
-                .dataFetcher(
-                    "createOwnershipType",
-                    new CreateOwnershipTypeResolver(this.ownershipTypeService))
-                .dataFetcher(
-                    "updateOwnershipType",
-                    new UpdateOwnershipTypeResolver(this.ownershipTypeService))
-                .dataFetcher(
-                    "deleteOwnershipType",
-                    new DeleteOwnershipTypeResolver(this.ownershipTypeService))
-                .dataFetcher("submitFormPrompt", new SubmitFormPromptResolver(this.formService))
-                .dataFetcher("batchAssignForm", new BatchAssignFormResolver(this.formService))
-                .dataFetcher(
-                    "createDynamicFormAssignment",
-                    new CreateDynamicFormAssignmentResolver(this.formService))
-                .dataFetcher(
-                    "verifyForm", new VerifyFormResolver(this.formService, this.groupService))
-                .dataFetcher("batchRemoveForm", new BatchRemoveFormResolver(this.formService))
-                .dataFetcher(
-                    "upsertStructuredProperties",
-                    new UpsertStructuredPropertiesResolver(this.entityClient))
-                .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
-                .dataFetcher(
-                    "updateIncidentStatus",
-                    new UpdateIncidentStatusResolver(this.entityClient, this.entityService)));
+                    "removeBusinessAttribute",
+                    new RemoveBusinessAttributeResolver(this.entityService));
+          }
+          return typeWiring;
+        });
   }
 
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
@@ -1726,7 +1813,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher(
-                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
+                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
+                .dataFetcher("exists", new EntityExistsResolver(entityService)));
     builder.type(
         "CorpUserInfo",
         typeWiring ->
@@ -2183,7 +2271,12 @@ public class GmsGraphQLEngine {
                         "dataFlow",
                         new LoadableTypeResolver<>(
                             dataFlowType,
-                            (env) -> ((DataJob) env.getSource()).getDataFlow().getUrn()))
+                            (env) -> {
+                              final DataJob dataJob = env.getSource();
+                              return dataJob.getDataFlow() != null
+                                  ? dataJob.getDataFlow().getUrn()
+                                  : null;
+                            }))
                     .dataFetcher(
                         "dataPlatformInstance",
                         new LoadableTypeResolver<>(
@@ -2639,6 +2732,59 @@ public class GmsGraphQLEngine {
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
   }
 
+  private void configureContractResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Dataset",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "contract", new EntityDataContractResolver(this.entityClient, this.graphClient)));
+    builder.type(
+        "FreshnessContract",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "assertion",
+                new LoadableTypeResolver<>(
+                    getAssertionType(),
+                    (env) -> {
+                      final FreshnessContract contract = env.getSource();
+                      return contract.getAssertion() != null
+                          ? contract.getAssertion().getUrn()
+                          : null;
+                    })));
+    builder.type(
+        "DataQualityContract",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "assertion",
+                new LoadableTypeResolver<>(
+                    getAssertionType(),
+                    (env) -> {
+                      final DataQualityContract contract = env.getSource();
+                      return contract.getAssertion() != null
+                          ? contract.getAssertion().getUrn()
+                          : null;
+                    })));
+    builder.type(
+        "SchemaContract",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "assertion",
+                new LoadableTypeResolver<>(
+                    getAssertionType(),
+                    (env) -> {
+                      final SchemaContract contract = env.getSource();
+                      return contract.getAssertion() != null
+                          ? contract.getAssertion().getUrn()
+                          : null;
+                    })));
+    builder.type(
+        "Mutation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "upsertDataContract",
+                new UpsertDataContractResolver(this.entityClient, this.graphClient)));
+  }
+
   private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {
     // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the Policy type.
     builder.type(
@@ -2679,7 +2825,7 @@ public class GmsGraphQLEngine {
                         })));
   }
 
-  private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
+  private void configureDataHubRoleResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "DataHubRole",
         typeWiring ->
@@ -2830,7 +2976,7 @@ public class GmsGraphQLEngine {
         DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
     return DataLoader.newDataLoader(
         (keys, context) ->
-            CompletableFuture.supplyAsync(
+            GraphQLConcurrencyUtils.supplyAsync(
                 () -> {
                   try {
                     log.debug(
@@ -2849,7 +2995,9 @@ public class GmsGraphQLEngine {
                         String.format("Failed to retrieve entities of type %s", graphType.name()),
                         e);
                   }
-                }),
+                },
+                graphType.getClass().getSimpleName(),
+                "batchLoad"),
         loaderOptions);
   }
 
@@ -2913,5 +3061,72 @@ public class GmsGraphQLEngine {
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+  }
+
+  private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Role",
+        typeWiring -> typeWiring.dataFetcher("isAssignedToMe", new IsAssignedToMeResolver()));
+  }
+
+  private void configureBusinessAttributeResolver(final RuntimeWiring.Builder builder) {
+    builder
+        .type(
+            "BusinessAttribute",
+            typeWiring ->
+                typeWiring
+                    .dataFetcher("exists", new EntityExistsResolver(entityService))
+                    .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient)))
+        .type(
+            "ListBusinessAttributesResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "businessAttributes",
+                    new LoadableTypeBatchResolver<>(
+                        businessAttributeType,
+                        (env) ->
+                            ((ListBusinessAttributesResult) env.getSource())
+                                .getBusinessAttributes().stream()
+                                    .map(BusinessAttribute::getUrn)
+                                    .collect(Collectors.toList()))));
+  }
+
+  private void configureBusinessAttributeAssociationResolver(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "BusinessAttributeAssociation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "businessAttribute",
+                new LoadableTypeResolver<>(
+                    businessAttributeType,
+                    (env) ->
+                        ((BusinessAttributeAssociation) env.getSource())
+                            .getBusinessAttribute()
+                            .getUrn())));
+  }
+
+  private void configureConnectionResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Mutation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "upsertConnection",
+                new UpsertConnectionResolver(connectionService, secretService)));
+    builder.type(
+        "Query",
+        typeWiring -> typeWiring.dataFetcher("connection", getResolver(this.connectionType)));
+    builder.type(
+        "DataHubConnection",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "platform",
+                new LoadableTypeResolver<>(
+                    this.dataPlatformType,
+                    (env) -> {
+                      final DataHubConnection connection = env.getSource();
+                      return connection.getPlatform() != null
+                          ? connection.getPlatform().getUrn()
+                          : null;
+                    })));
   }
 }

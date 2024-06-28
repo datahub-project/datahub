@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
 import static com.linkedin.datahub.graphql.resolvers.incident.EntityIncidentsResolver.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
@@ -105,10 +106,10 @@ public class EntityIncidentsResolverTest {
 
     Mockito.when(
             mockClient.batchGetV2(
+                any(),
                 Mockito.eq(Constants.INCIDENT_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(incidentUrn)),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             ImmutableMap.of(
                 incidentUrn,

@@ -98,9 +98,58 @@ public class OpenLineageToDataHub {
 
   public static Optional<DatasetUrn> convertOpenlineageDatasetToDatasetUrn(
       OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
+
     String namespace = dataset.getNamespace();
     String datasetName = dataset.getName();
+    Optional<DatasetUrn> datahubUrn;
+    if (dataset.getFacets() != null
+        && dataset.getFacets().getSymlinks() != null
+        && !mappingConfig.isDisableSymlinkResolution()) {
+      Optional<DatasetUrn> originalUrn =
+          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+      for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
+          dataset.getFacets().getSymlinks().getIdentifiers()) {
+        if (symlink.getType().equals("TABLE")) {
+          if (symlink.getNamespace().startsWith("aws:glue:")) {
+            namespace = "glue";
+          } else {
+            namespace = mappingConfig.getHivePlatformAlias();
+          }
+          datasetName = symlink.getName();
+        }
+      }
+      Optional<DatasetUrn> symlinkedUrn =
+          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+      if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
+        mappingConfig
+            .getUrnAliases()
+            .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
+      }
+      datahubUrn = symlinkedUrn;
+    } else {
+      datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+    }
 
+    log.debug("Dataset URN: {}, alias_list: {}", datahubUrn, mappingConfig.getUrnAliases());
+    // If we have the urn in urn aliases then we should use the alias instead of the original urn
+    if (datahubUrn.isPresent()
+        && mappingConfig.getUrnAliases().containsKey(datahubUrn.get().toString())) {
+      try {
+        datahubUrn =
+            Optional.of(
+                DatasetUrn.createFromString(
+                    mappingConfig.getUrnAliases().get(datahubUrn.get().toString())));
+        return datahubUrn;
+      } catch (URISyntaxException e) {
+        return Optional.empty();
+      }
+    }
+
+    return datahubUrn;
+  }
+
+  private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
+      String namespace, String datasetName, DatahubOpenlineageConfig mappingConfig) {
     String platform;
     if (namespace.contains(SCHEME_SEPARATOR)) {
       try {
@@ -115,8 +164,8 @@ public class OpenLineageToDataHub {
         } else {
           platform = datasetUri.getScheme();
         }
-        datasetName = datasetUri.getPath();
         if (HdfsPlatform.isFsPlatformPrefix(platform)) {
+          datasetName = datasetUri.getPath();
           try {
             HdfsPathDataset hdfsPathDataset = HdfsPathDataset.create(datasetUri, mappingConfig);
             return Optional.of(hdfsPathDataset.urn());
@@ -125,8 +174,6 @@ public class OpenLineageToDataHub {
                 "Unable to create urn from namespace: {} and dataset {}.", namespace, datasetName);
             return Optional.empty();
           }
-        } else {
-          datasetName = dataset.getName();
         }
       } catch (URISyntaxException e) {
         log.warn("Unable to create URI from namespace: {} and dataset {}.", namespace, datasetName);
@@ -134,7 +181,6 @@ public class OpenLineageToDataHub {
       }
     } else {
       platform = namespace;
-      datasetName = dataset.getName();
     }
 
     if (mappingConfig.getCommonDatasetPlatformInstance() != null) {
@@ -328,8 +374,15 @@ public class OpenLineageToDataHub {
                               + inputField.getField()
                               + ")");
                   upstreamFields.add(datasetFieldUrn);
-                  upstreams.add(
-                      new Upstream().setDataset(urn.get()).setType(DatasetLineageType.TRANSFORMED));
+                  if (upstreams.stream()
+                      .noneMatch(
+                          upstream ->
+                              upstream.getDataset().toString().equals(urn.get().toString()))) {
+                    upstreams.add(
+                        new Upstream()
+                            .setDataset(urn.get())
+                            .setType(DatasetLineageType.TRANSFORMED));
+                  }
                 }
               });
 
@@ -423,6 +476,45 @@ public class OpenLineageToDataHub {
     for (Map.Entry<String, OpenLineage.RunFacet> entry :
         event.getRun().getFacets().getAdditionalProperties().entrySet()) {
       switch (entry.getKey()) {
+        case "spark_jobDetails":
+          if (entry.getValue().getAdditionalProperties().get("jobId") != null) {
+            customProperties.put(
+                "jobId",
+                (String) entry.getValue().getAdditionalProperties().get("jobId").toString());
+          }
+          if (entry.getValue().getAdditionalProperties().get("jobDescription") != null) {
+            customProperties.put(
+                "jobDescription",
+                (String) entry.getValue().getAdditionalProperties().get("jobDescription"));
+          }
+          if (entry.getValue().getAdditionalProperties().get("jobGroup") != null) {
+            customProperties.put(
+                "jobGroup", (String) entry.getValue().getAdditionalProperties().get("jobGroup"));
+          }
+          if (entry.getValue().getAdditionalProperties().get("jobCallSite") != null) {
+            customProperties.put(
+                "jobCallSite",
+                (String) entry.getValue().getAdditionalProperties().get("jobCallSite"));
+          }
+        case "processing_engine":
+          if (entry.getValue().getAdditionalProperties().get("processing-engine") != null) {
+            customProperties.put(
+                "processing-engine",
+                (String) entry.getValue().getAdditionalProperties().get("name"));
+          }
+          if (entry.getValue().getAdditionalProperties().get("processing-engine-version") != null) {
+            customProperties.put(
+                "processing-engine-version",
+                (String) entry.getValue().getAdditionalProperties().get("version"));
+          }
+          if (entry.getValue().getAdditionalProperties().get("openlineage-adapter-version")
+              != null) {
+            customProperties.put(
+                "openlineage-adapter-version",
+                (String)
+                    entry.getValue().getAdditionalProperties().get("openlineageAdapterVersion"));
+          }
+
         case "spark_version":
           {
             if (entry.getValue().getAdditionalProperties().get("spark-version") != null) {
@@ -491,6 +583,7 @@ public class OpenLineageToDataHub {
     OpenLineage.Job job = event.getJob();
     DataJobInfo dji = new DataJobInfo();
 
+    log.debug("Datahub Config: {}", datahubConf);
     if (job.getName().contains(".")) {
 
       String jobName = job.getName().substring(job.getName().indexOf(".") + 1);
@@ -621,6 +714,11 @@ public class OpenLineageToDataHub {
 
   private static void processJobInputs(
       DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+
+    if (event.getInputs() == null) {
+      return;
+    }
+
     for (OpenLineage.InputDataset input :
         event.getInputs().stream()
             .filter(input -> input.getFacets() != null)
@@ -631,7 +729,7 @@ public class OpenLineageToDataHub {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
         builder.urn(datasetUrn.get());
         if (datahubConf.isMaterializeDataset()) {
-          builder.schemaMetadata(getSchemaMetadata(input));
+          builder.schemaMetadata(getSchemaMetadata(input, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage = getFineGrainedLineage(input, datahubConf);
@@ -646,6 +744,11 @@ public class OpenLineageToDataHub {
 
   private static void processJobOutputs(
       DatahubJob datahubJob, OpenLineage.RunEvent event, DatahubOpenlineageConfig datahubConf) {
+
+    if (event.getOutputs() == null) {
+      return;
+    }
+
     for (OpenLineage.OutputDataset output :
         event.getOutputs().stream()
             .filter(input -> input.getFacets() != null)
@@ -656,7 +759,7 @@ public class OpenLineageToDataHub {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
         builder.urn(datasetUrn.get());
         if (datahubConf.isMaterializeDataset()) {
-          builder.schemaMetadata(getSchemaMetadata(output));
+          builder.schemaMetadata(getSchemaMetadata(output, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage = getFineGrainedLineage(output, datahubConf);
@@ -787,7 +890,8 @@ public class OpenLineageToDataHub {
     }
   }
 
-  public static SchemaMetadata getSchemaMetadata(OpenLineage.Dataset dataset) {
+  public static SchemaMetadata getSchemaMetadata(
+      OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
     SchemaFieldArray schemaFieldArray = new SchemaFieldArray();
     if ((dataset.getFacets() == null) || (dataset.getFacets().getSchema() == null)) {
       return null;
@@ -816,9 +920,16 @@ public class OpenLineageToDataHub {
     ddl.setTableSchema(OpenLineageClientUtils.toJson(dataset.getFacets().getSchema().getFields()));
     SchemaMetadata.PlatformSchema platformSchema = new SchemaMetadata.PlatformSchema();
     platformSchema.setMySqlDDL(ddl);
+    Optional<DatasetUrn> datasetUrn =
+        getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), mappingConfig);
+
+    if (!datasetUrn.isPresent()) {
+      return null;
+    }
+
     schemaMetadata.setPlatformSchema(platformSchema);
 
-    schemaMetadata.setPlatform(new DataPlatformUrn(dataset.getNamespace()));
+    schemaMetadata.setPlatform(datasetUrn.get().getPlatformEntity());
 
     schemaMetadata.setFields(schemaFieldArray);
     return schemaMetadata;

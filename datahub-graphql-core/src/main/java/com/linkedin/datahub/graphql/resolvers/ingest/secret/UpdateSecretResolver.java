@@ -6,17 +6,18 @@ import static com.linkedin.metadata.Constants.SECRET_VALUE_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateSecretInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.types.ingest.secret.mapper.DataHubSecretValueMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -38,18 +39,18 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
     final UpdateSecretInput input =
         bindArgument(environment.getArgument("input"), UpdateSecretInput.class);
     final Urn secretUrn = Urn.createFromString(input.getUrn());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (IngestionAuthUtils.canManageSecrets(context)) {
 
             try {
               EntityResponse response =
                   entityClient.getV2(
+                      context.getOperationContext(),
                       secretUrn.getEntityType(),
                       secretUrn,
-                      Set.of(SECRET_VALUE_ASPECT_NAME),
-                      context.getAuthentication());
-              if (!entityClient.exists(secretUrn, context.getAuthentication())
+                      Set.of(SECRET_VALUE_ASPECT_NAME));
+              if (!entityClient.exists(context.getOperationContext(), secretUrn)
                   || response == null) {
                 throw new IllegalArgumentException(
                     String.format("Secret for urn %s doesn't exists!", secretUrn));
@@ -66,7 +67,7 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithUrn(
                       secretUrn, SECRET_VALUE_ASPECT_NAME, updatedVal);
-              return entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+              return entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format(
@@ -77,6 +78,8 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

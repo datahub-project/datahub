@@ -1,13 +1,11 @@
 package com.linkedin.metadata.recommendation;
 
-import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.TestEntityUtil;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.candidatesource.TestSource;
 import com.linkedin.metadata.recommendation.ranker.RecommendationModuleRanker;
 import com.linkedin.metadata.recommendation.ranker.SimpleRecommendationRanker;
@@ -83,8 +81,9 @@ public class RecommendationsServiceTest {
     List<RecommendationModule> result =
         service.listRecommendations(
             TestOperationContexts.userContextNoSearchAuthorization(
-                mock(EntityRegistry.class), Urn.createFromString("urn:li:corpuser:me")),
+                Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
+            null,
             10);
     assertTrue(result.isEmpty());
 
@@ -95,8 +94,9 @@ public class RecommendationsServiceTest {
     result =
         service.listRecommendations(
             TestOperationContexts.userContextNoSearchAuthorization(
-                mock(EntityRegistry.class), Urn.createFromString("urn:li:corpuser:me")),
+                Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
+            null,
             10);
     assertEquals(result.size(), 1);
     RecommendationModule module = result.get(0);
@@ -112,8 +112,9 @@ public class RecommendationsServiceTest {
     result =
         service.listRecommendations(
             TestOperationContexts.userContextNoSearchAuthorization(
-                mock(EntityRegistry.class), Urn.createFromString("urn:li:corpuser:me")),
+                Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
+            null,
             10);
     assertEquals(result.size(), 4);
     module = result.get(0);
@@ -141,8 +142,9 @@ public class RecommendationsServiceTest {
     result =
         service.listRecommendations(
             TestOperationContexts.userContextNoSearchAuthorization(
-                mock(EntityRegistry.class), Urn.createFromString("urn:li:corpuser:me")),
+                Urn.createFromString("urn:li:corpuser:me")),
             new RecommendationRequestContext().setScenario(ScenarioType.HOME),
+            null,
             2);
     assertEquals(result.size(), 2);
     module = result.get(0);

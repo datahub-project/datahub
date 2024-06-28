@@ -21,7 +21,7 @@ from typing import (
 )
 
 import sqlalchemy.dialects.postgresql.base
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
 from sqlalchemy.exc import ProgrammingError
@@ -37,25 +37,25 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import capability
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
+    SourceCapability,
     TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
+    SAMPLE_SIZE_MULTIPLIER,
     ClassificationHandler,
     ClassificationReportMixin,
 )
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
-)
-from datahub.ingestion.source.sql.data_reader import (
-    DataReader,
-    SqlAlchemyTableDataReader,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_utils import (
@@ -67,6 +67,9 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_key,
     get_domain_wu,
     schema_requires_v2,
+)
+from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
+    SqlAlchemyTableDataReader,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -314,11 +317,16 @@ class ProfileMetadata:
     dataset_name_to_storage_bytes: Dict[str, int] = field(default_factory=dict)
 
 
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
     def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
-        super(SQLAlchemySource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
@@ -528,6 +536,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options.setdefault("echo", True)
+            # Patch to avoid duplicate logging
+            # Known issue with sqlalchemy https://stackoverflow.com/questions/60804288/pycharm-duplicated-log-for-sqlalchemy-echo-true
+            sqlalchemy_log._add_default_handler = lambda x: None  # type: ignore
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -674,7 +685,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
         data_reader = self.make_data_reader(inspector)
-        with (data_reader or contextlib.nullcontext()):
+        with data_reader or contextlib.nullcontext():
             try:
                 for table in inspector.get_table_names(schema):
                     dataset_name = self.get_identifier(
@@ -827,7 +838,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     partial(
                         data_reader.get_sample_data_for_table,
                         [schema, table],
-                        int(self.config.classification.sample_size * 1.2),
+                        int(
+                            self.config.classification.sample_size
+                            * SAMPLE_SIZE_MULTIPLIER
+                        ),
                     ),
                 )
         except Exception as e:
@@ -1155,6 +1169,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,
+            env=self.config.env,
         )
 
     def get_profile_args(self) -> Dict:

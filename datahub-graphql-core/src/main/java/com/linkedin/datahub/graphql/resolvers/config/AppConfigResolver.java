@@ -176,6 +176,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final FeatureFlagsConfig featureFlagsConfig =
         FeatureFlagsConfig.builder()
             .setShowSearchFiltersV2(_featureFlags.isShowSearchFiltersV2())
+            .setBusinessAttributeEntityEnabled(_featureFlags.isBusinessAttributeEntityEnabled())
             .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
             .setShowBrowseV2(_featureFlags.isShowBrowseV2())
             .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
@@ -184,6 +185,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowAccessManagement(_featureFlags.isShowAccessManagement())
             .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
             .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
+            .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -268,6 +270,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.ER_MODEL_RELATIONSHIP;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.BUSINESS_ATTRIBUTE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.BUSINESS_ATTRIBUTE;
     } else {
       return null;
     }

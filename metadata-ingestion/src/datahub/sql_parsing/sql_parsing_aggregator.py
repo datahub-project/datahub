@@ -51,6 +51,7 @@ from datahub.utilities.file_backed_collections import (
 )
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 QueryId = str
@@ -155,6 +156,12 @@ class SqlAggregatorReport(Report):
     views_parse_failures: LossyDict[UrnStr, str] = dataclasses.field(
         default_factory=LossyDict
     )
+
+    # SQL parsing (over all invocations).
+    num_sql_parsed: int = 0
+    sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
@@ -376,7 +383,8 @@ class SqlParsingAggregator(Closeable):
 
     def _maybe_format_query(self, query: str) -> str:
         if self.format_queries:
-            return try_format_query(query, self.platform.platform_name)
+            with self.report.sql_formatting_timer:
+                return try_format_query(query, self.platform.platform_name)
         return query
 
     def add_known_query_lineage(
@@ -400,9 +408,12 @@ class SqlParsingAggregator(Closeable):
         self.report.num_known_query_lineage += 1
 
         # Generate a fingerprint for the query.
-        query_fingerprint = get_query_fingerprint(
-            known_query_lineage.query_text, platform=self.platform.platform_name
-        )
+        with self.report.sql_fingerprinting_timer:
+            query_fingerprint = get_query_fingerprint(
+                known_query_lineage.query_text,
+                platform=self.platform.platform_name,
+                fast=True,
+            )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
         # Register the query.
@@ -749,12 +760,14 @@ class SqlParsingAggregator(Closeable):
         timestamp: Optional[datetime] = None,
         user: Optional[CorpUserUrn] = None,
     ) -> SqlParsingResult:
-        parsed = sqlglot_lineage(
-            query,
-            schema_resolver=schema_resolver,
-            default_db=default_db,
-            default_schema=default_schema,
-        )
+        with self.report.sql_parsing_timer:
+            parsed = sqlglot_lineage(
+                query,
+                schema_resolver=schema_resolver,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+        self.report.num_sql_parsed += 1
 
         # Conditionally log the query.
         if self.query_log == QueryLogSetting.STORE_ALL or (
@@ -857,6 +870,7 @@ class SqlParsingAggregator(Closeable):
             models.DatasetLineageTypeClass.TRANSFORMED,
         ]
 
+        # Lower value = higher precedence.
         idx = query_precedence.index(query_type)
         if idx == -1:
             return len(query_precedence)
@@ -872,13 +886,17 @@ class SqlParsingAggregator(Closeable):
         ]
 
         # Sort the queries by highest precedence first, then by latest timestamp.
+        # In case of ties, prefer queries with a known query type.
         # Tricky: by converting the timestamp to a number, we also can ignore the
         # differences between naive and aware datetimes.
         queries = sorted(
+            # Sorted is a stable sort, so in the case of total ties, we want
+            # to prefer the most recently added query.
             reversed(queries),
             key=lambda query: (
                 self._query_type_precedence(query.lineage_type),
                 -(make_ts_millis(query.latest_timestamp) or 0),
+                query.query_type == QueryType.UNKNOWN,
             ),
         )
 
@@ -994,6 +1012,9 @@ class SqlParsingAggregator(Closeable):
                                 [downstream_urn], query.upstreams
                             )
                         ]
+                    ),
+                    models.DataPlatformInstanceClass(
+                        platform=self.platform.urn(),
                     ),
                 ],
             )

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetSecretValuesInput;
 import com.linkedin.datahub.graphql.generated.SecretValue;
@@ -13,10 +14,10 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.services.SecretService;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,7 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
       final GetSecretValuesInput input =
           bindArgument(environment.getArgument("input"), GetSecretValuesInput.class);
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // Fetch secrets
@@ -61,10 +62,10 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
 
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.SECRETS_ENTITY_NAME,
                       new HashSet<>(urns),
-                      ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME),
-                      context.getAuthentication());
+                      ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME));
 
               // Now for each secret, decrypt and return the value. If no secret was found, then we
               // will simply omit it from the list.
@@ -92,7 +93,9 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
               throw new RuntimeException(
                   String.format("Failed to perform update against input %s", input.toString()), e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

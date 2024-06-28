@@ -40,7 +40,12 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import (
+    create_dataset_owners_patch_builder,
+    create_dataset_props_patch_builder,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.s3_util import (
     make_s3_urn_for_lineage,
     strip_s3_prefix,
@@ -159,7 +164,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
     def __init__(self, ctx: PipelineContext, config: UnityCatalogSourceConfig):
-        super(UnityCatalogSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
 
         self.config = config
         self.report: UnityCatalogReport = UnityCatalogReport()
@@ -209,7 +214,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_hive_metastore:
             try:
                 self.hive_metastore_proxy = HiveMetastoreProxy(
-                    self.config.get_sql_alchemy_url(HIVE_METASTORE), self.config.options
+                    self.config.get_sql_alchemy_url(HIVE_METASTORE),
+                    self.config.options,
+                    self.report,
                 )
                 self.report.hive_metastore_catalog_found = True
 
@@ -230,7 +237,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        return UnityCatalogConnectionTest(config_dict).get_connection_test()
+        try:
+            config = UnityCatalogSourceConfig.parse_obj_allow_extras(config_dict)
+        except Exception as e:
+            return TestConnectionReport(
+                internal_failure=True,
+                internal_failure_reason=f"Failed to parse config due to {e}",
+            )
+        return UnityCatalogConnectionTest(config).get_connection_test()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -483,9 +497,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
-                self.notebooks[str(notebook_id)] = Notebook.add_upstream(
-                    table.ref, self.notebooks[str(notebook_id)]
-                )
+                if str(notebook_id) in self.notebooks:
+                    self.notebooks[str(notebook_id)] = Notebook.add_upstream(
+                        table.ref, self.notebooks[str(notebook_id)]
+                    )
 
         # Sql parsing is required only for hive metastore view lineage
         if (
@@ -498,14 +513,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if table.view_definition:
                 self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
 
-        # generate sibling and lineage aspects in case of EXTERNAL DELTA TABLE
         if (
-            table_props.customProperties.get("table_type") == "EXTERNAL"
+            table_props.customProperties.get("table_type")
+            in {"EXTERNAL", "HIVE_EXTERNAL_TABLE"}
             and table_props.customProperties.get("data_source_format") == "DELTA"
             and self.config.emit_siblings
         ):
             storage_location = str(table_props.customProperties.get("storage_location"))
-            if storage_location.startswith("s3://"):
+            if any(
+                storage_location.startswith(prefix) for prefix in s3_util.S3_PREFIXES
+            ):
                 browse_path = strip_s3_prefix(storage_location)
                 source_dataset_urn = make_dataset_urn_with_platform_instance(
                     "delta-lake",
@@ -517,17 +534,29 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
                 yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
+        if ownership:
+            patch_builder = create_dataset_owners_patch_builder(dataset_urn, ownership)
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+
+        if table_props:
+            patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+
         yield from [
             mcp.as_workunit()
             for mcp in MetadataChangeProposalWrapper.construct_many(
                 entityUrn=dataset_urn,
                 aspects=[
-                    table_props,
                     view_props,
                     sub_type,
                     schema_metadata,
                     domain,
-                    ownership,
                     data_platform_instance,
                     lineage,
                 ],

@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchAssignFormInput;
 import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetcher;
@@ -37,18 +38,20 @@ public class BatchRemoveFormResolver implements DataFetcher<CompletableFuture<Bo
 
     // TODO: (PRD-1062) Add permission check once permission exists
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             _formService.batchUnassignFormForEntities(
+                context.getOperationContext(),
                 entityUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList()),
-                formUrn,
-                authentication);
+                formUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

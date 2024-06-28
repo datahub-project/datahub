@@ -31,7 +31,7 @@
     <!-- <pre>reason: Request Header Fields Too Large</pre>          -->
     <!-- =========================================================== -->
     <New id="httpConfig" class="org.eclipse.jetty.server.HttpConfiguration">
-      <Set name="requestHeaderSize"><Property name="jetty.httpConfig.requestHeaderSize" deprecated="jetty.request.header.size" default="16384" /></Set>
+      <Set name="requestHeaderSize"><Property name="jetty.httpConfig.requestHeaderSize" deprecated="jetty.request.header.size" default="32768" /></Set>
     </New>
 
     <Call name="addConnector">

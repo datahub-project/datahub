@@ -32,7 +32,9 @@
         "SET_WRITEABLE_PRIVILEGE",
         "APPLY_RETENTION_PRIVILEGE",
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
-        "GET_ANALYTICS_PRIVILEGE"
+        "GET_ANALYTICS_PRIVILEGE",
+        "CREATE_BUSINESS_ATTRIBUTE",
+        "MANAGE_BUSINESS_ATTRIBUTE"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants all platform privileges to root user.",
@@ -55,7 +57,6 @@
       "privileges":[
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_ASSERTIONS",
         "SEARCH_PRIVILEGE",
@@ -107,7 +108,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
@@ -177,7 +177,9 @@
         "SET_WRITEABLE_PRIVILEGE",
         "APPLY_RETENTION_PRIVILEGE",
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
-        "GET_ANALYTICS_PRIVILEGE"
+        "GET_ANALYTICS_PRIVILEGE",
+        "CREATE_BUSINESS_ATTRIBUTE",
+        "MANAGE_BUSINESS_ATTRIBUTE"
       ],
       "displayName":"Admins - Platform Policy",
       "description":"Admins have all platform privileges.",
@@ -201,7 +203,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -217,6 +218,7 @@
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
+        "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "EDIT_TAG_COLOR",
@@ -262,7 +264,8 @@
         "MANAGE_DOMAINS",
         "MANAGE_GLOBAL_ANNOUNCEMENTS",
         "MANAGE_GLOSSARIES",
-        "MANAGE_TAGS"
+        "MANAGE_TAGS",
+        "MANAGE_BUSINESS_ATTRIBUTE"
       ],
       "displayName":"Editors - Platform Policy",
       "description":"Editors can manage ingestion and view analytics.",
@@ -286,7 +289,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_DOCS",
@@ -300,6 +302,7 @@
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
+        "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "EDIT_TAG_COLOR",
@@ -406,7 +409,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "SEARCH_PRIVILEGE",
@@ -435,7 +437,6 @@
       },
       "privileges":[
         "VIEW_ENTITY_PAGE",
-        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -451,6 +452,7 @@
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
+        "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "EDIT_TAG_COLOR",

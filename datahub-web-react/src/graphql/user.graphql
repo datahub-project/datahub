@@ -3,6 +3,7 @@ query getUser($urn: String!, $groupsCount: Int!) {
         urn
         username
         isNativeUser
+        exists
         info {
             active
             displayName

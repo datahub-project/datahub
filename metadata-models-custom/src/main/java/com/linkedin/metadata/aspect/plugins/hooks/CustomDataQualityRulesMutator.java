@@ -1,6 +1,6 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.util.Pair;
@@ -13,13 +13,11 @@ import javax.annotation.Nonnull;
 
 public class CustomDataQualityRulesMutator extends MutationHook {
 
-  public CustomDataQualityRulesMutator(AspectPluginConfig config) {
-    super(config);
-  }
+  private AspectPluginConfig config;
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     return changeMCPS.stream()
         .map(
             changeMCP -> {
@@ -42,5 +40,17 @@ public class CustomDataQualityRulesMutator extends MutationHook {
             })
         .filter(Objects::nonNull)
         .map(changeMCP -> Pair.of(changeMCP, true));
+  }
+
+  @Nonnull
+  @Override
+  public AspectPluginConfig getConfig() {
+    return config;
+  }
+
+  @Override
+  public CustomDataQualityRulesMutator setConfig(@Nonnull AspectPluginConfig config) {
+    this.config = config;
+    return this;
   }
 }

@@ -1,5 +1,6 @@
 package com.datahub.metadata.ingestion;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
@@ -93,7 +94,7 @@ public class IngestionSchedulerTest {
     // Set up mocks for ingestion source batch fetching
     Mockito.when(
             mockClient.list(
-                Mockito.any(),
+                any(),
                 Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
                 Mockito.eq(Collections.emptyMap()),
                 Mockito.eq(0),
@@ -106,10 +107,10 @@ public class IngestionSchedulerTest {
                 .setEntities(new UrnArray(ingestionSourceUrn1, ingestionSourceUrn2)));
     Mockito.when(
             mockClient.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(ingestionSourceUrn1, ingestionSourceUrn2)),
-                Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME)),
-                Mockito.any()))
+                Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 ingestionSourceUrn1, entityResponse1,
