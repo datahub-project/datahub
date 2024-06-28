@@ -1307,7 +1307,7 @@ public class ESGraphQueryDAO {
       @Nullable final Filter destinationEntityFilter,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count) {
 
@@ -1320,12 +1320,12 @@ public class ESGraphQueryDAO {
             relationshipTypes,
             relationshipFilter);
 
-    return executeScrollSearchQuery(finalQuery, sortCriterion, scrollId, count);
+    return executeScrollSearchQuery(finalQuery, sortCriteria, scrollId, count);
   }
 
   private SearchResponse executeScrollSearchQuery(
       @Nonnull final QueryBuilder query,
-      @Nonnull List<SortCriterion> sortCriterion,
+      @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       final int count) {
 
@@ -1341,7 +1341,7 @@ public class ESGraphQueryDAO {
 
     searchSourceBuilder.size(count);
     searchSourceBuilder.query(query);
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion, List.of(), false);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, List.of(), false);
     searchRequest.source(searchSourceBuilder);
     ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
 

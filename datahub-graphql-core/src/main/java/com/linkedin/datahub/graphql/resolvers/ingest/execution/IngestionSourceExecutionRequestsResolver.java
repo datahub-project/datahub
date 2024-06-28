@@ -23,6 +23,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -76,9 +77,10 @@ public class IngestionSourceExecutionRequestsResolver
                                 new ConjunctiveCriterion()
                                     .setAnd(
                                         new CriterionArray(ImmutableList.of(filterCriterion))))),
-                    new SortCriterion()
-                        .setField(REQUEST_TIME_MS_FIELD_NAME)
-                        .setOrder(SortOrder.DESCENDING),
+                    Collections.singletonList(
+                        new SortCriterion()
+                            .setField(REQUEST_TIME_MS_FIELD_NAME)
+                            .setOrder(SortOrder.DESCENDING)),
                     start,
                     count);
 

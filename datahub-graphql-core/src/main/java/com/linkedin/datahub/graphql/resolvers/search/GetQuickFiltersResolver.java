@@ -25,6 +25,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -107,7 +108,7 @@ public class GetQuickFiltersResolver
             : null,
         0,
         0,
-        null,
+        Collections.emptyList(),
         null);
   }
 

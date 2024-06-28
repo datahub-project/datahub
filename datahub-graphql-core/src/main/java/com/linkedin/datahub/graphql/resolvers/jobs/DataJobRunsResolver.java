@@ -26,6 +26,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,13 +62,13 @@ public class DataJobRunsResolver
             // Index!
             // We use the search index so that we can easily sort by the last updated time.
             final Filter filter = buildTaskRunsEntityFilter(entityUrn);
-            final SortCriterion sortCriterion = buildTaskRunsSortCriterion();
+            final List<SortCriterion> sortCriteria = buildTaskRunsSortCriteria();
             final SearchResult gmsResult =
                 _entityClient.filter(
                     context.getOperationContext(),
                     Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
                     filter,
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
             final List<Urn> dataProcessInstanceUrns =
@@ -123,10 +124,10 @@ public class DataJobRunsResolver
     return filter;
   }
 
-  private SortCriterion buildTaskRunsSortCriterion() {
+  private List<SortCriterion> buildTaskRunsSortCriteria() {
     final SortCriterion sortCriterion = new SortCriterion();
     sortCriterion.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
     sortCriterion.setOrder(SortOrder.DESCENDING);
-    return sortCriterion;
+    return Collections.singletonList(sortCriterion);
   }
 }

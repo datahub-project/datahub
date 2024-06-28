@@ -79,7 +79,7 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
                         viewType,
                         context.getActorUrn(),
                         context.getOperationContext().getAspectRetriever()),
-                    DEFAULT_SORT_CRITERION,
+                    Collections.singletonList(DEFAULT_SORT_CRITERION),
                     start,
                     count);
 

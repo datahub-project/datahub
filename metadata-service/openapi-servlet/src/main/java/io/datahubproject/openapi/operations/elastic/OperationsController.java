@@ -212,6 +212,13 @@ public class OperationsController {
           @RequestParam(value = "filters", required = false)
           @Nullable
           String filters,
+      @Parameter(
+              name = "sortCriteria",
+              required = false,
+              description = "Criteria to sort results on.")
+          @RequestParam("sortCriteria")
+          @Nullable
+          List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
           @RequestParam(value = "searchFlags", required = false)
           @Nullable
@@ -250,7 +257,7 @@ public class OperationsController {
             encodeValue(documentId),
             entityName,
             filters == null ? null : objectMapper.readValue(filters, Filter.class),
-            null,
+            sortCriteria,
             scrollId,
             keepAlive,
             size,
@@ -311,6 +318,13 @@ public class OperationsController {
           @RequestParam(value = "filters", required = false)
           @Nullable
           String filters,
+      @Parameter(
+              name = "sortCriteria",
+              required = false,
+              description = "Criteria to sort results on.")
+          @RequestParam("sortCriteria")
+          @Nullable
+          List<SortCriterion> sortCriteria,
       @Parameter(name = "searchFlags", description = "Optional configuration flags.")
           @RequestParam(value = "searchFlags", required = false)
           @Nullable
@@ -349,7 +363,7 @@ public class OperationsController {
             encodeValue(documentIdA),
             entityName,
             filters == null ? null : objectMapper.readValue(filters, Filter.class),
-            null,
+            sortCriteria,
             scrollId,
             keepAlive,
             size,
@@ -362,7 +376,7 @@ public class OperationsController {
             encodeValue(documentIdB),
             entityName,
             filters == null ? null : objectMapper.readValue(filters, Filter.class),
-            null,
+            sortCriteria,
             scrollId,
             keepAlive,
             size,

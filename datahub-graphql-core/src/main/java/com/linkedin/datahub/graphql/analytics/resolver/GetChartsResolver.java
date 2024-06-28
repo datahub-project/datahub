@@ -159,9 +159,10 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
                                             .setValue(
                                                 String.valueOf(
                                                     trailingMonthDateRange.getStart())))))))),
-        new SortCriterion()
-            .setField(CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME)
-            .setOrder(SortOrder.DESCENDING),
+        Collections.singletonList(
+            new SortCriterion()
+                .setField(CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME)
+                .setOrder(SortOrder.DESCENDING)),
         0,
         100);
   }
