@@ -1,6 +1,7 @@
 function readyToTypeEditor() {
   // Get the first textarea within the Monaco editor and ensure it is visible
   return cy
+    .get(".monaco-editor textarea:first", { timeout: 30000 })
     .should("be.visible")
     .and("not.be.disabled")
     .click({ force: true })
