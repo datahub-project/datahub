@@ -24,20 +24,17 @@ public class LogMessageFilter extends AbstractMatcherFilter<ILoggingEvent> {
     }
 
     final String formattedMessage = event.getFormattedMessage();
-
-    IThrowableProxy throwableProxy = event.getThrowableProxy();
-    final String throwableString;
+    final IThrowableProxy throwableProxy = event.getThrowableProxy();
+    String throwableString = null;
     if (throwableProxy != null) {
       throwableString = ThrowableProxyUtil.asString(throwableProxy);
-    } else {
-      throwableString = "";
     }
 
     if (this.excluded.stream()
         .anyMatch(
             message ->
                 formattedMessage.contains(message)
-                    || (!throwableString.equals("") && throwableString.contains(message)))) {
+                    || (throwableString != null && throwableString.contains(message)))) {
       return FilterReply.DENY;
     }
     return FilterReply.ACCEPT;
