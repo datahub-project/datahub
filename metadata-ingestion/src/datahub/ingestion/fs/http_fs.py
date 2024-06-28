@@ -19,10 +19,10 @@ class HttpFileSystem(FileSystem):
         if head.ok:
             return FileInfo(path, int(head.headers["Content-length"]), is_file=True)
         elif head.status_code == 404:
-            raise Exception(f"Requested path {path} does not exists.")
+            raise FileNotFoundError(f"Requested path {path} does not exist.")
         else:
-            raise Exception(f"Cannot get file status for the requested path {path}.")
-
+            raise IOError(f"Cannot get file status for the requested path {path}.")
+    
     def list(self, path: str) -> Iterable[FileInfo]:
         status = self.file_status(path)
         return [status]
