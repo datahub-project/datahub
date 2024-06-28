@@ -685,12 +685,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (
-                    SELECT * from snowflake.account_usage.access_history
-                    WHERE
-                        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-                        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                ) t,
+                snowflake.account_usage.access_history t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w,
                 lateral flatten(input => w.value : "columns", outer => true) wcols,
@@ -852,12 +847,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (
-                    SELECT * from snowflake.account_usage.access_history
-                    WHERE
-                        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-                        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                ) t,
+                snowflake.account_usage.access_history t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w
             WHERE
