@@ -2,7 +2,6 @@ import React, { Key, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Tree, Typography } from 'antd';
 import { DataNode } from 'antd/es/tree';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES, getTreeDataForEntity } from '../utils';
 import useDrawerActions from '../state/actions';
@@ -57,12 +56,14 @@ const ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES_AS_STRINGS =
     ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES.map((e) => e.valueOf().toString());
 
 interface Props {
+    entityUrn: string
+    entityType: string
     subscription?: DataHubSubscription;
     forSubResource?: { assertion?: Assertion };
     onClose();
 }
 
-const NotificationTypesSection = ({ forSubResource, subscription, onClose }: Props) => {
+const NotificationTypesSection = ({ entityUrn, entityType, forSubResource, subscription, onClose }: Props) => {
     const checkedKeys = useDrawerSelector(selectCheckedKeys);
     const expandedKeys = useDrawerSelector(selectExpandedKeys);
 
@@ -72,7 +73,6 @@ const NotificationTypesSection = ({ forSubResource, subscription, onClose }: Pro
 
     const hasEnabledSink = useDrawerSelector(selectHasEnabledSink);
     const actions = useDrawerActions();
-    const { urn: entityUrn, entityType } = useEntityData();
 
     const [alertVisibleForEntityChangeType, setAlertVisibleForEntityChangeType] = useState<EntityChangeType>();
     const onRemoveAssertionFromAssetLevelSubscription = useRemoveAssertionFromAssetLevelSubscription({

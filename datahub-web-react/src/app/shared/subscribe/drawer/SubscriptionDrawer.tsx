@@ -279,6 +279,8 @@ const SubscriptionDrawerContent = ({
             {showBottomDrawerSection && (
                 <>
                     <NotificationTypesSection
+                        entityUrn={entityUrn}
+                        entityType={entityType}
                         subscription={subscription}
                         forSubResource={forSubResource}
                         onClose={onClose}
