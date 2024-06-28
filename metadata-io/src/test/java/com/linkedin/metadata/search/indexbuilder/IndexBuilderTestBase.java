@@ -28,7 +28,7 @@ import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.cluster.metadata.AliasMetadata;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -55,6 +55,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             0,
             0,
             Map.of(),
+            false,
             false,
             false,
             new ElasticSearchConfiguration(),
@@ -103,6 +104,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             Map.of(),
             false,
             false,
+            false,
             new ElasticSearchConfiguration(),
             gitVersion);
     customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -126,6 +128,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             Map.of(),
             false,
             true,
+            false,
             new ElasticSearchConfiguration(),
             gitVersion);
 
@@ -197,6 +200,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             Map.of(),
             true,
             false,
+            false,
             new ElasticSearchConfiguration(),
             gitVersion);
 
@@ -238,6 +242,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 Map.of(),
                 true,
                 false,
+                false,
                 new ElasticSearchConfiguration(),
                 gitVersion),
             new ESIndexBuilder(
@@ -248,6 +253,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 testDefaultBuilder.getRefreshIntervalSeconds() + 10,
                 Map.of(),
                 true,
+                false,
                 false,
                 new ElasticSearchConfiguration(),
                 gitVersion),
@@ -260,6 +266,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 Map.of(),
                 false,
                 false,
+                false,
                 new ElasticSearchConfiguration(),
                 gitVersion),
             new ESIndexBuilder(
@@ -269,6 +276,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 testDefaultBuilder.getNumRetries(),
                 testDefaultBuilder.getRefreshIntervalSeconds(),
                 Map.of(),
+                false,
                 false,
                 false,
                 new ElasticSearchConfiguration(),
@@ -314,6 +322,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             Map.of(),
             false,
             true,
+            false,
             new ElasticSearchConfiguration(),
             gitVersion);
 

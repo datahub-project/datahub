@@ -1,5 +1,7 @@
 package com.linkedin.metadata.service;
 
+import static org.mockito.ArgumentMatchers.any;
+
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -17,7 +19,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
@@ -26,6 +28,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -42,6 +46,8 @@ public class GlossaryTermServiceTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)");
   private static final Urn TEST_ENTITY_URN_2 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test1,PROD)");
+  private static final OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   @Test
   private void testAddGlossaryTermToEntityExistingGlossaryTerm() throws Exception {
@@ -51,19 +57,18 @@ public class GlossaryTermServiceTest {
             ImmutableList.of(
                 new GlossaryTermAssociation()
                     .setUrn(GlossaryTermUrn.createFromUrn(TEST_GLOSSARY_TERM_URN_1)))));
-    EntityClient mockClient = createMockGlossaryEntityClient(existingGlossaryTerms);
+    SystemEntityClient mockClient = createMockGlossaryEntityClient(existingGlossaryTerms);
 
-    final GlossaryTermService service =
-        new GlossaryTermService(mockClient, Mockito.mock(Authentication.class));
+    final GlossaryTermService service = new GlossaryTermService(mockClient);
 
     Urn newGlossaryTermUrn = UrnUtils.getUrn("urn:li:glossaryTerm:newGlossaryTerm");
     List<MetadataChangeProposal> events =
         service.buildAddGlossaryTermsProposals(
+            opContext,
             ImmutableList.of(newGlossaryTermUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     GlossaryTermAssociationArray expected =
         new GlossaryTermAssociationArray(
@@ -96,19 +101,18 @@ public class GlossaryTermServiceTest {
 
   @Test
   private void testAddGlossaryTermsToEntityNoExistingGlossaryTerm() throws Exception {
-    EntityClient mockClient = createMockGlossaryEntityClient(null);
+    SystemEntityClient mockClient = createMockGlossaryEntityClient(null);
 
-    final GlossaryTermService service =
-        new GlossaryTermService(mockClient, Mockito.mock(Authentication.class));
+    final GlossaryTermService service = new GlossaryTermService(mockClient);
 
     Urn newGlossaryTermUrn = UrnUtils.getUrn("urn:li:glossaryTerm:newGlossaryTerm");
     List<MetadataChangeProposal> events =
         service.buildAddGlossaryTermsProposals(
+            opContext,
             ImmutableList.of(newGlossaryTermUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     GlossaryTermAssociationArray expectedTermsArray =
         new GlossaryTermAssociationArray(
@@ -154,19 +158,19 @@ public class GlossaryTermServiceTest {
                                             .setUrn(
                                                 GlossaryTermUrn.createFromUrn(
                                                     TEST_GLOSSARY_TERM_URN_1)))))))));
-    EntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
+    SystemEntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
 
-    final GlossaryTermService service =
-        new GlossaryTermService(mockClient, Mockito.mock(Authentication.class));
+    final GlossaryTermService service = new GlossaryTermService(mockClient);
 
     Urn newGlossaryTermUrn = UrnUtils.getUrn("urn:li:glossaryTerm:newGlossaryTerm");
     List<MetadataChangeProposal> events =
         service.buildAddGlossaryTermsProposals(
+            opContext,
             ImmutableList.of(newGlossaryTermUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
 
     GlossaryTermAssociationArray expected =
         new GlossaryTermAssociationArray(
@@ -220,19 +224,19 @@ public class GlossaryTermServiceTest {
                     .setFieldPath("myfield")
                     .setGlossaryTerms(new GlossaryTerms()))));
 
-    EntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
+    SystemEntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
 
-    final GlossaryTermService service =
-        new GlossaryTermService(mockClient, Mockito.mock(Authentication.class));
+    final GlossaryTermService service = new GlossaryTermService(mockClient);
 
     Urn newGlossaryTermUrn = UrnUtils.getUrn("urn:li:glossaryTerm:newGlossaryTerm");
     List<MetadataChangeProposal> events =
         service.buildAddGlossaryTermsProposals(
+            opContext,
             ImmutableList.of(newGlossaryTermUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
 
     GlossaryTermAssociationArray expected =
         new GlossaryTermAssociationArray(
@@ -283,18 +287,17 @@ public class GlossaryTermServiceTest {
                     .setUrn(GlossaryTermUrn.createFromUrn(TEST_GLOSSARY_TERM_URN_1)),
                 new GlossaryTermAssociation()
                     .setUrn(GlossaryTermUrn.createFromUrn(TEST_GLOSSARY_TERM_URN_2)))));
-    EntityClient mockClient = createMockGlossaryEntityClient(existingGlossaryTerms);
+    SystemEntityClient mockClient = createMockGlossaryEntityClient(existingGlossaryTerms);
 
-    final GlossaryTermService service =
-        new GlossaryTermService(mockClient, Mockito.mock(Authentication.class));
+    final GlossaryTermService service = new GlossaryTermService(mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveGlossaryTermsProposals(
+            opContext,
             ImmutableList.of(TEST_GLOSSARY_TERM_URN_1),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     GlossaryTerms expected =
         new GlossaryTerms()
@@ -327,19 +330,18 @@ public class GlossaryTermServiceTest {
 
   @Test
   private void testRemoveGlossaryTermsToEntityNoExistingGlossaryTerm() throws Exception {
-    EntityClient mockClient = createMockGlossaryEntityClient(null);
+    SystemEntityClient mockClient = createMockGlossaryEntityClient(null);
 
-    final GlossaryTermService service =
-        new GlossaryTermService(mockClient, Mockito.mock(Authentication.class));
+    final GlossaryTermService service = new GlossaryTermService(mockClient);
 
     Urn newGlossaryTermUrn = UrnUtils.getUrn("urn:li:glossaryTerm:newGlossaryTerm");
     List<MetadataChangeProposal> events =
         service.buildRemoveGlossaryTermsProposals(
+            opContext,
             ImmutableList.of(newGlossaryTermUrn),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
-                new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            mockAuthentication());
+                new ResourceReference(TEST_ENTITY_URN_2, null, null)));
 
     GlossaryTermAssociationArray expected = new GlossaryTermAssociationArray(ImmutableList.of());
 
@@ -385,18 +387,18 @@ public class GlossaryTermServiceTest {
                                             .setUrn(
                                                 GlossaryTermUrn.createFromUrn(
                                                     TEST_GLOSSARY_TERM_URN_2)))))))));
-    EntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
+    SystemEntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
 
-    final GlossaryTermService service =
-        new GlossaryTermService(mockClient, Mockito.mock(Authentication.class));
+    final GlossaryTermService service = new GlossaryTermService(mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveGlossaryTermsProposals(
+            opContext,
             ImmutableList.of(TEST_GLOSSARY_TERM_URN_1),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
 
     GlossaryTermAssociationArray expected =
         new GlossaryTermAssociationArray(
@@ -448,18 +450,18 @@ public class GlossaryTermServiceTest {
                     .setFieldPath("myfield")
                     .setGlossaryTerms(new GlossaryTerms()))));
 
-    EntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
+    SystemEntityClient mockClient = createMockSchemaMetadataEntityClient(existingMetadata);
 
-    final GlossaryTermService service =
-        new GlossaryTermService(mockClient, Mockito.mock(Authentication.class));
+    final GlossaryTermService service = new GlossaryTermService(mockClient);
 
     List<MetadataChangeProposal> events =
         service.buildRemoveGlossaryTermsProposals(
+            opContext,
             ImmutableList.of(TEST_ENTITY_URN_1),
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "myfield"),
-                new ResourceReference(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")),
-            mockAuthentication());
+                new ResourceReference(
+                    TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "myfield")));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
@@ -494,25 +496,25 @@ public class GlossaryTermServiceTest {
         Collections.emptyList());
   }
 
-  private static EntityClient createMockGlossaryEntityClient(
+  private static SystemEntityClient createMockGlossaryEntityClient(
       @Nullable GlossaryTerms existingGlossaryTerms) throws Exception {
     return createMockEntityClient(existingGlossaryTerms, Constants.GLOSSARY_TERMS_ASPECT_NAME);
   }
 
-  private static EntityClient createMockSchemaMetadataEntityClient(
+  private static SystemEntityClient createMockSchemaMetadataEntityClient(
       @Nullable EditableSchemaMetadata existingMetadata) throws Exception {
     return createMockEntityClient(existingMetadata, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
   }
 
-  private static EntityClient createMockEntityClient(
+  private static SystemEntityClient createMockEntityClient(
       @Nullable RecordTemplate aspect, String aspectName) throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.batchGetV2(
+                any(OperationContext.class),
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(TEST_ENTITY_URN_1, TEST_ENTITY_URN_2)),
-                Mockito.eq(ImmutableSet.of(aspectName)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(ImmutableSet.of(aspectName))))
         .thenReturn(
             aspect != null
                 ? ImmutableMap.of(

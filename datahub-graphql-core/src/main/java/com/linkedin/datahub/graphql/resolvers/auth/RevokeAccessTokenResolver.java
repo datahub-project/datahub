@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -35,7 +36,7 @@ public class RevokeAccessTokenResolver implements DataFetcher<CompletableFuture<
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final String tokenId = bindArgument(environment.getArgument("tokenId"), String.class);
@@ -52,7 +53,9 @@ public class RevokeAccessTokenResolver implements DataFetcher<CompletableFuture<
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToRevokeToken(final QueryContext context, final String tokenId) {
@@ -63,10 +66,10 @@ public class RevokeAccessTokenResolver implements DataFetcher<CompletableFuture<
     try {
       final EntityResponse entityResponse =
           _entityClient.getV2(
+              context.getOperationContext(),
               Constants.ACCESS_TOKEN_ENTITY_NAME,
               Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, tokenId),
-              ImmutableSet.of(Constants.ACCESS_TOKEN_INFO_NAME),
-              context.getAuthentication());
+              ImmutableSet.of(Constants.ACCESS_TOKEN_INFO_NAME));
 
       if (entityResponse != null
           && entityResponse.getAspects().containsKey(Constants.ACCESS_TOKEN_INFO_NAME)) {

@@ -1,4 +1,5 @@
 import atexit
+import functools
 import logging
 import os
 import re
@@ -10,7 +11,7 @@ from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
 
-from datahub.configuration.pattern_utils import is_schema_allowed
+from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -27,6 +28,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -35,11 +37,17 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import (
+    SAMPLE_SIZE_MULTIPLIER,
+    ClassificationHandler,
+    classification_workunit_processor,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
     unquote_and_decode_unicode_escape_seq,
 )
@@ -98,6 +106,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
     BytesType,
+    DateType,
     MySqlDDL,
     NullType,
     NumberType,
@@ -121,6 +130,7 @@ from datahub.utilities.hive_schema_to_avro import (
 )
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -163,12 +173,14 @@ def cleanup(config: BigQueryV2Config) -> None:
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
 )
 @capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
     supported=True,
 )
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
+    # Note: We use the hive schema parser to parse nested BigQuery types. We also have
+    # some extra type mappings in that file.
     BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
         str,
         Type[
@@ -180,6 +192,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 RecordType,
                 StringType,
                 TimeType,
+                DateType,
                 NullType,
             ]
         ],
@@ -201,19 +214,20 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         "STRING": StringType,
         "TIME": TimeType,
         "TIMESTAMP": TimeType,
-        "DATE": TimeType,
+        "DATE": DateType,
         "DATETIME": TimeType,
         "GEOGRAPHY": NullType,
-        "JSON": NullType,
+        "JSON": RecordType,
         "INTERVAL": NullType,
         "ARRAY": ArrayType,
         "STRUCT": RecordType,
     }
 
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
-        super(BigqueryV2Source, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
+        self.classification_handler = ClassificationHandler(self.config, self.report)
         self.platform: str = "bigquery"
 
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
@@ -223,9 +237,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf, self.config.get_bigquery_client()
+            self.report.schema_api_perf,
+            self.config.get_bigquery_client(),
         )
+        if self.config.extract_policy_tags_from_catalog:
+            self.bigquery_data_dictionary.datacatalog_client = (
+                self.config.get_policy_tag_manager_client()
+            )
+
         self.sql_parser_schema_resolver = self._init_schema_resolver()
+
+        self.data_reader: Optional[BigQueryDataReader] = None
+        if self.classification_handler.is_classification_enabled():
+            self.data_reader = BigQueryDataReader.create(
+                self.config.get_bigquery_client()
+            )
 
         redundant_lineage_run_skip_handler: Optional[
             RedundantLineageRunSkipHandler
@@ -242,7 +268,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = BigqueryLineageExtractor(
             config,
             self.report,
-            dataset_urn_builder=self.gen_dataset_urn_from_ref,
+            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
@@ -259,7 +285,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config,
             self.report,
             schema_resolver=self.sql_parser_schema_resolver,
-            dataset_urn_builder=self.gen_dataset_urn_from_ref,
+            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
             redundant_run_skip_handler=redundant_usage_run_skip_handler,
         )
 
@@ -321,7 +347,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> CapabilityReport:
         for project_id in project_ids:
             try:
-                logger.info((f"Metadata read capability test for project {project_id}"))
+                logger.info(f"Metadata read capability test for project {project_id}")
                 client: bigquery.Client = config.get_bigquery_client()
                 assert client
                 bigquery_data_dictionary = BigQuerySchemaApi(
@@ -339,7 +365,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=config.is_profiling_enabled(),
+                    with_data_read_permission=config.have_table_data_read_permission,
                 )
                 if len(list(tables)) == 0:
                     return CapabilityReport(
@@ -474,6 +500,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
+                    batch_size=self.config.schema_resolution_batch_size,
                 )
             else:
                 logger.warning(
@@ -533,7 +560,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         tags_joined: Optional[List[str]] = None
         if tags and self.config.capture_dataset_label_as_tag:
-            tags_joined = [f"{k}:{v}" for k, v in tags.items()]
+            tags_joined = [
+                f"{k}:{v}"
+                for k, v in tags.items()
+                if is_tag_allowed(self.config.capture_dataset_label_as_tag, k)
+            ]
+
         database_container_key = self.gen_project_id_key(database=project_id)
 
         yield from gen_schema_container(
@@ -557,6 +589,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
@@ -713,6 +748,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         columns = None
+
+        rate_limiter: Optional[RateLimiter] = None
+        if self.config.rate_limit:
+            rate_limiter = RateLimiter(
+                max_calls=self.config.requests_per_min, period=60
+            )
+
         if (
             self.config.include_tables
             or self.config.include_views
@@ -723,6 +765,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 dataset_name=dataset_name,
                 column_limit=self.config.column_limit,
                 run_optimized_column_query=self.config.run_optimized_column_query,
+                extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
+                report=self.report,
+                rate_limiter=rate_limiter,
             )
 
         if self.config.include_tables:
@@ -732,11 +777,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             for table in db_tables[dataset_name]:
                 table_columns = columns.get(table.name, []) if columns else []
-                yield from self._process_table(
+                table_wu_generator = self._process_table(
                     table=table,
                     columns=table_columns,
                     project_id=project_id,
                     dataset_name=dataset_name,
+                )
+                yield from classification_workunit_processor(
+                    table_wu_generator,
+                    self.classification_handler,
+                    self.data_reader,
+                    [project_id, dataset_name, table.name],
+                    data_reader_kwargs=dict(
+                        sample_size_percent=(
+                            self.config.classification.sample_size
+                            * SAMPLE_SIZE_MULTIPLIER
+                            / table.rows_count
+                            if table.rows_count
+                            else None
+                        )
+                    ),
                 )
         elif self.store_table_refs:
             # Need table_refs to calculate lineage and usage
@@ -980,7 +1040,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if table.labels and self.config.capture_table_label_as_tag:
             tags_to_add = []
             tags_to_add.extend(
-                [make_tag_urn(f"""{k}:{v}""") for k, v in table.labels.items()]
+                [
+                    make_tag_urn(f"""{k}:{v}""")
+                    for k, v in table.labels.items()
+                    if is_tag_allowed(self.config.capture_table_label_as_tag, k)
+                ]
             )
 
         yield from self.gen_dataset_workunits(
@@ -1000,11 +1064,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+        tags_to_add = None
+        if table.labels and self.config.capture_view_label_as_tag:
+            tags_to_add = [
+                make_tag_urn(f"{k}:{v}")
+                for k, v in table.labels.items()
+                if is_tag_allowed(self.config.capture_view_label_as_tag, k)
+            ]
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
+            tags_to_add=tags_to_add,
             sub_types=[DatasetSubTypes.VIEW],
         )
 
@@ -1071,14 +1143,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         yield self.gen_schema_metadata(
-            dataset_urn, table, columns, str(datahub_dataset_name)
+            dataset_urn, table, columns, datahub_dataset_name
         )
 
         dataset_properties = DatasetProperties(
             name=datahub_dataset_name.get_table_display_name(),
-            description=unquote_and_decode_unicode_escape_seq(table.comment)
-            if table.comment
-            else "",
+            description=(
+                unquote_and_decode_unicode_escape_seq(table.comment)
+                if table.comment
+                else ""
+            ),
             qualifiedName=str(datahub_dataset_name),
             created=(
                 TimeStamp(time=int(table.created.timestamp() * 1000))
@@ -1088,11 +1162,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             lastModified=(
                 TimeStamp(time=int(table.last_altered.timestamp() * 1000))
                 if table.last_altered is not None
-                else (
-                    TimeStamp(time=int(table.created.timestamp() * 1000))
-                    if table.created is not None
-                    else None
-                )
+                else None
             ),
             externalUrl=(
                 BQ_EXTERNAL_TABLE_URL_TEMPLATE.format(
@@ -1143,12 +1213,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=tags
         ).as_workunit()
 
-    def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
+    def gen_dataset_urn(
+        self, project_id: str, dataset_name: str, table: str, use_raw_name: bool = False
+    ) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
         return make_dataset_urn(
             self.platform,
-            str(datahub_dataset_name),
+            (
+                str(datahub_dataset_name)
+                if not use_raw_name
+                else datahub_dataset_name.raw_table_name()
+            ),
             self.config.env,
+        )
+
+    def gen_dataset_urn_from_raw_ref(self, ref: BigQueryTableRef) -> str:
+        return self.gen_dataset_urn(
+            ref.table_identifier.project_id,
+            ref.table_identifier.dataset,
+            ref.table_identifier.table,
+            use_raw_name=True,
         )
 
     def gen_dataset_urn_from_ref(self, ref: BigQueryTableRef) -> str:
@@ -1215,12 +1299,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         )
                     )
 
+                if col.policy_tags:
+                    for policy_tag in col.policy_tags:
+                        tags.append(TagAssociationClass(make_tag_urn(policy_tag)))
                 field = SchemaField(
                     fieldPath=col.name,
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
-                    # NOTE: nativeDataType will not be in sync with older connector
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
@@ -1238,10 +1324,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_urn: str,
         table: Union[BigqueryTable, BigqueryView, BigqueryTableSnapshot],
         columns: List[BigqueryColumn],
-        dataset_name: str,
+        dataset_name: BigqueryTableIdentifier,
     ) -> MetadataWorkUnit:
         schema_metadata = SchemaMetadata(
-            schemaName=dataset_name,
+            schemaName=str(dataset_name),
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
@@ -1294,7 +1380,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         project_id,
                         dataset_name,
                         items_to_get,
-                        with_data_read_permission=self.config.is_profiling_enabled(),
+                        with_data_read_permission=self.config.have_table_data_read_permission,
                     )
                     items_to_get.clear()
 
@@ -1303,7 +1389,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     dataset_name,
                     items_to_get,
-                    with_data_read_permission=self.config.is_profiling_enabled(),
+                    with_data_read_permission=self.config.have_table_data_read_permission,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
@@ -1325,6 +1411,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 dataset=dataset_name,
                 table=table.table_id,
             )
+
+            if table.table_type == "VIEW":
+                if (
+                    not self.config.include_views
+                    or not self.config.view_pattern.allowed(
+                        table_identifier.raw_table_name()
+                    )
+                ):
+                    self.report.report_dropped(table_identifier.raw_table_name())
+                    continue
+            else:
+                if not self.config.table_pattern.allowed(
+                    table_identifier.raw_table_name()
+                ):
+                    self.report.report_dropped(table_identifier.raw_table_name())
+                    continue
 
             _, shard = BigqueryTableIdentifier.get_table_and_shard(
                 table_identifier.table
@@ -1362,6 +1464,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 continue
 
             table_items[table.table_id] = table
+
         # Adding maximum shards to the list of tables
         table_items.update({value.table_id: value for value in sharded_tables.values()})
 

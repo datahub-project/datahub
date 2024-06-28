@@ -1,9 +1,11 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -26,8 +28,8 @@ public class EntityIndexBuilders implements ElasticSearchIndexed {
   }
 
   @Override
-  public void reindexAll() {
-    for (ReindexConfig config : buildReindexConfigs()) {
+  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    for (ReindexConfig config : buildReindexConfigs(properties)) {
       try {
         indexBuilder.buildIndex(config);
       } catch (IOException e) {
@@ -37,26 +39,10 @@ public class EntityIndexBuilders implements ElasticSearchIndexed {
   }
 
   @Override
-  public List<ReindexConfig> buildReindexConfigs() {
+  public List<ReindexConfig> buildReindexConfigs(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     Map<String, Object> settings = settingsBuilder.getSettings();
-    return entityRegistry.getEntitySpecs().values().stream()
-        .map(
-            entitySpec -> {
-              try {
-                Map<String, Object> mappings = MappingsBuilder.getMappings(entitySpec);
-                return indexBuilder.buildReindexState(
-                    indexConvention.getIndexName(entitySpec), mappings, settings, true);
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            })
-        .collect(Collectors.toList());
-  }
-
-  @Override
-  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
-      Collection<StructuredPropertyDefinition> properties) {
-    Map<String, Object> settings = settingsBuilder.getSettings();
+    MappingsBuilder.setEntityRegistry(entityRegistry);
     return entityRegistry.getEntitySpecs().values().stream()
         .map(
             entitySpec -> {
@@ -79,14 +65,15 @@ public class EntityIndexBuilders implements ElasticSearchIndexed {
    * @return index configurations impacted by the new property
    */
   public List<ReindexConfig> buildReindexConfigsWithNewStructProp(
-      StructuredPropertyDefinition property) {
+      Urn urn, StructuredPropertyDefinition property) {
     Map<String, Object> settings = settingsBuilder.getSettings();
+    MappingsBuilder.setEntityRegistry(entityRegistry);
     return entityRegistry.getEntitySpecs().values().stream()
         .map(
             entitySpec -> {
               try {
                 Map<String, Object> mappings =
-                    MappingsBuilder.getMappings(entitySpec, List.of(property));
+                    MappingsBuilder.getMappings(entitySpec, List.of(Pair.of(urn, property)));
                 return indexBuilder.buildReindexState(
                     indexConvention.getIndexName(entitySpec), mappings, settings, true);
               } catch (IOException e) {

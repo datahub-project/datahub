@@ -15,9 +15,9 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -28,6 +28,7 @@ import com.linkedin.metadata.run.RelatedAspect;
 import com.linkedin.metadata.run.RelatedAspectArray;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -61,7 +63,8 @@ public class DeleteEntityService {
    * @return A {@link DeleteReferencesResponse} instance detailing the response of deleting
    *     references to the provided urn.
    */
-  public DeleteReferencesResponse deleteReferencesTo(final Urn urn, final boolean dryRun) {
+  public DeleteReferencesResponse deleteReferencesTo(
+      @Nonnull OperationContext opContext, final Urn urn, final boolean dryRun) {
     final DeleteReferencesResponse result = new DeleteReferencesResponse();
     RelatedEntitiesResult relatedEntities =
         _graphService.findRelatedEntities(
@@ -79,6 +82,7 @@ public class DeleteEntityService {
             .flatMap(
                 relatedEntity ->
                     getRelatedAspectStream(
+                        opContext,
                         urn,
                         UrnUtils.getUrn(relatedEntity.getUrn()),
                         relatedEntity.getRelationshipType()))
@@ -96,7 +100,7 @@ public class DeleteEntityService {
         processedEntities < relatedEntities.getTotal();
         processedEntities += relatedEntities.getCount()) {
       log.info("Processing batch {} of {} aspects", processedEntities, relatedEntities.getTotal());
-      relatedEntities.getEntities().forEach(entity -> deleteReference(urn, entity));
+      relatedEntities.getEntities().forEach(entity -> deleteReference(opContext, urn, entity));
       if (processedEntities + relatedEntities.getEntities().size() < relatedEntities.getTotal()) {
         sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
         relatedEntities =
@@ -127,8 +131,8 @@ public class DeleteEntityService {
    *     relatedUrn.
    */
   private Stream<RelatedAspect> getRelatedAspectStream(
-      Urn urn, Urn relatedUrn, String relationshipType) {
-    return getAspects(urn, relatedUrn, relationshipType)
+      @Nonnull OperationContext opContext, Urn urn, Urn relatedUrn, String relationshipType) {
+    return getAspects(opContext, urn, relatedUrn, relationshipType)
         .map(
             enrichedAspect -> {
               final RelatedAspect relatedAspect = new RelatedAspect();
@@ -149,10 +153,11 @@ public class DeleteEntityService {
    * @return A stream of {@link EnrichedAspect} instances that have the relationship from urn to
    *     relatedUrn.
    */
-  private Stream<EnrichedAspect> getAspects(Urn urn, Urn relatedUrn, String relationshipType) {
+  private Stream<EnrichedAspect> getAspects(
+      @Nonnull OperationContext opContext, Urn urn, Urn relatedUrn, String relationshipType) {
     final String relatedEntityName = relatedUrn.getEntityType();
     final EntitySpec relatedEntitySpec =
-        _entityService.getEntityRegistry().getEntitySpec(relatedEntityName);
+        opContext.getEntityRegistry().getEntitySpec(relatedEntityName);
     final Map<String, AspectSpec> aspectSpecs =
         getAspectSpecsReferringTo(urn.getEntityType(), relationshipType, relatedEntitySpec);
 
@@ -183,7 +188,7 @@ public class DeleteEntityService {
     }
 
     final List<EnvelopedAspect> aspectList =
-        getAspectsReferringTo(relatedUrn, aspectSpecs).collect(Collectors.toList());
+        getAspectsReferringTo(opContext, relatedUrn, aspectSpecs).collect(Collectors.toList());
 
     // If we have an empty list it means that we have a graph edge that points to some aspect that
     // we can't find in the
@@ -248,10 +253,11 @@ public class DeleteEntityService {
    * @param urn The urn to be found.
    * @param relatedEntity The entity to be modified.
    */
-  private void deleteReference(final Urn urn, final RelatedEntity relatedEntity) {
+  private void deleteReference(
+      @Nonnull OperationContext opContext, final Urn urn, final RelatedEntity relatedEntity) {
     final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
     final String relationshipType = relatedEntity.getRelationshipType();
-    getAspects(urn, relatedUrn, relationshipType)
+    getAspects(opContext, urn, relatedUrn, relationshipType)
         .forEach(
             enrichedAspect -> {
               final String aspectName = enrichedAspect.getName();
@@ -293,10 +299,10 @@ public class DeleteEntityService {
               if (!aspect.equals(updatedAspect.get())) {
                 if (updatedAspect.get() == null) {
                   // Then we should remove the aspect.
-                  deleteAspect(relatedUrn, aspectName, aspect);
+                  deleteAspect(opContext, relatedUrn, aspectName, aspect);
                 } else {
                   // Then we should update the aspect.
-                  updateAspect(relatedUrn, aspectName, aspect, updatedAspect.get());
+                  updateAspect(opContext, relatedUrn, aspectName, aspect, updatedAspect.get());
                 }
               }
             });
@@ -309,9 +315,10 @@ public class DeleteEntityService {
    * @param aspectName the aspect to remove
    * @param prevAspect the old value for the aspect
    */
-  private void deleteAspect(Urn urn, String aspectName, RecordTemplate prevAspect) {
+  private void deleteAspect(
+      @Nonnull OperationContext opContext, Urn urn, String aspectName, RecordTemplate prevAspect) {
     final RollbackResult rollbackResult =
-        _entityService.deleteAspect(urn.toString(), aspectName, new HashMap<>(), true);
+        _entityService.deleteAspect(opContext, urn.toString(), aspectName, new HashMap<>(), true);
     if (rollbackResult == null || rollbackResult.getNewValue() != null) {
       log.error(
           "Failed to delete aspect with references. Before {}, after: null, please check GMS logs"
@@ -334,7 +341,11 @@ public class DeleteEntityService {
    * @param newAspect the new value for the aspect
    */
   private void updateAspect(
-      Urn urn, String aspectName, RecordTemplate prevAspect, RecordTemplate newAspect) {
+      @Nonnull OperationContext opContext,
+      Urn urn,
+      String aspectName,
+      RecordTemplate prevAspect,
+      RecordTemplate newAspect) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setChangeType(ChangeType.UPSERT);
@@ -347,9 +358,9 @@ public class DeleteEntityService {
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
     final IngestResult ingestProposalResult =
-        _entityService.ingestProposal(proposal, auditStamp, false);
+        _entityService.ingestProposal(opContext, proposal, auditStamp, false);
 
-    if (!ingestProposalResult.isSqlCommitted()) {
+    if (ingestProposalResult != null && !ingestProposalResult.isSqlCommitted()) {
       log.error(
           "Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"
               + " logs for more information",
@@ -374,13 +385,16 @@ public class DeleteEntityService {
    *     between `urn` & `relatedUrn`.
    */
   private Stream<EnvelopedAspect> getAspectsReferringTo(
-      final Urn relatedUrn, final Map<String, AspectSpec> aspectSpecs) {
+      @Nonnull OperationContext opContext,
+      final Urn relatedUrn,
+      final Map<String, AspectSpec> aspectSpecs) {
 
     // FIXME: Can we not depend on entity service?
     final EntityResponse entityResponse;
     try {
       entityResponse =
-          _entityService.getEntityV2(relatedUrn.getEntityType(), relatedUrn, aspectSpecs.keySet());
+          _entityService.getEntityV2(
+              opContext, relatedUrn.getEntityType(), relatedUrn, aspectSpecs.keySet());
     } catch (URISyntaxException e) {
       log.error("Unable to retrieve entity data for relatedUrn " + relatedUrn, e);
       return Stream.empty();

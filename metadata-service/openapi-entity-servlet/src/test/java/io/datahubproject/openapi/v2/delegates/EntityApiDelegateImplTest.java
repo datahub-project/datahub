@@ -47,12 +47,14 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
 @ComponentScan(basePackages = {"io.datahubproject.openapi.v2.generated.controller"})
 @Import({OpenAPIEntityTestConfiguration.class})
+@EnableWebMvc
 @AutoConfigureMockMvc
 public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests {
   @BeforeTest
@@ -85,7 +87,8 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
     final String testUrn = "urn:li:chart:(looker,baz1)";
 
     ChartEntityRequestV2 req = ChartEntityRequestV2.builder().urn(testUrn).build();
-    ChartEntityResponseV2 resp = chartApiController.create(List.of(req)).getBody().get(0);
+    ChartEntityResponseV2 resp =
+        chartApiController.create(List.of(req), false, false).getBody().get(0);
     assertEquals(resp.getUrn(), testUrn);
 
     resp = chartApiController.get(testUrn, false, List.of()).getBody();
@@ -108,7 +111,8 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
     final String testUrn = "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)";
 
     DatasetEntityRequestV2 req = DatasetEntityRequestV2.builder().urn(testUrn).build();
-    DatasetEntityResponseV2 resp = datasetApiController.create(List.of(req)).getBody().get(0);
+    DatasetEntityResponseV2 resp =
+        datasetApiController.create(List.of(req), false, false).getBody().get(0);
     assertEquals(resp.getUrn(), testUrn);
 
     resp = datasetApiController.get(testUrn, false, List.of()).getBody();
@@ -138,7 +142,8 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
                     .build())
             .build();
     assertEquals(
-        datasetApiController.createBrowsePathsV2(testUrn, req).getStatusCode(), HttpStatus.OK);
+        datasetApiController.createBrowsePathsV2(testUrn, req, false, false).getStatusCode(),
+        HttpStatus.OK);
     assertEquals(datasetApiController.deleteBrowsePathsV2(testUrn).getStatusCode(), HttpStatus.OK);
     assertEquals(
         datasetApiController.getBrowsePathsV2(testUrn, false).getStatusCode(),
@@ -156,7 +161,8 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
             .value(Deprecation.builder().deprecated(true).build())
             .build();
     assertEquals(
-        datasetApiController.createDeprecation(testUrn, req).getStatusCode(), HttpStatus.OK);
+        datasetApiController.createDeprecation(testUrn, req, false, false).getStatusCode(),
+        HttpStatus.OK);
     assertEquals(datasetApiController.deleteDeprecation(testUrn).getStatusCode(), HttpStatus.OK);
     assertEquals(
         datasetApiController.getDeprecation(testUrn, false).getStatusCode(), HttpStatus.NOT_FOUND);
@@ -172,7 +178,9 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
         DomainsAspectRequestV2.builder()
             .value(Domains.builder().domains(List.of("my_domain")).build())
             .build();
-    assertEquals(datasetApiController.createDomains(testUrn, req).getStatusCode(), HttpStatus.OK);
+    assertEquals(
+        datasetApiController.createDomains(testUrn, req, false, false).getStatusCode(),
+        HttpStatus.OK);
     assertEquals(datasetApiController.deleteDomains(testUrn).getStatusCode(), HttpStatus.OK);
     assertEquals(
         datasetApiController.getDomains(testUrn, false).getStatusCode(), HttpStatus.NOT_FOUND);
@@ -192,7 +200,9 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
                             Owner.builder().owner("me").type(OwnershipType.BUSINESS_OWNER).build()))
                     .build())
             .build();
-    assertEquals(datasetApiController.createOwnership(testUrn, req).getStatusCode(), HttpStatus.OK);
+    assertEquals(
+        datasetApiController.createOwnership(testUrn, req, false, false).getStatusCode(),
+        HttpStatus.OK);
     assertEquals(datasetApiController.deleteOwnership(testUrn).getStatusCode(), HttpStatus.OK);
     assertEquals(
         datasetApiController.getOwnership(testUrn, false).getStatusCode(), HttpStatus.NOT_FOUND);
@@ -205,7 +215,9 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
 
     StatusAspectRequestV2 req =
         StatusAspectRequestV2.builder().value(Status.builder().removed(true).build()).build();
-    assertEquals(datasetApiController.createStatus(testUrn, req).getStatusCode(), HttpStatus.OK);
+    assertEquals(
+        datasetApiController.createStatus(testUrn, req, false, false).getStatusCode(),
+        HttpStatus.OK);
     assertEquals(datasetApiController.deleteStatus(testUrn).getStatusCode(), HttpStatus.OK);
     assertEquals(
         datasetApiController.getStatus(testUrn, false).getStatusCode(), HttpStatus.NOT_FOUND);
@@ -224,7 +236,8 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
                     .build())
             .build();
     assertEquals(
-        datasetApiController.createGlobalTags(testUrn, req).getStatusCode(), HttpStatus.OK);
+        datasetApiController.createGlobalTags(testUrn, req, false, false).getStatusCode(),
+        HttpStatus.OK);
     assertEquals(datasetApiController.deleteGlobalTags(testUrn).getStatusCode(), HttpStatus.OK);
     assertEquals(
         datasetApiController.getGlobalTags(testUrn, false).getStatusCode(), HttpStatus.NOT_FOUND);
@@ -244,7 +257,8 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
                     .build())
             .build();
     assertEquals(
-        datasetApiController.createGlossaryTerms(testUrn, req).getStatusCode(), HttpStatus.OK);
+        datasetApiController.createGlossaryTerms(testUrn, req, false, false).getStatusCode(),
+        HttpStatus.OK);
     assertEquals(datasetApiController.deleteGlossaryTerms(testUrn).getStatusCode(), HttpStatus.OK);
     assertEquals(
         datasetApiController.getGlossaryTerms(testUrn, false).getStatusCode(),

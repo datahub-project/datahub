@@ -9,6 +9,7 @@ cat ../../datahub-graphql-core/src/main/resources/app.graphql >> combined.graphq
 cat ../../datahub-graphql-core/src/main/resources/auth.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/constraints.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/entity.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/assertions.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/ingestion.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/recommendation.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/search.graphql >> combined.graphql
@@ -18,3 +19,4 @@ cat ../../datahub-graphql-core/src/main/resources/step.graphql >> combined.graph
 cat ../../datahub-graphql-core/src/main/resources/lineage.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/properties.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/forms.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/connection.graphql >> combined.graphql

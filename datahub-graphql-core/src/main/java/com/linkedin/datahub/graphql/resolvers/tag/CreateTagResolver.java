@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTagInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
@@ -42,7 +43,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
     final CreateTagInput input =
         bindArgument(environment.getArgument("input"), CreateTagInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canCreateTags(context)) {
             throw new AuthorizationException(
@@ -58,8 +59,8 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
             key.setName(id);
 
             if (_entityClient.exists(
-                EntityKeyUtils.convertEntityKeyToUrn(key, TAG_ENTITY_NAME),
-                context.getAuthentication())) {
+                context.getOperationContext(),
+                EntityKeyUtils.convertEntityKeyToUrn(key, TAG_ENTITY_NAME))) {
               throw new IllegalArgumentException("This Tag already exists!");
             }
 
@@ -68,7 +69,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
                 buildMetadataChangeProposalWithKey(
                     key, TAG_ENTITY_NAME, TAG_PROPERTIES_ASPECT_NAME, mapTagProperties(input));
             String tagUrn =
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
             OwnerUtils.addCreatorAsOwner(
                 context, tagUrn, OwnerEntityType.CORP_USER, _entityService);
@@ -84,7 +85,9 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
                     "Failed to create Tag with id: %s, name: %s", input.getId(), input.getName()),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private TagProperties mapTagProperties(final CreateTagInput input) {

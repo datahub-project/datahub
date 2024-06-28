@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook;
 
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 
 /**
@@ -13,7 +14,9 @@ import javax.annotation.Nonnull;
 public interface MetadataChangeLogHook {
 
   /** Initialize the hook */
-  default void init() {}
+  default MetadataChangeLogHook init(@Nonnull OperationContext systemOperationContext) {
+    return this;
+  }
 
   /**
    * Return whether the hook is enabled or not. If not enabled, the below invoke method is not

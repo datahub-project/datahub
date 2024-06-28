@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
+import { Select, Tooltip, Typography } from 'antd';
+import Icon, { CaretDownFilled } from '@ant-design/icons';
 import EntityNode from './EntityNode';
 import { BrowseProvider } from './BrowseContext';
 import SidebarLoadingError from './SidebarLoadingError';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
 import useSidebarEntities from './useSidebarEntities';
-import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import { ProfileSidebarResizer } from '../../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import SortIcon from '../../../images/sort.svg?react';
 
 export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;
@@ -24,6 +26,7 @@ export const SidebarWrapper = styled.div<{ visible: boolean; width: number }>`
 const SidebarHeader = styled.div`
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding-left: 24px;
     height: 47px;
     border-bottom: 1px solid ${(props) => props.theme.styles['border-color-base']};
@@ -39,6 +42,26 @@ const SidebarBody = styled.div<{ visible: boolean }>`
     white-space: nowrap;
 `;
 
+const SelectWrapper = styled.div`
+    display: inline-flex;
+    align-items: center;
+    width: 200px .ant-select-selection-item {
+        color: ${ANTD_GRAY[8]} !important;
+        font-weight: 700;
+    }
+
+    .ant-select-selection-placeholder {
+        color: ${ANTD_GRAY[8]};
+        font-weight: 700;
+    }
+`;
+
+const StyledIcon = styled(Icon)`
+    color: ${ANTD_GRAY[8]};
+    font-size: 16px;
+    margin-right: -8px;
+`;
+
 type Props = {
     visible: boolean;
 };
@@ -48,6 +71,7 @@ const BrowseSidebar = ({ visible }: Props) => {
         skip: !visible,
     });
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
+    const [sortBy, setSortBy] = useState('default');
 
     return (
         <>
@@ -58,15 +82,40 @@ const BrowseSidebar = ({ visible }: Props) => {
                 data-testid="browse-v2"
             >
                 <SidebarHeader>
-                    <Typography.Text strong>Navigate</Typography.Text>
+                    <Typography.Text strong> Navigate</Typography.Text>
+                    <Tooltip title="Sort folder results" showArrow={false} placement="left">
+                        <SelectWrapper>
+                            <StyledIcon component={SortIcon} />
+                            <Select
+                                placeholder="Sort"
+                                placement="bottomRight"
+                                dropdownStyle={{ minWidth: '110px' }}
+                                onChange={(value) => setSortBy(value)}
+                                bordered={false}
+                                suffixIcon={<CaretDownFilled />}
+                            >
+                                <Select.Option key="sort" value="sort">
+                                    Size (Default)
+                                </Select.Option>
+                                <Select.Option key="AtoZ" value="AtoZ">
+                                    Name A to Z
+                                </Select.Option>
+                                <Select.Option key="ZtoA" value="ZtoA">
+                                    Name Z to A
+                                </Select.Option>
+                            </Select>
+                        </SelectWrapper>
+                    </Tooltip>
                 </SidebarHeader>
                 <SidebarBody visible={visible}>
                     {entityAggregations && !entityAggregations.length && <div>No results found</div>}
-                    {entityAggregations?.map((entityAggregation) => (
-                        <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>
-                            <EntityNode />
-                        </BrowseProvider>
-                    ))}
+                    {entityAggregations
+                        ?.filter((entityAggregation) => entityAggregation?.value !== 'DATA_PRODUCT')
+                        ?.map((entityAggregation) => (
+                            <BrowseProvider key={entityAggregation?.value} entityAggregation={entityAggregation}>
+                                <EntityNode sortBy={sortBy} />
+                            </BrowseProvider>
+                        ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
                 </SidebarBody>
             </SidebarWrapper>

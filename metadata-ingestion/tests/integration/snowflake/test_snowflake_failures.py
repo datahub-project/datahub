@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from typing import cast
 from unittest import mock
 
 from freezegun import freeze_time
@@ -11,11 +10,7 @@ from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
-from tests.integration.snowflake.common import (
-    FROZEN_TIME,
-    NUM_TABLES,
-    default_query_results,
-)
+from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
 
 
 def query_permission_error_override(fn, override_for_query, error_msg):
@@ -145,7 +140,7 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         )
         sf_cursor.execute.side_effect = query_permission_response_override(
             no_tables_fn,
-            [SnowflakeQuery.show_views_for_schema("TEST_SCHEMA", "TEST_DB")],
+            [SnowflakeQuery.show_views_for_database("TEST_DB")],
             [],
         )
 
@@ -169,10 +164,7 @@ def test_snowflake_list_columns_error_causes_pipeline_warning(
         sf_cursor.execute.side_effect = query_permission_error_override(
             default_query_results,
             [
-                SnowflakeQuery.columns_for_table(
-                    "TABLE_{}".format(tbl_idx), "TEST_SCHEMA", "TEST_DB"
-                )
-                for tbl_idx in range(1, NUM_TABLES + 1)
+                SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"),
             ],
             "Database 'TEST_DB' does not exist or not authorized.",
         )
@@ -262,35 +254,3 @@ def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failu
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
         assert "usage-permission-error" in pipeline.source.get_report().failures.keys()
-
-
-@freeze_time(FROZEN_TIME)
-def test_snowflake_unexpected_snowflake_view_lineage_error_causes_pipeline_warning(
-    pytestconfig,
-    snowflake_pipeline_config,
-):
-    with mock.patch("snowflake.connector.connect") as mock_connect:
-        sf_connection = mock.MagicMock()
-        sf_cursor = mock.MagicMock()
-        mock_connect.return_value = sf_connection
-        sf_connection.cursor.return_value = sf_cursor
-
-        # Error in getting view lineage
-        sf_cursor.execute.side_effect = query_permission_error_override(
-            default_query_results,
-            [snowflake_query.SnowflakeQuery.view_dependencies_v2()],
-            "Unexpected Error",
-        )
-
-        snowflake_pipeline_config1 = snowflake_pipeline_config.copy()
-        config = cast(
-            SnowflakeV2Config,
-            cast(PipelineConfig, snowflake_pipeline_config1).source.config,
-        )
-        config.include_table_lineage = True
-        config.include_view_lineage = True
-
-        pipeline = Pipeline(snowflake_pipeline_config1)
-        pipeline.run()
-        pipeline.raise_from_status()  # pipeline should not fail
-        assert "view-upstream-lineage" in pipeline.source.get_report().warnings.keys()

@@ -7,6 +7,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DatasetUpdateInputMapper
     implements InputModelMapper<DatasetUpdateInput, Collection<MetadataChangeProposal>, Urn> {
@@ -30,13 +32,17 @@ public class DatasetUpdateInputMapper
   public static final DatasetUpdateInputMapper INSTANCE = new DatasetUpdateInputMapper();
 
   public static Collection<MetadataChangeProposal> map(
-      @Nonnull final DatasetUpdateInput datasetUpdateInput, @Nonnull final Urn actor) {
-    return INSTANCE.apply(datasetUpdateInput, actor);
+      @Nullable final QueryContext context,
+      @Nonnull final DatasetUpdateInput datasetUpdateInput,
+      @Nonnull final Urn actor) {
+    return INSTANCE.apply(context, datasetUpdateInput, actor);
   }
 
   @Override
   public Collection<MetadataChangeProposal> apply(
-      @Nonnull final DatasetUpdateInput datasetUpdateInput, @Nonnull final Urn actor) {
+      @Nullable final QueryContext context,
+      @Nonnull final DatasetUpdateInput datasetUpdateInput,
+      @Nonnull final Urn actor) {
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(6);
     final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(DATASET_ENTITY_NAME);
     final AuditStamp auditStamp = new AuditStamp();
@@ -46,7 +52,7 @@ public class DatasetUpdateInputMapper
     if (datasetUpdateInput.getOwnership() != null) {
       proposals.add(
           updateMappingHelper.aspectToProposal(
-              OwnershipUpdateMapper.map(datasetUpdateInput.getOwnership(), actor),
+              OwnershipUpdateMapper.map(context, datasetUpdateInput.getOwnership(), actor),
               OWNERSHIP_ASPECT_NAME));
     }
 
@@ -65,7 +71,8 @@ public class DatasetUpdateInputMapper
     if (datasetUpdateInput.getInstitutionalMemory() != null) {
       proposals.add(
           updateMappingHelper.aspectToProposal(
-              InstitutionalMemoryUpdateMapper.map(datasetUpdateInput.getInstitutionalMemory()),
+              InstitutionalMemoryUpdateMapper.map(
+                  context, datasetUpdateInput.getInstitutionalMemory()),
               INSTITUTIONAL_MEMORY_ASPECT_NAME));
     }
 
@@ -75,14 +82,14 @@ public class DatasetUpdateInputMapper
         globalTags.setTags(
             new TagAssociationArray(
                 datasetUpdateInput.getGlobalTags().getTags().stream()
-                    .map(element -> TagAssociationUpdateMapper.map(element))
+                    .map(element -> TagAssociationUpdateMapper.map(context, element))
                     .collect(Collectors.toList())));
       } else {
         // Tags field overrides deprecated globalTags field
         globalTags.setTags(
             new TagAssociationArray(
                 datasetUpdateInput.getTags().getTags().stream()
-                    .map(element -> TagAssociationUpdateMapper.map(element))
+                    .map(element -> TagAssociationUpdateMapper.map(context, element))
                     .collect(Collectors.toList())));
       }
       proposals.add(updateMappingHelper.aspectToProposal(globalTags, GLOBAL_TAGS_ASPECT_NAME));
@@ -93,7 +100,7 @@ public class DatasetUpdateInputMapper
       editableSchemaMetadata.setEditableSchemaFieldInfo(
           new EditableSchemaFieldInfoArray(
               datasetUpdateInput.getEditableSchemaMetadata().getEditableSchemaFieldInfo().stream()
-                  .map(element -> mapSchemaFieldInfo(element))
+                  .map(element -> mapSchemaFieldInfo(context, element))
                   .collect(Collectors.toList())));
       editableSchemaMetadata.setLastModified(auditStamp);
       editableSchemaMetadata.setCreated(auditStamp);
@@ -117,6 +124,7 @@ public class DatasetUpdateInputMapper
   }
 
   private EditableSchemaFieldInfo mapSchemaFieldInfo(
+      @Nullable QueryContext context,
       final com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfoUpdate schemaFieldInfo) {
     final EditableSchemaFieldInfo output = new EditableSchemaFieldInfo();
 
@@ -130,7 +138,7 @@ public class DatasetUpdateInputMapper
       globalTags.setTags(
           new TagAssociationArray(
               schemaFieldInfo.getGlobalTags().getTags().stream()
-                  .map(element -> TagAssociationUpdateMapper.map(element))
+                  .map(element -> TagAssociationUpdateMapper.map(context, element))
                   .collect(Collectors.toList())));
       output.setGlobalTags(globalTags);
     }

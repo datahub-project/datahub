@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
 import com.linkedin.datahub.graphql.generated.IngestionConfig;
 import com.linkedin.datahub.graphql.generated.IngestionSchedule;
@@ -23,21 +24,23 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class IngestionResolverUtils {
 
   public static List<ExecutionRequest> mapExecutionRequests(
-      final Collection<EntityResponse> requests) {
+      @Nullable QueryContext context, final Collection<EntityResponse> requests) {
     List<ExecutionRequest> result = new ArrayList<>();
     for (final EntityResponse request : requests) {
-      result.add(mapExecutionRequest(request));
+      result.add(mapExecutionRequest(context, request));
     }
     return result;
   }
 
-  public static ExecutionRequest mapExecutionRequest(final EntityResponse entityResponse) {
+  public static ExecutionRequest mapExecutionRequest(
+      @Nullable QueryContext context, final EntityResponse entityResponse) {
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
 
@@ -59,9 +62,12 @@ public class IngestionResolverUtils {
         inputResult.setSource(mapExecutionRequestSource(executionRequestInput.getSource()));
       }
       if (executionRequestInput.hasArgs()) {
-        inputResult.setArguments(StringMapMapper.map(executionRequestInput.getArgs()));
+        inputResult.setArguments(StringMapMapper.map(context, executionRequestInput.getArgs()));
       }
       inputResult.setRequestedAt(executionRequestInput.getRequestedAt());
+      if (executionRequestInput.getActorUrn() != null) {
+        inputResult.setActorUrn(executionRequestInput.getActorUrn().toString());
+      }
       result.setInput(inputResult);
     }
 

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_INFO_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -21,6 +22,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +35,8 @@ public class ParentNodesResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -79,18 +83,18 @@ public class ParentNodesResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(termUrn.getEntityType()),
                 Mockito.eq(termUrn),
-                Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(glossaryTermAspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentNode1.getParentNode().getEntityType()),
                 Mockito.eq(parentNode1.getParentNode()),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
@@ -99,18 +103,18 @@ public class ParentNodesResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentNode1.getParentNode().getEntityType()),
                 Mockito.eq(parentNode1.getParentNode()),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentNode2.getParentNode().getEntityType()),
                 Mockito.eq(parentNode2.getParentNode()),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
@@ -119,10 +123,10 @@ public class ParentNodesResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentNode2.getParentNode().getEntityType()),
                 Mockito.eq(parentNode2.getParentNode()),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
 
     ParentNodesResolver resolver = new ParentNodesResolver(mockClient);
@@ -140,6 +144,8 @@ public class ParentNodesResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -186,18 +192,18 @@ public class ParentNodesResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(nodeUrn.getEntityType()),
                 Mockito.eq(nodeUrn),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(glossaryNodeAspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentNode1.getParentNode().getEntityType()),
                 Mockito.eq(parentNode1.getParentNode()),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
@@ -206,18 +212,18 @@ public class ParentNodesResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentNode1.getParentNode().getEntityType()),
                 Mockito.eq(parentNode1.getParentNode()),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentNode2.getParentNode().getEntityType()),
                 Mockito.eq(parentNode2.getParentNode()),
-                Mockito.eq(null),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(null)))
         .thenReturn(
             new EntityResponse()
                 .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
@@ -226,10 +232,10 @@ public class ParentNodesResolverTest {
 
     Mockito.when(
             mockClient.getV2(
+                any(),
                 Mockito.eq(parentNode2.getParentNode().getEntityType()),
                 Mockito.eq(parentNode2.getParentNode()),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME)),
-                Mockito.any(Authentication.class)))
+                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
         .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
 
     ParentNodesResolver resolver = new ParentNodesResolver(mockClient);

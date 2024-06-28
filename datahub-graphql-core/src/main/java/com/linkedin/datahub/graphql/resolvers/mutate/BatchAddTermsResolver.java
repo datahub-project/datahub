@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAddTermsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -39,11 +41,11 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
         input.getTermUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     final List<ResourceRefInput> resources = input.getResources();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the batch
-          validateTerms(termUrns);
+          validateTerms(context.getOperationContext(), termUrns);
 
           if (resources.size() == 1 && resources.get(0).getSubResource() != null) {
             return handleAddTermsToSingleSchemaField(context, resources, termUrns);
@@ -61,7 +63,9 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**
@@ -76,7 +80,8 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
       @Nonnull final List<Urn> termUrns) {
     final ResourceRefInput resource = resources.get(0);
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    final List<Urn> siblingUrns = SiblingsUtils.getSiblingUrns(resourceUrn, _entityService);
+    final List<Urn> siblingUrns =
+        SiblingsUtils.getSiblingUrns(context.getOperationContext(), resourceUrn, _entityService);
     return attemptBatchAddTermsWithSiblings(
         termUrns, resource, context, new HashSet<>(), siblingUrns);
   }
@@ -122,9 +127,10 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
     }
   }
 
-  private void validateTerms(List<Urn> termUrns) {
+  private void validateTerms(@Nonnull OperationContext opContext, List<Urn> termUrns) {
     for (Urn termUrn : termUrns) {
-      LabelUtils.validateLabel(termUrn, Constants.GLOSSARY_TERM_ENTITY_NAME, _entityService);
+      LabelUtils.validateLabel(
+          opContext, termUrn, Constants.GLOSSARY_TERM_ENTITY_NAME, _entityService);
     }
   }
 
@@ -141,7 +147,11 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(
-        resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
+        context.getOperationContext(),
+        resourceUrn,
+        resource.getSubResource(),
+        resource.getSubResourceType(),
+        _entityService);
   }
 
   private void batchAddTerms(
@@ -149,7 +159,11 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
     log.debug("Batch adding Terms. terms: {}, resources: {}", resources, termUrns);
     try {
       LabelUtils.addTermsToResources(
-          termUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService);
+          context.getOperationContext(),
+          termUrns,
+          resources,
+          UrnUtils.getUrn(context.getActorUrn()),
+          _entityService);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(

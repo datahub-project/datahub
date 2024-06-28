@@ -129,6 +129,19 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
     );
 };
 
+export const validateURL = (fieldName: string) => {
+    return {
+        validator(_, value) {
+            const URLPattern = new RegExp(/^(?:http(s)?:\/\/)?[\w.-]+(?:\.[a-zA-Z0-9.-]{2,})+[\w\-._~:/?#[\]@!$&'()*+,;=.]+$/);
+            const isURLValid = URLPattern.test(value);
+            if (!value || isURLValid) {
+                return Promise.resolve();
+            }
+            return Promise.reject(new Error(`A valid ${fieldName} is required.`));
+        },
+    };
+};
+
 const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dataset.toLowerCase(),
     EntityType.Container.toLowerCase(),

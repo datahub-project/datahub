@@ -4,6 +4,37 @@
   "collection_position": null,
   "dashcards": [
     {
+      "size_x": 24,
+      "dashboard_tab_id": null,
+      "series": [],
+      "action_id": null,
+      "collection_authority_level": null,
+      "card": {
+        "query_average_duration": null
+      },
+      "updated_at": "2024-05-18T18:22:19.900158Z",
+      "col": 0,
+      "id": 2,
+      "parameter_mappings": [],
+      "card_id": null,
+      "entity_id": "woqw4RKYx7rlOgqp-_UPc",
+      "visualization_settings": {
+        "dashcard.background": false,
+        "virtual_card": {
+          "name": null,
+          "dataset_query": {},
+          "display": "heading",
+          "visualization_settings": {},
+          "archived": false
+        },
+        "text": "This is a virtual card and should be ignored by the ingestion."
+      },
+      "size_y": 1,
+      "dashboard_id": 1,
+      "created_at": "2024-05-18T18:22:19.900158Z",
+      "row": 0
+    },
+    {
       "size_x": 12,
       "dashboard_tab_id": null,
       "series": [],
@@ -588,7 +619,7 @@
       "entity_id": "lXypX5aa14HjkN_Im82C2",
       "visualization_settings": {},
       "size_y": 6,
-      "dashboard_id": 1,
+      "dashboard_id": 10,
       "created_at": "2024-01-16T09:50:34.394488Z",
       "row": 0
     },
@@ -802,7 +833,7 @@
       "entity_id": "iVOtiEPgX-a90Qh3rJWui",
       "visualization_settings": {},
       "size_y": 6,
-      "dashboard_id": 1,
+      "dashboard_id": 20,
       "created_at": "2024-01-16T09:51:34.833525Z",
       "row": 6
     }
@@ -821,7 +852,7 @@
   "made_public_by_id": null,
   "embedding_params": null,
   "cache_ttl": null,
-  "id": 1,
+  "id": 10,
   "position": null,
   "entity_id": "Z6B2yiCTEMiwZFe4x5jPT",
   "param_fields": null,

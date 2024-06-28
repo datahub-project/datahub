@@ -137,7 +137,7 @@ export function useIsOnTab(tabName: string): boolean {
 export function useGlossaryActiveTabPath(): string {
     const { pathname, search } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    
+
     // Match against the regex
     const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
 
@@ -147,7 +147,7 @@ export function useGlossaryActiveTabPath(): string {
     }
 
     // No match found!
-    return "";
+    return '';
 }
 
 export function formatDateString(time: number) {
@@ -236,4 +236,8 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
     }
 
     return sortedTabs;
+}
+
+export function getNestedValue(obj: any, path: string) {
+    return path.split('.').reduce((o, p) => (o || {})[p], obj);
 }

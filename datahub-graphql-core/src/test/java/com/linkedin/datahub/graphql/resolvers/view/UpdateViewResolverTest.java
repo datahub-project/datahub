@@ -1,9 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
@@ -89,6 +90,7 @@ public class UpdateViewResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateView(
+            any(),
             Mockito.eq(TEST_URN),
             Mockito.eq(TEST_INPUT.getName()),
             Mockito.eq(TEST_INPUT.getDescription()),
@@ -129,7 +131,6 @@ public class UpdateViewResolverTest {
                                                                     ImmutableList.of(
                                                                         "value1", "value2")))
                                                             .setNegated(true))))))))),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
   }
 
@@ -153,6 +154,7 @@ public class UpdateViewResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .updateView(
+            any(),
             Mockito.eq(TEST_URN),
             Mockito.eq(TEST_INPUT.getName()),
             Mockito.eq(TEST_INPUT.getDescription()),
@@ -193,7 +195,6 @@ public class UpdateViewResolverTest {
                                                                     ImmutableList.of(
                                                                         "value1", "value2")))
                                                             .setNegated(true))))))))),
-            Mockito.any(Authentication.class),
             Mockito.anyLong());
   }
 
@@ -203,13 +204,7 @@ public class UpdateViewResolverTest {
     ViewService mockService = Mockito.mock(ViewService.class);
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
-        .updateView(
-            Mockito.any(Urn.class),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(),
-            Mockito.any(Authentication.class),
-            Mockito.anyLong());
+        .updateView(any(), any(Urn.class), any(), any(), any(), Mockito.anyLong());
 
     UpdateViewResolver resolver = new UpdateViewResolver(mockService);
 
@@ -238,8 +233,7 @@ public class UpdateViewResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(Mockito.any(), Mockito.any(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean());
   }
 
   private static ViewService initViewService(DataHubViewType viewType) {
@@ -270,12 +264,9 @@ public class UpdateViewResolverTest {
                             .setType(AspectType.VERSIONED)
                             .setValue(new Aspect(testInfo.data())))));
 
-    Mockito.when(mockService.getViewInfo(Mockito.eq(TEST_URN), Mockito.any(Authentication.class)))
-        .thenReturn(testInfo);
+    Mockito.when(mockService.getViewInfo(any(), Mockito.eq(TEST_URN))).thenReturn(testInfo);
 
-    Mockito.when(
-            mockService.getViewEntityResponse(
-                Mockito.eq(TEST_URN), Mockito.any(Authentication.class)))
+    Mockito.when(mockService.getViewEntityResponse(any(), Mockito.eq(TEST_URN)))
         .thenReturn(testEntityResponse);
 
     return mockService;

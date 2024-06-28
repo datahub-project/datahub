@@ -27,4 +27,14 @@ public class EntityAspectIdentifier {
     return new EntityAspectIdentifier(
         cassandraAspect.getUrn(), cassandraAspect.getAspect(), cassandraAspect.getVersion());
   }
+
+  public static EntityAspectIdentifier fromEntityAspect(EntityAspect entityAspect) {
+    return new EntityAspectIdentifier(
+        entityAspect.getUrn(), entityAspect.getAspect(), entityAspect.getVersion());
+  }
+
+  public static EntityAspectIdentifier fromSystemEntityAspect(
+      EntityAspect.EntitySystemAspect systemAspect) {
+    return fromEntityAspect(systemAspect.getEntityAspect());
+  }
 }

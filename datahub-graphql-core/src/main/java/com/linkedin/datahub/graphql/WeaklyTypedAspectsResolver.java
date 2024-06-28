@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.codec.JacksonDataCodec;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AspectParams;
 import com.linkedin.datahub.graphql.generated.AspectRenderSpec;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -48,7 +49,7 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
   @Override
   public CompletableFuture<List<RawAspect>> get(DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           List<RawAspect> results = new ArrayList<>();
 
@@ -70,10 +71,10 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                       EntityResponse entityResponse =
                           _entityClient
                               .batchGetV2(
+                                  context.getOperationContext(),
                                   urn.getEntityType(),
                                   Collections.singleton(urn),
-                                  Collections.singleton(aspectSpec.getName()),
-                                  context.getAuthentication())
+                                  Collections.singleton(aspectSpec.getName()))
                               .get(urn);
                       if (entityResponse == null
                           || !entityResponse.getAspects().containsKey(aspectSpec.getName())) {
@@ -111,6 +112,8 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                     }
                   });
           return results;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

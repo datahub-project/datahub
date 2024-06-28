@@ -6,23 +6,25 @@ import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.OwnerUpdate;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupUtils;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class OwnerUpdateMapper implements ModelMapper<OwnerUpdate, Owner> {
 
   private static final OwnerUpdateMapper INSTANCE = new OwnerUpdateMapper();
 
-  public static Owner map(@Nonnull final OwnerUpdate input) {
-    return INSTANCE.apply(input);
+  public static Owner map(@Nullable QueryContext context, @Nonnull final OwnerUpdate input) {
+    return INSTANCE.apply(context, input);
   }
 
   @Override
-  public Owner apply(@Nonnull final OwnerUpdate input) {
+  public Owner apply(@Nullable QueryContext context, @Nonnull final OwnerUpdate input) {
     final Owner owner = new Owner();
     try {
       if (Urn.createFromString(input.getOwner()).getEntityType().equals("corpuser")) {

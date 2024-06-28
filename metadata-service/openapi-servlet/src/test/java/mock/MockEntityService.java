@@ -28,7 +28,6 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.event.EventProducer;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -41,6 +40,7 @@ import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -57,32 +57,38 @@ public class MockEntityService extends EntityServiceImpl {
   public MockEntityService(
       @Nonnull AspectDao aspectDao,
       @Nonnull EventProducer producer,
-      @Nonnull EntityRegistry entityRegistry,
       PreProcessHooks preProcessHooks) {
-    super(aspectDao, producer, entityRegistry, true, preProcessHooks, true);
+    super(aspectDao, producer, true, preProcessHooks, true);
     setUpdateIndicesService(mock(UpdateIndicesService.class));
   }
 
   @Override
   public Map<Urn, List<RecordTemplate>> getLatestAspects(
-      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames) {
     return null;
   }
 
   @Override
   public @NotNull Map<String, RecordTemplate> getLatestAspectsForUrn(
-      @Nonnull Urn urn, @Nonnull Set<String> aspectNames) {
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull Set<String> aspectNames) {
     return Collections.emptyMap();
   }
 
   @Override
-  public RecordTemplate getAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version) {
+  public RecordTemplate getAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      long version) {
     return null;
   }
 
   @Override
   public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
-      @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames) throws URISyntaxException {
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      throws URISyntaxException {
     Urn urn = UrnUtils.getUrn(DATASET_URN);
     Map<Urn, List<EnvelopedAspect>> envelopedAspectMap = new HashMap<>();
     List<EnvelopedAspect> aspects = new ArrayList<>();
@@ -143,26 +149,40 @@ public class MockEntityService extends EntityServiceImpl {
 
   @Override
   public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
-      @Nonnull Set<VersionedUrn> versionedUrns, @Nonnull Set<String> aspectNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<VersionedUrn> versionedUrns,
+      @Nonnull Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
     return null;
   }
 
   @Override
   public EnvelopedAspect getLatestEnvelopedAspect(
-      @Nonnull String entityName, @Nonnull Urn urn, @Nonnull String aspectName) throws Exception {
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName)
+      throws Exception {
     return null;
   }
 
   @Override
   public VersionedAspect getVersionedAspect(
-      @Nonnull Urn urn, @Nonnull String aspectName, long version) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      long version) {
     return null;
   }
 
   @Override
   public ListResult<RecordTemplate> listLatestAspects(
-      @Nonnull String entityName, @Nonnull String aspectName, int start, int count) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      int start,
+      int count) {
     return null;
   }
 
@@ -186,6 +206,7 @@ public class MockEntityService extends EntityServiceImpl {
   @Nullable
   @Override
   public RecordTemplate ingestAspectIfNotPresent(
+      @Nonnull OperationContext opContext,
       @NotNull Urn urn,
       @NotNull String aspectName,
       @NotNull RecordTemplate newValue,
@@ -195,7 +216,8 @@ public class MockEntityService extends EntityServiceImpl {
   }
 
   @Override
-  public ListUrnsResult listUrns(@Nonnull String entityName, int start, int count) {
+  public ListUrnsResult listUrns(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, int start, int count) {
     return null;
   }
 
@@ -204,17 +226,20 @@ public class MockEntityService extends EntityServiceImpl {
 
   @Override
   public RollbackRunResult rollbackWithConditions(
-      List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete) {
+      @Nonnull OperationContext opContext,
+      List<AspectRowSummary> aspectRows,
+      Map<String, String> conditions,
+      boolean hardDelete) {
     return null;
   }
 
   @Override
-  public RollbackRunResult deleteUrn(Urn urn) {
+  public RollbackRunResult deleteUrn(@Nonnull OperationContext opContext, Urn urn) {
     return null;
   }
 
   @Override
-  public Set<Urn> exists(@NotNull Collection<Urn> urns) {
+  public Set<Urn> exists(@Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns) {
     return Set.of();
   }
 }

@@ -12,6 +12,7 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -29,7 +30,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 pytestmark = pytest.mark.random_order(disabled=True)
 
 
-class TestPipeline(object):
+class TestPipeline:
     @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
     @freeze_time(FROZEN_TIME)
@@ -67,11 +68,9 @@ class TestPipeline(object):
                 },
             }
         )
-        # assert that the default sink config is for a DatahubRestSink
-        assert isinstance(pipeline.config.sink, DynamicTypedConfig)
-        assert pipeline.config.sink.type == "datahub-rest"
-        assert isinstance(pipeline.config.sink.config, dict)
-        assert pipeline.config.sink.config["server"] == "http://localhost:8080"
+        # assert that the default sink is a DatahubRestSink
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink.config.server == "http://localhost:8080"
         # token value is read from ~/.datahubenv which may be None or not
 
     @freeze_time(FROZEN_TIME)
