@@ -20,9 +20,16 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this 
+  behavior is required.
+
 ### Potential Downtime
 
 ### Deprecations
+
+- OpenAPI v1: OpenAPI v1 is collectively defined as all endpoints which are not prefixed with `/v2` or `/v3`. The v1 endpoints 
+  will be deprecated in no less than 6 months. Endpoints will be replaced with equivalents in the `/v2` or `/v3` APIs.
+  No loss of functionality expected unless explicitly mentioned in Breaking Changes.
 
 ### Other Notable Changes
 

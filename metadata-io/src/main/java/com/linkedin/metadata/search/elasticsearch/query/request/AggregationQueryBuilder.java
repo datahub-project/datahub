@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.toStructuredPropertyFacetName;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
@@ -8,7 +9,6 @@ import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -136,15 +136,7 @@ public class AggregationQueryBuilder {
             opContext.getSearchContext().getSearchFlags().getMaxAggValues(),
             configs.getMaxTermBucketSize());
     for (int i = facets.size() - 1; i >= 0; i--) {
-      String facet =
-          StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
-                  facets.get(i), opContext.getAspectRetriever())
-              .map(
-                  urnDefinition ->
-                      STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX
-                          + StructuredPropertyUtils.toElasticsearchFieldName(
-                              urnDefinition.getFirst(), urnDefinition.getSecond()))
-              .orElse(facets.get(i));
+      String facet = facets.get(i);
 
       AggregationBuilder aggBuilder;
       if (facet.contains(AGGREGATION_SPECIAL_TYPE_DELIMITER)) {
@@ -190,8 +182,10 @@ public class AggregationQueryBuilder {
       // Boolean hasX field, not a keyword field. Return the name of the original facet.
       return facet;
     }
-    // Otherwise assume that this field is of keyword type.
-    return ESUtils.toKeywordField(facet, false, aspectRetriever);
+    // intercept structured property if it exists
+    return toStructuredPropertyFacetName(facet, aspectRetriever)
+        // Otherwise assume that this field is of keyword type.
+        .orElse(ESUtils.toKeywordField(facet, false, aspectRetriever));
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {

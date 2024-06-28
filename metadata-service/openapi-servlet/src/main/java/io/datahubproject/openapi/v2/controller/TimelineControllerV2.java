@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
     name = "Timeline",
     description =
         "An API for retrieving historical updates to entities and their related documentation.")
-public class TimelineController {
+public class TimelineControllerV2 {
 
   private final TimelineService _timelineService;
   private final AuthorizerChain _authorizerChain;
