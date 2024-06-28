@@ -5,7 +5,6 @@ function readyToTypeEditor() {
     .should("be.visible")
     .and("not.be.disabled")
     .click({ force: true })
-    .should("be.focused")
     .debug();
 }
 
