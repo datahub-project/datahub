@@ -25,10 +25,10 @@ public class LogMessageFilter extends AbstractMatcherFilter<ILoggingEvent> {
 
     final String formattedMessage = event.getFormattedMessage();
 
-    IThrowableProxy throwbleProxy = event.getThrowableProxy();
+    IThrowableProxy throwableProxy = event.getThrowableProxy();
     final String throwableString;
-    if (throwbleProxy != null) {
-      throwableString = ThrowableProxyUtil.asString(throwbleProxy);
+    if (throwableProxy != null) {
+      throwableString = ThrowableProxyUtil.asString(throwableProxy);
     } else {
       throwableString = "";
     }
