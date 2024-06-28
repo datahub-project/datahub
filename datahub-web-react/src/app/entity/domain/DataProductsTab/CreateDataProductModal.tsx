@@ -50,7 +50,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
                     onClose();
                 }
             })
-            .catch(( error ) => {
+            .catch((error) => {
                 onClose();
                 message.destroy();
                 message.error({ content: `Failed to create Data Product: ${error.message}.` });

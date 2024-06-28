@@ -94,7 +94,12 @@ export const RelationshipsTab = () => {
         ermodelrelationData = [{}] as ErModelRelationship[];
     }
 
-    if (!loadingERModelRelation && ermodelrelations?.search && ermodelrelations?.search?.searchResults?.length > 0 && !errorERModelRelation) {
+    if (
+        !loadingERModelRelation &&
+        ermodelrelations?.search &&
+        ermodelrelations?.search?.searchResults?.length > 0 &&
+        !errorERModelRelation
+    ) {
         ermodelrelationData = ermodelrelations.search.searchResults.map((r) => r.entity as ErModelRelationship);
     }
 

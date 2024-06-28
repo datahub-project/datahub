@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timezone
 from typing import (
     TYPE_CHECKING,
-    Callable,
     Dict,
     Iterable,
     List,
@@ -43,9 +42,6 @@ from datahub.utilities.urns.urn_iter import list_urns, lowercase_dataset_urns
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.source import SourceReport
-    from datahub.ingestion.source.state.stale_entity_removal_handler import (
-        StaleEntityRemovalHandler,
-    )
 
 logger = logging.getLogger(__name__)
 
@@ -137,39 +133,6 @@ def auto_status_aspect(
             entityUrn=urn,
             aspect=StatusClass(removed=False),
         ).as_workunit()
-
-
-def _default_entity_type_fn(wu: MetadataWorkUnit) -> Optional[str]:
-    urn = wu.get_urn()
-    entity_type = guess_entity_type(urn)
-    return entity_type
-
-
-def auto_stale_entity_removal(
-    stale_entity_removal_handler: "StaleEntityRemovalHandler",
-    stream: Iterable[MetadataWorkUnit],
-    entity_type_fn: Callable[
-        [MetadataWorkUnit], Optional[str]
-    ] = _default_entity_type_fn,
-) -> Iterable[MetadataWorkUnit]:
-    """
-    Record all entities that are found, and emit removals for any that disappeared in this run.
-    """
-
-    for wu in stream:
-        urn = wu.get_urn()
-
-        if wu.is_primary_source:
-            entity_type = entity_type_fn(wu)
-            if entity_type is not None:
-                stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
-        else:
-            stale_entity_removal_handler.add_urn_to_skip(urn)
-
-        yield wu
-
-    # Clean up stale entities.
-    yield from stale_entity_removal_handler.gen_removed_entity_workunits()
 
 
 T = TypeVar("T", bound=MetadataWorkUnit)
