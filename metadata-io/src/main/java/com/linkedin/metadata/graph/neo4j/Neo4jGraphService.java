@@ -699,11 +699,6 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Override
-  public void configure() {
-    // Do nothing
-  }
-
-  @Override
   public void clear() {
     removeNodesMatchingLabel(".*");
   }

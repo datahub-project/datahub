@@ -18,7 +18,7 @@ import javax.annotation.Nullable;
 public interface TimeseriesAspectService {
 
   /** Configure the Time-Series aspect service one time at boot-up. */
-  void configure();
+  default void configure() {}
 
   /**
    * Count the number of entries using a filter

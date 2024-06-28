@@ -115,10 +115,7 @@ public class ESSearchDAO {
       return transformIndexIntoEntityName(
           opContext.getSearchContext().getIndexConvention(),
           SearchRequestHandler.getBuilder(
-                  entitySpec,
-                  searchConfiguration,
-                  customSearchConfiguration,
-                  opContext.getRetrieverContext().get().getAspectRetriever())
+                  entitySpec, searchConfiguration, customSearchConfiguration)
               .extractResult(opContext, searchResponse, filter, from, size));
     } catch (Exception e) {
       log.error("Search query failed", e);
@@ -215,10 +212,7 @@ public class ESSearchDAO {
       return transformIndexIntoEntityName(
           opContext.getSearchContext().getIndexConvention(),
           SearchRequestHandler.getBuilder(
-                  entitySpecs,
-                  searchConfiguration,
-                  customSearchConfiguration,
-                  opContext.getRetrieverContext().get().getAspectRetriever())
+                  entitySpecs, searchConfiguration, customSearchConfiguration)
               .extractScrollResult(
                   opContext, searchResponse, filter, keepAlive, size, supportsPointInTime()));
     } catch (Exception e) {
@@ -261,11 +255,7 @@ public class ESSearchDAO {
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
     // Step 1: construct the query
     final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(
-                entitySpecs,
-                searchConfiguration,
-                customSearchConfiguration,
-                opContext.getRetrieverContext().get().getAspectRetriever())
+        SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
             .getSearchRequest(
                 opContext, finalInput, transformedFilters, sortCriterion, from, size, facets);
     searchRequest.indices(
@@ -298,11 +288,7 @@ public class ESSearchDAO {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
     final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(
-                entitySpec,
-                searchConfiguration,
-                customSearchConfiguration,
-                opContext.getRetrieverContext().get().getAspectRetriever())
+        SearchRequestHandler.getBuilder(entitySpec, searchConfiguration, customSearchConfiguration)
             .getFilterRequest(opContext, transformedFilters, sortCriterion, from, size);
 
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
@@ -335,10 +321,7 @@ public class ESSearchDAO {
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
       IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
       AutocompleteRequestHandler builder =
-          AutocompleteRequestHandler.getBuilder(
-              entitySpec,
-              customSearchConfiguration,
-              opContext.getRetrieverContext().get().getAspectRetriever());
+          AutocompleteRequestHandler.getBuilder(entitySpec, customSearchConfiguration);
       SearchRequest req =
           builder.getSearchRequest(
               opContext,
@@ -383,11 +366,7 @@ public class ESSearchDAO {
     }
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     final SearchRequest searchRequest =
-        SearchRequestHandler.getBuilder(
-                entitySpecs,
-                searchConfiguration,
-                customSearchConfiguration,
-                opContext.getRetrieverContext().get().getAspectRetriever())
+        SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
             .getAggregationRequest(
                 opContext,
                 field,
@@ -502,10 +481,7 @@ public class ESSearchDAO {
     }
 
     return SearchRequestHandler.getBuilder(
-            entitySpecs,
-            searchConfiguration,
-            customSearchConfiguration,
-            opContext.getRetrieverContext().get().getAspectRetriever())
+            entitySpecs, searchConfiguration, customSearchConfiguration)
         .getSearchRequest(
             opContext,
             finalInput,

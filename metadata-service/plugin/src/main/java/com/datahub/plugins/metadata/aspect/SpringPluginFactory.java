@@ -106,16 +106,27 @@ public class SpringPluginFactory extends PluginFactory {
         try {
           Class<?> clazz = classLoader.loadClass(config.getClassName());
 
-          final T plugin;
+          final List<T> plugins;
           if (config.getSpring().getName() == null) {
-            plugin = (T) springApplicationContext.getBean(clazz);
+            plugins =
+                springApplicationContext.getBeansOfType(clazz).values().stream()
+                    .map(plugin -> (T) plugin)
+                    .collect(Collectors.toList());
           } else {
-            plugin = (T) springApplicationContext.getBean(config.getSpring().getName(), clazz);
+            plugins =
+                List.of((T) springApplicationContext.getBean(config.getSpring().getName(), clazz));
           }
 
-          if (plugin.enabled()) {
-            result.add((T) plugin.setConfig(config));
-          }
+          plugins.stream()
+              .filter(plugin -> plugin.enabled())
+              .forEach(
+                  plugin -> {
+                    if (plugin.getConfig() != null) {
+                      result.add(plugin);
+                    } else {
+                      result.add((T) plugin.setConfig(config));
+                    }
+                  });
 
           loaded = true;
           break;

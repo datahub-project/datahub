@@ -1,4 +1,5 @@
-from typing import Optional
+import re
+from typing import Dict, Optional
 
 
 def unquote_and_decode_unicode_escape_seq(
@@ -17,3 +18,10 @@ def unquote_and_decode_unicode_escape_seq(
     cleaned_string = string.encode().decode("unicode-escape")
 
     return cleaned_string
+
+
+def parse_labels(labels_str: str) -> Dict[str, str]:
+    pattern = r'STRUCT\("([^"]+)", "([^"]+)"\)'
+
+    # Map of BigQuery label keys to label values
+    return dict(re.findall(pattern, labels_str))

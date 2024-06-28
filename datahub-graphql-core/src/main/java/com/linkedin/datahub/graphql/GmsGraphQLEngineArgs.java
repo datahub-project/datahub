@@ -25,6 +25,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
@@ -86,6 +87,7 @@ public class GmsGraphQLEngineArgs {
   boolean graphQLQueryIntrospectionEnabled;
   BusinessAttributeService businessAttributeService;
   ConnectionService connectionService;
+  AssertionService assertionService;
 
   // any fork specific args should go below this line
 }

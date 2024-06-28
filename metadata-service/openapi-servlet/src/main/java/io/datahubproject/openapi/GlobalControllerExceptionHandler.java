@@ -1,5 +1,7 @@
 package io.datahubproject.openapi;
 
+import io.datahubproject.openapi.exception.InvalidUrnException;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.core.Ordered;
@@ -22,5 +24,10 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler({ConversionFailedException.class, ConversionNotSupportedException.class})
   public ResponseEntity<String> handleConflict(RuntimeException ex) {
     return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+  }
+
+  @ExceptionHandler(InvalidUrnException.class)
+  public static ResponseEntity<Map<String, String>> handleUrnException(InvalidUrnException e) {
+    return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.BAD_REQUEST);
   }
 }

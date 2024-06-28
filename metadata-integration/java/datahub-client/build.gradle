@@ -120,6 +120,7 @@ shadowJar {
   relocate 'nonapi.io.github.classgraph', 'datahub.shaded.nonapi.io.github.classgraph'
   relocate 'org.eclipse.parsson', 'datahub.shaded.parsson'
   relocate 'jakarta.json', 'datahub.shaded.json'
+  relocate 'io.netty', 'datahub.shaded.io.netty'
 
   finalizedBy checkShadowJar
 }

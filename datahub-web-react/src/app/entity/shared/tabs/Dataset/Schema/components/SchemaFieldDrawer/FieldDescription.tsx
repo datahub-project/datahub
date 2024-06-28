@@ -77,7 +77,9 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
     });
 
     const displayedDescription = editableFieldInfo?.description || expandedField.description;
-    const baDescription = expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.description;
+    const baDescription =
+        expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+            ?.description;
     const baUrn = expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.urn;
 
     return (
@@ -85,7 +87,12 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
             <DescriptionWrapper>
                 <div>
                     <SectionHeader>Description</SectionHeader>
-                    <DescriptionSection description={displayedDescription || ''} baDescription={baDescription || ''} baUrn={baUrn || ''} isExpandable />
+                    <DescriptionSection
+                        description={displayedDescription || ''}
+                        baDescription={baDescription || ''}
+                        baUrn={baUrn || ''}
+                        isExpandable
+                    />
                 </div>
                 {isSchemaEditable && (
                     <EditIcon

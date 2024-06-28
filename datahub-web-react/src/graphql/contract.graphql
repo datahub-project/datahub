@@ -1,0 +1,53 @@
+fragment contractAssertionParameters on AssertionStdParameters {
+    value {
+        value
+        type
+    }
+    minValue {
+        value
+        type
+    }
+    maxValue {
+        value
+        type
+    }
+}
+
+fragment dataContractDetails on DataContract {
+    urn
+    type
+    properties {
+        freshness {
+            assertion {
+                ...assertionDetailsWithRunEvents
+            }
+        }
+        schema {
+            assertion {
+                ...assertionDetailsWithRunEvents
+            }
+        }
+        dataQuality {
+            assertion {
+                ...assertionDetailsWithRunEvents
+            }
+        }
+    }
+    status {
+        state
+    }
+}
+
+query getDatasetContract($urn: String!) {
+    dataset(urn: $urn) {
+        contract {
+            ...dataContractDetails
+        }
+    }
+}
+
+mutation upsertDataContract($input: UpsertDataContractInput!) {
+    upsertDataContract(input: $input) {
+        ...dataContractDetails
+    }
+}

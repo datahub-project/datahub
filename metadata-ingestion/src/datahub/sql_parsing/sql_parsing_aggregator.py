@@ -870,6 +870,7 @@ class SqlParsingAggregator(Closeable):
             models.DatasetLineageTypeClass.TRANSFORMED,
         ]
 
+        # Lower value = higher precedence.
         idx = query_precedence.index(query_type)
         if idx == -1:
             return len(query_precedence)
@@ -885,13 +886,17 @@ class SqlParsingAggregator(Closeable):
         ]
 
         # Sort the queries by highest precedence first, then by latest timestamp.
+        # In case of ties, prefer queries with a known query type.
         # Tricky: by converting the timestamp to a number, we also can ignore the
         # differences between naive and aware datetimes.
         queries = sorted(
+            # Sorted is a stable sort, so in the case of total ties, we want
+            # to prefer the most recently added query.
             reversed(queries),
             key=lambda query: (
                 self._query_type_precedence(query.lineage_type),
                 -(make_ts_millis(query.latest_timestamp) or 0),
+                query.query_type == QueryType.UNKNOWN,
             ),
         )
 

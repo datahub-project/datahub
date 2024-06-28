@@ -817,8 +817,6 @@ overwrite the previous value.
           properties:
             prop1: value1
             prop2: value2
-
-
     ```
 - Add dataset-properties, however overwrite the dataset-properties available for the dataset on DataHub GMS
     ```yaml
@@ -829,8 +827,6 @@ overwrite the previous value.
           properties:
             prop1: value1
             prop2: value2
-
-
     ```
 - Add dataset-properties, however keep the dataset-properties available for the dataset on DataHub GMS
     ```yaml
@@ -841,7 +837,6 @@ overwrite the previous value.
           properties:
             prop1: value1
             prop2: value2
-
     ```
 
 ## Add Dataset datasetProperties
@@ -973,7 +968,7 @@ transformers:
 `simple_add_dataset_domain` can be configured in below different way 
 
 - Add domains, however replace existing domains sent by ingestion source
-```yaml
+    ```yaml
     transformers:
       - type: "simple_add_dataset_domain"
         config:
@@ -981,9 +976,9 @@ transformers:
           domains:
             - "urn:li:domain:engineering"
             - "urn:li:domain:hr"
- ```
+   ```
 - Add domains, however overwrite the domains available for the dataset on DataHub GMS
-```yaml
+    ```yaml
     transformers:
       - type: "simple_add_dataset_domain"
         config:
@@ -991,9 +986,9 @@ transformers:
           domains:
             - "urn:li:domain:engineering"
             - "urn:li:domain:hr"
-  ```
+    ```
 - Add domains, however keep the domains available for the dataset on DataHub GMS
-```yaml
+    ```yaml
     transformers:
       - type: "simple_add_dataset_domain"
         config:
@@ -1001,7 +996,7 @@ transformers:
           domains:
             - "urn:li:domain:engineering"
             - "urn:li:domain:hr"
-  ```
+    ```
 
 ## Pattern Add Dataset domains 
 ### Config Details
@@ -1019,20 +1014,20 @@ Here we can set domain list to either urn (i.e. urn:li:domain:hr) or simple doma
 in both of the cases domain should be provisioned on DataHub GMS
 
   ```yaml
-    transformers:
-      - type: "pattern_add_dataset_domain"
-        config:
-          semantics: OVERWRITE
-          domain_pattern:
-            rules:
-              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
-              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"]
+  transformers:
+    - type: "pattern_add_dataset_domain"
+      config:
+        semantics: OVERWRITE
+        domain_pattern:
+          rules:
+            'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
+            'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"]
   ```
 
 `pattern_add_dataset_domain` can be configured in below different way 
 
 - Add domains, however replace existing domains sent by ingestion source
-```yaml
+    ```yaml
     transformers:
       - type: "pattern_add_dataset_domain"
         config:
@@ -1041,29 +1036,29 @@ in both of the cases domain should be provisioned on DataHub GMS
             rules:
               'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
               'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
-  ```
+    ```
 - Add domains, however overwrite the domains available for the dataset on DataHub GMS
-```yaml
-      transformers:
-        - type: "pattern_add_dataset_domain"
-          config:
-            semantics: OVERWRITE  # OVERWRITE is default behaviour 
-            domain_pattern:
-              rules:
-                'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
-                'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
-  ```
+    ```yaml
+    transformers:
+      - type: "pattern_add_dataset_domain"
+        config:
+          semantics: OVERWRITE  # OVERWRITE is default behaviour 
+          domain_pattern:
+            rules:
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
+    ```
 - Add domains, however keep the domains available for the dataset on DataHub GMS
-```yaml
-      transformers:
-        - type: "pattern_add_dataset_domain"
-          config:
-            semantics: PATCH
-            domain_pattern:
-              rules:
-                'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
-                'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
-  ```
+    ```yaml
+    transformers:
+      - type: "pattern_add_dataset_domain"
+        config:
+          semantics: PATCH
+          domain_pattern:
+            rules:
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"] 
+    ```
 
 
 
@@ -1099,7 +1094,7 @@ transformers:
 `domain_mapping_based_on_tags` can be configured in below different way
 
 - Add domains based on tags, however overwrite the domains available for the dataset on DataHub GMS
-```yaml
+    ```yaml
     transformers:
       - type: "domain_mapping_based_on_tags"
         config:
@@ -1107,9 +1102,9 @@ transformers:
           domain_mapping:
             'example1': "urn:li:domain:engineering"
             'example2': "urn:li:domain:hr"
-  ```
+    ```
 - Add domains based on tags, however keep the domains available for the dataset on DataHub GMS
-```yaml
+    ```yaml
     transformers:
       - type: "domain_mapping_based_on_tags"
         config:
@@ -1117,7 +1112,7 @@ transformers:
           domain_mapping:
             'example1': "urn:li:domain:engineering"
             'example2': "urn:li:domain:hr"
-  ```
+    ```
 
 ## Simple Add Dataset dataProduct
 ### Config Details
@@ -1313,18 +1308,18 @@ Let's begin by adding a `create()` method for parsing our configuration dictiona
 
 @classmethod
 def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddCustomOwnership":
-  config = AddCustomOwnershipConfig.parse_obj(config_dict)
-  return cls(config, ctx)
+    config = AddCustomOwnershipConfig.parse_obj(config_dict)
+    return cls(config, ctx)
 ```
 
 Next we need to tell the helper classes which entity types and aspect we are interested in transforming. In this case, we want to only process `dataset` entities and transform the `ownership` aspect.
 
 ```python
 def entity_types(self) -> List[str]:
-        return ["dataset"]
+    return ["dataset"]
 
-    def aspect_name(self) -> str:
-        return "ownership"
+def aspect_name(self) -> str:
+    return "ownership"
 ```
 
 Finally we need to implement the `transform_aspect()` method that does the work of adding our custom ownership classes. This method will be called be the framework with an optional aspect value filled out if the upstream source produced a value for this aspect. The framework takes care of pre-processing both MCE-s and MCP-s so that the `transform_aspect()` function is only called one per entity. Our job is merely to inspect the incoming aspect (or absence) and produce a transformed value for this aspect. Returning `None` from this method will effectively suppress this aspect from being emitted.
@@ -1332,24 +1327,24 @@ Finally we need to implement the `transform_aspect()` method that does the work 
 ```python
 # add this as a function of AddCustomOwnership
 
-  def transform_aspect(  # type: ignore
-      self, entity_urn: str, aspect_name: str, aspect: Optional[OwnershipClass]
-  ) -> Optional[OwnershipClass]:
+def transform_aspect(  # type: ignore
+    self, entity_urn: str, aspect_name: str, aspect: Optional[OwnershipClass]
+) -> Optional[OwnershipClass]:
 
-      owners_to_add = self.owners
-      assert aspect is None or isinstance(aspect, OwnershipClass)
+    owners_to_add = self.owners
+    assert aspect is None or isinstance(aspect, OwnershipClass)
 
-      if owners_to_add:
-          ownership = (
-              aspect
-              if aspect
-              else OwnershipClass(
-                  owners=[],
-              )
-          )
-          ownership.owners.extend(owners_to_add)
+    if owners_to_add:
+        ownership = (
+            aspect
+            if aspect
+            else OwnershipClass(
+                owners=[],
+            )
+        )
+        ownership.owners.extend(owners_to_add)
 
-      return ownership
+    return ownership
 ```
 
 ### More Sophistication: Making calls to DataHub during Transformation
@@ -1383,27 +1378,27 @@ e.g. Here is how the AddDatasetOwnership transformer can now support PATCH seman
 
 ```python
 def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-            return mce
-        owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
-        if owners_to_add:
-            ownership = builder.get_or_add_aspect(
-                mce,
-                OwnershipClass(
-                    owners=[],
-                ),
-            )
-            ownership.owners.extend(owners_to_add)
-
-            if self.config.semantics == Semantics.PATCH:
-                assert self.ctx.graph
-                patch_ownership = AddDatasetOwnership.get_ownership_to_set(
-                    self.ctx.graph, mce.proposedSnapshot.urn, ownership
-                )
-                builder.set_aspect(
-                    mce, aspect=patch_ownership, aspect_type=OwnershipClass
-                )
+    if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
         return mce
+    owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
+    if owners_to_add:
+        ownership = builder.get_or_add_aspect(
+            mce,
+            OwnershipClass(
+                owners=[],
+            ),
+        )
+        ownership.owners.extend(owners_to_add)
+
+        if self.config.semantics == Semantics.PATCH:
+            assert self.ctx.graph
+            patch_ownership = AddDatasetOwnership.get_ownership_to_set(
+                self.ctx.graph, mce.proposedSnapshot.urn, ownership
+            )
+            builder.set_aspect(
+                mce, aspect=patch_ownership, aspect_type=OwnershipClass
+            )
+    return mce
 ```
 
 ### Installing the package

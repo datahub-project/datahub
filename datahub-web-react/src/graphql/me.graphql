@@ -51,7 +51,6 @@ query getMe {
             manageGlobalAnnouncements
             createBusinessAttributes
             manageBusinessAttributes
-
         }
     }
 }

@@ -21,6 +21,7 @@ import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -186,6 +187,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     searchDocumentTransformer.setSearchableRefValue(
@@ -241,6 +243,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
@@ -277,6 +280,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
@@ -309,6 +313,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();

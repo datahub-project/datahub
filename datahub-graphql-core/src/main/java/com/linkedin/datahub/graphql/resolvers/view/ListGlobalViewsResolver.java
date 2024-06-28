@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.ListGlobalViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -30,6 +31,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolver used for listing global DataHub Views. */
@@ -71,7 +73,7 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
-                    buildFilters(),
+                    buildFilters(context.getOperationContext().getAspectRetriever()),
                     DEFAULT_SORT_CRITERION,
                     start,
                     count);
@@ -107,7 +109,7 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
     return results;
   }
 
-  private Filter buildFilters() {
+  private Filter buildFilters(@Nullable AspectRetriever aspectRetriever) {
     final AndFilterInput globalCriteria = new AndFilterInput();
     List<FacetFilterInput> andConditions = new ArrayList<>();
     andConditions.add(
@@ -118,6 +120,6 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
             false,
             FilterOperator.EQUAL));
     globalCriteria.setAnd(andConditions);
-    return buildFilter(Collections.emptyList(), ImmutableList.of(globalCriteria));
+    return buildFilter(Collections.emptyList(), ImmutableList.of(globalCriteria), aspectRetriever);
   }
 }

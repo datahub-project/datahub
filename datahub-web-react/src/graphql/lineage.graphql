@@ -176,7 +176,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...entityDomain
         }
         parentContainers {
-              ...parentContainersFields
+            ...parentContainersFields
         }
         ...entityDataProduct
         status {
@@ -206,7 +206,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...ownershipFields
         }
         parentContainers {
-              ...parentContainersFields
+            ...parentContainersFields
         }
         subTypes {
             typeNames
@@ -466,12 +466,12 @@ query getEntityLineage(
     $excludeDownstream: Boolean = false
 ) {
     entity(urn: $urn) {
-      ...entityLineage
+        ...entityLineage
     }
 }
 
 query getBulkEntityLineage(
-    $urns: [String!]!,
+    $urns: [String!]!
     $separateSiblings: Boolean
     $showColumns: Boolean!
     $startTimeMillis: Long

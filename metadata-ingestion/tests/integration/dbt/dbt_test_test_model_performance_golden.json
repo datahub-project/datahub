@@ -46,6 +46,7 @@
                             "dbt_file_path": "models/transform/customer_details.sql",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.customer_details",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -376,6 +377,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.monthly_billing_with_cust",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -722,6 +724,7 @@
                             "catalog_type": "VIEW",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.payments_base",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -1180,6 +1183,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "model.sample_dbt.payments_by_customer_by_month",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -1502,6 +1506,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "snapshot.sample_dbt.customer_snapshot",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -2027,6 +2032,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.actor",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -2249,6 +2255,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.address",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -2544,6 +2551,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.category",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -2724,6 +2732,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.city",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -2930,6 +2939,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.country",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -3125,6 +3135,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.customer",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -3466,6 +3477,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_01",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -3719,6 +3731,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_02",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -3983,6 +3996,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_03",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -4232,6 +4246,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_04",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -4481,6 +4496,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_05",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -4730,6 +4746,7 @@
                             "catalog_type": "BASE TABLE",
                             "language": "sql",
                             "dbt_unique_id": "source.sample_dbt.pagila.payment_p2020_06",
+                            "dbt_package_name": "sample_dbt",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v11.json",
                             "manifest_version": "1.7.3",
                             "manifest_adapter": "postgres",
@@ -5980,6 +5997,70 @@
 {
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:f812b73477d81e6af283d918cb59e7bf",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:36225e795a4597b2376996774a803b0d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:57aa623f096cf3a28af70fe94b713907",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a42a5b1bee156e45972e12d4156fb7a2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-model-performance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fc6268f0be68fd04c310705b65efd6fe",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

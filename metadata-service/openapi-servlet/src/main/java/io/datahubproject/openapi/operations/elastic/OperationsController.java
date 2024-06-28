@@ -3,7 +3,16 @@ package io.datahubproject.openapi.operations.elastic;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
+import com.deblock.jsondiff.DiffGenerator;
+import com.deblock.jsondiff.matcher.CompositeJsonMatcher;
+import com.deblock.jsondiff.matcher.LenientJsonArrayPartialMatcher;
+import com.deblock.jsondiff.matcher.LenientJsonObjectPartialMatcher;
+import com.deblock.jsondiff.matcher.LenientNumberPrimitivePartialMatcher;
+import com.deblock.jsondiff.matcher.StrictPrimitivePartialMatcher;
+import com.deblock.jsondiff.viewer.PatchDiffViewer;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -11,7 +20,6 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -24,6 +32,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -54,25 +64,29 @@ import org.springframework.web.bind.annotation.RestController;
     name = "ElasticSearchOperations",
     description = "An API for managing your elasticsearch instance")
 public class OperationsController {
-  private final Authorizer authorizerChain;
+  private final AuthorizerChain authorizerChain;
   private final OperationContext systemOperationContext;
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
   private final EntitySearchService searchService;
   private final EntityService<?> entityService;
+  private final ObjectMapper objectMapper;
 
   public OperationsController(
       OperationContext systemOperationContext,
       SystemMetadataService systemMetadataService,
       TimeseriesAspectService timeseriesAspectService,
       EntitySearchService searchService,
-      EntityService<?> entityService) {
+      EntityService<?> entityService,
+      AuthorizerChain authorizerChain,
+      ObjectMapper objectMapper) {
     this.systemOperationContext = systemOperationContext;
-    this.authorizerChain = systemOperationContext.getAuthorizerContext().getAuthorizer();
+    this.authorizerChain = authorizerChain;
     this.systemMetadataService = systemMetadataService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.searchService = searchService;
     this.entityService = entityService;
+    this.objectMapper = objectMapper;
   }
 
   @InitBinder
@@ -162,7 +176,7 @@ public class OperationsController {
               required = true,
               description =
                   "Query to evaluate for specified document, will be applied as an input string to standard search query builder.")
-          @RequestParam("query")
+          @RequestParam(value = "query", defaultValue = "*")
           @Nonnull
           String query,
       @Parameter(
@@ -176,16 +190,15 @@ public class OperationsController {
               name = "entityName",
               required = true,
               description = "Name of the entity the document belongs to.")
-          @RequestParam("entityName")
+          @RequestParam(value = "entityName", defaultValue = "dataset")
           @Nonnull
           String entityName,
-      @Parameter(name = "scrollId", required = false, description = "Scroll ID for pagination.")
+      @Parameter(name = "scrollId", description = "Scroll ID for pagination.")
           @RequestParam("scrollId")
           @Nullable
           String scrollId,
       @Parameter(
               name = "keepAlive",
-              required = false,
               description =
                   "Keep alive time for point in time scroll context"
                       + ", only relevant where point in time is supported.")
@@ -193,43 +206,24 @@ public class OperationsController {
           @Nullable
           String keepAlive,
       @Parameter(name = "size", required = true, description = "Page size for pagination.")
-          @RequestParam("size")
+          @RequestParam(value = "size", required = false, defaultValue = "1")
           int size,
-      @Parameter(
-              name = "filters",
-              required = false,
-              description = "Additional filters to apply to query.")
-          @RequestParam("filters")
+      @Parameter(name = "filters", description = "Additional filters to apply to query.")
+          @RequestParam(value = "filters", required = false)
           @Nullable
-          Filter filters,
-      @Parameter(
-              name = "sortCriterion",
-              required = false,
-              description = "Criterion to sort results on.")
-          @RequestParam("sortCriterion")
+          String filters,
+      @Parameter(name = "searchFlags", description = "Optional configuration flags.")
+          @RequestParam(value = "searchFlags", required = false)
           @Nullable
-          SortCriterion sortCriterion,
-      @Parameter(
-              name = "searchFlags",
-              required = false,
-              description = "Optional configuration flags.")
-          @RequestParam("searchFlags")
-          @Nullable
-          SearchFlags searchFlags,
-      @Parameter(
-              name = "facets",
-              required = false,
-              description = "List of facet fields for aggregations.")
-          @RequestParam("facets")
-          @Nullable
-          List<String> facets) {
+          String searchFlags)
+      throws JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
     if (!AuthUtil.isAPIAuthorized(
         authentication, authorizerChain, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
-      log.error("{} is not authorized to get timeseries index sizes", actorUrnStr);
+      log.error("{} is not authorized to get explain queries", actorUrnStr);
       return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
     OperationContext opContext =
@@ -238,22 +232,168 @@ public class OperationsController {
                 RequestContext.builder().buildOpenapi("explainSearchQuery", entityName),
                 authorizerChain,
                 authentication)
-            .withSearchFlags(flags -> searchFlags);
+            .withSearchFlags(
+                flags -> {
+                  try {
+                    return searchFlags == null
+                        ? flags
+                        : objectMapper.readValue(searchFlags, SearchFlags.class);
+                  } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
 
     ExplainResponse response =
         searchService.explain(
             opContext,
             query,
-            documentId,
+            encodeValue(documentId),
             entityName,
-            filters,
-            sortCriterion,
+            filters == null ? null : objectMapper.readValue(filters, Filter.class),
+            null,
             scrollId,
             keepAlive,
             size,
-            facets);
+            null);
 
     return ResponseEntity.ok(response);
+  }
+
+  @Tag(name = "ElasticSearchOperations")
+  @GetMapping(path = "/explainSearchQueryDiff", produces = MediaType.TEXT_PLAIN_VALUE)
+  @Operation(summary = "Explain the differences in scoring for 2 documents")
+  public ResponseEntity<String> explainSearchQueryDiff(
+      @Parameter(
+              name = "query",
+              required = true,
+              description =
+                  "Query to evaluate for specified document, will be applied as an input string to standard search query builder.")
+          @RequestParam(value = "query", defaultValue = "*")
+          @Nonnull
+          String query,
+      @Parameter(
+              name = "documentIdA",
+              required = true,
+              description = "Document 1st ID to apply explain to.")
+          @RequestParam("documentIdA")
+          @Nonnull
+          String documentIdA,
+      @Parameter(
+              name = "documentIdB",
+              required = true,
+              description = "Document 2nd ID to apply explain to.")
+          @RequestParam("documentIdB")
+          @Nonnull
+          String documentIdB,
+      @Parameter(
+              name = "entityName",
+              required = true,
+              description = "Name of the entity the document belongs to.")
+          @RequestParam(value = "entityName", defaultValue = "dataset")
+          @Nonnull
+          String entityName,
+      @Parameter(name = "scrollId", description = "Scroll ID for pagination.")
+          @RequestParam("scrollId")
+          @Nullable
+          String scrollId,
+      @Parameter(
+              name = "keepAlive",
+              description =
+                  "Keep alive time for point in time scroll context"
+                      + ", only relevant where point in time is supported.")
+          @RequestParam("keepAlive")
+          @Nullable
+          String keepAlive,
+      @Parameter(name = "size", required = true, description = "Page size for pagination.")
+          @RequestParam(value = "size", required = false, defaultValue = "1")
+          int size,
+      @Parameter(name = "filters", description = "Additional filters to apply to query.")
+          @RequestParam(value = "filters", required = false)
+          @Nullable
+          String filters,
+      @Parameter(name = "searchFlags", description = "Optional configuration flags.")
+          @RequestParam(value = "searchFlags", required = false)
+          @Nullable
+          String searchFlags)
+      throws JsonProcessingException {
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
+    if (!AuthUtil.isAPIAuthorized(
+        authentication, authorizerChain, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)) {
+      log.error("{} is not authorized to get explain queries", actorUrnStr);
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+    }
+    OperationContext opContext =
+        systemOperationContext
+            .asSession(
+                RequestContext.builder().buildOpenapi("explainSearchQuery", entityName),
+                authorizerChain,
+                authentication)
+            .withSearchFlags(
+                flags -> {
+                  try {
+                    return searchFlags == null
+                        ? flags
+                        : objectMapper.readValue(searchFlags, SearchFlags.class);
+                  } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
+
+    ExplainResponse responseA =
+        searchService.explain(
+            opContext,
+            query,
+            encodeValue(documentIdA),
+            entityName,
+            filters == null ? null : objectMapper.readValue(filters, Filter.class),
+            null,
+            scrollId,
+            keepAlive,
+            size,
+            null);
+
+    ExplainResponse responseB =
+        searchService.explain(
+            opContext,
+            query,
+            encodeValue(documentIdB),
+            entityName,
+            filters == null ? null : objectMapper.readValue(filters, Filter.class),
+            null,
+            scrollId,
+            keepAlive,
+            size,
+            null);
+
+    String a = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseA);
+    String b = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseB);
+
+    CompositeJsonMatcher fullLenient =
+        new CompositeJsonMatcher(
+            new LenientJsonArrayPartialMatcher(), // comparing array using lenient mode (ignore
+            // array order and extra items)
+            new LenientJsonObjectPartialMatcher(), // comparing object using lenient mode (ignoring
+            // extra properties)
+            new LenientNumberPrimitivePartialMatcher(
+                new StrictPrimitivePartialMatcher()) // comparing primitive types and manage numbers
+            // (100.00 == 100)
+            );
+
+    // generate a diff
+    final var jsondiff = DiffGenerator.diff(a, b, fullLenient);
+    PatchDiffViewer patch = PatchDiffViewer.from(jsondiff);
+
+    return ResponseEntity.ok(patch.toString());
+  }
+
+  private static String encodeValue(String value) {
+    if (value.startsWith("urn:li:")) {
+      return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+    return value;
   }
 
   @Tag(name = "RestoreIndices")

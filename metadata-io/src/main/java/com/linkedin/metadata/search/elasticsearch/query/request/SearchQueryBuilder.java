@@ -7,6 +7,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.Customize
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -109,7 +110,11 @@ public class SearchQueryBuilder {
       getSimpleQuery(opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
       getPrefixAndExactMatchQuery(
-              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, sanitizedQuery)
+              opContext.getEntityRegistry(),
+              customQueryConfig,
+              entitySpecs,
+              sanitizedQuery,
+              opContext.getAspectRetriever())
           .ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix =
@@ -121,7 +126,11 @@ public class SearchQueryBuilder {
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQuery(
-                opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
+                opContext.getEntityRegistry(),
+                customQueryConfig,
+                entitySpecs,
+                withoutQueryPrefix,
+                opContext.getAspectRetriever())
             .ifPresent(finalQuery::should);
       }
     }
@@ -369,7 +378,8 @@ public class SearchQueryBuilder {
       @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
-      String query) {
+      String query,
+      @Nullable AspectRetriever aspectRetriever) {
 
     final boolean isPrefixQuery =
         customQueryConfig == null
@@ -408,7 +418,8 @@ public class SearchQueryBuilder {
                 if (caseSensitivityEnabled) {
                   finalQuery.should(
                       QueryBuilders.termQuery(
-                              ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                              ESUtils.toKeywordField(
+                                  searchFieldConfig.fieldName(), false, aspectRetriever),
                               unquotedQuery)
                           .caseInsensitive(false)
                           .boost(
@@ -419,7 +430,8 @@ public class SearchQueryBuilder {
                 // Exact match case-insensitive
                 finalQuery.should(
                     QueryBuilders.termQuery(
-                            ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                            ESUtils.toKeywordField(
+                                searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .caseInsensitive(true)
                         .boost(
@@ -432,7 +444,8 @@ public class SearchQueryBuilder {
               if (searchFieldConfig.isWordGramSubfield() && isPrefixQuery) {
                 finalQuery.should(
                     QueryBuilders.matchPhraseQuery(
-                            ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                            ESUtils.toKeywordField(
+                                searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .boost(
                             searchFieldConfig.boost()
@@ -455,7 +468,7 @@ public class SearchQueryBuilder {
     if (customQueryConfig != null) {
       executeStructuredQuery = customQueryConfig.isStructuredQuery();
     } else {
-      executeStructuredQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
+      executeStructuredQuery = true;
     }
 
     if (executeStructuredQuery) {

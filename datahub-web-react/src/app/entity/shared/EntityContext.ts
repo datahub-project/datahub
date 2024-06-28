@@ -22,17 +22,17 @@ export function useEntityContext() {
     return useContext(EntityContext);
 }
 
-export const useBaseEntity = <T,>(): T => {
+export const useBaseEntity = <T>(): T => {
     const { baseEntity } = useContext(EntityContext);
     return baseEntity as T;
 };
 
-export const useDataNotCombinedWithSiblings = <T,>(): T => {
+export const useDataNotCombinedWithSiblings = <T>(): T => {
     const { dataNotCombinedWithSiblings } = useContext(EntityContext);
     return dataNotCombinedWithSiblings as T;
 };
 
-export const useEntityUpdate = <U,>(): UpdateEntityType<U> | null | undefined => {
+export const useEntityUpdate = <U>(): UpdateEntityType<U> | null | undefined => {
     const { updateEntity } = useContext(EntityContext);
     return updateEntity;
 };

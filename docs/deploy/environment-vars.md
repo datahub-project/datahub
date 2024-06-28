@@ -45,23 +45,25 @@ DataHub works.
 
 ## Search
 
-| Variable                                            | Default                | Unit/Type | Components                                                      | Description                                                              |
-|-----------------------------------------------------|------------------------|-----------|-----------------------------------------------------------------|--------------------------------------------------------------------------|
-| `INDEX_PREFIX`                                      | ``                     | string    | [`GMS`, `MAE Consumer`, `Elasticsearch Setup`, `System Update`] | Prefix Elasticsearch indices with the given string.                      |
-| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                | 1                      | integer   | [`System Update`]                                               | Default number of shards per Elasticsearch index.                        |
-| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`              | 1                      | integer   | [`System Update`]                                               | Default number of replica per Elasticsearch index.                       |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`       | 60                     | integer   | [`System Update`]                                               | Number of units for the retention of Elasticsearch clone/backup indices. |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`        | DAYS                   | string    | [`System Update`]                                               | Unit for the retention of Elasticsearch clone/backup indices.            |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`         | `false`                | boolean   | [`GMS`]                                                         | Only return exact matches when using quotes.                             |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`       | `true`                 | boolean   | [`GMS`]                                                         | Include prefix match in exact match results.                             |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`            | 10.0                   | float     | [`GMS`]                                                         | Multiply by this number on true exact match.                             |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`     | 1.6                    | float     | [`GMS`]                                                         | Multiply by this number when prefix match.                               |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`       | 0.7                    | float     | [`GMS`]                                                         | Multiply by this number when case insensitive match.                     |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED` | `true`                 | boolean   | [`GMS`]                                                         | When using structured query, also include exact matches.                 |
-| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`            | 0.5                    | float     | [`GMS`]                                                         | Multiply by this number when partial token match on URN)                 |
-| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                | 0.4                    | float     | [`GMS`]                                                         | Multiply by this number when partial token match on non-URN field.       |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`         | `false`                | boolean   | [`GMS`]                                                         | Enable search query and ranking customization configuration.             |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`            | `search_config.yml`    | string    | [`GMS`]                                                         | The location of the search customization configuration.                  |
+| Variable                                            | Default             | Unit/Type | Components                                                      | Description                                                              |
+|-----------------------------------------------------|---------------------|-----------|-----------------------------------------------------------------|--------------------------------------------------------------------------|
+| `INDEX_PREFIX`                                      | ``                  | string    | [`GMS`, `MAE Consumer`, `Elasticsearch Setup`, `System Update`] | Prefix Elasticsearch indices with the given string.                      |
+| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                | 1                   | integer   | [`System Update`]                                               | Default number of shards per Elasticsearch index.                        |
+| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`              | 1                   | integer   | [`System Update`]                                               | Default number of replica per Elasticsearch index.                       |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`       | 60                  | integer   | [`System Update`]                                               | Number of units for the retention of Elasticsearch clone/backup indices. |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`        | DAYS                | string    | [`System Update`]                                               | Unit for the retention of Elasticsearch clone/backup indices.            |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`         | `false`             | boolean   | [`GMS`]                                                         | Only return exact matches when using quotes.                             |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`       | `true`              | boolean   | [`GMS`]                                                         | Include prefix match in exact match results.                             |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`            | 10.0                | float     | [`GMS`]                                                         | Multiply by this number on true exact match.                             |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`     | 1.6                 | float     | [`GMS`]                                                         | Multiply by this number when prefix match.                               |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`       | 0.7                 | float     | [`GMS`]                                                         | Multiply by this number when case insensitive match.                     |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED` | `true`              | boolean   | [`GMS`]                                                         | When using structured query, also include exact matches.                 |
+| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`            | 0.5                 | float     | [`GMS`]                                                         | Multiply by this number when partial token match on URN)                 |
+| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                | 0.4                 | float     | [`GMS`]                                                         | Multiply by this number when partial token match on non-URN field.       |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`         | `true`              | boolean   | [`GMS`]                                                         | Enable search query and ranking customization configuration.             |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`            | `search_config.yml` | string    | [`GMS`]                                                         | The location of the search customization configuration.                  |
+| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`      | `false`             | boolean   | [`System Update`]                                               | Enable reindexing on Elasticsearch schema changes.                       |
+| `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE`        | `false`             | boolean   | [`System Update`]                                               | Enable reindexing to remove hard deleted structured properties.          |
 
 ## Kafka
 

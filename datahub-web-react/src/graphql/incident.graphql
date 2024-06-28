@@ -30,7 +30,6 @@ fragment incidentsFields on EntityIncidentsResult {
     }
 }
 
-
 fragment datasetSiblingIncidents on Dataset {
     siblings {
         isPrimary

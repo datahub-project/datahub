@@ -11,10 +11,7 @@ interface Props {
 
 export default function FieldAttribute({ expandedField }: Props) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
-    const attributeRenderer = useBusinessAttributeRenderer(
-        '',
-        isSchemaEditable,
-    );
+    const attributeRenderer = useBusinessAttributeRenderer('', isSchemaEditable);
 
     const businessAttributesFlag = useBusinessAttributesFlag();
 

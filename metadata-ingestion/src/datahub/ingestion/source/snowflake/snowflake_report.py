@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, MutableSet, Optional
+from typing import TYPE_CHECKING, Dict, List, MutableSet, Optional
 
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
@@ -13,6 +13,11 @@ from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.snowflake.snowflake_schema import (
+        SnowflakeDataDictionary,
+    )
 
 
 @dataclass
@@ -106,18 +111,12 @@ class SnowflakeV2Report(
     num_tables_with_known_upstreams: int = 0
     num_upstream_lineage_edge_parsing_failed: int = 0
 
-    # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
-    # which occurs when we occur a different database / schema.
-    # Should not be more than the number of databases / schemas scanned.
-    # Maps (function name) -> (stat_name) -> (stat_value)
-    lru_cache_info: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    data_dictionary_cache: Optional["SnowflakeDataDictionary"] = None
 
     # These will be non-zero if snowflake information_schema queries fail with error -
     # "Information schema query returned too much data. Please repeat query with more selective predicates.""
     # This will result in overall increase in time complexity
     num_get_tables_for_schema_queries: int = 0
-    num_get_views_for_schema_queries: int = 0
-    num_get_columns_for_table_queries: int = 0
 
     # these will be non-zero if the user choses to enable the extract_tags = "with_lineage" option, which requires
     # individual queries per object (database, schema, table) and an extra query per table to get the tags on the columns.

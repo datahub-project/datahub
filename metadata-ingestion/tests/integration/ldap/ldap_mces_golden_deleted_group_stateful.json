@@ -17,7 +17,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
     }
 },
 {
@@ -26,12 +28,15 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
     }
 },
 {
@@ -40,12 +45,15 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
+        "json": {
+            "removed": true
+        }
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
     }
 }
 ]

@@ -129,6 +129,16 @@ public interface AspectsBatch {
         .flatMap(mcpSideEffect -> mcpSideEffect.apply(items, retrieverContext));
   }
 
+  default Stream<MCPItem> applyPostMCPSideEffects(Collection<MCLItem> items) {
+    return applyPostMCPSideEffects(items, getRetrieverContext());
+  }
+
+  static Stream<MCPItem> applyPostMCPSideEffects(
+      Collection<MCLItem> items, @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
+        .flatMap(mcpSideEffect -> mcpSideEffect.postApply(items, retrieverContext));
+  }
+
   default Stream<MCLItem> applyMCLSideEffects(Collection<MCLItem> items) {
     return applyMCLSideEffects(items, getRetrieverContext());
   }

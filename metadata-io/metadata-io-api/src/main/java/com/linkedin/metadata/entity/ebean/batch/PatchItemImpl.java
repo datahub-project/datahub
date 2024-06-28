@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -21,7 +22,9 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import jakarta.json.Json;
@@ -76,6 +79,29 @@ public class PatchItemImpl implements PatchMCP {
   @Override
   public RecordTemplate getRecordTemplate() {
     return null;
+  }
+
+  @Nonnull
+  public MetadataChangeProposal getMetadataChangeProposal() {
+    if (metadataChangeProposal != null) {
+      return metadataChangeProposal;
+    } else {
+      GenericAspect genericAspect = new GenericAspect();
+      genericAspect.setContentType("application/json");
+      genericAspect.setValue(ByteString.copyString(getPatch().toString(), StandardCharsets.UTF_8));
+
+      final MetadataChangeProposal mcp = new MetadataChangeProposal();
+      mcp.setEntityUrn(getUrn());
+      mcp.setChangeType(getChangeType());
+      mcp.setEntityType(getEntitySpec().getName());
+      mcp.setAspectName(getAspectName());
+      mcp.setAspect(genericAspect);
+      mcp.setSystemMetadata(getSystemMetadata());
+      mcp.setEntityKeyAspect(
+          GenericRecordUtils.serializeAspect(
+              EntityKeyUtils.convertUrnToEntityKey(getUrn(), entitySpec.getKeyAspectSpec())));
+      return mcp;
+    }
   }
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {

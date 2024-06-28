@@ -34,11 +34,7 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     renderProfile = (_: string) => <></>;
 
     renderPreview = (previewType: PreviewType, data: SchemaFieldEntity) => (
-        <Preview
-            previewType={previewType}
-            datasetUrn={data.parent.urn}
-            name={data.fieldPath}
-        />
+        <Preview previewType={previewType} datasetUrn={data.parent.urn} name={data.fieldPath} />
     );
 
     renderSearch = (result: SearchResult) => this.renderPreview(PreviewType.SEARCH, result.entity as SchemaFieldEntity);

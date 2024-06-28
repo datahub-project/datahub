@@ -37,6 +37,7 @@ from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.logging_manager import configure_logging
@@ -96,13 +97,23 @@ def datahub(
 
 
 @datahub.command()
+@click.option(
+    "--include-server",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If passed will show server config. Assumes datahub init has happened.",
+)
 @telemetry.with_telemetry()
-def version() -> None:
+def version(include_server: bool = False) -> None:
     """Print version number and exit."""
 
     click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
     click.echo(f"Models: {model_version_name()}")
     click.echo(f"Python version: {sys.version}")
+    if include_server:
+        server_config = get_default_graph().get_config()
+        click.echo(f"Server config: {server_config}")
 
 
 @datahub.command()

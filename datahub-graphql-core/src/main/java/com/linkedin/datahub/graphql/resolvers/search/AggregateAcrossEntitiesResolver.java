@@ -63,7 +63,9 @@ public class AggregateAcrossEntitiesResolver
                       UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
-          final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+          final Filter inputFilter =
+              ResolverUtils.buildFilter(
+                  null, input.getOrFilters(), context.getOperationContext().getAspectRetriever());
 
           final SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
 

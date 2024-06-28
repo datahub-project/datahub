@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.AssertionStdParameterType;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameters;
 import com.linkedin.datahub.graphql.generated.AssertionType;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
+import com.linkedin.datahub.graphql.generated.CustomAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
@@ -162,9 +163,19 @@ public class AssertionMapper {
           mapSchemaAssertionInfo(context, gmsAssertionInfo.getSchemaAssertion());
       assertionInfo.setSchemaAssertion(schemaAssertionInfo);
     }
+    if (gmsAssertionInfo.hasCustomAssertion()) {
+      CustomAssertionInfo customAssertionInfo =
+          mapCustomAssertionInfo(context, gmsAssertionInfo.getCustomAssertion());
+      assertionInfo.setCustomAssertion(customAssertionInfo);
+    }
+
     // Source Type
     if (gmsAssertionInfo.hasSource()) {
       assertionInfo.setSource(mapSource(gmsAssertionInfo.getSource()));
+    }
+
+    if (gmsAssertionInfo.hasExternalUrl()) {
+      assertionInfo.setExternalUrl(gmsAssertionInfo.getExternalUrl().toString());
     }
     return assertionInfo;
   }
@@ -317,6 +328,22 @@ public class AssertionMapper {
         gmsSchemaAssertionInfo.getSchema().getFields().stream()
             .map(AssertionMapper::mapSchemaField)
             .collect(Collectors.toList()));
+    return result;
+  }
+
+  private static CustomAssertionInfo mapCustomAssertionInfo(
+      @Nullable final QueryContext context,
+      final com.linkedin.assertion.CustomAssertionInfo gmsCustomAssertionInfo) {
+    CustomAssertionInfo result = new CustomAssertionInfo();
+    result.setType(gmsCustomAssertionInfo.getType());
+    result.setEntityUrn(gmsCustomAssertionInfo.getEntity().toString());
+    if (gmsCustomAssertionInfo.hasField()) {
+      result.setField(AssertionMapper.mapDatasetSchemaField(gmsCustomAssertionInfo.getField()));
+    }
+    if (gmsCustomAssertionInfo.hasLogic()) {
+      result.setLogic(gmsCustomAssertionInfo.getLogic());
+    }
+
     return result;
   }
 

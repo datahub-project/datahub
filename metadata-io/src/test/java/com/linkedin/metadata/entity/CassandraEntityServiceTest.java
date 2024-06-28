@@ -92,11 +92,11 @@ public class CassandraEntityServiceTest
                             .entityRegistry(_testEntityRegistry)
                             .build())
                     .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+                    .searchRetriever(TestOperationContexts.emptySearchRetriever)
                     .build(),
             null,
             opContext ->
-                ((EntityServiceAspectRetriever)
-                        opContext.getRetrieverContext().get().getAspectRetriever())
+                ((EntityServiceAspectRetriever) opContext.getAspectRetrieverOpt().get())
                     .setSystemOperationContext(opContext));
   }
 

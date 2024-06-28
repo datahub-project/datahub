@@ -63,7 +63,10 @@ public class ListOwnershipTypesResolver
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.OWNERSHIP_TYPE_ENTITY_NAME,
                     query,
-                    buildFilter(filters, Collections.emptyList()),
+                    buildFilter(
+                        filters,
+                        Collections.emptyList(),
+                        context.getOperationContext().getAspectRetriever()),
                     DEFAULT_SORT_CRITERION,
                     start,
                     count);

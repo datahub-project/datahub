@@ -41,9 +41,6 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   }
 
   @Override
-  public void configure() {}
-
-  @Override
   public long countByFilter(
       @Nonnull OperationContext operationContext,
       @Nonnull String entityName,

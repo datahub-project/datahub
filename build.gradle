@@ -32,11 +32,11 @@ buildscript {
 
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.51.6'
+  ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '6.1.4'
-  ext.springBootVersion = '3.2.3'
-  ext.springKafkaVersion = '3.1.2'
+  ext.springVersion = '6.1.5'
+  ext.springBootVersion = '3.2.6'
+  ext.springKafkaVersion = '3.1.6'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '5.14.0'
   ext.neo4jTestVersion = '5.14.0'
@@ -44,9 +44,9 @@ buildscript {
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.15.3'
-  ext.jettyVersion = '11.0.19'
-  ext.playVersion = '2.8.21'
-  ext.log4jVersion = '2.19.0'
+  ext.jettyVersion = '11.0.21'
+  ext.playVersion = '2.8.22'
+  ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.4.14'
   ext.hadoop3Version = '3.3.5'
@@ -54,7 +54,7 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '12.16.1'
   ext.googleJavaFormatVersion = '1.18.1'
-  ext.openLineageVersion = '1.14.0'
+  ext.openLineageVersion = '1.16.0'
   ext.logbackClassicJava8 = '1.2.12'
 
   ext.docker_registry = 'acryldata'
@@ -149,7 +149,6 @@ project.ext.externalDependency = [
     'hazelcastTest':"com.hazelcast:hazelcast:$hazelcastVersion:tests",
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.3',
-    'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
     'jacksonJDK8': "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion",
     'jacksonDataPropertyFormat': "com.fasterxml.jackson.dataformat:jackson-dataformat-properties:$jacksonVersion",

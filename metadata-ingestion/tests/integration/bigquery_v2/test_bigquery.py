@@ -44,8 +44,10 @@ def random_email():
 @patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
 @patch.object(BigQueryDataReader, "get_sample_data_for_table")
 @patch("google.cloud.bigquery.Client")
+@patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
 def test_bigquery_v2_ingest(
     client,
+    policy_tag_manager_client,
     get_sample_data_for_table,
     get_columns_for_dataset,
     get_datasets_for_project_id,
@@ -78,6 +80,7 @@ def test_bigquery_v2_ingest(
                 comment="comment",
                 is_partition_column=False,
                 cluster_column_position=None,
+                policy_tags=["Test Policy Tag"],
             ),
             BigqueryColumn(
                 name="email",

@@ -10,9 +10,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.ToString;
 
 @Builder
 @Getter
+@ToString
 public class DatahubOpenlineageConfig {
   @Builder.Default private final boolean isStreaming = false;
   @Builder.Default private final String pipelineName = null;
@@ -28,6 +30,9 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private final DataJobUrn parentJobUrn = null;
   // This is disabled until column level patch support won't be fixed in GMS
   @Builder.Default private final boolean usePatch = true;
+  @Builder.Default private String hivePlatformAlias = "hive";
+  @Builder.Default private Map<String, String> urnAliases = new HashMap<>();
+  @Builder.Default private final boolean disableSymlinkResolution = false;
 
   public List<PathSpec> getPathSpecsForPlatform(String platform) {
     if ((pathSpecs == null) || (pathSpecs.isEmpty())) {

@@ -117,7 +117,8 @@ SELECT
   t.table_type as table_type,
   t.creation_time as created,
   ts.last_modified_time as last_altered,
-  tos.OPTION_VALUE as comment,
+  tos_description.OPTION_VALUE as comment,
+  tos_labels.OPTION_VALUE as labels,
   t.is_insertable_into,
   t.ddl as view_definition,
   ts.row_count,
@@ -125,9 +126,12 @@ SELECT
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
   join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
-  and t.TABLE_NAME = tos.TABLE_NAME
-  and tos.OPTION_NAME = "description"
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_description on t.table_schema = tos_description.table_schema
+  and t.TABLE_NAME = tos_description.TABLE_NAME
+  and tos_description.OPTION_NAME = "description"
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_labels on t.table_schema = tos_labels.table_schema
+  and t.TABLE_NAME = tos_labels.TABLE_NAME
+  and tos_labels.OPTION_NAME = "labels"
 WHERE
   table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
@@ -142,14 +146,18 @@ SELECT
   t.table_name as table_name,
   t.table_type as table_type,
   t.creation_time as created,
-  tos.OPTION_VALUE as comment,
+  tos_description.OPTION_VALUE as comment,
+  tos_labels.OPTION_VALUE as labels,
   t.is_insertable_into,
   t.ddl as view_definition
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
-  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
-  and t.TABLE_NAME = tos.TABLE_NAME
-  and tos.OPTION_NAME = "description"
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_description on t.table_schema = tos_description.table_schema
+  and t.TABLE_NAME = tos_description.TABLE_NAME
+  and tos_description.OPTION_NAME = "description"
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_labels on t.table_schema = tos_labels.table_schema
+  and t.TABLE_NAME = tos_labels.TABLE_NAME
+  and tos_labels.OPTION_NAME = "labels"
 WHERE
   table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by

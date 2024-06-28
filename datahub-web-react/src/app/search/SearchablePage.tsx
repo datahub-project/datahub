@@ -75,22 +75,22 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     useEffect(() => {
         // Update the title only if it's not already set and there is a valid pathname
         if (!title && location.pathname) {
-          const formattedPath = location.pathname
-            .split('/')
-            .filter(word => word !== '')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' | ');
-    
-          if (formattedPath) {
-            return updateTitle(formattedPath);
-          }
+            const formattedPath = location.pathname
+                .split('/')
+                .filter((word) => word !== '')
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' | ');
+
+            if (formattedPath) {
+                return updateTitle(formattedPath);
+            }
         }
-    
+
         // Clean up the title when the component unmounts
         return () => {
-          updateTitle('');
+            updateTitle('');
         };
-      }, [location.pathname, title, updateTitle]);
+    }, [location.pathname, title, updateTitle]);
 
     useEffect(() => {
         if (suggestionsData !== undefined) {

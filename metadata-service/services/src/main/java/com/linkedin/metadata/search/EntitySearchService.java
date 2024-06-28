@@ -15,7 +15,7 @@ import org.opensearch.action.explain.ExplainResponse;
 
 public interface EntitySearchService {
 
-  void configure();
+  default void configure() {}
 
   /** Clear all data within the service */
   void clear(@Nonnull OperationContext opContext);

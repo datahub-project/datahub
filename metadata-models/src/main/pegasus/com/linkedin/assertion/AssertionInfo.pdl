@@ -17,7 +17,8 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     @Searchable = { }
     type: enum AssertionType {
       /**
-       * A single-dataset assertion. When this is the value, the datasetAssertion field will be populated.
+       * A single-dataset assertion.
+       * When this is the value, the datasetAssertion field will be populated.
        */
       DATASET
 
@@ -49,6 +50,14 @@ record AssertionInfo includes CustomProperties, ExternalReference {
        * Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word).
        */
       DATA_SCHEMA
+
+      /**
+       * A custom assertion. 
+       * When this is the value, the customAssertion field will be populated.
+       * Use this assertion type when the exact type of assertion is not modeled in DataHub or
+       * as a starting point when integrating third-party data quality tools.
+       */
+      CUSTOM
     }
 
     /**
@@ -67,7 +76,7 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     volumeAssertion: optional VolumeAssertionInfo
 
     /**
-        * A SQL Assertion definition. This field is populated when the type is SQL.
+    * A SQL Assertion definition. This field is populated when the type is SQL.
     */
     sqlAssertion: optional SqlAssertionInfo
 
@@ -80,6 +89,11 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     * An schema Assertion definition. This field is populated when the type is DATA_SCHEMA
     */
     schemaAssertion: optional SchemaAssertionInfo
+
+    /**
+    * A Custom Assertion definition. This field is populated when type is CUSTOM.
+    */
+    customAssertion: optional CustomAssertionInfo
 
     /**
     * The source or origin of the Assertion definition.

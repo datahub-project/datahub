@@ -20,7 +20,9 @@ export const Preview = ({
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
-    const url = `${entityRegistry.getEntityUrl(EntityType.Dataset, datasetUrn)}/${encodeURIComponent('Schema')}?schemaFilter=${encodeURIComponent(name)}`;
+    const url = `${entityRegistry.getEntityUrl(EntityType.Dataset, datasetUrn)}/${encodeURIComponent(
+        'Schema',
+    )}?schemaFilter=${encodeURIComponent(name)}`;
 
     return (
         <DefaultPreviewCard

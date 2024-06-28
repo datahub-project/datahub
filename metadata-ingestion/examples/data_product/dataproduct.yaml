@@ -22,6 +22,13 @@ tags:
 terms:
   - urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance
 
+institutional_memory:
+  elements:
+    - title: URL for campaign
+      description: |-
+        Go here to see the campaign.
+      url: https://example.com/pet_of_the_week
+
 # Custom Properties
 properties:
   lifecycle: production

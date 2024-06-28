@@ -665,6 +665,12 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 cur_proj = all_project_map[project_id]
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
+                    if cur_proj.parent_id not in all_project_map:
+                        self.report.report_warning(
+                            "project-issue",
+                            f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
+                        )
+                        break
                     cur_proj = all_project_map[cur_proj.parent_id]
                     ancestors = [cur_proj.name, *ancestors]
                 return ancestors

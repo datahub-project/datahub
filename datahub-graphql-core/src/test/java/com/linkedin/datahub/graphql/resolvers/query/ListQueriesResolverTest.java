@@ -169,6 +169,6 @@ public class ListQueriesResolverTest {
               FilterOperator.EQUAL));
     }
     criteria.setAnd(andConditions);
-    return ResolverUtils.buildFilter(Collections.emptyList(), ImmutableList.of(criteria));
+    return ResolverUtils.buildFilter(Collections.emptyList(), ImmutableList.of(criteria), null);
   }
 }

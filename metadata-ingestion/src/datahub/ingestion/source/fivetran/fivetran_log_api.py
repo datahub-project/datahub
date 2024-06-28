@@ -3,6 +3,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+import sqlglot
 from sqlalchemy import create_engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
@@ -77,6 +78,11 @@ class FivetranLogAPI:
         )
 
     def _query(self, query: str) -> List[Dict]:
+        # Automatically transpile snowflake query syntax to the target dialect.
+        if self.fivetran_log_config.destination_platform != "snowflake":
+            query = sqlglot.parse_one(query, dialect="snowflake").sql(
+                dialect=self.fivetran_log_config.destination_platform, pretty=True
+            )
         logger.debug(f"Query : {query}")
         resp = self.engine.execute(query)
         return [row for row in resp]

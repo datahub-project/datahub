@@ -502,6 +502,7 @@ class DBTNode:
     dbt_adapter: str
     dbt_name: str
     dbt_file_path: Optional[str]
+    dbt_package_name: Optional[str]  # this is pretty much always present
 
     node_type: str  # source, model, snapshot, seed, test, etc
     max_loaded_at: Optional[datetime]
@@ -644,6 +645,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
         "catalog_type": node.catalog_type,
         "language": node.language,
         "dbt_unique_id": node.dbt_name,
+        "dbt_package_name": node.dbt_package_name,
     }
 
     for attribute, node_attribute_value in node_attributes.items():
@@ -1249,9 +1251,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Create MCEs and MCPs for the dbt platform."""
 
-        mce_platform = DBT_PLATFORM
-        mce_platform_instance = self.config.platform_instance
-
         action_processor = OperationProcessor(
             self.config.meta_mapping,
             self.config.tag_prefix,
@@ -1267,15 +1266,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             node_datahub_urn = node.get_urn(
-                mce_platform,
+                DBT_PLATFORM,
                 self.config.env,
-                mce_platform_instance,
+                self.config.platform_instance,
             )
-            if not self.config.entities_enabled.can_emit_node_type(node.node_type):
-                logger.debug(
-                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
-                )
-                continue
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
@@ -1287,7 +1281,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )  # mutates meta_aspects
 
             aspects = self._generate_base_dbt_aspects(
-                node, additional_custom_props_filtered, mce_platform, meta_aspects
+                node, additional_custom_props_filtered, DBT_PLATFORM, meta_aspects
             )
 
             # Upstream lineage.
@@ -1302,29 +1296,36 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if view_prop_aspect:
                 aspects.append(view_prop_aspect)
 
-            # Subtype.
-            sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
-            if sub_type_wu:
-                yield sub_type_wu
+            # Generate main MCE.
+            if self.config.entities_enabled.can_emit_node_type(node.node_type):
+                # Subtype.
+                sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
+                if sub_type_wu:
+                    yield sub_type_wu
 
-            # DataPlatformInstance aspect.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=node_datahub_urn,
-                aspect=self._make_data_platform_instance_aspect(),
-            ).as_workunit()
+                # DataPlatformInstance aspect.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=node_datahub_urn,
+                    aspect=self._make_data_platform_instance_aspect(),
+                ).as_workunit()
 
-            if len(aspects) == 0:
-                continue
-            dataset_snapshot = DatasetSnapshot(urn=node_datahub_urn, aspects=aspects)
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            if self.config.write_semantics == "PATCH":
-                mce = self.get_patched_mce(mce)
-            yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+                dataset_snapshot = DatasetSnapshot(
+                    urn=node_datahub_urn, aspects=aspects
+                )
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                if self.config.write_semantics == "PATCH":
+                    mce = self.get_patched_mce(mce)
+                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+            else:
+                logger.debug(
+                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
+                )
 
             # Model performance.
-            yield from auto_workunit(
-                self._create_dataprocess_instance_mcps(node, upstream_lineage_class)
-            )
+            if self.config.entities_enabled.can_emit_model_performance:
+                yield from auto_workunit(
+                    self._create_dataprocess_instance_mcps(node, upstream_lineage_class)
+                )
 
     def _create_dataprocess_instance_mcps(
         self,
@@ -1332,8 +1333,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         upstream_lineage_class: Optional[UpstreamLineageClass],
     ) -> Iterable[MetadataChangeProposalWrapper]:
         if not node.model_performances:
-            return
-        if not self.config.entities_enabled.can_emit_model_performance:
             return
 
         node_datahub_urn = node.get_urn(

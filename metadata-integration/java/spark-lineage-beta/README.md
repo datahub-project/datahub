@@ -24,7 +24,7 @@ When running jobs using spark-submit, the agent needs to be configured in the co
 
 ```text
 #Configuring DataHub spark agent jar
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.6
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.11
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    http://localhost:8080
 ```
@@ -32,7 +32,7 @@ spark.datahub.rest.server                    http://localhost:8080
 ## spark-submit command line
 
 ```sh
-spark-submit --packages io.acryl:acryl-spark-lineage:0.2.6 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
+spark-submit --packages io.acryl:acryl-spark-lineage:0.2.11 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
 ```
 
 ### Configuration Instructions:  Amazon EMR
@@ -41,7 +41,7 @@ Set the following spark-defaults configuration properties as it
 stated [here](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-spark-configure.html)
 
 ```text
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.6
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.11
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    https://your_datahub_host/gms
 #If you have authentication set up then you also need to specify the Datahub access token
@@ -56,7 +56,7 @@ When running interactive jobs from a notebook, the listener can be configured wh
 spark = SparkSession.builder
 .master("spark://spark-master:7077")
 .appName("test-application")
-.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.2.6")
+.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.2.11")
 .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
 .config("spark.datahub.rest.server", "http://localhost:8080")
 .enableHiveSupport()
@@ -79,7 +79,7 @@ appName("test-application")
 config("spark.master","spark://spark-master:7077")
         .
 
-config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.2.6")
+config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.2.11")
         .
 
 config("spark.extraListeners","datahub.spark.DatahubSparkListener")
@@ -167,7 +167,7 @@ information like tokens.
 | spark.datahub.rest.rest.max_retries                                 |          | 0       | Number of times a request retried if failed                                                                                                                                               |
 | spark.datahub.rest.rest.retry_interval                              |          | 10      | Number of seconds to wait between retries                                                                                                                                                 |
 | spark.datahub.metadata.pipeline.platformInstance                    |          |         | Pipeline level platform instance                                                                                                                                                          |
-| spark.datahub.metadata.dataset.platformInstance                     |          |         | dataset level platform instance                                                                                                                                                           |
+| spark.datahub.metadata.dataset.platformInstance                     |          |         | dataset level platform instance (it is usefult to set if you have it in your glue ingestion)                                                                                              |
 | spark.datahub.metadata.dataset.env                                  |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD                                                                    |
 | spark.datahub.metadata.table.hive_platform_alias                    |          | hive    | By default, datahub assigns Hive-like tables to the Hive platform. If you are using Glue as your Hive metastore, set this config flag to `glue`                                           |
 | spark.datahub.metadata.include_scheme                               |          | true    | Include scheme from the path URI (e.g. hdfs://, s3://) in the dataset URN. We recommend setting this value to false, it is set to true for backwards compatibility with previous versions |
@@ -181,8 +181,8 @@ information like tokens.
 | spark.datahub.partition_regexp_pattern                              |          |         | Strip partition part from the path if path end matches with the specified regexp. Example `year=.*/month=.*/day=.*`                                                                       |
 | spark.datahub.tags                                                  |          |         | Comma separated list of tags to attach to the DataFlow                                                                                                                                    |
 | spark.datahub.domains                                               |          |         | Comma separated list of domain urns to attach to the DataFlow                                                                                                                             |
-| spark.datahub.stage_metadata_coalescing                             |          |         | Normally it coalesce and send metadata at the onApplicationEnd event which is never called on Databricks. You should enable this on Databricks if you want coalesced run .                |
-| spark.datahub.patch.enabled                                         |          | true    | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default it is enabled.                                               
+| spark.datahub.stage_metadata_coalescing                             |          |         | Normally it coalesce and send metadata at the onApplicationEnd event which is never called on Databricks or on Glue. You should enable this on Databricks if you want coalesced run .     |
+| spark.datahub.patch.enabled                                         |          | false   | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default it is enabled.                                               |
 |
 
 ## What to Expect: The Metadata Model

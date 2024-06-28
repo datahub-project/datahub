@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.ListQueriesInput;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -72,7 +73,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                             flags -> flags.setFulltext(true).setSkipHighlighting(true)),
                     QUERY_ENTITY_NAME,
                     query,
-                    buildFilters(input),
+                    buildFilters(input, context.getOperationContext().getAspectRetriever()),
                     sortCriterion,
                     start,
                     count);
@@ -109,7 +110,8 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
   }
 
   @Nullable
-  private Filter buildFilters(@Nonnull final ListQueriesInput input) {
+  private Filter buildFilters(
+      @Nonnull final ListQueriesInput input, @Nullable AspectRetriever aspectRetriever) {
     final AndFilterInput criteria = new AndFilterInput();
     List<FacetFilterInput> andConditions = new ArrayList<>();
 
@@ -136,6 +138,6 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     }
 
     criteria.setAnd(andConditions);
-    return buildFilter(Collections.emptyList(), ImmutableList.of(criteria));
+    return buildFilter(Collections.emptyList(), ImmutableList.of(criteria), aspectRetriever);
   }
 }
