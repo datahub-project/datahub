@@ -1332,6 +1332,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             and table.partition_info
             and table.partition_info.column is None
         ):
+            # Adding _PARTITIONTIME as a special partition column if not already present
+            # Setting ordinal_position to -1 as it does not correspond to a physical column position
             columns.append(
                 BigqueryColumn(
                     name=table.partition_info.field,
