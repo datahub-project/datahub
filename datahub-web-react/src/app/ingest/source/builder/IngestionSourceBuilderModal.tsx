@@ -13,8 +13,8 @@ const StyledModal = styled(Modal)`
     && .ant-modal-content {
         border-radius: 16px;
         overflow: hidden;
+        min-width: 400px;
     }
-    min-width: 400px;
 `;
 
 const TitleContainer = styled.div`
