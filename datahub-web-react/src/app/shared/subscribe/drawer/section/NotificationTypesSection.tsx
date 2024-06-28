@@ -12,7 +12,7 @@ import {
     selectKeysWithFilteringCleared,
     useDrawerSelector,
 } from '../state/selectors';
-import { Assertion, DataHubSubscription, EntityChangeType } from '../../../../../types.generated';
+import { Assertion, DataHubSubscription, EntityChangeType, EntityType } from '../../../../../types.generated';
 import AssertionSubscriptionAlert from './AssertionSubscriptionAlert';
 import {
     checkIsKeyBeingToggledForAssertionSubscriptionsAtAssetLevel,
@@ -56,8 +56,8 @@ const ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES_AS_STRINGS =
     ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES.map((e) => e.valueOf().toString());
 
 interface Props {
-    entityUrn: string
-    entityType: string
+    entityUrn: string;
+    entityType: EntityType;
     subscription?: DataHubSubscription;
     forSubResource?: { assertion?: Assertion };
     onClose();
