@@ -22,7 +22,7 @@ class HttpFileSystem(FileSystem):
             raise FileNotFoundError(f"Requested path {path} does not exist.")
         else:
             raise IOError(f"Cannot get file status for the requested path {path}.")
-    
+
     def list(self, path: str) -> Iterable[FileInfo]:
         status = self.file_status(path)
         return [status]
