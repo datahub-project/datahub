@@ -13,14 +13,18 @@ dependencies {
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.jacksonJDK8
   implementation externalDependency.jacksonDataPropertyFormat
-  implementation externalDependency.logbackClassic;
+  implementation externalDependency.logbackClassic
   implementation externalDependency.slf4jApi
   
   compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
 
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
-  annotationProcessor externalDependency.lombok
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
 }
 
 test {

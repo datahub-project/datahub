@@ -282,7 +282,8 @@ public class UpstreamLineageTemplateTest {
         upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatchBuilder.build());
 
     assertEquals(
-        result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(), unescapedUpstreamUrn);
+        result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(),
+        unescapedUpstreamUrn);
   }
 
   @Test
@@ -291,7 +292,7 @@ public class UpstreamLineageTemplateTest {
     String downstreamUrn =
         "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)";
     String unescapedUpstreamUrn =
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),tilde~column)";
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),tilde~column)";
     String escapedUpstreamUrn =
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),tilde~0column)";
     String lineagePath = downstreamUrn + "//" + escapedUpstreamUrn;
@@ -310,6 +311,7 @@ public class UpstreamLineageTemplateTest {
     UpstreamLineage result =
         upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatchBuilder.build());
     assertEquals(
-        result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(), unescapedUpstreamUrn);
+        result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(),
+        unescapedUpstreamUrn);
   }
 }
