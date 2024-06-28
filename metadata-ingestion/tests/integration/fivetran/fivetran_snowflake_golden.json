@@ -624,5 +624,53 @@
         "runId": "powerbi-test",
         "lastRunId": "no-run-id-provided"
     }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:be36f55c13ec4e313c7510770e50784a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
 }
 ]

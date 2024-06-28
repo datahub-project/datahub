@@ -149,9 +149,9 @@ class _DatahubLogFilter(logging.Filter):
                 return record.levelno >= logging.INFO
         else:
             if self.debug:
-                return record.levelno >= logging.WARNING
-            else:
                 return record.levelno >= logging.INFO
+            else:
+                return record.levelno >= logging.WARNING
 
 
 class _LogBuffer:
@@ -274,6 +274,7 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
 
 # Reduce logging from some particularly chatty libraries.
 logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("urllib3.util.retry").setLevel(logging.WARNING)
 logging.getLogger("snowflake").setLevel(level=logging.WARNING)
 # logging.getLogger("botocore").setLevel(logging.INFO)
 # logging.getLogger("google").setLevel(logging.INFO)

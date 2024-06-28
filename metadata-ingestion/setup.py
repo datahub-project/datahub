@@ -34,7 +34,7 @@ framework_common = {
     "importlib_metadata>=4.0.0; python_version < '3.10'",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.12",
+    "avro-gen3==0.7.13",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.11.3,<1.12",
     "python-dateutil>=2.8.0",
@@ -99,7 +99,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==24.0.1.dev7",
+    "acryl-sqlglot[rs]==25.3.1.dev3",
 }
 
 classification_lib = {
@@ -107,6 +107,10 @@ classification_lib = {
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
+    # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
+    # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
+    # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+    "numpy<2",
 }
 
 sql_common = (
@@ -168,6 +172,7 @@ bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
+    "google-cloud-datacatalog>=1.5.0",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
 }
@@ -197,6 +202,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
+    "cachetools",
 } | classification_lib
 
 trino = {
@@ -259,7 +265,9 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
-    "deltalake>=0.6.3, != 0.6.4",
+    # Version 0.18.0 broken on ARM Macs: https://github.com/delta-io/delta-rs/issues/2577
+    "deltalake>=0.6.3, != 0.6.4, < 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
@@ -400,6 +408,7 @@ plugins: Dict[str, Set[str]] = {
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
+    "snowflake-summary": snowflake_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
@@ -421,11 +430,11 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.1"},
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
     "unity-catalog": databricks | sql_common | sqllineage_lib,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common | sqllineage_lib,
-    "fivetran": snowflake_common | bigquery_common,
+    "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
 }
@@ -651,6 +660,7 @@ entry_points = {
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
+        "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
