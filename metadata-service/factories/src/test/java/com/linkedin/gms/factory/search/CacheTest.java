@@ -33,7 +33,6 @@ import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.javatuples.Quintet;
 import org.javatuples.Sextet;
@@ -185,8 +184,7 @@ public class CacheTest extends JetTestSupport {
     Cache cache2 = cacheManager2.getCache("relationshipSearchService");
 
     EntityLineageResultCacheKey key =
-        new EntityLineageResultCacheKey(
-            "", corpuserUrn, LineageDirection.DOWNSTREAM, 0L, 1L, 1, ChronoUnit.DAYS);
+        new EntityLineageResultCacheKey("", corpuserUrn, LineageDirection.DOWNSTREAM, 1, null);
 
     cache1.put(key, cachedEntityLineageResult);
 

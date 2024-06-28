@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
@@ -28,18 +29,18 @@ public class DeleteTagResolver implements DataFetcher<CompletableFuture<Boolean>
     final String tagUrn = environment.getArgument("urn");
     final Urn urn = Urn.createFromString(tagUrn);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (AuthorizationUtils.canManageTags(context)
               || AuthorizationUtils.canDeleteEntity(UrnUtils.getUrn(tagUrn), context)) {
             try {
-              _entityClient.deleteEntity(urn, context.getAuthentication());
+              _entityClient.deleteEntity(context.getOperationContext(), urn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
               CompletableFuture.runAsync(
                   () -> {
                     try {
-                      _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+                      _entityClient.deleteEntityReferences(context.getOperationContext(), urn);
                     } catch (Exception e) {
                       log.error(
                           String.format(
@@ -57,6 +58,8 @@ public class DeleteTagResolver implements DataFetcher<CompletableFuture<Boolean>
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

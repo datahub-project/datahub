@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -61,7 +62,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -78,13 +79,13 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                   .forEach(
                       filter -> {
                         criteria.add(
-                            new Criterion()
-                                .setField(filter.getField())
-                                .setValue(filter.getValue()));
+                            criterionFromFilter(
+                                filter, true, context.getOperationContext().getAspectRetriever()));
                       });
             }
 
             return UrnSearchResultsMapper.map(
+                context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext(),
                     SEARCHABLE_ENTITY_TYPES.stream()
@@ -105,6 +106,8 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                 String.format("Failed to resolve entities associated with Domain with urn %s", urn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

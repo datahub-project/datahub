@@ -44,6 +44,13 @@ source:
     stateful_ingestion:
       enabled: true
       ignore_old_state: true
+    urn_pattern: # URN pattern to ignore/include in the ingestion
+      deny:
+        # Ignores all datahub metadata where the urn matches the regex
+        - ^denied.urn.*
+      allow:
+        # Ingests all datahub metadata where the urn matches the regex.
+        - ^allowed.urn.*
 ```
 
 #### Limitations

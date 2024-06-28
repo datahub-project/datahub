@@ -4,10 +4,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.usage.UsageClient;
+import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import graphql.schema.DataFetcher;
@@ -29,9 +30,9 @@ public class DatasetStatsSummaryResolver
   // The maximum number of top users to show in the summary stats
   private static final Integer MAX_TOP_USERS = 5;
 
-  private final UsageClient usageClient;
+  private final UsageStatsJavaClient usageClient;
 
-  public DatasetStatsSummaryResolver(final UsageClient usageClient) {
+  public DatasetStatsSummaryResolver(final UsageStatsJavaClient usageClient) {
     this.usageClient = usageClient;
   }
 
@@ -41,10 +42,10 @@ public class DatasetStatsSummaryResolver
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            if (!AuthorizationUtils.isViewDatasetUsageAuthorized(resourceUrn, context)) {
+            if (!AuthorizationUtils.isViewDatasetUsageAuthorized(context, resourceUrn)) {
               log.debug(
                   "User {} is not authorized to view profile information for dataset {}",
                   context.getActorUrn(),
@@ -53,7 +54,8 @@ public class DatasetStatsSummaryResolver
             }
 
             com.linkedin.usage.UsageQueryResult usageQueryResult =
-                usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH);
+                usageClient.getUsageStats(
+                    context.getOperationContext(), resourceUrn.toString(), UsageTimeRange.MONTH);
 
             final DatasetStatsSummary result = new DatasetStatsSummary();
             result.setQueryCountLast30Days(usageQueryResult.getAggregations().getTotalSqlQueries());
@@ -79,7 +81,9 @@ public class DatasetStatsSummaryResolver
                 e);
             return null; // Do not throw when loading usage summary fails.
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<CorpUser> trimUsers(final List<CorpUser> originalUsers) {

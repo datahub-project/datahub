@@ -1,22 +1,24 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubViewKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -33,9 +35,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ViewService extends BaseService {
 
-  public ViewService(
-      @Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    super(entityClient, systemAuthentication);
+  public ViewService(@Nonnull SystemEntityClient entityClient) {
+    super(entityClient);
   }
 
   /**
@@ -52,16 +53,16 @@ public class ViewService extends BaseService {
    * @return the urn of the newly created View
    */
   public Urn createView(
+      @Nonnull OperationContext opContext,
       @Nonnull DataHubViewType type,
       @Nonnull String name,
       @Nullable String description,
       @Nonnull DataHubViewDefinition definition,
-      @Nonnull Authentication authentication,
       long currentTimeMs) {
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(name, "name must not be null");
     Objects.requireNonNull(definition, "definition must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
     // 1. Generate a unique id for the new View.
     final DataHubViewKey key = new DataHubViewKey();
@@ -75,7 +76,7 @@ public class ViewService extends BaseService {
     newView.setDefinition(definition);
     final AuditStamp auditStamp =
         new AuditStamp()
-            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
+            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
             .setTime(currentTimeMs);
     newView.setCreated(auditStamp);
     newView.setLastModified(auditStamp);
@@ -84,11 +85,11 @@ public class ViewService extends BaseService {
     try {
       return UrnUtils.getUrn(
           this.entityClient.ingestProposal(
+              opContext,
               AspectUtils.buildMetadataChangeProposal(
                   EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATAHUB_VIEW_ENTITY_NAME),
                   Constants.DATAHUB_VIEW_INFO_ASPECT_NAME,
                   newView),
-              authentication,
               false));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create View", e);
@@ -118,17 +119,17 @@ public class ViewService extends BaseService {
    *     field.
    */
   public void updateView(
+      @Nonnull OperationContext opContext,
       @Nonnull Urn viewUrn,
       @Nullable String name,
       @Nullable String description,
       @Nullable DataHubViewDefinition definition,
-      @Nonnull Authentication authentication,
       long currentTimeMs) {
     Objects.requireNonNull(viewUrn, "viewUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
     // 1. Check whether the View exists
-    DataHubViewInfo existingInfo = getViewInfo(viewUrn, authentication);
+    DataHubViewInfo existingInfo = getViewInfo(opContext, viewUrn);
 
     if (existingInfo == null) {
       throw new IllegalArgumentException(
@@ -149,14 +150,14 @@ public class ViewService extends BaseService {
     existingInfo.setLastModified(
         new AuditStamp()
             .setTime(currentTimeMs)
-            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
 
     // 3. Write changes to GMS
     try {
       this.entityClient.ingestProposal(
+          opContext,
           AspectUtils.buildMetadataChangeProposal(
               viewUrn, Constants.DATAHUB_VIEW_INFO_ASPECT_NAME, existingInfo),
-          authentication,
           false);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", viewUrn), e);
@@ -174,11 +175,24 @@ public class ViewService extends BaseService {
    * @param viewUrn the urn of the View
    * @param authentication the current authentication
    */
-  public void deleteView(@Nonnull Urn viewUrn, @Nonnull Authentication authentication) {
+  public void deleteView(@Nonnull OperationContext opContext, @Nonnull Urn viewUrn) {
     try {
       this.entityClient.deleteEntity(
-          Objects.requireNonNull(viewUrn, "viewUrn must not be null"),
-          Objects.requireNonNull(authentication, "authentication must not be null"));
+          opContext, Objects.requireNonNull(viewUrn, "viewUrn must not be null"));
+
+      // Asynchronously delete all references to the entity (to return quickly)
+      CompletableFuture.runAsync(
+          () -> {
+            try {
+              this.entityClient.deleteEntityReferences(opContext, viewUrn);
+            } catch (RemoteInvocationException e) {
+              log.error(
+                  String.format(
+                      "Caught exception while attempting to clear all entity references for view with urn %s",
+                      viewUrn),
+                  e);
+            }
+          });
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to delete View with urn %s", viewUrn), e);
     }
@@ -194,10 +208,10 @@ public class ViewService extends BaseService {
    */
   @Nullable
   public DataHubViewInfo getViewInfo(
-      @Nonnull final Urn viewUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn viewUrn) {
     Objects.requireNonNull(viewUrn, "viewUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
-    final EntityResponse response = getViewEntityResponse(viewUrn, authentication);
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
+    final EntityResponse response = getViewEntityResponse(opContext, viewUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME)) {
       return new DataHubViewInfo(
@@ -217,15 +231,15 @@ public class ViewService extends BaseService {
    */
   @Nullable
   public EntityResponse getViewEntityResponse(
-      @Nonnull final Urn viewUrn, @Nonnull final Authentication authentication) {
+      @Nonnull OperationContext opContext, @Nonnull final Urn viewUrn) {
     Objects.requireNonNull(viewUrn, "viewUrn must not be null");
-    Objects.requireNonNull(authentication, "authentication must not be null");
+    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
       return this.entityClient.getV2(
+          opContext,
           Constants.DATAHUB_VIEW_ENTITY_NAME,
           viewUrn,
-          ImmutableSet.of(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME),
-          authentication);
+          ImmutableSet.of(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to retrieve View with urn %s", viewUrn), e);
     }

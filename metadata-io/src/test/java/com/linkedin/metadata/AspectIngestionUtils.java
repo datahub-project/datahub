@@ -8,6 +8,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.key.CorpUserKey;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -17,6 +19,9 @@ import javax.annotation.Nonnull;
 public class AspectIngestionUtils {
 
   private AspectIngestionUtils() {}
+
+  private static final OperationContext opContext =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   @Nonnull
   public static Map<Urn, CorpUserKey> ingestCorpUserKeyAspects(
@@ -41,10 +46,16 @@ public class AspectIngestionUtils {
               .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(entityService));
+              .build(opContext.getAspectRetrieverOpt().get()));
     }
     entityService.ingestAspects(
-        AspectsBatchImpl.builder().aspectRetriever(entityService).items(items).build(), true, true);
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(items)
+            .build(),
+        true,
+        true);
     return aspects;
   }
 
@@ -72,10 +83,16 @@ public class AspectIngestionUtils {
               .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(entityService));
+              .build(opContext.getAspectRetrieverOpt().get()));
     }
     entityService.ingestAspects(
-        AspectsBatchImpl.builder().aspectRetriever(entityService).items(items).build(), true, true);
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(items)
+            .build(),
+        true,
+        true);
     return aspects;
   }
 
@@ -104,10 +121,16 @@ public class AspectIngestionUtils {
               .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(entityService));
+              .build(opContext.getAspectRetrieverOpt().get()));
     }
     entityService.ingestAspects(
-        AspectsBatchImpl.builder().aspectRetriever(entityService).items(items).build(), true, true);
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(items)
+            .build(),
+        true,
+        true);
     return aspects;
   }
 }

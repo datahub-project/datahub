@@ -1,9 +1,9 @@
+# Ingest data from S3
 source:
   type: s3
   config:
     path_specs:
-      -
-        include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
+      - include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
 
     aws_config:
       aws_access_key_id: *****
@@ -13,4 +13,9 @@ source:
     profiling:
       enabled: false
 
-# sink configs
+# Ingest data from local filesystem
+source:
+  type: s3
+  config:
+    path_specs:
+      - include: "/absolute/path/*.csv"

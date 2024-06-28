@@ -20,6 +20,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubRoleInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.Nonnull;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -46,7 +47,7 @@ public class IngestRolesStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws Exception {
+  public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
     final ObjectMapper mapper = new ObjectMapper();
     int maxSize =
         Integer.parseInt(
@@ -86,19 +87,20 @@ public class IngestRolesStep implements BootstrapStep {
 
       // If the info is not there, it means that the role was there before, but must now be removed
       if (!roleObj.has("info")) {
-        _entityService.deleteUrn(urn);
+        _entityService.deleteUrn(systemOperationContext, urn);
         continue;
       }
 
       final DataHubRoleInfo info =
           RecordUtils.toRecordTemplate(DataHubRoleInfo.class, roleObj.get("info").toString());
-      ingestRole(urn, info, auditStamp, roleInfoAspectSpec);
+      ingestRole(systemOperationContext, urn, info, auditStamp, roleInfoAspectSpec);
     }
 
     log.info("Successfully ingested default Roles.");
   }
 
   private void ingestRole(
+      @Nonnull OperationContext systemOperationContext,
       final Urn roleUrn,
       final DataHubRoleInfo dataHubRoleInfo,
       final AuditStamp auditStamp,
@@ -106,7 +108,8 @@ public class IngestRolesStep implements BootstrapStep {
       throws URISyntaxException {
     // 3. Write key & aspect
     final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
-    final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(roleUrn);
+    final AspectSpec keyAspectSpec =
+        systemOperationContext.getEntityRegistryContext().getKeyAspectSpec(roleUrn);
     GenericAspect aspect =
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(roleUrn, keyAspectSpec));
@@ -124,17 +127,19 @@ public class IngestRolesStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(
+        systemOperationContext,
         AspectsBatchImpl.builder()
             .mcps(
                 List.of(keyAspectProposal, proposal),
                 new AuditStamp()
                     .setActor(Urn.createFromString(SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
-                _entityService)
+                systemOperationContext.getRetrieverContext().get())
             .build(),
         false);
 
     _entityService.alwaysProduceMCLAsync(
+        systemOperationContext,
         roleUrn,
         DATAHUB_ROLE_ENTITY_NAME,
         DATAHUB_ROLE_INFO_ASPECT_NAME,

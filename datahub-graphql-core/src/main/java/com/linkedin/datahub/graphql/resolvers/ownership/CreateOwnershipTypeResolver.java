@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateOwnershipTypeInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -37,21 +38,23 @@ public class CreateOwnershipTypeResolver
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Urn urn =
                 _ownershipTypeService.createOwnershipType(
+                    context.getOperationContext(),
                     input.getName(),
                     input.getDescription(),
-                    context.getAuthentication(),
                     System.currentTimeMillis());
             return createOwnershipType(urn, input);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private OwnershipTypeEntity createOwnershipType(

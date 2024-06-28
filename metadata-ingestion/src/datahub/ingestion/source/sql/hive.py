@@ -84,7 +84,9 @@ try:
                 coltype = _type_map[col_type]
             except KeyError:
                 util.warn(
-                    "Did not recognize type '%s' of column '%s'" % (col_type, col_name)
+                    "Did not recognize type '{}' of column '{}'".format(
+                        col_type, col_name
+                    )
                 )
                 coltype = types.NullType  # type: ignore
             result.append(

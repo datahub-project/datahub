@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.operation;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
@@ -17,6 +17,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -51,7 +52,7 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
     final ReportOperationInput input =
         bindArgument(environment.getArgument("input"), ReportOperationInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           Urn entityUrn = UrnUtils.getUrn(input.getUrn());
 
@@ -67,13 +68,15 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(
                     entityUrn, OPERATION_ASPECT_NAME, mapOperation(input, context));
-            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             return true;
           } catch (Exception e) {
             log.error("Failed to report operation. {}", e.getMessage());
             throw new RuntimeException("Failed to report operation", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Operation mapOperation(final ReportOperationInput input, final QueryContext context)

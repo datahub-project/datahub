@@ -29,4 +29,19 @@ record LineageSearchEntity includes SearchEntity {
     * The degrees of separation (number of hops) between the source and this entity 
     */
   degrees: array[int] = []
+
+  /**
+   * Marks an entity as having been explored for as a part of the graph walk
+   */
+   explored: optional boolean
+
+  /**
+   * Indicates this destination node has additional unexplored child relationships
+   */
+  truncatedChildren: optional boolean
+
+  /**
+    * Whether this relationship was ignored as a hop while performing the graph walk
+    */
+  ignoredAsHop: optional boolean
 }

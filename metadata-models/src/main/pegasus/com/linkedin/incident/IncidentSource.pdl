@@ -22,6 +22,11 @@ record IncidentSource {
      * Manually created incident, via UI or API.
      */
      MANUAL
+
+    /**
+     * An assertion has failed, triggering the incident.
+     */
+     ASSERTION_FAILURE
   }
 
   /**

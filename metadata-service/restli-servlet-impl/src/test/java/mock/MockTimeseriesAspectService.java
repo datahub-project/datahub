@@ -2,7 +2,6 @@ package mock;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -14,6 +13,7 @@ import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,16 +41,11 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   }
 
   @Override
-  public TimeseriesAspectService postConstruct(AspectRetriever aspectRetriever) {
-    return this;
-  }
-
-  @Override
-  public void configure() {}
-
-  @Override
   public long countByFilter(
-      @Nonnull String entityName, @Nonnull String aspectName, @Nullable Filter filter) {
+      @Nonnull OperationContext operationContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Filter filter) {
     if (filter != null && !filter.equals(new Filter())) {
       return _filteredCount;
     }
@@ -60,6 +55,7 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   @Nonnull
   @Override
   public List<EnvelopedAspect> getAspectValues(
+      @Nonnull OperationContext operationContext,
       @Nonnull Urn urn,
       @Nonnull String entityName,
       @Nonnull String aspectName,
@@ -74,6 +70,7 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   @Nonnull
   @Override
   public GenericTable getAggregatedStats(
+      @Nonnull OperationContext operationContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull AggregationSpec[] aggregationSpecs,
@@ -85,13 +82,17 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
   @Nonnull
   @Override
   public DeleteAspectValuesResult deleteAspectValues(
-      @Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter) {
+      @Nonnull OperationContext operationContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull Filter filter) {
     return new DeleteAspectValuesResult();
   }
 
   @Nonnull
   @Override
   public String deleteAspectValuesAsync(
+      @Nonnull OperationContext operationContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull Filter filter,
@@ -101,6 +102,7 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
 
   @Override
   public String reindexAsync(
+      @Nonnull OperationContext operationContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull Filter filter,
@@ -110,25 +112,28 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
 
   @Nonnull
   @Override
-  public DeleteAspectValuesResult rollbackTimeseriesAspects(@Nonnull String runId) {
+  public DeleteAspectValuesResult rollbackTimeseriesAspects(
+      @Nonnull OperationContext operationContext, @Nonnull String runId) {
     return new DeleteAspectValuesResult();
   }
 
   @Override
   public void upsertDocument(
+      @Nonnull OperationContext operationContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nonnull String docId,
       @Nonnull JsonNode document) {}
 
   @Override
-  public List<TimeseriesIndexSizeResult> getIndexSizes() {
+  public List<TimeseriesIndexSizeResult> getIndexSizes(@Nonnull OperationContext operationContext) {
     return List.of();
   }
 
   @Nonnull
   @Override
   public TimeseriesScrollResult scrollAspects(
+      @Nonnull OperationContext operationContext,
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nullable Filter filter,

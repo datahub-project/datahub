@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddLinkInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
@@ -27,29 +28,35 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     final AddLinkInput input = bindArgument(environment.getArgument("input"), AddLinkInput.class);
 
     String linkUrl = input.getLinkUrl();
     String linkLabel = input.getLabel();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    if (!LinkUtils.isAuthorizedToUpdateLinks(environment.getContext(), targetUrn)
-        && !canUpdateGlossaryEntityLinks(targetUrn, environment.getContext())) {
+    if (!LinkUtils.isAuthorizedToUpdateLinks(context, targetUrn)
+        && !canUpdateGlossaryEntityLinks(targetUrn, context)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          LinkUtils.validateAddRemoveInput(linkUrl, targetUrn, _entityService);
+          LinkUtils.validateAddRemoveInput(
+              context.getOperationContext(), linkUrl, targetUrn, _entityService);
           try {
 
             log.debug("Adding Link. input: {}", input.toString());
 
-            Urn actor =
-                CorpuserUrn.createFromString(
-                    ((QueryContext) environment.getContext()).getActorUrn());
-            LinkUtils.addLink(linkUrl, linkLabel, targetUrn, actor, _entityService);
+            Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+            LinkUtils.addLink(
+                context.getOperationContext(),
+                linkUrl,
+                linkLabel,
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
@@ -59,7 +66,9 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
             throw new RuntimeException(
                 String.format("Failed to add link to resource with input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // Returns whether this is a glossary entity and whether you can edit this glossary entity with

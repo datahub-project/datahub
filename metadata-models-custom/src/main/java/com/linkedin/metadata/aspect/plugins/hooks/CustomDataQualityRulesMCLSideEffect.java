@@ -1,6 +1,6 @@
 package com.linkedin.metadata.aspect.plugins.hooks;
 
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
@@ -14,13 +14,11 @@ import javax.annotation.Nonnull;
 
 public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
 
-  public CustomDataQualityRulesMCLSideEffect(AspectPluginConfig config) {
-    super(config);
-  }
+  private AspectPluginConfig config;
 
   @Override
   protected Stream<MCLItem> applyMCLSideEffect(
-      @Nonnull Collection<MCLItem> mclItems, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
     return mclItems.stream()
         .map(
             item -> {
@@ -41,7 +39,9 @@ public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
                       })
                   .map(
                       eventMCP ->
-                          MCLItemImpl.builder().metadataChangeLog(eventMCP).build(aspectRetriever));
+                          MCLItemImpl.builder()
+                              .metadataChangeLog(eventMCP)
+                              .build(retrieverContext.getAspectRetriever()));
             })
         .filter(Optional::isPresent)
         .map(Optional::get);
@@ -66,5 +66,17 @@ public class CustomDataQualityRulesMCLSideEffect extends MCLSideEffect {
     }
 
     return Optional.empty();
+  }
+
+  @Nonnull
+  @Override
+  public AspectPluginConfig getConfig() {
+    return config;
+  }
+
+  @Override
+  public CustomDataQualityRulesMCLSideEffect setConfig(@Nonnull AspectPluginConfig config) {
+    this.config = config;
+    return this;
   }
 }

@@ -1,7 +1,6 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
@@ -14,9 +13,8 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.ReadItem;
+import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -27,17 +25,15 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -47,11 +43,6 @@ import lombok.extern.slf4j.Slf4j;
 public class EntityUtils {
 
   private EntityUtils() {}
-
-  @Nonnull
-  public static String toJsonAspect(@Nonnull final RecordTemplate aspectRecord) {
-    return RecordUtils.toJsonString(aspectRecord);
-  }
 
   @Nullable
   public static Urn getUrnFromString(String urnStr) {
@@ -71,12 +62,16 @@ public class EntityUtils {
   }
 
   public static void ingestChangeProposals(
+      @Nonnull OperationContext opContext,
       @Nonnull List<MetadataChangeProposal> changes,
       @Nonnull EntityService<?> entityService,
       @Nonnull Urn actor,
       @Nonnull Boolean async) {
     entityService.ingestProposal(
-        AspectsBatchImpl.builder().mcps(changes, getAuditStamp(actor), entityService).build(),
+        opContext,
+        AspectsBatchImpl.builder()
+            .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext().get())
+            .build(),
         async);
   }
 
@@ -91,6 +86,7 @@ public class EntityUtils {
    */
   @Nullable
   public static RecordTemplate getAspectFromEntity(
+      @Nonnull OperationContext opContext,
       String entityUrn,
       String aspectName,
       EntityService<?> entityService,
@@ -100,7 +96,7 @@ public class EntityUtils {
       return defaultValue;
     }
     try {
-      RecordTemplate aspect = entityService.getAspect(urn, aspectName, 0);
+      RecordTemplate aspect = entityService.getAspect(opContext, urn, aspectName, 0);
       if (aspect == null) {
         return defaultValue;
       }
@@ -113,13 +109,6 @@ public class EntityUtils {
           e.toString());
       return null;
     }
-  }
-
-  public static RecordTemplate buildKeyAspect(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
-    final EntitySpec spec = entityRegistry.getEntitySpec(urnToEntityName(urn));
-    final AspectSpec keySpec = spec.getKeyAspectSpec();
-    return EntityKeyUtils.convertUrnToEntityKey(urn, keySpec);
   }
 
   static Entity toEntity(@Nonnull final Snapshot snapshot) {
@@ -158,23 +147,12 @@ public class EntityUtils {
       final Urn urn, final List<EnvelopedAspect> envelopedAspects) {
     final EntityResponse response = new EntityResponse();
     response.setUrn(urn);
-    response.setEntityName(urnToEntityName(urn));
+    response.setEntityName(PegasusUtils.urnToEntityName(urn));
     response.setAspects(
         new EnvelopedAspectMap(
             envelopedAspects.stream()
                 .collect(Collectors.toMap(EnvelopedAspect::getName, aspect -> aspect))));
     return response;
-  }
-
-  static Map<String, Set<String>> buildEntityToValidAspects(final EntityRegistry entityRegistry) {
-    return entityRegistry.getEntitySpecs().values().stream()
-        .collect(
-            Collectors.toMap(
-                EntitySpec::getName,
-                entry ->
-                    entry.getAspectSpecs().stream()
-                        .map(AspectSpec::getName)
-                        .collect(Collectors.toSet())));
   }
 
   /**
@@ -185,9 +163,9 @@ public class EntityUtils {
    * @return
    */
   public static Optional<SystemAspect> toSystemAspect(
-      @Nullable EntityAspect entityAspect, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull RetrieverContext retrieverContext, @Nullable EntityAspect entityAspect) {
     return Optional.ofNullable(entityAspect)
-        .map(aspect -> EntityUtils.toSystemAspects(List.of(aspect), aspectRetriever))
+        .map(aspect -> toSystemAspects(retrieverContext, List.of(aspect)))
         .filter(systemAspects -> !systemAspects.isEmpty())
         .map(systemAspects -> systemAspects.get(0));
   }
@@ -202,14 +180,14 @@ public class EntityUtils {
    */
   @Nonnull
   public static Map<String, Map<String, SystemAspect>> toSystemAspects(
-      @Nonnull Map<String, Map<String, EntityAspect>> rawAspects,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull RetrieverContext retrieverContext,
+      @Nonnull Map<String, Map<String, EntityAspect>> rawAspects) {
     List<SystemAspect> systemAspects =
         toSystemAspects(
+            retrieverContext,
             rawAspects.values().stream()
                 .flatMap(m -> m.values().stream())
-                .collect(Collectors.toList()),
-            aspectRetriever);
+                .collect(Collectors.toList()));
 
     // map the list into the desired shape
     return systemAspects.stream()
@@ -232,10 +210,10 @@ public class EntityUtils {
 
   @Nonnull
   public static List<SystemAspect> toSystemAspectFromEbeanAspects(
-      @Nonnull Collection<EbeanAspectV2> rawAspects, @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull RetrieverContext retrieverContext, @Nonnull Collection<EbeanAspectV2> rawAspects) {
     return toSystemAspects(
-        rawAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList()),
-        aspectRetriever);
+        retrieverContext,
+        rawAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList()));
   }
 
   /**
@@ -249,8 +227,9 @@ public class EntityUtils {
    */
   @Nonnull
   public static List<SystemAspect> toSystemAspects(
-      @Nonnull Collection<EntityAspect> rawAspects, @Nonnull AspectRetriever aspectRetriever) {
-    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+      @Nonnull final RetrieverContext retrieverContext,
+      @Nonnull Collection<EntityAspect> rawAspects) {
+    EntityRegistry entityRegistry = retrieverContext.getAspectRetriever().getEntityRegistry();
 
     // Build
     List<SystemAspect> systemAspects =
@@ -281,7 +260,7 @@ public class EntityUtils {
 
     grouped.forEach(
         (key, value) -> {
-          AspectsBatch.applyReadMutationHooks(value, aspectRetriever);
+          AspectsBatch.applyReadMutationHooks(value, retrieverContext);
         });
 
     // Read Validate
@@ -298,28 +277,5 @@ public class EntityUtils {
     // TODO consider applying write validation plugins
 
     return systemAspects;
-  }
-
-  public static <T extends RecordTemplate> MetadataChangeProposal buildMCP(
-      Urn entityUrn, String aspectName, ChangeType changeType, @Nullable T aspect) {
-    MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(entityUrn);
-    proposal.setChangeType(changeType);
-    proposal.setEntityType(entityUrn.getEntityType());
-    proposal.setAspectName(aspectName);
-    if (aspect != null) {
-      proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
-    }
-    return proposal;
-  }
-
-  static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
-    if (jsonSystemMetadata == null || jsonSystemMetadata.equals("")) {
-      SystemMetadata response = new SystemMetadata();
-      response.setRunId(DEFAULT_RUN_ID);
-      response.setLastObserved(0);
-      return response;
-    }
-    return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
   }
 }

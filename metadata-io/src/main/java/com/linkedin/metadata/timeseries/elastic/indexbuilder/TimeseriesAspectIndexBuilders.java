@@ -1,5 +1,6 @@
 package com.linkedin.metadata.timeseries.elastic.indexbuilder;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -29,8 +30,8 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
   @Nonnull private final IndexConvention indexConvention;
 
   @Override
-  public void reindexAll() {
-    for (ReindexConfig config : buildReindexConfigs()) {
+  public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    for (ReindexConfig config : buildReindexConfigs(properties)) {
       try {
         indexBuilder.buildIndex(config);
       } catch (IOException e) {
@@ -69,7 +70,8 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
   }
 
   @Override
-  public List<ReindexConfig> buildReindexConfigs() {
+  public List<ReindexConfig> buildReindexConfigs(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     return entityRegistry.getEntitySpecs().values().stream()
         .flatMap(
             entitySpec ->
@@ -93,11 +95,5 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
               }
             })
         .collect(Collectors.toList());
-  }
-
-  @Override
-  public List<ReindexConfig> buildReindexConfigsWithAllStructProps(
-      Collection<StructuredPropertyDefinition> properties) throws IOException {
-    return buildReindexConfigs();
   }
 }

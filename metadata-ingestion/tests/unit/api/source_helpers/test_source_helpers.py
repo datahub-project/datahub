@@ -15,6 +15,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import (
+    _prepend_platform_instance,
     auto_browse_path_v2,
     auto_empty_dataset_usage_statistics,
     auto_lowercase_urns,
@@ -142,6 +143,15 @@ def _make_browse_path_entries(path: List[str]) -> List[models.BrowsePathEntryCla
     return [models.BrowsePathEntryClass(id=s, urn=None) for s in path]
 
 
+def prepend_platform_instance(
+    path: List[models.BrowsePathEntryClass],
+) -> List[models.BrowsePathEntryClass]:
+
+    platform = "platform"
+    instance = "instance"
+    return _prepend_platform_instance(path, platform, instance)
+
+
 def _get_browse_paths_from_wu(
     stream: Iterable[MetadataWorkUnit],
 ) -> Dict[str, List[models.BrowsePathEntryClass]]:
@@ -191,7 +201,7 @@ def test_auto_browse_path_v2_by_container_hierarchy(telemetry_ping_mock):
     assert paths["i"] == _make_container_browse_path_entries(["one", "a"])
 
     # Check urns emitted on demand -- not all at end
-    for urn in set(wu.get_urn() for wu in new_wus):
+    for urn in {wu.get_urn() for wu in new_wus}:
         try:
             idx = next(
                 i
@@ -243,8 +253,73 @@ def test_auto_browse_path_v2_ignores_urns_already_with(telemetry_ping_mock):
     paths = _get_browse_paths_from_wu(new_wus)
     assert paths["a"] == []
     assert paths["c"] == _make_container_browse_path_entries(["custom", "path"])
-    assert paths["e"] == _make_container_browse_path_entries(["a", "b", "c", "d"])
     assert paths["f"] == _make_browse_path_entries(["my", "path"])
+    assert paths["d"] == _make_container_browse_path_entries(["custom", "path", "c"])
+    assert paths["e"] == _make_container_browse_path_entries(
+        ["custom", "path", "c", "d"]
+    )
+
+
+@patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
+def test_auto_browse_path_v2_with_platform_instance_and_source_browse_path_v2(
+    telemetry_ping_mock,
+):
+    structure = {"a": {"b": {"c": {"d": ["e"]}}}}
+
+    platform = "platform"
+    instance = "instance"
+
+    wus = [
+        *auto_status_aspect(
+            _create_container_aspects(
+                structure,
+                other_aspects={
+                    "a": [
+                        models.BrowsePathsV2Class(
+                            path=_make_browse_path_entries(["my", "path"]),
+                        ),
+                    ],
+                },
+            ),
+        )
+    ]
+    new_wus = list(
+        auto_browse_path_v2(wus, platform=platform, platform_instance=instance)
+    )
+    assert not telemetry_ping_mock.call_count, telemetry_ping_mock.call_args_list
+    assert (
+        sum(bool(wu.get_aspect_of_type(models.BrowsePathsV2Class)) for wu in new_wus)
+        == 5
+    )
+
+    paths = _get_browse_paths_from_wu(new_wus)
+    assert paths["a"] == prepend_platform_instance(
+        _make_browse_path_entries(["my", "path"]),
+    )
+    assert paths["b"] == prepend_platform_instance(
+        [
+            *_make_browse_path_entries(["my", "path"]),
+            *_make_container_browse_path_entries(["a"]),
+        ],
+    )
+    assert paths["c"] == prepend_platform_instance(
+        [
+            *_make_browse_path_entries(["my", "path"]),
+            *_make_container_browse_path_entries(["a", "b"]),
+        ],
+    )
+    assert paths["d"] == prepend_platform_instance(
+        [
+            *_make_browse_path_entries(["my", "path"]),
+            *_make_container_browse_path_entries(["a", "b", "c"]),
+        ],
+    )
+    assert paths["e"] == prepend_platform_instance(
+        [
+            *_make_browse_path_entries(["my", "path"]),
+            *_make_container_browse_path_entries(["a", "b", "c", "d"]),
+        ],
+    )
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
@@ -371,7 +446,7 @@ def test_auto_browse_path_v2_container_over_legacy_browse_path(telemetry_ping_mo
 
 
 @patch("datahub.ingestion.api.source_helpers.telemetry.telemetry_instance.ping")
-def test_auto_browse_path_v2_with_platform_instsance(telemetry_ping_mock):
+def test_auto_browse_path_v2_with_platform_instance(telemetry_ping_mock):
     platform = "my_platform"
     platform_instance = "my_instance"
     platform_instance_urn = make_dataplatform_instance_urn(platform, platform_instance)

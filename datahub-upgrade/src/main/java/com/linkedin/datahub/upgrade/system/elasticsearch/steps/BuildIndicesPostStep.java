@@ -4,6 +4,7 @@ import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
 
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -12,8 +13,11 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +29,9 @@ import org.opensearch.client.RequestOptions;
 @Slf4j
 public class BuildIndicesPostStep implements UpgradeStep {
 
-  private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents _esComponents;
-  private final List<ElasticSearchIndexed> _services;
+  private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
+  private final List<ElasticSearchIndexed> services;
+  private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
 
   @Override
   public String id() {
@@ -44,7 +49,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
       try {
 
         List<ReindexConfig> indexConfigs =
-            getAllReindexConfigs(_services).stream()
+            getAllReindexConfigs(services, structuredProperties).stream()
                 .filter(ReindexConfig::requiresReindex)
                 .collect(Collectors.toList());
 
@@ -55,7 +60,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
 
           request.settings(indexSettings);
           boolean ack =
-              _esComponents
+              esComponents
                   .getSearchClient()
                   .indices()
                   .putSettings(request, RequestOptions.DEFAULT)
@@ -69,7 +74,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
           if (ack) {
             ack =
                 IndexUtils.validateWriteBlock(
-                    _esComponents.getSearchClient(), indexConfig.name(), false);
+                    esComponents.getSearchClient(), indexConfig.name(), false);
             log.info(
                 "Validated index {} with new settings. Settings: {}, Acknowledged: {}",
                 indexConfig.name(),

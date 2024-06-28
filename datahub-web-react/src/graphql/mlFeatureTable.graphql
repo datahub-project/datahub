@@ -1,6 +1,9 @@
 query getMLFeatureTable($urn: String!) {
     mlFeatureTable(urn: $urn) {
         ...nonRecursiveMLFeatureTable
+        privileges {
+            ...entityPrivileges
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

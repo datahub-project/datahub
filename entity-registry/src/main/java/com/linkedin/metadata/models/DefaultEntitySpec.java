@@ -4,11 +4,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -27,6 +23,7 @@ public class DefaultEntitySpec implements EntitySpec {
 
   private List<SearchableFieldSpec> _searchableFieldSpecs;
   private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
+  private List<SearchableRefFieldSpec> _searchableRefFieldSpecs;
 
   public DefaultEntitySpec(
       @Nonnull final Collection<AspectSpec> aspectSpecs,
@@ -104,6 +101,14 @@ public class DefaultEntitySpec implements EntitySpec {
     }
 
     return _searchableFieldSpecs;
+  }
+
+  @Override
+  public List<SearchableRefFieldSpec> getSearchableRefFieldSpecs() {
+    if (_searchableRefFieldSpecs == null) {
+      _searchableRefFieldSpecs = EntitySpec.super.getSearchableRefFieldSpecs();
+    }
+    return _searchableRefFieldSpecs;
   }
 
   @Override

@@ -38,6 +38,8 @@ class CorpUser:
     title: Optional[str] = None
     image_url: Optional[str] = None
     phone: Optional[str] = None
+    real_name: Optional[str] = None
+    slack_display_name: Optional[str] = None
 
 
 class SlackSourceConfig(ConfigModel):
@@ -97,6 +99,7 @@ class SlackSource(Source):
         self.rate_limiter = RateLimiter(
             max_calls=self.config.api_requests_per_min, period=60
         )
+        self._use_users_info = False
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -143,6 +146,12 @@ class SlackSource(Source):
                 corpuser_editable_info.pictureLink = user_obj.image_url
             if user_obj.phone:
                 corpuser_editable_info.phone = user_obj.phone
+            if (
+                not corpuser_editable_info.displayName
+                or corpuser_editable_info.displayName == corpuser_editable_info.email
+            ):
+                # let's fill out a real name
+                corpuser_editable_info.displayName = user_obj.real_name
             yield MetadataWorkUnit(
                 id=f"{user_obj.urn}",
                 mcp=MetadataChangeProposalWrapper(
@@ -155,11 +164,12 @@ class SlackSource(Source):
         self, cursor: Optional[str]
     ) -> Tuple[List[MetadataWorkUnit], Optional[str]]:
         result_channels: List[MetadataWorkUnit] = []
-        response = self.get_slack_client().conversations_list(
-            types="public_channel",
-            limit=self.config.channels_iteration_limit,
-            cursor=cursor,
-        )
+        with self.rate_limiter:
+            response = self.get_slack_client().conversations_list(
+                types="public_channel",
+                limit=self.config.channels_iteration_limit,
+                cursor=cursor,
+            )
         assert isinstance(response.data, dict)
         if not response.data["ok"]:
             self.report.report_failure(
@@ -238,18 +248,34 @@ class SlackSource(Source):
                 break
 
     def populate_user_profile(self, user_obj: CorpUser) -> None:
+        if not user_obj.slack_id:
+            return
         try:
             # https://api.slack.com/methods/users.profile.get
-            user_profile_res = self.get_slack_client().users_profile_get(
-                user=user_obj.slack_id
-            )
+            with self.rate_limiter:
+                if self._use_users_info:
+                    user_profile_res = self.get_slack_client().users_info(
+                        user=user_obj.slack_id
+                    )
+                    user_profile_res = user_profile_res.get("user", {})
+                else:
+                    user_profile_res = self.get_slack_client().users_profile_get(
+                        user=user_obj.slack_id
+                    )
+            logger.debug(f"User profile: {user_profile_res}")
             user_profile = user_profile_res.get("profile", {})
             user_obj.title = user_profile.get("title")
             user_obj.image_url = user_profile.get("image_192")
             user_obj.phone = user_profile.get("phone")
+            user_obj.real_name = user_profile.get("real_name")
+            user_obj.slack_display_name = user_profile.get("display_name")
+
         except Exception as e:
             if "missing_scope" in str(e):
-                raise e
+                if self._use_users_info:
+                    raise e
+                self._use_users_info = True
+                self.populate_user_profile(user_obj)
             return
 
     def populate_slack_id_from_email(self, user_obj: CorpUser) -> None:
@@ -257,9 +283,10 @@ class SlackSource(Source):
             return
         try:
             # https://api.slack.com/methods/users.lookupByEmail
-            user_info_res = self.get_slack_client().users_lookupByEmail(
-                email=user_obj.email
-            )
+            with self.rate_limiter:
+                user_info_res = self.get_slack_client().users_lookupByEmail(
+                    email=user_obj.email
+                )
             user_info = user_info_res.get("user", {})
             user_obj.slack_id = user_info.get("id")
         except Exception as e:

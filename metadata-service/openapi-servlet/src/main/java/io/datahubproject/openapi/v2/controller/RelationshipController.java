@@ -1,34 +1,30 @@
 package io.datahubproject.openapi.v2.controller;
 
-import static io.datahubproject.openapi.v2.utils.ControllerUtil.checkAuthorized;
+import static com.linkedin.metadata.authorization.ApiGroup.RELATIONSHIP;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.graph.RelatedEntities;
-import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.utils.QueryUtils;
-import com.linkedin.metadata.utils.SearchUtil;
+import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
-import io.datahubproject.openapi.v2.models.GenericScrollResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,23 +46,9 @@ import org.springframework.web.bind.annotation.RestController;
     description = "APIs for ingesting and accessing entity relationships.")
 public class RelationshipController {
 
-  private static final String[] SORT_FIELDS = {"source.urn", "destination.urn", "relationshipType"};
-  private static final String[] SORT_ORDERS = {"ASCENDING", "ASCENDING", "ASCENDING"};
-  private static final List<SortCriterion> EDGE_SORT_CRITERION;
-
-  static {
-    EDGE_SORT_CRITERION =
-        IntStream.range(0, SORT_FIELDS.length)
-            .mapToObj(
-                idx -> SearchUtil.sortBy(SORT_FIELDS[idx], SortOrder.valueOf(SORT_ORDERS[idx])))
-            .collect(Collectors.toList());
-  }
-
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private ElasticSearchGraphService graphService;
   @Autowired private AuthorizerChain authorizationChain;
-
-  @Autowired private boolean restApiAuthorizationEnabled;
 
   /**
    * Returns relationship edges by type
@@ -83,6 +65,16 @@ public class RelationshipController {
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "scrollId", required = false) String scrollId) {
 
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorized(authentication, authorizationChain, RELATIONSHIP, READ)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to "
+              + READ
+              + " "
+              + RELATIONSHIP);
+    }
+
     RelatedEntitiesScrollResult result =
         graphService.scrollRelatedEntities(
             null,
@@ -91,30 +83,30 @@ public class RelationshipController {
             null,
             List.of(relationshipType),
             new RelationshipFilter().setDirection(RelationshipDirection.UNDIRECTED),
-            EDGE_SORT_CRITERION,
+            Edge.EDGE_SORT_CRITERION,
             scrollId,
             count,
             null,
             null);
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      Set<EntitySpec> entitySpecs =
-          result.getEntities().stream()
-              .flatMap(
-                  relatedEntity ->
-                      Stream.of(
-                          entityRegistry.getEntitySpec(
-                              UrnUtils.getUrn(relatedEntity.getUrn()).getEntityType()),
-                          entityRegistry.getEntitySpec(
-                              UrnUtils.getUrn(relatedEntity.getSourceUrn()).getEntityType())))
-              .collect(Collectors.toSet());
-
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpecs,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    if (!AuthUtil.isAPIAuthorizedUrns(
+        authentication,
+        authorizationChain,
+        RELATIONSHIP,
+        READ,
+        result.getEntities().stream()
+            .flatMap(
+                edge ->
+                    Stream.of(
+                        UrnUtils.getUrn(edge.getSourceUrn()),
+                        UrnUtils.getUrn(edge.getDestinationUrn())))
+            .collect(Collectors.toSet()))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to "
+              + READ
+              + " "
+              + RELATIONSHIP);
     }
 
     return ResponseEntity.ok(
@@ -146,6 +138,21 @@ public class RelationshipController {
 
     final RelatedEntitiesScrollResult result;
 
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorizedUrns(
+        authentication,
+        authorizationChain,
+        RELATIONSHIP,
+        READ,
+        List.of(UrnUtils.getUrn(entityUrn)))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to "
+              + READ
+              + " "
+              + RELATIONSHIP);
+    }
+
     switch (RelationshipDirection.valueOf(direction.toUpperCase())) {
       case INCOMING -> result =
           graphService.scrollRelatedEntities(
@@ -159,7 +166,7 @@ public class RelationshipController {
               new RelationshipFilter()
                   .setDirection(RelationshipDirection.UNDIRECTED)
                   .setOr(QueryUtils.newFilter("destination.urn", entityUrn).getOr()),
-              EDGE_SORT_CRITERION,
+              Edge.EDGE_SORT_CRITERION,
               scrollId,
               count,
               null,
@@ -176,7 +183,7 @@ public class RelationshipController {
               new RelationshipFilter()
                   .setDirection(RelationshipDirection.UNDIRECTED)
                   .setOr(QueryUtils.newFilter("source.urn", entityUrn).getOr()),
-              EDGE_SORT_CRITERION,
+              Edge.EDGE_SORT_CRITERION,
               scrollId,
               count,
               null,
@@ -184,24 +191,24 @@ public class RelationshipController {
       default -> throw new IllegalArgumentException("Direction must be INCOMING or OUTGOING");
     }
 
-    if (restApiAuthorizationEnabled) {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      Set<EntitySpec> entitySpecs =
-          result.getEntities().stream()
-              .flatMap(
-                  relatedEntity ->
-                      Stream.of(
-                          entityRegistry.getEntitySpec(
-                              UrnUtils.getUrn(relatedEntity.getDestinationUrn()).getEntityType()),
-                          entityRegistry.getEntitySpec(
-                              UrnUtils.getUrn(relatedEntity.getSourceUrn()).getEntityType())))
-              .collect(Collectors.toSet());
-
-      checkAuthorized(
-          authorizationChain,
-          authentication.getActor(),
-          entitySpecs,
-          ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()));
+    if (!AuthUtil.isAPIAuthorizedUrns(
+        authentication,
+        authorizationChain,
+        RELATIONSHIP,
+        READ,
+        result.getEntities().stream()
+            .flatMap(
+                edge ->
+                    Stream.of(
+                        UrnUtils.getUrn(edge.getSourceUrn()),
+                        UrnUtils.getUrn(edge.getDestinationUrn())))
+            .collect(Collectors.toSet()))) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to "
+              + READ
+              + " "
+              + RELATIONSHIP);
     }
 
     return ResponseEntity.ok(

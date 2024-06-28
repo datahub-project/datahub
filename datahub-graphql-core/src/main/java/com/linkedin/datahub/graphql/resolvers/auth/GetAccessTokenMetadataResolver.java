@@ -4,6 +4,7 @@ import com.datahub.authentication.token.StatefulTokenService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.types.auth.AccessTokenMetadataType;
@@ -31,7 +32,7 @@ public class GetAccessTokenMetadataResolver
   @Override
   public CompletableFuture<AccessTokenMetadata> get(final DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final String token = environment.getArgument("token");
@@ -54,6 +55,8 @@ public class GetAccessTokenMetadataResolver
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

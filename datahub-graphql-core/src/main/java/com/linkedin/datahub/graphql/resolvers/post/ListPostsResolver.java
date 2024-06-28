@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ListPostsInput;
 import com.linkedin.datahub.graphql.generated.ListPostsResult;
 import com.linkedin.datahub.graphql.types.post.PostMapper;
@@ -45,7 +46,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final SortCriterion sortCriterion =
@@ -67,24 +68,28 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
             // Then, get and hydrate all Posts.
             final Map<Urn, EntityResponse> entities =
                 _entityClient.batchGetV2(
+                    context.getOperationContext(),
                     POST_ENTITY_NAME,
                     new HashSet<>(
                         gmsResult.getEntities().stream()
                             .map(SearchEntity::getEntity)
                             .collect(Collectors.toList())),
-                    null,
-                    authentication);
+                    null);
 
             final ListPostsResult result = new ListPostsResult();
             result.setStart(gmsResult.getFrom());
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
             result.setPosts(
-                entities.values().stream().map(PostMapper::map).collect(Collectors.toList()));
+                entities.values().stream()
+                    .map(e -> PostMapper.map(context, e))
+                    .collect(Collectors.toList()));
             return result;
           } catch (Exception e) {
             throw new RuntimeException("Failed to list posts", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

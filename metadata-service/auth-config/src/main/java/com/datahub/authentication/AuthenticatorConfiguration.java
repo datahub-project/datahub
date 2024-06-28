@@ -5,7 +5,7 @@ import lombok.Data;
 
 /**
  * POJO representing {@link com.datahub.plugins.auth.authentication.Authenticator} configurations
- * provided in the application.yml.
+ * provided in the application.yaml.
  */
 @Data
 public class AuthenticatorConfiguration {

@@ -1,4 +1,5 @@
-from typing import Dict, Iterable, List, Optional, Tuple
+import re
+from typing import Dict, Iterable, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -19,7 +20,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -201,35 +201,16 @@ def get_dataplatform_instance_aspect(
 
 def gen_lineage(
     dataset_urn: str,
-    lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None,
-    incremental_lineage: bool = True,
+    upstream_lineage: Optional[UpstreamLineage],
 ) -> Iterable[MetadataWorkUnit]:
-    if lineage_info is None:
-        return
-
-    upstream_lineage, upstream_column_props = lineage_info
     if upstream_lineage is not None:
-        if incremental_lineage:
-            patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(urn=dataset_urn)
-            for upstream in upstream_lineage.upstreams:
-                patch_builder.add_upstream_lineage(upstream)
+        lineage_workunits = [
+            MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=upstream_lineage
+            ).as_workunit()
+        ]
 
-            lineage_workunits = [
-                MetadataWorkUnit(
-                    id=f"upstreamLineage-for-{dataset_urn}",
-                    mcp_raw=mcp,
-                )
-                for mcp in patch_builder.build()
-            ]
-        else:
-            lineage_workunits = [
-                MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=upstream_lineage
-                ).as_workunit()
-            ]
-
-        for wu in lineage_workunits:
-            yield wu
+        yield from lineage_workunits
 
 
 # downgrade a schema field
@@ -254,3 +235,27 @@ def schema_requires_v2(canonical_schema: List[SchemaField]) -> bool:
         if ARRAY_TOKEN in field_name or UNION_TOKEN in field_name:
             return True
     return False
+
+
+CHECK_TABLE_TABLE_PART_SEPARATOR_PATTERN = re.compile("\\\\?\\.")
+
+
+def check_table_with_profile_pattern(
+    profile_pattern: AllowDenyPattern, table_name: str
+) -> bool:
+    parts = len(table_name.split("."))
+    allow_list: List[str] = []
+
+    for pattern in profile_pattern.allow:
+        replaced_pattern = pattern.replace(".*", "").replace(".+", "")
+        splits = re.split(CHECK_TABLE_TABLE_PART_SEPARATOR_PATTERN, replaced_pattern)
+        if parts + 1 == len(splits):
+            table_pattern = pattern[: pattern.find(splits[-2]) + len(splits[-2])]
+            allow_list.append(table_pattern + "$")
+        else:
+            allow_list.append(pattern)
+
+    table_allow_deny_pattern = AllowDenyPattern(
+        allow=allow_list, deny=profile_pattern.deny
+    )
+    return table_allow_deny_pattern.allowed(table_name)

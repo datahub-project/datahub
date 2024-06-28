@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -44,10 +45,10 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
     final Urn queryUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QuerySubjects existingSubjects =
-              _queryService.getQuerySubjects(queryUrn, authentication);
+              _queryService.getQuerySubjects(context.getOperationContext(), queryUrn);
 
           if (existingSubjects == null) {
             // No Query Found
@@ -77,6 +78,7 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
 
           try {
             _queryService.updateQuery(
+                context.getOperationContext(),
                 queryUrn,
                 input.getProperties() != null ? input.getProperties().getName() : null,
                 input.getProperties() != null ? input.getProperties().getDescription() : null,
@@ -94,13 +96,16 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
                                 new QuerySubject().setEntity(UrnUtils.getUrn(sub.getDatasetUrn())))
                         .collect(Collectors.toList())
                     : null,
-                authentication,
                 System.currentTimeMillis());
-            return QueryMapper.map(_queryService.getQueryEntityResponse(queryUrn, authentication));
+            return QueryMapper.map(
+                context,
+                _queryService.getQueryEntityResponse(context.getOperationContext(), queryUrn));
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format("Failed to update Query from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

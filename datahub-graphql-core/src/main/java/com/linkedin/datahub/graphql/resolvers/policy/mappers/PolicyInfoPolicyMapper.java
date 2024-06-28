@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActorFilter;
 import com.linkedin.datahub.graphql.generated.Policy;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
@@ -19,6 +20,7 @@ import com.linkedin.policy.DataHubResourceFilter;
 import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Maps {@link com.linkedin.policy.DataHubPolicyInfo} to GraphQL {@link
@@ -28,12 +30,13 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
 
   public static final PolicyInfoPolicyMapper INSTANCE = new PolicyInfoPolicyMapper();
 
-  public static Policy map(@Nonnull final DataHubPolicyInfo policyInfo) {
-    return INSTANCE.apply(policyInfo);
+  public static Policy map(
+      @Nullable QueryContext context, @Nonnull final DataHubPolicyInfo policyInfo) {
+    return INSTANCE.apply(context, policyInfo);
   }
 
   @Override
-  public Policy apply(DataHubPolicyInfo info) {
+  public Policy apply(@Nullable QueryContext context, DataHubPolicyInfo info) {
     final Policy result = new Policy();
     result.setDescription(info.getDescription());
     // Careful - we assume no other Policy types or states have been ingested using a backdoor.
@@ -44,7 +47,7 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     result.setActors(mapActors(info.getActors()));
     result.setEditable(info.isEditable());
     if (info.hasResources()) {
-      result.setResources(mapResources(info.getResources()));
+      result.setResources(mapResources(context, info.getResources()));
     }
     return result;
   }
@@ -74,7 +77,8 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     return result;
   }
 
-  private ResourceFilter mapResources(final DataHubResourceFilter resourceFilter) {
+  private static ResourceFilter mapResources(
+      @Nullable QueryContext context, final DataHubResourceFilter resourceFilter) {
     final ResourceFilter result = new ResourceFilter();
     result.setAllResources(resourceFilter.isAllResources());
     if (resourceFilter.hasType()) {
@@ -84,12 +88,13 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
       result.setResources(resourceFilter.getResources());
     }
     if (resourceFilter.hasFilter()) {
-      result.setFilter(mapFilter(resourceFilter.getFilter()));
+      result.setFilter(mapFilter(context, resourceFilter.getFilter()));
     }
     return result;
   }
 
-  private PolicyMatchFilter mapFilter(final com.linkedin.policy.PolicyMatchFilter filter) {
+  private static PolicyMatchFilter mapFilter(
+      @Nullable QueryContext context, final com.linkedin.policy.PolicyMatchFilter filter) {
     return PolicyMatchFilter.builder()
         .setCriteria(
             filter.getCriteria().stream()
@@ -99,7 +104,7 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
                             .setField(criterion.getField())
                             .setValues(
                                 criterion.getValues().stream()
-                                    .map(this::mapValue)
+                                    .map(v -> mapValue(context, v))
                                     .collect(Collectors.toList()))
                             .setCondition(
                                 PolicyMatchCondition.valueOf(criterion.getCondition().name()))
@@ -108,13 +113,14 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
         .build();
   }
 
-  private PolicyMatchCriterionValue mapValue(final String value) {
+  private static PolicyMatchCriterionValue mapValue(
+      @Nullable QueryContext context, final String value) {
     try {
       // If value is urn, set entity field
       Urn urn = Urn.createFromString(value);
       return PolicyMatchCriterionValue.builder()
           .setValue(value)
-          .setEntity(UrnToEntityMapper.map(urn))
+          .setEntity(UrnToEntityMapper.map(context, urn))
           .build();
     } catch (URISyntaxException e) {
       // Value is not an urn. Just set value
