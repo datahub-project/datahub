@@ -5,7 +5,8 @@ function readyToTypeEditor() {
     .should("be.visible")
     .and("not.be.disabled")
     .click({ force: true })
-    .should("be.focused");
+    .should("be.focused")
+    .debug();
 }
 
 describe("run managed ingestion", () => {
