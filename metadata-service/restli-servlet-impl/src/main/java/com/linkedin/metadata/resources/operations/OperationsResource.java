@@ -202,7 +202,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get index sizes.");
           }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
 
             TimeseriesIndicesSizesResult result = new TimeseriesIndicesSizesResult();
           result.setIndexSizes(
@@ -232,7 +232,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to truncate timeseries index");
     }
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),"executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
 
     if (forceDeleteByQuery != null && forceDeleteByQuery.equals(forceReindex)) {
       return "please only set forceReindex OR forceDeleteByQuery flags";

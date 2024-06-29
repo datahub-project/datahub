@@ -150,14 +150,12 @@ public class RequestContext implements ContextInterface {
 
     private static String extractSourceIP(@Nonnull HttpServletRequest request) {
       return Optional.ofNullable(request.getHeader(HttpHeaders.X_FORWARDED_FOR))
-          .map(xForward -> xForward.split(",")[0])
           .orElse(request.getRemoteAddr());
     }
 
     private static String extractSourceIP(@Nonnull ResourceContext resourceContext) {
       return Optional.ofNullable(
               resourceContext.getRequestHeaders().get(HttpHeaders.X_FORWARDED_FOR))
-          .map(xForward -> xForward.split(",")[0])
           .orElse(resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR").toString());
     }
   }
