@@ -123,11 +123,16 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
             else:
                 databases = inspector.get_schema_names()
             for db in databases:
-                if self.config.database_pattern.allowed(db):
-                    url = self.config.get_sql_alchemy_url(current_db=db)
-                    with create_engine(url, **self.config.options).connect() as conn:
-                        inspector = inspect(conn)
-                        yield inspector
+                try:
+                    if self.config.database_pattern.allowed(db):
+                        url = self.config.get_sql_alchemy_url(current_db=db)
+                        with create_engine(
+                            url, **self.config.options
+                        ).connect() as conn:
+                            inspector = inspect(conn)
+                            yield inspector
+                except Exception as e:
+                    logger.exception(f"Failed to create connection with Database {db} -> {e}")
 
     def gen_schema_containers(
         self,
