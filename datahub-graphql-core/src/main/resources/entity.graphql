@@ -3461,6 +3461,11 @@ type DatasetEditableProperties {
     Description of the Dataset
     """
     description: String
+
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """
@@ -4829,6 +4834,10 @@ input DatasetEditablePropertiesUpdate {
     Writable description aka documentation for a Dataset
     """
     description: String!
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """

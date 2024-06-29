@@ -222,6 +222,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     properties.setQualifiedName(gmsProperties.getQualifiedName());
     dataset.setProperties(properties);
     dataset.setDescription(properties.getDescription());
+    dataset.setName(properties.getName());
     if (gmsProperties.getUri() != null) {
       dataset.setUri(gmsProperties.getUri().toString());
     }
@@ -248,6 +249,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         new EditableDatasetProperties(dataMap);
     final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
     editableProperties.setDescription(editableDatasetProperties.getDescription());
+    if (editableDatasetProperties.getName() != null) {
+      editableProperties.setName(editableDatasetProperties.getName());
+    }
     dataset.setEditableProperties(editableProperties);
   }
 
