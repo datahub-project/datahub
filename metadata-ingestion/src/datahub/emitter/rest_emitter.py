@@ -243,12 +243,14 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._emit_generic(url, payload)
 
     def emit_mcp(
-        self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+        self,
+        mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+        gms_async: bool = True,
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposal"
 
         mcp_obj = pre_json_transform(mcp.to_obj())
-        payload = json.dumps({"proposal": mcp_obj})
+        payload = json.dumps({"proposal": mcp_obj, "async": str(gms_async)})
 
         self._emit_generic(url, payload)
 

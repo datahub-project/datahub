@@ -118,7 +118,9 @@ class MockDataHubGraph(DataHubGraph):
         self.emitted.append(mce)
 
     def emit_mcp(
-        self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+        self,
+        mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+        gms_async: bool = True,
     ) -> None:
         self.emitted.append(mcp)
 

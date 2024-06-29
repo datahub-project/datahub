@@ -229,6 +229,7 @@ basicAuditStamp = models.AuditStampClass(
             ),
             "/aspects?action=ingestProposal",
             {
+                "async": "True",
                 "proposal": {
                     "entityType": "dataset",
                     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
