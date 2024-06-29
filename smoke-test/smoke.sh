@@ -18,6 +18,10 @@ if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
     source ./run-quickstart.sh
 fi
 
+# docker compose profiles uses internal schema registry
+export DATAHUB_KAFKA_SCHEMA_REGISTRY_URL="http://localhost:8080/schema-registry/api/"
+export KAFKA_BROKER_CONTAINER="datahub-kafka-broker-1"
+
 source venv/bin/activate
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
