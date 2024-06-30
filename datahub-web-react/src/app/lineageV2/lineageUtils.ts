@@ -44,6 +44,7 @@ export function getEntityTypeFromEntityUrn(urn: string, registry: EntityRegistry
 
 const PLATFORM_URN_TYPES = ['dataset', 'mlModel', 'mlModelGroup', 'mlFeatureTable'];
 const TRUNCATED_PLATFORM_TYPES = ['dataFlow', 'dataJob', 'chart', 'dashboard'];
+const NESTED_URN_TYPES = ['schemaField'];
 
 // TODO: Add tests
 export function getPlatformUrnFromEntityUrn(urn: string): string | undefined {
@@ -54,6 +55,9 @@ export function getPlatformUrnFromEntityUrn(urn: string): string | undefined {
     }
     if (TRUNCATED_PLATFORM_TYPES.includes(entityType)) {
         return `urn:li:dataPlatform:${entityIds[0]}`;
+    }
+    if (NESTED_URN_TYPES.includes(entityType)) {
+        return getPlatformUrnFromEntityUrn(entityIds[0]);
     }
     return undefined;
 }

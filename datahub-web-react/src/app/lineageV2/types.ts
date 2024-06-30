@@ -1,5 +1,5 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import {
-    Container,
     DataPlatform,
     EntityType,
     FineGrainedLineage,
@@ -9,7 +9,7 @@ import {
     SchemaFieldDataType,
     SchemaMetadata,
     Status,
-} from '../../types.generated';
+} from '@types';
 
 export enum LineageAssetType {
     Column,
@@ -62,5 +62,5 @@ export interface FetchedEntityV2 {
     canEditLineage?: boolean;
     health?: Health[];
     lineageAssets?: LineageAsset[];
-    parentContainers?: Container[];
+    parents?: GenericEntityProperties[];
 }

@@ -1,3 +1,4 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { FullLineageResultsFragment } from '../../graphql/lineage.generated';
 import {
     Chart,
@@ -60,6 +61,7 @@ export type FetchedEntity = {
     inputFields?: InputFields;
     canEditLineage?: boolean;
     health?: Maybe<Health[]>;
+    parents?: GenericEntityProperties[];
 };
 
 export type NodeData = {

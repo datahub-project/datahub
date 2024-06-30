@@ -1,5 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
+import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useContext } from 'react';
@@ -129,6 +130,7 @@ const MainTextWrapper = styled.div`
     display: flex;
     flex-direction: column;
     flex-grow: 1;
+    justify-content: center;
     gap: 4px;
     height: 100%;
     min-width: 0;
@@ -261,6 +263,26 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         [showColumns, setShowColumns, urn, type, entity?.platform?.urn],
     );
 
+    // TODO: Refactor into separate node, that doesn't have columns
+    if (type === EntityType.SchemaField) {
+        return (
+            <SchemaFieldNodeContents
+                urn={urn}
+                type={type}
+                rootUrn={rootUrn}
+                selected={selected}
+                hasUpstreamChildren={hasUpstreamChildren}
+                hasDownstreamChildren={hasDownstreamChildren}
+                isExpanded={node?.isExpanded}
+                fetchStatus={fetchStatus}
+                entity={entity}
+                platformName={platformName}
+                platformIcon={entity?.icon}
+                setHoveredNode={setHoveredNode}
+            />
+        );
+    }
+
     return (
         <NodeWrapper
             selected={selected}
@@ -335,6 +357,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 <VerticalDivider margin={8} />
                 {entity && (
                     <MainTextWrapper>
+                        <ContainerPath parents={entity?.parents} />
                         <Header>
                             <TitleWrapper>
                                 <Title title={entity?.name} />
@@ -347,15 +370,12 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             </TitleWrapper>
                             <ManageLineageMenu node={props} refetch={refetch} />
                         </Header>
-                        <ContainerPath parentContainers={entity?.parentContainers} />
                         {!!numColumnsTotal && (
-                            <>
-                                <ExpandColumnsWrapper onClick={showHideColumns}>
-                                    {numColumnsTotal} columns
-                                    {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
-                                    {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
-                                </ExpandColumnsWrapper>
-                            </>
+                            <ExpandColumnsWrapper onClick={showHideColumns}>
+                                {numColumnsTotal} columns
+                                {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
+                                {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
+                            </ExpandColumnsWrapper>
                         )}
                     </MainTextWrapper>
                 )}

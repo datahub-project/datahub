@@ -1,5 +1,5 @@
-import React, { Dispatch, SetStateAction } from 'react';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React, { Dispatch, SetStateAction } from 'react';
 import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
 import EntityRegistry from '../entityV2/EntityRegistry';
 import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
@@ -63,7 +63,11 @@ export type LineageNode = LineageEntity | LineageFilter;
 const TRANSFORMATION_TYPES: string[] = [EntityType.Query, EntityType.DataJob];
 
 export function isDbt(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
-    return node.type === EntityType.Dataset && !!node.urn && getPlatformUrnFromEntityUrn(node.urn) === DBT_CLOUD_URN;
+    return (
+        (node.type === EntityType.Dataset || node.type === EntityType.SchemaField) &&
+        !!node.urn &&
+        getPlatformUrnFromEntityUrn(node.urn) === DBT_CLOUD_URN
+    );
 }
 
 export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
@@ -77,7 +81,10 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boo
 
 export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
     const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
-    return type === EntityType.Dataset && getPlatformUrnFromEntityUrn(urn) === DBT_CLOUD_URN;
+    return (
+        (type === EntityType.Dataset || type === EntityType.SchemaField) &&
+        getPlatformUrnFromEntityUrn(urn) === DBT_CLOUD_URN
+    );
 }
 
 export function isUrnQuery(urn: string, entityRegistry: EntityRegistry): boolean {

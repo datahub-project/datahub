@@ -535,29 +535,7 @@ fragment entityLineageV2 on Entity {
         parent {
             urn
             type
-            ... on Dataset {
-                name
-                properties {
-                    name
-                    description
-                    qualifiedName
-                }
-                platform {
-                    ...platformFields
-                }
-                parentContainers {
-                    ...parentContainersFields
-                }
-                subTypes {
-                    typeNames
-                }
-                status {
-                    removed
-                }
-                health {
-                    ...entityHealth
-                }
-            }
+            ...lineageNodeProperties
         }
     }
     ... on Container {

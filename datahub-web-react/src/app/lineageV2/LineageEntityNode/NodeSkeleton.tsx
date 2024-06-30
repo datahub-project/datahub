@@ -5,6 +5,7 @@ import styled from 'styled-components';
 const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
+    justify-content: center;
     height: 100%;
     width: 100%;
 
@@ -15,15 +16,21 @@ const Wrapper = styled.div`
 
         li {
             height: 1em;
-            margin-top: 4px;
+            :not(:first-child) {
+                margin-top: 4px;
+            }
         }
     }
 `;
 
-export default function NodeSkeleton() {
+interface Props {
+    className?: string;
+}
+
+export default function NodeSkeleton({ className }: Props) {
     return (
-        <Wrapper>
-            <Skeleton active title={{ width: '100%' }} paragraph={{ rows: 2 }} />
+        <Wrapper className={className}>
+            <Skeleton active title={false} paragraph={{ rows: 3 }} />
         </Wrapper>
     );
 }

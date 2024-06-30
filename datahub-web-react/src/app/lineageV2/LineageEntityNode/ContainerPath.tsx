@@ -1,14 +1,14 @@
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { ContainerIconBase } from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
-import { FetchedEntityV2 } from '@app/lineageV2/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { EntityType } from '@types';
+import { Container } from '@types';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 const ContainerPathWrapper = styled.div`
     display: flex;
-    height: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -21,11 +21,11 @@ const ContainerEntry = styled.div<{ numItems?: number; isLast: boolean }>`
     color: ${ANTD_GRAY[9]};
     display: flex;
     flex-direction: row;
-    font-size: 12px;
     max-width: ${({ numItems, isLast }) => (numItems && !isLast ? 100 / numItems : 100)}%;
 `;
 
-const ContainerText = styled.span`
+const ContainerText = styled(Typography.Text)`
+    color: inherit;
     font-size: 8px;
     margin-left: 4px;
     overflow: hidden;
@@ -42,21 +42,28 @@ const VerticalDivider = styled.hr<{ margin: number }>`
     vertical-align: text-top;
 `;
 
-export default function ContainerPath({ parentContainers }: Pick<FetchedEntityV2, 'parentContainers'>) {
+interface Props {
+    parents?: Container[] | GenericEntityProperties[];
+    className?: string;
+}
+
+export default function ContainerPath({ parents, className }: Props) {
     const entityRegistry = useEntityRegistry();
-    const containers = parentContainers?.slice(0, 1);
+    const containers = parents?.slice(0, 1);
 
     if (!containers?.length) {
         return null;
     }
 
     return (
-        <ContainerPathWrapper>
+        <ContainerPathWrapper className={className}>
             {containers?.map((container, i) => (
                 <ContainerEntry key={container.urn} isLast={i === containers.length - 1} numItems={containers.length}>
                     {i > 0 && <VerticalDivider margin={4} />}
                     <ContainerIconBase container={container} />
-                    <ContainerText>{entityRegistry.getDisplayName(EntityType.Container, container)}</ContainerText>
+                    <ContainerText ellipsis={{ tooltip: true }}>
+                        {entityRegistry.getDisplayName(container.type, container)}
+                    </ContainerText>
                 </ContainerEntry>
             ))}
         </ContainerPathWrapper>

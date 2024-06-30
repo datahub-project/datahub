@@ -1,4 +1,5 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
@@ -11,10 +12,6 @@ const IconWrapper = styled.span`
     .${TYPE_ICON_CLASS_NAME} {
         font-size: 14px;
     }
-    // img,
-    // svg {
-    //     height: 12px;
-    // }
 `;
 
 const DefaultIcon = styled(FolderOpenOutlined)`
@@ -26,7 +23,7 @@ const DefaultIcon = styled(FolderOpenOutlined)`
 `;
 
 interface Props {
-    container: Maybe<Container>;
+    container: Maybe<Container | GenericEntityProperties>;
 }
 
 export default function ContainerIcon({ container }: Props): JSX.Element {

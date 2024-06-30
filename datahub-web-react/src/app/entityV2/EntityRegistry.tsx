@@ -225,6 +225,10 @@ export default class EntityRegistry {
         if (!genericEntityProperties || !entity.getLineageVizConfig) return null;
 
         return {
+            // Parents defined above `entity.getLineageVizConfig` so it can be overridden
+            parents: genericEntityProperties?.parentContainers?.containers
+                .map((container) => this.getGenericEntityProperties(container.type, container))
+                .filter((p): p is GenericEntityProperties => !!p),
             ...entity.getLineageVizConfig(data),
             fineGrainedLineages:
                 genericEntityProperties?.fineGrainedLineages ||
@@ -245,7 +249,6 @@ export default class EntityRegistry {
             schemaMetadata: genericEntityProperties.schemaMetadata ?? undefined,
             inputFields: genericEntityProperties.inputFields ?? undefined,
             canEditLineage: genericEntityProperties.privileges?.canEditLineage ?? undefined,
-            parentContainers: genericEntityProperties?.parentContainers?.containers,
         };
     }
 

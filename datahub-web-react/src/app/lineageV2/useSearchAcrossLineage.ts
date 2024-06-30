@@ -71,6 +71,10 @@ export default function useSearchAcrossLineage(
                     entityType: EntityType.Dataset,
                     platforms: [DBT_URN],
                 },
+                {
+                    entityType: EntityType.SchemaField,
+                    platforms: [DBT_URN],
+                },
                 { entityType: EntityType.DataJob },
             ],
         },

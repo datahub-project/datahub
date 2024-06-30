@@ -4,6 +4,10 @@ query getSchemaField($urn: String!) {
         type
         ... on SchemaFieldEntity {
             fieldPath
+            parent {
+                urn
+                type
+            }
         }
     }
 }

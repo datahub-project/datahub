@@ -1,3 +1,7 @@
+import {
+    SCHEMA_FIELD_NODE_HEIGHT,
+    SCHEMA_FIELD_NODE_WIDTH,
+} from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
 import { EdgeMarker } from '@reactflow/core/dist/esm/types/edges';
 import { Edge, MarkerType, Node } from 'reactflow';
 import { EntityType, LineageDirection } from '../../types.generated';
@@ -25,11 +29,11 @@ import {
     TRANSFORMATION_NODE_SIZE,
 } from './LineageTransformationNode/LineageTransformationNode';
 
-const MAIN_X_SEP = 120;
-const MAIN_TO_MINI_X_SEP = 60;
-const MINI_X_SEP = 30;
-const MAIN_Y_SEP = 30;
-const MINI_Y_SEP = MAIN_Y_SEP / 2;
+const MAIN_X_SEP_RATIO = 0.75;
+const MAIN_TO_MINI_X_SEP_RATIO = 0.375;
+const MINI_X_SEP_RATIO = 0.1875;
+const MAIN_Y_SEP_RATIO = 0.6;
+const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
 
 export type LineageVisualizationNode = Node<LineageEntity | LineageFilter>;
 type BaseEdge<T> = Pick<Edge<T>, 'source' | 'target' | 'markerEnd' | 'data'>;
@@ -63,6 +67,12 @@ export default class NodeBuilder {
 
     isHomeTransformational: boolean;
 
+    nodeWidth: number;
+
+    nodeHeight: number;
+
+    transformationalOffset: number; // Offset transformation nodes, not sure why this is needed
+
     // Must set node layers in rough topological order
     // A node must be preceded by all its min-parents, the parents along the shortest paths from the home node to it
     // TODO: Memoize this min-parent calculation?
@@ -86,6 +96,9 @@ export default class NodeBuilder {
     // Note: nodes must be provided in shortest-path order
     constructor(homeUrn: string, homeType: EntityType, nodes: LineageNode[]) {
         this.homeUrn = homeUrn;
+        this.nodeHeight = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_HEIGHT : LINEAGE_NODE_HEIGHT;
+        this.nodeWidth = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_WIDTH : LINEAGE_NODE_WIDTH;
+        this.transformationalOffset = (this.nodeHeight - 30) / 2;
         this.isHomeTransformational = isTransformational({ urn: homeUrn, type: homeType });
         nodes.forEach((node) => {
             this.nodeInformation[node.id] = { urn: node.urn, type: node.type };
@@ -171,16 +184,16 @@ export default class NodeBuilder {
         const isCurrentLayerMini = this.#isLayerMini(layer);
         const wasLastLayerMini = this.#isLayerMini(prevLayer);
         if (isCurrentLayerMini && wasLastLayerMini) {
-            return MINI_X_SEP;
+            return this.nodeWidth * MINI_X_SEP_RATIO;
         }
         if (isCurrentLayerMini || wasLastLayerMini) {
-            return MAIN_TO_MINI_X_SEP;
+            return this.nodeWidth * MAIN_TO_MINI_X_SEP_RATIO;
         }
-        return MAIN_X_SEP;
+        return this.nodeWidth * MAIN_X_SEP_RATIO;
     }
 
     #getNodeSize(layer: Layer): number {
-        return this.#isLayerMini(layer) ? TRANSFORMATION_NODE_SIZE : LINEAGE_NODE_WIDTH;
+        return this.#isLayerMini(layer) ? TRANSFORMATION_NODE_SIZE : this.nodeWidth;
     }
 
     /**
@@ -289,7 +302,9 @@ export default class NodeBuilder {
         const sortedLayers = Array.from(this.layerPositions.keys()).sort(compareLayersMinisLast);
         sortedLayers.forEach((layer) => {
             const { mini } = parseLayer(layer);
-            const nodeHeight = mini ? MINI_Y_SEP + TRANSFORMATION_NODE_SIZE : MAIN_Y_SEP + LINEAGE_NODE_HEIGHT;
+            const nodeHeight = mini
+                ? this.nodeHeight * MINI_Y_SEP_RATIO + TRANSFORMATION_NODE_SIZE
+                : this.nodeHeight * MAIN_Y_SEP_RATIO + this.nodeHeight;
             const nodes = this.layerNodes.get(layer) || new Set();
             const goalY: Record<string, number> = {};
 
@@ -368,7 +383,7 @@ export default class NodeBuilder {
         // Offset transformation nodes
         this.transformations.forEach((node) => {
             const info = this.nodeInformation[node.id];
-            if (info.y !== undefined) info.y += 20;
+            if (info.y !== undefined) info.y += this.transformationalOffset;
         });
     }
 

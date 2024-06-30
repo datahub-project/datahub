@@ -1,13 +1,13 @@
-import React, { useContext } from 'react';
-import styled from 'styled-components';
-import { Handle, NodeProps, Position } from 'reactflow';
-import { Skeleton, Spin, Tooltip } from 'antd';
 import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Skeleton, Spin, Tooltip } from 'antd';
+import React, { useContext } from 'react';
+import { Handle, NodeProps, Position } from 'reactflow';
+import styled from 'styled-components';
+import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { EntityType, LineageDirection } from '../../../types.generated';
+import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
 import { useEntityRegistryV2 } from '../../useEntityRegistry';
 import { FetchStatus, LineageDisplayContext, LineageEntity, LineageNodesContext } from '../common';
-import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import { useGetQueryQuery } from '../../../graphql/query.generated';
 import { LoadingWrapper } from '../LineageEntityNode/NodeContents';
 
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
@@ -73,7 +73,10 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const entityRegistry = useEntityRegistryV2();
 
     const entity = nodes.get(urn)?.entity;
-    const name = entity && entityRegistry.getDisplayName(type, entity);
+    const name =
+        entity?.type === EntityType.SchemaField
+            ? entity.expandedName
+            : entity && entityRegistry.getDisplayName(type, entity);
     const backupLogoUrl = useFetchQuery(urn); // TODO: Remove when query nodes not instantiated on column select
     const icon = entity?.icon || backupLogoUrl;
 
