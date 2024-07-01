@@ -30,7 +30,7 @@ DataHub currently supports two types of Post content. Posts can either be of typ
 </p>
 If you choose the text type, enter the title and description as prompted; if you choose the link type, enter the title and the URL of the link and the address of the image as prompted.
 
-Click the Create to complete.
+Click 'Create' to complete.
 <p align="center">
  <img alt="Viewing posts" width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/view-posts.png" />
 </p>
