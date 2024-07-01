@@ -8,14 +8,19 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.generated.controller.LineageApi;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientUtils;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,10 +42,16 @@ public class LineageApiImpl implements LineageApi {
 
   @Autowired private AuthorizerChain _authorizerChain;
 
+  @Autowired
+  @Qualifier("systemOperationContext")
+  OperationContext systemOperationContext;
+
   @Override
   public Optional<ObjectMapper> getObjectMapper() {
     return Optional.of(OBJECT_MAPPER);
   }
+
+  @Autowired private HttpServletRequest request;
 
   @Override
   public ResponseEntity<Void> postRunEventRaw(String body) {
@@ -57,6 +68,16 @@ public class LineageApiImpl implements LineageApi {
 
   public ResponseEntity<Void> postRunEventRaw(OpenLineage.RunEvent openlineageRunEvent) {
     Authentication authentication = AuthenticationContext.getAuthentication();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "postRunEventRaw", List.of()),
+            _authorizerChain,
+            authentication,
+            true);
+
     log.info("PostRun received lineage event: {}", openlineageRunEvent);
 
     RunEventMapper runEventMapper = new RunEventMapper();
@@ -70,7 +91,7 @@ public class LineageApiImpl implements LineageApi {
               .map(openlineageRunEvent, this._mappingConfig)
               .collect(Collectors.toList())) {
         log.info("Ingesting MCP: {}", mcp);
-        _entityService.ingestProposal(mcp, auditStamp, true);
+        _entityService.ingestProposal(opContext, mcp, auditStamp, true);
       }
       return new ResponseEntity<>(HttpStatus.OK);
     } catch (Exception e) {

@@ -2,9 +2,6 @@ package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -15,7 +12,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -37,16 +33,14 @@ import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
-import java.util.Map;
+import java.util.Collections;
 import javax.annotation.Nonnull;
-import lombok.Getter;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -72,30 +66,25 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   @Nonnull
   protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
 
-  private AspectRetriever aspectRetriever;
-  private IndexConvention indexConvention;
+  protected OperationContext operationContext;
   private SettingsBuilder settingsBuilder;
   private ElasticSearchService elasticSearchService;
   private CacheManager cacheManager;
   private SearchService searchService;
-  @Getter private OperationContext operationContext;
 
   private static final String ENTITY_NAME = "testEntity";
 
   @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
-    aspectRetriever = mock(AspectRetriever.class);
-    when(aspectRetriever.getEntityRegistry())
-        .thenReturn(new SnapshotEntityRegistry(new Snapshot()));
-    when(aspectRetriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of());
-    indexConvention = new IndexConventionImpl("search_service_test");
     operationContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-                aspectRetriever.getEntityRegistry(), indexConvention)
+                new SnapshotEntityRegistry(new Snapshot()),
+                new IndexConventionImpl("search_service_test"))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
+
     settingsBuilder = new SettingsBuilder(null);
     elasticSearchService = buildEntitySearchService();
-    elasticSearchService.configure();
+    elasticSearchService.reindexAll(Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
     resetSearchService();
   }
@@ -110,7 +99,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     searchService =
         new SearchService(
             new EntityDocCountCache(
-                aspectRetriever.getEntityRegistry(),
+                operationContext.getEntityRegistry(),
                 elasticSearchService,
                 entityDocCountCacheConfiguration),
             cachingEntitySearchService,
@@ -119,7 +108,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @BeforeMethod
   public void wipe() throws Exception {
-    elasticSearchService.clear();
+    elasticSearchService.clear(operationContext);
     syncAfterWrite(getBulkProcessor());
   }
 
@@ -128,32 +117,21 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     EntityIndexBuilders indexBuilders =
         new EntityIndexBuilders(
             getIndexBuilder(),
-            aspectRetriever.getEntityRegistry(),
-            indexConvention,
+            operationContext.getEntityRegistry(),
+            operationContext.getSearchContext().getIndexConvention(),
             settingsBuilder);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
-            indexConvention,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
             null);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            getSearchClient(),
-            indexConvention,
-            getSearchConfiguration(),
-            getCustomSearchConfiguration());
-    ESWriteDAO writeDAO =
-        new ESWriteDAO(
-            aspectRetriever.getEntityRegistry(),
-            getSearchClient(),
-            indexConvention,
-            getBulkProcessor(),
-            1);
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO)
-        .postConstruct(aspectRetriever);
+            getSearchClient(), getSearchConfiguration(), getCustomSearchConfiguration());
+    ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
+    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
 
   private void clearCache() {
@@ -165,8 +143,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   public void testSearchService() throws Exception {
     SearchResult searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext()
-                .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             null,
@@ -176,7 +153,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             null,
@@ -192,12 +169,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             null,
@@ -214,12 +192,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "'test2'",
             null,
@@ -232,15 +211,15 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     long docCount =
         elasticSearchService.docCount(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(false)), ENTITY_NAME);
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)), ENTITY_NAME);
     assertEquals(docCount, 2L);
 
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
-    elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn.toString());
+    elasticSearchService.deleteDocument(operationContext, ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "'test2'",
             null,
@@ -277,7 +256,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     SearchResult searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             filterWithCondition,
@@ -296,7 +275,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document.set("subtypes", JsonNodeFactory.instance.textNode("view"));
     document.set("platform", JsonNodeFactory.instance.textNode("snowflake"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
 
     Urn urn2 = new TestEntityUrn("test", "testUrn", "VALUE_2");
     ObjectNode document2 = JsonNodeFactory.instance.objectNode();
@@ -306,7 +286,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document2.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document2.set("platform", JsonNodeFactory.instance.textNode("hive"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
 
     Urn urn3 = new TestEntityUrn("test", "testUrn", "VALUE_3");
     ObjectNode document3 = JsonNodeFactory.instance.objectNode();
@@ -316,13 +297,14 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document3.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document3.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document3.set("platform", JsonNodeFactory.instance.textNode("snowflake"));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document3.toString(), urn3.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document3.toString(), urn3.toString());
 
     syncAfterWrite(getBulkProcessor());
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             filterWithCondition,
@@ -362,7 +344,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     SearchResult searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             filterWithCondition,
@@ -382,7 +364,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document.set("subtypes", JsonNodeFactory.instance.textNode("view"));
     document.set("platform", JsonNodeFactory.instance.textNode("hive"));
     document.set("removed", JsonNodeFactory.instance.booleanNode(true));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
 
     Urn urn2 = new TestEntityUrn("test", "testUrn", "VALUE_2");
     ObjectNode document2 = JsonNodeFactory.instance.objectNode();
@@ -393,7 +376,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document2.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document2.set("platform", JsonNodeFactory.instance.textNode("hive"));
     document.set("removed", JsonNodeFactory.instance.booleanNode(false));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
 
     Urn urn3 = new TestEntityUrn("test", "testUrn", "VALUE_3");
     ObjectNode document3 = JsonNodeFactory.instance.objectNode();
@@ -404,13 +388,14 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document3.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document3.set("platform", JsonNodeFactory.instance.textNode("snowflake"));
     document.set("removed", JsonNodeFactory.instance.booleanNode(false));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document3.toString(), urn3.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document3.toString(), urn3.toString());
 
     syncAfterWrite(getBulkProcessor());
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             filterWithCondition,
@@ -441,7 +426,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     SearchResult searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(ENTITY_NAME),
             "test",
             filterWithCondition,
@@ -461,7 +446,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document.set("subtypes", JsonNodeFactory.instance.textNode("view"));
     document.set("platform", JsonNodeFactory.instance.textNode("hive"));
     document.set("removed", JsonNodeFactory.instance.booleanNode(true));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
 
     Urn urn2 = new TestEntityUrn("test", "testUrn", "VALUE_2");
     ObjectNode document2 = JsonNodeFactory.instance.objectNode();
@@ -472,7 +458,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document2.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document2.set("platform", JsonNodeFactory.instance.textNode("hive"));
     document.set("removed", JsonNodeFactory.instance.booleanNode(false));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document2.toString(), urn2.toString());
 
     Urn urn3 = new TestEntityUrn("test", "testUrn", "VALUE_3");
     ObjectNode document3 = JsonNodeFactory.instance.objectNode();
@@ -483,13 +470,14 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document3.set("subtypes", JsonNodeFactory.instance.textNode("table"));
     document3.set("platform", JsonNodeFactory.instance.textNode("snowflake"));
     document.set("removed", JsonNodeFactory.instance.booleanNode(false));
-    elasticSearchService.upsertDocument(ENTITY_NAME, document3.toString(), urn3.toString());
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document3.toString(), urn3.toString());
 
     syncAfterWrite(getBulkProcessor());
 
     searchResult =
         searchService.searchAcrossEntities(
-            getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
             ImmutableList.of(),
             "test",
             filterWithCondition,

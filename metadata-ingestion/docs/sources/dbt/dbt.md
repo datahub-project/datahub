@@ -187,8 +187,7 @@ dbt source snapshot-freshness
 dbt build
 cp target/run_results.json target/run_results_backup.json
 dbt docs generate
-
-# Reference target/run_results_backup.json in the dbt source config.
+cp target/run_results_backup.json target/run_results.json
 ```
 
 :::

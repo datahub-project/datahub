@@ -13,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -44,14 +45,18 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
     final Urn incidentUrn = Urn.createFromString(environment.getArgument("urn"));
     final UpdateIncidentStatusInput input =
         bindArgument(environment.getArgument("input"), UpdateIncidentStatusInput.class);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // Check whether the incident exists.
           IncidentInfo info =
               (IncidentInfo)
                   EntityUtils.getAspectFromEntity(
-                      incidentUrn.toString(), INCIDENT_INFO_ASPECT_NAME, _entityService, null);
+                      context.getOperationContext(),
+                      incidentUrn.toString(),
+                      INCIDENT_INFO_ASPECT_NAME,
+                      _entityService,
+                      null);
 
           if (info != null) {
             // Check whether the actor has permission to edit the incident
@@ -73,7 +78,7 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
                 final MetadataChangeProposal proposal =
                     buildMetadataChangeProposalWithUrn(
                         incidentUrn, INCIDENT_INFO_ASPECT_NAME, info);
-                _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
                 return true;
               } catch (Exception e) {
                 throw new RuntimeException("Failed to update incident status!", e);
@@ -85,7 +90,9 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
           throw new DataHubGraphQLException(
               "Failed to update incident. Incident does not exist.",
               DataHubGraphQLErrorCode.NOT_FOUND);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToUpdateIncident(final Urn resourceUrn, final QueryContext context) {

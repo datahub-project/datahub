@@ -13,16 +13,12 @@ import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
-import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.event.EventProducer;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistryException;
-import com.linkedin.metadata.models.registry.MergedEntityRegistry;
-import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,17 +27,11 @@ import org.testng.annotations.Test;
 
 public class DefaultAspectsUtilTest {
 
-  protected final EntityRegistry _snapshotEntityRegistry = new TestEntityRegistry();
-  protected final EntityRegistry _configEntityRegistry =
-      new ConfigEntityRegistry(
-          Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-  protected final EntityRegistry _testEntityRegistry =
-      new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
-
-  public DefaultAspectsUtilTest() throws EntityRegistryException {}
+  public DefaultAspectsUtilTest() {}
 
   @Test
   public void testAdditionalChanges() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Database server = EbeanTestUtils.createTestServer(DefaultAspectsUtilTest.class.getSimpleName());
     EbeanAspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
     aspectDao.setConnectionValidated(true);
@@ -49,8 +39,7 @@ public class DefaultAspectsUtilTest {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     EntityServiceImpl entityServiceImpl =
-        new EntityServiceImpl(
-            aspectDao, mockProducer, _testEntityRegistry, true, preProcessHooks, false);
+        new EntityServiceImpl(aspectDao, mockProducer, true, preProcessHooks, false);
 
     MetadataChangeProposal proposal1 =
         new DatasetPropertiesPatchBuilder()
@@ -65,8 +54,10 @@ public class DefaultAspectsUtilTest {
 
     List<MetadataChangeProposal> proposalList =
         DefaultAspectsUtil.getAdditionalChanges(
+                opContext,
                 AspectsBatchImpl.builder()
-                    .mcps(List.of(proposal1), new AuditStamp(), entityServiceImpl)
+                    .mcps(
+                        List.of(proposal1), new AuditStamp(), opContext.getRetrieverContext().get())
                     .build()
                     .getMCPItems(),
                 entityServiceImpl,

@@ -7,11 +7,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.graph.RelatedEntitiesScrollResult;
-import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -764,9 +764,6 @@ public class DgraphGraphService implements GraphService {
 
     _dgraph.executeConsumer(client -> client.newTransaction().doRequest(request));
   }
-
-  @Override
-  public void configure() {}
 
   @Override
   public void clear() {

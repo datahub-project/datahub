@@ -11,7 +11,6 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.eventgenerator.Aspect;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
@@ -22,6 +21,7 @@ import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.Parameters;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -59,6 +59,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
           Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
           Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
+          Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
 
           // Entity Lifecycle Event
           Constants.DATASET_KEY_ASPECT_NAME,
@@ -70,28 +71,29 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           Constants.GLOSSARY_TERM_KEY_ASPECT_NAME,
           Constants.DOMAIN_KEY_ASPECT_NAME,
           Constants.TAG_KEY_ASPECT_NAME,
-          Constants.STATUS_ASPECT_NAME);
+          Constants.STATUS_ASPECT_NAME,
+          Constants.BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME);
 
   /** The list of change types that are supported for generating semantic change events. */
   private static final Set<String> SUPPORTED_OPERATIONS =
       ImmutableSet.of("CREATE", "UPSERT", "DELETE");
 
   private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
+  private final OperationContext systemOperationContext;
   private final SystemEntityClient _entityClient;
-  private final EntityRegistry _entityRegistry;
   private final Boolean _isEnabled;
 
   @Autowired
   public EntityChangeEventGeneratorHook(
+      @Nonnull OperationContext systemOperationContext,
       @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final SystemEntityClient entityClient,
-      @Nonnull final EntityRegistry entityRegistry,
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled) {
+    this.systemOperationContext = systemOperationContext;
     _entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     _entityClient = Objects.requireNonNull(entityClient);
-    _entityRegistry = Objects.requireNonNull(entityRegistry);
     _isEnabled = isEnabled;
   }
 
@@ -108,7 +110,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       // 2. Find and invoke a EntityChangeEventGenerator.
       // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
       final AspectSpec aspectSpec =
-          _entityRegistry
+          systemOperationContext
+              .getEntityRegistry()
               .getEntitySpec(logEvent.getEntityType())
               .getAspectSpec(logEvent.getAspectName());
 
@@ -184,7 +187,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   private void emitPlatformEvent(
       @Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
     _entityClient.producePlatformEvent(
-        Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, partitioningKey, event);
+        systemOperationContext, Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, partitioningKey, event);
   }
 
   private PlatformEvent buildPlatformEvent(final ChangeEvent rawChangeEvent) {

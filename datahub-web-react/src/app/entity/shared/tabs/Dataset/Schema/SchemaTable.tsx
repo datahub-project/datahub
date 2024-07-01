@@ -25,6 +25,8 @@ import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
 import PropertiesColumn from './components/PropertiesColumn';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
+import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
+import { useBusinessAttributesFlag } from '../../../../../useAppConfig';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -89,6 +91,7 @@ export default function SchemaTable({
     hasProperties,
     inputFields,
 }: Props): JSX.Element {
+    const businessAttributesFlag = useBusinessAttributesFlag();
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
     const [tableHeight, setTableHeight] = useState(0);
     const [selectedFkFieldPath, setSelectedFkFieldPath] = useState<null | {
@@ -119,6 +122,7 @@ export default function SchemaTable({
         filterText,
         false,
     );
+    const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
@@ -156,6 +160,14 @@ export default function SchemaTable({
         dataIndex: 'globalTags',
         key: 'tag',
         render: termRenderer,
+    };
+
+    const businessAttributeColumn = {
+        width: '18%',
+        title: 'Business Attribute',
+        dataIndex: 'businessAttribute',
+        key: 'businessAttribute',
+        render: businessAttributeRenderer,
     };
 
     const blameColumn = {
@@ -200,6 +212,10 @@ export default function SchemaTable({
     };
 
     let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
+
+    if (businessAttributesFlag) {
+        allColumns = [...allColumns, businessAttributeColumn];
+    }
 
     if (hasProperties) {
         allColumns = [...allColumns, propertiesColumn];

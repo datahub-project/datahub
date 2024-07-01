@@ -1,12 +1,8 @@
 package com.linkedin.gms.factory.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.avro.generic.IndexedRecord;
@@ -14,36 +10,24 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.annotation.DependsOn;
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@EnableConfigurationProperties({KafkaProperties.class})
-@Import({
-  KafkaSchemaRegistryFactory.class,
-  AwsGlueSchemaRegistryFactory.class,
-  InternalSchemaRegistryFactory.class
-})
+@DependsOn("configurationProvider")
 public class DataHubKafkaProducerFactory {
-
-  @Autowired
-  @Qualifier("schemaRegistryConfig")
-  private SchemaRegistryConfig _schemaRegistryConfig;
 
   @Bean(name = "kafkaProducer")
   protected Producer<String, IndexedRecord> createInstance(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
-      KafkaProperties properties) {
+      final KafkaProperties properties,
+      @Qualifier("schemaRegistryConfig") final SchemaRegistryConfig schemaRegistryConfig) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     return new KafkaProducer<>(
-        buildProducerProperties(_schemaRegistryConfig, kafkaConfiguration, properties));
+        buildProducerProperties(schemaRegistryConfig, kafkaConfiguration, properties));
   }
 
   public static Map<String, Object> buildProducerProperties(
@@ -60,7 +44,7 @@ public class DataHubKafkaProducerFactory {
           Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    Map<String, Object> props = properties.buildProducerProperties();
+    Map<String, Object> props = properties.buildProducerProperties(null);
 
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getSerializer());
 

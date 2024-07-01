@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +40,7 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("entityUrn"));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
               environment.getContext(), entityUrn)) {
@@ -46,18 +48,22 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
-          validateUnsetDomainInput(entityUrn, _entityService);
+          validateUnsetDomainInput(context.getOperationContext(), entityUrn, _entityService);
           try {
             Domains domains =
                 (Domains)
                     EntityUtils.getAspectFromEntity(
-                        entityUrn.toString(), DOMAINS_ASPECT_NAME, _entityService, new Domains());
+                        context.getOperationContext(),
+                        entityUrn.toString(),
+                        DOMAINS_ASPECT_NAME,
+                        _entityService,
+                        new Domains());
             unsetDomain(domains);
 
             // Create the Domains aspects
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(entityUrn, DOMAINS_ASPECT_NAME, domains);
-            _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             return true;
           } catch (Exception e) {
             log.error(
@@ -68,12 +74,15 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
                 String.format("Failed to unset Domains for resource with entity urn %s", entityUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
-  public static Boolean validateUnsetDomainInput(Urn entityUrn, EntityService<?> entityService) {
+  public static Boolean validateUnsetDomainInput(
+      @Nonnull OperationContext opContext, Urn entityUrn, EntityService<?> entityService) {
 
-    if (!entityService.exists(entityUrn, true)) {
+    if (!entityService.exists(opContext, entityUrn, true)) {
       throw new IllegalArgumentException(
           String.format("Failed to add Entity %s to Domain %s. Entity does not exist.", entityUrn));
     }

@@ -30,6 +30,7 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -59,8 +60,12 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
 
   @Override
   protected AspectsBatch buildAspectsBatch(
-      List<MetadataChangeProposal> mcps, @Nonnull AuditStamp auditStamp) {
-    return AspectsBatchImpl.builder().mcps(mcps, auditStamp, _entityService).build();
+      @Nonnull OperationContext opContext,
+      List<MetadataChangeProposal> mcps,
+      @Nonnull AuditStamp auditStamp) {
+    return AspectsBatchImpl.builder()
+        .mcps(mcps, auditStamp, opContext.getRetrieverContext().get())
+        .build();
   }
 
   @Override
@@ -195,7 +200,7 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       @Nonnull final TimeBasedRetention retention) {
-    Timestamp threshold = new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000);
+    Timestamp threshold = new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000L);
     SimpleStatement ss =
         deleteFrom(CassandraAspect.TABLE_NAME)
             .whereColumn(CassandraAspect.URN_COLUMN)

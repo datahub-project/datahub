@@ -15,7 +15,6 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
-import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import java.net.URI;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,16 +39,16 @@ public class MceConsumerApplicationTestConfiguration {
   @Bean
   @Primary
   public SystemEntityClient systemEntityClient(
-      @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider) {
     String selfUri = restTemplate.getRootUri();
     final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
     return new SystemRestliEntityClient(
-        systemOperationContext,
         restClient,
         new ExponentialBackoff(1),
         1,
-        configurationProvider.getCache().getClient().getEntityClient());
+        configurationProvider.getCache().getClient().getEntityClient(),
+        1,
+        2);
   }
 
   @MockBean public Database ebeanServer;

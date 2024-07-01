@@ -1,11 +1,17 @@
 package com.linkedin.metadata.resources.entity;
 
+import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
+import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
+import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.service.RollbackService.ROLLBACK_FAILED_STATUS;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationException;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -28,6 +34,8 @@ import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -63,6 +71,10 @@ public class BatchIngestionRunResource
     @Named("authorizerChain")
     private Authorizer authorizer;
 
+    @Inject
+    @Named("systemOperationContext")
+    private OperationContext systemOperationContext;
+
   /** Rolls back an ingestion run */
   @Action(name = "rollback")
   @Nonnull
@@ -73,6 +85,18 @@ public class BatchIngestionRunResource
       @Deprecated @ActionParam("hardDelete") @Optional Boolean hardDelete,
       @ActionParam("safe") @Optional Boolean safe)
       throws Exception {
+
+      Authentication auth = AuthenticationContext.getAuthentication();
+      if (!AuthUtil.isAPIAuthorized(
+              auth,
+              authorizer,
+              ENTITY, MANAGE)) {
+          throw new RestLiServiceException(
+                  HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entity");
+      }
+      final OperationContext opContext = OperationContext.asSession(
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()), authorizer, auth, true);
+
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
     boolean doHardDelete =
@@ -86,9 +110,8 @@ public class BatchIngestionRunResource
       return RestliUtil.toTask(
           () -> {
 
-              Authentication auth = AuthenticationContext.getAuthentication();
               try {
-                  return rollbackService.rollbackIngestion(runId, dryRun, doHardDelete, authorizer, auth);
+                  return rollbackService.rollbackIngestion(opContext, runId, dryRun, doHardDelete, authorizer);
               } catch (AuthenticationException authException) {
                   throw new RestLiServiceException(
                           HttpStatus.S_403_FORBIDDEN, authException.getMessage());
@@ -96,7 +119,7 @@ public class BatchIngestionRunResource
           },
           MetricRegistry.name(this.getClass(), "rollback"));
     } catch (Exception e) {
-      rollbackService.updateExecutionRequestStatus(runId, ROLLBACK_FAILED_STATUS);
+      rollbackService.updateExecutionRequestStatus(opContext, runId, ROLLBACK_FAILED_STATUS);
       throw new RuntimeException(
           String.format("There was an issue rolling back ingestion run with runId %s", runId), e);
     }
@@ -138,6 +161,18 @@ public class BatchIngestionRunResource
 
     return RestliUtil.toTask(
         () -> {
+
+            Authentication auth = AuthenticationContext.getAuthentication();
+            if (!AuthUtil.isAPIAuthorized(
+                    auth,
+                    authorizer,
+                    ENTITY, READ)) {
+                throw new RestLiServiceException(
+                        HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
+            }
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "describe", List.of()), authorizer, auth, true);
+
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
                   runId, includeSoft != null && includeSoft, start, count);
@@ -148,7 +183,7 @@ public class BatchIngestionRunResource
                   Urn urn = UrnUtils.getUrn(summary.getUrn());
                   try {
                     EnvelopedAspect aspect =
-                        entityService.getLatestEnvelopedAspect(
+                        entityService.getLatestEnvelopedAspect(opContext,
                             urn.getEntityType(), urn, summary.getAspectName());
                     if (aspect == null) {
                       log.error("Aspect for summary {} not found", summary);

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageSta
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DashboardUsageAggregation;
 import com.linkedin.datahub.graphql.generated.DashboardUsageMetrics;
 import com.linkedin.datahub.graphql.generated.DashboardUsageQueryResult;
@@ -55,7 +56,7 @@ public class DashboardUsageStatsResolver
     // Max number of aspects to return for absolute dashboard usage.
     final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           DashboardUsageQueryResult usageQueryResult = new DashboardUsageQueryResult();
 
@@ -63,9 +64,17 @@ public class DashboardUsageStatsResolver
           Filter bucketStatsFilter =
               createUsageFilter(dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, true);
           List<DashboardUsageAggregation> dailyUsageBuckets =
-              getBuckets(bucketStatsFilter, dashboardUrn, timeseriesAspectService);
+              getBuckets(
+                  context.getOperationContext(),
+                  bucketStatsFilter,
+                  dashboardUrn,
+                  timeseriesAspectService);
           DashboardUsageQueryResultAggregations aggregations =
-              getAggregations(bucketStatsFilter, dailyUsageBuckets, timeseriesAspectService);
+              getAggregations(
+                  context.getOperationContext(),
+                  bucketStatsFilter,
+                  dailyUsageBuckets,
+                  timeseriesAspectService);
 
           usageQueryResult.setBuckets(dailyUsageBuckets);
           usageQueryResult.setAggregations(aggregations);
@@ -76,7 +85,9 @@ public class DashboardUsageStatsResolver
                   context, dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, maybeLimit);
           usageQueryResult.setMetrics(dashboardUsageMetrics);
           return usageQueryResult;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<DashboardUsageMetrics> getDashboardUsageMetrics(
@@ -103,6 +114,7 @@ public class DashboardUsageStatsResolver
 
       List<EnvelopedAspect> aspects =
           timeseriesAspectService.getAspectValues(
+              context.getOperationContext(),
               Urn.createFromString(dashboardUrn),
               Constants.DASHBOARD_ENTITY_NAME,
               Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,

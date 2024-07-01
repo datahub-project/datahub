@@ -7,6 +7,7 @@ import com.linkedin.common.GlossaryTermUrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RelatedTermsInput;
 import com.linkedin.datahub.graphql.generated.TermRelationshipType;
@@ -39,7 +40,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
         bindArgument(environment.getArgument("input"), RelatedTermsInput.class);
     final Urn urn = Urn.createFromString(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Urn parentUrn = GlossaryUtils.getParentUrn(urn, context, _entityClient);
           if (GlossaryUtils.canManageChildrenEntities(context, parentUrn, _entityClient)) {
@@ -49,7 +50,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
                   input.getTermUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
               if (!urn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)
-                  || !_entityService.exists(urn, true)) {
+                  || !_entityService.exists(context.getOperationContext(), urn, true)) {
                 throw new IllegalArgumentException(
                     String.format(
                         "Failed to update %s. %s either does not exist or is not a glossaryTerm.",
@@ -61,6 +62,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
               GlossaryRelatedTerms glossaryRelatedTerms =
                   (GlossaryRelatedTerms)
                       EntityUtils.getAspectFromEntity(
+                          context.getOperationContext(),
                           urn.toString(),
                           Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                           _entityService,
@@ -81,6 +83,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
                 existingTermUrns.removeIf(
                     termUrn -> termUrnsToRemove.stream().anyMatch(termUrn::equals));
                 persistAspect(
+                    context.getOperationContext(),
                     urn,
                     Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                     glossaryRelatedTerms,
@@ -98,6 +101,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
                 existingTermUrns.removeIf(
                     termUrn -> termUrnsToRemove.stream().anyMatch(termUrn::equals));
                 persistAspect(
+                    context.getOperationContext(),
                     urn,
                     Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
                     glossaryRelatedTerms,
@@ -112,6 +116,8 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -8,6 +8,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -26,6 +27,8 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Arrays;
 import java.util.Collections;
@@ -59,6 +62,10 @@ public class EntityVersionedV2Resource
   @Named("authorizerChain")
   private Authorizer _authorizer;
 
+    @Inject
+    @Named("systemOperationContext")
+    private OperationContext systemOperationContext;
+
   @RestMethod.BatchGet
   @Nonnull
   @WithSpan
@@ -67,17 +74,24 @@ public class EntityVersionedV2Resource
       @QueryParam(PARAM_ENTITY_TYPE) @Nonnull String entityType,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
 
+      Set<Urn> urns = versionedUrnStrs.stream()
+              .map(versionedUrn -> UrnUtils.getUrn(versionedUrn.getUrn())).collect(Collectors.toSet());
+
+      Authentication auth = AuthenticationContext.getAuthentication();
     if (!isAPIAuthorizedEntityUrns(
-            AuthenticationContext.getAuthentication(),
+            auth,
             _authorizer,
             READ,
-            versionedUrnStrs.stream()
-                    .map(versionedUrn -> UrnUtils.getUrn(versionedUrn.getUrn())).collect(Collectors.toSet()))) {
+            urns)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN,
           "User is unauthorized to get entities " + versionedUrnStrs);
     }
-    log.debug("BATCH GET VERSIONED V2 {}", versionedUrnStrs);
+      final OperationContext opContext = OperationContext.asSession(
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "authorizerChain", urns.stream()
+                      .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+
+      log.debug("BATCH GET VERSIONED V2 {}", versionedUrnStrs);
     if (versionedUrnStrs.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
@@ -85,10 +99,10 @@ public class EntityVersionedV2Resource
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null
-                  ? _entityService.getEntityAspectNames(entityType)
+                  ? opContext.getEntityAspectNames(entityType)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntitiesVersionedV2(
+            return _entityService.getEntitiesVersionedV2(opContext,
                 versionedUrnStrs.stream()
                     .map(
                         versionedUrnTyperef -> {

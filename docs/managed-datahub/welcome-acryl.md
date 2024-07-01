@@ -3,7 +3,7 @@
 
 Welcome to the Acryl DataHub! We at Acryl are on a mission to make data reliable by bringing clarity to the who, what, when, & how of your data ecosystem. We're thrilled to be on this journey with you; and cannot wait to see what we build together!
 
-Close communication is not only welcomed, but highly encouraged. For all questions, concerns, & feedback, please reach out to us directly at support@acryl.io. 
+Close communication is not only welcomed, but highly encouraged. For all questions, concerns, & feedback, please reach out to us directly at help@acryl.io. 
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ If you wish to have a private connection to your DataHub instance, Acryl support
 
 Acryl DataHub currently supports the following means to log into a DataHub instance:
 
-1. **Admin account**: With each deployment of DataHub comes a master admin account. It has a randomly generated password that can be accessed by reaching out to Acryl Integrations team (support@acryl.io). To log in with an admin account, navigate to https://your-domain.acryl.io/login
+1. **Admin account**: When your subscriptions starts someone will share with you a invite link to create your admin account. If that has not happened please reach out at help@acryl.io through your official email ID / slack connect setup with our team and our team will share with you the invite url.
 2. **OIDC**: Acryl DataHub also supports OIDC integration with the Identity Provider of your choice (Okta, Google, etc). To set this up, Acryl integrations team will require the following:
 3. _Client ID_ - A unique identifier for your application with the identity provider
 4. _Client Secret_ - A shared secret to use for exchange between you and your identity provider. To send this over securely, we recommend using [onetimesecret.com](https://onetimesecret.com/) to create a link.
@@ -49,7 +49,7 @@ Acryl DataHub employs a push-based metadata ingestion model. In practice, this m
 
 This approach comes with another benefit: security. By managing your own instance of the agent, you can keep the secrets and credentials within your walled garden. Skip uploading secrets & keys into a third-party cloud tool. 
 
-To push metadata into DataHub, Acryl provide's an ingestion framework written in Python. Typically, push jobs are run on a schedule at an interval of your choosing. For our step-by-step guide on ingestion, click [here](docs/managed-datahub/metadata-ingestion-with-acryl/ingestion.md).
+To push metadata into DataHub, Acryl provide's an ingestion framework written in Python. Typically, push jobs are run on a schedule at an interval of your choosing. For our step-by-step guide on ingestion, click [here](../../metadata-ingestion/cli-ingestion.md).
 
 ### Discovering Metadata
 

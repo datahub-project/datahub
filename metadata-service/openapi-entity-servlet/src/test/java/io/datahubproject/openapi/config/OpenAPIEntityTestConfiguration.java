@@ -3,6 +3,7 @@ package io.datahubproject.openapi.config;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -15,7 +16,6 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -29,11 +29,12 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeline.TimelineService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.dto.UrnResponseMap;
-import io.datahubproject.openapi.entities.EntitiesController;
 import io.datahubproject.openapi.generated.EntityResponse;
-import io.datahubproject.openapi.relationships.RelationshipsController;
-import io.datahubproject.openapi.timeline.TimelineController;
+import io.datahubproject.openapi.v1.entities.EntitiesController;
+import io.datahubproject.openapi.v1.relationships.RelationshipsController;
+import io.datahubproject.openapi.v2.controller.TimelineControllerV2;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -51,13 +52,7 @@ public class OpenAPIEntityTestConfiguration {
     return new ObjectMapper(new YAMLFactory());
   }
 
-  @Bean
-  @Primary
-  public EntityService entityService(final EntityRegistry mockRegistry) {
-    EntityService entityService = mock(EntityServiceImpl.class);
-    when(entityService.getEntityRegistry()).thenReturn(mockRegistry);
-    return entityService;
-  }
+  @MockBean EntityService<?> entityService;
 
   @Bean
   @Primary
@@ -97,7 +92,7 @@ public class OpenAPIEntityTestConfiguration {
       dependency.
     */
     PluginEntityRegistryLoader custom =
-        new PluginEntityRegistryLoader(getClass().getResource("/custom-model").getFile(), 60);
+        new PluginEntityRegistryLoader(getClass().getResource("/custom-model").getFile(), 60, null);
 
     ConfigEntityRegistry standard =
         new ConfigEntityRegistry(
@@ -116,11 +111,11 @@ public class OpenAPIEntityTestConfiguration {
   @Primary
   public EntitiesController entitiesController() {
     EntitiesController entitiesController = mock(EntitiesController.class);
-    when(entitiesController.getEntities(any(), any()))
+    when(entitiesController.getEntities(nullable(HttpServletRequest.class), any(), any()))
         .thenAnswer(
             params -> {
-              String[] urns = params.getArgument(0);
-              String[] aspects = params.getArgument(1);
+              String[] urns = params.getArgument(1);
+              String[] aspects = params.getArgument(2);
               return ResponseEntity.ok(
                   UrnResponseMap.builder()
                       .responses(
@@ -133,7 +128,7 @@ public class OpenAPIEntityTestConfiguration {
     return entitiesController;
   }
 
-  @MockBean public TimelineController timelineController;
+  @MockBean public TimelineControllerV2 timelineControllerV2;
 
   @MockBean public RelationshipsController relationshipsController;
 

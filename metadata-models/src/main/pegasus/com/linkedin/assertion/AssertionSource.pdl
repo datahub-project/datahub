@@ -1,5 +1,7 @@
 namespace com.linkedin.assertion
 
+import com.linkedin.common.AuditStamp
+
 /**
  * The source of an assertion
  */
@@ -24,4 +26,10 @@ record AssertionSource {
        */
       INFERRED
     }
+
+    /**
+      * The time at which the assertion was initially created and the author who created it.
+      * This field is only present for Native assertions created after this field was introduced.
+      */
+    created: optional AuditStamp
 }

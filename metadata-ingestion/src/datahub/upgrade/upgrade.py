@@ -139,10 +139,12 @@ async def get_server_version_stats(
     current_server_release_date = None
     if server_config:
         server_version_string = (
-            server_config.get("versions", {}).get("linkedin/datahub", {}).get("version")
+            server_config.get("versions", {})
+            .get("acryldata/datahub", {})
+            .get("version")
         )
         commit_hash = (
-            server_config.get("versions", {}).get("linkedin/datahub", {}).get("commit")
+            server_config.get("versions", {}).get("acryldata/datahub", {}).get("commit")
         )
         server_type = server_config.get("datahub", {}).get("serverType", "unknown")
         if server_type == "quickstart" and commit_hash:

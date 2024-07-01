@@ -33,11 +33,15 @@ from tests.unit.test_glue_source_stubs import (
     databases_1,
     databases_2,
     get_bucket_tagging,
+    get_databases_delta_response,
     get_databases_response,
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
+    get_delta_tables_response_1,
+    get_delta_tables_response_2,
     get_jobs_response,
+    get_jobs_response_empty,
     get_object_body_1,
     get_object_body_2,
     get_object_response_1,
@@ -57,15 +61,21 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
-def glue_source(platform_instance: Optional[str] = None) -> GlueSource:
+def glue_source(
+    platform_instance: Optional[str] = None,
+    use_s3_bucket_tags: bool = True,
+    use_s3_object_tags: bool = True,
+    extract_delta_schema_from_parameters: bool = False,
+) -> GlueSource:
     return GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
             aws_region="us-west-2",
             extract_transforms=True,
             platform_instance=platform_instance,
-            use_s3_bucket_tags=True,
-            use_s3_object_tags=True,
+            use_s3_bucket_tags=use_s3_bucket_tags,
+            use_s3_object_tags=use_s3_object_tags,
+            extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
         ),
     )
 
@@ -336,3 +346,77 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
                 "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
             }
+
+
+def test_glue_with_delta_schema_ingest(
+    tmp_path: Path,
+    pytestconfig: PytestConfig,
+) -> None:
+    glue_source_instance = glue_source(
+        platform_instance="delta_platform_instance",
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+        extract_delta_schema_from_parameters=True,
+    )
+
+    with Stubber(glue_source_instance.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_databases_delta_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            get_delta_tables_response_1,
+            {"DatabaseName": "delta-database"},
+        )
+        glue_stubber.add_response("get_jobs", get_jobs_response_empty, {})
+
+        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+
+        glue_stubber.assert_no_pending_responses()
+
+        assert glue_source_instance.get_report().num_dataset_valid_delta_schema == 1
+
+        write_metadata_file(tmp_path / "glue_delta_mces.json", mce_objects)
+
+    # Verify the output.
+    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "glue_delta_mces.json",
+        golden_path=test_resources_dir / "glue_delta_mces_golden.json",
+    )
+
+
+def test_glue_with_malformed_delta_schema_ingest(
+    tmp_path: Path,
+    pytestconfig: PytestConfig,
+) -> None:
+    glue_source_instance = glue_source(
+        platform_instance="delta_platform_instance",
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+        extract_delta_schema_from_parameters=True,
+    )
+
+    with Stubber(glue_source_instance.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_databases_delta_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            get_delta_tables_response_2,
+            {"DatabaseName": "delta-database"},
+        )
+        glue_stubber.add_response("get_jobs", get_jobs_response_empty, {})
+
+        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+
+        glue_stubber.assert_no_pending_responses()
+
+        assert glue_source_instance.get_report().num_dataset_invalid_delta_schema == 1
+
+        write_metadata_file(tmp_path / "glue_malformed_delta_mces.json", mce_objects)
+
+    # Verify the output.
+    test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "glue_malformed_delta_mces.json",
+        golden_path=test_resources_dir / "glue_malformed_delta_mces_golden.json",
+    )

@@ -8,6 +8,7 @@ import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -24,6 +25,8 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -52,6 +55,10 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
   @Named("authorizerChain")
   private Authorizer _authorizer;
 
+    @Inject
+    @Named("systemOperationContext")
+    private OperationContext systemOperationContext;
+
   /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @RestMethod.Get
   @Nonnull
@@ -62,23 +69,27 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
     log.debug("GET V2 {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
 
+      final Authentication auth = AuthenticationContext.getAuthentication();
     if (!isAPIAuthorizedEntityUrns(
-            AuthenticationContext.getAuthentication(),
+            auth,
             _authorizer,
             READ,
             List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
-    return RestliUtil.toTask(
+      final OperationContext opContext = OperationContext.asSession(
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "getEntityV2", urn.getEntityType()), _authorizer, auth, true);
+
+      return RestliUtil.toTask(
         () -> {
           final String entityName = urnToEntityName(urn);
           final Set<String> projectedAspects =
               aspectNames == null
-                  ? _entityService.getEntityAspectNames(entityName)
+                  ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntityV2(entityName, urn, projectedAspects);
+            return _entityService.getEntityV2(opContext, entityName, urn, projectedAspects);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(
@@ -102,15 +113,19 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       urns.add(Urn.createFromString(urnStr));
     }
 
+      final Authentication auth = AuthenticationContext.getAuthentication();
     if (!isAPIAuthorizedEntityUrns(
-            AuthenticationContext.getAuthentication(),
+            auth,
             _authorizer,
             READ,
             urns)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entities " + urnStrs);
     }
-    if (urns.size() <= 0) {
+      final OperationContext opContext = OperationContext.asSession(
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+
+      if (urns.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
     final String entityName = urnToEntityName(urns.iterator().next());
@@ -118,10 +133,10 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null
-                  ? _entityService.getEntityAspectNames(entityName)
+                  ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntitiesV2(entityName, urns, projectedAspects);
+            return _entityService.getEntitiesV2(opContext, entityName, urns, projectedAspects);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(

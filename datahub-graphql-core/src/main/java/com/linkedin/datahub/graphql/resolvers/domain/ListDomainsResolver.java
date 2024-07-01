@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListDomainsInput;
@@ -46,7 +47,7 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
 
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final ListDomainsInput input =
               bindArgument(environment.getArgument("input"), ListDomainsInput.class);
@@ -85,7 +86,9 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
           } catch (Exception e) {
             throw new RuntimeException("Failed to list domains", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial Domain objects which will be

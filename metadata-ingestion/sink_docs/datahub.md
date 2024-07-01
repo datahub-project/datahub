@@ -28,6 +28,17 @@ sink:
     server: "http://localhost:8080"
 ```
 
+If you are connecting to a hosted Acryl instance, your sink will look like
+```yml
+source:
+  # source configs
+sink:
+  type: "datahub-rest"
+  config:
+    server: "https://<your-instance>.acryl.io/gms"
+    token: <token>
+```
+
 If you are running the ingestion in a container in docker and your [GMS is also running in docker](../../docker/README.md) then you should use the internal docker hostname of the GMS pod. Usually it would look something like
 
 ```yml
@@ -179,7 +190,3 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `file`                   |       |   `"~/.datahub/lite/datahub.duckdb"`     | File to use for DuckDB storage |
 | `options`                |          | `{}`                   | Options dictionary to pass through to DuckDB library. See [the official spec](https://duckdb.org/docs/sql/configuration.html) for the options supported by DuckDB. |
 
-
-## Questions
-
-If you've got any questions on configuring this sink, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

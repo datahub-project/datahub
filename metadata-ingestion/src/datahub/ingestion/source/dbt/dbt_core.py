@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -53,9 +53,9 @@ class DBTCoreConfig(DBTCommonConfig):
     run_results_paths: List[str] = Field(
         default=[],
         description="Path to output of dbt test run as run_results files in JSON format. "
-        "If invoking dbt multiple times, you can provide paths to multiple run result files."
-        "See https://docs.getdbt.com/reference/artifacts/run-results-json. "
-        "If not specified, test execution results will not be populated in DataHub.",
+        "If not specified, test execution results and model performance metadata will not be populated in DataHub."
+        "If invoking dbt multiple times, you can provide paths to multiple run result files. "
+        "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
     )
 
     # Because we now also collect model performance metadata, the "test_results" field was renamed to "run_results".
@@ -101,17 +101,31 @@ class DBTCoreConfig(DBTCommonConfig):
 
 
 def get_columns(
-    catalog_node: dict,
+    dbt_name: str,
+    catalog_node: Optional[dict],
     manifest_node: dict,
     tag_prefix: str,
 ) -> List[DBTColumn]:
-    columns = []
-
-    catalog_columns = catalog_node["columns"]
     manifest_columns = manifest_node.get("columns", {})
-
     manifest_columns_lower = {k.lower(): v for k, v in manifest_columns.items()}
 
+    if catalog_node is not None:
+        logger.debug(f"Loading schema info for {dbt_name}")
+        catalog_columns = catalog_node["columns"]
+    elif manifest_columns:
+        # If the end user ran `dbt compile` instead of `dbt docs generate`, then the catalog
+        # file will not have any column information. In this case, we will fall back to using
+        # information from the manifest file.
+        logger.debug(f"Inferring schema info for {dbt_name} from manifest")
+        catalog_columns = {
+            k: {"name": col["name"], "type": col["data_type"] or "", "index": i}
+            for i, (k, col) in enumerate(manifest_columns.items())
+        }
+    else:
+        logger.debug(f"Missing schema info for {dbt_name}")
+        return []
+
+    columns = []
     for key, catalog_column in catalog_columns.items():
         manifest_column = manifest_columns.get(
             key, manifest_columns_lower.get(key.lower(), {})
@@ -185,10 +199,7 @@ def extract_dbt_entities(
         if catalog_node is None:
             if materialization not in {"test", "ephemeral"}:
                 # Test and ephemeral nodes will never show up in the catalog.
-                report.report_warning(
-                    key,
-                    f"Entity {key} ({name}) is in manifest but missing from catalog",
-                )
+                report.in_manifest_but_missing_catalog.append(key)
         else:
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
@@ -208,7 +219,7 @@ def extract_dbt_entities(
         max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
         max_loaded_at = None
         if max_loaded_at_str:
-            max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
+            max_loaded_at = parse_dbt_timestamp(max_loaded_at_str)
 
         test_info = None
         if manifest_node.get("resource_type") == "test":
@@ -234,6 +245,7 @@ def extract_dbt_entities(
         dbtNode = DBTNode(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
+            dbt_package_name=manifest_node.get("package_name"),
             database=manifest_node["database"],
             schema=manifest_node["schema"],
             name=name,
@@ -267,27 +279,31 @@ def extract_dbt_entities(
             "ephemeral",
             "test",
         ]:
-            logger.debug(f"Loading schema info for {dbtNode.dbt_name}")
-            if catalog_node is not None:
-                # We already have done the reporting for catalog_node being None above.
-                dbtNode.columns = get_columns(
-                    catalog_node,
-                    manifest_node,
-                    tag_prefix,
-                )
+            dbtNode.columns = get_columns(
+                dbtNode.dbt_name,
+                catalog_node,
+                manifest_node,
+                tag_prefix,
+            )
 
         else:
             dbtNode.columns = []
 
         dbt_entities.append(dbtNode)
 
+    if report.in_manifest_but_missing_catalog:
+        # We still want this to show up as a warning, but don't want to spam the warnings section
+        # if there's a lot of them.
+        report.warning(
+            "in_manifest_but_missing_catalog",
+            f"Found {len(report.in_manifest_but_missing_catalog)} nodes in manifest but not in catalog. See in_manifest_but_missing_catalog for details.",
+        )
+
     return dbt_entities
 
 
-def _parse_dbt_timestamp(timestamp: str) -> datetime:
-    return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
-        tzinfo=timezone.utc
-    )
+def parse_dbt_timestamp(timestamp: str) -> datetime:
+    return dateutil.parser.parse(timestamp)
 
 
 class DBTRunTiming(BaseModel):
@@ -338,11 +354,9 @@ def _parse_test_result(
 
     execution_timestamp = run_result.timing_map.get("execute")
     if execution_timestamp and execution_timestamp.started_at:
-        execution_timestamp_parsed = _parse_dbt_timestamp(
-            execution_timestamp.started_at
-        )
+        execution_timestamp_parsed = parse_dbt_timestamp(execution_timestamp.started_at)
     else:
-        execution_timestamp_parsed = _parse_dbt_timestamp(dbt_metadata.generated_at)
+        execution_timestamp_parsed = parse_dbt_timestamp(dbt_metadata.generated_at)
 
     return DBTTestResult(
         invocation_id=dbt_metadata.invocation_id,
@@ -369,8 +383,8 @@ def _parse_model_run(
     return DBTModelPerformance(
         run_id=dbt_metadata.invocation_id,
         status=status,
-        start_time=_parse_dbt_timestamp(execution_timestamp.started_at),
-        end_time=_parse_dbt_timestamp(execution_timestamp.completed_at),
+        start_time=parse_dbt_timestamp(execution_timestamp.started_at),
+        end_time=parse_dbt_timestamp(execution_timestamp.completed_at),
     )
 
 
@@ -429,22 +443,6 @@ def load_run_results(
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class DBTCoreSource(DBTSourceBase, TestableSource):
-    """
-    The artifacts used by this source are:
-    - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
-      - This file contains model, source, tests and lineage data.
-    - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
-      - This file contains schema data.
-      - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-    - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
-      - This file contains metadata for sources with freshness checks.
-      - We transfer dbt's freshness checks to DataHub's last-modified fields.
-      - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
-    - [dbt run_results file](https://docs.getdbt.com/reference/artifacts/run-results-json)
-      - This file contains metadata from the result of a dbt run, e.g. dbt test
-      - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
-    """
-
     config: DBTCoreConfig
 
     @classmethod
@@ -484,7 +482,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
-            with open(uri, "r") as f:
+            with open(uri) as f:
                 return json.load(f)
 
     def loadManifestAndCatalog(

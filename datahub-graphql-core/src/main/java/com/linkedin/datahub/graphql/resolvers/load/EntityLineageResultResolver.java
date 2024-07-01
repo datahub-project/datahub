@@ -1,13 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.types.mappers.MapperUtils.*;
 
 import com.datahub.authorization.AuthorizationConfiguration;
+import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -17,7 +20,6 @@ import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.graph.SiblingGraphService;
-import com.linkedin.metadata.query.LineageFlags;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.RestrictedService;
@@ -67,21 +69,25 @@ public class EntityLineageResultResolver
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
 
     final Urn finalUrn = urn;
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             com.linkedin.metadata.graph.EntityLineageResult entityLineageResult =
                 _siblingGraphService.getLineage(
+                    context
+                        .getOperationContext()
+                        .withLineageFlags(
+                            flags ->
+                                flags
+                                    .setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                                    .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL)),
                     finalUrn,
                     resolvedDirection,
                     start != null ? start : 0,
                     count != null ? count : 100,
                     1,
                     separateSiblings != null ? input.getSeparateSiblings() : false,
-                    new HashSet<>(),
-                    new LineageFlags()
-                        .setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
-                        .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
+                    new HashSet<>());
 
             Set<Urn> restrictedUrns = new HashSet<>();
             entityLineageResult
@@ -101,7 +107,9 @@ public class EntityLineageResultResolver
             throw new RuntimeException(
                 String.format("Failed to fetch lineage for %s", finalUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private EntityLineageResult mapEntityRelationships(
@@ -156,6 +164,11 @@ public class EntityLineageResultResolver
       result.setUpdatedActor(UrnToEntityMapper.map(context, updatedActor));
     }
     result.setIsManual(lineageRelationship.hasIsManual() && lineageRelationship.isIsManual());
+    if (lineageRelationship.getPaths() != null) {
+      UrnArrayArray paths = lineageRelationship.getPaths();
+      result.setPaths(
+          paths.stream().map(path -> mapPath(context, path)).collect(Collectors.toList()));
+    }
 
     return result;
   }

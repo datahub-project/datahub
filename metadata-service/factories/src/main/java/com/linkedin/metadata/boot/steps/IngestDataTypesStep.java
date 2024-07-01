@@ -13,6 +13,7 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -46,7 +47,7 @@ public class IngestDataTypesStep implements BootstrapStep {
   }
 
   @Override
-  public void execute() throws Exception {
+  public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
     log.info("Ingesting default data types...");
 
     // 1. Read from the file into JSON.
@@ -69,7 +70,7 @@ public class IngestDataTypesStep implements BootstrapStep {
       urnDataTypesMap.put(urn, roleObj);
     }
 
-    Set<Urn> existingUrns = _entityService.exists(urnDataTypesMap.keySet());
+    Set<Urn> existingUrns = _entityService.exists(systemOperationContext, urnDataTypesMap.keySet());
 
     for (final Map.Entry<Urn, JsonNode> entry : urnDataTypesMap.entrySet()) {
       if (!existingUrns.contains(entry.getKey())) {
@@ -77,14 +78,18 @@ public class IngestDataTypesStep implements BootstrapStep {
             RecordUtils.toRecordTemplate(
                 DataTypeInfo.class, entry.getValue().get("info").toString());
         log.info(String.format("Ingesting default data type with urn %s", entry.getKey()));
-        ingestDataType(entry.getKey(), info);
+        ingestDataType(systemOperationContext, entry.getKey(), info);
         numIngested++;
       }
     }
     log.info("Ingested {} new data types", numIngested);
   }
 
-  private void ingestDataType(final Urn dataTypeUrn, final DataTypeInfo info) throws Exception {
+  private void ingestDataType(
+      @Nonnull OperationContext systemOperationContext,
+      final Urn dataTypeUrn,
+      final DataTypeInfo info)
+      throws Exception {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(dataTypeUrn);
     proposal.setEntityType(DATA_TYPE_ENTITY_NAME);
@@ -93,6 +98,7 @@ public class IngestDataTypesStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(
+        systemOperationContext,
         proposal,
         new AuditStamp()
             .setActor(Urn.createFromString(SYSTEM_ACTOR))

@@ -138,8 +138,8 @@ class CustomAthenaRestDialect(AthenaRestDialect):
 
             args = [array_type]
 
-        elif type_name in ["struct", "record"]:
-            # STRUCT is not part of the SQLalchemy types selection
+        elif type_name in ["struct", "record", "row"]:
+            # STRUCT and ROW are not part of the SQLalchemy types selection
             # but is provided by another official SQLalchemy library and
             # compatible with the other SQLalchemy types
             detected_col_type = STRUCT

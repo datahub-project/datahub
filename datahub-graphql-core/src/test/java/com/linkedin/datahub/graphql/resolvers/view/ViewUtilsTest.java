@@ -1,9 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.LogicalOperator;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -66,8 +68,7 @@ public class ViewUtilsTest {
 
     assertTrue(ViewUtils.canUpdateView(mockService, TEST_VIEW_URN, mockContext));
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .getViewInfo(Mockito.eq(TEST_VIEW_URN), Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1)).getViewInfo(any(), Mockito.eq(TEST_VIEW_URN));
   }
 
   @Test
@@ -77,8 +78,7 @@ public class ViewUtilsTest {
 
     assertTrue(ViewUtils.canUpdateView(mockService, TEST_VIEW_URN, mockContext));
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .getViewInfo(Mockito.eq(TEST_VIEW_URN), Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1)).getViewInfo(any(), Mockito.eq(TEST_VIEW_URN));
   }
 
   @Test
@@ -88,8 +88,7 @@ public class ViewUtilsTest {
 
     assertFalse(ViewUtils.canUpdateView(mockService, TEST_VIEW_URN, mockContext));
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .getViewInfo(Mockito.eq(TEST_VIEW_URN), Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1)).getViewInfo(any(), Mockito.eq(TEST_VIEW_URN));
   }
 
   @Test
@@ -99,8 +98,7 @@ public class ViewUtilsTest {
 
     assertTrue(ViewUtils.canUpdateView(mockService, TEST_VIEW_URN, mockContext));
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .getViewInfo(Mockito.eq(TEST_VIEW_URN), Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1)).getViewInfo(any(), Mockito.eq(TEST_VIEW_URN));
   }
 
   @Test
@@ -110,8 +108,7 @@ public class ViewUtilsTest {
 
     assertFalse(ViewUtils.canUpdateView(mockService, TEST_VIEW_URN, mockContext));
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .getViewInfo(Mockito.eq(TEST_VIEW_URN), Mockito.any(Authentication.class));
+    Mockito.verify(mockService, Mockito.times(1)).getViewInfo(any(), Mockito.eq(TEST_VIEW_URN));
   }
 
   @Test
@@ -174,7 +171,7 @@ public class ViewUtilsTest {
                                                     // the keyword mapping.
                                                     .setCondition(Condition.CONTAIN))))))));
 
-    assertEquals(ViewUtils.mapDefinition(input), expectedResult);
+    assertEquals(ViewUtils.mapDefinition(input, mock(AspectRetriever.class)), expectedResult);
   }
 
   private static ViewService initViewService(DataHubViewType viewType) {
@@ -192,9 +189,7 @@ public class ViewUtilsTest {
                     .setEntityTypes(new StringArray())
                     .setFilter(new Filter()));
 
-    Mockito.when(
-            mockService.getViewInfo(Mockito.eq(TEST_VIEW_URN), Mockito.any(Authentication.class)))
-        .thenReturn(testInfo);
+    Mockito.when(mockService.getViewInfo(any(), Mockito.eq(TEST_VIEW_URN))).thenReturn(testInfo);
 
     return mockService;
   }

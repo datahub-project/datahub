@@ -360,7 +360,7 @@ public abstract class GraphServiceTestBaseNoVia extends GraphServiceTestBase {
   public void testRemoveNode() throws Exception {
     GraphService service = getPopulatedGraphService();
 
-    service.removeNode(datasetTwoUrn);
+    service.removeNode(dataset2Urn);
     syncAfterWrite();
 
     // assert the modified graph

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
@@ -56,7 +57,7 @@ public class ListIngestionSourcesResolver
       final List<FacetFilterInput> filters =
           input.getFilters() == null ? Collections.emptyList() : input.getFilters();
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // First, get all ingestion sources Urns.
@@ -67,7 +68,10 @@ public class ListIngestionSourcesResolver
                           .withSearchFlags(flags -> flags.setFulltext(true)),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       query,
-                      buildFilter(filters, Collections.emptyList()),
+                      buildFilter(
+                          filters,
+                          Collections.emptyList(),
+                          context.getOperationContext().getAspectRetriever()),
                       null,
                       start,
                       count);
@@ -75,6 +79,7 @@ public class ListIngestionSourcesResolver
               // Then, resolve all ingestion sources
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
+                      context.getOperationContext(),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       new HashSet<>(
                           gmsResult.getEntities().stream()
@@ -82,8 +87,7 @@ public class ListIngestionSourcesResolver
                               .collect(Collectors.toList())),
                       ImmutableSet.of(
                           Constants.INGESTION_INFO_ASPECT_NAME,
-                          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME),
-                      context.getAuthentication());
+                          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME));
 
               final Collection<EntityResponse> sortedEntities =
                   entities.values().stream()
@@ -108,7 +112,9 @@ public class ListIngestionSourcesResolver
             } catch (Exception e) {
               throw new RuntimeException("Failed to list ingestion sources", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

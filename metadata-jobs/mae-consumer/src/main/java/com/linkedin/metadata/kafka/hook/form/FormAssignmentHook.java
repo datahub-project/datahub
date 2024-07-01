@@ -11,6 +11,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -37,9 +38,6 @@ import org.springframework.stereotype.Component;
  * <p>3. When a form is hard deleted, any automations used for assigning the form, or validating
  * prompts, are automatically deleted.
  *
- * <p>Note that currently, Datasets, Dashboards, Charts, Data Jobs, Data Flows, Containers, are the
- * only asset types supported for this hook.
- *
  * <p>TODO: In the future, let's decide whether we want to support automations to auto-mark form
  * prompts as "completed" when they do in fact have the correct metadata. (Without user needing to
  * explicitly fill out a form prompt response)
@@ -58,6 +56,8 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
   private final FormService _formService;
   private final boolean _isEnabled;
 
+  private OperationContext systemOperationContext;
+
   @Autowired
   public FormAssignmentHook(
       @Nonnull final FormService formService,
@@ -67,7 +67,10 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void init() {}
+  public FormAssignmentHook init(@Nonnull OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+    return this;
+  }
 
   @Override
   public boolean isEnabled() {
@@ -93,7 +96,8 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
             DynamicFormAssignment.class);
 
     // 2. Register a automation to assign it.
-    _formService.upsertFormAssignmentRunner(event.getEntityUrn(), formFilters);
+    _formService.upsertFormAssignmentRunner(
+        systemOperationContext, event.getEntityUrn(), formFilters);
   }
 
   /**
