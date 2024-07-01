@@ -3,6 +3,11 @@ extend type Mutation {
     Upsert structured properties onto a given asset
     """
     upsertStructuredProperties(input: UpsertStructuredPropertiesInput!): StructuredProperties!
+
+    """
+    Upsert structured properties onto a given asset
+    """
+    removeStructuredProperties(input: RemoveStructuredPropertiesInput!): StructuredProperties!
 }
 
 """
@@ -182,6 +187,21 @@ input UpsertStructuredPropertiesInput {
     The list of structured properties you want to upsert on this asset
     """
     structuredPropertyInputParams: [StructuredPropertyInputParams!]!
+}
+
+"""
+Input for removing structured properties on a given asset
+"""
+input RemoveStructuredPropertiesInput {
+    """
+    The urn of the asset that we are removing properties from
+    """
+    assetUrn: String!
+
+    """
+    The list of structured properties you want to remove from this asset
+    """
+    structuredPropertyUrns: [String!]!
 }
 
 """
