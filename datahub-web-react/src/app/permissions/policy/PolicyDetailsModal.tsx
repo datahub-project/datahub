@@ -175,14 +175,14 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                             <div>
                                 <Typography.Title level={5}>Data Platform Instances</Typography.Title>
                                 <ThinDivider />
-                                {(dataPlatformInstances.map((value, key) => {
-                                        return (
-                                            // eslint-disable-next-line react/no-array-index-key
-                                            <PoliciesTag key={`dataPlatformInstance-${value.value}-${key}`}>
-                                                <Typography.Text>{getDisplayName(value.entity)}</Typography.Text>
-                                            </PoliciesTag>
-                                        );
-                                    }))}
+                                {dataPlatformInstances.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`dataPlatformInstance-${value.value}-${key}`}>
+                                            <Typography.Text>{getDisplayName(value.entity)}</Typography.Text>
+                                        </PoliciesTag>
+                                    );
+                                })}
                             </div>
                         )}
                         <div>
