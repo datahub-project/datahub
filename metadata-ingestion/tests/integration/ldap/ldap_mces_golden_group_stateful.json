@@ -6,7 +6,6 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "email": "HR Department",
                         "admins": [],
                         "members": [],
                         "groups": []
@@ -29,7 +28,6 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "email": "Finance Department",
                         "admins": [],
                         "members": [],
                         "groups": []
