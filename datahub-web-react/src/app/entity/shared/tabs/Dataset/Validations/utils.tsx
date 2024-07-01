@@ -227,10 +227,10 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
 //  */
 export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGroup[] => {
     // Pre-sort the list of assertions based on which has been most recently executed.
-    assertions.sort(sortAssertions);
+    const newAssertions = [...assertions].sort(sortAssertions);
 
     const typeToAssertions = new Map();
-    assertions
+    newAssertions
         .filter((assertion) => assertion.info?.type)
         .forEach((assertion) => {
             const groupType = assertion.info?.type;

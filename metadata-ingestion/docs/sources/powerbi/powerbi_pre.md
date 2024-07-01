@@ -108,6 +108,14 @@ By default, extracting endorsement information to tags is disabled. The feature 
 
 Please note that the default implementation overwrites tags for the ingested entities, if you need to preserve existing tags, consider using a [transformer](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-globaltags) with `semantics: PATCH` tags instead of `OVERWRITE`.
 
+## Profiling
+
+The profiling implementation is done through querying [DAX query endpoint](https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/execute-queries). Therefore the principal needs to have permission to query the datasets to be profiled. Usually this means that the service principal should have `Contributor` role for the workspace to be ingested. Profiling is done with column based queries to be able to handle wide datasets without timeouts.
+
+Take into account that the profiling implementation exeutes fairly big amount of DAX queries and for big datasets this is substantial load to the PowerBI system.
+
+The `profiling_pattern` setting may be used to limit profiling actions to only a certain set of resources in PowerBI. Both allow and deny rules are matched against following pattern for every table in a PowerBI Dataset: `workspace_name.dataset_name.table_name`. User may limit profiling with these settings at table level, dataset level or workspace level.
+
 ## Admin Ingestion vs. Basic Ingestion
 PowerBI provides two sets of API i.e. [Basic API and Admin API](https://learn.microsoft.com/en-us/rest/api/power-bi/). 
 
@@ -140,6 +148,7 @@ If you don't want to add a service principal as a member in your workspace, then
 Caveats of setting `admin_apis_only` to `true`:
   - Report's pages would not get ingested as page API is not available in PowerBI Admin API
   - [PowerBI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) would not get resolved to actual values while processing M-Query for table lineage
+  - Dataset profiling is unavailable, as it requires access to the workspace API
 
 
 ### Basic Ingestion: Service Principal As Member In Workspace 
