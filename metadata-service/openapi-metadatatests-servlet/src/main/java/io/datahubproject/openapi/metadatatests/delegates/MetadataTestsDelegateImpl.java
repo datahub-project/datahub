@@ -12,6 +12,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
@@ -313,6 +314,11 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     } else {
       testFetcher = new TestListFetcher(entityService, entitySearchService, testInfoMap);
     }
+    // TODO: This should take in configuration as well
+    TestsHookExecutionLimitConfiguration hookLimitConfig =
+        new TestsHookExecutionLimitConfiguration();
+    hookLimitConfig.setDefaultExecutor(1000);
+    hookLimitConfig.setElasticSearchExecutor(10000);
 
     return new TestEngine(
         opContext,
@@ -327,7 +333,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
         actionApplier,
         0,
         0,
-        true);
+        true,
+        hookLimitConfig);
   }
 
   private static MetadataTestResultV1 toTestResult(

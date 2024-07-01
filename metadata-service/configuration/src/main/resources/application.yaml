@@ -325,6 +325,9 @@ metadataTests:
     enabled: ${METADATA_TESTS_HOOK_ENABLED:true}
     onTestChange: ${METADATA_TESTS_ON_TEST_CHANGE:true}
     onEntityChange: ${METADATA_TESTS_ON_ENTITY_CHANGE:false}
+    hookExecutionLimit: # Configures the limits on number of entities for running tests in real time for each executor
+      elasticSearchExecutor: ${METADATA_TESTS_TEST_CHANGE_LIMIT_ELASTIC:10000} # configures the limit for the faster Elastic executor
+      defaultExecutor: ${METADATA_TESTS_TEST_CHANGE_LIMIT_SQL:1000} # configures the limit for the default sql executor
   cacheRefreshIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_INTERVAL_SECONDS:120}
   # Flags to enable bootstrap ingestion of default policies
   bootstrap:

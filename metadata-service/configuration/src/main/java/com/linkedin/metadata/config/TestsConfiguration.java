@@ -6,5 +6,10 @@ import lombok.Data;
 @Data
 public class TestsConfiguration {
   /** Whether tests are enabled */
-  public boolean enabled;
+  private boolean enabled;
+
+  private TestsHookConfiguration hook;
+  private int cacheRefreshIntervalSecs;
+  private TestsBootstrapConfiguration bootstrap;
+  private ElasticSearchTestExecutorConfiguration elasticSearchExecutor;
 }

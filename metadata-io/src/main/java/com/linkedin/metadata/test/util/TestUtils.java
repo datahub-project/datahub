@@ -19,6 +19,8 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.test.definition.TestDefinition;
+import com.linkedin.metadata.test.exception.SelectionTooLargeException;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -124,6 +126,12 @@ public class TestUtils {
             ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
     log.info("Filter: {}", result.toString());
     return result;
+  }
+
+  public static SelectionTooLargeException abortBeyondLimitExecution(
+      TestDefinition testDefinition, int count) {
+    return new SelectionTooLargeException(
+        String.format("Too many entities selected for test %s, count: %s", testDefinition, count));
   }
 
   private TestUtils() {}
