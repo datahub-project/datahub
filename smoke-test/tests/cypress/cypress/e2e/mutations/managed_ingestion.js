@@ -1,5 +1,9 @@
 function readyToTypeEditor() {
-  return cy.get(".monaco-editor textarea").first().click({ force: true }).focused();
+  return cy
+    .get(".monaco-editor textarea")
+    .first()
+    .click({ force: true })
+    .focused();
 }
 
 describe("run managed ingestion", () => {
