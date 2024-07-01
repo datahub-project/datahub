@@ -2,7 +2,7 @@ import React from 'react';
 
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { Icon, AVAILABLE_ICONS } from '../../src/components';
+import { Icon, iconDefaults, AVAILABLE_ICONS } from '../../src/components';
 
 import { GridList } from '../docLayoutComponents/GridList';
 
@@ -21,6 +21,9 @@ const meta = {
 			description: `The name of the icon to display.`,
 			type: 'string',
 			options: AVAILABLE_ICONS,
+			table: {
+				defaultValue: { summary: 'undefined' }
+			},
 			control: {
 				type: 'select',
 			}
@@ -29,26 +32,42 @@ const meta = {
 			description: 'The variant of the icon to display.',
 			defaultValue: 'outline',
 			options: ['outline', 'filled'],
+			table: {
+				defaultValue: { summary: iconDefaults.variant }
+			},
 		},
 		size: {
 			description: 'The size of the icon to display.',
 			defaultValue: 'lg',
+			table: {
+				defaultValue: { summary: iconDefaults.size }
+			},
 		},
 		color: {
 			description: 'The color of the icon to display.',
 			options: ['inherit', 'white', 'black', 'violet', 'green', 'red', 'blue', 'gray'],
 			type: 'string',
+			table: {
+				defaultValue: { summary: iconDefaults.color }
+			},
 			control: {
 				type: 'select',
 			}
 		},
+		rotate: {
+			description: 'The rotation of the icon. Applies a CSS transformation.',
+			table: {
+				defaultValue: { summary: iconDefaults.rotate }
+			},
+		},
 	},
 	// Define default args
 	args: {
-		icon: 'AccountCircle',
-		variant: 'outline',
-		size: '4xl',
-		color: 'black',
+		icon: iconDefaults.icon,
+		variant: iconDefaults.variant,
+		size: iconDefaults.size,
+		color: iconDefaults.color,
+		rotate: iconDefaults.rotate,
 	},
 } satisfies Meta<typeof Icon>;
 

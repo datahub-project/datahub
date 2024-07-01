@@ -18,6 +18,9 @@ const config: StorybookConfig = {
 		'@storybook/addon-interactions',
 	],
 	staticDirs: ['../public', '../src/fonts', '../src/images'],
+	typescript: {
+		reactDocgen: 'react-docgen-typescript',
+	},
 };
 
 export default config;

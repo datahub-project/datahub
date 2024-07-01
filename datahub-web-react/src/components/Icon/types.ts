@@ -10,7 +10,7 @@ function createEnum<T extends string>(values: T[]): { [K in T]: K } {
 }
 
 const names = createEnum(AVAILABLE_ICONS);
-type IconNames = keyof typeof names;
+export type IconNames = keyof typeof names;
 
 export interface IconProps {
     icon: IconNames;
@@ -19,10 +19,3 @@ export interface IconProps {
     color?: FontColorOptions;
     rotate?: RotationOptions;
 }
-
-export const iconDefaults = {
-    variant: 'outline' as IconProps['variant'],
-    size: 'md' as IconProps['size'],
-    color: 'inherit' as IconProps['color'],
-    rotate: '0' as IconProps['rotate'],
-};

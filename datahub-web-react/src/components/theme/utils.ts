@@ -7,80 +7,9 @@ import { text } from './text';
 import { tokens } from './tokens';
 import { transform } from './transform';
 
-import {
-    FontVariantOptions,
-    FontSizeOptions,
-    FontColorOptions,
-    ColorOptions,
-    ColorShadeOptions,
-    RotationOptions,
-} from './config/types';
+import { FontVariantOptions, FontSizeOptions, FontColorOptions, RotationOptions } from './config/types';
 
-import {
-    LIGHT_VALUE,
-    LIGHT_HOVER_VALUE,
-    DEFAULT_VALUE,
-    DEFAULT_HOVER_VALUE,
-    DARK_VALUE,
-    DARK_HOVER_VALUE,
-} from './config/constants';
-
-/*
-	Get the color values for a given color and shade
-	@param color - the color to get the values for
-	@param shade - the shade of the color to get the values for
-*/
-export const getColorValues = ({ color, shade = 'default' }: { color: ColorOptions; shade?: ColorShadeOptions }) => {
-    // If the color is not provided, throw an error
-    if (!color) throw new Error('Color is required');
-
-    // If the color is white, return the white color
-    if (color === 'white') {
-        return {
-            default: colors.white,
-            hover: colors.white,
-        };
-    }
-
-    // If the color is black, return the black color
-    if (color === 'black') {
-        return {
-            default: colors.black,
-            hover: colors.black,
-        };
-    }
-
-    // Get the color values for the color
-    const colorValues = colors[color];
-
-    // If the color does not exist in the theme, throw an error
-    if (!colorValues) throw new Error(`Color ${color} does not exist in the theme`);
-
-    // Get the value for the shade
-    let shadeValue;
-    let hoverValue;
-
-    switch (shade) {
-        case 'light':
-            shadeValue = LIGHT_VALUE;
-            hoverValue = LIGHT_HOVER_VALUE;
-            break;
-        case 'dark':
-            shadeValue = DARK_VALUE;
-            hoverValue = DARK_HOVER_VALUE;
-            break;
-        default:
-            shadeValue = DEFAULT_VALUE;
-            hoverValue = DEFAULT_HOVER_VALUE;
-            break;
-    }
-
-    // Return the color values
-    return {
-        default: colorValues[shadeValue],
-        hover: colorValues[hoverValue],
-    };
-};
+import { DEFAULT_VALUE } from './config/constants';
 
 /*
 	Get the font values for a given size and variant
@@ -135,12 +64,14 @@ export const getFontSize = (size?: FontSizeOptions) => {
 	Get the color value for a given color
 	@param color - the color to get the value for
 */
-export const getColorValue = (color?: FontColorOptions) => {
+export const getColorValue = (color?: FontColorOptions, value: number | string = DEFAULT_VALUE) => {
     if (!color) return colors.black;
     if (color === 'inherit') return 'inherit';
     if (color === 'white') return colors.white;
     if (color === 'black') return colors.black;
-    return colors[color][DEFAULT_VALUE];
+    const colorValue = colors[color];
+    if (!colorValue) return colors.black;
+    return colors[color][value];
 };
 
 /*

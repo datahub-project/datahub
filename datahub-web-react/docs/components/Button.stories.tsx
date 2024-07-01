@@ -2,7 +2,7 @@ import React from 'react';
 
 import type { Meta, StoryObj } from '@storybook/react';
 
-import { Button, Icon } from '../../src/components';
+import { Button, buttonDefaults, AVAILABLE_ICONS } from '../../src/components';
 
 import { GridList } from '../docLayoutComponents/GridList';
 
@@ -10,6 +10,7 @@ import { GridList } from '../docLayoutComponents/GridList';
 const meta = {
 	title: 'Components/Button',
 	component: Button,
+	subcomponents: undefined,
 	tags: ['autodocs'],
 	// Display Properties 
 	parameters: {
@@ -18,62 +19,90 @@ const meta = {
 	// Component-level argTypes
 	argTypes: {
 		children: {
-			control: {
-				type: 'text',
-			},
+			description: 'The content of the Button.',
 		},
 		variant: {
 			description: 'The variant of the Button.',
-			defaultValue: 'filled',
+			options: ['filled', 'outline', 'text'],
+			table: {
+				defaultValue: { summary: buttonDefaults.variant }
+			}
 		},
 		color: {
 			description: 'The color of the Button.',
-			defaultValue: 'violet',
+			table: {
+				defaultValue: { summary: buttonDefaults.color }
+			},
 			control: {
 				type: 'select',
 			},
 		},
 		size: {
 			description: 'The size of the Button.',
-			defaultValue: 'md',
-		},
-		isCircle: {
-			description: 'Whether the Button should be a circle. If this is selected, the Button will ignore children content, so add an Icon to the Button.',
-			defaultValue: false,
+			table: {
+				defaultValue: { summary: buttonDefaults.size }
+			},
 		},
 		icon: {
 			description: 'The icon to display in the Button.',
+			options: AVAILABLE_ICONS,
+			table: {
+				defaultValue: { summary: 'undefined' }
+			},
 			control: {
 				type: 'select',
 			},
 		},
 		iconPosition: {
 			description: 'The position of the icon in the Button.',
-			defaultValue: 'left',
+			table: {
+				defaultValue: { summary: buttonDefaults.iconPosition }
+			},
+		},
+		isCircle: {
+			description: 'Whether the Button should be a circle. If this is selected, the Button will ignore children content, so add an Icon to the Button.',
+			table: {
+				defaultValue: { summary: buttonDefaults?.isCircle?.toString() }
+			},
 		},
 		isLoading: {
 			description: 'Whether the Button is in a loading state.',
-			defaultValue: false,
-			control: {
-				type: 'boolean',
+			table: {
+				defaultValue: { summary: buttonDefaults?.isLoading?.toString() }
 			},
 		},
-		disabled: {
+		isDisabled: {
 			description: 'Whether the Button is disabled.',
-			defaultValue: false,
-			control: {
-				type: 'boolean',
+			table: {
+				defaultValue: { summary: buttonDefaults?.isDisabled?.toString() }
 			},
 		},
-		onClick: { action: 'clicked' },
+		isActive: {
+			description: 'Whether the Button is active.',
+			table: {
+				defaultValue: { summary: buttonDefaults?.isActive?.toString() }
+			},
+		},
+		onClick: {
+			description: 'Function to call when the button is clicked',
+			table: {
+				defaultValue: { summary: 'undefined' }
+			},
+			action: 'clicked'
+		},
 	},
 	// Define default args
 	args: {
-		variant: 'filled',
-		color: 'violet',
-		size: 'md',
-		isCircle: false,
 		children: 'Button Content',
+		variant: buttonDefaults.variant,
+		color: buttonDefaults.color,
+		size: buttonDefaults.size,
+		icon: undefined,
+		iconPosition: buttonDefaults.iconPosition,
+		isCircle: buttonDefaults.isCircle,
+		isLoading: buttonDefaults.isLoading,
+		isDisabled: buttonDefaults.isDisabled,
+		isActive: buttonDefaults.isActive,
 		onClick: () => console.log('Button clicked'),
 	},
 } satisfies Meta<typeof Button>;
@@ -85,6 +114,19 @@ export const Default: Story = {
 	render: function Render(args) {
 		return (
 			<Button {...args}>Default Button</Button>
+		);
+	},
+};
+
+export const States: Story = {
+	render: function Render(args) {
+		return (
+			<GridList>
+				<Button {...args}>Default</Button>
+				<Button {...args} isLoading>Loading State</Button>
+				<Button {...args} isActive>Active/Focus State</Button>
+				<Button {...args} isDisabled>Disabled State</Button>
+			</GridList>
 		);
 	},
 };
@@ -110,6 +152,7 @@ export const Sizes: Story = {
 				<Button {...args} size="sm">Small Button</Button>
 				<Button {...args} size="md">Regular Button</Button>
 				<Button {...args} size="lg">Large Button</Button>
+				<Button {...args} size="xl">XLarge Button</Button>
 			</GridList>
 		);
 	},
@@ -119,8 +162,8 @@ export const WithIcon: Story = {
 	render: function Render(args) {
 		return (
 			<GridList>
-				<Button {...args} icon={<Icon icon="Add" />}>Icon Left</Button>
-				<Button {...args} icon={<Icon icon="Add" />} iconPosition="right">Icon Right</Button>
+				<Button {...args} icon="Add">Icon Left</Button>
+				<Button {...args} icon="Add" iconPosition="right">Icon Right</Button>
 			</GridList>
 		);
 	},
@@ -130,9 +173,9 @@ export const CircleShape: Story = {
 	render: function Render(args) {
 		return (
 			<GridList>
-				<Button {...args} icon={<Icon icon="Add" size="sm" />} isCircle={true} size="sm" />
-				<Button {...args} icon={<Icon icon="Add" />} isCircle={true} />
-				<Button {...args} icon={<Icon icon="Add" size="lg" />} isCircle={true} size="lg" />
+				<Button {...args} icon="Add" isCircle={true} size="sm" />
+				<Button {...args} icon="Add" isCircle={true} />
+				<Button {...args} icon="Add" isCircle={true} size="lg" />
 			</GridList>
 		);
 	},

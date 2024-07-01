@@ -2,9 +2,17 @@ import React from 'react';
 
 import { getFontSize, getColorValue, getRotationTransform } from '../theme/utils';
 
-import { IconProps, iconDefaults } from './types';
+import { IconProps } from './types';
 import { IconWrapper } from './components';
 import { getIconNames, getIconComponent } from './utils';
+
+export const iconDefaults: IconProps = {
+    icon: 'AccountCircle',
+    variant: 'outline',
+    size: '4xl',
+    color: 'inherit',
+    rotate: '0',
+};
 
 export const Icon = ({
     icon,
