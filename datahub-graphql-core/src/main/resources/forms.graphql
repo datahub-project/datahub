@@ -13,6 +13,11 @@ extend type Mutation {
     Delete a given form
     """
     deleteForm(input: DeleteFormInput!): Boolean!
+
+    """
+    Update an existing form based on the input
+    """
+    updateForm(input: UpdateFormInput!): Form!
 }
 
 """
@@ -508,6 +513,76 @@ input StructuredPropertyParamsInput {
     The urn of the structured property for a given form prompt
     """
     urn: String!
+}
+
+"""
+Input for updating a form
+"""
+input UpdateFormInput {
+    """
+    The urn of the form being updated
+    """
+    urn: String!
+
+    """
+    The new name of the form
+    """
+    name: String
+
+    """
+    The new description of the form
+    """
+    description: String
+
+    """
+    The new type of the form
+    """
+    type: FormType
+
+    """
+    The new prompts being added to this form
+    """
+    promptsToAdd: [CreatePromptInput!]
+
+    """
+    The IDs of the prompts to remove from this form
+    """
+    promptsToRemove: [String!]
+
+    """
+    Information on how this form should be assigned to users/groups
+    """
+    actors: FormActorAssignmentUpdateInput
+}
+
+"""
+Update input for assigning a form to actors
+"""
+input FormActorAssignmentUpdateInput {
+    """
+    Whether this form will be applied to owners of associated entities or not. Default is true.
+    """
+    owners: Boolean
+
+    """
+    The optional list of user urns to assign this form to
+    """
+    usersToAdd: [String!]
+
+    """
+    The users being removed from being assigned to this form
+    """
+    usersToRemove: [String!]
+
+    """
+    The optional list of group urns to assign this form to
+    """
+    groupsToAdd: [String!]
+
+    """
+    The groups being removed from being assigned to this form
+    """
+    groupsToRemove: [String!]
 }
 
 """

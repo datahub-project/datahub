@@ -29,6 +29,7 @@ import com.linkedin.structured.PrimitivePropertyValueArray;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -205,5 +206,11 @@ public class FormUtils {
     }
 
     return result;
+  }
+
+  @Nonnull
+  public static List<FormPrompt> mapPromptsToAdd(
+      @Nonnull final List<CreatePromptInput> promptsToAdd) {
+    return promptsToAdd.stream().map(FormUtils::mapPrompt).collect(Collectors.toList());
   }
 }
