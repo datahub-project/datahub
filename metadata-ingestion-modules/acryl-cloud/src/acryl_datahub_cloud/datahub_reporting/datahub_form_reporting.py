@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 import pandas as pd
 from pydantic import BaseModel
 
-from acryl_datahub_cloud.datahub_reporting.datahub_dataset import BaseModelRow
+from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import SearchFilterRule

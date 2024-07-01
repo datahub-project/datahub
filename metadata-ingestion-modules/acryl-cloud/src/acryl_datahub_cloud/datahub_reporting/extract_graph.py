@@ -9,12 +9,13 @@ from opensearchpy import OpenSearch
 from pydantic import validator
 
 from acryl_datahub_cloud.datahub_reporting.datahub_dataset import (
-    BaseModelRow,
     DataHubBasedS3Dataset,
     DatasetMetadata,
     DatasetRegistrationSpec,
     FileStoreBackedDatasetConfig,
 )
+from acryl_datahub_cloud.elasticsearch.config import ElasticSearchClientConfig
+from acryl_datahub_cloud.elasticsearch.graph_service import ElasticGraphRow
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -28,19 +29,6 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 logger = logging.getLogger(__name__)
-
-
-class ElasticSearchClientConfig(ConfigModel):
-    host: str = os.getenv("ELASTICSEARCH_HOST", "localhost")
-    port: int = int(os.getenv("ELASTICSEARCH_PORT", "9200"))
-    use_ssl: bool = bool(os.getenv("ELASTICSEARCH_USE_SSL", "False"))
-    verify_certs: bool = False
-    ca_certs: Optional[str] = None
-    client_cert: Optional[str] = None
-    client_key: Optional[str] = None
-    username: Optional[str] = os.getenv("ELASTICSEARCH_USERNAME", "admin")
-    password: Optional[str] = os.getenv("ELASTICSEARCH_PASSWORD", "admin")
-    index_prefix: str = os.getenv("INDEX_PREFIX", "")
 
 
 class DataHubReportingExtractGraphSourceConfig(ConfigModel):
@@ -81,32 +69,6 @@ class DataHubReportingExtractGraphSourceReport(SourceReport):
 
     def as_string(self) -> str:
         return super().as_string()
-
-
-class ElasticGraphRow(BaseModelRow):
-    source_urn: str
-    source_entity_type: str
-    destination_urn: str
-    destination_entity_type: str
-    relationship_type: str
-    created_on: Optional[float]
-    created_by: Optional[str]
-    updated_on: Optional[float]
-    updated_by: Optional[str]
-
-    @classmethod
-    def from_elastic_doc(cls, doc):
-        return cls(
-            source_urn=doc["source"]["urn"],
-            source_entity_type=doc["source"]["entityType"],
-            destination_urn=doc["destination"]["urn"],
-            destination_entity_type=doc["destination"]["entityType"],
-            relationship_type=doc["relationshipType"],
-            created_on=doc.get("createdOn"),
-            created_by=doc.get("createdActor"),
-            updated_on=doc.get("updatedOn"),
-            updated_by=doc.get("updatedActor"),
-        )
 
 
 @platform_name(id="datahub", platform_name="DataHub")
@@ -177,29 +139,15 @@ class DataHubReportingExtractGraphSource(Source):
             for mcp in mcps:
                 yield mcp.as_workunit()
         else:
-            endpoint = ""
-            if self.config.search_index:
-                if self.config.search_index.host and not self.config.search_index.port:
-                    endpoint = f"{self.config.search_index.host}"
-                elif self.config.search_index.host and self.config.search_index.port:
-                    endpoint = f"{self.config.search_index.host}:{self.config.search_index.port}"
-
-            index_prefix = (
-                self.config.search_index.index_prefix
-                if self.config.search_index
-                else ""
-            )
+            endpoint = self.config.search_index.endpoint
+            index_prefix = self.config.search_index.index_prefix
             user = self.config.search_index.username
             password = self.config.search_index.password
             batch_size = self.config.extract_batch_size
             server = OpenSearch(
                 [endpoint],
                 http_auth=(user, password),
-                use_ssl=(
-                    True
-                    if self.config.search_index and self.config.search_index.use_ssl
-                    else False
-                ),
+                use_ssl=self.config.search_index and self.config.search_index.use_ssl,
             )
 
             query = {

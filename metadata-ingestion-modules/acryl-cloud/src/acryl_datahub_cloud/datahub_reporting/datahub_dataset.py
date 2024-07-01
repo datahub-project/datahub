@@ -13,6 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from pydantic import BaseModel, validator
 
+from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow, SchemaField
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -94,63 +95,10 @@ class FileStoreBackedDatasetConfig(ConfigModel):
         return FileStoreBackedDatasetConfig(dataset_name="none", bucket_prefix="none")
 
 
-class SchemaField(BaseModel):
-    name: str
-    type: str
-
-
 class DatasetMetadata(BaseModel):
     schemaFields: Optional[List[SchemaField]] = None
     displayName: Optional[str] = None
     description: Optional[str] = None
-
-
-class BaseModelRow(BaseModel):
-    def dict(self):
-        return self.__dict__
-
-    @staticmethod
-    def pydantic_type_to_pyarrow(type_):
-        if issubclass(type_, bool):
-            return pa.bool_()
-        elif issubclass(type_, int):
-            return pa.int64()
-        elif issubclass(type_, float):
-            return pa.float64()
-        elif issubclass(type_, str):
-            return pa.string()
-        elif issubclass(type_, datetime.datetime):
-            return pa.timestamp("ns")
-        elif issubclass(type_, datetime.date):
-            return pa.date32()
-        # Extend with additional mappings as needed
-        else:
-            raise ValueError(f"No mapping for type {type_}")
-
-    @classmethod
-    def arrow_schema(cls) -> pa.Schema:
-        fields = []
-        for field_name, field_model in cls.__fields__.items():
-            pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(
-                field_model.outer_type_
-            )
-            pyarrow_field = pa.field(field_name, pyarrow_type)
-            if not field_model.required:
-                pyarrow_field = pyarrow_field.with_nullable(True)
-            else:
-                pyarrow_field = pyarrow_field.with_nullable(False)
-            fields.append(pyarrow_field)
-        return pa.schema(fields)
-
-    @classmethod
-    def datahub_schema(cls) -> List[SchemaField]:
-        fields = []
-        for field_name, field_model in cls.__fields__.items():
-            pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(
-                field_model.outer_type_
-            )
-            fields.append(SchemaField(name=field_name, type=str(pyarrow_type)))
-        return fields
 
 
 class DataHubBasedS3Dataset:

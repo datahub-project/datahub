@@ -10,12 +10,12 @@ import boto3
 from pydantic import validator
 
 from acryl_datahub_cloud.datahub_reporting.datahub_dataset import (
-    BaseModelRow,
     DataHubBasedS3Dataset,
     DatasetMetadata,
     DatasetRegistrationSpec,
     FileStoreBackedDatasetConfig,
 )
+from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
