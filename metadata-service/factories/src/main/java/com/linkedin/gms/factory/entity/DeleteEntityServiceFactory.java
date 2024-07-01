@@ -4,6 +4,8 @@ import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import javax.annotation.Nonnull;
+
+import com.linkedin.metadata.search.EntitySearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -21,9 +23,13 @@ public class DeleteEntityServiceFactory {
   @Qualifier("graphService")
   private GraphService _graphService;
 
+  @Autowired
+  @Qualifier("entitySearchService")
+  private EntitySearchService _entitySearchService;
+
   @Bean(name = "deleteEntityService")
   @Nonnull
   protected DeleteEntityService createDeleteEntityService() {
-    return new DeleteEntityService(_entityService, _graphService);
+    return new DeleteEntityService(_entityService, _graphService, _entitySearchService);
   }
 }
