@@ -441,13 +441,73 @@
     }
 },
 {
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+            "urn": "urn:li:tag:Dimension",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.tag.TagProperties": {
+                        "name": "Dimension",
+                        "description": "A tag that is applied to all dimension fields."
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+            "urn": "urn:li:tag:Temporal",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.tag.TagProperties": {
+                        "name": "Temporal",
+                        "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations."
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+            "urn": "urn:li:tag:Measure",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.tag.TagProperties": {
+                        "name": "Measure",
+                        "description": "A tag that is applied to all measures (metrics). Measures are typically the columns that you aggregate on"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:Dimension",
     "changeType": "UPSERT",
-    "aspectName": "tagKey",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "name": "Dimension"
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -460,10 +520,10 @@
     "entityType": "tag",
     "entityUrn": "urn:li:tag:Measure",
     "changeType": "UPSERT",
-    "aspectName": "tagKey",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "name": "Measure"
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -476,10 +536,10 @@
     "entityType": "tag",
     "entityUrn": "urn:li:tag:Temporal",
     "changeType": "UPSERT",
-    "aspectName": "tagKey",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "name": "Temporal"
+            "removed": false
         }
     },
     "systemMetadata": {
