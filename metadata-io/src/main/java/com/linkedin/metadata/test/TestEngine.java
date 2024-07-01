@@ -3,6 +3,7 @@ package com.linkedin.metadata.test;
 import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.test.TestConstants.*;
+import static com.linkedin.metadata.test.util.TestUtils.*;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.patch.builder.TestResultsPatchBuilder;
+import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.query.filter.Filter;
@@ -28,6 +30,7 @@ import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
+import com.linkedin.metadata.test.exception.SelectionTooLargeException;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
 import com.linkedin.metadata.test.executor.elastic.ElasticSearchTestExecutor;
 import com.linkedin.metadata.test.query.QueryEngine;
@@ -111,9 +114,7 @@ public class TestEngine {
   private final OperationContext systemOpContext;
 
   private final boolean elasticSearchExecutorEnabled;
-
-  // TODO: Make this configurable
-  private static final Integer MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION = 10000;
+  private final TestsHookExecutionLimitConfiguration executionLimits;
 
   /** The test engine evaluation mode. */
   public enum EvaluationMode {
@@ -157,7 +158,8 @@ public class TestEngine {
       ActionApplier actionApplier,
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
-      boolean elasticSearchExecutorEnabled) {
+      boolean elasticSearchExecutorEnabled,
+      TestsHookExecutionLimitConfiguration executionLimits) {
 
     _entityService = entityService;
     _searchService = searchService;
@@ -195,9 +197,11 @@ public class TestEngine {
             searchService,
             timeseriesAspectService,
             systemOpContext.getEntityRegistry(),
-            systemOpContext);
+            systemOpContext,
+            executionLimits.getElasticSearchExecutor());
     _timeseriesAspectService = timeseriesAspectService;
     this.elasticSearchExecutorEnabled = elasticSearchExecutorEnabled;
+    this.executionLimits = executionLimits;
   }
 
   /**
@@ -1108,6 +1112,9 @@ public class TestEngine {
 
         tempResults = defaultEvaluate(candidateUrns, testUrn, testDefinition, batchTestRunResults);
       }
+    } catch (SelectionTooLargeException se) {
+      // If we know the selection is too large, don't try to use default selector
+      throw se;
     } catch (Exception e) {
       // If ES Test executor fails try to do default
       log.warn("Unable to use ElasticSearchExecutor.", e);
@@ -1152,11 +1159,11 @@ public class TestEngine {
                 candidateUrns.addAll(
                     _entityService
                         .listUrns(
-                            systemOpContext,
-                            typeName,
-                            0,
-                            MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
+                            systemOpContext, typeName, 0, executionLimits.getDefaultExecutor())
                         .getEntities()));
+    if (candidateUrns.size() >= executionLimits.getDefaultExecutor()) {
+      throw abortBeyondLimitExecution(testDefinition, candidateUrns.size());
+    }
   }
 
   private Map<Urn, TestResults> defaultEvaluate(
@@ -1164,16 +1171,16 @@ public class TestEngine {
       Urn testUrn,
       TestDefinition testDefinition,
       Map<Urn, BatchTestRunResult> batchTestRunResults) {
-    if (candidateUrns.size() >= MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION) {
+    if (candidateUrns.size() >= executionLimits.getDefaultExecutor()) {
       log.warn(
-          "Test {} has too many entities to evaluate: {}. Will truncate to {} entities.",
+          "Test {} has too many entities to evaluate: {}. Will not execute.",
           testUrn,
-          candidateUrns.size(),
-          MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION);
+          candidateUrns.size());
+      throw abortBeyondLimitExecution(testDefinition, candidateUrns.size());
     }
     Set<Urn> urnsToTest =
         candidateUrns.stream()
-            .limit(MAX_ENTITIES_EVALUATED_IN_SINGLE_EXECUTION)
+            .limit(executionLimits.getDefaultExecutor())
             .collect(Collectors.toSet());
 
     return batchEvaluateTests(urnsToTest, Set.of(testDefinition), batchTestRunResults);

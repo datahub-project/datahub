@@ -1,7 +1,11 @@
 package com.linkedin.metadata.test.executor.elastic;
 
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.test.util.TestUtils.*;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
@@ -15,7 +19,6 @@ import com.linkedin.test.TestResultArray;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
 import io.datahubproject.metadata.context.OperationContext;
-import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,16 +38,19 @@ public class ElasticSearchTestExecutor {
   private final TimeseriesAspectService timeseriesAspectService;
   private final ElasticTestDefinitionConvertor convertor;
   private final OperationContext opContext;
+  private final int executionLimit;
 
   public ElasticSearchTestExecutor(
       EntitySearchService searchService,
       TimeseriesAspectService timeseriesAspectService,
       EntityRegistry entityRegistry,
-      OperationContext opContext) {
+      OperationContext opContext,
+      int executionLimit) {
     this.searchService = searchService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.convertor = new ElasticTestDefinitionConvertor(entityRegistry);
     this.opContext = opContext;
+    this.executionLimit = executionLimit;
   }
 
   public boolean canSelect(TestDefinition testDefinition) {
@@ -57,22 +63,21 @@ public class ElasticSearchTestExecutor {
 
   public List<Urn> select(TestDefinition testDefinition) {
     ElasticTestDefinition elasticTestDefinition = convertor.convert(testDefinition);
-    return elasticTestDefinition.getSelectedEntityTypes().stream()
-        .flatMap(
-            entityType ->
-                searchService
-                    .predicateSearch(
-                        opContext,
-                        Collections.singletonList(entityType),
-                        "*",
-                        elasticTestDefinition.getSelectionFilters(),
-                        null,
-                        0,
-                        1000,
-                        null)
-                    .getEntities()
-                    .stream()
-                    .map(SearchEntity::getEntity))
+    SearchResult searchResult =
+        searchService.predicateSearch(
+            opContext,
+            elasticTestDefinition.getSelectedEntityTypes(),
+            "*",
+            elasticTestDefinition.getSelectionFilters(),
+            null,
+            0,
+            executionLimit,
+            null);
+    if (searchResult.getNumEntities() >= executionLimit) {
+      throw abortBeyondLimitExecution(testDefinition, searchResult.getNumEntities());
+    }
+    return searchResult.getEntities().stream()
+        .map(SearchEntity::getEntity)
         .collect(Collectors.toList());
   }
 
@@ -84,16 +89,12 @@ public class ElasticSearchTestExecutor {
     AtomicInteger passing = new AtomicInteger();
     AtomicInteger failing = new AtomicInteger();
     AuditStamp currentTime = null;
-    try {
-      currentTime =
-          new AuditStamp()
-              .setTime(System.currentTimeMillis())
-              .setActor(Urn.createFromString("urn:li:actor:system"));
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
+    currentTime =
+        new AuditStamp()
+            .setTime(System.currentTimeMillis())
+            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR));
     for (String entityType : elasticTestDefinition.getSelectedEntityTypes()) {
-      Set<Urn> passingUrns = new HashSet<Urn>();
+      Set<Urn> passingUrns = new HashSet<>();
       TestResultArray passingResults = new TestResultArray();
       passingResults.add(
           new TestResult()
@@ -115,8 +116,11 @@ public class ElasticSearchTestExecutor {
               passingFilters,
               null,
               0,
-              1000,
+              executionLimit,
               null);
+      if (passingSearchResult.getNumEntities() >= executionLimit) {
+        throw abortBeyondLimitExecution(testDefinition, passingSearchResult.getNumEntities());
+      }
       passingSearchResult
           .getEntities()
           .forEach(

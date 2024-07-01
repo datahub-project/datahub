@@ -8,13 +8,18 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.eval.PredicateEvaluator;
+import com.linkedin.metadata.test.exception.SelectionTooLargeException;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.test.TestDefinition;
@@ -26,6 +31,7 @@ import com.linkedin.test.TestStatus;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -40,6 +46,7 @@ public class TestEngineTest {
   final QueryEngine mockQueryEngine = Mockito.mock(QueryEngine.class);
   final ActionApplier mockActionApplier = Mockito.mock(ActionApplier.class);
   final PredicateEvaluator spyPredicateEvaluator = Mockito.spy(PredicateEvaluator.getInstance());
+  final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
 
   @Test
   public void testInitialization() throws Exception {
@@ -84,6 +91,55 @@ public class TestEngineTest {
     assertTrue(result.getPassing().isEmpty());
   }
 
+  @Test
+  public void testSingleEvalLimits() throws Exception {
+    TestFetcher.Test testDefinition = buildSimpleTest("123");
+    List<TestFetcher.Test> tests = List.of(testDefinition);
+    TestEngine testEngine = buildTestEngine(tests);
+    assertNotNull(testEngine);
+    SearchResult searchResult = new SearchResult();
+    searchResult.setNumEntities(10);
+    when(mockSearchService.predicateSearch(
+            any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenReturn(searchResult);
+
+    SelectionTooLargeException ex = null;
+    try {
+      Map<Urn, TestResults> result =
+          testEngine.evaluateSingleTest(
+              mock(OperationContext.class),
+              testDefinition.getUrn(),
+              TestEngine.EvaluationMode.DEFAULT);
+    } catch (SelectionTooLargeException e) {
+      ex = e;
+    }
+    assertNotNull(ex);
+
+    testDefinition = buildNonESCompatibleTest("456");
+    tests = List.of(testDefinition);
+    buildTestEngine(tests);
+    searchResult.setNumEntities(1);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,data,PROD)"));
+    searchEntities.add(searchEntity);
+    searchResult.setEntities(searchEntities);
+    when(mockSearchService.predicateSearch(
+            any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenReturn(searchResult);
+    ex = null;
+    try {
+      Map<Urn, TestResults> result =
+          testEngine.evaluateSingleTest(
+              mock(OperationContext.class),
+              testDefinition.getUrn(),
+              TestEngine.EvaluationMode.DEFAULT);
+    } catch (SelectionTooLargeException e) {
+      ex = e;
+    }
+    assertNotNull(ex);
+  }
+
   /** on: types: - dataset rules: and: - property: status.removed operator: is_true */
   private TestFetcher.Test buildSimpleTest(String id) throws Exception {
     Urn testUrn = UrnUtils.getUrn("urn:li:test:" + id);
@@ -100,22 +156,43 @@ public class TestEngineTest {
     return new TestFetcher.Test(testUrn, testInfo);
   }
 
+  private TestFetcher.Test buildNonESCompatibleTest(String id) throws Exception {
+    Urn testUrn = UrnUtils.getUrn("urn:li:test:" + id);
+
+    TestInfo testInfo = new TestInfo();
+    testInfo.setName("Test " + id);
+    testInfo.setStatus(new TestStatus().setMode(TestMode.ACTIVE));
+
+    TestDefinition testDefinition = new TestDefinition();
+    testDefinition.setJson(loadTest("test/valid_non_elastic_test.yaml"));
+    testDefinition.setType(TestDefinitionType.JSON);
+    testInfo.setDefinition(testDefinition);
+
+    return new TestFetcher.Test(testUrn, testInfo);
+  }
+
   private TestEngine buildTestEngine(List<TestFetcher.Test> withTests) throws Exception {
     Mockito.reset(
         mockEntityService,
         mockTestFetcher,
         mockQueryEngine,
         mockActionApplier,
-        spyPredicateEvaluator);
+        spyPredicateEvaluator,
+        mockSearchService);
 
     when(mockTestFetcher.fetch(any(), anyInt(), anyInt()))
+        .thenReturn(new TestFetcher.TestFetchResult(withTests, withTests.size()));
+    when(mockTestFetcher.fetchOne(any(), any()))
         .thenReturn(new TestFetcher.TestFetchResult(withTests, withTests.size()));
 
     final EntityRegistry entityRegistry =
         new ConfigEntityRegistry(
             TestEngineTest.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
 
-    final EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
+    TestsHookExecutionLimitConfiguration testsHookExecutionLimitConfiguration =
+        new TestsHookExecutionLimitConfiguration();
+    testsHookExecutionLimitConfiguration.setDefaultExecutor(1);
+    testsHookExecutionLimitConfiguration.setElasticSearchExecutor(10);
 
     return new TestEngine(
         TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry),
@@ -130,6 +207,7 @@ public class TestEngineTest {
         mockActionApplier,
         0,
         0,
-        true);
+        true,
+        testsHookExecutionLimitConfiguration);
   }
 }

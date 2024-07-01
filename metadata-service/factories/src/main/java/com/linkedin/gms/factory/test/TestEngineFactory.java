@@ -1,8 +1,12 @@
 package com.linkedin.gms.factory.test;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
+import com.linkedin.metadata.config.TestsConfiguration;
+import com.linkedin.metadata.config.TestsHookConfiguration;
+import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
@@ -56,15 +60,16 @@ public class TestEngineFactory {
   @Nonnull
   protected TestEngine getInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
-      @Nonnull @Value("${metadataTests.hook.enabled:false}") Boolean isHookEnabled,
-      @Nonnull @Value("${metadataTests.enabled:false}") Boolean isEnabled,
-      @Nonnull @Value("${metadataTests.elasticSearchExecutor.enabled:true}")
-          Boolean isESExecutorEnabled) {
+      @Nonnull ConfigurationProvider configurationProvider) {
 
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
+    TestsConfiguration testsConfiguration = configurationProvider.getMetadataTests();
+    TestsHookConfiguration hookConfiguration = testsConfiguration.getHook();
+    TestsHookExecutionLimitConfiguration testsHookExecutionLimitConfiguration =
+        hookConfiguration.getHookExecutionLimit();
     return new TestEngine(
         systemOpContext,
-        isEnabled || isHookEnabled,
+        testsConfiguration.isEnabled() || hookConfiguration.isEnabled(),
         entityService,
         entitySearchService,
         timeseriesAspectService,
@@ -75,6 +80,7 @@ public class TestEngineFactory {
         this.actionApplier,
         10,
         testCacheRefreshIntervalSeconds,
-        isESExecutorEnabled);
+        testsConfiguration.getElasticSearchExecutor().isEnabled(),
+        testsHookExecutionLimitConfiguration);
   }
 }
