@@ -621,17 +621,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             yield BrowsePathEntryClass(id=urn, urn=urn)
 
     def _make_chart_urn(self, element_id: str) -> str:
-        if not self.source_config.include_looker_element_in_platform_instance:
-            return builder.make_chart_urn(
-                name=element_id,
-                platform=self.source_config.platform_name,
-            )
+        urn_params: dict = {
+            "name": element_id,
+            "platform": self.source_config.platform_name,
+        }
 
-        return builder.make_chart_urn(
-            name=element_id,
-            platform=self.platform,
-            platform_instance=self.source_config.platform_instance,
-        )
+        if self.source_config.include_looker_element_in_platform_instance:
+            urn_params["platform_instance"] = self.source_config.platform_instance
+
+        return builder.make_chart_urn(**urn_params)
 
     def _make_chart_metadata_events(
         self,
@@ -829,17 +827,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return proposals
 
     def make_dashboard_urn(self, looker_dashboard):
-        if not self.source_config.include_looker_element_in_platform_instance:
-            return builder.make_dashboard_urn(
-                name=looker_dashboard.get_urn_dashboard_id(),
-                platform=self.source_config.platform_name,
-            )
+        urn_params: dict = {
+            "name": looker_dashboard.get_urn_dashboard_id(),
+            "platform": self.source_config.platform_name,
+        }
 
-        return builder.make_dashboard_urn(
-            name=looker_dashboard.get_urn_dashboard_id(),
-            platform=self.source_config.platform_name,
-            platform_instance=self.source_config.platform_instance,
-        )
+        if self.source_config.include_looker_element_in_platform_instance:
+            urn_params["platform_instance"] = self.source_config.platform_instance
+
+        return builder.make_dashboard_urn(**urn_params)
 
     def _make_explore_metadata_events(
         self,
