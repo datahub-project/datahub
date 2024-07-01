@@ -99,6 +99,18 @@ def ingest() -> None:
     default=False,
     help="If enabled, mute intermediate progress ingestion reports",
 )
+@click.option(
+    "--memory-profiles",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        writable=True,
+        resolve_path=True,
+    ),
+    default=None,
+    show_default=True,
+    help="Generate memray memory dumps for ingestion run by providing a directory path to write the dump files in",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -121,6 +133,7 @@ def run(
     no_default_report: bool,
     no_spinner: bool,
     no_progress: bool,
+    memory_profiles: Optional[str],
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -175,6 +188,7 @@ def run(
             report_to,
             no_default_report,
             no_progress,
+            memory_profiles,
             raw_pipeline_config,
         )
 

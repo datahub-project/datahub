@@ -223,6 +223,7 @@ class Pipeline:
         report_to: Optional[str] = None,
         no_default_report: bool = False,
         no_progress: bool = False,
+        memory_profiles: Optional[str] = None,
     ):
         self.config = config
         self.dry_run = dry_run
@@ -231,6 +232,7 @@ class Pipeline:
         self.report_to = report_to
         self.reporters: List[PipelineRunListener] = []
         self.no_progress = no_progress
+        self.memory_profiles = memory_profiles
         self.num_intermediate_workunits = 0
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
@@ -402,6 +404,7 @@ class Pipeline:
         report_to: Optional[str] = "datahub",
         no_default_report: bool = False,
         no_progress: bool = False,
+        memory_profiles: Optional[str] = None,
         raw_config: Optional[dict] = None,
     ) -> "Pipeline":
         config = PipelineConfig.from_dict(config_dict, raw_config)
@@ -413,6 +416,7 @@ class Pipeline:
             report_to=report_to,
             no_default_report=no_default_report,
             no_progress=no_progress,
+            memory_profiles=memory_profiles,
         )
 
     def _time_to_print(self) -> bool:
@@ -427,13 +431,11 @@ class Pipeline:
 
     def run(self) -> None:
         with contextlib.ExitStack() as stack:
-            if self.config.flags.generate_memory_profiles:
+            if self.memory_profiles:
                 import memray
 
                 stack.enter_context(
-                    memray.Tracker(
-                        f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
-                    )
+                    memray.Tracker(f"{self.memory_profiles}/{self.config.run_id}.bin")
                 )
 
             self.final_status = PipelineStatus.UNKNOWN

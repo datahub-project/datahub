@@ -55,13 +55,6 @@ class FlagsConfig(ConfigModel):
         ),
     )
 
-    generate_memory_profiles: Optional[str] = Field(
-        default=None,
-        description=(
-            "Generate memray memory dumps for ingestion process by providing a path to write the dump file in."
-        ),
-    )
-
     set_system_metadata: bool = Field(
         True, description="Set system metadata on entities."
     )
