@@ -1,0 +1,32 @@
+import React from 'react';
+
+import { TextProps } from './types';
+import { P, Div, Span } from './components';
+
+export const textDefaults: TextProps = {
+    type: 'p',
+    color: 'inherit',
+    size: undefined,
+    weight: 'light',
+};
+
+export const Text = ({
+    type = textDefaults.type,
+    color = textDefaults.color,
+    size = textDefaults.size,
+    weight = textDefaults.weight,
+    children,
+}: TextProps) => {
+    const sharedProps = { size, color, weight };
+
+    switch (type) {
+        case 'p':
+            return <P {...sharedProps}>{children}</P>;
+        case 'div':
+            return <Div {...sharedProps}>{children}</Div>;
+        case 'span':
+            return <Span {...sharedProps}>{children}</Span>;
+        default:
+            return <P {...sharedProps}>{children}</P>;
+    }
+};

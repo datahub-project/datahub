@@ -4,16 +4,22 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { Icon, iconDefaults, AVAILABLE_ICONS } from '../../src/components';
 
-import { GridList } from '../docLayoutComponents/GridList';
+import { GridList } from '../../docLayoutComponents/GridList';
 
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories#default-export
 const meta = {
-	title: 'Components/Icon',
+	title: 'Media/Icon',
 	component: Icon,
 	tags: ['autodocs'],
 	// Display Properties 
 	parameters: {
 		layout: 'centered',
+		docs: {
+			subtitle: 'A singular component for rendering the icons used throughout the application.',
+			description: {
+				component: '👉 See the [Icons Gallery](/docs/icons--docs) for more information.',
+			}
+		},
 	},
 	// Component-level argTypes
 	argTypes: {

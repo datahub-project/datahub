@@ -4,17 +4,20 @@ import type { Meta, StoryObj } from '@storybook/react';
 
 import { Button, buttonDefaults, AVAILABLE_ICONS } from '../../src/components';
 
-import { GridList } from '../docLayoutComponents/GridList';
+import { GridList } from '../../docLayoutComponents/GridList';
 
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories#default-export
 const meta = {
-	title: 'Components/Button',
+	title: 'Forms/Button',
 	component: Button,
 	subcomponents: undefined,
 	tags: ['autodocs'],
 	// Display Properties 
 	parameters: {
 		layout: 'centered',
+		docs: {
+			subtitle: 'Button component is used to trigger an action or event, such as submitting a form, opening a dialog, canceling an action, or performing a delete operation.',
+		},
 	},
 	// Component-level argTypes
 	argTypes: {

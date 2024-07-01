@@ -24,6 +24,12 @@ export const FlexGrid = styled.div`
   gap: 16px;
 `;
 
+export const VerticalFlexGrid = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
 export const Seperator = styled.div`
   height: 16px;
 `;
@@ -124,16 +130,6 @@ export const ShadowCard = styled.div<{ shadow: string }>`
 			border-radius: 4px;
 			box-shadow: ${({ shadow }) => shadow};
 		}
-`;
-
-export const FontDisplayBlock = styled.div<{ font: any }>`
-	p {
-		font-size: ${({ font }) => font.size} !important;
-		font-weight: ${({ font }) => font.weight} !important;
-		font-family: ${({ font }) => font.family} !important;
-		color: ${({ font }) => font.color} !important;
-		margin: 0 0 8px 0;
-	}
 `;
 
 export const IconGrid = styled.div`

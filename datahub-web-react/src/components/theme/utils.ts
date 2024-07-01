@@ -44,7 +44,7 @@ export const getFontValues = ({ size = 'md', variant = 'body' }: { size?: string
         size: sizeValues[size as FontSizeOptions],
         weight: weight[variant],
         family: text.family.default,
-        lineHeight: text.lineHeight.normal,
+        lineHeight: text.lineHeight.md,
         color,
     };
 };

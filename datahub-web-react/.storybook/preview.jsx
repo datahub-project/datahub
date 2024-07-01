@@ -17,12 +17,17 @@ const preview = {
 			storySort: {
 				method: 'alphabetical',
 				order: [
+					// Order of Docs Pages
 					'Introduction',
 					'Style Guide',
 					'Design Tokens',
 					'Style Utilities',
 					'Icons',
-					'Components',
+
+					// Order of Components
+					'Forms',
+					'Typography',
+					'Media'
 				],
 				locales: '',
 			},

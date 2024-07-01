@@ -25,7 +25,7 @@ export type ColorShadeOptions = 'light' | 'default' | 'dark';
 
 // Typography types
 export type FontSizeOptions = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
-export type FontWeightOptions = 'light' | 'normal' | 'black';
+export type FontWeightOptions = 'light' | 'normal' | 'bold' | 'black';
 export type FontVariantOptions = 'heading' | 'subheading' | 'body' | 'caption';
 export type FontColorOptions = 'inherit' | ColorOptions;
 

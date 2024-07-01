@@ -29,36 +29,69 @@ body {
 	background-color: #1f243a !important;
 }
 
-.sidebar-item {
-	min-height: auto !important;
+.sidebar-item,
+.sidebar-item[data-selected="true"] {
+	height: 32px !important;
 	display: flex !important;
 	align-items: center !important;
 	padding-right: 0 !important;
 	padding: 6px 12px !important;
-	font-weight: normal !important;
+	font-size: 15px !important;
+	font-weight: 400;
+	margin-bottom: 4px !important;
 }
 
-.sidebar-item[data-nodeType="document"],
-.sidebar-item[data-nodeType="story"] {
-	margin-left: 14px !important;
-}
-
-.sidebar-item[data-selected="true"] {
-	font-weight: normal !important;
+.sidebar-item:hover {
+	background-color: #eff8fc !important;
 }
 
 .sidebar-item>a {
 	align-items: center !important;
 	gap: 8px !important;
-	padding-left: 0 !important;
-	padding-top: 0 !important;
-	padding-bottom: 0 !important;
+	padding: 0 !important;
+}
+
+.sidebar-item[data-nodetype="group"] {
+	margin-top: 8px !important;
+}
+
+.sidebar-item[data-nodetype="component"] {
+	padding-left: 8px !important;
+}
+
+[data-nodetype="root"]>[data-action="collapse-root"]>div:first-child,
+[data-nodetype="component"] div,
+[data-nodetype="document"][data-parent-id] {
+	display: none !important;
+}
+
+#default,
+.sidebar-item[data-item-id*=--default],
+.sbdocs-content div[id*=--default]~div[id*=--default]~div[id*=--default],
+li:has(a[href="#default"]) {
+	display: none !important;
+}
+
+[data-selected="true"],
+[data-nodetype="component"][aria-expanded="true"] {
+	font-weight: 400 !important;
+	color: #4da1bf !important;
+	background-color: #eff8fc !important;
+}
+
+[data-nodetype="root"][data-selected="true"] {
+	background-color: transparent !important;
+}
+
+[data-selected="true"] svg {
+	color: #4da1bf !important;
 }
 
 .sidebar-subheading {
-	text-transform: none !important;
-	letter-spacing: normal !important;
-	font-size: 14px !important;
+	font-size: 12px !important;
+	font-weight: 600 !important;
+	letter-spacing: 2px !important;
+	color: #a9adbd !important;
 }
 
 .sbdocs-wrapper {
@@ -120,7 +153,8 @@ h2#stories {
 	filter: invert(8);
 }
 
-.custom-docs p {
+.custom-docs p,
+.docsDescription p {
 	font-size: 16px;
 	line-height: 1.75;
 }

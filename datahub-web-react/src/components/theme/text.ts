@@ -7,7 +7,7 @@ import type { FontSizeOptions, FontWeightOptions } from './config/types';
 const size: Record<FontSizeOptions, string> = {
     xs: '10px',
     sm: '12px',
-    md: '14px',
+    md: '14px', // default body text size
     lg: '16px',
     xl: '18px',
     '2xl': '20px',
@@ -16,9 +16,10 @@ const size: Record<FontSizeOptions, string> = {
 };
 
 const weight: Record<FontWeightOptions, number> = {
-    light: 400,
+    light: 300,
     normal: 500,
-    black: 700,
+    bold: 600,
+    black: 900,
 };
 
 const family = {
@@ -26,7 +27,14 @@ const family = {
 };
 
 const lineHeight = {
-    normal: 'normal',
+    xs: '16px',
+    sm: '20px',
+    md: '24px',
+    lg: '28px',
+    xl: '32px',
+    '2xl': '36px',
+    '3xl': '40px',
+    '4xl': '44px',
 };
 
 export const text = {

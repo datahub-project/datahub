@@ -1,6 +1,7 @@
 import { Meta, Source } from "@storybook/blocks";
 
-import { colors, getFontValues } from '../src/components/theme';
+import { Heading } from '../src/components';
+import { colors } from '../src/components/theme';
 
 import { 
 	Grid, 
@@ -9,8 +10,7 @@ import {
 	ColorCard, 
 	CopyButton,
 	Seperator,
-	FontDisplayBlock,
-} from "./docLayoutComponents/DocsComponents";
+} from './docLayoutComponents/DocsComponents';
 
 <Meta title="Style Guide" />
 
@@ -207,44 +207,6 @@ import {
 		format
 		dark
 	/>
-
-	#### Headings
-	<FontDisplayBlock font={getFontValues({ size: 'xxxxl', variant: 'heading' })}>
-		H1 ({getFontValues({ size: 'xxxxl', variant: 'heading' }).size} / {getFontValues({ size: 'xxxxl', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
-	</FontDisplayBlock>
-	<FontDisplayBlock font={getFontValues({ size: 'xxxl', variant: 'heading' })}>
-		H2 ({getFontValues({ size: 'xxxl', variant: 'heading' }).size} / {getFontValues({ size: 'xxxl', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
-	</FontDisplayBlock>
-	<FontDisplayBlock font={getFontValues({ size: 'xxl', variant: 'heading' })}>
-		H3 ({getFontValues({ size: 'xxl', variant: 'heading' }).size} / {getFontValues({ size: 'xxl', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
-	</FontDisplayBlock>
-	<FontDisplayBlock font={getFontValues({ size: 'xl', variant: 'heading' })}>
-		H4 ({getFontValues({ size: 'xl', variant: 'heading' }).size} / {getFontValues({ size: 'xl', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
-	</FontDisplayBlock>
-	<FontDisplayBlock font={getFontValues({ size: 'lg', variant: 'heading' })}>
-		H5 ({getFontValues({ size: 'lg', variant: 'heading' }).size} / {getFontValues({ size: 'lg', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
-	</FontDisplayBlock>
-	<FontDisplayBlock font={getFontValues({ size: 'md', variant: 'heading' })}>
-		H6 ({getFontValues({ size: 'md', variant: 'heading' }).size} / {getFontValues({ size: 'md', variant: 'heading' }).weight}) The quick brown fox jumps over the lazy dog
-	</FontDisplayBlock>
-
-	#### Subheadings
-	<FontDisplayBlock font={getFontValues({ size: 'xl', variant: 'subheading' })}>
-		Subheading ({getFontValues({ size: 'xl', variant: 'subheading' }).size} / {getFontValues({ size: 'xl', variant: 'subheading' }).weight}) The quick brown fox jumps over the lazy dog
-	</FontDisplayBlock>
-	<FontDisplayBlock font={getFontValues({ size: 'lg', variant: 'subheading' })}>
-		Subheading ({getFontValues({ size: 'lg', variant: 'subheading' }).size} / {getFontValues({ size: 'lg', variant: 'subheading' }).weight}) The quick brown fox jumps over the lazy dog
-	</FontDisplayBlock>
-
-	#### Body Content
-	<FontDisplayBlock font={getFontValues({ size: 'md', variant: 'body' })}>
-		Body ({getFontValues({ size: 'md', variant: 'body' }).size} / {getFontValues({ size: 'md', variant: 'body' }).weight}) Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-	</FontDisplayBlock>
-
-	#### Auxiliary Text
-	<FontDisplayBlock font={getFontValues({ size: 'md', variant: 'caption' })}>
-		Caption ({getFontValues({ size: 'md', variant: 'caption' }).size} / {getFontValues({ size: 'md', variant: 'caption' }).weight}) Lorem ipsum dolor sit amet.
-	</FontDisplayBlock>
 
 	### Border Radius 
 
