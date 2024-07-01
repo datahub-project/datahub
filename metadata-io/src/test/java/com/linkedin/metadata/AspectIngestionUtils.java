@@ -46,7 +46,7 @@ public class AspectIngestionUtils {
               .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+              .build(opContext.getAspectRetrieverOpt().get()));
     }
     entityService.ingestAspects(
         opContext,
@@ -83,7 +83,7 @@ public class AspectIngestionUtils {
               .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+              .build(opContext.getAspectRetrieverOpt().get()));
     }
     entityService.ingestAspects(
         opContext,
@@ -121,7 +121,7 @@ public class AspectIngestionUtils {
               .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+              .build(opContext.getAspectRetrieverOpt().get()));
     }
     entityService.ingestAspects(
         opContext,

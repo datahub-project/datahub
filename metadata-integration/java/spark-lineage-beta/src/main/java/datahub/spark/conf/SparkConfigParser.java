@@ -34,12 +34,14 @@ public class SparkConfigParser {
 
   public static final String COALESCE_KEY = "coalesce_jobs";
   public static final String PATCH_ENABLED = "patch.enabled";
+  public static final String DISABLE_SYMLINK_RESOLUTION = "disableSymlinkResolution";
 
   public static final String STAGE_METADATA_COALESCING = "stage_metadata_coalescing";
   public static final String STREAMING_JOB = "streaming_job";
   public static final String STREAMING_HEARTBEAT = "streaming_heartbeat";
   public static final String DATAHUB_FLOW_NAME = "flow_name";
   public static final String DATASET_ENV_KEY = "metadata.dataset.env";
+  public static final String DATASET_HIVE_PLATFORM_ALIAS = "metadata.dataset.hivePlatformAlias";
   public static final String DATASET_MATERIALIZE_KEY = "metadata.dataset.materialize";
   public static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
   public static final String DATASET_INCLUDE_SCHEMA_METADATA =
@@ -147,7 +149,9 @@ public class SparkConfigParser {
     }
     builder.platformInstance(SparkConfigParser.getPlatformInstance(sparkConfig));
     builder.commonDatasetPlatformInstance(SparkConfigParser.getCommonPlatformInstance(sparkConfig));
+    builder.hivePlatformAlias(SparkConfigParser.getHivePlatformAlias(sparkConfig));
     builder.usePatch(SparkConfigParser.isPatchEnabled(sparkConfig));
+    builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
     try {
       String parentJob = SparkConfigParser.getParentJobKey(sparkConfig);
       if (parentJob != null) {
@@ -172,6 +176,12 @@ public class SparkConfigParser {
       fabricType = FabricType.PROD;
     }
     return fabricType;
+  }
+
+  public static String getHivePlatformAlias(Config datahubConfig) {
+    return datahubConfig.hasPath(DATASET_HIVE_PLATFORM_ALIAS)
+        ? datahubConfig.getString(DATASET_HIVE_PLATFORM_ALIAS)
+        : "hive";
   }
 
   public static String getCommonPlatformInstance(Config datahubConfig) {
@@ -307,9 +317,17 @@ public class SparkConfigParser {
 
   public static boolean isPatchEnabled(Config datahubConfig) {
     if (!datahubConfig.hasPath(PATCH_ENABLED)) {
-      return true;
+      return false;
     }
     return datahubConfig.hasPath(PATCH_ENABLED) && datahubConfig.getBoolean(PATCH_ENABLED);
+  }
+
+  public static boolean isDisableSymlinkResolution(Config datahubConfig) {
+    if (!datahubConfig.hasPath(DISABLE_SYMLINK_RESOLUTION)) {
+      return false;
+    }
+    return datahubConfig.hasPath(DISABLE_SYMLINK_RESOLUTION)
+        && datahubConfig.getBoolean(DISABLE_SYMLINK_RESOLUTION);
   }
 
   public static boolean isEmitCoalescePeriodically(Config datahubConfig) {

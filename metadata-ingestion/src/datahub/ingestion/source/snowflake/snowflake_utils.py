@@ -7,6 +7,7 @@ from typing_extensions import Protocol
 
 from datahub.configuration.common import MetaError
 from datahub.configuration.pattern_utils import is_schema_allowed
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
@@ -37,7 +38,7 @@ class SnowflakeQueryProtocol(SnowflakeLoggingProtocol, Protocol):
 class SnowflakeQueryMixin:
     def query(self: SnowflakeQueryProtocol, query: str) -> Any:
         try:
-            self.logger.debug(f"Query : {query}")
+            self.logger.info(f"Query : {query}", stacklevel=2)
             resp = self.get_connection().cursor(DictCursor).execute(query)
             return resp
 
@@ -48,6 +49,8 @@ class SnowflakeQueryMixin:
 
 
 class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
+    platform: str = "snowflake"
+
     config: SnowflakeV2Config
     report: SnowflakeV2Report
 
@@ -177,6 +180,14 @@ class SnowflakeCommonMixin:
         if self.config.convert_urns_to_lowercase:
             return identifier.lower()
         return identifier
+
+    def gen_dataset_urn(self: SnowflakeCommonProtocol, dataset_identifier: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_identifier,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
     @staticmethod
     def get_quoted_identifier_for_database(db_name):

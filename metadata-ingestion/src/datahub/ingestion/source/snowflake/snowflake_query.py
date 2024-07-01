@@ -4,6 +4,9 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
+from datahub.utilities.prefix_batch_builder import PrefixGroup
+
+SHOW_VIEWS_MAX_PAGE_SIZE = 10000
 
 
 def create_deny_regex_sql_filter(
@@ -202,94 +205,74 @@ class SnowflakeQuery:
         FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', '{SnowflakeObjectDomain.TABLE}'));
         """
 
-    # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
-    # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
     @staticmethod
-    def views_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        created AS "CREATED",
-        last_altered AS "LAST_ALTERED",
-        comment AS "COMMENT",
-        view_definition AS "VIEW_DEFINITION"
-        FROM {db_clause}information_schema.views t
-        WHERE table_schema != 'INFORMATION_SCHEMA'
-        order by table_schema, table_name"""
-
-    # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
-    # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
-    @staticmethod
-    def views_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        created AS "CREATED",
-        last_altered AS "LAST_ALTERED",
-        comment AS "COMMENT",
-        view_definition AS "VIEW_DEFINITION"
-        FROM {db_clause}information_schema.views t
-        where table_schema='{schema_name}'
-        order by table_schema, table_name"""
-
-    @staticmethod
-    def show_views_for_database(db_name: str) -> str:
-        return f"""show views in database "{db_name}";"""
-
-    @staticmethod
-    def show_views_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""show views in schema {db_clause}"{schema_name}";"""
-
-    @staticmethod
-    def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        select
-        table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        column_name AS "COLUMN_NAME",
-        ordinal_position AS "ORDINAL_POSITION",
-        is_nullable AS "IS_NULLABLE",
-        data_type AS "DATA_TYPE",
-        comment AS "COMMENT",
-        character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
-        numeric_precision AS "NUMERIC_PRECISION",
-        numeric_scale AS "NUMERIC_SCALE",
-        column_default AS "COLUMN_DEFAULT",
-        is_identity AS "IS_IDENTITY"
-        from {db_clause}information_schema.columns
-        WHERE table_schema='{schema_name}'
-        ORDER BY ordinal_position"""
-
-    @staticmethod
-    def columns_for_table(
-        table_name: str, schema_name: str, db_name: Optional[str]
+    def show_views_for_database(
+        db_name: str,
+        limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
+        view_pagination_marker: Optional[str] = None,
     ) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        select
-        table_catalog AS "TABLE_CATALOG",
-        table_schema AS "TABLE_SCHEMA",
-        table_name AS "TABLE_NAME",
-        column_name AS "COLUMN_NAME",
-        ordinal_position AS "ORDINAL_POSITION",
-        is_nullable AS "IS_NULLABLE",
-        data_type AS "DATA_TYPE",
-        comment AS "COMMENT",
-        character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
-        numeric_precision AS "NUMERIC_PRECISION",
-        numeric_scale AS "NUMERIC_SCALE",
-        column_default AS "COLUMN_DEFAULT",
-        is_identity AS "IS_IDENTITY"
-        from {db_clause}information_schema.columns
-        WHERE table_schema='{schema_name}' and table_name='{table_name}'
-        ORDER BY ordinal_position"""
+        # While there is an information_schema.views view, that only shows the view definition if the role
+        # is an owner of the view. That doesn't work for us.
+        # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
+
+        # SHOW VIEWS can return a maximum of 10000 rows.
+        # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
+        assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
+
+        # To work around this, we paginate through the results using the FROM clause.
+        from_clause = (
+            f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
+        )
+        return f"""\
+SHOW VIEWS IN DATABASE "{db_name}"
+LIMIT {limit} {from_clause};
+"""
+
+    @staticmethod
+    def columns_for_schema(
+        schema_name: str,
+        db_name: str,
+        prefix_groups: Optional[List[PrefixGroup]] = None,
+    ) -> str:
+        columns_template = """\
+SELECT
+  table_catalog AS "TABLE_CATALOG",
+  table_schema AS "TABLE_SCHEMA",
+  table_name AS "TABLE_NAME",
+  column_name AS "COLUMN_NAME",
+  ordinal_position AS "ORDINAL_POSITION",
+  is_nullable AS "IS_NULLABLE",
+  data_type AS "DATA_TYPE",
+  comment AS "COMMENT",
+  character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
+  numeric_precision AS "NUMERIC_PRECISION",
+  numeric_scale AS "NUMERIC_SCALE",
+  column_default AS "COLUMN_DEFAULT",
+  is_identity AS "IS_IDENTITY"
+FROM "{db_name}".information_schema.columns
+WHERE table_schema='{schema_name}' AND {extra_clause}"""
+
+        selects = []
+        if prefix_groups is None:
+            prefix_groups = [PrefixGroup(prefix="", names=[])]
+        for prefix_group in prefix_groups:
+            if prefix_group.prefix == "":
+                extra_clause = "TRUE"
+            elif prefix_group.exact_match:
+                extra_clause = f"table_name = '{prefix_group.prefix}'"
+            else:
+                extra_clause = f"table_name LIKE '{prefix_group.prefix}%'"
+
+            selects.append(
+                columns_template.format(
+                    db_name=db_name, schema_name=schema_name, extra_clause=extra_clause
+                )
+            )
+
+        return (
+            "\nUNION ALL\n".join(selects)
+            + """\nORDER BY table_name, ordinal_position"""
+        )
 
     @staticmethod
     def show_primary_keys_for_schema(schema_name: str, db_name: str) -> str:
@@ -345,45 +328,6 @@ class SnowflakeQuery:
         ;"""
 
     @staticmethod
-    def table_to_table_lineage_history(
-        start_time_millis: int,
-        end_time_millis: int,
-        include_column_lineage: bool = True,
-    ) -> str:
-        return f"""
-        WITH table_lineage_history AS (
-            SELECT
-                r.value:"objectName"::varchar AS upstream_table_name,
-                r.value:"objectDomain"::varchar AS upstream_table_domain,
-                r.value:"columns" AS upstream_table_columns,
-                w.value:"objectName"::varchar AS downstream_table_name,
-                w.value:"objectDomain"::varchar AS downstream_table_domain,
-                w.value:"columns" AS downstream_table_columns,
-                t.query_start_time AS query_start_time
-            FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
-                lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
-                lateral flatten(input => t.OBJECTS_MODIFIED) w
-            WHERE r.value:"objectId" IS NOT NULL
-            AND w.value:"objectId" IS NOT NULL
-            AND w.value:"objectName" NOT LIKE '%.GE_TMP_%'
-            AND w.value:"objectName" NOT LIKE '%.GE_TEMP_%'
-            AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-            AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
-        SELECT
-        upstream_table_name AS "UPSTREAM_TABLE_NAME",
-        downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-        upstream_table_columns AS "UPSTREAM_TABLE_COLUMNS",
-        downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
-        FROM table_lineage_history
-        WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
-        QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY downstream_table_name,
-            upstream_table_name{", downstream_table_columns" if include_column_lineage else ""}
-            ORDER BY query_start_time DESC
-        ) = 1"""
-
-    @staticmethod
     def view_dependencies() -> str:
         return """
         SELECT
@@ -401,58 +345,6 @@ class SnowflakeQuery:
           snowflake.account_usage.object_dependencies
         WHERE
           referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
-        """
-
-    @staticmethod
-    def view_lineage_history(
-        start_time_millis: int,
-        end_time_millis: int,
-        include_column_lineage: bool = True,
-    ) -> str:
-        return f"""
-        WITH view_lineage_history AS (
-          SELECT
-            vu.value : "objectName"::varchar AS view_name,
-            vu.value : "objectDomain"::varchar AS view_domain,
-            vu.value : "columns" AS view_columns,
-            w.value : "objectName"::varchar AS downstream_table_name,
-            w.value : "objectDomain"::varchar AS downstream_table_domain,
-            w.value : "columns" AS downstream_table_columns,
-            t.query_start_time AS query_start_time
-          FROM
-            (
-              SELECT
-                *
-              FROM
-                snowflake.account_usage.access_history
-            ) t,
-            lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) vu,
-            lateral flatten(input => t.OBJECTS_MODIFIED) w
-          WHERE
-            vu.value : "objectId" IS NOT NULL
-            AND w.value : "objectId" IS NOT NULL
-            AND w.value : "objectName" NOT LIKE '%.GE_TMP_%'
-            AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
-            AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-            AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-        )
-        SELECT
-          view_name AS "VIEW_NAME",
-          view_domain AS "VIEW_DOMAIN",
-          view_columns AS "VIEW_COLUMNS",
-          downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-          downstream_table_domain AS "DOWNSTREAM_TABLE_DOMAIN",
-          downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
-        FROM
-          view_lineage_history
-        WHERE
-          view_domain in ('View', 'Materialized view')
-          QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY view_name,
-            downstream_table_name {", downstream_table_columns" if include_column_lineage else ""}
-            ORDER BY
-              query_start_time DESC
-          ) = 1
         """
 
     # Note on use of `upstreams_deny_pattern` to ignore temporary tables:
@@ -775,6 +667,9 @@ class SnowflakeQuery:
             upstreams_deny_pattern,
             ["upstream_table_name", "upstream_column_table_name"],
         )
+        _MAX_UPSTREAMS_PER_DOWNSTREAM = 20
+        _MAX_UPSTREAM_COLUMNS_PER_DOWNSTREAM = 400
+        _MAX_QUERIES_PER_DOWNSTREAM = 30
 
         return f"""
         WITH column_lineage_history AS (
@@ -790,7 +685,7 @@ class SnowflakeQuery:
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
+                snowflake.account_usage.access_history t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w,
                 lateral flatten(input => w.value : "columns", outer => true) wcols,
@@ -886,30 +781,32 @@ class SnowflakeQuery:
                     AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
             ) query_history
             on qid.query_id = query_history.query_id
+            WHERE qid.query_id is not null
+              AND query_history.query_text is not null
         )
         SELECT
             h.downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
             ANY_VALUE(h.downstream_table_domain) AS "DOWNSTREAM_TABLE_DOMAIN",
-            ARRAY_UNIQUE_AGG(
+            ARRAY_SLICE(ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
                     'upstream_object_name', h.upstream_table_name,
                     'upstream_object_domain', h.upstream_table_domain,
                     'query_id', h.query_id
                 )
-            ) AS "UPSTREAM_TABLES",
-            ARRAY_UNIQUE_AGG(
+            ), 0, {_MAX_UPSTREAMS_PER_DOWNSTREAM}) AS "UPSTREAM_TABLES",
+            ARRAY_SLICE(ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
-                'column_name', column_upstreams.downstream_column_name,
-                'upstreams', column_upstreams.upstreams
+                    'column_name', column_upstreams.downstream_column_name,
+                    'upstreams', column_upstreams.upstreams
                 )
-            ) AS "UPSTREAM_COLUMNS",
-            ARRAY_UNIQUE_AGG(
+            ), 0, {_MAX_UPSTREAM_COLUMNS_PER_DOWNSTREAM}) AS "UPSTREAM_COLUMNS",
+            ARRAY_SLICE(ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
                     'query_id', q.query_id,
                     'query_text', q.query_text,
                     'start_time', q.start_time
                 )
-            ) as "QUERIES"
+            ), 0, {_MAX_QUERIES_PER_DOWNSTREAM}) as "QUERIES"
             FROM
                 table_upstream_jobs_unique h
             LEFT JOIN column_upstreams column_upstreams
@@ -950,7 +847,7 @@ class SnowflakeQuery:
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
+                snowflake.account_usage.access_history t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w
             WHERE
@@ -1019,7 +916,6 @@ class SnowflakeQuery:
 
     @staticmethod
     def dmf_assertion_results(start_time_millis: int, end_time_millis: int) -> str:
-
         pattern = r"datahub\\_\\_%"
         escape_pattern = r"\\"
         return f"""

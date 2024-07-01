@@ -1,58 +1,44 @@
-# Which DataHub API is for me?
+# DataHub APIs
 
-DataHub supplys several APIs to manipulate metadata on the platform. These are our most-to-least recommended approaches:
+DataHub has several APIs to manipulate metadata on the platform. Here's the list of APIs and their pros and cons to help you choose the right one for your use case.
 
-- Our most recommended tools for extending and customizing the behavior of your DataHub instance are our SDKs in [Python](metadata-ingestion/as-a-library.md) and [Java](metadata-integration/java/as-a-library.md).
-- If you'd like to customize the DataHub client or roll your own; the [GraphQL API](docs/api/graphql/getting-started.md) is our what powers our frontend. We figure if it's good enough for us, it's good enough for everyone! If `graphql` doesn't cover everything in your usecase, drop into [our slack](docs/slack.md) and let us know how we can improve it!
-- If you are less familiar with `graphql` and would rather use OpenAPI, we offer [OpenAPI](docs/api/openapi/openapi-usage-guide.md) endpoints that allow you to produce metadata events and query metadata.
-- Finally, if you're a brave soul and know exactly what you are doing... are you sure you don't just want to use the SDK directly? If you insist, the [Rest.li API](docs/api/restli/restli-overview.md) is a much more powerful, low level API intended only for advanced users.
+| API                                                                            | Definition                         | Pros                                     | Cons                                                        |
+|--------------------------------------------------------------------------------|------------------------------------|------------------------------------------|-------------------------------------------------------------| 
+| **[Python SDK](/metadata-ingestion/as-a-library.md)**                          | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event      |  
+| **[Java SDK](/metadata-integration/java/as-a-library.md)**                     | SDK                                | Highly flexible, Good for bulk execution                        | Requires an understanding of the metadata change event      | 
+| **[GraphQL API](docs/api/graphql/getting-started.md)**                         | GraphQL interface                  | Intuitive; mirrors UI capabilities       | Less flexible than SDKs; requires knowledge of GraphQL syntax | 
+| **[OpenAPI](docs/api/openapi/openapi-usage-guide.md)** <br /> (Not&nbsp;Recommended) | Lower-level API for advanced users |                                          | Generally not recommended for typical use cases             | 
+
+In general, **Python and Java SDKs** are our most recommended tools for extending and customizing the behavior of your DataHub instance.
+We don't recommend using the **OpenAPI** directly, as it's more complex and less user-friendly than the other APIs.
+
+
 
 ## Python and Java SDK
 
-We offer an SDK for both Python and Java that provide full functionality when it comes to CRUD operations and any complex functionality you may want to build into DataHub.
-<a
-    className='button button--primary button--lg'
-    href="/docs/metadata-ingestion/as-a-library">
-Get started with the Python SDK
-</a>
+We offer an SDK for both Python and Java that provide full functionality when it comes to CRUD operations and any complex functionality you may want to build into DataHub. We recommend using the SDKs for most use cases. Here are the examples of how to use the SDKs:
 
-<a
-    className='button button--primary button--lg'
-    href="/docs/metadata-integration/java/as-a-library">
-Get started with the Java SDK
-</a>
+- Define a lineage between data entities
+- Executing bulk operations - e.g. adding tags to multiple datasets
+- Creating custom metadata entities
+
+Learn more about the SDKs:
+- **[Python SDK →](/metadata-ingestion/as-a-library.md)**
+- **[Java SDK →](/metadata-integration/java/as-a-library.md)**
+
 
 ## GraphQL API
 
 The `graphql` API serves as the primary public API for the platform. It can be used to fetch and update metadata programatically in the language of your choice. Intended as a higher-level API that simplifies the most common operations.
 
-<a
-    className='button button--primary button--lg'
-    href="/docs/api/graphql/getting-started">
-Get started with the GraphQL API
-</a>
+We recommend using the GraphQL API if you're getting started with DataHub since it's more user-friendly and straighfowrad. Here are some examples of how to use the GraphQL API:
+- Search for datasets with conditions
+- Update a certain field of a dataset
 
-## OpenAPI
+Learn more about the GraphQL API:
+- **[GraphQL API →](docs/api/graphql/getting-started.md)**
 
-For developers who prefer OpenAPI to GraphQL for programmatic operations. Provides lower-level API access to the entire DataHub metadata model for writes, reads and queries.
-<a
-    className='button button--primary button--lg'
-    href="/docs/api/openapi/openapi-usage-guide">
-Get started with OpenAPI
-</a>
 
-## Rest.li API
-
-:::caution
-The Rest.li API is intended only for advanced users. If you're just getting started with DataHub, we recommend the GraphQL API
-:::
-
-The Rest.li API represents the underlying persistence layer, and exposes the raw PDL models used in storage. Under the hood, it powers the GraphQL API. Aside from that, it is also used for system-specific ingestion of metadata, being used by the Metadata Ingestion Framework for pushing metadata into DataHub directly. For all intents and purposes, the Rest.li API is considered system-internal, meaning DataHub components are the only ones to consume this API directly.
-<a
-    className='button button--primary button--lg'
-    href="/docs/api/restli/restli-overview">
-Get started with our Rest.li API
-</a>
 
 ## DataHub API Comparison
 

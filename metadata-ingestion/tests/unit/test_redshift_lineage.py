@@ -241,7 +241,7 @@ def test_collapse_temp_lineage():
 
     lineage_extractor._init_temp_table_schema(
         database=lineage_extractor.config.database,
-        temp_tables=lineage_extractor.get_temp_tables(connection=connection),
+        temp_tables=list(lineage_extractor.get_temp_tables(connection=connection)),
     )
 
     lineage_extractor._populate_lineage_map(

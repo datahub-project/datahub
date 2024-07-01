@@ -117,7 +117,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
         variables: {
             input: {
                 types: browseEntityList,
-                viewUrn
+                viewUrn,
             },
         },
     });
@@ -138,7 +138,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     scenario,
                 },
                 limit: 10,
-                viewUrn
+                viewUrn,
             },
         },
         fetchPolicy: 'no-cache',
@@ -191,9 +191,8 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             {orderedEntityCounts.map(
                                 (entityCount) =>
                                     entityCount &&
-                                    entityCount.count !== 0 && 
-                                    entityCount.entityType !== EntityType.BusinessAttribute && 
-                                    (
+                                    entityCount.count !== 0 &&
+                                    entityCount.entityType !== EntityType.BusinessAttribute && (
                                         <BrowseEntityCard
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}
@@ -204,8 +203,8 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             {orderedEntityCounts.map(
                                 (entityCount) =>
                                     entityCount &&
-                                    entityCount.count !== 0 && 
-                                    entityCount.entityType === EntityType.BusinessAttribute && 
+                                    entityCount.count !== 0 &&
+                                    entityCount.entityType === EntityType.BusinessAttribute &&
                                     businessAttributesFlag && (
                                         <BrowseEntityCard
                                             key={entityCount.entityType}
@@ -218,11 +217,11 @@ export const HomePageRecommendations = ({ user }: Props) => {
                                 (entityCount) => entityCount.entityType === EntityType.GlossaryTerm,
                             ) && <BrowseEntityCard entityType={EntityType.GlossaryTerm} count={0} />}
                         </BrowseCardContainer>
-                        ) : (
+                    ) : (
                         <NoMetadataContainer>
                             <NoMetadataEmpty description="No Metadata Found 😢" />
                         </NoMetadataContainer>
-                        )}
+                    )}
                 </RecommendationContainer>
             )}
             {recommendationModules &&

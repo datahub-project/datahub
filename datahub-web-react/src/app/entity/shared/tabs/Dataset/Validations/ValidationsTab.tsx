@@ -2,13 +2,15 @@ import React, { useEffect } from 'react';
 import { Button } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
+import { AuditOutlined, FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
 import { TestResults } from './TestResults';
 import { Assertions } from './Assertions';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
+import { useAppConfig } from '../../../../../useAppConfig';
+import { DataContractTab } from './contract/DataContractTab';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -22,6 +24,7 @@ const TabButton = styled(Button)<{ selected: boolean }>`
 enum TabPaths {
     ASSERTIONS = 'Assertions',
     TESTS = 'Tests',
+    DATA_CONTRACT = 'Data Contract',
 }
 
 const DEFAULT_TAB = TabPaths.ASSERTIONS;
@@ -33,6 +36,7 @@ export const ValidationsTab = () => {
     const { entityData } = useEntityData();
     const history = useHistory();
     const { pathname } = useLocation();
+    const appConfig = useAppConfig();
 
     const totalAssertions = (entityData as any)?.assertions?.total;
     const passingTests = (entityData as any)?.testResults?.passing || [];
@@ -76,6 +80,22 @@ export const ValidationsTab = () => {
             content: <TestResults passing={passingTests} failing={maybeFailingTests} />,
         },
     ];
+
+    if (appConfig.config.featureFlags?.dataContractsEnabled) {
+        // If contracts feature is enabled, add to list.
+        tabs.push({
+            title: (
+                <>
+                    <AuditOutlined />
+
+                    <TabTitle>Data Contract</TabTitle>
+                </>
+            ),
+            path: TabPaths.DATA_CONTRACT,
+            content: <DataContractTab />,
+            disabled: false,
+        });
+    }
 
     return (
         <>

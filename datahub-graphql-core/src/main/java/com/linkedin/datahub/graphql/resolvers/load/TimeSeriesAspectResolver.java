@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -120,7 +121,7 @@ public class TimeSeriesAspectResolver
                     maybeStartTimeMillis,
                     maybeEndTimeMillis,
                     maybeLimit,
-                    buildFilters(maybeFilters),
+                    buildFilters(maybeFilters, context.getOperationContext().getAspectRetriever()),
                     maybeSort);
 
             // Step 2: Bind profiles into GraphQL strong types.
@@ -135,7 +136,8 @@ public class TimeSeriesAspectResolver
         "get");
   }
 
-  private Filter buildFilters(@Nullable FilterInput maybeFilters) {
+  private Filter buildFilters(
+      @Nullable FilterInput maybeFilters, @Nullable AspectRetriever aspectRetriever) {
     if (maybeFilters == null) {
       return null;
     }
@@ -146,7 +148,7 @@ public class TimeSeriesAspectResolver
                     .setAnd(
                         new CriterionArray(
                             maybeFilters.getAnd().stream()
-                                .map(filter -> criterionFromFilter(filter, true))
+                                .map(filter -> criterionFromFilter(filter, true, aspectRetriever))
                                 .collect(Collectors.toList())))));
   }
 }
