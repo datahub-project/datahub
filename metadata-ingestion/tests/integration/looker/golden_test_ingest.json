@@ -312,9 +312,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 },
@@ -373,9 +370,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 },
