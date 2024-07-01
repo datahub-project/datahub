@@ -36,6 +36,8 @@ Click the Create to complete.
 </p>
 
 ### Create Posts Using the GraphQL
+
+To create a post via API, you can call the [createPost](../graphql/mutations.md#createPost) GraphQL mutation.
 To create a post via API, you can call the [createPost](../graphql/mutations.md#createPost) GraphQL mutation.
 
 There is only one type of Post that can be currently made, and that is a **Home Page Announcement**. This may be extended in the future to other surfaces.
