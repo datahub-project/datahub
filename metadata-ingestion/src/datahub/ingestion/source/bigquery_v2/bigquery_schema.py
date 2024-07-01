@@ -100,6 +100,7 @@ class BigqueryTable(BaseTable):
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
     columns_ignore_from_profiling: List[str] = field(default_factory=list)
+    table_type: Optional[str] = None
 
 
 @dataclass
@@ -301,6 +302,7 @@ class BigQuerySchemaApi:
         return BigqueryTable(
             name=table.table_name,
             created=table.created,
+            table_type=table.table_type,
             last_altered=(
                 datetime.fromtimestamp(
                     table.get("last_altered") / 1000, tz=timezone.utc
