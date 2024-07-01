@@ -8,6 +8,11 @@ extend type Mutation {
     Upsert structured properties onto a given asset
     """
     removeStructuredProperties(input: RemoveStructuredPropertiesInput!): StructuredProperties!
+
+    """
+    Create a new structured property
+    """
+    createStructuredProperty(input: CreateStructuredPropertyInput!): StructuredPropertyEntity!
 }
 
 """
@@ -285,6 +290,96 @@ type DataTypeInfo {
 
     """
     The description of this type
+    """
+    description: String
+}
+
+"""
+Input for creating a new structured property entity
+"""
+input CreateStructuredPropertyInput {
+    """
+    (Advanced) An optional unique ID to use when creating the urn of this entity
+    """
+    id: String
+
+    """
+    The unique fully qualified name of this structured property, dot delimited.
+    """
+    qualifiedName: String!
+
+    """
+    The optional display name for this property
+    """
+    displayName: String
+
+    """
+    The optional description for this property
+    """
+    description: String
+
+    """
+    Whether the property will be mutable once it is applied or not. Default is false.
+    """
+    immutable: Boolean
+
+    """
+    The urn of the value type that this structured property accepts.
+    For example: urn:li:dataType:datahub.string or urn:li:dataType:datahub.date
+    """
+    valueType: String!
+
+    """
+    The optional input for specifying specific entity types as values
+    """
+    typeQualifier: TypeQualifierInput
+
+    """
+    The optional input for specifying a list of allowed values
+    """
+    allowedValues: [AllowedValueInput!]
+
+    """
+    The optional input for specifying if one or multiple values can be applied.
+    Default is one value (single cardinality)
+    """
+    cardinality: PropertyCardinality
+
+    """
+    The list of entity types that this property can be applied to.
+    For example: ["urn:li:entityType:datahub.dataset"]
+    """
+    entityTypes: [String!]!
+}
+
+"""
+Input for specifying specific entity types as values
+"""
+input TypeQualifierInput {
+    """
+    The list of allowed entity types as urns (ie. ["urn:li:entityType:datahub.corpuser"])
+    """
+    allowedTypes: [String!]
+}
+
+"""
+An input entry for an allowed value for a structured property
+"""
+input AllowedValueInput {
+    """
+    The allowed string value if the value is of type string
+    Either this or numberValue is required.
+    """
+    stringValue: String
+
+    """
+    The allowed number value if the value is of type number.
+    Either this or stringValue is required.
+    """
+    numberValue: Float
+
+    """
+    The description of this allowed value
     """
     description: String
 }
