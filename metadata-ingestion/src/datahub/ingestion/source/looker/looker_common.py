@@ -37,11 +37,11 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.looker.looker_config import (
     LookerCommonConfig,
+    LookerConnectionDefinition,
     LookerDashboardSourceConfig,
     NamingPatternMapping,
     ViewNamingPatternMapping,
 )
-from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_constant import IMPORTED_PROJECTS
 from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader

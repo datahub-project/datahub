@@ -4,7 +4,7 @@ from dataclasses import replace
 from typing import Any, Dict, Optional
 
 from datahub.ingestion.source.looker.lkml_patched import load_lkml
-from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_template_language import (
     resolve_liquid_variable_in_view_dict,

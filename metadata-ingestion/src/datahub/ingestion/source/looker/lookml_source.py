@@ -9,9 +9,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
 import lkml
 import lkml.simple
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api40.models import DBConnection
 
-from datahub.configuration.common import ConfigurationError
 from datahub.configuration.git import GitInfo
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -35,7 +33,6 @@ from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.lkml_patched import load_lkml
 from datahub.ingestion.source.looker.looker_common import (
     CORPUSER_DATAHUB,
-    LookerConnectionDefinition,
     LookerExplore,
     LookerUtil,
     LookerViewId,
@@ -45,8 +42,15 @@ from datahub.ingestion.source.looker.looker_common import (
     deduplicate_fields,
     gen_project_key,
 )
-from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
+from datahub.ingestion.source.looker.looker_connection import (
+    get_connection_def_based_on_connection_string,
+)
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_view_id_cache import (
+    LookerModel,
+    LookerViewFileLoader,
+    LookerViewIdCache,
+)
 from datahub.ingestion.source.looker.lookml_concept_context import (
     LookerFieldContext,
     LookerViewContext,
@@ -56,15 +60,11 @@ from datahub.ingestion.source.looker.lookml_config import (
     _MODEL_FILE_EXTENSION,
     VIEW_LANGUAGE_LOOKML,
     VIEW_LANGUAGE_SQL,
+    LookerConnectionDefinition,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
-from datahub.ingestion.source.looker.lookml_resolver import (
-    LookerModel,
-    LookerViewFileLoader,
-    LookerViewIdCache,
-)
 from datahub.ingestion.source.looker.view_upstream import (
     AbstractViewUpstream,
     create_view_upstream,
@@ -202,8 +202,6 @@ class LookerView:
         project_name: str,
         model_name: str,
         view_context: LookerViewContext,
-        connection: LookerConnectionDefinition,
-        looker_viewfile: LookerViewFile,
         looker_view_id_cache: LookerViewIdCache,
         reporter: LookMLSourceReport,
         max_file_snippet_length: int,
@@ -269,7 +267,7 @@ class LookerView:
         view_fields = deduplicate_fields(view_fields)
 
         # Prep "default" values for the view, which will be overridden by the logic below.
-        view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
+        view_logic = view_context.view_file.raw_file_content[:max_file_snippet_length]
 
         if view_context.is_sql_based_derived_case():
             view_logic = view_context.sql(transformed=False)
@@ -302,11 +300,11 @@ class LookerView:
 
         return LookerView(
             id=looker_view_id,
-            absolute_file_path=looker_viewfile.absolute_file_path,
-            connection=connection,
+            absolute_file_path=view_context.view_file.absolute_file_path,
+            connection=view_context.view_connection,
             upstream_dataset_urns=view_upstream.get_upstream_dataset_urn(),
             fields=view_fields,
-            raw_file_content=looker_viewfile.raw_file_content,
+            raw_file_content=view_context.view_file.raw_file_content,
             view_details=view_details,
         )
 
@@ -425,44 +423,6 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.reporter,
         )
         return looker_model
-
-    def _get_connection_def_based_on_connection_string(
-        self, connection: str
-    ) -> Optional[LookerConnectionDefinition]:
-        if self.source_config.connection_to_platform_map is None:
-            self.source_config.connection_to_platform_map = {}
-        assert self.source_config.connection_to_platform_map is not None
-        connection_def: Optional[LookerConnectionDefinition] = None
-
-        if connection in self.source_config.connection_to_platform_map:
-            connection_def = self.source_config.connection_to_platform_map[connection]
-        elif self.looker_client:
-            try:
-                looker_connection: DBConnection = self.looker_client.connection(
-                    connection
-                )
-            except SDKError:
-                logger.error(
-                    f"Failed to retrieve connection {connection} from Looker. This usually happens when the "
-                    f"credentials provided are not admin credentials."
-                )
-            else:
-                try:
-                    connection_def = LookerConnectionDefinition.from_looker_connection(
-                        looker_connection
-                    )
-
-                    # Populate the cache (using the config map) to avoid calling looker again for this connection
-                    self.source_config.connection_to_platform_map[
-                        connection
-                    ] = connection_def
-                except ConfigurationError:
-                    self.reporter.report_warning(
-                        f"connection-{connection}",
-                        "Failed to load connection from Looker",
-                    )
-
-        return connection_def
 
     def _get_upstream_lineage(
         self, looker_view: LookerView
@@ -850,10 +810,14 @@ class LookMLSource(StatefulIngestionSourceBase):
                 continue
 
             assert model.connection is not None
-            connectionDefinition = self._get_connection_def_based_on_connection_string(
-                model.connection
+            connection_definition = get_connection_def_based_on_connection_string(
+                connection=model.connection,
+                looker_client=self.looker_client,
+                source_config=self.source_config,
+                reporter=self.reporter,
             )
-            if connectionDefinition is None:
+
+            if connection_definition is None:
                 self.reporter.report_warning(
                     f"model-{model_name}",
                     f"Failed to load connection {model.connection}. Check your API key permissions and/or "
@@ -866,7 +830,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             looker_refinement_resolver: LookerRefinementResolver = (
                 LookerRefinementResolver(
                     looker_model=model,
-                    connection_definition=connectionDefinition,
+                    connection_definition=connection_definition,
                     looker_viewfile_loader=viewfile_loader,
                     source_config=self.source_config,
                     reporter=self.reporter,
@@ -928,7 +892,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 looker_viewfile = viewfile_loader.load_viewfile(
                     path=include.include,
                     project_name=include.project,
-                    connection=connectionDefinition,
+                    connection=connection_definition,
                     reporter=self.reporter,
                 )
 
@@ -972,7 +936,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                             view_context: LookerViewContext = LookerViewContext(
                                 raw_view=raw_view,
                                 view_file=looker_viewfile,
-                                view_connection=connectionDefinition,
+                                view_connection=connection_definition,
                                 view_file_loader=viewfile_loader,
                                 looker_refinement_resolver=looker_refinement_resolver,
                                 base_folder_path=base_folder_path,
@@ -983,8 +947,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 project_name=current_project_name,
                                 model_name=model_name,
                                 view_context=view_context,
-                                connection=connectionDefinition,
-                                looker_viewfile=looker_viewfile,
                                 looker_view_id_cache=looker_view_id_cache,
                                 reporter=self.reporter,
                                 max_file_snippet_length=self.source_config.max_file_snippet_length,

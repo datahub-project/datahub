@@ -3,14 +3,14 @@ import itertools
 import logging
 from typing import ClassVar, Dict, List, Set
 
-from datahub.ingestion.source.looker.looker_common import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
+from datahub.ingestion.source.looker.looker_view_id_cache import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
     NAME,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
-from datahub.ingestion.source.looker.lookml_resolver import LookerViewFileLoader
 
 logger = logging.getLogger(__name__)
 

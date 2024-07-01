@@ -1,113 +1,17 @@
 import logging
-import re
 from typing import Dict, List, Optional
 
-from datahub.ingestion.source.looker.looker_common import (
-    LookerConnectionDefinition,
-    LookerViewId,
-    ViewFieldValue,
-)
+from datahub.ingestion.source.looker.looker_common import LookerViewId, ViewFieldValue
+from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
-    DERIVED_VIEW_SUFFIX,
     NAME,
-    LookMLSourceConfig,
     LookMLSourceReport,
 )
-from datahub.ingestion.source.looker.urn_functions import get_qualified_table_name
-from datahub.sql_parsing.sqlglot_lineage import ColumnRef
 
 logger = logging.getLogger(__name__)
-
-
-def is_derived_view(view_name: str) -> bool:
-    if DERIVED_VIEW_SUFFIX in view_name.lower():
-        return True
-
-    return False
-
-
-def get_derived_looker_view_id(
-    qualified_table_name: str,
-    looker_view_id_cache: "LookerViewIdCache",
-    base_folder_path: str,
-) -> Optional[LookerViewId]:
-    # qualified_table_name can be in either of below format
-    # 1) db.schema.employee_income_source.sql_table_name
-    # 2) db.employee_income_source.sql_table_name
-    # 3) employee_income_source.sql_table_name
-    # In any of the form we need the text coming before ".sql_table_name" and after last "."
-    parts: List[str] = re.split(
-        DERIVED_VIEW_SUFFIX, qualified_table_name, flags=re.IGNORECASE
-    )
-    view_name: str = parts[0].split(".")[-1]
-
-    looker_view_id: Optional[LookerViewId] = looker_view_id_cache.get_looker_view_id(
-        view_name=view_name,
-        base_folder_path=base_folder_path,
-    )
-
-    return looker_view_id
-
-
-def resolve_derived_view_urn_of_col_ref(
-    column_refs: List[ColumnRef],
-    looker_view_id_cache: "LookerViewIdCache",
-    base_folder_path: str,
-    config: LookMLSourceConfig,
-) -> List[ColumnRef]:
-
-    new_column_refs: List[ColumnRef] = []
-    for col_ref in column_refs:
-        if is_derived_view(col_ref.table.lower()):
-            new_urns: List[str] = fix_derived_view_urn(
-                urns=[col_ref.table],
-                looker_view_id_cache=looker_view_id_cache,
-                base_folder_path=base_folder_path,
-                config=config,
-            )
-            if not new_urns:
-                logger.warning(
-                    f"Not able to resolve to derived view looker id for {col_ref.table}"
-                )
-                continue
-
-            new_column_refs.append(ColumnRef(table=new_urns[0], column=col_ref.column))
-        else:
-            new_column_refs.append(col_ref)
-
-    return new_column_refs
-
-
-def fix_derived_view_urn(
-    urns: List[str],
-    looker_view_id_cache: "LookerViewIdCache",
-    base_folder_path: str,
-    config: LookMLSourceConfig,
-) -> List[str]:
-    # Regenerate view urn if .sql_table_name is present in urn
-    new_urns: List[str] = []
-    for urn in urns:
-        if is_derived_view(urn):
-            looker_view_id = get_derived_looker_view_id(
-                qualified_table_name=get_qualified_table_name(urn),
-                looker_view_id_cache=looker_view_id_cache,
-                base_folder_path=base_folder_path,
-            )
-
-            if looker_view_id is None:
-                logger.warning(
-                    f"Not able to resolve to derived view looker id for {urn}"
-                )
-                continue
-
-            new_urns.append(looker_view_id.get_urn(config=config))
-        else:
-            new_urns.append(urn)
-
-    return new_urns
 
 
 def determine_view_file_path(base_folder_path: str, absolute_file_path: str) -> str:

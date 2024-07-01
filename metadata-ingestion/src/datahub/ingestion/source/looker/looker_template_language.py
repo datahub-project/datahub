@@ -16,13 +16,6 @@ from datahub.ingestion.source.looker.str_functions import (
 logger = logging.getLogger(__name__)
 
 
-def create_nested_dict(keys, value):
-    nested_dict = value
-    for key in reversed(keys):
-        nested_dict = {key: nested_dict}
-    return nested_dict
-
-
 class SpecialVariable:
     SPECIAL_VARIABLE_PATTERN: ClassVar[
         str

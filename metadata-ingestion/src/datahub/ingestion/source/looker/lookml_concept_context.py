@@ -4,10 +4,10 @@ import re
 from typing import Any, Dict, List, Optional
 
 from datahub.ingestion.source.looker.looker_common import (
-    LookerConnectionDefinition,
     ViewFieldValue,
     find_view_from_resolved_includes,
 )
+from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_dataclasses import LookerViewFile
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
@@ -56,7 +56,8 @@ class LookerFieldContext:
 
 class LookerViewContext:
     """
-    There are three pattern to associate the view's fields with dataset
+    There are six patterns to associate the view's fields with dataset
+
     Pattern1:
         view: view_name {
             ... measure and dimension definition i.e. fields of a view
