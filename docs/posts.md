@@ -22,7 +22,7 @@ To create a new Post, click '+ New Post'.
 <p align="center">
  <img alt="Creating a new post" width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/new-post.png" />
 </p>
-DataHub currently supports two types of Post content. Posts can either be of type **Text** or **Link**. Click on 'Post Type' to switch between these types.
+DataHub currently supports two types of Post content. Posts can either be of type **Text** or **Link**. Click on "Post Type" to switch between these types.
 <p align="center">
  <img alt="Selecting text post type" width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/post-type-text.png" />
 </p>
