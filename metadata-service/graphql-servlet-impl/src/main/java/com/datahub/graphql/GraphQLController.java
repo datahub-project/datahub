@@ -59,7 +59,8 @@ public class GraphQLController {
   private static final int MAX_LOG_WIDTH = 512;
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
-  CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
+  CompletableFuture<ResponseEntity<String>> postGraphQL(
+      HttpServletRequest request, HttpEntity<String> httpEntity) {
 
     String jsonStr = httpEntity.getBody();
     ObjectMapper mapper = new ObjectMapper();
@@ -117,13 +118,18 @@ public class GraphQLController {
 
     SpringQueryContext context =
         new SpringQueryContext(
-            true, authentication, _authorizerChain, systemOperationContext, query, variables);
+            true,
+            authentication,
+            _authorizerChain,
+            systemOperationContext,
+            request,
+            operationName,
+            query,
+            variables);
     Span.current().setAttribute("actor.urn", context.getActorUrn());
 
-    // operationName is an optional field only required if multiple operations are present
-    final String queryName = operationName != null ? operationName : context.getQueryName();
     final String threadName = Thread.currentThread().getName();
-    log.info("Processing request, operation: {}, actor urn: {}", queryName, context.getActorUrn());
+    final String queryName = context.getQueryName();
     log.debug("Query: {}, variables: {}", query, variables);
 
     return GraphQLConcurrencyUtils.supplyAsync(

@@ -42,6 +42,7 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.CorpUserEditableProperties;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
 import com.linkedin.datahub.graphql.generated.Dashboard;
@@ -53,6 +54,7 @@ import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Dataset;
@@ -1823,6 +1825,18 @@ public class GmsGraphQLEngine {
                 new LoadableTypeResolver<>(
                     corpUserType,
                     (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn())));
+    builder.type(
+        "CorpUserEditableProperties",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "platforms",
+                new LoadableTypeBatchResolver<>(
+                    dataPlatformType,
+                    (env) ->
+                        ((CorpUserEditableProperties) env.getSource())
+                            .getPlatforms().stream()
+                                .map(DataPlatform::getUrn)
+                                .collect(Collectors.toList()))));
   }
 
   /**

@@ -70,7 +70,7 @@ In order to configure ingestion from PowerBI, you'll first have to ensure you ha
    - `Enhance admin APIs responses with detailed metadata`
    - `Enhance admin APIs responses with DAX and mashup expressions`
 
-   f. **Add Security Group to Workspace:** Navigate to `Workspaces` window and open workspace which you want to ingest as shown in below screenshot and click on `Access` and add `powerbi-connector-app-security-group` as member
+   f. **Add Security Group to Workspace:** Navigate to `Workspaces` window and open workspace which you want to ingest as shown in below screenshot and click on `Access` and add `powerbi-connector-app-security-group` as member. For most cases `Viewer` role is enough, but for profiling the `Contributor` role is required. 
 
       <p align="center">
    <img width="75%" alt="workspace-window-underlined" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/workspace-window-undrlined.png"/>

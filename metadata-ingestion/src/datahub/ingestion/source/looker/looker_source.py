@@ -1200,7 +1200,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     if relevant_field is not None:
                         view_field_for_reference = relevant_field
 
-            if view_field_for_reference is not None:
+            if view_field_for_reference and view_field_for_reference.name:
                 fields_for_mcp.append(
                     InputFieldClass(
                         schemaFieldUrn=builder.make_schema_field_urn(
