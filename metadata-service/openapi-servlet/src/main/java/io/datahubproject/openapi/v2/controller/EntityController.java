@@ -38,6 +38,7 @@ import io.datahubproject.openapi.v2.models.GenericEntityScrollResultV2;
 import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -87,7 +88,9 @@ public class EntityController
   @PostMapping(value = "/batch/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get a batch of entities")
   public ResponseEntity<BatchGetUrnResponse> getEntityBatch(
-      @PathVariable("entityName") String entityName, @RequestBody BatchGetUrnRequest request)
+      HttpServletRequest httpServletRequest,
+      @PathVariable("entityName") String entityName,
+      @RequestBody BatchGetUrnRequest request)
       throws URISyntaxException {
 
     List<Urn> urns = request.getUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -100,7 +103,12 @@ public class EntityController
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getEntityBatch", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    httpServletRequest,
+                    "getEntityBatch",
+                    entityName),
             authorizationChain,
             authentication,
             true);

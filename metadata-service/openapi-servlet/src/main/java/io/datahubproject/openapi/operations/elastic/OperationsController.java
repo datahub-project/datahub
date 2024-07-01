@@ -31,6 +31,7 @@ import io.datahubproject.openapi.util.ElasticsearchUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -133,7 +134,7 @@ public class OperationsController {
   @Tag(name = "ElasticSearchOperations")
   @GetMapping(path = "/getIndexSizes", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get Index Sizes")
-  public ResponseEntity<String> getIndexSizes() {
+  public ResponseEntity<String> getIndexSizes(HttpServletRequest request) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
@@ -145,7 +146,7 @@ public class OperationsController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getIndexSizes", List.of()),
+            RequestContext.builder().buildOpenapi(actorUrnStr, request, "getIndexSizes", List.of()),
             authorizerChain,
             authentication,
             true);
@@ -171,6 +172,7 @@ public class OperationsController {
   @GetMapping(path = "/explainSearchQuery", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Explain Search Query")
   public ResponseEntity<ExplainResponse> explainSearchQuery(
+      HttpServletRequest request,
       @Parameter(
               name = "query",
               required = true,
@@ -229,7 +231,8 @@ public class OperationsController {
     OperationContext opContext =
         systemOperationContext
             .asSession(
-                RequestContext.builder().buildOpenapi("explainSearchQuery", entityName),
+                RequestContext.builder()
+                    .buildOpenapi(actorUrnStr, request, "explainSearchQuery", entityName),
                 authorizerChain,
                 authentication)
             .withSearchFlags(
@@ -263,6 +266,7 @@ public class OperationsController {
   @GetMapping(path = "/explainSearchQueryDiff", produces = MediaType.TEXT_PLAIN_VALUE)
   @Operation(summary = "Explain the differences in scoring for 2 documents")
   public ResponseEntity<String> explainSearchQueryDiff(
+      HttpServletRequest request,
       @Parameter(
               name = "query",
               required = true,
@@ -328,7 +332,8 @@ public class OperationsController {
     OperationContext opContext =
         systemOperationContext
             .asSession(
-                RequestContext.builder().buildOpenapi("explainSearchQuery", entityName),
+                RequestContext.builder()
+                    .buildOpenapi(actorUrnStr, request, "explainSearchQuery", entityName),
                 authorizerChain,
                 authentication)
             .withSearchFlags(
@@ -400,6 +405,7 @@ public class OperationsController {
   @GetMapping(path = "/restoreIndices", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Restore ElasticSearch indices from primary storage based on URNs.")
   public ResponseEntity<List<RestoreIndicesResult>> restoreIndices(
+      HttpServletRequest request,
       @RequestParam(required = false, name = "aspectName") @Nullable String aspectName,
       @RequestParam(required = false, name = "urn") @Nullable String urn,
       @RequestParam(required = false, name = "urnLike") @Nullable String urnLike,
@@ -419,7 +425,9 @@ public class OperationsController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "restoreIndices", List.of()),
             authorizerChain,
             authentication,
             true);
@@ -445,6 +453,7 @@ public class OperationsController {
   @PostMapping(path = "/restoreIndices", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Restore ElasticSearch indices from primary storage based on URNs.")
   public ResponseEntity<List<RestoreIndicesResult>> restoreIndices(
+      HttpServletRequest request,
       @RequestParam(required = false, name = "aspectNames") @Nullable Set<String> aspectNames,
       @RequestParam(required = false, name = "batchSize", defaultValue = "100") @Nullable
           Integer batchSize,
@@ -459,7 +468,9 @@ public class OperationsController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "restoreIndices", List.of()),
             authorizerChain,
             authentication,
             true);
