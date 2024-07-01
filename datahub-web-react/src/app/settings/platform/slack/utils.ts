@@ -9,6 +9,7 @@ export const decodeSlackConnection = (rawJson: string): SlackConnection | null =
     const parsedJson = JSON.parse(rawJson);
     return {
         botToken: parsedJson.bot_token,
+        signingSecret: parsedJson.app_details?.signing_secret,
         appConfigToken: parsedJson.app_config_tokens?.access_token,
         appConfigRefreshToken: parsedJson.app_config_tokens?.refresh_token,
         json: parsedJson,
@@ -25,6 +26,11 @@ export const encodeSlackConnection = (config: SlackConnection): string => {
             access_token: config.appConfigToken,
             refresh_token: config.appConfigRefreshToken,
         },
+        app_details: config.signingSecret
+            ? {
+                  signing_secret: config.signingSecret,
+              }
+            : undefined,
         bot_token: config.botToken,
     };
     return JSON.stringify(jsonObject);

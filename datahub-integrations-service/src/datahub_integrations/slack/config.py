@@ -40,11 +40,11 @@ class SlackAppConfigCredentials(_FrozenConnectionModel):
 
 
 class SlackAppDetails(_FrozenConnectionModel):
-    app_id: str
-    client_id: str
-    client_secret: str
-    signing_secret: str
-    verification_token: str
+    app_id: Optional[str]
+    client_id: Optional[str]
+    client_secret: Optional[str]
+    signing_secret: Optional[str]
+    verification_token: Optional[str]
 
 
 class SlackConnection(_FrozenConnectionModel):

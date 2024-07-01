@@ -23,6 +23,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.connection.ConnectionService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
@@ -36,15 +37,17 @@ public class UpsertConnectionResolverTest {
 
   private ConnectionService connectionService;
   private SecretService secretService;
+  private IntegrationsService integrationsService;
   private UpsertConnectionResolver resolver;
 
   @BeforeMethod
   public void setUp() {
     connectionService = Mockito.mock(ConnectionService.class);
     secretService = Mockito.mock(SecretService.class);
+    integrationsService = Mockito.mock(IntegrationsService.class);
     Mockito.when(secretService.encrypt("{}")).thenReturn("encrypted");
     Mockito.when(secretService.decrypt("encrypted")).thenReturn("{}");
-    resolver = new UpsertConnectionResolver(connectionService, secretService);
+    resolver = new UpsertConnectionResolver(connectionService, secretService, integrationsService);
   }
 
   @Test

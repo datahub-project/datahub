@@ -7,6 +7,10 @@ export type SlackConnection = {
      */
     botToken?: string | null;
     /**
+     * The signing secret for Slack
+     */
+    signingSecret?: string | null;
+    /**
      * The app configuration token
      */
     appConfigToken?: string | null;

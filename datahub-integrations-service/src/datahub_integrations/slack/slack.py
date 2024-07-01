@@ -74,6 +74,7 @@ public_router = fastapi.APIRouter()
 
 def get_oauth_url_generator(config: SlackConnection) -> AuthorizeUrlGenerator:
     assert config.app_details
+    assert config.app_details.client_id
 
     return AuthorizeUrlGenerator(
         client_id=config.app_details.client_id,
@@ -118,6 +119,12 @@ def oauth_callback(
 ) -> RedirectResponse:
     config = slack_config.get_config()
     assert config.app_details, "App details should be present after provisioning."
+    assert (
+        config.app_details.client_id
+    ), "Client id should be present after provisioning"
+    assert (
+        config.app_details.client_secret
+    ), "Client secret should be present after provisioning"
 
     if not _state_store.consume(state):
         raise fastapi.HTTPException(

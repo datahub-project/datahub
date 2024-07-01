@@ -365,6 +365,7 @@ import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -447,7 +448,8 @@ public class GmsGraphQLEngine {
   private final ERModelRelationshipService erModelRelationshipService;
   private final FormService formService;
   private final RestrictedService restrictedService;
-  private ConnectionService connectionService;
+  private final ConnectionService connectionService;
+  private final IntegrationsService integrationsService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -567,6 +569,7 @@ public class GmsGraphQLEngine {
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
+    this.integrationsService = args.integrationsService;
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -3226,7 +3229,8 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher(
                     "upsertConnection",
-                    new UpsertConnectionResolver(connectionService, secretService))
+                    new UpsertConnectionResolver(
+                        connectionService, secretService, integrationsService))
                 .dataFetcher(
                     "updateConnection",
                     new UpdateConnectionResolver(connectionService, secretService))

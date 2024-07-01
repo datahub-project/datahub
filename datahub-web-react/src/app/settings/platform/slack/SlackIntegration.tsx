@@ -60,6 +60,10 @@ const StyledInput = styled(Input)`
     width: 240px;
 `;
 
+const StyledPasswordInput = styled(Input.Password)`
+    width: 240px;
+`;
+
 const PlatformLogo = styled(Image)`
     max-height: 16px;
     margin-right: 8px;
@@ -192,19 +196,40 @@ export const SlackIntegration = () => {
                                 </SettingValueContainer>
                             </Form.Item>
                             {selectTypeValue === BOT_TOKEN_SELECT_ID && (
-                                <Form.Item required label={<Typography.Text strong>Bot Token</Typography.Text>}>
-                                    <Typography.Text type="secondary">
-                                        Enter a Slack bot token for your workspace.
-                                    </Typography.Text>
-                                    <SettingValueContainer>
-                                        <StyledInput
-                                            value={connection.botToken || settings.botToken || ''}
-                                            placeholder="xoya-1402430190679-2634909095557-smkeDaPL3T8KafKXiR5gjPVU"
-                                            data-testid="bot-token-input"
-                                            onChange={(e) => setConnection({ ...connection, botToken: e.target.value })}
-                                        />
-                                    </SettingValueContainer>
-                                </Form.Item>
+                                <>
+                                    <Form.Item required label={<Typography.Text strong>Bot Token</Typography.Text>}>
+                                        <Typography.Text type="secondary">
+                                            Enter a Slack bot token for your workspace.
+                                        </Typography.Text>
+                                        <SettingValueContainer>
+                                            <StyledPasswordInput
+                                                value={connection.botToken || settings.botToken || ''}
+                                                placeholder="xoya-1402430190679-2634909095557-smkeDaPL3T8KafKXiR5gjPVU"
+                                                data-testid="bot-token-input"
+                                                onChange={(e) =>
+                                                    setConnection({ ...connection, botToken: e.target.value })
+                                                }
+                                            />
+                                        </SettingValueContainer>
+                                    </Form.Item>
+                                    <Form.Item label={<Typography.Text strong>Signing Secret</Typography.Text>}>
+                                        <Typography.Text type="secondary">
+                                            Enter the Slack bot signing secret, which you can find at{' '}
+                                            <a href="https://api.slack.com/apps">api.slack.com/apps</a>.<br />
+                                            This is required for interactive actions.
+                                        </Typography.Text>
+                                        <SettingValueContainer>
+                                            <StyledPasswordInput
+                                                value={connection.signingSecret || ''}
+                                                placeholder="6c698655ad405e243b298b966f20a3r3"
+                                                data-testid="signing-secrets-input"
+                                                onChange={(e) =>
+                                                    setConnection({ ...connection, signingSecret: e.target.value })
+                                                }
+                                            />
+                                        </SettingValueContainer>
+                                    </Form.Item>
+                                </>
                             )}
                             {selectTypeValue === APP_CONFIG_SELECT_ID && (
                                 <>

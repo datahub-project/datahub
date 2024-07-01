@@ -52,8 +52,9 @@ import org.apache.http.util.EntityUtils;
 public class IntegrationsService {
 
   private static final int DEFAULT_RETRY_INTERVAL = 2;
+
+  private static final String RELOAD_CREDENTIALS_ENDPOINT = "private/reload_credentials";
   private static final String GET_LINK_PREVIEW_ENDPOINT = "private/get_link_preview";
-  private static final String REFRESH_SETTINGS_ENDPOINT = "private/reload_credentials";
   private static final String SLACK_MESSAGE_URL_PATTERN = ".*.slack.com/archives/.*";
 
   private static final String REGISTER_ACTION_ENDPOINT = "private/actions/register";
@@ -126,7 +127,7 @@ public class IntegrationsService {
   }
 
   /** Calls the integration service to refresh their connection settings on demand. */
-  public void refreshSettings() {
+  public void reloadCredentials() {
     CloseableHttpResponse response = null;
     try {
       // Build request
@@ -137,7 +138,7 @@ public class IntegrationsService {
                   protocol,
                   this.integrationsServiceHost,
                   this.integrationsServicePort,
-                  REFRESH_SETTINGS_ENDPOINT));
+                  RELOAD_CREDENTIALS_ENDPOINT));
 
       addRequestHeaders(request);
 
