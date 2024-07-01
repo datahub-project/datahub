@@ -522,6 +522,7 @@ def get_aspects_for_entity(
     aspects: List[str],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
+    version: int = 1,
 ) -> Dict[str, Union[dict, _Aspect]]:
     # Process non-timeseries aspects
     non_timeseries_aspects = [a for a in aspects if a not in TIMESERIES_ASPECT_MAP]
@@ -553,7 +554,12 @@ def get_aspects_for_entity(
             aspect_name
         )
 
-        aspect_dict = a["value"]
+        if version == 2:
+            aspect_dict = a
+            for k in ["name", "version", "type"]:
+                del aspect_dict[k]
+        else:
+            aspect_dict = a["value"]
         if not typed:
             aspect_map[aspect_name] = aspect_dict
         elif aspect_py_class:
