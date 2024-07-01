@@ -8,6 +8,11 @@ extend type Mutation {
     Create a new form based on the input
     """
     createForm(input: CreateFormInput!): Form!
+
+    """
+    Delete a given form
+    """
+    deleteForm(input: DeleteFormInput!): Boolean!
 }
 
 """
@@ -501,6 +506,16 @@ Input for a structured property type prompt
 input StructuredPropertyParamsInput {
     """
     The urn of the structured property for a given form prompt
+    """
+    urn: String!
+}
+
+"""
+Input for deleting a form
+"""
+input DeleteFormInput {
+    """
+    The urn of the form that is being deleted
     """
     urn: String!
 }
