@@ -19,7 +19,7 @@ dependencies {
     implementation externalDependency.springWebMVC
     implementation externalDependency.springBeans
     implementation externalDependency.springContext
-
+    implementation externalDependency.servletApi
     implementation externalDependency.reflections
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok

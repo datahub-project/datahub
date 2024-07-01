@@ -17,6 +17,7 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.util.MappingUtil;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -58,6 +59,7 @@ public class PlatformEntitiesController {
 
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
+      HttpServletRequest request,
       @RequestBody @Nonnull List<MetadataChangeProposal> metadataChangeProposals,
       @RequestParam(required = false, name = "async") Boolean async) {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposals);
@@ -69,6 +71,8 @@ public class PlatformEntitiesController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
+                    actorUrnStr,
+                    request,
                     "postEntities",
                     metadataChangeProposals.stream()
                         .map(MetadataChangeProposal::getEntityType)
