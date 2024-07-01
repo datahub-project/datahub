@@ -7,6 +7,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.ERModelRelationshipUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipPropertiesInput;
@@ -53,14 +54,15 @@ public class CreateERModelRelationshipResolver
       highDataset = source;
     }
     // The following sequence mimics datahub.emitter.mce_builder.datahub_guid
+    // Keys have to be in alphabetical order - Destination, ERModelRelationName and Source
 
     String ermodelrelationKey =
-        "{\"Source\":\""
+        "{\"Destination\":\""
             + lowDataset
-            + "\",\"Destination\":\""
-            + highDataset
             + "\",\"ERModelRelationName\":\""
             + ermodelrelationName
+            + "\",\"Source\":\""
+            + highDataset
             + "\"}";
 
     byte[] mybytes = ermodelrelationKey.getBytes(StandardCharsets.UTF_8);
@@ -83,7 +85,7 @@ public class CreateERModelRelationshipResolver
       throw new AuthorizationException(
           "Unauthorized to create erModelRelationship. Please contact your DataHub administrator.");
     }
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug("Create ERModelRelation input: {}", input);
@@ -109,6 +111,8 @@ public class CreateERModelRelationshipResolver
                     "Failed to create erModelRelationship to resource with input %s", input),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

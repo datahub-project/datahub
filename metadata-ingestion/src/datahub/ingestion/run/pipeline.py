@@ -1,4 +1,5 @@
 import contextlib
+import enum
 import itertools
 import logging
 import os
@@ -22,6 +23,7 @@ from datahub.configuration.common import (
 )
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
+from datahub.ingestion.api.global_context import set_graph_context
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
@@ -37,6 +39,9 @@ from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
+from datahub.ingestion.transformer.system_metadata_transformer import (
+    SystemMetadataTransformer,
+)
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.telemetry import stats, telemetry
@@ -48,6 +53,7 @@ from datahub.utilities.global_warning_util import (
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
+_REPORT_PRINT_INTERVAL_SECONDS = 60
 
 
 class LoggingCallback(WriteCallback):
@@ -115,12 +121,21 @@ class PipelineInitError(Exception):
     pass
 
 
+class PipelineStatus(enum.Enum):
+    UNKNOWN = enum.auto()
+    COMPLETED = enum.auto()
+    PIPELINE_ERROR = enum.auto()
+    CANCELLED = enum.auto()
+
+
 @contextlib.contextmanager
 def _add_init_error_context(step: str) -> Iterator[None]:
     """Enriches any exceptions raised with information about the step that failed."""
 
     try:
         yield
+    except PipelineInitError:
+        raise
     except Exception as e:
         raise PipelineInitError(f"Failed to {step}: {e}") from e
 
@@ -259,31 +274,33 @@ class Pipeline:
         self.ctx.graph = self.graph
         telemetry.telemetry_instance.update_capture_exception_context(server=self.graph)
 
-        # once a sink is configured, we can configure reporting immediately to get observability
-        with _add_init_error_context("configure reporters"):
-            self._configure_reporting(report_to, no_default_report)
+        with set_graph_context(self.graph):
+            with _add_init_error_context("configure reporters"):
+                self._configure_reporting(report_to, no_default_report)
 
-        with _add_init_error_context(
-            f"find a registered source for type {self.source_type}"
-        ):
-            source_class = source_registry.get(self.source_type)
+            with _add_init_error_context(
+                f"find a registered source for type {self.source_type}"
+            ):
+                source_class = source_registry.get(self.source_type)
 
-        with _add_init_error_context(f"configure the source ({self.source_type})"):
-            self.source = source_class.create(
-                self.config.source.dict().get("config", {}), self.ctx
-            )
-            logger.debug(f"Source type {self.source_type} ({source_class}) configured")
-            logger.info("Source configured successfully.")
+            with _add_init_error_context(f"configure the source ({self.source_type})"):
+                self.source = source_class.create(
+                    self.config.source.dict().get("config", {}), self.ctx
+                )
+                logger.debug(
+                    f"Source type {self.source_type} ({source_class}) configured"
+                )
+                logger.info("Source configured successfully.")
 
-        extractor_type = self.config.source.extractor
-        with _add_init_error_context(f"configure the extractor ({extractor_type})"):
-            extractor_class = extractor_registry.get(extractor_type)
-            self.extractor = extractor_class(
-                self.config.source.extractor_config, self.ctx
-            )
+            extractor_type = self.config.source.extractor
+            with _add_init_error_context(f"configure the extractor ({extractor_type})"):
+                extractor_class = extractor_registry.get(extractor_type)
+                self.extractor = extractor_class(
+                    self.config.source.extractor_config, self.ctx
+                )
 
-        with _add_init_error_context("configure transformers"):
-            self._configure_transforms()
+            with _add_init_error_context("configure transformers"):
+                self._configure_transforms()
 
     @property
     def source_type(self) -> str:
@@ -302,6 +319,9 @@ class Pipeline:
                 logger.debug(
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
+
+        # Add the system metadata transformer at the end of the list.
+        self.transformers.append(SystemMetadataTransformer(self.ctx))
 
     def _configure_reporting(
         self, report_to: Optional[str], no_default_report: bool
@@ -360,11 +380,11 @@ class Pipeline:
             try:
                 reporter.on_completion(
                     status="CANCELLED"
-                    if self.final_status == "cancelled"
+                    if self.final_status == PipelineStatus.CANCELLED
                     else "FAILURE"
                     if self.has_failures()
                     else "SUCCESS"
-                    if self.final_status == "completed"
+                    if self.final_status == PipelineStatus.COMPLETED
                     else "UNKNOWN",
                     report=self._get_structured_report(),
                     ctx=self.ctx,
@@ -398,7 +418,7 @@ class Pipeline:
     def _time_to_print(self) -> bool:
         self.num_intermediate_workunits += 1
         current_time = int(time.time())
-        if current_time - self.last_time_printed > 10:
+        if current_time - self.last_time_printed > _REPORT_PRINT_INTERVAL_SECONDS:
             # we print
             self.num_intermediate_workunits = 0
             self.last_time_printed = current_time
@@ -416,7 +436,7 @@ class Pipeline:
                     )
                 )
 
-            self.final_status = "unknown"
+            self.final_status = PipelineStatus.UNKNOWN
             self._notify_reporters_on_ingestion_start()
             callback = None
             try:
@@ -453,9 +473,7 @@ class Pipeline:
                                         f"Failed to write record: {e}"
                                     )
 
-                    except RuntimeError:
-                        raise
-                    except SystemExit:
+                    except (RuntimeError, SystemExit):
                         raise
                     except Exception as e:
                         logger.error(
@@ -483,13 +501,23 @@ class Pipeline:
                         # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
                         self.sink.write_record_async(record_envelope, callback)
 
-                self.sink.close()
                 self.process_commits()
-                self.final_status = "completed"
-            except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
-                self.final_status = "cancelled"
+                self.final_status = PipelineStatus.COMPLETED
+            except (SystemExit, KeyboardInterrupt) as e:
+                self.final_status = PipelineStatus.CANCELLED
                 logger.error("Caught error", exc_info=e)
                 raise
+            except Exception as exc:
+                self.final_status = PipelineStatus.PIPELINE_ERROR
+                logger.exception("Ingestion pipeline threw an uncaught exception")
+
+                # HACK: We'll report this as a source error, since we don't have a great place to put it.
+                # It theoretically could've come from any part of the pipeline, but usually it's from the source.
+                # This ensures that it is included in the report, and that the run is marked as failed.
+                self.source.get_report().report_failure(
+                    "pipeline_error",
+                    f"Ingestion pipeline threw an uncaught exception: {exc}",
+                )
             finally:
                 clear_global_warnings()
 
@@ -497,6 +525,8 @@ class Pipeline:
                     callback.close()  # type: ignore
 
                 self._notify_reporters_on_ingestion_completion()
+
+                self.sink.close()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -622,19 +652,29 @@ class Pipeline:
     def pretty_print_summary(
         self, warnings_as_failure: bool = False, currently_running: bool = False
     ) -> int:
-        click.echo()
-        click.secho("Cli report:", bold=True)
-        click.secho(self.cli_report.as_string())
-        click.secho(f"Source ({self.source_type}) report:", bold=True)
-        click.echo(self.source.get_report().as_string())
-        click.secho(f"Sink ({self.sink_type}) report:", bold=True)
-        click.echo(self.sink.get_report().as_string())
-        global_warnings = get_global_warnings()
-        if len(global_warnings) > 0:
-            click.secho("Global Warnings:", bold=True)
-            click.echo(global_warnings)
-        click.echo()
         workunits_produced = self.sink.get_report().total_records_written
+
+        if (
+            not workunits_produced
+            and not currently_running
+            and self.final_status == PipelineStatus.PIPELINE_ERROR
+        ):
+            # If the pipeline threw an uncaught exception before doing anything, printing
+            # out the report would just be annoying.
+            pass
+        else:
+            click.echo()
+            click.secho("Cli report:", bold=True)
+            click.secho(self.cli_report.as_string())
+            click.secho(f"Source ({self.source_type}) report:", bold=True)
+            click.echo(self.source.get_report().as_string())
+            click.secho(f"Sink ({self.sink_type}) report:", bold=True)
+            click.echo(self.sink.get_report().as_string())
+            global_warnings = get_global_warnings()
+            if len(global_warnings) > 0:
+                click.secho("Global Warnings:", bold=True)
+                click.echo(global_warnings)
+            click.echo()
 
         duration_message = f"in {humanfriendly.format_timespan(self.source.get_report().running_time)}."
         if currently_running:

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.timeline;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.GetSchemaBlameInput;
 import com.linkedin.datahub.graphql.generated.GetSchemaBlameResult;
 import com.linkedin.datahub.graphql.types.timeline.mappers.SchemaBlameMapper;
@@ -42,7 +43,7 @@ public class GetSchemaBlameResolver
     final long endTime = 0;
     final String version = input.getVersion() == null ? null : input.getVersion();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Set<ChangeCategory> changeCategorySet =
@@ -63,6 +64,8 @@ public class GetSchemaBlameResolver
             log.error("Failed to list schema blame data", e);
             return null;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

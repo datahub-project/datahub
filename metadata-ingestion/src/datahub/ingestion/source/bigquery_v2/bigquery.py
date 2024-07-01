@@ -130,6 +130,7 @@ from datahub.utilities.hive_schema_to_avro import (
 )
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -236,8 +237,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
 
         self.bigquery_data_dictionary = BigQuerySchemaApi(
-            self.report.schema_api_perf, self.config.get_bigquery_client()
+            self.report.schema_api_perf,
+            self.config.get_bigquery_client(),
         )
+        if self.config.extract_policy_tags_from_catalog:
+            self.bigquery_data_dictionary.datacatalog_client = (
+                self.config.get_policy_tag_manager_client()
+            )
+
         self.sql_parser_schema_resolver = self._init_schema_resolver()
 
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -358,7 +365,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=config.is_profiling_enabled(),
+                    with_data_read_permission=config.have_table_data_read_permission,
                 )
                 if len(list(tables)) == 0:
                     return CapabilityReport(
@@ -742,6 +749,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         columns = None
 
+        rate_limiter: Optional[RateLimiter] = None
+        if self.config.rate_limit:
+            rate_limiter = RateLimiter(
+                max_calls=self.config.requests_per_min, period=60
+            )
+
         if (
             self.config.include_tables
             or self.config.include_views
@@ -752,6 +765,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 dataset_name=dataset_name,
                 column_limit=self.config.column_limit,
                 run_optimized_column_query=self.config.run_optimized_column_query,
+                extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
+                report=self.report,
+                rate_limiter=rate_limiter,
             )
 
         if self.config.include_tables:
@@ -1048,11 +1064,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+        tags_to_add = None
+        if table.labels and self.config.capture_view_label_as_tag:
+            tags_to_add = [
+                make_tag_urn(f"{k}:{v}")
+                for k, v in table.labels.items()
+                if is_tag_allowed(self.config.capture_view_label_as_tag, k)
+            ]
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
+            tags_to_add=tags_to_add,
             sub_types=[DatasetSubTypes.VIEW],
         )
 
@@ -1275,6 +1299,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         )
                     )
 
+                if col.policy_tags:
+                    for policy_tag in col.policy_tags:
+                        tags.append(TagAssociationClass(make_tag_urn(policy_tag)))
                 field = SchemaField(
                     fieldPath=col.name,
                     type=SchemaFieldDataType(
@@ -1353,7 +1380,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         project_id,
                         dataset_name,
                         items_to_get,
-                        with_data_read_permission=self.config.is_profiling_enabled(),
+                        with_data_read_permission=self.config.have_table_data_read_permission,
                     )
                     items_to_get.clear()
 
@@ -1362,7 +1389,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     dataset_name,
                     items_to_get,
-                    with_data_read_permission=self.config.is_profiling_enabled(),
+                    with_data_read_permission=self.config.have_table_data_read_permission,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(

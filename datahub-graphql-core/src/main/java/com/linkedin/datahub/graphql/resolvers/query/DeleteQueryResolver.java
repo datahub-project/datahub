@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.query.QuerySubject;
@@ -31,7 +32,7 @@ public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolea
     final Urn queryUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QuerySubjects existingSubjects =
               _queryService.getQuerySubjects(context.getOperationContext(), queryUrn);
@@ -53,6 +54,8 @@ public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolea
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete Query", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }
