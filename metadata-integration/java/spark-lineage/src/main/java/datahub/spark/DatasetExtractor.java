@@ -153,10 +153,23 @@ public class DatasetExtractor {
         LogicalRelation.class,
         (p, ctx, datahubConfig) -> {
           BaseRelation baseRel = ((LogicalRelation) p).relation();
+          LogicalRelation logRel=((LogicalRelation)p);
+
           if (!REL_TO_DATASET.containsKey(baseRel.getClass())) {
             return Optional.empty();
-          }
-          return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx, datahubConfig);
+          }else if(logRel.catalogTable()!=null&&logRel.catalogTable().isDefined()){
+
+                return Optional.of(Collections.singletonList(new CatalogTableDataset(logRel.catalogTable().get(),
+                        getCommonPlatformInstance(datahubConfig),getTableHivePlatformAlias(datahubConfig),
+                        getCommonFabricType(datahubConfig))));
+
+            }else if(logRel.catalogTable()!=null&&logRel.catalogTable().isEmpty()){
+
+                return Optional.empty();
+
+            }
+
+            return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx, datahubConfig);
         });
 
     PLAN_TO_DATASET.put(
