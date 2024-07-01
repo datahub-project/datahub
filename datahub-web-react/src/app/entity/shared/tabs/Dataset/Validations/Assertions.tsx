@@ -6,6 +6,7 @@ import { DatasetAssertionsList } from './DatasetAssertionsList';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
 import { sortAssertions } from './assertionUtils';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
+import { useGetDatasetContractQuery } from '../../../../../../graphql/contract.generated';
 
 /**
  * Returns a status summary for the assertions associated with a Dataset.
@@ -15,6 +16,7 @@ const getAssertionsStatusSummary = (assertions: Array<Assertion>) => {
         failedRuns: 0,
         succeededRuns: 0,
         totalRuns: 0,
+        erroredRuns: 0,
         totalAssertions: assertions.length,
     };
     assertions.forEach((assertion) => {
@@ -27,7 +29,12 @@ const getAssertionsStatusSummary = (assertions: Array<Assertion>) => {
             if (AssertionResultType.Failure === resultType) {
                 summary.failedRuns++;
             }
-            summary.totalRuns++; // only count assertions for which there is one completed run event!
+            if (AssertionResultType.Error === resultType) {
+                summary.erroredRuns++;
+            }
+            if (AssertionResultType.Init !== resultType) {
+                summary.totalRuns++; // only count assertions for which there is one completed run event, ignoring INIT statuses!
+            }
         }
     });
     return summary;
@@ -46,12 +53,15 @@ export const Assertions = () => {
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
+    const { data: contractData } = useGetDatasetContractQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+    });
+    const contract = contractData?.dataset?.contract as any;
     const assertions =
         (combinedData && combinedData.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion)) ||
         [];
-    const filteredAssertions = assertions.filter(
-        (assertion) => !removedUrns.includes(assertion.urn) && !!assertion.info?.datasetAssertion,
-    );
+    const filteredAssertions = assertions.filter((assertion) => !removedUrns.includes(assertion.urn));
 
     // Pre-sort the list of assertions based on which has been most recently executed.
     assertions.sort(sortAssertions);
@@ -67,6 +77,7 @@ export const Assertions = () => {
                         setRemovedUrns([...removedUrns, assertionUrn]);
                         setTimeout(() => refetch(), 3000);
                     }}
+                    contract={contract}
                 />
             )}
         </>

@@ -46,6 +46,9 @@ dependencies {
     implementation(externalDependency.guava) {
       because("CVE-2023-2976")
     }
+    implementation('io.airlift:aircompressor:0.27') {
+      because("CVE-2024-36114")
+    }
   }
 
 

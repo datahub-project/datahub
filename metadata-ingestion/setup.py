@@ -99,7 +99,7 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==24.0.1.dev7",
+    "acryl-sqlglot[rs]==25.3.1.dev3",
 }
 
 classification_lib = {
@@ -733,6 +733,11 @@ entry_points = {
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
     "datahub.custom_packages": [],
+    "datahub.fs.plugins": [
+        "s3 = datahub.ingestion.fs.s3_fs:S3FileSystem",
+        "file = datahub.ingestion.fs.local_fs:LocalFileSystem",
+        "http = datahub.ingestion.fs.http_fs:HttpFileSystem",
+    ],
 }
 
 

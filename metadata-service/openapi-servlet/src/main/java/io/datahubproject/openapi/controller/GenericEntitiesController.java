@@ -52,6 +52,7 @@ import io.datahubproject.openapi.models.GenericEntity;
 import io.datahubproject.openapi.models.GenericEntityScrollResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -133,6 +134,7 @@ public abstract class GenericEntitiesController<
   @GetMapping(value = "/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Scroll entities")
   public ResponseEntity<S> getEntities(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspects1,
       @RequestParam(value = "aspects", defaultValue = "") Set<String> aspects2,
@@ -159,7 +161,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getEntities", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "getEntities", entityName),
             authorizationChain,
             authentication,
             true);
@@ -199,6 +203,7 @@ public abstract class GenericEntitiesController<
       value = "/{entityName}/{entityUrn:urn:li:.+}",
       produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<E> getEntity(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @RequestParam(value = "aspectNames", defaultValue = "") Set<String> aspects1,
@@ -217,7 +222,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getEntity", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "getEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -239,6 +246,7 @@ public abstract class GenericEntitiesController<
       method = {RequestMethod.HEAD})
   @Operation(summary = "Entity exists")
   public ResponseEntity<Object> headEntity(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable(value = "includeSoftDelete", required = false) Boolean includeSoftDelete)
@@ -254,7 +262,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("headEntity", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "headEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -270,6 +280,7 @@ public abstract class GenericEntitiesController<
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get an entity's generic aspect.")
   public ResponseEntity<Object> getAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
@@ -287,7 +298,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "getAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -311,6 +324,7 @@ public abstract class GenericEntitiesController<
       method = {RequestMethod.HEAD})
   @Operation(summary = "Whether an entity aspect exists.")
   public ResponseEntity<Object> headAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
@@ -327,7 +341,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("headAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "headAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -341,7 +357,9 @@ public abstract class GenericEntitiesController<
   @DeleteMapping(value = "/{entityName}/{entityUrn:urn:li:.+}")
   @Operation(summary = "Delete an entity")
   public void deleteEntity(
-      @PathVariable("entityName") String entityName, @PathVariable("entityUrn") String entityUrn)
+      HttpServletRequest request,
+      @PathVariable("entityName") String entityName,
+      @PathVariable("entityUrn") String entityUrn)
       throws InvalidUrnException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -355,7 +373,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("deleteEntity", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "deleteEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -367,6 +387,7 @@ public abstract class GenericEntitiesController<
   @PostMapping(value = "/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Create a batch of entities.")
   public ResponseEntity<List<E>> createEntity(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @RequestParam(value = "async", required = false, defaultValue = "true") Boolean async,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
@@ -385,7 +406,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("createEntity", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "createEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -404,6 +427,7 @@ public abstract class GenericEntitiesController<
   @DeleteMapping(value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}")
   @Operation(summary = "Delete an entity aspect.")
   public void deleteAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName)
@@ -419,7 +443,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("deleteAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "deleteAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -434,6 +460,7 @@ public abstract class GenericEntitiesController<
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Create an entity aspect.")
   public ResponseEntity<E> createAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
@@ -456,7 +483,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("createAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "createAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -490,10 +519,11 @@ public abstract class GenericEntitiesController<
   @Tag(name = "Generic Aspects")
   @PatchMapping(
       value = "/{entityName}/{entityUrn:urn:li:.+}/{aspectName}",
-      consumes = "application/json-patch+json",
+      consumes = {"application/json-patch+json", MediaType.APPLICATION_JSON_VALUE},
       produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Patch an entity aspect. (Experimental)")
   public ResponseEntity<E> patchAspect(
+      HttpServletRequest request,
       @PathVariable("entityName") String entityName,
       @PathVariable("entityUrn") String entityUrn,
       @PathVariable("aspectName") String aspectName,
@@ -517,7 +547,9 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("patchAspect", entityName),
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(), request, "patchAspect", entityName),
             authorizationChain,
             authentication,
             true);
