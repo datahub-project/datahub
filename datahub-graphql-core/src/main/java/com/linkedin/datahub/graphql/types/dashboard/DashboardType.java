@@ -84,7 +84,8 @@ public class DashboardType
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
           SHARE_ASPECT_NAME,
-          ORIGIN_ASPECT_NAME);
+          ORIGIN_ASPECT_NAME,
+          LINEAGE_FEATURES_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 
   private final EntityClient _entityClient;

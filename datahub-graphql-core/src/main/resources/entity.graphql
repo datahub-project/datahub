@@ -316,6 +316,11 @@ type ERModelRelationship implements EntityWithRelationships & Entity {
     No-op required for the model
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -1510,6 +1515,23 @@ interface TimeSeriesAspect {
     timestampMillis: Long!
 }
 
+type LineageFeatures {
+    """
+    Cached number of entities related by lineage, upstream.
+    """
+    upstreamCount: Int!
+
+    """
+    Cached number of entities related by lineage, downstream.
+    """
+    downstreamCount: Int!
+
+    """
+    Record of when and how lineage features were computed.
+    """
+    computedAt: AuditStamp!
+}
+
 """
 Deprecated, use relationships field instead
 """
@@ -1533,6 +1555,11 @@ interface EntityWithRelationships implements Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -1836,6 +1863,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 type RoleAssociation {
@@ -3453,6 +3485,11 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
     Documentation aspect for this schema field
     """
     documentation: Documentation
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -5892,6 +5929,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -6233,6 +6275,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -6655,6 +6702,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -6920,6 +6972,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -6967,6 +7024,11 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
     The link to view the task run in the source system
     """
     externalUrl: String
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -7814,6 +7876,11 @@ type Assertion implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 
     """
     Status metadata of the assertion
@@ -10153,6 +10220,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -10295,6 +10367,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 type MLModelGroupProperties {
@@ -10450,6 +10527,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 type MLHyperParam {
@@ -10650,6 +10732,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 type MLPrimaryKeyProperties {
@@ -10808,6 +10895,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     Carries information about where an entity originated from.
     """
     assetOrigin: Origin
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 type MLFeatureTableEditableProperties {
@@ -12542,36 +12634,46 @@ type QuerySubject {
 """
 An individual Query
 """
-type QueryEntity implements Entity {
-  """
-  A primary key associated with the Query
-  """
-  urn: String!
+type QueryEntity implements Entity & EntityWithRelationships {
+    """
+    A primary key associated with the Query
+    """
+    urn: String!
 
-  """
-  A standard Entity Type
-  """
-  type: EntityType!
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
 
-  """
-  Properties about the Query
-  """
-  properties: QueryProperties
+    """
+    Properties about the Query
+    """
+    properties: QueryProperties
 
-  """
-  Subjects for the query
-  """
-  subjects: [QuerySubject!]
+    """
+    Subjects for the query
+    """
+    subjects: [QuerySubject!]
 
-  """
-  Granular API for querying edges extending from this entity
-  """
-  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
-  """
-  Platform from which the Query was detected
-  """
-  platform: DataPlatform
+    """
+    Edges extending from this entity grouped by direction in the lineage graph
+    """
+    lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Platform from which the Query was detected
+    """
+    platform: DataPlatform
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 """
@@ -13194,6 +13296,11 @@ type Restricted implements Entity & EntityWithRelationships {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Cached, potentially stale information about the entity's lineage.
+    """
+    lineageFeatures: LineageFeatures
 }
 
 

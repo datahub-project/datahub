@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RelationshipFieldMapping;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -28,6 +29,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.ermodelrelation.ERModelRelationshipProperties;
 import com.linkedin.ermodelrelation.EditableERModelRelationshipProperties;
 import com.linkedin.metadata.key.ERModelRelationshipKey;
+import com.linkedin.metadata.search.features.LineageFeatures;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -101,6 +103,12 @@ public class ERModelRelationMapper implements ModelMapper<EntityResponse, ERMode
               ermodelrelation.setGlossaryTerms(
                   GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
     }
+    mappingHelper.mapToResult(
+        LINEAGE_FEATURES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLineageFeatures(
+                LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
+
     return mappingHelper.getResult();
   }
 

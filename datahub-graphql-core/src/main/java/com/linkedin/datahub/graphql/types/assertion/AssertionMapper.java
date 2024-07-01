@@ -41,6 +41,7 @@ import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.datahub.graphql.generated.SqlAssertionInfo;
 import com.linkedin.datahub.graphql.generated.VolumeAssertionInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaFieldMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaMetadataMapper;
@@ -49,6 +50,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.schema.SchemaField;
 import java.util.Collections;
 import java.util.stream.Collectors;
@@ -111,6 +113,14 @@ public class AssertionMapper {
       result.setTags(
           GlobalTagsMapper.map(
               context, new GlobalTags(envelopedTags.getValue().data()), entityUrn));
+    }
+
+    final EnvelopedAspect envelopedLineageFeatures =
+        aspects.get(Constants.LINEAGE_FEATURES_ASPECT_NAME);
+    if (envelopedLineageFeatures != null) {
+      result.setLineageFeatures(
+          LineageFeaturesMapper.map(
+              context, new LineageFeatures(envelopedLineageFeatures.getValue().data())));
     }
 
     return result;

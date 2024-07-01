@@ -2783,6 +2783,13 @@ public class GmsGraphQLEngine {
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService,
+                        restrictedService,
+                        this.authorizationConfiguration,
+                        featureFlags))
+                .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(
                         dataPlatformType,
@@ -2946,6 +2953,13 @@ public class GmsGraphQLEngine {
                 typeWiring
                     .dataFetcher(
                         "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher(
+                        "lineage",
+                        new EntityLineageResultResolver(
+                            siblingGraphService,
+                            restrictedService,
+                            this.authorizationConfiguration,
+                            featureFlags))
                     .dataFetcher(
                         "platform",
                         new LoadableTypeResolver<>(

@@ -20,11 +20,13 @@ import com.linkedin.datahub.graphql.generated.QueryStatement;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.query.QueryProperties;
 import com.linkedin.query.QuerySubjects;
 import com.linkedin.query.QueryUsageFeatures;
@@ -57,6 +59,12 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
     mappingHelper.mapToResult(QUERY_SUBJECTS_ASPECT_NAME, this::mapQuerySubjects);
     mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapPlatform);
     mappingHelper.mapToResult(QUERY_USAGE_FEATURES_ASPECT_NAME, this::mapQueryUsageFeatures);
+    mappingHelper.mapToResult(
+        LINEAGE_FEATURES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLineageFeatures(
+                LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
+
     return mappingHelper.getResult();
   }
 

@@ -135,6 +135,7 @@ entities:
       - dataProcessInstanceRelationships
       - dataProcessInstanceRunEvent
       - status
+      - lineageFeatures
   - name: chart
     category: core
     keyAspect: chartKey
@@ -356,6 +357,7 @@ entities:
       - assertionActions
       - status
       - globalTags
+      - lineageFeatures
       - assertionDryRunEvent # Acryl-Only (Observe)
       - assertionInferenceDetails # Acryl-Only (Observe)
   - name: dataHubRetention

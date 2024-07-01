@@ -63,7 +63,8 @@ public class ERModelRelationshipType
           OWNERSHIP_ASPECT_NAME,
           STATUS_ASPECT_NAME,
           GLOBAL_TAGS_ASPECT_NAME,
-          GLOSSARY_TERMS_ASPECT_NAME);
+          GLOSSARY_TERMS_ASPECT_NAME,
+          LINEAGE_FEATURES_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("name");
   private static final String ENTITY_NAME = "erModelRelationship";

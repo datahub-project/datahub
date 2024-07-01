@@ -79,7 +79,8 @@ public class DataFlowType
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
           SHARE_ASPECT_NAME,
-          ORIGIN_ASPECT_NAME);
+          ORIGIN_ASPECT_NAME,
+          LINEAGE_FEATURES_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
   private final EntityClient _entityClient;
 

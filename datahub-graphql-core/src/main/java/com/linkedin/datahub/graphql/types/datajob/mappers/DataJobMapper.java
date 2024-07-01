@@ -34,6 +34,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAsp
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.FineGrainedLineagesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
@@ -50,6 +51,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataJobKey;
+import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
@@ -146,6 +148,9 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                 result.setShare(ShareMapper.map(context, new Share(data)));
               } else if (ORIGIN_ASPECT_NAME.equals(name)) {
                 result.setAssetOrigin(OriginMapper.map(context, new Origin(data)));
+              } else if (LINEAGE_FEATURES_ASPECT_NAME.equals(name)) {
+                result.setLineageFeatures(
+                    LineageFeaturesMapper.map(context, new LineageFeatures(data)));
               }
             });
 
