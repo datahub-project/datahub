@@ -3,9 +3,8 @@ package com.linkedin.gms.factory.entity;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
-import javax.annotation.Nonnull;
-
 import com.linkedin.metadata.search.EntitySearchService;
+import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
