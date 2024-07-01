@@ -1,6 +1,7 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { SchemaField } from '../../../../../../../../types.generated';
 import translateFieldPath from '../../../../../../dataset/profile/schema/utils/translateFieldPath';
@@ -9,6 +10,7 @@ import { PartitioningKeyLabel, PrimaryKeyLabel } from '../ConstraintLabels';
 import MenuColumn from '../MenuColumn';
 import TypeLabel from '../TypeLabel';
 import FieldPath from './FieldPath';
+import { useEntityRegistry } from '../../../../../../../useEntityRegistry';
 
 const FieldHeaderWrapper = styled.div`
     padding: 16px;
@@ -82,6 +84,13 @@ const StyledTypeLabel = styled(TypeLabel)`
     font-size: 14px;
 `;
 
+const StyleLink = styled(Link)`
+    color: ${REDESIGN_COLORS.WHITE};
+    &:hover {
+        color: ${REDESIGN_COLORS.WHITE};
+    }
+`;
+
 interface Props {
     expandedField: SchemaField;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
@@ -89,13 +98,24 @@ interface Props {
 
 export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath }: Props) {
     const displayName = translateFieldPath(expandedField.fieldPath || '');
+    const entityRegistry = useEntityRegistry();
 
     return (
         <FieldHeaderWrapper>
             <NameTypesWrapper>
                 <FieldText>Field</FieldText>
                 <TitleWrapper>
-                    {displayName.split('.').pop()}
+                    <StyleLink
+                        to={
+                            expandedField.schemaFieldEntity &&
+                            entityRegistry.getEntityUrl(
+                                expandedField.schemaFieldEntity?.type,
+                                (expandedField.schemaFieldEntity?.urn as string) || '',
+                            )
+                        }
+                    >
+                        {displayName.split('.').pop()}
+                    </StyleLink>
                     <VerticalDivider />
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
                     {expandedField.isPartOfKey && <PrimaryKeyLabel />}
