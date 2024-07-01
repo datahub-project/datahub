@@ -113,11 +113,11 @@ class ContainerWUCreator:
         raise ValueError(f"Unable to get bucket name from path: {path}")
 
     def get_sub_types(self) -> str:
-        if self.platform == "s3":
+        if self.platform == PLATFORM_S3:
             return DatasetContainerSubTypes.S3_BUCKET
-        elif self.platform == "gcs":
+        elif self.platform == PLATFORM_GCS:
             return DatasetContainerSubTypes.GCS_BUCKET
-        elif self.platform == "abs":
+        elif self.platform == PLATFORM_ABS:
             return DatasetContainerSubTypes.ABS_CONTAINER
         raise ValueError(f"Unable to sub type for platform: {self.platform}")
 

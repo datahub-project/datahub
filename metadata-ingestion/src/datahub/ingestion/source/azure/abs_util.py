@@ -1,5 +1,4 @@
 import logging
-import logging
 import os
 import re
 from typing import Iterable, Optional, Dict, List
@@ -84,7 +83,7 @@ def get_abs_properties(
     use_abs_blob_properties: Optional[bool] = False,
 ) -> Dict[str, str]:
     if azure_config is None:
-        raise ValueError("No container_client available.")
+        raise ValueError("Azure configuration is not provided. Cannot retrieve container client.")
 
     blob_service_client = azure_config.get_blob_service_client()
     container_client = blob_service_client.get_container_client(
@@ -196,7 +195,7 @@ def get_abs_tags(
 ) -> Optional[GlobalTagsClass]:
     # Todo add the service_client, when building out this get_abs_tags
     if azure_config is None:
-        raise ValueError("container_client not set. Cannot browse abs")
+        raise ValueError("Azure configuration is not provided. Cannot retrieve container client.")
 
     tags_to_add: List[str] = []
     blob_service_client = azure_config.get_blob_service_client()
@@ -241,7 +240,7 @@ def list_folders(
     container_name: str, prefix: str, azure_config: Optional[AzureConnectionConfig]
 ) -> Iterable[str]:
     if azure_config is None:
-        raise ValueError("azure_config not set. Cannot browse Azure Blob Storage")
+        raise ValueError("Azure configuration is not provided. Cannot retrieve container client.")
 
     abs_blob_service_client = azure_config.get_blob_service_client()
     container_client = abs_blob_service_client.get_container_client(container_name)

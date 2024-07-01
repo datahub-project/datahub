@@ -1,13 +1,13 @@
 
 ### Path Specs
 
-Path Specs (`path_specs`) is a list of Path Spec (`path_spec`) objects where each individual `path_spec` represents one or more datasets. Include path (`path_spec.include`) represents formatted path to the dataset. This path must end with `*.*` or `*.[ext]` to represent leaf level. If `*.[ext]` is provided then files with only specified extension type will be scanned. "`.[ext]`" can be any of [supported file types](#supported-file-types). Refer [example 1](#example-1---individual-file-as-dataset) below for more details.
+Path Specs (`path_specs`) is a list of Path Spec (`path_spec`) objects, where each individual `path_spec` represents one or more datasets. The include path (`path_spec.include`) represents a formatted path to the dataset. This path must end with `*.*` or `*.[ext]` to represent the leaf level. If `*.[ext]` is provided, then only files with the specified extension type will be scanned. "`.[ext]`" can be any of the [supported file types](#supported-file-types). Refer to [example 1](#example-1---individual-file-as-dataset) below for more details.
 
-All folder levels need to be specified in include path. You can use `/*/` to represent a folder level and avoid specifying exact folder name. To map folder as a dataset, use `{table}` placeholder to represent folder level for which dataset is to be created. For a partitioned dataset, you can use placeholder `{partition_key[i]}` to represent name of `i`th partition and `{partition[i]}` to represent value of `i`th partition. During ingestion, `i` will be used to match partition_key to partition. Refer [example 2 and 3](#example-2---folder-of-files-as-dataset-without-partitions) below for more details.
+All folder levels need to be specified in the include path. You can use `/*/` to represent a folder level and avoid specifying the exact folder name. To map a folder as a dataset, use the `{table}` placeholder to represent the folder level for which the dataset is to be created. For a partitioned dataset, you can use the placeholder `{partition_key[i]}` to represent the name of the `i`th partition and `{partition[i]}` to represent the value of the `i`th partition. During ingestion, `i` will be used to match the partition_key to the partition. Refer to [examples 2 and 3](#example-2---folder-of-files-as-dataset-without-partitions) below for more details.
 
-Exclude paths (`path_spec.exclude`) can be used to ignore paths that are not relevant to current `path_spec`. This path cannot have named variables ( `{}` ). Exclude path can have `**` to represent multiple folder levels. Refer [example 4](#example-4---folder-of-files-as-dataset-with-partitions-and-exclude-filter) below for more details.
+Exclude paths (`path_spec.exclude`) can be used to ignore paths that are not relevant to the current `path_spec`. This path cannot have named variables (`{}`). The exclude path can have `**` to represent multiple folder levels. Refer to [example 4](#example-4---folder-of-files-as-dataset-with-partitions-and-exclude-filter) below for more details.
 
-Refer [example 5](#example-5---advanced---either-individual-file-or-folder-of-files-as-dataset) if your container has more complex dataset representation.
+Refer to [example 5](#example-5---advanced---either-individual-file-or-folder-of-files-as-dataset) if your container has a more complex dataset representation.
 
 **Additional points to note**
 - Folder names should not contain {, }, *, / in their names.
