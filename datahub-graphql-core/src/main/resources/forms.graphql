@@ -3,6 +3,11 @@ extend type Mutation {
     Remove a form from a given list of entities.
     """
     batchRemoveForm(input: BatchRemoveFormInput!): Boolean!
+
+    """
+    Create a new form based on the input
+    """
+    createForm(input: CreateFormInput!): Form!
 }
 
 """
@@ -397,4 +402,105 @@ input BatchRemoveFormInput {
     The entities that this form is being removed from
     """
     entityUrns: [String!]!
+}
+
+"""
+Input for batch removing a form from different entities
+"""
+input CreateFormInput {
+    """
+    Advanced: Optionally provide an ID to create a form urn from
+    """
+    id: String
+
+    """
+    The name of the form being created
+    """
+    name: String!
+
+    """
+    The optional description of the form being created
+    """
+    description: String
+
+    """
+    The type of this form, whether it's verification or completion. Default is completion.
+    """
+    type: FormType
+
+    """
+    The type of this form, whether it's verification or completion. Default is completion.
+    """
+    prompts: [CreatePromptInput!]
+
+    """
+    Information on how this form should be assigned to users/groups
+    """
+    actors: FormActorAssignmentInput
+}
+
+"""
+Input for creating form prompts
+"""
+input CreatePromptInput {
+    """
+    Advanced: Optionally provide an ID to this prompt. All prompt IDs must be globally unique.
+    """
+    id: String
+
+    """
+    The title of the prompt
+    """
+    title: String!
+
+    """
+    The optional description of the prompt
+    """
+    description: String
+
+    """
+    The type of the prompt.
+    """
+    type: FormPromptType!
+
+    """
+    The params required if this prompt type is STRUCTURED_PROPERTY or FIELDS_STRUCTURED_PROPERTY
+    """
+    structuredPropertyParams: StructuredPropertyParamsInput
+
+    """
+    Whether this prompt will be required or not. Default is false.
+    """
+    required: Boolean
+
+}
+
+"""
+Input for assigning a form to actors
+"""
+input FormActorAssignmentInput {
+    """
+    Whether this form will be applied to owners of associated entities or not. Default is true.
+    """
+    owners: Boolean
+
+    """
+    The optional list of user urns to assign this form to
+    """
+    users: [String!]
+
+    """
+    The optional list of group urns to assign this form to
+    """
+    groups: [String!]
+}
+
+"""
+Input for a structured property type prompt
+"""
+input StructuredPropertyParamsInput {
+    """
+    The urn of the structured property for a given form prompt
+    """
+    urn: String!
 }
