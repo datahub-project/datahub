@@ -17,7 +17,7 @@ Anyone can view Posts on the home page. To create Posts, a user must either have
 ### Create Posts Using the UI
 To create a post, first navigate to the Settings tab in the top-right menu of DataHub.
 Once you're on the Settings page, click 'Home Page Posts'.
-To create a new Post, click '+ New Posts'.
+To create a new Post, click '+ New Post'.
 <p align="center">
  <img alt="Creating a new post" width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/posts/new-post.png" />
 </p>
