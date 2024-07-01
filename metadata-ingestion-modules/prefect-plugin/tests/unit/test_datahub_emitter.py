@@ -547,8 +547,8 @@ def test_add_task(mock_emit, mock_run_context):
         f"(prefect,{flow_run_ctx.flow.name},PROD),{task_run_ctx.task.task_key})"
     )
 
-    assert expected_datajob_urn in datahub_emitter.datajobs_to_emit.keys()
-    actual_datajob = datahub_emitter.datajobs_to_emit[expected_datajob_urn]
+    assert expected_datajob_urn in datahub_emitter._datajobs_to_emit.keys()
+    actual_datajob = datahub_emitter._datajobs_to_emit[expected_datajob_urn]
     assert isinstance(actual_datajob, DataJob)
     assert str(actual_datajob.flow_urn) == "urn:li:dataFlow:(prefect,etl,PROD)"
     assert actual_datajob.name == task_run_ctx.task.name

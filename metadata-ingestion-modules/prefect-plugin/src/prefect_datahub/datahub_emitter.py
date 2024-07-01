@@ -24,6 +24,7 @@ from prefect.client.schemas import FlowRun, TaskRun, Workspace
 from prefect.client.schemas.objects import Flow
 from prefect.context import FlowRunContext, TaskRunContext
 from prefect.settings import PREFECT_API_URL
+from pydantic.v1 import SecretStr
 
 from prefect_datahub.entities import _Entity
 
@@ -86,14 +87,18 @@ class DatahubEmitter(Block):
     datahub_rest_url: str = "http://localhost:8080"
     env: str = builder.DEFAULT_ENV
     platform_instance: Optional[str] = None
+    token: Optional[SecretStr] = None
+    _datajobs_to_emit: Dict[str, Any] = {}
 
     def __init__(self, *args: Any, **kwargs: Any):
         """
         Initialize datahub rest emitter
         """
         super().__init__(*args, **kwargs)
-        self.datajobs_to_emit: Dict[str, _Entity] = {}
-        self.emitter = DatahubRestEmitter(gms_server=self.datahub_rest_url)
+        # self._datajobs_to_emit: Dict[str, _Entity] = {}
+
+        token = self.token.get_secret_value() if self.token is not None else None
+        self.emitter = DatahubRestEmitter(gms_server=self.datahub_rest_url, token=token)
         self.emitter.test_connection()
 
     def _entities_to_urn_list(self, iolets: List[_Entity]) -> List[DatasetUrn]:
@@ -333,57 +338,59 @@ class DatahubEmitter(Block):
             dataflow (DataFlow): The datahub dataflow entity.
             workspace_name Optional(str): The prefect cloud workpace name.
         """
-        assert flow_run_ctx.flow_run
+        try:
+            assert flow_run_ctx.flow_run
 
-        graph_json = asyncio.run(
-            self._get_flow_run_graph(str(flow_run_ctx.flow_run.id))
-        )
-
-        if graph_json is None:
-            return
-
-        task_run_key_map: Dict[str, str] = {}
-
-        for prefect_future in flow_run_ctx.task_run_futures:
-            if prefect_future.task_run is not None:
-                task_run_key_map[
-                    str(prefect_future.task_run.id)
-                ] = prefect_future.task_run.task_key
-
-        get_run_logger().info("Emitting tasks to datahub...")
-
-        for node in graph_json:
-            datajob_urn = DataJobUrn.create_from_ids(
-                data_flow_urn=str(dataflow.urn),
-                job_id=task_run_key_map[node[ID]],
+            graph_json = asyncio.run(
+                self._get_flow_run_graph(str(flow_run_ctx.flow_run.id))
             )
 
-            datajob: Optional[DataJob] = None
+            if graph_json is None:
+                return
 
-            if str(datajob_urn) in self.datajobs_to_emit:
-                datajob = cast(DataJob, self.datajobs_to_emit[str(datajob_urn)])
-            else:
-                datajob = self._generate_datajob(
-                    flow_run_ctx=flow_run_ctx, task_key=task_run_key_map[node[ID]]
+            task_run_key_map: Dict[str, str] = {}
+
+            for prefect_future in flow_run_ctx.task_run_futures:
+                if prefect_future.task_run is not None:
+                    task_run_key_map[
+                        str(prefect_future.task_run.id)
+                    ] = prefect_future.task_run.task_key
+
+            for node in graph_json:
+                datajob_urn = DataJobUrn.create_from_ids(
+                    data_flow_urn=str(dataflow.urn),
+                    job_id=task_run_key_map[node[ID]],
                 )
 
-            if datajob is not None:
-                for each in node[UPSTREAM_DEPENDENCIES]:
-                    upstream_task_urn = DataJobUrn.create_from_ids(
-                        data_flow_urn=str(dataflow.urn),
-                        job_id=task_run_key_map[each[ID]],
+                datajob: Optional[DataJob] = None
+
+                if str(datajob_urn) in self._datajobs_to_emit:
+                    datajob = cast(DataJob, self._datajobs_to_emit[str(datajob_urn)])
+                else:
+                    datajob = self._generate_datajob(
+                        flow_run_ctx=flow_run_ctx, task_key=task_run_key_map[node[ID]]
                     )
-                    datajob.upstream_urns.extend([upstream_task_urn])
-                datajob.emit(self.emitter)
 
-                if workspace_name is not None:
-                    self._emit_browsepath(str(datajob.urn), workspace_name)
+                if datajob is not None:
+                    for each in node[UPSTREAM_DEPENDENCIES]:
+                        upstream_task_urn = DataJobUrn.create_from_ids(
+                            data_flow_urn=str(dataflow.urn),
+                            job_id=task_run_key_map[each[ID]],
+                        )
+                        datajob.upstream_urns.extend([upstream_task_urn])
 
-                self._emit_task_run(
-                    datajob=datajob,
-                    flow_run_name=flow_run_ctx.flow_run.name,
-                    task_run_id=UUID(node[ID]),
-                )
+                    datajob.emit(self.emitter)
+
+                    if workspace_name is not None:
+                        self._emit_browsepath(str(datajob.urn), workspace_name)
+
+                    self._emit_task_run(
+                        datajob=datajob,
+                        flow_run_name=flow_run_ctx.flow_run.name,
+                        task_run_id=UUID(node[ID]),
+                    )
+        except Exception:
+            get_run_logger().debug(traceback.format_exc())
 
     def _emit_flow_run(self, dataflow: DataFlow, flow_run_id: UUID) -> None:
         """
@@ -583,22 +590,25 @@ class DatahubEmitter(Block):
                 datahub_emitter.emit_flow()
             ```
         """
-        flow_run_ctx = FlowRunContext.get()
-        task_run_ctx = TaskRunContext.get()
+        try:
+            flow_run_ctx = FlowRunContext.get()
+            task_run_ctx = TaskRunContext.get()
 
-        assert flow_run_ctx
-        assert task_run_ctx
+            assert flow_run_ctx
+            assert task_run_ctx
 
-        datajob = self._generate_datajob(
-            flow_run_ctx=flow_run_ctx, task_run_ctx=task_run_ctx
-        )
+            datajob = self._generate_datajob(
+                flow_run_ctx=flow_run_ctx, task_run_ctx=task_run_ctx
+            )
 
-        if datajob is not None:
-            if inputs is not None:
-                datajob.inlets.extend(self._entities_to_urn_list(inputs))
-            if outputs is not None:
-                datajob.outlets.extend(self._entities_to_urn_list(outputs))
-            self.datajobs_to_emit[str(datajob.urn)] = cast(_Entity, datajob)
+            if datajob is not None:
+                if inputs is not None:
+                    datajob.inlets.extend(self._entities_to_urn_list(inputs))
+                if outputs is not None:
+                    datajob.outlets.extend(self._entities_to_urn_list(outputs))
+                self._datajobs_to_emit[str(datajob.urn)] = cast(_Entity, datajob)
+        except Exception:
+            get_run_logger().debug(traceback.format_exc())
 
     def emit_flow(self) -> None:
         """
