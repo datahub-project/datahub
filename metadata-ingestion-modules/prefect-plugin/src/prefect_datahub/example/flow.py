@@ -10,7 +10,6 @@ from prefect_datahub.entities import Dataset
 async def load_datahub_emitter():
     datahub_emitter = DatahubEmitter()
     emitter = datahub_emitter.load("BLOCK-ID")
-    print(emitter)
     return emitter
 
 
