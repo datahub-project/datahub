@@ -564,15 +564,10 @@ class LookerUtil:
     def _get_tags_from_field_type(
         field: ViewField, reporter: SourceReport
     ) -> Optional[GlobalTagsClass]:
-        schema_field_tags: List[TagAssociationClass] = []
-
-        # Add any user defined tag present on field
-        schema_field_tags.extend(
-            [
-                TagAssociationClass(tag=builder.make_tag_urn(tag_name))
-                for tag_name in field.tags
-            ]
-        )
+        schema_field_tags: List[TagAssociationClass] = [
+            TagAssociationClass(tag=builder.make_tag_urn(tag_name))
+            for tag_name in field.tags
+        ]
 
         if field.field_type in LookerUtil.type_to_tag_map:
             schema_field_tags.extend(
