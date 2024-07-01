@@ -44,7 +44,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -90,7 +92,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -136,7 +140,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -182,7 +188,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -228,7 +236,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -243,7 +253,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00"
+        "runId": "superset-2020_04_14-07_00_00",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 }
 ]
