@@ -1898,9 +1898,11 @@ def run_dataset_transformer_pipeline(
     transformer_type: Type[Union[DatasetTransformer, TagTransformer]],
     aspect: Optional[builder.Aspect],
     config: dict,
-    pipeline_context: PipelineContext = PipelineContext(run_id="transformer_pipe_line"),
+    pipeline_context: Optional[PipelineContext] = None,
     use_mce: bool = False,
 ) -> List[RecordEnvelope]:
+    if pipeline_context is None:
+        pipeline_context = PipelineContext(run_id="transformer_pipe_line")
     transformer: DatasetTransformer = cast(
         DatasetTransformer, transformer_type.create(config, pipeline_context)
     )
@@ -3665,8 +3667,8 @@ def test_tags_to_terms_transformation(mock_datahub_graph):
     def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
         return models.GlobalTagsClass(
             tags=[
-                TagAssociationClass(tag=builder.make_tag_urn("exmaple1")),
-                TagAssociationClass(tag=builder.make_tag_urn("exmaple2")),
+                TagAssociationClass(tag=builder.make_tag_urn("example1")),
+                TagAssociationClass(tag=builder.make_tag_urn("example2")),
             ]
         )
 
@@ -3729,7 +3731,7 @@ def test_tags_to_terms_transformation(mock_datahub_graph):
     pipeline_context.graph.get_schema_metadata = fake_schema_metadata  # type: ignore
 
     # Configuring the transformer
-    config = {"tags": ["exmaple1", "exmaple2"]}
+    config = {"tags": ["example1", "example2"]}
 
     # Running the transformer within a test pipeline
     output = run_dataset_transformer_pipeline(
@@ -3753,8 +3755,8 @@ def test_tags_to_terms_transformation(mock_datahub_graph):
     assert isinstance(terms_aspect, models.GlossaryTermsClass)
     assert len(terms_aspect.terms) == len(expected_terms)
     assert set(term.urn for term in terms_aspect.terms) == {
-        "urn:li:glossaryTerm:exmaple1",
-        "urn:li:glossaryTerm:exmaple2",
+        "urn:li:glossaryTerm:example1",
+        "urn:li:glossaryTerm:example2",
     }
 
 

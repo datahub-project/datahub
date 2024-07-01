@@ -1279,7 +1279,7 @@ class DataHubGraph(DatahubRestEmitter):
         return res["createTag"]
 
     def remove_tag(self, tag_urn: str, resource_urn: str) -> bool:
-        graph_query = """
+        graph_query = f"""
             mutation removeTag {{
                 removeTag(
                 input: {{
@@ -1287,9 +1287,7 @@ class DataHubGraph(DatahubRestEmitter):
                     resourceUrn: "{resource_urn}"
                     }})
             }}
-        """.format(
-            tag_urn=tag_urn, resource_urn=resource_urn
-        )
+        """
 
         res = self.execute_graphql(query=graph_query)
         return res["removeTag"]

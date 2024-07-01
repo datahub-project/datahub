@@ -679,11 +679,11 @@ We can add glossary terms to datasets based on a regex filter.
 
 <br/>
 
-The `tags_to_term` transformer is designed to map specific tags to glossary terms within DataHub. It takes a configuration of tags should be translated into corresponding glossaryTerm. This transformer can apply these mappings to any tags found either at column level of dataset or dataset top level.
+The `tags_to_term` transformer is designed to map specific tags to glossary terms within DataHub. It takes a configuration of tags that should be translated into corresponding glossary terms. This transformer can apply these mappings to any tags found either at the column level of a dataset or at the dataset top level.
 
 When specifying tags in the configuration, use the tag's simple name rather than the full tag URN.
 
-For example, instead of using the tag URN `urn:li:tag:snowflakedb.snowflakeschema.tag_name:tag_value`, you should specify just the tag name `tag_name` in the mapping configuration
+For example, instead of using the tag URN `urn:li:tag:snowflakedb.snowflakeschema.tag_name:tag_value`, you should specify just the tag name `tag_name` in the mapping configuration.
 
 ```yaml
 transformers:
@@ -694,12 +694,12 @@ transformers:
         - "tag_name"
 ```
 
-`tags_to_term` can be configured in below different way
+The `tags_to_term` transformer can be configured in the following ways:
 
-- Add domains based on tags, however overwrite the domains available for the dataset on DataHub GMS
+- Add terms based on tags, however overwrite the terms available for the dataset on DataHub GMS
 ```yaml
     transformers:
-      - type: "domain_mapping_based_on_tags"
+      - type: "tags_to_term"
         config:
           semantics: OVERWRITE  # OVERWRITE is default behaviour
           tags:
@@ -707,15 +707,16 @@ transformers:
             - "example2"
             - "example3"
   ```
-- Add domains based on tags, however keep the domains available for the dataset on DataHub GMS
+- Add terms based on tags, however keep the terms available for the dataset on DataHub GMS
 ```yaml
     transformers:
-      - type: "domain_mapping_based_on_tags"
+      - type: "tags_to_term"
         config:
           semantics: PATCH
-          domain_mapping:
-            'example1': "urn:li:domain:engineering"
-            'example2': "urn:li:domain:hr"
+          tags:
+            - "example1"
+            - "example2"
+            - "example3"
   ```
 
 ## Pattern Add Dataset Schema Field glossaryTerms
