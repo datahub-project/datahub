@@ -1,8 +1,7 @@
 function readyToTypeEditor() {
   return cy
-    .get(".monaco-editor textarea")
-    .first()
-    .click({ force: true })
+    .get(".monaco-editor textarea:first")
+    .click()
     .focused();
 }
 
@@ -17,6 +16,8 @@ describe("run managed ingestion", () => {
     cy.clickOptionWithTextToScrollintoView("Other");
 
     cy.waitTextVisible("source-type");
+    cy.wait(10000) // waits for 5 seconds
+
     readyToTypeEditor().type("{ctrl}a").clear({ force: true });
     readyToTypeEditor().type("source:{enter}", { force: true });
     readyToTypeEditor().type("    type: demo-data", { force: true });
