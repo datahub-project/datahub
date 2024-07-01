@@ -540,15 +540,6 @@ class ABSSource(StatefulIngestionSourceBase):
         matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
         matches_list = list(matches)
         if matches_list and path_spec.sample_files:
-            # TODO refactor for abs
-            # Replace the patch_spec include's templates with star because later we want to resolve all the stars
-            # to actual directories.
-            # For example:
-            # "s3://my-test-bucket/*/{dept}/*/{table}/*/*.*" -> "s3://my-test-bucket/*/*/*/{table}/*/*.*"
-            # We only keep the last template as a marker to know the point util we need to resolve path.
-            # After the marker we can safely get sample files for sampling because it is not used in the
-            # table name, so we don't need all the files.
-            # This speed up processing but we won't be able to get a precise modification date/size/number of files.
             max_start: int = -1
             include: str = path_spec.include
             max_match: str = ""
@@ -580,8 +571,9 @@ class ABSSource(StatefulIngestionSourceBase):
                         )
                         logger.info(f"Getting files from folder: {dir_to_process}")
                         dir_to_process = dir_to_process.rstrip("\\")
-                        for obj in (
-                                container_client.list_blobs(name_starts_with=f"{dir_to_process}", results_per_page=PAGE_SIZE)
+                        for obj in container_client.list_blobs(
+                            name_starts_with=f"{dir_to_process}",
+                            results_per_page=PAGE_SIZE,
                         ):
                             abs_path = self.create_abs_path(obj.name)
                             logger.debug(f"Sampling file: {abs_path}")

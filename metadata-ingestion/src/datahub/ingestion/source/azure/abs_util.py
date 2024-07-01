@@ -11,15 +11,6 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 
-# TODO
-# Azure blob storage URIs:
-# https://<storage-account>.<type>.core.windows.net/containername/
-#   where type is in [blob, web, dfs, file, queue, table]
-#   unknown:
-#       - what types are supported by the DSH
-#       - what types are supported by Datahub
-# https://learn.microsoft.com/en-us/azure/storage/common/storage-account-overview#types-of-storage-accounts
-
 ABS_PREFIXES_REGEX = re.compile(
     r"(http[s]?://[a-z0-9]{3,24}\.blob\.core\.windows\.net/)"
 )
@@ -180,6 +171,7 @@ def create_properties(
                     prefix=f"{prefix}_{key}",
                     custom_properties=custom_properties,
                     resource_name=resource_name,
+                    json_properties=json_properties
                 )
             else:
                 custom_properties = add_property(
@@ -259,7 +251,7 @@ def list_folders(
 
     this_dict = {}
     for blob in blob_list:
-        blob_name = blob.name[:blob.name.rfind("/")+1]
+        blob_name = blob.name[: blob.name.rfind("/") + 1]
         folder_structure_arr = blob_name.split("/")
 
         folder_name = ""
