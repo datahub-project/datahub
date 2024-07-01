@@ -38,4 +38,14 @@ record SystemMetadata {
   * Additional properties
   */
   properties: optional map[string, string]
+
+  /**
+  * The client id that produced the metadata.
+  */
+  clientId: optional string
+
+  /**
+  * The client version that produced the metadata.
+  */
+  clientVersion: optional string
 }
