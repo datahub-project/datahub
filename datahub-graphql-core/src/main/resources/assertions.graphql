@@ -87,7 +87,9 @@ input AssertionResultInput {
   type: AssertionResultType!
 
   """
-  Additional key-value pairs representing runtime context
+  Additional metadata representing about the native results of the assertion.
+  These will be displayed alongside the result.
+  It should be used to capture additional context that is useful for the user.
   """
   properties: [StringMapEntryInput!]
 
