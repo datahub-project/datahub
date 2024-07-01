@@ -68,6 +68,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
 
     const resources = convertLegacyResourceFilter(policy?.resources);
     const resourceTypes = getFieldValues(resources?.filter, 'TYPE') || [];
+    const dataPlatformInstances = getFieldValues(resources?.filter, 'DATA_PLATFORM_INSTANCE') || [];
     const resourceEntities = getFieldValues(resources?.filter, 'URN') || [];
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
 
@@ -170,6 +171,20 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                                     );
                                 })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
+                        {dataPlatformInstances?.length > 0 && (
+                            <div>
+                                <Typography.Title level={5}>Data Platform Instances</Typography.Title>
+                                <ThinDivider />
+                                {dataPlatformInstances.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`dataPlatformInstance-${value.value}-${key}`}>
+                                            <Typography.Text>{getDisplayName(value.entity)}</Typography.Text>
+                                        </PoliciesTag>
+                                    );
+                                })}
+                            </div>
+                        )}
                         <div>
                             <Typography.Title level={5}>Domains</Typography.Title>
                             <ThinDivider />
