@@ -13,12 +13,12 @@ describe("run managed ingestion", () => {
     cy.clickOptionWithTextToScrollintoView("Other");
 
     cy.waitTextVisible("source-type");
-    readyToTypeEditor().type("{ctrl}a").clear();
-    readyToTypeEditor().type("source:{enter}");
-    readyToTypeEditor().type("    type: demo-data");
-    readyToTypeEditor().type("{enter}");
+    readyToTypeEditor().type("{ctrl}a").clear({ force: true });
+    readyToTypeEditor().type("source:{enter}", { force: true });
+    readyToTypeEditor().type("    type: demo-data", { force: true });
+    readyToTypeEditor().type("{enter}", { force: true });
     // no space because the editor starts new line at same indentation
-    readyToTypeEditor().type("config: {}");
+    readyToTypeEditor().type("config: {}", { force: true });
     cy.clickOptionWithText("Next");
     cy.clickOptionWithText("Next");
 
