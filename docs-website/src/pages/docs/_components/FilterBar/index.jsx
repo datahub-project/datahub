@@ -24,6 +24,7 @@ function FilterBar({
   filterOptions,
   allowExclusivity,
   setIsExclusive,
+  searchPlaceholder
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState([]);
@@ -65,7 +66,7 @@ function FilterBar({
               className={styles.searchQueryInput}
               placeholder={translate({
                 id: "theme.SearchPage.inputPlaceholder",
-                message: "Filter Integrations",
+                message: searchPlaceholder,
                 description: "The placeholder for search page input",
               })}
               aria-label={translate({

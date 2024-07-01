@@ -72,6 +72,12 @@ module.exports = {
           position: "right",
         },
         {
+          to: "/use_cases",
+          activeBasePath: "use_cases",
+          label: "Learn",
+          position: "right",
+        },
+        {
           to: "/integrations",
           activeBasePath: "integrations",
           label: "Integrations",

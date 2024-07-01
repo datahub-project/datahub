@@ -102,6 +102,7 @@ export function FilterPage(
                 filterOptions={filterOptions}
                 allowExclusivity={allowExclusivity}
                 setIsExclusive={setIsExclusive}
+                searchPlaceholder="Search for ingestion sources"
               />
             </div>
           </div>
