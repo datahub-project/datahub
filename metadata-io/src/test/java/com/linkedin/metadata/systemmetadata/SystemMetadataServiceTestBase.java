@@ -39,6 +39,8 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
   @BeforeClass
   public void setup() {
     _client = buildService();
+    _client.setIdHashAlgo("MD5");
+    _client.configure();
     _client.reindexAll(Collections.emptySet());
   }
 

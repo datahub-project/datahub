@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
@@ -32,6 +33,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.springframework.beans.factory.annotation.Value;
 
 /** Class that provides a utility function that transforms the timeseries aspect into a document */
 @Slf4j
@@ -48,7 +50,15 @@ public class TimeseriesAspectTransformer {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
-  private TimeseriesAspectTransformer() {}
+  public TimeseriesAspectTransformer() {}
+
+  @Value("${elasticsearch.idHashAlgo}")
+  private static String hashAlgo;
+
+  @VisibleForTesting
+  public void setIdHashAlgo(String algo) {
+    hashAlgo = algo;
+  }
 
   public static Map<String, JsonNode> transform(
       @Nonnull final Urn urn,
@@ -257,7 +267,9 @@ public class TimeseriesAspectTransformer {
         finalDocument);
   }
 
-  private static String getDocId(@Nonnull JsonNode document, String collectionId) {
+  private static String getDocId(@Nonnull JsonNode document, String collectionId)
+      throws IllegalArgumentException {
+    String hashAlgo = System.getenv("ELASTIC_ID_HASH_ALGO");
     String docId = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).toString();
     JsonNode eventGranularity = document.get(MappingsBuilder.EVENT_GRANULARITY);
     if (eventGranularity != null) {
@@ -276,6 +288,11 @@ public class TimeseriesAspectTransformer {
       docId += partitionSpec.toString();
     }
 
-    return DigestUtils.md5Hex(docId);
+    if (hashAlgo.equalsIgnoreCase("SHA-256")) {
+      return DigestUtils.sha256Hex(docId);
+    } else if (hashAlgo.equalsIgnoreCase("MD5")) {
+      return DigestUtils.md5Hex(docId);
+    }
+    throw new IllegalArgumentException("Hash function not handled !");
   }
 }

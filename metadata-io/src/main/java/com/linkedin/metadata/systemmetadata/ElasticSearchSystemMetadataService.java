@@ -43,6 +43,7 @@ import org.opensearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.opensearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.ParsedMax;
+import org.springframework.beans.factory.annotation.Value;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -72,6 +73,14 @@ public class ElasticSearchSystemMetadataService
               FIELD_REGISTRY_NAME,
               FIELD_REGISTRY_VERSION));
 
+  @Value("${elasticsearch.idHashAlgo}")
+  private String hashAlgo;
+
+  @VisibleForTesting
+  public void setIdHashAlgo(String algo) {
+    hashAlgo = algo;
+  }
+
   private String toDocument(SystemMetadata systemMetadata, String urn, String aspect) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
 
@@ -90,7 +99,7 @@ public class ElasticSearchSystemMetadataService
 
     try {
       byte[] bytesOfRawDocID = rawDocId.getBytes(StandardCharsets.UTF_8);
-      MessageDigest md = MessageDigest.getInstance("MD5");
+      MessageDigest md = MessageDigest.getInstance(hashAlgo);
       byte[] thedigest = md.digest(bytesOfRawDocID);
       return Base64.getEncoder().encodeToString(thedigest);
     } catch (NoSuchAlgorithmException e) {
