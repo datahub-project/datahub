@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListQueriesInput;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.Filter;
@@ -58,6 +59,19 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+    final Filter inputFilter =
+        input.getOrFilters() != null
+            ? buildFilter(
+                Collections.emptyList(),
+                input.getOrFilters(),
+                context.getOperationContext().getAspectRetriever())
+            : null;
+    final Filter finalFilter =
+        inputFilter != null
+            ? SearchUtils.combineFilters(
+                inputFilter,
+                buildFilters(input, context.getOperationContext().getAspectRetriever()))
+            : buildFilters(input, context.getOperationContext().getAspectRetriever());
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -80,7 +94,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                             flags -> flags.setFulltext(true).setSkipHighlighting(true)),
                     QUERY_ENTITY_NAME,
                     query,
-                    buildFilters(input, context.getOperationContext().getAspectRetriever()),
+                    finalFilter,
                     sortCriteria,
                     start,
                     count);

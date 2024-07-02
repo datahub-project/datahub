@@ -1,39 +1,72 @@
-import { Modal, Popover, message } from 'antd';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { Modal, Popover, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import CompactMarkdownViewer from '../../Documentation/components/CompactMarkdownViewer';
+import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
+import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
 import { CorpUser, EntityType } from '../../../../../../types.generated';
 import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
 import ActorAvatar from '../../../ActorAvatar';
-import { Query } from './types';
 import { ActionButton } from '../../../containers/profile/sidebar/SectionActionButton';
-import QueryBuilderModal from './QueryBuilderModal';
-import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
-import { PopularityBars } from '../Schema/components/SchemaFieldDrawer/PopularityBars';
 import {
     getBarsStatusFromPopularityTier,
     getQueryPopularityTier,
 } from '../../../containers/profile/sidebar/shared/utils';
+import { PopularityBars } from '../Schema/components/SchemaFieldDrawer/PopularityBars';
+import QueryBuilderModal from './QueryBuilderModal';
+import { Query } from './types';
+
+/*
+ * Description Column
+ */
+
+const StyledLink = styled(Typography.Link)`
+    display: block;
+`;
+
+const TruncatedTextWrapper = styled.div`
+    display: inline;
+`;
+
+const MAX_DESCRIPTION_LENGTH = 50;
 
 interface DescriptionProps {
     description?: string;
 }
 
 export const QueryDescription = ({ description }: DescriptionProps) => {
+    const [isTruncated, setIsTruncated] = useState(description && description.length > MAX_DESCRIPTION_LENGTH);
+
     if (!description) return null;
 
-    return <CompactMarkdownViewer content={description} fixedLineHeight />;
+    const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
+
+    return (
+        <div>
+            {isTruncated && (
+                <>
+                    <TruncatedTextWrapper>
+                        <MarkdownViewer source={`${truncatedDescription}...`} />
+                    </TruncatedTextWrapper>
+                    <StyledLink onClick={() => setIsTruncated(false)}>Read more</StyledLink>
+                </>
+            )}
+            {!isTruncated && (
+                <>
+                    <MarkdownViewer source={description} ignoreLimit />
+                    {description.length > MAX_DESCRIPTION_LENGTH && (
+                        <StyledLink onClick={() => setIsTruncated(true)}>Read less</StyledLink>
+                    )}
+                </>
+            )}
+        </div>
+    );
 };
 
 /*
  * Created By Column
  */
-
-const UserNameWrapper = styled.span`
-    margin-left: 4px;
-`;
 
 const INGESTION_URN = 'urn:li:corpuser:_ingestion';
 
@@ -58,7 +91,6 @@ export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
                     createdBy?.editableProperties?.pictureLink || createdBy?.editableInfo?.pictureLink || undefined
                 }
             />
-            <UserNameWrapper>{userName}</UserNameWrapper>
         </div>
     );
 };
@@ -126,10 +158,10 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
     return (
         <>
             <ButtonsWrapper $isHidden={hoveredQueryUrn !== query.urn}>
-                <ActionButton privilege onClick={() => setEditingQuery(query)}>
+                <ActionButton privilege onClick={() => setEditingQuery(query)} data-testid="edit-query">
                     <EditOutlinedIcon />
                 </ActionButton>
-                <ActionButton privilege onClick={confirmDeleteQuery}>
+                <ActionButton privilege onClick={confirmDeleteQuery} data-testid="delete-query">
                     <DeleteOutlinedIcon />
                 </ActionButton>
             </ButtonsWrapper>
@@ -178,4 +210,15 @@ export const PopularityColumn = ({ query }: PopularityColumnProps) => {
             </PopularityWrapper>
         </Popover>
     );
+};
+
+const ColumnsWrapper = styled.div`
+    text-align: right;
+`;
+
+/*
+ * Columns Column
+ */
+export const ColumnsColumn = ({ query }: PopularityColumnProps) => {
+    return <ColumnsWrapper>{query.columns?.length ?? 0}</ColumnsWrapper>;
 };

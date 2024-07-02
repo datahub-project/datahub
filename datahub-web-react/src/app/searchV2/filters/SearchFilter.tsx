@@ -1,4 +1,5 @@
 import React from 'react';
+import { CSSProperties } from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
 import { getFilterDropdownIcon } from './utils';
@@ -10,9 +11,10 @@ interface Props {
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     filterPredicates: FilterPredicate[];
+    labelStyle?: CSSProperties;
 }
 
-export default function SearchFilter({ filter, filterPredicates, activeFilters, onChangeFilters }: Props) {
+export default function SearchFilter({ filter, filterPredicates, activeFilters, onChangeFilters, labelStyle }: Props) {
     const { updateFilters, numActiveFilters } = useSearchFilterDropdown({
         filter,
         activeFilters,
@@ -30,6 +32,7 @@ export default function SearchFilter({ filter, filterPredicates, activeFilters, 
             filterIcon={filterIcon}
             displayName={filter.displayName || ''}
             onChangeValues={(newValues) => updateFilters(newValues)}
+            labelStyle={labelStyle}
         />
     );
 }

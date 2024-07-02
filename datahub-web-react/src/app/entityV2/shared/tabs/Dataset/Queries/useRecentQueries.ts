@@ -1,7 +1,7 @@
 import { useGetRecentQueriesQuery } from '../../../../../../graphql/dataset.generated';
-import { useAppConfig } from '../../../../../useAppConfig';
+// import { useAppConfig } from '../../../../../useAppConfig';
 import { useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
-import { DEFAULT_MAX_RECENT_QUERIES } from './utils/constants';
+import { MAX_QUERIES_COUNT } from './utils/constants';
 import { filterQueries } from './utils/filterQueries';
 import getTopNQueries from './utils/getTopNQueries';
 
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export const useRecentQueries = ({ entityUrn, siblingUrn, filterText }: Props) => {
-    const appConfig = useAppConfig();
+    // const appConfig = useAppConfig();
     const isSeparateSiblings = useIsSeparateSiblingsMode();
 
     const { data: recentQueriesData, loading } = useGetRecentQueriesQuery({
@@ -32,11 +32,15 @@ export const useRecentQueries = ({ entityUrn, siblingUrn, filterText }: Props) =
         ...(siblingRecentQueriesData?.dataset?.usageStats?.buckets || []),
     ];
 
+    recentQueriesBuckets.sort((bucketA, bucketB) => (bucketB?.bucket || 0) - (bucketA?.bucket || 0));
+
     const recentQueries = filterQueries(
         filterText,
         (
             getTopNQueries(
-                appConfig?.config?.visualConfig?.queriesTab?.queriesTabResultSize || DEFAULT_MAX_RECENT_QUERIES,
+                // TODO: uncomment later
+                // appConfig?.config?.visualConfig?.queriesTab?.queriesTabResultSize || DEFAULT_MAX_RECENT_QUERIES,
+                MAX_QUERIES_COUNT,
                 recentQueriesBuckets,
             ) || []
         ).map((recentQuery) => ({

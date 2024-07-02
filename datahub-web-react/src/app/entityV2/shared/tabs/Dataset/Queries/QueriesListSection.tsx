@@ -3,20 +3,42 @@ import { Typography, Table, Popover, TablePaginationConfig } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
+import { FacetFilterInput } from '@src/types.generated';
 import { QueriesTabSection, Query } from './types';
 import { DEFAULT_PAGE_SIZE } from './utils/constants';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../../../constants';
 import useQueryTableColumns from './useQueryTableColumns';
+import Loading from '../../../../../shared/Loading';
+import usePagination, { Pagination } from '../../../../../sharedV2/pagination/usePagination';
+import { Sorting } from '../../../../../sharedV2/sorting/useSorting';
+import AddButton from './AddButton';
+import QueryFilters from './QueryFilters/QueryFilters';
+
+const SectionWrapper = styled.div<{ $borderRadiusBottom?: boolean }>`
+    background-color: white;
+    padding: 24px;
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    ${(props) => (props.$borderRadiusBottom ? `border-radius: 0 0 10px 10px;` : `border-radius: 10px;`)}
+`;
 
 const QueriesTitleSection = styled.div`
     display: flex;
     align-items: center;
     margin-bottom: 20px;
+    justify-content: space-between;
 `;
 
-const QueriesTitle = styled(Typography.Title)`
+const TitleWrapper = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const QueriesTitle = styled(Typography.Text)`
     && {
         margin: 0px;
+        font-size: 16px;
+        font-weight: 700;
+        color: ${REDESIGN_COLORS.TEXT_HEADING};
     }
 `;
 
@@ -34,14 +56,29 @@ const StyledTable = styled(Table)`
         color: ${ANTD_GRAY_V2[12]};
     }
 
-    .ant-table-body {
-        overflow-y: auto !important;
+    .lastRun {
+        min-width: 120px;
     }
+    .usedBy {
+        min-width: 100px;
+    }
+`;
+
+const LoadingWrapper = styled.div`
+    height: 300px;
+    display: flex;
+    align-items: center;
+`;
+
+const FiltersContainer = styled.div`
+    display: flex;
+    gap: 10px;
 `;
 
 type Props = {
     title: string;
     queries: Query[];
+    totalQueries: number;
     tooltip?: string;
     tooltipPosition?: TooltipPlacement;
     initialPageSize?: number;
@@ -51,6 +88,16 @@ type Props = {
     onDeleted?: (query) => void;
     onEdited?: (query) => void;
     section: QueriesTabSection;
+    selectedColumnsFilter: FacetFilterInput;
+    setSelectedColumnsFilter: (usersFilter: FacetFilterInput) => void;
+    selectedUsersFilter: FacetFilterInput;
+    setSelectedUsersFilter: (usersFilter: FacetFilterInput) => void;
+    loading?: boolean;
+    pagination?: Pagination;
+    sorting?: Sorting;
+    addQueryDisabled?: boolean;
+    onAddQuery?: () => void;
+    isTopSection?: boolean;
 };
 
 export default function QueriesListSection({
@@ -58,18 +105,31 @@ export default function QueriesListSection({
     tooltip,
     tooltipPosition,
     queries,
-    initialPageSize = DEFAULT_PAGE_SIZE,
+    totalQueries,
     showDetails,
     showEdit,
     showDelete,
     onDeleted,
     onEdited,
     section,
+    selectedColumnsFilter,
+    setSelectedColumnsFilter,
+    selectedUsersFilter,
+    setSelectedUsersFilter,
+    loading,
+    pagination,
+    sorting,
+    addQueryDisabled,
+    onAddQuery,
+    isTopSection,
 }: Props) {
     /**
      * Table state
      */
     const [hoveredQueryUrn, setHoveredQueryUrn] = useState<string | null>(null);
+    const defaultPagination = usePagination(DEFAULT_PAGE_SIZE);
+    const { pageSize, page, setPage } = pagination || defaultPagination;
+    const showPagination = totalQueries > pageSize;
 
     const {
         titleColumn,
@@ -80,6 +140,7 @@ export default function QueriesListSection({
         powersColumn,
         usedByColumn,
         popularityColumn,
+        columnsColumn,
         lastRunColumn,
         editColumn,
     } = useQueryTableColumns({
@@ -90,6 +151,8 @@ export default function QueriesListSection({
         showEdit,
         onDeleted,
         onEdited,
+        sorting,
+        showPagination,
     });
 
     const highlightedQueriesColumns = [
@@ -101,33 +164,85 @@ export default function QueriesListSection({
         editColumn,
     ];
 
-    const popularQueriesColumns = [queryTextColumn('60%'), usedByColumn, lastRunColumn, popularityColumn];
+    const popularQueriesColumns = [queryTextColumn(), usedByColumn, lastRunColumn, columnsColumn, popularityColumn];
 
-    const downstreamQueriesColumns = [queryTextColumn('60%'), powersColumn, lastRunColumn];
+    const downstreamQueriesColumns = [queryTextColumn(550), powersColumn, lastRunColumn];
 
-    const recentQueriesColumns = [queryTextColumn('60%'), lastRunColumn];
+    const recentQueriesColumns = [queryTextColumn(550), lastRunColumn];
 
-    const showPagination = queries.length > initialPageSize;
-    const paginationOptions = showPagination
-        ? ({ defaultPageSize: initialPageSize, position: ['bottomCenter'] } as TablePaginationConfig)
+    const pagionationOptions: false | TablePaginationConfig = showPagination
+        ? ({
+              total: totalQueries,
+              current: page,
+              pageSize,
+              position: ['bottomCenter'],
+              onChange: (newPage: number) => {
+                  setPage(newPage);
+              },
+          } as TablePaginationConfig)
         : false;
 
+    const loadingConfig = loading
+        ? {
+              indicator: (
+                  <LoadingWrapper>
+                      <Loading />{' '}
+                  </LoadingWrapper>
+              ),
+          }
+        : false;
+
+    const handleTableChange = (_pagination, _filters, tableSorting) => {
+        if (showPagination && sorting && tableSorting && Object.keys(tableSorting).length) {
+            sorting.setSortField((tableSorting as any).column?.field || null);
+            sorting.setSortOrder((tableSorting as any).order || null);
+        }
+    };
+
+    const tableProps = {
+        dataSource: queries,
+        pagination: pagionationOptions,
+        style: loading ? { minHeight: 400 } : {},
+        loading: loadingConfig,
+        scroll: { x: 'auto' },
+        onChange: handleTableChange,
+    };
+
     return (
-        <div>
+        <SectionWrapper $borderRadiusBottom={isTopSection}>
             <QueriesTitleSection>
-                <QueriesTitle level={4}>{title}</QueriesTitle>
-                {tooltip && (
-                    <Popover content={tooltip} placement={tooltipPosition}>
-                        <StyledInfoOutlined />
-                    </Popover>
+                <TitleWrapper>
+                    <QueriesTitle>{title}</QueriesTitle>
+                    {tooltip && (
+                        <Popover content={tooltip} placement={tooltipPosition}>
+                            <StyledInfoOutlined />
+                        </Popover>
+                    )}
+                </TitleWrapper>
+                {section === QueriesTabSection.Popular && (
+                    <FiltersContainer>
+                        <QueryFilters
+                            selectedUsersFilter={selectedUsersFilter}
+                            setSelectedUsersFilter={setSelectedUsersFilter}
+                            selectedColumnsFilter={selectedColumnsFilter}
+                            setSelectedColumnsFilter={setSelectedColumnsFilter}
+                            setPage={setPage}
+                        />
+                    </FiltersContainer>
+                )}
+                {section === QueriesTabSection.Highlighted && (
+                    <AddButton
+                        dataTestId="add-query-button"
+                        buttonLabel="Add Highlighted Query"
+                        isButtonDisabled={addQueryDisabled}
+                        onButtonClick={onAddQuery}
+                    />
                 )}
             </QueriesTitleSection>
             {section === QueriesTabSection.Highlighted && (
                 <StyledTable
-                    dataSource={queries}
+                    {...tableProps}
                     columns={highlightedQueriesColumns}
-                    pagination={paginationOptions}
-                    scroll={{ y: 400 }}
                     onRow={(row) => {
                         return {
                             onMouseEnter: () => setHoveredQueryUrn((row as Query).urn || ''),
@@ -136,30 +251,11 @@ export default function QueriesListSection({
                     }}
                 />
             )}
-            {section === QueriesTabSection.Popular && (
-                <StyledTable
-                    dataSource={queries}
-                    columns={popularQueriesColumns}
-                    pagination={paginationOptions}
-                    scroll={{ y: 400 }}
-                />
-            )}
+            {section === QueriesTabSection.Popular && <StyledTable {...tableProps} columns={popularQueriesColumns} />}
             {section === QueriesTabSection.Downstream && (
-                <StyledTable
-                    dataSource={queries}
-                    columns={downstreamQueriesColumns}
-                    pagination={paginationOptions}
-                    scroll={{ y: 400 }}
-                />
+                <StyledTable columns={downstreamQueriesColumns} {...tableProps} />
             )}
-            {section === QueriesTabSection.Recent && (
-                <StyledTable
-                    dataSource={queries}
-                    columns={recentQueriesColumns}
-                    pagination={paginationOptions}
-                    scroll={{ y: 400 }}
-                />
-            )}
-        </div>
+            {section === QueriesTabSection.Recent && <StyledTable columns={recentQueriesColumns} {...tableProps} />}
+        </SectionWrapper>
     );
 }

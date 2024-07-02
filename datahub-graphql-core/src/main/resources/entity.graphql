@@ -12814,6 +12814,11 @@ input ListQueriesInput {
   Optional - Information on how to sort the list queries result
   """
   sortInput: SortQueriesInput
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """

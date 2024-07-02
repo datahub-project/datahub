@@ -5,6 +5,7 @@ export interface FilterOptionType {
     value: string;
     count?: number;
     entity?: Entity | null;
+    displayName?: string | null;
 }
 
 export interface Filter {
@@ -17,6 +18,7 @@ export interface FilterValue {
     value: string;
     entity: Entity | null;
     count?: number;
+    displayName?: string | null;
 }
 
 export enum FieldType {
@@ -36,6 +38,7 @@ export interface FilterValueOption {
     entity?: Entity | null;
     icon?: React.ReactNode;
     count?: number;
+    displayName?: string | null;
 }
 
 export interface FilterField {

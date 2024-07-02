@@ -83,7 +83,8 @@ public class MapperUtils {
                         filterValue.getFacetCount(),
                         filterValue.getEntity() == null
                             ? null
-                            : UrnToEntityMapper.map(context, filterValue.getEntity())))
+                            : UrnToEntityMapper.map(context, filterValue.getEntity()),
+                        null))
             .collect(Collectors.toList()));
     return facetMetadata;
   }

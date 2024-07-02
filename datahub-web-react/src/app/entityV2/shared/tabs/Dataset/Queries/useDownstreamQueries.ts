@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useSearchAcrossLineageForQueriesQuery } from '../../../../../../graphql/query.generated';
-import { CorpUser, Entity, EntityType, LineageDirection, QueryEntity } from '../../../../../../types.generated';
+import { Entity, EntityType, LineageDirection, QueryEntity } from '../../../../../../types.generated';
 import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { DBT_URN } from '../../../../../ingest/source/builder/constants';
 import { LINEAGE_FILTER_PAGINATION, isQuery } from '../../../../../lineageV2/common';
 import { DEGREE_FILTER_NAME } from '../../../../../search/utils/constants';
-import { filterQueries } from './utils/filterQueries';
 import { MAX_QUERIES_COUNT } from './utils/constants';
+import { filterQueries } from './utils/filterQueries';
+import { mapQuery } from './utils/mapQuery';
 
 export default function useDownstreamQueries(filterText: string) {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -66,16 +67,9 @@ export default function useDownstreamQueries(filterText: string) {
 
     const downstreamQueries = filterQueries(
         filterText,
-        downstreamQueryEntities.map(([queryEntity, poweredEntity]) => ({
-            urn: queryEntity.urn,
-            title: queryEntity.properties?.name || undefined,
-            description: queryEntity.properties?.description || undefined,
-            query: queryEntity.properties?.statement?.value || '',
-            createdTime: queryEntity?.properties?.created?.time,
-            createdBy: queryEntity?.properties?.createdOn?.actor as CorpUser,
-            poweredEntity,
-            lastRun: queryEntity?.usageFeatures?.lastExecutedAt,
-        })),
+        downstreamQueryEntities.map(([queryEntity, poweredEntity]) =>
+            mapQuery({ queryEntity, entityUrn: baseEntity?.dataset?.urn, poweredEntity }),
+        ),
     );
 
     return { downstreamQueries, loading };

@@ -48,6 +48,10 @@ interface Props {
     disabled?: boolean;
     vertical?: boolean;
     showUnionType?: boolean;
+    showAddFilter?: boolean;
+    showClearAll?: boolean;
+    isCompact?: boolean;
+    isOperatorDisabled?: boolean;
 }
 
 export default function SearchFiltersBuilder({
@@ -61,6 +65,11 @@ export default function SearchFiltersBuilder({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     disabled = false,
     showUnionType = false,
+    showAddFilter = true,
+    showClearAll = true,
+    isCompact = false,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    isOperatorDisabled = false,
 }: Props) {
     const hydratedFilters = useHydrateFilters(filters);
 
@@ -114,20 +123,24 @@ export default function SearchFiltersBuilder({
         <Container>
             <FlexSpacer>
                 <Wrapper>
-                    {vertical && addFilter}
+                    {showAddFilter && vertical && addFilter}
                     {hydratedFilters.map((predicate, index) => (
                         <SelectedFilter
                             predicate={predicate}
                             onChangeOperator={(operator) => onChangeFilterOperator(index, operator)}
                             onChangeValues={(newValues) => onChangeFilterValues(index, newValues)}
                             onRemoveFilter={() => onRemoveFilter(index)}
+                            isCompact={isCompact}
+                            // isOperatorDisabled={isOperatorDisabled}
                         />
                     ))}
-                    {!vertical && addFilter}
+                    {showAddFilter && !vertical && addFilter}
                 </Wrapper>
-                <TextButton type="text" onClick={onClearFilters} height={14} data-testid="clear-all-filters">
-                    clear all
-                </TextButton>
+                {showClearAll && (
+                    <TextButton type="text" onClick={onClearFilters} height={14} data-testid="clear-all-filters">
+                        clear all
+                    </TextButton>
+                )}
             </FlexSpacer>
             {showUnionType && hydratedFilters?.length >= 2 && (
                 <AnyAllToggle>

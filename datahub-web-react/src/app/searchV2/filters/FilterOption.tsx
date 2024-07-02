@@ -130,7 +130,14 @@ export default function FilterOption({
     const [areChildrenVisible, setAreChildrenVisible] = useState(true);
     const { field, value, count, entity } = filterOption;
     const entityRegistry = useEntityRegistry();
-    const { icon, label } = getFilterIconAndLabel(field, value, entityRegistry, entity || null, 14);
+    const { icon, label } = getFilterIconAndLabel(
+        field,
+        value,
+        entityRegistry,
+        entity || null,
+        14,
+        filterOption.displayName,
+    );
     const showParentEntityPath = field === DOMAINS_FILTER_NAME && entity?.type === EntityType.Domain;
     const isSubTypeFilter = field === TYPE_NAMES_FILTER_NAME;
     const parentEntities: Entity[] = getParentEntities(entity as Entity) || [];

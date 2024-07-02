@@ -1,6 +1,6 @@
 import { CaretDownFilled } from '@ant-design/icons';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { CSSProperties } from 'styled-components';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { SearchFilterLabel } from './styledComponents';
 import { FilterPredicate, FilterValue } from './types';
@@ -21,6 +21,7 @@ interface Props {
     displayName: string;
     filterPredicate: FilterPredicate;
     onChangeValues: (newValues: FilterValue[]) => void;
+    labelStyle?: CSSProperties;
 }
 
 export default function SearchFilterView({
@@ -29,6 +30,7 @@ export default function SearchFilterView({
     displayName,
     filterPredicate,
     onChangeValues,
+    labelStyle,
 }: Props) {
     return (
         <ValueSelector
@@ -39,6 +41,7 @@ export default function SearchFilterView({
         >
             <SearchFilterLabel
                 $isActive={!!numActiveFilters}
+                style={labelStyle}
                 data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)?.replace(/\s/g, '-')}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}

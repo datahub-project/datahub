@@ -41,11 +41,12 @@ public class ListQueriesResolverTest {
   private static final Urn TEST_QUERY_URN = Urn.createFromTuple("query", "test-id");
 
   private static final ListQueriesInput TEST_INPUT_FULL_FILTERS =
-      new ListQueriesInput(0, 20, null, QuerySource.MANUAL, TEST_DATASET_URN.toString(), null);
+      new ListQueriesInput(
+          0, 20, null, QuerySource.MANUAL, TEST_DATASET_URN.toString(), null, null);
   private static final ListQueriesInput TEST_INPUT_SOURCE_FILTER =
-      new ListQueriesInput(0, 30, null, QuerySource.MANUAL, null, null);
+      new ListQueriesInput(0, 30, null, QuerySource.MANUAL, null, null, null);
   private static final ListQueriesInput TEST_INPUT_ENTITY_FILTER =
-      new ListQueriesInput(0, 40, null, null, TEST_DATASET_URN.toString(), null);
+      new ListQueriesInput(0, 40, null, null, TEST_DATASET_URN.toString(), null, null);
 
   @DataProvider(name = "inputs")
   public static Object[][] inputs() {

@@ -4,6 +4,15 @@ import { FilterField, FilterValue, FieldType } from '../types';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getEntityTypeFilterValueDisplayName } from './utils';
 import { UNIT_SEPARATOR } from '../../utils/constants';
+import { getV1FieldPathFromSchemaFieldUrn } from '../../../lineageV2/lineageUtils';
+
+function getTextFieldName(value: FilterValue) {
+    let textFieldName = value.displayName || value.value;
+    if (textFieldName.startsWith('urn:li:schemaField:')) {
+        textFieldName = getV1FieldPathFromSchemaFieldUrn(textFieldName);
+    }
+    return textFieldName;
+}
 
 interface Props {
     field: FilterField;
@@ -17,7 +26,7 @@ export default function ValueName({ field, value }: Props) {
         case FieldType.TEXT:
         case FieldType.BOOLEAN:
         case FieldType.ENUM:
-            return <>{value.value}</>;
+            return <>{getTextFieldName(value)}</>;
         case FieldType.ENTITY:
             return (
                 <>{(value.entity && entityRegistry.getDisplayName(value.entity?.type, value.entity)) || undefined}</>

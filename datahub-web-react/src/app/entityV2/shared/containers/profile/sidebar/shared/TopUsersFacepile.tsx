@@ -8,14 +8,16 @@ import { userExists } from './utils';
 export type Props = {
     users: Array<CorpUser>;
     max?: number;
+    checkExistence?: boolean;
 };
 
-export default function TopUsersFacepile({ users, max }: Props) {
+export default function TopUsersFacepile({ users, max, checkExistence = true }: Props) {
     const displayedUsers = users.filter((user) => userExists(user));
+    const usersList = checkExistence ? displayedUsers : users;
     const entityRegistry = useEntityRegistry();
     return (
         <Avatar.Group maxCount={max}>
-            {displayedUsers?.map((user) => {
+            {usersList?.map((user) => {
                 const userName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
                 return (
                     <Tooltip title={userName}>

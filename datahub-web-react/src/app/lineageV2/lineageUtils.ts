@@ -37,6 +37,10 @@ export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
     }
 }
 
+export function getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
+    return downgradeV2FieldPath(getFieldPathFromSchemaFieldUrn(schemaFieldUrn)) as string;
+}
+
 export function getEntityTypeFromEntityUrn(urn: string, registry: EntityRegistry): EntityType | undefined {
     const [, , entityType] = urn.split(':');
     return registry.getTypeFromGraphName(entityType);

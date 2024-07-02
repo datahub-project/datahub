@@ -50,6 +50,7 @@ export default function EnumValueMenu({
                 value: option.value,
                 count: option.count,
                 entity: option.entity,
+                displayName: option.displayName,
             },
             entityRegistry,
             selectedFilterOptions: values.map((value) => {

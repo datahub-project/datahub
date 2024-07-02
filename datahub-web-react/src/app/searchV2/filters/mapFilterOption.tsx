@@ -32,6 +32,8 @@ export function mapFilterOption({
         filterOption.value,
         entityRegistry,
         filterOption.entity || null,
+        undefined,
+        filterOption.displayName,
     );
 
     return {

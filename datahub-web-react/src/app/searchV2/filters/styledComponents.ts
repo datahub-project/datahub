@@ -1,17 +1,17 @@
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
+import { REDESIGN_COLORS, SEARCH_COLORS } from '../../entityV2/shared/constants';
 
 export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     font-size: 14px;
     font-weight: 700;
-    margin-right: 12px;
     border: none;
     border-radius: 8px;
     display: flex;
     align-items: center;
     box-shadow: none;
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
     ${(props) =>
         props.$isActive &&
         `

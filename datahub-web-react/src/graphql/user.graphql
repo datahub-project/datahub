@@ -204,6 +204,33 @@ query listUsers($input: ListUsersInput!) {
     }
 }
 
+fragment userFields on CorpUser {
+    username
+    properties {
+        active
+        displayName
+        title
+        firstName
+        lastName
+        fullName
+        email
+    }
+    info {
+        active
+        displayName
+        title
+        firstName
+        lastName
+        fullName
+        email
+    }
+    editableProperties {
+        displayName
+        title
+        pictureLink
+    }
+}
+
 mutation removeUser($urn: String!) {
     removeUser(urn: $urn)
 }

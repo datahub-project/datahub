@@ -1,4 +1,4 @@
-import { ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { CodeOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,6 +21,7 @@ import { SchemaFieldDrawerTabs } from './SchemaFieldDrawerTabs';
 import StatsSidebarView from './StatsSidebarView';
 import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
 import { PropertiesTab } from '../../../../Properties/PropertiesTab';
+import SchemaFieldQueriesSidebarTab from './SchemaFieldQueriesSidebarTab';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -182,6 +183,13 @@ export default function SchemaFieldDrawer({
             },
         },
         {
+            name: 'Queries',
+            component: SchemaFieldQueriesSidebarTab,
+            description: 'View queries about this field',
+            icon: CodeOutlined,
+            properties: { fieldPath: expandedField?.fieldPath },
+        },
+        {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this field',
@@ -203,7 +211,7 @@ export default function SchemaFieldDrawer({
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}
                     // The minWidth is calculated based on the width of the Chart's displayed in the Historical stats view
                     // And Insight Stats View Table to ensure consistent container width across various screen sizes.
-                    contentWrapperStyle={{ width: `fit-content`, minWidth: '560px' }}
+                    contentWrapperStyle={{ width: `fit-content`, minWidth: '560px', maxWidth: '560px' }}
                     mask={false}
                     maskClosable={false}
                     placement="right"

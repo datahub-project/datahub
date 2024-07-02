@@ -1,8 +1,10 @@
 import { useListQueriesQuery } from '../../../../../../graphql/query.generated';
-import { CorpUser, QuerySource } from '../../../../../../types.generated';
-import { useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
-import { MAX_QUERIES_COUNT } from './utils/constants';
-import { filterQueries } from './utils/filterQueries';
+import { QueryEntity, QuerySource } from '../../../../../../types.generated';
+import usePagination from '../../../../../sharedV2/pagination/usePagination';
+import useSorting from '../../../../../sharedV2/sorting/useSorting';
+import { DEFAULT_PAGE_SIZE } from './utils/constants';
+import { filterQueries, getQueryEntitiesFilter } from './utils/filterQueries';
+import { mapQuery } from './utils/mapQuery';
 
 interface Props {
     entityUrn?: string;
@@ -11,8 +13,12 @@ interface Props {
 }
 
 export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText }: Props) => {
-    const isSeparateSiblings = useIsSeparateSiblingsMode();
+    const pagination = usePagination(DEFAULT_PAGE_SIZE);
+    const { start, count } = pagination;
+    const sorting = useSorting();
+    const { sortField, sortOrder } = sorting;
 
+    const entityFilter = getQueryEntitiesFilter(entityUrn, siblingUrn);
     const {
         data: highlightedQueriesData,
         client,
@@ -20,41 +26,25 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText }: Pro
     } = useListQueriesQuery({
         variables: {
             input: {
-                datasetUrn: entityUrn,
-                start: 0,
-                count: MAX_QUERIES_COUNT,
+                start,
+                count,
                 source: QuerySource.Manual,
+                orFilters: [{ and: [entityFilter] }],
+                sortInput: sortField && sortOrder ? { sortCriterion: { field: sortField, sortOrder } } : undefined,
             },
         },
         skip: !entityUrn,
         fetchPolicy: 'cache-first',
     });
 
-    const { data: siblingHighlightedQueriesData, loading: siblingsLoading } = useListQueriesQuery({
-        variables: {
-            input: { datasetUrn: siblingUrn, start: 0, count: MAX_QUERIES_COUNT, source: QuerySource.Manual },
-        },
-        skip: !siblingUrn || isSeparateSiblings,
-        fetchPolicy: 'cache-first',
-    });
-
-    const queries = [
-        ...(highlightedQueriesData?.listQueries?.queries || []),
-        ...(siblingHighlightedQueriesData?.listQueries?.queries || []),
-    ];
+    const queries = [...(highlightedQueriesData?.listQueries?.queries || [])] as QueryEntity[];
 
     const highlightedQueries = filterQueries(
         filterText,
-        queries.map((queryEntity) => ({
-            urn: queryEntity.urn,
-            title: queryEntity.properties?.name || undefined,
-            description: queryEntity.properties?.description || undefined,
-            query: queryEntity.properties?.statement?.value || '',
-            createdTime: queryEntity?.properties?.created?.time,
-            createdBy: queryEntity?.properties?.createdOn?.actor as CorpUser,
-            lastRun: queryEntity?.usageFeatures?.lastExecutedAt,
-        })),
+        queries.map((queryEntity) => mapQuery({ queryEntity, entityUrn, siblingUrn })),
     );
 
-    return { highlightedQueries, client, loading: loading || siblingsLoading };
+    const total = highlightedQueriesData?.listQueries?.total || 0;
+
+    return { highlightedQueries, client, loading, total, pagination, sorting };
 };

@@ -16,6 +16,10 @@ interface Props {
     onClearFilters: () => void;
     disabled?: boolean;
     showUnionType?: boolean;
+    showAddFilter?: boolean;
+    showClearAll?: boolean;
+    isCompact?: boolean;
+    isOperatorDisabled?: boolean;
 }
 
 export default function SelectedSearchFilters({
@@ -27,6 +31,10 @@ export default function SelectedSearchFilters({
     onClearFilters,
     disabled = false,
     showUnionType,
+    showAddFilter,
+    showClearAll,
+    isCompact,
+    isOperatorDisabled,
 }: Props) {
     // Create the final filter predicates required to render a selected filter option.
     const finalSelectedFilters = selectedFilters.filter((filter) => !EXCLUDED_ACTIVE_FILTERS.includes(filter.field));
@@ -58,6 +66,10 @@ export default function SelectedSearchFilters({
             onChangeUnionType={onChangeUnionType}
             showUnionType={showUnionType}
             disabled={disabled}
+            showAddFilter={showAddFilter}
+            showClearAll={showClearAll}
+            isCompact={isCompact}
+            isOperatorDisabled={isOperatorDisabled}
         />
     );
 }

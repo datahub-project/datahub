@@ -48,6 +48,9 @@ fragment query on QueryEntity {
             urn
             type
             ...entityDisplayNameFields
+            ... on CorpUser {
+                ...userFields
+            }
         }
     }
     platform {

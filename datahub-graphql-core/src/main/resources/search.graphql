@@ -883,6 +883,11 @@ type AggregationMetadata {
   Entity corresponding to the facet field
   """
   entity: Entity
+
+  """
+  Optional display name to show in the UI for this filter value
+  """
+  displayName: String
 }
 
 """

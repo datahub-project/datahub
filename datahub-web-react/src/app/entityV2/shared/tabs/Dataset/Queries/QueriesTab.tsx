@@ -1,13 +1,9 @@
-import styled from 'styled-components';
-import React, { useState } from 'react';
-import { debounce } from 'lodash';
+import styled from 'styled-components/macro';
+import React, { useEffect, useState } from 'react';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import QueryBuilderModal from './QueryBuilderModal';
-import EmptyQueries from './EmptyQueries';
 import { addQueryToListQueriesCache, removeQueryFromListQueriesCache, updateListQueriesCache } from './cacheUtils';
-import { HALF_SECOND_IN_MS, MAX_QUERIES_COUNT, MAX_ROWS_BEFORE_DEBOUNCE } from './utils/constants';
-import QueriesTabToolbar from './QueriesTabToolbar';
 import QueriesListSection from './QueriesListSection';
 import useDownstreamQueries from './useDownstreamQueries';
 import { QueriesTabSection } from './types';
@@ -15,24 +11,32 @@ import { useHighlightedQueries } from './useHighlightedQueries';
 import { usePopularQueries } from './usePopularQueries';
 import { useRecentQueries } from './useRecentQueries';
 import Loading from '../../../../../shared/Loading';
+import { useIsSeparateSiblingsMode } from '../../../../../entity/shared/siblingUtils';
+import usePrevious from '../../../../../shared/usePrevious';
+import EmptyQueriesSection from './EmptyQueriesSection';
 
-const Content = styled.div`
-    padding: 24px;
+const Content = styled.div<{ $backgroundColor: string }>`
     height: 100%;
     overflow: auto;
     display: flex;
     flex-direction: column;
     gap: 24px;
+    background-color: ${(props) => props.$backgroundColor};
 `;
 
 export default function QueriesTab() {
+    const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn;
     const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
-    const siblingUrn = baseEntity?.dataset?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
+    const siblingUrn = isSeparateSiblings
+        ? undefined
+        : baseEntity?.dataset?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
 
     const [showQueryBuilder, setShowQueryBuilder] = useState(false);
-    const [filterText, setFilterText] = useState('');
+    // TODO: implement search filtering properly
+    const [filterText] = useState('');
+    const [hasLoadedInitially, setHasLoadedInitially] = useState(false);
 
     /**
      * Fetch the List of Custom (Highlighted) Queries
@@ -41,12 +45,25 @@ export default function QueriesTab() {
         highlightedQueries,
         client,
         loading: highlightedQueriesLoading,
+        pagination: highlightedPagination,
+        total: highlightedTotal,
+        sorting: highlightedSorting,
     } = useHighlightedQueries({ entityUrn, siblingUrn, filterText });
 
     /**
      * Fetch the List of Popular Queries
      */
-    const { popularQueries, loading: popularQueriesLoading } = usePopularQueries({ entityUrn, siblingUrn, filterText });
+    const {
+        popularQueries,
+        loading: popularQueriesLoading,
+        pagination: popularQueriesPagination,
+        total,
+        sorting: popularSorting,
+        selectedUsersFilter,
+        setSelectedUsersFilter,
+        selectedColumnsFilter,
+        setSelectedColumnsFilter,
+    } = usePopularQueries({ entityUrn, siblingUrn, filterText });
 
     /**
      * Fetch the List of Downstream Queries
@@ -58,24 +75,20 @@ export default function QueriesTab() {
      */
     const { recentQueries, loading: recentQueriesLoading } = useRecentQueries({ entityUrn, siblingUrn, filterText });
 
-    const debouncedSetFilterText = debounce(
-        (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),
-        highlightedQueries.length > MAX_ROWS_BEFORE_DEBOUNCE ? HALF_SECOND_IN_MS : 0,
-    );
-
     const onQueryCreated = (newQuery) => {
-        addQueryToListQueriesCache(newQuery, client, MAX_QUERIES_COUNT, baseEntity?.dataset?.urn);
+        addQueryToListQueriesCache(newQuery, client, highlightedPagination.count, entityUrn, siblingUrn);
         setShowQueryBuilder(false);
     };
 
     const onQueryDeleted = (query) => {
-        removeQueryFromListQueriesCache(query.urn, client, 1, MAX_QUERIES_COUNT, baseEntity?.dataset?.urn);
+        removeQueryFromListQueriesCache(query.urn, client, 1, highlightedPagination.count, entityUrn, siblingUrn);
     };
 
     const onQueryEdited = (query) => {
-        updateListQueriesCache(query.urn, query, client, 1, MAX_QUERIES_COUNT, baseEntity?.dataset?.urn);
+        updateListQueriesCache(query.urn, query, client, 1, highlightedPagination.count, entityUrn, siblingUrn);
     };
 
+    // can add something about initalLoading if there was never data, or have state that is like finishedInitialLoad = false, with useEffect
     const isLoading =
         !entityUrn ||
         highlightedQueriesLoading ||
@@ -96,41 +109,65 @@ export default function QueriesTab() {
         showEdit: false,
         onDeleted: onQueryDeleted,
         onEdited: onQueryEdited,
+        selectedUsersFilter,
+        setSelectedUsersFilter,
+        selectedColumnsFilter,
+        setSelectedColumnsFilter,
     };
+
+    const previousIsLoading = usePrevious(isLoading);
+    useEffect(() => {
+        if (previousIsLoading && !isLoading && !hasLoadedInitially) {
+            setHasLoadedInitially(true);
+        }
+    }, [previousIsLoading, isLoading, hasLoadedInitially]);
+
+    const showLoading = isLoading && !hasLoadedInitially;
 
     return (
         <>
-            <QueriesTabToolbar
-                addQueryDisabled={!canEditQueries}
-                onAddQuery={() => setShowQueryBuilder(true)}
-                onChangeSearch={debouncedSetFilterText}
-            />
-            <Content>
-                {isLoading && <Loading />}
-                {!isLoading && (
+            <Content $backgroundColor={showLoading || showEmptyView ? 'white' : '#f4f5f7'}>
+                {showLoading && <Loading />}
+                {!showLoading && (
                     <>
-                        {showEmptyView && (
-                            <EmptyQueries
-                                readOnly={!canEditQueries}
-                                onClickAddQuery={() => setShowQueryBuilder(true)}
-                            />
-                        )}
-                        {highlightedQueries.length > 0 && (
+                        {(highlightedQueries.length > 0 || highlightedQueriesLoading) && (
                             <QueriesListSection
                                 title="Highlighted Queries"
                                 section={QueriesTabSection.Highlighted}
                                 tooltip="Curated queries relevant to this dataset"
                                 tooltipPosition="bottom"
                                 queries={highlightedQueries}
+                                loading={highlightedQueriesLoading}
+                                totalQueries={highlightedTotal}
+                                pagination={highlightedPagination}
+                                sorting={highlightedSorting}
+                                addQueryDisabled={!canEditQueries}
+                                onAddQuery={() => setShowQueryBuilder(true)}
+                                isTopSection
                                 {...props}
                             />
                         )}
-                        {popularQueries.length > 0 && (
+                        {highlightedQueries.length === 0 && !highlightedQueriesLoading && (
+                            <EmptyQueriesSection
+                                sectionName="Highlighted Queries"
+                                tooltip="Curated queries relevant to this dataset"
+                                tooltipPosition="bottom"
+                                showButton
+                                buttonLabel="Add Highlighted Query"
+                                isButtonDisabled={!canEditQueries}
+                                onButtonClick={() => setShowQueryBuilder(true)}
+                            />
+                        )}
+                        {(popularQueries.length > 0 || popularQueriesLoading) && (
                             <QueriesListSection
                                 title="Popular Queries"
                                 section={QueriesTabSection.Popular}
                                 tooltip="The most popular queries that were run against this dataset"
                                 queries={popularQueries}
+                                loading={popularQueriesLoading}
+                                totalQueries={total}
+                                pagination={popularQueriesPagination}
+                                sorting={popularSorting}
                                 {...props}
                             />
                         )}
@@ -140,6 +177,7 @@ export default function QueriesTab() {
                                 section={QueriesTabSection.Downstream}
                                 tooltip="Queries that power downstream assets"
                                 queries={downstreamQueries}
+                                totalQueries={downstreamQueries.length}
                                 {...props}
                             />
                         )}
@@ -149,6 +187,7 @@ export default function QueriesTab() {
                                 section={QueriesTabSection.Recent}
                                 tooltip="Recently executed queries against this dataset"
                                 queries={recentQueries}
+                                totalQueries={recentQueries.length}
                                 {...props}
                             />
                         )}

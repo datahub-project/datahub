@@ -2,7 +2,7 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 import OperatorSelector from './OperatorSelector';
 import { operatorRequiresValues } from './operator/operator';
@@ -24,7 +24,7 @@ const Values = styled.div`
 
 const Value = styled.span``;
 
-const Container = styled.div`
+const Container = styled.div<{ $isCompact?: boolean }>`
     border-radius: 4px;
     padding: 4px 10px;
     display: flex;
@@ -33,6 +33,13 @@ const Container = styled.div`
     font-size: 14px;
     margin-right: 8px;
     background-color: ${SEARCH_COLORS.BACKGROUND_PURPLE};
+
+    ${(props) =>
+        props.$isCompact &&
+        `
+        font-size: 12px;
+        padding: 0 6px;
+    `}
 `;
 
 const Icon = styled.div`
@@ -61,6 +68,7 @@ interface SelectedFilterProps {
     onChangeOperator: (operator: FilterOperatorType) => void;
     onChangeValues: (newValues: FilterValue[]) => void;
     onRemoveFilter: () => void;
+    isCompact?: boolean;
 }
 
 export default function SelectedFilter({
@@ -68,12 +76,14 @@ export default function SelectedFilter({
     onChangeOperator,
     onChangeValues,
     onRemoveFilter,
+    isCompact,
 }: SelectedFilterProps) {
     const { field, operator, values, defaultValueOptions } = predicate;
     const showValueSelector = operatorRequiresValues(predicate.operator) || false;
 
     return (
         <Container
+            $isCompact={isCompact}
             data-testid={`active-filter-${field.field}`}
             key={`${field.field}-${operator}-${values.map((value) => value.value).join('-')}`}
         >

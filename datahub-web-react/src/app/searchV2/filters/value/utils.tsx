@@ -156,7 +156,7 @@ export const useFilterOptionsBySearchQuery = (
     return options.filter((option) => {
         const optionName = option.entity
             ? entityRegistry.getDisplayName(option.entity.type, option.entity)
-            : option.value;
+            : option.displayName || option.value;
         return filterOptionsWithSearch(searchQuery, optionName, []);
     });
 };

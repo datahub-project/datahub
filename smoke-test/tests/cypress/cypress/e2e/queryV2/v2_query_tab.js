@@ -14,8 +14,7 @@ const addNewQuery = () => {
 };
 
 const editQuery = () => {
-  cy.get(".ant-table-body").should("be.visible");
-  cy.get('[data-testid="EditOutlinedIcon"]').first().click({ force: true });
+  cy.get('[data-testid="edit-query"]').eq(0).click({ force: true });
   cy.get('[data-mode-id="sql"]').click().type(` + Edited Query-${runId}`);
   cy.get('[data-testid="query-builder-title-input"]')
     .click()
@@ -31,14 +30,14 @@ const editQuery = () => {
 };
 
 const deleteQuery = () => {
-  cy.get(".ant-table-body").should("be.visible");
-  cy.get('[data-testid="DeleteOutlinedIcon"]').click({ force: true });
+  cy.get('[data-testid="delete-query"]').eq(0).click({ force: true });
   cy.clickOptionWithText("Yes");
   cy.waitTextVisible("Deleted Query!");
 };
 
-const verifyViewCardDetails = (query) => {
+const verifyViewCardDetails = (query, index) => {
   cy.get('[data-testid="query-content-undefined"]')
+    .eq(index)
     .should("be.visible")
     .click();
   cy.get(".ant-modal-content").waitTextVisible(query);
@@ -61,16 +60,14 @@ describe("manage queries", () => {
     cy.waitTextVisible(`Test Table-${runId}`);
     cy.waitTextVisible(`Test Description-${runId}`);
     cy.waitTextVisible("Date Created");
-    verifyViewCardDetails(`+ Test Query-${runId}`);
+    verifyViewCardDetails(`+ Test Query-${runId}`, 1);
   });
 
   it("go to queries tab on dataset page then edit the query and verify edited Query card", () => {
     editQuery();
-    verifyViewCardDetails(
-      `+ Test Query-${runId} + Edited Query-${runId}`,
-      `Edited Table-${runId}`,
-      `Edited Description-${runId}`,
-    );
+    cy.waitTextVisible(`Edited Table-${runId}`);
+    cy.waitTextVisible(`Edited Description-${runId}`);
+    verifyViewCardDetails(`+ Test Query-${runId} + Edited Query-${runId}`, 0);
   });
 
   it("go to queries tab on dataset page then delete the query and verify that query should be gone", () => {

@@ -363,7 +363,7 @@ export function filterOptionsWithSearch(searchQuery: string, name: string, neste
 export const createBrowseV2SearchFilter = (path: Array<string>) => `${UNIT_SEPARATOR}${path.join(UNIT_SEPARATOR)}`;
 
 export function canCreateViewFromFilters(activeFilters: FacetFilterInput[]) {
-    const nestedSubTypeFilter = activeFilters.find((f) => f.field === ENTITY_SUB_TYPE_FILTER_NAME);
+    const nestedSubTypeFilter = activeFilters?.find((f) => f.field === ENTITY_SUB_TYPE_FILTER_NAME);
     if (nestedSubTypeFilter) {
         const entityTypes = nestedSubTypeFilter.values?.filter((value) => !value.includes(FILTER_DELIMITER));
         const subTypes = nestedSubTypeFilter.values?.filter((value) => value.includes(FILTER_DELIMITER));
@@ -499,6 +499,7 @@ function getFilterValues(filter: FacetFilterInput, availableFilters: FacetMetada
                 value,
                 entity: filterAggregation?.entity || null,
                 count: filterAggregation?.count,
+                displayName: filterAggregation?.displayName || undefined,
             };
         }) || []
     );
@@ -514,6 +515,7 @@ function getDefaultFilterOptions(filter: FacetFilterInput, availableFilters: Fac
                 value: agg.value,
                 entity: agg.entity || null,
                 count: agg.count,
+                displayName: agg.displayName || undefined,
             };
         }) || []
     );

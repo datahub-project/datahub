@@ -28,7 +28,7 @@ interface Props {
 
 export default function TextValueMenu({ field, values, onChangeValues, onApply }: Props) {
     const { displayName } = field;
-    const value = values.length > 0 ? values[0].value : '';
+    const value = values.length > 0 ? values[0].displayName || values[0].value : '';
 
     return (
         <Container>
