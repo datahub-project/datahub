@@ -1,7 +1,6 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.service.AssertionService.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -221,8 +220,7 @@ public class AssertionServiceTest {
         TEST_ASSERTION_URN,
         TEST_DATASET_URN,
         eventtime,
-        new AssertionResult().setType(AssertionResultType.SUCCESS),
-        null);
+        new AssertionResult().setType(AssertionResultType.SUCCESS));
 
     Mockito.verify(mockedEntityClient, Mockito.times(1))
         .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false));
@@ -234,7 +232,7 @@ public class AssertionServiceTest {
     AssertionService assertionService =
         new AssertionService(mockedEntityClient, mock(GraphClient.class));
     Long eventtime = 1718619000000L;
-    StringMap customProps = new StringMap(Map.of("prop-1", "value-1"));
+    StringMap nativeResults = new StringMap(Map.of("prop-1", "value-1"));
     StringMap errorProps = new StringMap(Map.of("message", "errorMessage"));
     String externalUrlOfAssertion = "https://abc/xyz";
 
@@ -254,7 +252,7 @@ public class AssertionServiceTest {
               Assert.assertEquals(runEvent.getAsserteeUrn(), TEST_DATASET_URN);
               Assert.assertEquals(runEvent.getTimestampMillis(), eventtime);
               Assert.assertEquals(runEvent.getStatus(), AssertionRunStatus.COMPLETE);
-              Assert.assertEquals(runEvent.getRuntimeContext(), customProps);
+              Assert.assertEquals(runEvent.getResult().getNativeResults(), nativeResults);
 
               AssertionResult result = runEvent.getResult();
               Assert.assertEquals(result.getType(), AssertionResultType.ERROR);
@@ -276,11 +274,11 @@ public class AssertionServiceTest {
         new AssertionResult()
             .setType(AssertionResultType.ERROR)
             .setExternalUrl(externalUrlOfAssertion)
+            .setNativeResults(nativeResults)
             .setError(
                 new AssertionResultError()
                     .setType(AssertionResultErrorType.UNKNOWN_ERROR)
-                    .setProperties(errorProps)),
-        customProps);
+                    .setProperties(errorProps)));
 
     Mockito.verify(mockedEntityClient, Mockito.times(1))
         .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false));
