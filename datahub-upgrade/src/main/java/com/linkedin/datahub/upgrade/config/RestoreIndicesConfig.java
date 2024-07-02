@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -20,17 +21,26 @@ public class RestoreIndicesConfig {
   @Autowired ApplicationContext applicationContext;
 
   @Bean(name = "restoreIndices")
-  @DependsOn({"ebeanServer", "entityService", "searchService", "graphService"})
+  @DependsOn({
+    "ebeanServer",
+    "entityService",
+    "systemMetadataService",
+    "searchService",
+    "graphService"
+  })
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   public RestoreIndices createInstance() {
     final Database ebeanServer = applicationContext.getBean(Database.class);
     final EntityService<?> entityService = applicationContext.getBean(EntityService.class);
+    final SystemMetadataService systemMetadataService =
+        applicationContext.getBean(SystemMetadataService.class);
     final EntitySearchService entitySearchService =
         applicationContext.getBean(EntitySearchService.class);
     final GraphService graphService = applicationContext.getBean(GraphService.class);
 
-    return new RestoreIndices(ebeanServer, entityService, entitySearchService, graphService);
+    return new RestoreIndices(
+        ebeanServer, entityService, systemMetadataService, entitySearchService, graphService);
   }
 
   @Bean(name = "restoreIndices")
@@ -38,6 +48,6 @@ public class RestoreIndicesConfig {
   @Nonnull
   public RestoreIndices createNotImplInstance() {
     log.warn("restoreIndices is not supported for cassandra!");
-    return new RestoreIndices(null, null, null, null);
+    return new RestoreIndices(null, null, null, null, null);
   }
 }
