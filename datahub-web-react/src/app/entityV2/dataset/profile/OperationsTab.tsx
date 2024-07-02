@@ -197,7 +197,7 @@ export const OperationsTab = () => {
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
-            duration: 0, // TODO: Add this back when the model changes are merged in run?.state?.[0]?.durationMillis,
+            duration: run?.state?.[0]?.durationMillis,
             inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
             outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
