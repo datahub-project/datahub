@@ -56,6 +56,7 @@ class ContainerKey(DatahubKey):
     # backwards compatibility with this bug, which means generating our GUIDs
     # in the same way.
     backcompat_env_as_instance: bool = Field(default=False, exclude=True)
+    include_env_on_container_key: bool = Field(default=False, exclude=True)
 
     def guid_dict(self) -> Dict[str, str]:
         bag = self.dict(by_alias=True, exclude_none=True, exclude={"env"})
@@ -66,6 +67,14 @@ class ContainerKey(DatahubKey):
             and self.env is not None
         ):
             bag["instance"] = self.env
+
+        if (
+            self.include_env_on_container_key
+            and self.instance is not None
+            and self.env is not None
+        ):
+            bag["env"] = self.env
+            bag["instance"] = self.instance
 
         return bag
 

@@ -1,0 +1,167 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9157e8b8799973c39ebb3b4a98fed457",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "glue",
+                "instance": "platform_instance",
+                "env": "PROD",
+                "database": "glue-database",
+                "CreateTime": "June 9, 2021 at 14:14:19"
+            },
+            "name": "glue-database",
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/glue-database"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9157e8b8799973c39ebb3b4a98fed457",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9157e8b8799973c39ebb3b4a98fed457",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,platform_instance)"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9157e8b8799973c39ebb3b4a98fed457",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,platform_instance.glue-database.glue_table_1,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "Location": "s3://crawler-public-us-west-2/delta/"
+                        },
+                        "name": "glue_table_1",
+                        "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/glue-database/glue_table_1",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata":{
+                        "created":{
+                            "actor":"urn:li:corpuser:unknown",
+                            "time":0
+                        },
+                        "fields":[
+                            {
+                                "description":"some comment",
+                                "fieldPath":"[version=2.0].[type=struct].[type=array].[type=string].col",
+                                "isPartOfKey":false,
+                                "jsonProps":"{\"native_data_type\": \"array<string>\"}",
+                                "nativeDataType":"array<string>",
+                                "nullable":true,
+                                "recursive":false,
+                                "type":{
+                                    "type":{
+                                        "com.linkedin.pegasus2avro.schema.ArrayType":{
+                                            "nestedType":[
+                                                "string"
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        ],
+                        "hash":"",
+                        "lastModified":{
+                            "actor":"urn:li:corpuser:unknown",
+                            "time":0
+                        },
+                        "platform":"urn:li:dataPlatform:glue",
+                        "platformSchema":{
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL":{
+                                "tableSchema":""
+                            }
+                        },
+                        "schemaName":"glue-database.glue_table_1",
+                        "version":0
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:glue",
+                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,platform_instance)"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:owner",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,platform_instance.glue-database.glue_table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,platform_instance.glue-database.glue_table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:9157e8b8799973c39ebb3b4a98fed457"
+        }
+    }
+}
+]

@@ -24,7 +24,10 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    ContainerSourceConfig,
+    DatasetSourceConfigMixin,
+)
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     get_sys_time,
@@ -111,7 +114,10 @@ VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
 class GlueSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    AwsSourceConfig,
+    ContainerSourceConfig,
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,
@@ -889,6 +895,7 @@ class GlueSource(StatefulIngestionSourceBase):
             instance=self.source_config.platform_instance,
             env=self.source_config.env,
             backcompat_env_as_instance=True,
+            include_env_on_container_key=self.source_config.include_env_on_container_key,
         )
 
     def gen_database_containers(

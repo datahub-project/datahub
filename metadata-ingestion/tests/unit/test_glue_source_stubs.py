@@ -867,6 +867,46 @@ delta_tables_2 = [
 ]
 get_delta_tables_response_2 = {"TableList": delta_tables_2}
 
+get_glue_databases_response = {
+    "DatabaseList": [
+        {
+            "Name": "glue-database",
+            "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+            "CreateTableDefaultPermissions": [
+                {
+                    "Principal": {
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                    },
+                    "Permissions": ["ALL"],
+                }
+            ],
+            "CatalogId": "123412341234",
+        },
+    ]
+}
+glue_table_1 = [
+    {
+        "Name": "glue_table_1",
+        "DatabaseName": "glue-database",
+        "Owner": "owner",
+        "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "UpdateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
+        "Retention": 0,
+        "StorageDescriptor": {
+            "Columns": [
+                {"Name": "col", "Type": "array<string>", "Comment": "some comment"},
+            ],
+            "Location": "s3://crawler-public-us-west-2/delta/",
+        },
+        "TableType": "EXTERNAL_TABLE",
+        "CreatedBy": "arn:aws:sts::123412341234:assumed-role/AWSGlueServiceRole-flights-crawler/AWS-Crawler",
+        "IsRegisteredWithLakeFormation": False,
+        "CatalogId": "123412341234",
+    }
+]
+get_glue_tables_response_1 = {"TableList": glue_table_1}
+
 
 def mock_get_object_response(raw_body: str) -> Dict[str, Any]:
     """

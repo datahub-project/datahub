@@ -64,6 +64,7 @@ def test_guid_generator_with_env():
         instance=None,
         env="TestInstance",
         backcompat_env_as_instance=True,
+        include_env_on_container_key=True,
     )
     guid = key.guid()
     assert guid == "f096b3799fc86a3e5d5d0c083eb1f2a4"
@@ -92,3 +93,25 @@ def test_entity_supports_aspect():
 
     assert not builder.entity_supports_aspect("dataset", TelemetryClientIdClass)
     assert builder.entity_supports_aspect("telemetry", TelemetryClientIdClass)
+
+
+def test_guid_generator_with_include_env_on_container_key():
+    key = builder.SchemaKey(
+        database="test",
+        schema="Test",
+        platform="mysql",
+        instance="TestInstance",
+        env="DEV",
+        backcompat_env_as_instance=True,
+        include_env_on_container_key=True,
+    )
+    guid = key.guid()
+    assert guid == "30ceb6298e082f384ae177c6d8dd2abc"
+
+    assert key.property_dict() == {
+        "database": "test",
+        "schema": "Test",
+        "platform": "mysql",
+        "env": "DEV",
+        "instance": "TestInstance",
+    }
