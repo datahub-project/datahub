@@ -80,6 +80,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
+    DataPlatformInstance,
     Status,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
@@ -620,6 +621,42 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if include_current_folder:
             yield BrowsePathEntryClass(id=urn, urn=urn)
 
+    def _add_platform_instance_aspect(
+        self,
+        urn: str,
+        proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
+    ) -> None:
+        if self.source_config.include_looker_element_in_platform_instance:
+
+            assert self.source_config.platform_name
+            assert self.source_config.platform_instance
+
+            proposals.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=DataPlatformInstance(
+                        platform=builder.make_data_platform_urn(
+                            self.source_config.platform_name
+                        ),
+                        instance=builder.make_dataplatform_instance_urn(
+                            platform=self.source_config.platform_name,
+                            instance=self.source_config.platform_instance,
+                        ),
+                    ),
+                ),
+            )
+
+    def _make_chart_urn(self, element_id: str) -> str:
+        urn_params: dict = {
+            "name": element_id,
+            "platform": self.source_config.platform_name,
+        }
+
+        if self.source_config.include_looker_element_in_platform_instance:
+            urn_params["platform_instance"] = self.source_config.platform_instance
+
+        return builder.make_chart_urn(**urn_params)
+
     def _make_chart_metadata_events(
         self,
         dashboard_element: LookerDashboardElement,
@@ -627,8 +664,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             LookerDashboard
         ],  # dashboard will be None if this is a standalone look
     ) -> List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
-        chart_urn = builder.make_chart_urn(
-            self.source_config.platform_name, dashboard_element.get_urn_element_id()
+        chart_urn = self._make_chart_urn(
+            element_id=dashboard_element.get_urn_element_id()
         )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
@@ -707,6 +744,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=[BIAssetSubTypes.LOOKER_LOOK]),
             ),
         ]
+
+        self._add_platform_instance_aspect(urn=chart_urn, proposals=proposals)
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
@@ -813,12 +852,20 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 )
             )
 
+        self._add_platform_instance_aspect(urn=dashboard_urn, proposals=proposals)
+
         return proposals
 
     def make_dashboard_urn(self, looker_dashboard):
-        return builder.make_dashboard_urn(
-            self.source_config.platform_name, looker_dashboard.get_urn_dashboard_id()
-        )
+        urn_params: dict = {
+            "name": looker_dashboard.get_urn_dashboard_id(),
+            "platform": self.source_config.platform_name,
+        }
+
+        if self.source_config.include_looker_element_in_platform_instance:
+            urn_params["platform_instance"] = self.source_config.platform_instance
+
+        return builder.make_dashboard_urn(**urn_params)
 
     def _make_explore_metadata_events(
         self,
@@ -1149,8 +1196,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # enrich the input_fields with the fully hydrated ViewField from the now fetched explores
         for input_field in input_fields:
-            entity_urn = builder.make_chart_urn(
-                self.source_config.platform_name, dashboard_element.get_urn_element_id()
+            entity_urn = self._make_chart_urn(
+                element_id=dashboard_element.get_urn_element_id()
             )
             view_field_for_reference = input_field.view_field
 
@@ -1217,8 +1264,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_metrics_dimensions_chart_mcp(
         self, dashboard_element: LookerDashboardElement
     ) -> MetadataChangeProposalWrapper:
-        chart_urn = builder.make_chart_urn(
-            self.source_config.platform_name, dashboard_element.get_urn_element_id()
+        chart_urn = self._make_chart_urn(
+            element_id=dashboard_element.get_urn_element_id()
         )
         input_fields_aspect = InputFieldsClass(
             fields=self._input_fields_from_dashboard_element(dashboard_element)
