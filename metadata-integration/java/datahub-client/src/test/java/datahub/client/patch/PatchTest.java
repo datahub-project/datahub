@@ -17,6 +17,8 @@ import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptType;
@@ -30,9 +32,14 @@ import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableSchemaMetadataPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.FormInfoPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.OwnershipPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.StructuredPropertyDefinitionPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.UpstreamLineagePatchBuilder;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PropertyCardinality;
+import com.linkedin.structured.PropertyValue;
 import datahub.client.MetadataWriteResponse;
 import datahub.client.file.FileEmitter;
 import datahub.client.file.FileEmitterConfig;
@@ -649,6 +656,49 @@ public class PatchTest {
 
   @Test
   @Ignore
+  public void testLocalStructuredPropertyDefinitionAdd() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      StringArrayMap typeQualifier = new StringArrayMap();
+      typeQualifier.put(
+          "allowedTypes",
+          new StringArray(
+              "urn:li:entityType:datahub.corpuser", "urn:li:entityType:datahub.corpGroup"));
+      PropertyValue propertyValue1 = new PropertyValue();
+      PrimitivePropertyValue value1 = new PrimitivePropertyValue();
+      value1.setString("test value 1");
+      propertyValue1.setValue(value1);
+      PropertyValue propertyValue2 = new PropertyValue();
+      PrimitivePropertyValue value2 = new PrimitivePropertyValue();
+      value2.setString("test value 2");
+      propertyValue2.setValue(value2);
+
+      MetadataChangeProposal structuredPropertyDefinitionPatch =
+          new StructuredPropertyDefinitionPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:structuredProperty:123456"))
+              .setQualifiedName("test.testing.123")
+              .setDisplayName("Test Display Name")
+              .setValueType("urn:li:dataType:datahub.urn")
+              .setTypeQualifier(typeQualifier)
+              .addAllowedValue(propertyValue1)
+              .addAllowedValue(propertyValue2)
+              .setCardinality(PropertyCardinality.MULTIPLE)
+              .addEntityType("urn:li:entityType:datahub.dataFlow")
+              .setDescription("test description")
+              .setImmutable(true)
+              .build();
+
+      Future<MetadataWriteResponse> response = restEmitter.emit(structuredPropertyDefinitionPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
   public void testLocalFormInfoAdd() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {
@@ -683,6 +733,31 @@ public class PatchTest {
               .build();
       Future<MetadataWriteResponse> response = restEmitter.emit(formInfoPatch);
 
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalStructuredPropertiesUpdate() {
+    try {
+      MetadataChangeProposal mcp =
+          new StructuredPropertiesPatchBuilder()
+              .urn(
+                  UrnUtils.getUrn(
+                      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)"))
+              .setNumberProperty(
+                  UrnUtils.getUrn(
+                      "urn:li:structuredProperty:io.acryl.dataManagement.replicationSLA"),
+                  3456)
+              .build();
+
+      String token = "";
+      RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:8080").token(token));
+      Future<MetadataWriteResponse> response = emitter.emit(mcp, null);
       System.out.println(response.get().getResponseContent());
 
     } catch (IOException | ExecutionException | InterruptedException e) {
