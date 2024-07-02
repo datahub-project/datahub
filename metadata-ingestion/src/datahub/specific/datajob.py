@@ -416,7 +416,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             DataJobInputOutput.ASPECT_NAME,
             "add",
             path=f"/inputDatasetFields/{self.quote(input_urn)}",
-            value=input_edge,
+            value={},
         )
         return self
 
@@ -504,7 +504,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             DataJobInputOutput.ASPECT_NAME,
             "add",
             path=f"/outputDatasetFields/{self.quote(output_urn)}",
-            value=output_edge,
+            value={},
         )
         return self
 
