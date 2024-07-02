@@ -62,6 +62,20 @@ class SourceCapability(Enum):
     CLASSIFICATION = "Classification"
 
 
+class StructuredLogLevel(Enum):
+    INFO = "INFO"
+    WARN = "WARN"
+    ERROR = "ERROR"
+
+
+@dataclass
+class StructuredLog(Report):
+    level: StructuredLogLevel
+    type: str
+    message: Optional[str]
+    context: LossyList[str]
+
+
 @dataclass
 class SourceReport(Report):
     events_produced: int = 0
@@ -76,8 +90,29 @@ class SourceReport(Report):
         default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
     )
 
-    warnings: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
-    failures: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
+    # Legacy objects which will be converted to structured logs prior to reporting.
+    # In the future, we will remove this in favor of the consolidated logging framework.
+    warnings: LossyDict[str, StructuredLog] = field(default_factory=LossyDict)
+    failures: LossyDict[str, StructuredLog] = field(default_factory=LossyDict)
+    infos: LossyDict[str, StructuredLog] = field(default_factory=LossyDict)
+
+    @property
+    def structured_logs(self) -> List[StructuredLog]:
+        consolidated_logs = []
+
+        # Append all warning logs to new consolidated_logs field
+        for log in self.warnings.values():
+            consolidated_logs.append(log)
+
+        # Append all failure logs to new consolidated_logs field
+        for log in self.failures.values():
+            consolidated_logs.append(log)
+
+        # Append all information logs to the new consolidated_logs field
+        for log in self.infos.values():
+            consolidated_logs.append(log)
+
+        return consolidated_logs
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
@@ -109,23 +144,70 @@ class SourceReport(Report):
                                 "fineGrainedLineages"
                             ].append(urn)
 
-    def report_warning(self, key: str, reason: str) -> None:
-        warnings = self.warnings.get(key, LossyList())
-        warnings.append(reason)
-        self.warnings[key] = warnings
+    def report_warning(
+        self, type: str, message: str, context: Optional[str] = None
+    ) -> None:
+        key = f"{type}-{message}"
+        if key not in self.warnings:
+            context_list: LossyList[str] = LossyList()
+            if context is not None:
+                context_list.append(context)
+            self.warnings[key] = StructuredLog(
+                level=StructuredLogLevel.WARN,
+                type=type,
+                message=message,
+                context=context_list,
+            )
+        else:
+            if context is not None:
+                self.warnings[key].context.append(context)
 
-    def warning(self, key: str, reason: str) -> None:
-        self.report_warning(key, reason)
-        logger.warning(f"{key} => {reason}", stacklevel=2)
+    def warning(self, type: str, message: str, context: Optional[str] = None) -> None:
+        self.report_warning(type, message, context)
+        logger.warning(f"{type} => {message}", stacklevel=2)
 
-    def report_failure(self, key: str, reason: str) -> None:
-        failures = self.failures.get(key, LossyList())
-        failures.append(reason)
-        self.failures[key] = failures
+    def report_failure(
+        self, type: str, message: str, context: Optional[str] = None
+    ) -> None:
+        key = f"{type}-{message}"
+        if key not in self.failures:
+            context_list: LossyList[str] = LossyList()
+            if context is not None:
+                context_list.append(context)
+            self.failures[key] = StructuredLog(
+                level=StructuredLogLevel.ERROR,
+                type=type,
+                message=message,
+                context=context_list,
+            )
+        else:
+            if context is not None:
+                self.failures[key].context.append(context)
 
-    def failure(self, key: str, reason: str) -> None:
-        self.report_failure(key, reason)
-        logger.error(f"{key} => {reason}", stacklevel=2)
+    def failure(self, type: str, message: str, context: Optional[str] = None) -> None:
+        self.report_failure(type, message, context)
+
+    def report_info(
+        self, type: str, message: str, context: Optional[str] = None
+    ) -> None:
+        key = f"{type}-{message}"
+        if key not in self.infos:
+            context_list: LossyList[str] = LossyList()
+            if context is not None:
+                context_list.append(context)
+            self.infos[key] = StructuredLog(
+                level=StructuredLogLevel.INFO,
+                type=type,
+                message=message,
+                context=context_list,
+            )
+        else:
+            if context is not None:
+                self.infos[key].context.append(context)
+
+    def info(self, type: str, message: str, context: Optional[str] = None) -> None:
+        self.report_info(type, message, context)
+        logger.info(f"{type} => {message}", stacklevel=2)
 
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()

@@ -334,7 +334,7 @@ def test_single_user_auth_failed_to_get_token():
 
     assert source.get_report().failures
     assert "Failed to authenticate" in list(
-        source.get_report().failures[config.site_url]
+        source.get_report().failures[config.site_url].context
     )
 
 
@@ -353,7 +353,7 @@ def test_kerberos_auth_failed_to_get_token():
 
     assert source.get_report().failures
     assert "Failed to authenticate" in list(
-        source.get_report().failures[config.site_url]
+        source.get_report().failures[config.site_url].context
     )
 
 
@@ -373,7 +373,7 @@ def test_client_cert_auth_failed():
 
     assert source.get_report().failures
     assert "Failed to authenticate" in list(
-        source.get_report().failures[config.site_url]
+        source.get_report().failures[config.site_url].context
     )
 
 
@@ -393,7 +393,7 @@ def test_failure_to_create_nifi_flow():
 
         assert source.get_report().failures
         assert "Failed to get root process group flow" in list(
-            source.get_report().failures[config.site_url]
+            source.get_report().failures[config.site_url].context
         )
 
 
