@@ -843,8 +843,14 @@ def _sqlglot_lineage_inner(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
+    default_dialect: Optional[str] = None
 ) -> SqlParsingResult:
-    dialect = get_dialect(schema_resolver.platform)
+    
+    if not default_dialect:
+        dialect = get_dialect(schema_resolver.platform)
+    else:
+        dialect = get_dialect(default_dialect)
+
     if is_dialect_instance(dialect, "snowflake"):
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
         if default_db:
@@ -1003,6 +1009,7 @@ def sqlglot_lineage(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
+    default_dialect: Optional[str] = None
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -1059,6 +1066,7 @@ def sqlglot_lineage(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            default_dialect=default_dialect
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
