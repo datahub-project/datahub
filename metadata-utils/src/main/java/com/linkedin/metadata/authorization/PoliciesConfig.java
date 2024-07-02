@@ -157,6 +157,12 @@ public class PoliciesConfig {
           "Manage Structured Properties",
           "Manage structured properties in your instance.");
 
+  public static final Privilege MANAGE_DOCUMENTATION_FORMS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DOCUMENTATION_FORMS",
+          "Manage Documentation Forms",
+          "Manage forms assigned to assets to assist in documentation efforts.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -182,7 +188,8 @@ public class PoliciesConfig {
           CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_CONNECTIONS_PRIVILEGE,
-          MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
+          MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
+          MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
 
   // Resource Privileges //
 

@@ -388,6 +388,13 @@ public class AuthorizationUtils {
         PoliciesConfig.MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
   }
 
+  public static boolean canManageForms(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
+  }
+
   public static boolean isAuthorized(
       @Nonnull Authorizer authorizer,
       @Nonnull String actor,

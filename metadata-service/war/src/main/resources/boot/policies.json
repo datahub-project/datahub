@@ -35,7 +35,8 @@
         "GET_ANALYTICS_PRIVILEGE",
         "CREATE_BUSINESS_ATTRIBUTE",
         "MANAGE_BUSINESS_ATTRIBUTE",
-        "MANAGE_STRUCTURED_PROPERTIES"
+        "MANAGE_STRUCTURED_PROPERTIES",
+        "MANAGE_DOCUMENTATION_FORMS"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants all platform privileges to root user.",
@@ -181,7 +182,8 @@
         "GET_ANALYTICS_PRIVILEGE",
         "CREATE_BUSINESS_ATTRIBUTE",
         "MANAGE_BUSINESS_ATTRIBUTE",
-        "MANAGE_STRUCTURED_PROPERTIES"
+        "MANAGE_STRUCTURED_PROPERTIES",
+        "MANAGE_DOCUMENTATION_FORMS"
       ],
       "displayName":"Admins - Platform Policy",
       "description":"Admins have all platform privileges.",
@@ -268,7 +270,8 @@
         "MANAGE_GLOSSARIES",
         "MANAGE_TAGS",
         "MANAGE_BUSINESS_ATTRIBUTE",
-        "MANAGE_STRUCTURED_PROPERTIES"
+        "MANAGE_STRUCTURED_PROPERTIES",
+        "MANAGE_DOCUMENTATION_FORMS"
       ],
       "displayName":"Editors - Platform Policy",
       "description":"Editors can manage ingestion and view analytics.",
