@@ -25,8 +25,8 @@ def get() -> None:
     "--details/--no-details",
     required=False,
     is_flag=True,
-    default=True,
-    help="Whether to .",
+    default=False,
+    help="Whether to print details from database which help in audit.",
 )
 @click.pass_context
 @upgrade.check_upgrade
