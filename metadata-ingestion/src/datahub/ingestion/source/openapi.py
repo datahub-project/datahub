@@ -187,25 +187,26 @@ class APISource(Source, ABC):
     def report_bad_responses(self, status_code: int, type: str) -> None:
         if status_code == 400:
             self.report.report_warning(
-                type=type, message="Bad request body when retrieving data from endpoint"
+                title=type,
+                message="Bad request body when retrieving data from endpoint",
             )
         elif status_code == 403:
             self.report.report_warning(
-                type=type,
+                title=type,
                 message="Not authorised to retrieve data from OpenAPI endpoint",
             )
         elif status_code == 404:
             self.report.report_warning(
-                type=type,
+                title=type,
                 message="Unable to find an example for endpoint. Please add it to the list of forced examples.",
             )
         elif status_code == 500:
             self.report.report_warning(
-                type=type, message="Server error for reaching endpoint"
+                title=type, message="Server error for reaching endpoint"
             )
         elif status_code == 504:
             self.report.report_warning(
-                type=type, message="Timeout for reaching endpoint"
+                title=type, message="Timeout for reaching endpoint"
             )
         else:
             raise Exception(
@@ -276,7 +277,7 @@ class APISource(Source, ABC):
             for w in warn_c:
                 w_msg = w.message
                 w_spl = w_msg.args[0].split(" --- ")  # type: ignore
-                self.report.report_warning(type=w_spl[1], message=w_spl[0])
+                self.report.report_warning(title=w_spl[1], message=w_spl[0])
 
         # here we put a sample from the "listing endpoint". To be used for later guessing of comosed endpoints.
         root_dataset_samples = {}
@@ -298,7 +299,7 @@ class APISource(Source, ABC):
                 yield self.build_wu(dataset_snapshot, dataset_name)
             elif endpoint_dets["method"] != "get":
                 self.report.report_warning(
-                    type=endpoint_k,
+                    title=endpoint_k,
                     message=f"No example provided for {endpoint_dets['method']}",
                     context=dataset_name,
                 )
@@ -326,7 +327,7 @@ class APISource(Source, ABC):
                     )
                     if not fields2add:
                         self.report.report_warning(
-                            type=endpoint_k,
+                            title=endpoint_k,
                             message="No fields found",
                             context=dataset_name,
                         )
@@ -358,7 +359,7 @@ class APISource(Source, ABC):
                         fields2add, _ = extract_fields(response, dataset_name)
                         if not fields2add:
                             self.report.report_warning(
-                                type=endpoint_k,
+                                title=endpoint_k,
                                 message="No fields found",
                                 context=dataset_name,
                             )
@@ -390,7 +391,7 @@ class APISource(Source, ABC):
                         fields2add, _ = extract_fields(response, dataset_name)
                         if not fields2add:
                             self.report.report_warning(
-                                type=endpoint_k,
+                                title=endpoint_k,
                                 message="No fields found",
                                 context=dataset_name,
                             )

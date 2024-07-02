@@ -284,7 +284,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 views.add(view_name)
             except AssertionError:
                 self.reporter.report_warning(
-                    type="Failed to Extract View Name from Field",
+                    title="Failed to Extract View Name from Field",
                     message="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
                     context=f"Field Name: {field_name}",
                 )
@@ -594,7 +594,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         type_str = dashboard_element.type
         if not type_str:
             self.reporter.report_warning(
-                type="Unrecognized Chart Type",
+                title="Unrecognized Chart Type",
                 message=f"Chart type {type_str} is not recognized. Setting to None",
                 context=f"Dashboard Id: {dashboard_element.id}",
             )
@@ -603,7 +603,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             chart_type = type_mapping[type_str]
         except KeyError:
             self.reporter.report_warning(
-                type="Unrecognized Chart Type",
+                title="Unrecognized Chart Type",
                 message=f"Chart type {type_str} is not recognized. Setting to None",
                 context=f"Dashboard Id: {dashboard_element.id}",
             )
@@ -1254,7 +1254,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         except SDKError:
             # A looker dashboard could be deleted in between the list and the get
             self.reporter.report_warning(
-                type="Error Loading Dashboard",
+                title="Error Loading Dashboard",
                 message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
                 context=f"Dashboard ID: {dashboard_id}",
             )
@@ -1266,7 +1266,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 or dashboard_object.folder.is_personal_descendant
             ):
                 self.reporter.report_warning(
-                    type="Dropped Dashboard",
+                    title="Dropped Dashboard",
                     message="Dropped due to being a personal folder",
                     context=f"Dashboard ID: {dashboard_id}",
                 )
