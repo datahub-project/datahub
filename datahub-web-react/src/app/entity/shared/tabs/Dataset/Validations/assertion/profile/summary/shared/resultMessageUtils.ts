@@ -257,7 +257,7 @@ const getFormattedReasonTextForDefaultAssertion = (run: AssertionRunEvent) => {
 
 export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEvent) => {
     if (run?.result?.type === AssertionResultType.Init) {
-        return 'Collecting information required to evaluate conditions. Results will be available on the next evaluation.';
+        return 'Initial data recorded successfully. Assertion result will be available on the next evaluation.';
     }
     if (run?.result?.type === AssertionResultType.Error) {
         const formattedError = getResultErrorMessage(run?.result);
