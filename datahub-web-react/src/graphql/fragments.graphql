@@ -194,6 +194,11 @@ fragment deprecationFields on Deprecation {
     deprecated
     note
     decommissionTime
+    actorEntity {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
 }
 
 fragment parentContainersFields on ParentContainersResult {

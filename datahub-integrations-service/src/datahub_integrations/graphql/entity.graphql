@@ -777,13 +777,6 @@ fragment parentContainerFields on Container {
   }
 }
 
-fragment deprecationFields on Deprecation {
-  actor
-  deprecated
-  note
-  decommissionTime
-}
-
 fragment nonConflictingPlatformFields on DataPlatform {
   urn
   type

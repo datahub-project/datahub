@@ -50,10 +50,7 @@ fragment nonSiblingDatasetFields on Dataset {
     ...nonRecursiveDatasetFields
     exists
     deprecation {
-        actor
-        deprecated
-        note
-        decommissionTime
+        ...deprecationFields
     }
     globalTags {
         ...globalTagsFields

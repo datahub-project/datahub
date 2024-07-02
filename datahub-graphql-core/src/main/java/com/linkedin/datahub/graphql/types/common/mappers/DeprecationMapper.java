@@ -20,6 +20,7 @@ public class DeprecationMapper
       @Nullable QueryContext context, @Nonnull final com.linkedin.common.Deprecation input) {
     final Deprecation result = new Deprecation();
     result.setActor(input.getActor().toString());
+    result.setActorEntity(UrnToEntityMapper.map(context, input.getActor()));
     result.setDeprecated(input.isDeprecated());
     result.setDecommissionTime(input.getDecommissionTime());
     result.setNote(input.getNote());
