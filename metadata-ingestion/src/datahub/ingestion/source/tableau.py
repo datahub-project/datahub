@@ -800,8 +800,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
-                key="tableau-login",
-                reason=str(e),
+                type="Tableau Login Error",
+                message="Failed to authenticate with Tableau.",
+                context=str(e),
             )
 
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
@@ -881,7 +882,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 error and (error.get(c.EXTENSIONS) or {}).get(c.SEVERITY) == c.WARNING
                 for error in errors
             ):
-                self.report.warning(key=connection_type, reason=f"{errors}")
+                self.report.warning(type=connection_type, message=f"{errors}")
             else:
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
@@ -2821,8 +2822,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.emit_upstream_tables()
         except MetadataQueryException as md_exception:
             self.report.failure(
-                key="tableau-metadata",
-                reason=f"Unable to retrieve metadata from tableau. Information: {str(md_exception)}",
+                type="Failed to Retrieve Tableau Metadata",
+                message="Unable to retrieve metadata from tableau.",
+                context=str(md_exception),
             )
 
     def get_report(self) -> TableauSourceReport:

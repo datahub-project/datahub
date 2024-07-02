@@ -284,8 +284,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 views.add(view_name)
             except AssertionError:
                 self.reporter.report_warning(
-                    key=f"chart-field-{field_name}",
-                    reason="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
+                    type="Failed to Extract View Name from Field",
+                    message="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
+                    context=f"Field Name: {field_name}",
                 )
                 continue
 
@@ -593,16 +594,18 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         type_str = dashboard_element.type
         if not type_str:
             self.reporter.report_warning(
-                key=f"looker-chart-{dashboard_element.id}",
-                reason=f"Chart type {type_str} is missing. Setting to None",
+                type="Unrecognized Chart Type",
+                message=f"Chart type {type_str} is not recognized. Setting to None",
+                context=f"Dashboard Id: {dashboard_element.id}",
             )
             return None
         try:
             chart_type = type_mapping[type_str]
         except KeyError:
             self.reporter.report_warning(
-                key=f"looker-chart-{dashboard_element.id}",
-                reason=f"Chart type {type_str} not supported. Setting to None",
+                type="Unrecognized Chart Type",
+                message=f"Chart type {type_str} is not recognized. Setting to None",
+                context=f"Dashboard Id: {dashboard_element.id}",
             )
             chart_type = None
 
@@ -1251,8 +1254,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         except SDKError:
             # A looker dashboard could be deleted in between the list and the get
             self.reporter.report_warning(
-                dashboard_id,
-                f"Error occurred while loading dashboard {dashboard_id}. Skipping.",
+                type="Error Loading Dashboard",
+                message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
+                context=f"Dashboard ID: {dashboard_id}",
             )
             return [], None, dashboard_id, start_time, datetime.datetime.now()
 
@@ -1262,7 +1266,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 or dashboard_object.folder.is_personal_descendant
             ):
                 self.reporter.report_warning(
-                    dashboard_id, "Dropped due to being a personal folder"
+                    type="Dropped Dashboard",
+                    message="Dropped due to being a personal folder",
+                    context=f"Dashboard ID: {dashboard_id}",
                 )
                 self.reporter.report_dashboards_dropped(dashboard_id)
                 return [], None, dashboard_id, start_time, datetime.datetime.now()
@@ -1540,7 +1546,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         ):
             # Looks like we tried to extract owners and could not find their email addresses. This is likely a permissions issue
             self.reporter.report_warning(
-                "api",
+                "Failed to extract owner emails",
                 "Failed to extract owners emails for any dashboards. Please enable the see_users permission for your Looker API key",
             )
 

@@ -419,7 +419,9 @@ class LookerModel:
                 explores.extend(included_explores)
             except Exception as e:
                 reporter.report_warning(
-                    path, f"Failed to load {included_file} due to {e}"
+                    type="Error Loading Include File",
+                    message="Failed to load included file",
+                    context=f"Include Details: {included_file}, Exception: {e}",
                 )
                 # continue in this case, as it might be better to load and resolve whatever we can
 
@@ -520,10 +522,16 @@ class LookerModel:
                 f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}"
             )
             if "*" not in inc and not included_files:
-                reporter.report_failure(path, f"cannot resolve include {inc}")
+                reporter.report_failure(
+                    type="Error Resolving Include",
+                    message=f"Cannot resolve include {inc}",
+                    context=f"Path: {path}",
+                )
             elif not included_files:
                 reporter.report_failure(
-                    path, f"did not resolve anything for wildcard include {inc}"
+                    "Error Resolving Include",
+                    f"Did not resolve anything for wildcard include {inc}",
+                    context=f"Path: {path}",
                 )
             # only load files that we haven't seen so far
             included_files = [x for x in included_files if x not in seen_so_far]
@@ -562,7 +570,9 @@ class LookerModel:
                         )
                 except Exception as e:
                     reporter.report_warning(
-                        path, f"Failed to load {included_file} due to {e}"
+                        type="Error Loading Include",
+                        message="Failed to load include file",
+                        context=f"Include Details: {included_file}, Exception: {e}",
                     )
                     # continue in this case, as it might be better to load and resolve whatever we can
 
@@ -673,7 +683,11 @@ class LookerViewFileLoader:
             with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
-            self.reporter.report_failure(path, f"failed to load view file: {e}")
+            self.reporter.report_failure(
+                "Error Loading View File",
+                "Failed to load view field",
+                context=f"Path: {path}, Exception: {e}",
+            )
             return None
         try:
             logger.debug(f"Loading viewfile {path}")
@@ -691,7 +705,11 @@ class LookerViewFileLoader:
             self.viewfile_cache[path] = looker_viewfile
             return looker_viewfile
         except Exception as e:
-            self.reporter.report_failure(path, f"failed to load view file: {e}")
+            self.reporter.report_failure(
+                type="Error Loading View File",
+                message="Failed to properly load View file",
+                context=f"Path: {path}, Exception: {e}",
+            )
             return None
 
     def load_viewfile(
@@ -1348,8 +1366,9 @@ class LookerView:
         except Exception as e:
             reporter.query_parse_failures += 1
             reporter.report_warning(
-                f"looker-view-{view_name}",
-                f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
+                type="Error Parsing SQL",
+                message="Failed to parse sql query, lineage will not be accurate.",
+                context=f"Table Name: {sql_table_name}, Query: {sql_query}, Exception: {e}",
             )
 
         sql_table_names = [table for table in sql_table_names if "{%" not in table]
@@ -1585,7 +1604,9 @@ class LookMLSource(StatefulIngestionSourceBase):
             return dataset_name.lower()
 
         self.reporter.report_warning(
-            key=sql_table_name, reason=f"{sql_table_name} has more than 3 parts."
+            type="Malformed Table Name",
+            message="Table name has more than 3 parts.",
+            context=f"Table Name: {sql_table_name}",
         )
         return sql_table_name.lower()
 
@@ -1653,8 +1674,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                     return connection_def
                 except ConfigurationError:
                     self.reporter.report_warning(
-                        f"connection-{connection}",
-                        "Failed to load connection from Looker",
+                        type="Failed to Resolve Connection",
+                        message="Failed to resolve connection from Looker",
+                        context=f"Connection: {connection}",
                     )
 
         return None
@@ -1931,7 +1953,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             if not self.report.events_produced and not self.report.failures:
                 # Don't pass if we didn't produce any events.
                 self.report.report_failure(
-                    "<main>",
+                    "No Metadata Produced",
                     "No metadata was produced. Check the logs for more details.",
                 )
 
@@ -2058,7 +2080,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                 model = self._load_model(str(file_path))
             except Exception as e:
                 self.reporter.report_warning(
-                    model_name, f"unable to load Looker model at {file_path}: {repr(e)}"
+                    type="Error Loading Model File",
+                    message="Unable to load Looker model from file.",
+                    context=f"Model Name: {model_name}, File Path: {file_path}, Exception: {e}",
                 )
                 continue
 
@@ -2069,8 +2093,9 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             if connectionDefinition is None:
                 self.reporter.report_warning(
-                    f"model-{model_name}",
-                    f"Failed to load connection {model.connection}. Check your API key permissions and/or connection_to_platform_map configuration.",
+                    type="Failed to Load Connection",
+                    message="Failed to load connection. Check your API key permissions and/or connection_to_platform_map configuration.",
+                    context=f"Connection: {model.connection}",
                 )
                 self.reporter.report_models_dropped(model_name)
                 continue
@@ -2110,8 +2135,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 explore_reachable_views.add(view_name.include)
                     except Exception as e:
                         self.reporter.report_warning(
-                            f"{model}.explores",
-                            f"failed to process {explore_dict} due to {e}. Run with --debug for full stacktrace",
+                            type="Failed to process explores",
+                            message="Failed to process explore dictionary. Run with --debug for full stacktrace",
+                            context=f"Explore Details: {explore_dict}, Exception: {e}",
                         )
                         logger.debug("Failed to process explore", exc_info=e)
 
@@ -2191,8 +2217,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                             )
                         except Exception as e:
                             self.reporter.report_warning(
-                                include.include,
-                                f"unable to load Looker view {raw_view}: {repr(e)}",
+                                type="Error Loading View",
+                                message="Unable to load Looker View.",
+                                context=f"View Details: {raw_view}, Exception: {repr(e)}",
                             )
                             continue
 
