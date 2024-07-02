@@ -80,7 +80,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
-    Status,
+    Status, DataPlatformInstance,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
@@ -620,6 +620,21 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if include_current_folder:
             yield BrowsePathEntryClass(id=urn, urn=urn)
 
+    def _add_platform_instance_aspect(self, urn: str, proposals: List[MetadataChangeProposalWrapper]) -> None:
+        if self.source_config.include_looker_element_in_platform_instance:
+            proposals.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=DataPlatformInstance(
+                        platform=builder.make_data_platform_urn(self.source_config.platform_name),
+                        instance=builder.make_dataplatform_instance_urn(
+                            platform=self.source_config.platform_name,
+                            instance=self.source_config.platform_instance,
+                        ),
+                    ),
+                ),
+            )
+
     def _make_chart_urn(self, element_id: str) -> str:
         urn_params: dict = {
             "name": element_id,
@@ -718,6 +733,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=[BIAssetSubTypes.LOOKER_LOOK]),
             ),
         ]
+
+        self._add_platform_instance_aspect(urn=chart_urn, proposals=proposals)
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
@@ -823,6 +840,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     looker_dashboard.embed_url(self.source_config.external_base_url),
                 )
             )
+
+        self._add_platform_instance_aspect(urn=dashboard_urn, proposals=proposals)
 
         return proposals
 
