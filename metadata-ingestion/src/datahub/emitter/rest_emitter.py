@@ -10,7 +10,12 @@ from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub.cli.cli_utils import fixup_gms_url, get_system_auth
+from datahub.cli.cli_utils import (
+    ensure_mce_has_system_metadata,
+    ensure_mcp_has_system_metadata,
+    fixup_gms_url,
+    get_system_auth,
+)
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -228,11 +233,15 @@ class DataHubRestEmitter(Closeable, Emitter):
         snapshot_fqn = (
             f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
         )
+        ensure_mce_has_system_metadata(mce)
         system_metadata_obj = {}
         if mce.systemMetadata is not None:
             system_metadata_obj = {
                 "lastObserved": mce.systemMetadata.lastObserved,
                 "runId": mce.systemMetadata.runId,
+                "lastRunId": mce.systemMetadata.lastRunId,
+                "clientId": mce.systemMetadata.clientId,
+                "clientVersion": mce.systemMetadata.clientVersion,
             }
         snapshot = {
             "entity": {"value": {snapshot_fqn: mce_obj}},
@@ -246,7 +255,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposal"
-
+        ensure_mcp_has_system_metadata(mcp)
         mcp_obj = pre_json_transform(mcp.to_obj())
         payload = json.dumps({"proposal": mcp_obj})
 
@@ -256,6 +265,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         self, mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
+        for mcp in mcps:
+            ensure_mcp_has_system_metadata(mcp)
 
         mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
         payload = json.dumps({"proposals": mcp_objs})
