@@ -1,28 +1,28 @@
-import * as React from 'react';
 import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { MlFeature, EntityType, SearchResult } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { GenericEntityProperties } from '../../entity/shared/types';
+import * as React from 'react';
 import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { EntityType, MlFeature, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
+import { Preview } from './preview/Preview';
 
 const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
 
@@ -169,6 +169,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };
@@ -192,6 +193,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                browsePaths={data.browsePathV2 || undefined}
             />
         );
     };

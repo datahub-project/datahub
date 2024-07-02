@@ -1,5 +1,5 @@
 import React from 'react';
-import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '../../../../types.generated';
+import { BrowsePathV2, DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -20,6 +20,7 @@ export const Preview = ({
     isOutputPort,
     headerDropdownItems,
     previewType,
+    browsePaths,
 }: {
     urn: string;
     name: string;
@@ -34,8 +35,15 @@ export const Preview = ({
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType?: PreviewType;
+    browsePaths?: BrowsePathV2 | undefined;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const platformName = platform?.properties?.displayName || capitalizeFirstLetterOnly(platform?.name);
+    const platformTitle =
+        platformName && featureNamespace
+            ? `${platformName} > ${featureNamespace}`
+            : platformName || featureNamespace || '';
+
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Mlfeature, urn)}
@@ -43,9 +51,7 @@ export const Preview = ({
             urn={urn}
             platformInstanceId={platformInstanceId}
             description={description || ''}
-            platform={
-                platform?.properties?.displayName || capitalizeFirstLetterOnly(platform?.name) || featureNamespace
-            }
+            platform={platformTitle}
             logoUrl={platform?.properties?.logoUrl || ''}
             entityType={EntityType.Mlfeature}
             typeIcon={entityRegistry.getIcon(EntityType.Mlfeature, 14, IconStyleType.ACCENT)}
@@ -56,6 +62,7 @@ export const Preview = ({
             isOutputPort={isOutputPort}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
+            browsePaths={browsePaths}
         />
     );
 };
