@@ -9,7 +9,7 @@ joblib
 pytest-xdist
 networkx
 # libaries for linting below this
-black==23.7.0
+black==24.3.0
 isort==5.12.0
 mypy==1.5.1
 ruff==0.0.287
