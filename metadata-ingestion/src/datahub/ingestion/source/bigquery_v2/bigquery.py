@@ -1,5 +1,6 @@
 import atexit
 import functools
+import json
 import logging
 import os
 import re
@@ -72,6 +73,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.gcs import gcs_utils
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -245,7 +247,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.config.get_policy_tag_manager_client()
             )
 
-        self.sql_parser_schema_resolver = self._init_schema_resolver()
+        self.sql_parser_schema_resolver = self._init_schema_resolver(self.platform)
+        self.gcs_parser_schema_resolver = self._init_schema_resolver("gcs")
 
         self.data_reader: Optional[BigQueryDataReader] = None
         if self.classification_handler.is_classification_enabled():
@@ -483,7 +486,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             return test_report
 
-    def _init_schema_resolver(self) -> SchemaResolver:
+    def _init_schema_resolver(self, platform: str) -> SchemaResolver:
         schema_resolution_required = (
             self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser
         )
@@ -497,7 +500,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if schema_resolution_required and not schema_ingestion_enabled:
             if self.ctx.graph:
                 return self.ctx.graph.initialize_schema_resolver_from_datahub(
-                    platform=self.platform,
+                    platform=platform,
                     platform_instance=self.config.platform_instance,
                     env=self.config.env,
                     batch_size=self.config.schema_resolution_batch_size,
@@ -507,7 +510,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     "Failed to load schema info from DataHub as DataHubGraph is missing. "
                     "Use `datahub-rest` sink OR provide `datahub-api` config in recipe. ",
                 )
-        return SchemaResolver(platform=self.platform, env=self.config.env)
+        return SchemaResolver(platform=platform, env=self.config.env)
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str, project_id: str
@@ -774,7 +777,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             db_tables[dataset_name] = list(
                 self.get_tables_for_dataset(project_id, dataset_name)
             )
-
             for table in db_tables[dataset_name]:
                 table_columns = columns.get(table.name, []) if columns else []
                 table_wu_generator = self._process_table(
@@ -1132,6 +1134,27 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self.gen_dataset_urn(
             project_id=project_id, dataset_name=dataset_name, table=table.name
         )
+
+        if (
+            isinstance(table, BigqueryTable)
+            and table.table_type is not None
+            and table.table_type == "EXTERNAL"
+            and table.ddl is not None
+            and f"CREATE EXTERNAL TABLE `{project_id}.{dataset_name}.{table.name}`"
+            in table.ddl
+        ):
+            uris_match = re.search(r"uris=\[([^\]]+)\]", table.ddl)
+            if uris_match:
+                uris_str = uris_match.group(1)
+                uris_list = json.loads(f"[{uris_str}]")
+                storage_location = str(uris_list[0])
+                # Check that storage_location have the gs:// prefix.
+                if gcs_utils.is_gcs_uri(storage_location):
+                    yield from self.lineage_extractor.gen_lineage_workunits_with_gcs(
+                        self.gcs_parser_schema_resolver,
+                        dataset_urn,
+                        gcs_utils.strip_gcs_prefix(storage_location),
+                    )
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
