@@ -74,6 +74,7 @@ class StructuredLog(Report):
     type: str
     message: Optional[str]
     context: LossyList[str]
+    stacktrace: Optional[str] = None
 
 
 @dataclass
@@ -90,29 +91,53 @@ class SourceReport(Report):
         default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
     )
 
-    # Legacy objects which will be converted to structured logs prior to reporting.
-    # In the future, we will remove this in favor of the consolidated logging framework.
-    warnings: LossyDict[str, StructuredLog] = field(default_factory=LossyDict)
-    failures: LossyDict[str, StructuredLog] = field(default_factory=LossyDict)
-    infos: LossyDict[str, StructuredLog] = field(default_factory=LossyDict)
+    # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
+    _errors: LossyDict[str, StructuredLog] = field(
+        default_factory=lambda: LossyDict(10)
+    )
+    _warnings: LossyDict[str, StructuredLog] = field(
+        default_factory=lambda: LossyDict(10)
+    )
+    _infos: LossyDict[str, StructuredLog] = field(default_factory=lambda: LossyDict(10))
+
+    @property
+    def warnings(self) -> LossyList[StructuredLog]:
+        result: LossyList[StructuredLog] = LossyList()
+        for log in self._warnings.values():
+            result.append(log)
+        return result
+
+    @property
+    def failures(self) -> LossyList[StructuredLog]:
+        result: LossyList[StructuredLog] = LossyList()
+        for log in self._errors.values():
+            result.append(log)
+        return result
+
+    @property
+    def infos(self) -> LossyList[StructuredLog]:
+        result: LossyList[StructuredLog] = LossyList()
+        for log in self._infos.values():
+            result.append(log)
+        return result
 
     @property
     def structured_logs(self) -> List[StructuredLog]:
-        consolidated_logs = []
+        """
+        Simply aggregates all the info, error, and warn logs into one easily reportable structure.
+        """
+        result = []
 
-        # Append all warning logs to new consolidated_logs field
-        for log in self.warnings.values():
-            consolidated_logs.append(log)
+        for log in self._infos.values():
+            result.append(log)
 
-        # Append all failure logs to new consolidated_logs field
-        for log in self.failures.values():
-            consolidated_logs.append(log)
+        for log in self._errors.values():
+            result.append(log)
 
-        # Append all information logs to the new consolidated_logs field
-        for log in self.infos.values():
-            consolidated_logs.append(log)
+        for log in self._warnings.values():
+            result.append(log)
 
-        return consolidated_logs
+        return result
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
@@ -145,57 +170,119 @@ class SourceReport(Report):
                             ].append(urn)
 
     def report_warning(
-        self, type: str, message: str, context: Optional[str] = None
+        self,
+        type: str,
+        message: str,
+        context: Optional[str] = None,
+        stacktrace: Optional[str] = None,
     ) -> None:
-        key = f"{type}-{message}"
-        if key not in self.warnings:
+        """
+        Report a warning for the ingestion run.
+
+        Parameters
+        ----------
+        type : str
+            The WHAT: The type of the warning. This will be used for displaying the title of the warning.
+        message : str
+            The WHY: The message describing the why the warning was raised. This will used for displaying the subtitle or description of the warning.
+        context : Optional[str], optional
+            The WHERE + HOW: Additional context for the warning, by default None.
+        stacktrace : Optional[str], optional
+            Additional technical details about the failure used for debugging
+        """
+        log_key = f"{type}-{message}"
+        if log_key not in self._warnings:
             context_list: LossyList[str] = LossyList()
             if context is not None:
                 context_list.append(context)
-            self.warnings[key] = StructuredLog(
+            self._warnings[log_key] = StructuredLog(
                 level=StructuredLogLevel.WARN,
                 type=type,
                 message=message,
                 context=context_list,
+                stacktrace=stacktrace,
             )
         else:
             if context is not None:
-                self.warnings[key].context.append(context)
+                self._warnings[log_key].context.append(context)
 
-    def warning(self, type: str, message: str, context: Optional[str] = None) -> None:
-        self.report_warning(type, message, context)
+    def warning(
+        self,
+        type: str,
+        message: str,
+        context: Optional[str] = None,
+        stacktrace: Optional[str] = None,
+    ) -> None:
+        self.report_warning(type, message, context, stacktrace)
         logger.warning(f"{type} => {message}", stacklevel=2)
 
     def report_failure(
-        self, type: str, message: str, context: Optional[str] = None
+        self,
+        type: str,
+        message: str,
+        context: Optional[str] = None,
+        stacktrace: Optional[str] = None,
     ) -> None:
-        key = f"{type}-{message}"
-        if key not in self.failures:
+        """
+        Report an error for the ingestion run.
+
+        Parameters
+        ----------
+        type : str
+            The WHAT: The type of the error. This will be used for displaying the title of the error.
+        message : str
+            The WHY: The message describing the why the error was raised. This will used for displaying the subtitle or description of the error.
+        context : Optional[str], optional
+            The WHERE + HOW: Additional context for the error, by default None.
+        stacktrace : Optional[str], optional
+            Additional technical details about the failure used for debugging
+        """
+        log_key = f"{type}-{message}"
+        if log_key not in self._errors:
             context_list: LossyList[str] = LossyList()
             if context is not None:
                 context_list.append(context)
-            self.failures[key] = StructuredLog(
+            self._errors[log_key] = StructuredLog(
                 level=StructuredLogLevel.ERROR,
                 type=type,
                 message=message,
                 context=context_list,
+                stacktrace=stacktrace,
             )
         else:
             if context is not None:
-                self.failures[key].context.append(context)
+                self._errors[log_key].context.append(context)
 
-    def failure(self, type: str, message: str, context: Optional[str] = None) -> None:
-        self.report_failure(type, message, context)
+    def failure(
+        self,
+        type: str,
+        message: str,
+        context: Optional[str] = None,
+        stacktrace: Optional[str] = None,
+    ) -> None:
+        self.report_failure(type, message, context, stacktrace)
 
     def report_info(
         self, type: str, message: str, context: Optional[str] = None
     ) -> None:
-        key = f"{type}-{message}"
-        if key not in self.infos:
+        """
+        Report an info log for the ingestion run.
+
+        Parameters
+        ----------
+        type : str
+            The WHAT: The type of the info log. This will be used for displaying the title of the info log.
+        message : str
+            The WHY: The message describing the information. This will used for displaying the subtitle or description of the error.
+        context : Optional[str], optional
+            The WHERE + HOW: Additional context for the info, by default None.
+        """
+        log_key = f"{type}-{message}"
+        if log_key not in self._infos:
             context_list: LossyList[str] = LossyList()
             if context is not None:
                 context_list.append(context)
-            self.infos[key] = StructuredLog(
+            self._infos[log_key] = StructuredLog(
                 level=StructuredLogLevel.INFO,
                 type=type,
                 message=message,
@@ -203,7 +290,7 @@ class SourceReport(Report):
             )
         else:
             if context is not None:
-                self.infos[key].context.append(context)
+                self._infos[log_key].context.append(context)
 
     def info(self, type: str, message: str, context: Optional[str] = None) -> None:
         self.report_info(type, message, context)
