@@ -22,17 +22,16 @@ def get() -> None:
 @click.option("--urn", required=False, type=str)
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
 @click.option(
-    "-v",
-    "--version",
+    "--details/--no-details",
     required=False,
-    type=int,
-    default=2,
-    help="Version of get CLI to use.",
+    is_flag=True,
+    default=True,
+    help="Whether to .",
 )
 @click.pass_context
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def urn(ctx: Any, urn: Optional[str], aspect: List[str], version: int) -> None:
+def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
     """
     Get metadata for an entity with an optional list of aspects to project.
     This works for both versioned aspects and timeseries aspects. For timeseries aspects, it fetches the latest value.
@@ -48,7 +47,7 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], version: int) -> None:
     click.echo(
         json.dumps(
             get_aspects_for_entity(
-                entity_urn=urn, aspects=aspect, typed=False, version=version
+                entity_urn=urn, aspects=aspect, typed=False, details=details
             ),
             sort_keys=True,
             indent=2,
