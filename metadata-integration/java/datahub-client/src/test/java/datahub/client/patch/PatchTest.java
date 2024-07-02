@@ -758,7 +758,7 @@ public class PatchTest {
       String token = "";
       RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:8080").token(token));
       Future<MetadataWriteResponse> response = emitter.emit(mcp, null);
-            System.out.println(response.get().getResponseContent());
+      System.out.println(response.get().getResponseContent());
 
     } catch (IOException | ExecutionException | InterruptedException e) {
       System.out.println(Arrays.asList(e.getStackTrace()));
