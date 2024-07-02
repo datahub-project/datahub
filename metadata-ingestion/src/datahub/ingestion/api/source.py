@@ -227,7 +227,7 @@ class SourceReport(Report):
                 context_list.append(context)
             self._errors[log_key] = StructuredLog(
                 level=StructuredLogLevel.ERROR,
-                type=title,
+                title=title,
                 message=message,
                 context=context_list,
                 stacktrace=stacktrace,
