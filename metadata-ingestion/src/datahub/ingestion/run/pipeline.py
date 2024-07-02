@@ -23,6 +23,7 @@ from datahub.configuration.common import (
 )
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
+from datahub.ingestion.api.exception import EXCEPTION_TO_REPORT_TYPE
 from datahub.ingestion.api.global_context import set_graph_context
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.report import Report
@@ -50,7 +51,7 @@ from datahub.utilities.global_warning_util import (
     clear_global_warnings,
     get_global_warnings,
 )
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.lossy_collections import LossyDict
 
 logger = logging.getLogger(__name__)
 _REPORT_PRINT_INTERVAL_SECONDS = 60
@@ -124,7 +125,7 @@ class PipelineInitError(Exception):
 class PipelineStatus(enum.Enum):
     UNKNOWN = enum.auto()
     COMPLETED = enum.auto()
-    PIPELINE_ERROR = enum.auto()
+    ERROR = enum.auto()
     CANCELLED = enum.auto()
 
 
@@ -508,16 +509,8 @@ class Pipeline:
                 logger.error("Caught error", exc_info=e)
                 raise
             except Exception as exc:
-                self.final_status = PipelineStatus.PIPELINE_ERROR
-                logger.exception("Ingestion pipeline threw an uncaught exception")
-
-                # HACK: We'll report this as a source error, since we don't have a great place to put it.
-                # It theoretically could've come from any part of the pipeline, but usually it's from the source.
-                # This ensures that it is included in the report, and that the run is marked as failed.
-                self.source.get_report().report_failure(
-                    "pipeline_error",
-                    f"Ingestion pipeline threw an uncaught exception: {exc}",
-                )
+                self.final_status = PipelineStatus.ERROR
+                self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
 
@@ -627,7 +620,7 @@ class Pipeline:
             self.ctx.graph,
         )
 
-    def _approx_all_vals(self, d: LossyDict[str, LossyList]) -> int:
+    def _approx_all_vals(self, d: LossyDict[str, Any]) -> int:
         result = d.dropped_keys_count()
         for k in d:
             result += len(d[k])
@@ -657,7 +650,7 @@ class Pipeline:
         if (
             not workunits_produced
             and not currently_running
-            and self.final_status == PipelineStatus.PIPELINE_ERROR
+            and self.final_status == PipelineStatus.ERROR
         ):
             # If the pipeline threw an uncaught exception before doing anything, printing
             # out the report would just be annoying.
@@ -724,6 +717,18 @@ class Pipeline:
                 bold=True,
             )
             return 0
+
+    def _handle_uncaught_pipeline_exception(self, exc: Exception) -> None:
+        exception_type = type(exc)
+        if exception_type in EXCEPTION_TO_REPORT_TYPE:
+            report_type = EXCEPTION_TO_REPORT_TYPE[exception_type]
+            self.source.get_report().report_failure(report_type.value, str(exc))
+        else:
+            logger.exception("Ingestion pipeline threw an uncaught exception")
+            self.source.get_report().report_failure(
+                "pipeline_error",
+                f"Ingestion pipeline threw an uncaught exception: {exc}",
+            )
 
     def _get_structured_report(self) -> Dict[str, Any]:
         return {
