@@ -227,6 +227,17 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              type: "doc",
+              id: "docs/lineage/prefect",
+              label: "Prefect",
+            },
+
+            //"docker/airflow/local_airflow",
+            "metadata-integration/java/spark-lineage/README",
+            "metadata-ingestion/integration_docs/great-expectations",
+            "metadata-integration/java/datahub-protobuf/README",
+            //"metadata-ingestion/source-docs-template",
+            {
               "GraphQL API": [
                 "docs/managed-datahub/datahub-api/graphql-api/getting-started",
               ],
@@ -881,6 +892,7 @@ module.exports = {
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
+    //"metadata-ingestion-modules/prefect-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",
