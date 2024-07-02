@@ -14,6 +14,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.sql_parsing_builder import compute_upstream_fields
@@ -196,6 +197,7 @@ class SqlAggregatorReport(Report):
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
+    num_preparsed_queries: int = 0
     num_known_mapping_lineage: int = 0
     num_table_renames: int = 0
 
@@ -218,6 +220,7 @@ class SqlAggregatorReport(Report):
 
     # Usage-related.
     usage_skipped_missing_timestamp: int = 0
+    num_query_usage_stats_generated: int = 0
 
     def compute_stats(self) -> None:
         self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
@@ -241,6 +244,7 @@ class SqlParsingAggregator(Closeable):
         generate_lineage: bool = True,
         generate_queries: bool = True,
         generate_usage_statistics: bool = False,
+        generate_query_usage_statistics: bool = False,
         generate_operations: bool = False,
         usage_config: Optional[BaseUsageConfig] = None,
         is_temp_table: Optional[Callable[[UrnStr], bool]] = None,
@@ -254,12 +258,15 @@ class SqlParsingAggregator(Closeable):
         self.generate_lineage = generate_lineage
         self.generate_queries = generate_queries
         self.generate_usage_statistics = generate_usage_statistics
+        self.generate_query_usage_statistics = generate_query_usage_statistics
         self.generate_operations = generate_operations
         if self.generate_queries and not self.generate_lineage:
             raise ValueError("Queries will only be generated if lineage is enabled")
 
         self.usage_config = usage_config
-        if self.generate_usage_statistics and self.usage_config is None:
+        if (
+            self.generate_usage_statistics or self.generate_query_usage_statistics
+        ) and self.usage_config is None:
             raise ValueError("Usage statistics generation requires a usage config")
 
         self.report = SqlAggregatorReport(_aggregator=self)
@@ -356,6 +363,15 @@ class SqlParsingAggregator(Closeable):
             assert self.usage_config is not None
             self._usage_aggregator = UsageAggregator(config=self.usage_config)
 
+        # Query usage aggregator.
+        # Map of query ID -> { bucket -> count }
+        self._query_usage_counts: Optional[FileBackedDict[Dict[datetime, int]]] = None
+        if self.generate_query_usage_statistics:
+            self._query_usage_counts = FileBackedDict[Dict[datetime, int]](
+                shared_connection=self._shared_connection,
+                tablename="query_usage_counts",
+            )
+
     def close(self) -> None:
         self._exit_stack.close()
 
@@ -418,11 +434,15 @@ class SqlParsingAggregator(Closeable):
                 return try_format_query(query, self.platform.platform_name)
         return query
 
-    def add(self, item: Union[KnownQueryLineageInfo, KnownLineageMapping]) -> None:
+    def add(
+        self, item: Union[KnownQueryLineageInfo, KnownLineageMapping, PreparsedQuery]
+    ) -> None:
         if isinstance(item, KnownQueryLineageInfo):
             self.add_known_query_lineage(item)
         elif isinstance(item, KnownLineageMapping):
             self.add_known_lineage_mapping(item.upstream_urn, item.downstream_urn)
+        elif isinstance(item, PreparsedQuery):
+            self.add_preparsed_query(item)
         else:
             raise ValueError(f"Cannot add unknown item type: {type(item)}")
 
@@ -629,6 +649,7 @@ class SqlParsingAggregator(Closeable):
             is_known_temp_table=is_known_temp_table,
             require_out_table_schema=require_out_table_schema,
             session_has_temp_tables=session_has_temp_tables,
+            _is_internal=True,
         )
 
     def add_preparsed_query(
@@ -636,8 +657,12 @@ class SqlParsingAggregator(Closeable):
         parsed: PreparsedQuery,
         is_known_temp_table: bool = False,
         require_out_table_schema: bool = False,
-        session_has_temp_tables: bool = False,
+        session_has_temp_tables: bool = True,
+        _is_internal: bool = False,
     ) -> None:
+        if not _is_internal:
+            self.report.num_preparsed_queries += 1
+
         query_fingerprint = parsed.query_id
         if not query_fingerprint:
             query_fingerprint = get_query_fingerprint(
@@ -673,15 +698,13 @@ class SqlParsingAggregator(Closeable):
                     count=parsed.query_count,
                 )
 
-        if not parsed.downstream:
-            return
-        out_table = parsed.downstream
-
-        # Handle table renames.
-        is_renamed_table = False
-        if out_table in self._table_renames:
-            out_table = self._table_renames[out_table]
-            is_renamed_table = True
+        if self._query_usage_counts is not None and parsed.timestamp is not None:
+            assert self.usage_config is not None
+            bucket = get_time_bucket(
+                parsed.timestamp, self.usage_config.bucket_duration
+            )
+            counts = self._query_usage_counts.for_mutation(query_fingerprint, {})
+            counts[bucket] = counts.get(bucket, 0) + parsed.query_count
 
         # Register the query.
         self._add_to_query_map(
@@ -699,6 +722,16 @@ class SqlParsingAggregator(Closeable):
                 used_temp_tables=session_has_temp_tables,
             )
         )
+
+        if not parsed.downstream:
+            return
+        out_table = parsed.downstream
+
+        # Handle table renames.
+        is_renamed_table = False
+        if out_table in self._table_renames:
+            out_table = self._table_renames[out_table]
+            is_renamed_table = True
 
         # Register the query's lineage.
         if (
@@ -913,13 +946,16 @@ class SqlParsingAggregator(Closeable):
             self._query_map[query_fingerprint] = new
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
-        # diff from v1 - we generate operations here, and it also
-        # generates MCPWs instead of workunits
-        yield from self._gen_lineage_mcps()
+        queries_generated: Set[QueryId] = set()
+
+        yield from self._gen_lineage_mcps(queries_generated)
+        yield from self._gen_remaining_queries(queries_generated)
         yield from self._gen_usage_statistics_mcps()
         yield from self._gen_operation_mcps()
 
-    def _gen_lineage_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def _gen_lineage_mcps(
+        self, queries_generated: Set[QueryId]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         if not self.generate_lineage:
             return
 
@@ -931,7 +967,6 @@ class SqlParsingAggregator(Closeable):
         self._view_definitions.clear()
 
         # Generate lineage and queries.
-        queries_generated: Set[QueryId] = set()
         for downstream_urn in sorted(self._lineage_map):
             yield from self._gen_lineage_for_downstream(
                 downstream_urn, queries_generated=queries_generated
@@ -1058,41 +1093,13 @@ class SqlParsingAggregator(Closeable):
         )
 
         for query_id in required_queries:
-            if not self.can_generate_query(query_id):
-                continue
-
             # Avoid generating the same query twice.
             if query_id in queries_generated:
                 continue
             queries_generated.add(query_id)
-            self.report.num_queries_entities_generated += 1
 
             query = queries_map[query_id]
-            yield from MetadataChangeProposalWrapper.construct_many(
-                entityUrn=self._query_urn(query_id),
-                aspects=[
-                    models.QueryPropertiesClass(
-                        statement=models.QueryStatementClass(
-                            value=query.formatted_query_string,
-                            language=models.QueryLanguageClass.SQL,
-                        ),
-                        source=models.QuerySourceClass.SYSTEM,
-                        created=query.make_created_audit_stamp(),
-                        lastModified=query.make_last_modified_audit_stamp(),
-                    ),
-                    models.QuerySubjectsClass(
-                        subjects=[
-                            models.QuerySubjectClass(entity=dataset_urn)
-                            for dataset_urn in itertools.chain(
-                                [downstream_urn], query.upstreams
-                            )
-                        ]
-                    ),
-                    models.DataPlatformInstanceClass(
-                        platform=self.platform.urn(),
-                    ),
-                ],
-            )
+            yield from self._gen_query(query, downstream_urn)
 
     @classmethod
     def _query_urn(cls, query_id: QueryId) -> str:
@@ -1118,8 +1125,92 @@ class SqlParsingAggregator(Closeable):
         # never conflict with a real query fingerprint.
         return query_id.startswith("known_")
 
+    def _gen_remaining_queries(
+        self, queries_generated: Set[QueryId]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        if not self.generate_queries or not self.generate_query_usage_statistics:
+            return
+
+        for query_id in self._query_usage_counts:
+            if query_id in queries_generated:
+                continue
+            queries_generated.add(query_id)
+
+            yield from self._gen_query(self._query_map[query_id])
+
     def can_generate_query(self, query_id: QueryId) -> bool:
         return self.generate_queries and not self._is_known_lineage_query_id(query_id)
+
+    def _gen_query(
+        self, query: QueryMetadata, downstream_urn: Optional[str] = None
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        query_id = query.query_id
+        if not self.can_generate_query(query_id):
+            return
+
+        yield from MetadataChangeProposalWrapper.construct_many(
+            entityUrn=self._query_urn(query_id),
+            aspects=[
+                models.QueryPropertiesClass(
+                    statement=models.QueryStatementClass(
+                        value=query.formatted_query_string,
+                        language=models.QueryLanguageClass.SQL,
+                    ),
+                    source=models.QuerySourceClass.SYSTEM,
+                    created=query.make_created_audit_stamp(),
+                    lastModified=query.make_last_modified_audit_stamp(),
+                ),
+                models.QuerySubjectsClass(
+                    subjects=[
+                        models.QuerySubjectClass(entity=dataset_urn)
+                        for dataset_urn in itertools.chain(
+                            [downstream_urn], query.upstreams
+                        )
+                    ]
+                ),
+                models.DataPlatformInstanceClass(
+                    platform=self.platform.urn(),
+                ),
+            ],
+        )
+        self.report.num_queries_entities_generated += 1
+
+        if self._query_usage_counts is not None:
+            assert self.usage_config is not None
+
+            # This is slightly lossy, since we only store one unique
+            # user per query instead of tracking all of them.
+            # We also lose information because we don't keep track
+            # of users / lastExecutedAt timestamps per bucket.
+            user = query.actor
+
+            query_counter = self._query_usage_counts.get(query_id)
+            if not query_counter:
+                return
+            for bucket in self.usage_config.buckets():
+                count = query_counter.get(bucket)
+                if not count:
+                    continue
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=self._query_urn(query_id),
+                    aspect=models.QueryUsageStatisticsClass(
+                        timestampMillis=make_ts_millis(bucket),
+                        eventGranularity=models.TimeWindowSizeClass(
+                            unit=self.usage_config.bucket_duration, multiple=1
+                        ),
+                        queryCount=count,
+                        uniqueUserCount=1,
+                        userCounts=[
+                            models.DatasetUserUsageCountsClass(
+                                user=user.urn(),
+                                count=count,
+                            )
+                        ],
+                    ),
+                )
+
+            self.report.num_query_usage_stats_generated += 1
 
     def _resolve_query_with_temp_tables(
         self,

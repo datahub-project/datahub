@@ -504,6 +504,7 @@ entities:
     aspects:
       - queryProperties
       - querySubjects
+      - queryUsageStatistics
       - status
       - dataPlatformInstance
       - subTypes
