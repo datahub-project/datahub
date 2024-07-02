@@ -239,6 +239,8 @@ class DataHubRestEmitter(Closeable, Emitter):
             system_metadata_obj = {
                 "lastObserved": mce.systemMetadata.lastObserved,
                 "runId": mce.systemMetadata.runId,
+                "clientId": mce.systemMetadata.clientId,
+                "clientVersion": mce.systemMetadata.clientVersion,
             }
         snapshot = {
             "entity": {"value": {snapshot_fqn: mce_obj}},
