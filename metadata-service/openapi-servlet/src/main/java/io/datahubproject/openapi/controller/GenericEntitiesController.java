@@ -149,8 +149,7 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "skipCache", required = false, defaultValue = "false")
           Boolean skipCache,
       @RequestParam(value = "includeSoftDeleted", required = false, defaultValue = "false")
-      Boolean includeSoftDeleted
-      )
+          Boolean includeSoftDeleted)
       throws URISyntaxException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
