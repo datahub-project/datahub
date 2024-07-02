@@ -115,6 +115,12 @@
 		"storybook": "storybook dev -p 6006",
 		"build-storybook": "storybook build"
 	},
+	"lint-staged": {
+		"*/**/*.{ts,tsx}": [
+			"yarn lint-fix",
+			"yarn format"
+		]
+	},
 	"browserslist": {
 		"production": [
 			">0.2%",
@@ -159,8 +165,10 @@
 		"eslint-plugin-react-hooks": "^4.3.0",
 		"eslint-plugin-react-refresh": "^0.4.6",
 		"eslint-plugin-vitest": "^0.3.17",
+		"husky": "^9.0.11",
 		"jsdom": "^22.1.0",
 		"less": "^4.2.0",
+		"lint-staged": "^15.2.7",
 		"prettier": "^2.8.8",
 		"source-map-explorer": "^2.5.2",
 		"storybook": "^8.1.10",

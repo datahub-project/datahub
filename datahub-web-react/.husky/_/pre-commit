@@ -1,0 +1,6 @@
+# run husky pre-commit hook only if datahub-web-react changed
+if git diff --name-only --cached | grep 'datahub-web-react/';
+  then
+    cd datahub-web-react/ &&
+    yarn run lint-staged;
+fi
