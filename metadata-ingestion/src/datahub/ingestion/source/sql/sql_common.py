@@ -21,7 +21,8 @@ from typing import (
 )
 
 import sqlalchemy.dialects.postgresql.base
-from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
+from sqlalchemy import create_engine, inspect, log as sqlalchemy_log, util
+from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
 from sqlalchemy.exc import ProgrammingError
@@ -130,6 +131,29 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 MISSING_COLUMN_INFO = "missing column information"
+SQLALCHEMY_CACHE_MAX_SIZE = 1024
+
+
+@util.decorator
+def cache(fn, self, con, *args, **kw):
+    info_cache = kw.get("info_cache", None)
+    if info_cache is None:
+        return fn(self, con, *args, **kw)
+    key = (
+        fn.__name__,
+        tuple(a for a in args if isinstance(a, util.string_types)),
+        tuple((k, v) for k, v in kw.items() if k != "info_cache"),
+    )
+    ret = info_cache.get(key)
+    if ret is None:
+        ret = fn(self, con, *args, **kw)
+        info_cache[key] = ret
+        if len(info_cache) > SQLALCHEMY_CACHE_MAX_SIZE:
+            info_cache.pop(next(iter(info_cache)))
+    else:
+        info_cache[key] = info_cache.pop(key)
+
+    return ret
 
 
 @dataclass
@@ -326,6 +350,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
     def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
+        # Patch sqlalchemy inspector memory leak
+        reflection.cache = cache
         super().__init__(config, ctx)
         self.config = config
         self.platform = platform
