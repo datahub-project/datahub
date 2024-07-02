@@ -57,6 +57,8 @@ public class OpenAPIV3Generator {
   private static final String ASPECT_RESPONSE_SUFFIX = "Aspect" + RESPONSE_SUFFIX;
   private static final String ENTITY_REQUEST_SUFFIX = "Entity" + REQUEST_SUFFIX;
   private static final String ENTITY_RESPONSE_SUFFIX = "Entity" + RESPONSE_SUFFIX;
+  private static final String SKIP_CACHE = "skipCache";
+  private static final String INCLUDE_DELETED = "includeDeleted";
 
   public static OpenAPI generateOpenApiSpec(EntityRegistry entityRegistry) {
     final Set<String> aspectNames = entityRegistry.getAspectSpecs().keySet();
@@ -249,8 +251,18 @@ public class OpenAPIV3Generator {
         List.of(
             new Parameter()
                 .in(NAME_QUERY)
-                .name("systemMetadata")
+                .name(NAME_SYSTEM_METADATA)
                 .description("Include systemMetadata with response.")
+                .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(INCLUDE_DELETED)
+                .description("Include soft-deleted aspects with response.")
+                .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(SKIP_CACHE)
+                .description("Skip cache when listing entities.")
                 .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter()
                 .$ref(
