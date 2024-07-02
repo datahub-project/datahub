@@ -50,6 +50,7 @@ def get_default_recipe(output_file_path, base_folder_path):
                 "project_name": "lkml_samples",
                 "model_pattern": {"deny": ["data2"]},
                 "emit_reachable_views_only": False,
+                "liquid_variable": {"order_region": "ap-south-1"},
             },
         },
         "sink": {
@@ -492,6 +493,9 @@ def ingestion_test(
                         "model_pattern": {"deny": ["data2"]},
                         "emit_reachable_views_only": False,
                         "process_refinements": False,
+                        "liquid_variable": {
+                            "order_region": "ap-south-1",
+                        },
                     },
                 },
                 "sink": {
