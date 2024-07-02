@@ -1258,10 +1258,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 logger.debug(f"{dataset_name} has already been seen, skipping...")
                 continue
 
-            missing_column_info_warn = self.report.warnings.get(MISSING_COLUMN_INFO)
+            missing_column_info_warn = self.report._warnings.get(MISSING_COLUMN_INFO)
             if (
                 missing_column_info_warn is not None
-                and dataset_name in missing_column_info_warn
+                and dataset_name in missing_column_info_warn.context
             ):
                 continue
 

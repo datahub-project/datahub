@@ -23,7 +23,6 @@ from datahub.configuration.common import (
 )
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
-from datahub.ingestion.api.exception import EXCEPTION_TO_REPORT_TYPE
 from datahub.ingestion.api.global_context import set_graph_context
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.report import Report
@@ -51,7 +50,7 @@ from datahub.utilities.global_warning_util import (
     clear_global_warnings,
     get_global_warnings,
 )
-from datahub.utilities.lossy_collections import LossyDict
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 _REPORT_PRINT_INTERVAL_SECONDS = 60
@@ -620,11 +619,8 @@ class Pipeline:
             self.ctx.graph,
         )
 
-    def _approx_all_vals(self, d: LossyDict[str, Any]) -> int:
-        result = d.dropped_keys_count()
-        for k in d:
-            result += len(d[k])
-        return result
+    def _approx_all_vals(self, d: LossyList[Any]) -> int:
+        return d.total_elements
 
     def _get_text_color(self, running: bool, failures: bool, warnings: bool) -> str:
         if running:
@@ -719,16 +715,11 @@ class Pipeline:
             return 0
 
     def _handle_uncaught_pipeline_exception(self, exc: Exception) -> None:
-        exception_type = type(exc)
-        if exception_type in EXCEPTION_TO_REPORT_TYPE:
-            report_type = EXCEPTION_TO_REPORT_TYPE[exception_type]
-            self.source.get_report().report_failure(report_type.value, str(exc))
-        else:
-            logger.exception("Ingestion pipeline threw an uncaught exception")
-            self.source.get_report().report_failure(
-                "pipeline_error",
-                f"Ingestion pipeline threw an uncaught exception: {exc}",
-            )
+        logger.exception("Ingestion pipeline threw an uncaught exception")
+        self.source.get_report().report_failure(
+            "pipeline_error",
+            f"Ingestion pipeline threw an uncaught exception: {exc}",
+        )
 
     def _get_structured_report(self) -> Dict[str, Any]:
         return {

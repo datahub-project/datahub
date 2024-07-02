@@ -74,7 +74,7 @@ def test_snowflake_missing_role_access_causes_pipeline_failure(
 
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert "permission-error" in pipeline.source.get_report().failures.keys()
+        assert "permission-error" in pipeline.source.get_report()._errors.keys()
 
 
 @freeze_time(FROZEN_TIME)
@@ -96,7 +96,7 @@ def test_snowflake_missing_warehouse_access_causes_pipeline_failure(
         )
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert "permission-error" in pipeline.source.get_report().failures.keys()
+        assert "permission-error" in pipeline.source.get_report()._errors.keys()
 
 
 @freeze_time(FROZEN_TIME)
@@ -118,7 +118,7 @@ def test_snowflake_no_databases_with_access_causes_pipeline_failure(
         )
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert "permission-error" in pipeline.source.get_report().failures.keys()
+        assert "permission-error" in pipeline.source.get_report()._errors.keys()
 
 
 @freeze_time(FROZEN_TIME)
@@ -146,7 +146,7 @@ def test_snowflake_no_tables_causes_pipeline_failure(
 
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert "permission-error" in pipeline.source.get_report().failures.keys()
+        assert "permission-error" in pipeline.source.get_report()._errors.keys()
 
 
 @freeze_time(FROZEN_TIME)
@@ -173,7 +173,7 @@ def test_snowflake_list_columns_error_causes_pipeline_warning(
         pipeline.raise_from_status()  # pipeline should not fail
         assert (
             "Failed to get columns for table"
-            in pipeline.source.get_report().warnings.keys()
+            in pipeline.source.get_report()._warnings.keys()
         )
 
 
@@ -199,7 +199,7 @@ def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
         pipeline.raise_from_status()  # pipeline should not fail
         assert (
             "Failed to get primary key for table"
-            in pipeline.source.get_report().warnings.keys()
+            in pipeline.source.get_report()._warnings.keys()
         )
 
 
@@ -229,9 +229,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
         )
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert (
-            "lineage-permission-error" in pipeline.source.get_report().failures.keys()
-        )
+        assert "lineage-permission-error" in pipeline.source.get_report()._errors.keys()
 
 
 @freeze_time(FROZEN_TIME)
@@ -253,4 +251,4 @@ def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failu
         )
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert "usage-permission-error" in pipeline.source.get_report().failures.keys()
+        assert "usage-permission-error" in pipeline.source.get_report()._errors.keys()
