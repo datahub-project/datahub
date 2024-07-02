@@ -476,7 +476,7 @@ def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
 
 def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
     return GlobalTagsClass(
-        tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
+        tags=[TagAssociationClass(make_tag_urn(tag)) for tag in tags]
     )
 
 
