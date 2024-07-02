@@ -1,14 +1,13 @@
 from enum import Enum
 
-"""
-A standardized set of human-readable log message types that will be displayed to the user
-along with the log message.
-
-It is recommended to reuse this across sources for bubbling up standardized errors to the user.
-"""
-
 
 class StructuredReportLogType(Enum):
+    """
+    A standardized set of human-readable log message types that will be displayed to the user
+    along with the log message.
+
+    It is recommended to reuse this across sources for bubbling up standardized errors to the user.
+    """
     SCAN_UNAUTHORIZED = "Scan Unauthorized"
     LINEAGE_UNAUTHORIZED = "Lineage Unauthorized"
     USAGE_UNAUTHORIZED = "Usage Unauthorized"
