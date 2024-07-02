@@ -80,7 +80,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
-    Status, DataPlatformInstance,
+    DataPlatformInstance,
+    Status,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
@@ -620,13 +621,23 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if include_current_folder:
             yield BrowsePathEntryClass(id=urn, urn=urn)
 
-    def _add_platform_instance_aspect(self, urn: str, proposals: List[MetadataChangeProposalWrapper]) -> None:
+    def _add_platform_instance_aspect(
+        self,
+        urn: str,
+        proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
+    ) -> None:
         if self.source_config.include_looker_element_in_platform_instance:
+
+            assert self.source_config.platform_name
+            assert self.source_config.platform_instance
+
             proposals.append(
                 MetadataChangeProposalWrapper(
                     entityUrn=urn,
                     aspect=DataPlatformInstance(
-                        platform=builder.make_data_platform_urn(self.source_config.platform_name),
+                        platform=builder.make_data_platform_urn(
+                            self.source_config.platform_name
+                        ),
                         instance=builder.make_dataplatform_instance_urn(
                             platform=self.source_config.platform_name,
                             instance=self.source_config.platform_instance,
