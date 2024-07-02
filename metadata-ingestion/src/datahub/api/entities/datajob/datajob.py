@@ -111,6 +111,7 @@ class DataJob:
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
+                env=self.flow_urn.cluster,
             ),
         )
         yield mcp

@@ -120,6 +120,7 @@ class DataFlow:
                         description=self.description,
                         customProperties=self.properties,
                         externalUrl=self.url,
+                        env=self.cluster,
                     ),
                     *self.generate_ownership_aspect(),
                     *self.generate_tags_aspect(),
