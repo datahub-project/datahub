@@ -30,7 +30,7 @@ from datahub.metadata.urns import (
     SchemaFieldUrn,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverInterface
-from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -132,6 +132,37 @@ class KnownQueryLineageInfo:
     timestamp: Optional[datetime] = None
     session_id: Optional[str] = None
     query_type: QueryType = QueryType.UNKNOWN
+
+
+@dataclasses.dataclass
+class KnownLineageMapping:
+    upstream_urn: UrnStr
+    downstream_urn: UrnStr
+    lineage_type: str = models.DatasetLineageTypeClass.COPY
+
+
+@dataclasses.dataclass
+class PreparsedQuery:
+    # If not provided, we will generate one using the fast fingerprint generator.
+    query_id: Optional[QueryId]
+
+    query_text: str
+
+    upstreams: List[UrnStr]
+    downstream: Optional[UrnStr] = None
+    column_lineage: Optional[List[ColumnLineageInfo]] = None
+    column_usage: Optional[Dict[UrnStr, Set[UrnStr]]] = None
+    inferred_schema: Optional[List[models.SchemaFieldClass]] = None
+    confidence_score: float = 1.0
+
+    query_count: int = 1
+    user: Optional[CorpUserUrn] = None
+    timestamp: Optional[datetime] = None
+    session_id: str = _MISSING_SESSION_ID
+    query_type: QueryType = QueryType.UNKNOWN
+    query_type_props: QueryTypeProps = dataclasses.field(
+        default_factory=lambda: QueryTypeProps()
+    )
 
 
 @dataclasses.dataclass
@@ -387,6 +418,14 @@ class SqlParsingAggregator(Closeable):
                 return try_format_query(query, self.platform.platform_name)
         return query
 
+    def add(self, item: Union[KnownQueryLineageInfo, KnownLineageMapping]) -> None:
+        if isinstance(item, KnownQueryLineageInfo):
+            self.add_known_query_lineage(item)
+        elif isinstance(item, KnownLineageMapping):
+            self.add_known_lineage_mapping(item.upstream_urn, item.downstream_urn)
+        else:
+            raise ValueError(f"Cannot add unknown item type: {type(item)}")
+
     def add_known_query_lineage(
         self, known_query_lineage: KnownQueryLineageInfo, merge_lineage: bool = False
     ) -> None:
@@ -567,18 +606,57 @@ class SqlParsingAggregator(Closeable):
         elif parsed.debug_info.column_error:
             self.report.num_observed_queries_column_failed += 1
 
+        query_fingerprint = parsed.query_fingerprint
+
+        self.add_preparsed_query(
+            PreparsedQuery(
+                query_id=query_fingerprint,
+                query_text=query,
+                query_count=usage_multiplier,
+                timestamp=query_timestamp,
+                user=user,
+                session_id=session_id,
+                query_type=parsed.query_type,
+                query_type_props=parsed.query_type_props,
+                upstreams=parsed.in_tables,
+                downstream=parsed.out_tables[0] if parsed.out_tables else None,
+                column_lineage=parsed.column_lineage,
+                # TODO: We need a full list of columns referenced, not just the out tables.
+                column_usage=compute_upstream_fields(parsed),
+                inferred_schema=infer_output_schema(parsed),
+                confidence_score=parsed.debug_info.confidence,
+            ),
+            is_known_temp_table=is_known_temp_table,
+            require_out_table_schema=require_out_table_schema,
+            session_has_temp_tables=session_has_temp_tables,
+        )
+
+    def add_preparsed_query(
+        self,
+        parsed: PreparsedQuery,
+        is_known_temp_table: bool = False,
+        require_out_table_schema: bool = False,
+        session_has_temp_tables: bool = False,
+    ) -> None:
+        query_fingerprint = parsed.query_id
+        if not query_fingerprint:
+            query_fingerprint = get_query_fingerprint(
+                parsed.query_text,
+                platform=self.platform.platform_name,
+                fast=True,
+            )
+
         # Format the query.
-        formatted_query = self._maybe_format_query(query)
+        formatted_query = self._maybe_format_query(parsed.query_text)
 
         # Register the query's usage.
         if not self._usage_aggregator:
             pass  # usage is not enabled
-        elif query_timestamp is None:
+        elif parsed.timestamp is None:
             self.report.usage_skipped_missing_timestamp += 1
         else:
-            # TODO: We need a full list of columns referenced, not just the out tables.
-            upstream_fields = compute_upstream_fields(parsed)
-            for upstream_urn in parsed.in_tables:
+            upstream_fields = parsed.column_usage or {}
+            for upstream_urn in parsed.upstreams:
                 # If the upstream table is a temp table, don't log usage for it.
                 if (self.is_temp_table and self.is_temp_table(upstream_urn)) or (
                     require_out_table_schema
@@ -588,18 +666,16 @@ class SqlParsingAggregator(Closeable):
 
                 self._usage_aggregator.aggregate_event(
                     resource=upstream_urn,
-                    start_time=query_timestamp,
+                    start_time=parsed.timestamp,
                     query=formatted_query,
-                    user=user.urn() if user else None,
+                    user=parsed.user.urn() if parsed.user else None,
                     fields=sorted(upstream_fields.get(upstream_urn, [])),
-                    count=usage_multiplier,
+                    count=parsed.query_count,
                 )
 
-        if not parsed.out_tables:
+        if not parsed.downstream:
             return
-        out_table = parsed.out_tables[0]
-        query_fingerprint = parsed.query_fingerprint
-        assert query_fingerprint is not None
+        out_table = parsed.downstream
 
         # Handle table renames.
         is_renamed_table = False
@@ -612,14 +688,14 @@ class SqlParsingAggregator(Closeable):
             QueryMetadata(
                 query_id=query_fingerprint,
                 formatted_query_string=formatted_query,
-                session_id=session_id,
+                session_id=parsed.session_id,
                 query_type=parsed.query_type,
                 lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
-                latest_timestamp=query_timestamp,
-                actor=user,
-                upstreams=parsed.in_tables,
+                latest_timestamp=parsed.timestamp,
+                actor=parsed.user,
+                upstreams=parsed.upstreams,
                 column_lineage=parsed.column_lineage or [],
-                confidence_score=parsed.debug_info.confidence,
+                confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
             )
         )
@@ -643,12 +719,11 @@ class SqlParsingAggregator(Closeable):
             )
         ):
             # Infer the schema of the output table and track it for later.
-            inferred_schema = infer_output_schema(parsed)
-            if inferred_schema is not None:
-                self._inferred_temp_schemas[query_fingerprint] = inferred_schema
+            if parsed.inferred_schema is not None:
+                self._inferred_temp_schemas[query_fingerprint] = parsed.inferred_schema
 
             # Also track the lineage for the temp table, for merging purposes later.
-            self._temp_lineage_map.for_mutation(session_id, {})[
+            self._temp_lineage_map.for_mutation(parsed.session_id, {})[
                 out_table
             ] = query_fingerprint
 
