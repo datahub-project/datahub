@@ -59,6 +59,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
+import com.linkedin.datahub.graphql.generated.Deprecation;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
@@ -785,6 +786,7 @@ public class GmsGraphQLEngine {
     configureBusinessAttributeResolver(builder);
     configureBusinessAttributeAssociationResolver(builder);
     configureConnectionResolvers(builder);
+    configureDeprecationResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -3149,5 +3151,15 @@ public class GmsGraphQLEngine {
                           ? connection.getPlatform().getUrn()
                           : null;
                     })));
+  }
+
+  private void configureDeprecationResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Deprecation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "actorEntity",
+                new EntityTypeResolver(
+                    entityTypes, (env) -> ((Deprecation) env.getSource()).getActorEntity())));
   }
 }
