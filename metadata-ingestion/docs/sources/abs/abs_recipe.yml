@@ -1,0 +1,13 @@
+source:
+  type: abs
+  config:
+    path_specs:
+      - include: "https://storageaccountname.blob.core.windows.net/covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
+
+    azure_config:
+      account_name: "*****"
+      sas_token: "*****"
+      container_name: "covid_knowledge_graph"
+    env: "PROD"
+
+# sink configs
