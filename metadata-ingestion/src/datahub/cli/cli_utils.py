@@ -16,15 +16,15 @@ from requests.sessions import Session
 import datahub
 from datahub.cli import config_utils
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.metadata.schema_classes import _Aspect
-from datahub.utilities.urns.urn import Urn, guess_entity_type
-from datahub.metadata.schema_classes import SystemMetadataClass
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.metadata.schema_classes import SystemMetadataClass, _Aspect
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
 
@@ -691,14 +691,16 @@ def generate_access_token(
     )
 
 
-def ensure_mce_has_system_metadata(mce: MetadataChangeEvent):
+def ensure_mce_has_system_metadata(mce: MetadataChangeEvent) -> None:
     if not mce.systemMetadata:
         mce.systemMetadata = SystemMetadataClass()
     mce.systemMetadata.clientId = datahub.__package_name__
     mce.systemMetadata.clientVersion = datahub.__version__
 
 
-def ensure_mcp_has_system_metadata(mcp: MetadataChangeProposal):
+def ensure_mcp_has_system_metadata(
+    mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+) -> None:
     if not mcp.systemMetadata:
         mcp.systemMetadata = SystemMetadataClass()
     mcp.systemMetadata.clientId = datahub.__package_name__

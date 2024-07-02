@@ -146,6 +146,16 @@
                 },
                 "doc" : "Additional properties",
                 "optional" : true
+              }, {
+                "name" : "clientId",
+                "type" : "string",
+                "doc" : "The client id that produced the metadata.",
+                "optional" : true
+              }, {
+                "name" : "clientVersion",
+                "type" : "string",
+                "doc" : "The client version that produced the metadata.",
+                "optional" : true
               } ]
             },
             "doc" : "The system metadata for this aspect\n",
