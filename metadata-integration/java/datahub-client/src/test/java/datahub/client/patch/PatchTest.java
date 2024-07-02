@@ -20,6 +20,9 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.dataset.DatasetLineageType;
+import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormPromptType;
+import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.aspect.patch.builder.ChartInfoPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.DashboardInfoPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.DataFlowInfoPatchBuilder;
@@ -27,6 +30,7 @@ import com.linkedin.metadata.aspect.patch.builder.DataJobInfoPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableSchemaMetadataPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.FormInfoPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.OwnershipPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.StructuredPropertyDefinitionPatchBuilder;
@@ -44,6 +48,7 @@ import datahub.client.rest.RestEmitterConfig;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import org.junit.Ignore;
@@ -693,7 +698,50 @@ public class PatchTest {
   }
 
   @Test
-  //  @Ignore
+  @Ignore
+  public void testLocalFormInfoAdd() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      FormPrompt newPrompt =
+          new FormPrompt()
+              .setId("1234")
+              .setTitle("First Prompt")
+              .setType(FormPromptType.STRUCTURED_PROPERTY)
+              .setRequired(true)
+              .setStructuredPropertyParams(
+                  new StructuredPropertyParams()
+                      .setUrn(UrnUtils.getUrn("urn:li:structuredProperty:property1")));
+      FormPrompt newPrompt2 =
+          new FormPrompt()
+              .setId("abcd")
+              .setTitle("Second Prompt")
+              .setType(FormPromptType.FIELDS_STRUCTURED_PROPERTY)
+              .setRequired(false)
+              .setStructuredPropertyParams(
+                  new StructuredPropertyParams()
+                      .setUrn(UrnUtils.getUrn("urn:li:structuredProperty:property1")));
+
+      MetadataChangeProposal formInfoPatch =
+          new FormInfoPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:form:123456"))
+              .addPrompts(List.of(newPrompt, newPrompt2))
+              .setName("Metadata Initiative 2024 (edited)")
+              .setDescription("Edited description")
+              .setOwnershipForm(true)
+              .addAssignedUser("urn:li:corpuser:admin")
+              .addAssignedGroup("urn:li:corpGroup:jdoe")
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(formInfoPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
   public void testLocalStructuredPropertiesUpdate() {
     try {
       MetadataChangeProposal mcp =
@@ -710,6 +758,29 @@ public class PatchTest {
       String token = "";
       RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:8080").token(token));
       Future<MetadataWriteResponse> response = emitter.emit(mcp, null);
+            System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalFormInfoRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal formInfoPatch =
+          new FormInfoPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:form:123456"))
+              .removePrompts(List.of("1234", "abcd"))
+              .setName("Metadata Initiative 2024 (edited - again)")
+              .setDescription(null)
+              .removeAssignedUser("urn:li:corpuser:admin")
+              .removeAssignedGroup("urn:li:corpGroup:jdoe")
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(formInfoPatch);
+
       System.out.println(response.get().getResponseContent());
 
     } catch (IOException | ExecutionException | InterruptedException e) {
