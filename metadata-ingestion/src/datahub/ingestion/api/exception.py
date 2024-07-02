@@ -8,6 +8,7 @@ class StructuredReportLogType(Enum):
 
     It is recommended to reuse this across sources for bubbling up standardized errors to the user.
     """
+
     SCAN_UNAUTHORIZED = "Scan Unauthorized"
     LINEAGE_UNAUTHORIZED = "Lineage Unauthorized"
     USAGE_UNAUTHORIZED = "Usage Unauthorized"

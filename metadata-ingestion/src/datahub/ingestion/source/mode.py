@@ -311,8 +311,8 @@ class ModeSource(StatefulIngestionSourceBase):
             self._get_request_json(f"{self.config.connect_uri}/api/verify")
         except HTTPError as http_error:
             self.report.report_failure(
-                key="mode-session",
-                reason=f"Unable to verify connection. Error was: {str(http_error)}",
+                type="Unable to Verify Connection",
+                message=f"Unable to verify connection. Error was: {str(http_error)}",
             )
 
         self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
@@ -371,15 +371,15 @@ class ModeSource(StatefulIngestionSourceBase):
 
         if not report_token:
             self.report.report_warning(
-                key="mode-report",
-                reason=f"Report token is missing for {report_info.get('id', '')}",
+                type="Missing Report Token",
+                message=f"Report token is missing for {report_info.get('id', '')}",
             )
             return None
 
         if not report_info.get("id"):
             self.report.report_warning(
-                key="mode-report",
-                reason=f"Report id is missing for {report_info.get('token', '')}",
+                type="Missing Report ID",
+                message=f"Report id is missing for {report_info.get('token', '')}",
             )
             return None
 
@@ -488,9 +488,9 @@ class ModeSource(StatefulIngestionSourceBase):
             )
         except HTTPError as http_error:
             self.report.report_warning(
-                key="mode-user",
-                reason=f"Unable to retrieve user for {href}, "
-                f"Reason: {str(http_error)}",
+                type="Failed to retrieve Mode creator",
+                message=f"Unable to retrieve user for {href}",
+                context=f"Reason: {str(http_error)}",
             )
         return user
 
@@ -528,8 +528,8 @@ class ModeSource(StatefulIngestionSourceBase):
                 space_info[s.get("token", "")] = s.get("name", "")
         except HTTPError as http_error:
             self.report.report_failure(
-                key="mode-spaces",
-                reason=f"Unable to retrieve spaces/collections for {self.workspace_uri}, "
+                type="Unable to Retrieve Spaces for Workspace",
+                message=f"Unable to retrieve spaces/collections for {self.workspace_uri}, "
                 f"Reason: {str(http_error)}",
             )
 
@@ -560,16 +560,16 @@ class ModeSource(StatefulIngestionSourceBase):
         }
         if not display_type:
             self.report.report_warning(
-                key="mode-chart-type-mapper",
-                reason=f"{token}: Chart type is missing. Setting to None",
+                type="Unrecognized chart type found",
+                message=f"{token}: Chart type is missing. Setting to None",
             )
             return None
         try:
             chart_type = type_mapping[display_type]
         except KeyError:
             self.report.report_warning(
-                key="mode-chart-type-mapper",
-                reason=f"{token}: Chart type {display_type} not supported. Setting to None",
+                type="Unrecognized chart type found",
+                message=f"{token}: Chart type {display_type} not supported. Setting to None",
             )
             chart_type = None
 
@@ -661,8 +661,8 @@ class ModeSource(StatefulIngestionSourceBase):
             return platform_mapping[adapter]
         else:
             self.report.report_warning(
-                key=f"mode-platform-{adapter}",
-                reason=f"Platform was not found in DataHub. "
+                type="Unrecognized Platform Found",
+                message=f"Platform was not found in DataHub. "
                 f"Using {platform} name as is",
             )
 
@@ -676,8 +676,8 @@ class ModeSource(StatefulIngestionSourceBase):
             data_sources = ds_json.get("_embedded", {}).get("data_sources", [])
         except HTTPError as http_error:
             self.report.report_failure(
-                key="mode-data-sources",
-                reason=f"Unable to retrieve data sources. Reason: {str(http_error)}",
+                type="Unable to retrieve Data Sources",
+                message=f"Unable to retrieve data sources. Reason: {str(http_error)}",
             )
 
         return data_sources
@@ -690,8 +690,9 @@ class ModeSource(StatefulIngestionSourceBase):
 
         if not data_sources:
             self.report.report_failure(
-                key=f"mode-datasource-{data_source_id}",
-                reason=f"No data sources found for datasource id: " f"{data_source_id}",
+                type="No Data Sources Found",
+                message=f"No data sources found for datasource id: "
+                f"{data_source_id}",
             )
             return None, None
 
@@ -704,8 +705,8 @@ class ModeSource(StatefulIngestionSourceBase):
                 return platform, database
         else:
             self.report.report_warning(
-                key=f"mode-datasource-{data_source_id}",
-                reason=f"Cannot create datasource urn for datasource id: "
+                type="Failed to create Data Platform Urn",
+                message=f"Cannot create datasource urn for datasource id: "
                 f"{data_source_id}",
             )
         return None, None
@@ -761,8 +762,8 @@ class ModeSource(StatefulIngestionSourceBase):
 
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-definition-{definition_name}",
-                reason=f"Unable to retrieve definition for {definition_name}, "
+                type="Unable to Retrieve Definition",
+                message=f"Unable to retrieve definition for {definition_name}, "
                 f"Reason: {str(http_error)}",
             )
         return None
@@ -782,8 +783,8 @@ class ModeSource(StatefulIngestionSourceBase):
                 source_paths.add(f"{source_schema}.{source_table}")
         except Exception as e:
             self.report.report_failure(
-                key="mode-query",
-                reason=f"Unable to retrieve lineage from query. "
+                type="Unable to Extract Lineage From Query",
+                message=f"Unable to retrieve lineage from query. "
                 f"Query: {raw_query} "
                 f"Reason: {str(e)} ",
             )
@@ -1321,8 +1322,8 @@ class ModeSource(StatefulIngestionSourceBase):
             reports = reports_json.get("_embedded", {}).get("reports", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-report-{space_token}",
-                reason=f"Unable to retrieve reports for space token: {space_token}, "
+                type="Unable to Retrieve Reports for Space",
+                message=f"Unable to retrieve reports for space token: {space_token}, "
                 f"Reason: {str(http_error)}",
             )
         return reports
@@ -1337,8 +1338,8 @@ class ModeSource(StatefulIngestionSourceBase):
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-query-{report_token}",
-                reason=f"Unable to retrieve queries for report token: {report_token}, "
+                type="Unable to Retrieve Queries",
+                message=f"Unable to retrieve queries for report token: {report_token}, "
                 f"Reason: {str(http_error)}",
             )
         return queries
@@ -1354,8 +1355,8 @@ class ModeSource(StatefulIngestionSourceBase):
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-query-{report_token}",
-                reason=f"Unable to retrieve queries for report token: {report_token}, "
+                type="Unable to Retrieve Queries for Report",
+                message=f"Unable to retrieve queries for report token: {report_token}, "
                 f"Reason: {str(http_error)}",
             )
             return {}
@@ -1372,8 +1373,8 @@ class ModeSource(StatefulIngestionSourceBase):
             charts = charts_json.get("_embedded", {}).get("charts", {})
         except HTTPError as http_error:
             self.report.report_failure(
-                key=f"mode-chart-{report_token}-{query_token}",
-                reason=f"Unable to retrieve charts: "
+                type="Unable to Retrieve Charts",
+                message=f"Unable to retrieve charts: "
                 f"Report token: {report_token} "
                 f"Query token: {query_token}, "
                 f"Reason: {str(http_error)}",
