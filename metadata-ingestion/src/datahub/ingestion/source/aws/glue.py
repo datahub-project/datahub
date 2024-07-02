@@ -951,7 +951,7 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         databases, tables = self.get_all_databases_and_tables()
 
-        for _, database in databases.items():
+        for database in databases.values():
             yield from self.gen_database_containers(database)
 
         for table in tables:
