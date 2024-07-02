@@ -289,6 +289,9 @@ import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsR
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.CreateStructuredPropertyResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.RemoveStructuredPropertiesResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpdateStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
@@ -1321,6 +1324,15 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "upsertStructuredProperties",
                   new UpsertStructuredPropertiesResolver(this.entityClient))
+              .dataFetcher(
+                  "removeStructuredProperties",
+                  new RemoveStructuredPropertiesResolver(this.entityClient))
+              .dataFetcher(
+                  "createStructuredProperty",
+                  new CreateStructuredPropertyResolver(this.entityClient))
+              .dataFetcher(
+                  "updateStructuredProperty",
+                  new UpdateStructuredPropertyResolver(this.entityClient))
               .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
               .dataFetcher(
                   "updateIncidentStatus",
