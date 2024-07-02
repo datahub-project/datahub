@@ -211,7 +211,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             test_response.raise_for_status()
         except HTTPError as e:
             self.report.report_failure(
-                type="Unable to Retrieve Current User",
+                title="Unable to Retrieve Current User",
                 message=f"Unable to retrieve user {self.config.username} information. %s"
                 % str(e),
             )
@@ -223,7 +223,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         )
         if response.status_code not in (200, 204):
             self.report.report_failure(
-                type="Unable to Log User Out",
+                title="Unable to Log User Out",
                 message=f"Unable to logout for user {self.config.username}",
             )
         super().close()
@@ -257,7 +257,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         except HTTPError as http_error:
             self.report.report_failure(
-                type="Unable to Retrieve Dashboards",
+                title="Unable to Retrieve Dashboards",
                 message="Request to retrieve dashboards from Metabase failed.",
                 context=f"Error: {str(http_error)}",
             )
@@ -284,7 +284,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             dashboard_details = dashboard_response.json()
         except HTTPError as http_error:
             self.report.report_warning(
-                type="Unable to Retrieve Dashboard",
+                title="Unable to Retrieve Dashboard",
                 message="Request to retrieve dashboards from Metabase failed.",
                 context=f"Dashboard ID: {dashboard_id}, Error: {str(http_error)}",
             )
@@ -348,14 +348,14 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 and http_error.response.status_code == 404
             ):
                 self.report.report_warning(
-                    type="Cannot find user",
+                    title="Cannot find user",
                     message="User is blocked in Metabase or missing",
                     context=f"Creator ID: {creator_id}",
                 )
                 return None
             # For cases when the error is not 404 but something else
             self.report.report_warning(
-                type="Failed to retrieve user",
+                title="Failed to retrieve user",
                 message="Request to Metabase Failed",
                 context=f"Creator ID: {creator_id}, Error: {str(http_error)}",
             )
@@ -389,7 +389,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         except HTTPError as http_error:
             self.report.report_failure(
-                type="Unable to Retrieve Cards",
+                title="Unable to Retrieve Cards",
                 message="Request to retrieve cards from Metabase failed.",
                 context=f"Error: {str(http_error)}",
             )
@@ -412,7 +412,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return card_response.json()
         except HTTPError as http_error:
             self.report.report_warning(
-                type="Unable to Retrieve Card",
+                title="Unable to Retrieve Card",
                 message="Request to retrieve Card from Metabase failed.",
                 context=f"Card ID: {card_id}, Error: {str(http_error)}",
             )
@@ -422,7 +422,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         card_id = card_data.get("id")
         if card_id is None:
             self.report.report_warning(
-                type="Card is missing 'id'",
+                title="Card is missing 'id'",
                 message="Unable to get field id from card data.",
                 context=f"Card Details: {str(card_data)}",
             )
@@ -431,7 +431,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         card_details = self.get_card_details_by_id(card_id)
         if not card_details:
             self.report.report_warning(
-                type="Missing Card Details",
+                title="Missing Card Details",
                 message="Unable to construct Card due to empty card details",
                 context=f"Card ID: {card_id}",
             )
@@ -508,7 +508,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         }
         if not display_type:
             self.report.report_warning(
-                type="Unrecognized Card Type",
+                title="Unrecognized Card Type",
                 message=f"Unrecognized card type {display_type} found. Setting to None",
                 context=f"Card ID: {card_id}",
             )
@@ -517,7 +517,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             chart_type = type_mapping[display_type]
         except KeyError:
             self.report.report_warning(
-                type="Unrecognized Chart Type",
+                title="Unrecognized Chart Type",
                 message=f"Unrecognized chart type {display_type} found. Setting to None",
                 context=f"Card ID: {card_id}",
             )
@@ -553,7 +553,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
     ) -> Optional[List]:
         if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
             self.report.report_warning(
-                type="Unable to Retrieve Card Info",
+                title="Unable to Retrieve Card Info",
                 message="Unable to retrieve Card info. Source table recursion depth exceeded.",
                 context=f"Card Details: {card_details}",
             )
@@ -568,7 +568,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         ) = self.get_datasource_from_id(datasource_id)
         if not platform:
             self.report.report_warning(
-                type="Unable to find Data Platform",
+                title="Unable to find Data Platform",
                 message="Unable to detect Data Platform for database id",
                 context=f"Data Source ID: {datasource_id}",
             )
@@ -625,7 +625,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     f"{result.debug_info.table_error}"
                 )
                 self.report.report_warning(
-                    type="Failed to Extract Lineage",
+                    title="Failed to Extract Lineage",
                     message="Unable to retrieve lineage from query",
                     context=f"Query: {raw_query_stripped}",
                 )
@@ -667,7 +667,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         except HTTPError as http_error:
             self.report.report_warning(
-                type="Failed to Retrieve Source Table",
+                title="Failed to Retrieve Source Table",
                 message="Request to retrieve source table from Metadabase failed",
                 context=f"Table ID: {table_id}, Error: {str(http_error)}",
             )
@@ -716,7 +716,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             dataset_json = dataset_response.json()
         except HTTPError as http_error:
             self.report.report_warning(
-                type="Unable to Retrieve Data Source",
+                title="Unable to Retrieve Data Source",
                 message="Request to retrieve data source from Metabase failed.",
                 context=f"Data Source ID: {datasource_id}, Error: {str(http_error)}",
             )
@@ -745,7 +745,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             platform = engine
 
             self.report.report_warning(
-                type="Unrecognized Data Platform found",
+                title="Unrecognized Data Platform found",
                 message="Data Platform was not found. Using platform name as is",
                 context=f"Platform: {platform}",
             )
@@ -782,7 +782,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             dbname = self.config.database_alias_map[platform]
         else:
             self.report.report_warning(
-                type="Cannot resolve Database Name",
+                title="Cannot resolve Database Name",
                 message="Cannot determine database name for platform",
                 context=f"Platform: {platform}",
             )

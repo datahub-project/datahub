@@ -422,7 +422,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     if collection_schema_size > max_schema_size:
                         # downsample the schema, using frequency as the sort key
                         self.report.report_warning(
-                            type="Too many schema fields",
+                            title="Too many schema fields",
                             message=f"Downsampling the collection schema because it has {collection_schema_size} fields. Threshold is {max_schema_size}",
                             context=dataset_urn,
                         )
