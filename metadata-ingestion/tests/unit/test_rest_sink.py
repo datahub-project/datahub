@@ -75,13 +75,7 @@ basicAuditStamp = models.AuditStampClass(
                         }
                     }
                 },
-                "systemMetadata": {
-                    "clientId": "acryl-datahub",
-                    "clientVersion": "1!0.0.0.dev0",
-                    "lastObserved": 0,
-                    "lastRunId": "no-run-id-provided",
-                    "runId": "no-run-id-provided",
-                },
+                "systemMetadata": {},
             },
         ),
         (
@@ -131,13 +125,7 @@ basicAuditStamp = models.AuditStampClass(
                         }
                     }
                 },
-                "systemMetadata": {
-                    "clientId": "acryl-datahub",
-                    "clientVersion": "1!0.0.0.dev0",
-                    "lastObserved": 0,
-                    "lastRunId": "no-run-id-provided",
-                    "runId": "no-run-id-provided",
-                },
+                "systemMetadata": {},
             },
         ),
         (
@@ -173,13 +161,7 @@ basicAuditStamp = models.AuditStampClass(
                         }
                     }
                 },
-                "systemMetadata": {
-                    "clientId": "acryl-datahub",
-                    "clientVersion": "1!0.0.0.dev0",
-                    "lastObserved": 0,
-                    "lastRunId": "no-run-id-provided",
-                    "runId": "no-run-id-provided",
-                },
+                "systemMetadata": {},
             },
         ),
         (

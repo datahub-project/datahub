@@ -692,7 +692,7 @@ def generate_access_token(
 
 
 def ensure_mce_has_system_metadata(mce: MetadataChangeEvent) -> None:
-    if not mce.systemMetadata:
+    if mce.systemMetadata is None:
         mce.systemMetadata = SystemMetadataClass()
     mce.systemMetadata.clientId = datahub.__package_name__
     mce.systemMetadata.clientVersion = datahub.__version__
@@ -701,7 +701,7 @@ def ensure_mce_has_system_metadata(mce: MetadataChangeEvent) -> None:
 def ensure_mcp_has_system_metadata(
     mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
 ) -> None:
-    if not mcp.systemMetadata:
+    if mcp.systemMetadata is None:
         mcp.systemMetadata = SystemMetadataClass()
     mcp.systemMetadata.clientId = datahub.__package_name__
     mcp.systemMetadata.clientVersion = datahub.__version__

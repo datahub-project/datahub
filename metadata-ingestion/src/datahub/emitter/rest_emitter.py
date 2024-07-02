@@ -239,6 +239,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             system_metadata_obj = {
                 "lastObserved": mce.systemMetadata.lastObserved,
                 "runId": mce.systemMetadata.runId,
+                "lastRunId": mce.systemMetadata.lastRunId,
                 "clientId": mce.systemMetadata.clientId,
                 "clientVersion": mce.systemMetadata.clientVersion,
             }
