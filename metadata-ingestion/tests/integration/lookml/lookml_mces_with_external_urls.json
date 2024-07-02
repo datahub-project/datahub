@@ -1533,9 +1533,6 @@
                                 },
                                 "nativeDataType": "unknown",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -1550,9 +1547,6 @@
                                 },
                                 "nativeDataType": "unknown",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -1567,9 +1561,6 @@
                                 },
                                 "nativeDataType": "unknown",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": false
                             }
                         ],

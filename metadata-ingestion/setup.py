@@ -734,6 +734,11 @@ entry_points = {
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
     "datahub.custom_packages": [],
+    "datahub.fs.plugins": [
+        "s3 = datahub.ingestion.fs.s3_fs:S3FileSystem",
+        "file = datahub.ingestion.fs.local_fs:LocalFileSystem",
+        "http = datahub.ingestion.fs.http_fs:HttpFileSystem",
+    ],
 }
 
 

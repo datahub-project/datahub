@@ -293,6 +293,8 @@ class ViewField:
     project_name: Optional[str] = None
     view_name: Optional[str] = None
     is_primary_key: bool = False
+    tags: List[str] = dataclasses_field(default_factory=list)
+
     # It is the list of ColumnRef for derived view defined using SQL otherwise simple column name
     upstream_fields: Union[List[ColumnRef]] = dataclasses_field(default_factory=list)
 
@@ -328,6 +330,7 @@ class ViewField:
             description=description,
             is_primary_key=is_primary_key,
             field_type=type_cls,
+            tags=field_dict.get("tags") or [],
             upstream_fields=upstream_column_ref,
         )
 
@@ -719,21 +722,30 @@ class LookerUtil:
 
     @staticmethod
     def _get_tags_from_field_type(
-        field_type: ViewFieldType, reporter: SourceReport
+        field: ViewField, reporter: SourceReport
     ) -> Optional[GlobalTagsClass]:
-        if field_type in LookerUtil.type_to_tag_map:
-            return GlobalTagsClass(
-                tags=[
+        schema_field_tags: List[TagAssociationClass] = [
+            TagAssociationClass(tag=builder.make_tag_urn(tag_name))
+            for tag_name in field.tags
+        ]
+
+        if field.field_type in LookerUtil.type_to_tag_map:
+            schema_field_tags.extend(
+                [
                     TagAssociationClass(tag=tag_name)
-                    for tag_name in LookerUtil.type_to_tag_map[field_type]
+                    for tag_name in LookerUtil.type_to_tag_map[field.field_type]
                 ]
             )
         else:
             reporter.report_warning(
                 "lookml",
-                f"Failed to map view field type {field_type}. Won't emit tags for it",
+                f"Failed to map view field type {field.field_type}. Won't emit tags for measure and dimension",
             )
-            return None
+
+        if schema_field_tags:
+            return GlobalTagsClass(tags=schema_field_tags)
+
+        return None
 
     @staticmethod
     def get_tag_mces() -> Iterable[MetadataChangeEvent]:
@@ -760,7 +772,7 @@ class LookerUtil:
                 else f"{field.field_type.value}. {field.description}"
             ),
             globalTags=(
-                LookerUtil._get_tags_from_field_type(field.field_type, reporter)
+                LookerUtil._get_tags_from_field_type(field, reporter)
                 if tag_measures_and_dimensions is True
                 else None
             ),
