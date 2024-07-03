@@ -350,6 +350,7 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ### Version 0.2.12
 
 
+
 - Add option to lowercase dataset URNs
 - Add option to set platform instance and/or env per platform with `spark.datahub.platform.<platform_name>.env` and `spark.datahub.platform.<platform_name>.platform_instance` config parameter
 - Fixing platform instance setting for datasets when `spark.datahub.metadata.dataset.platformInstance` is set
