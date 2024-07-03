@@ -15,9 +15,15 @@ def unquote_and_decode_unicode_escape_seq(
     if string.startswith(leading_quote) and string.endswith(trailing_quote):
         string = string[1:-1]
 
-    cleaned_string = string.encode().decode("unicode-escape")
-
-    return cleaned_string
+    # Decode Unicode escape sequences. This avoid issues with encoding
+    while string.find("\\u") >= 0:
+        index = string.find("\\u")  # The first occurrence of the substring
+        unicode_seq = string[index: (index + 6)]  # The Unicode escape sequence
+        # Replace the Unicode escape sequence with the decoded character
+        string = string.replace(
+            unicode_seq, unicode_seq.encode("utf-8").decode("unicode-escape")
+        )
+    return string
 
 
 def parse_labels(labels_str: str) -> Dict[str, str]:
