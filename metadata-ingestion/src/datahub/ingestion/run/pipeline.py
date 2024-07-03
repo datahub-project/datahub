@@ -717,8 +717,9 @@ class Pipeline:
     def _handle_uncaught_pipeline_exception(self, exc: Exception) -> None:
         logger.exception("Ingestion pipeline threw an uncaught exception")
         self.source.get_report().report_failure(
-            "pipeline_error",
-            f"Ingestion pipeline threw an uncaught exception: {exc}",
+            title="Pipeline Error",
+            message="Ingestion pipeline raised an unexpected exception!",
+            exc=exc,
         )
 
     def _get_structured_report(self) -> Dict[str, Any]:

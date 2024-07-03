@@ -176,22 +176,22 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     };
 
     /* V2 helper function to map backend failure or warning lists into StructuredReportLogEntry[] */
-    const mapItemArray = (items): StructuredReportLogEntry[] => {
-        return items.map((item) => {
+    const mapItemArray = (items, level: StructuredReportItemLevel): StructuredReportLogEntry[] => {
+        return items
+            .map((item) => {
+                if (typeof item === 'string') {
+                    // Handle "sampled from" case..
+                    return null;
+                }
 
-            if (typeof item === 'string') {
-                // Handle "sampled from" case..
-                return null; 
-            }
-
-            return {
-                level: getStructuredReportItemLevel(item.level),
-                title: item.title || 'An unexpected issue occurred',
-                message: item.message,
-                context: item.context,
-            }
-            
-        }).filter(item => item != null);
+                return {
+                    level,
+                    title: item.title || 'An unexpected issue occurred',
+                    message: item.message,
+                    context: item.context,
+                };
+            })
+            .filter((item) => item != null);
     };
 
     try {
@@ -204,19 +204,19 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
         // Else fallback to using the legacy fields
         const failures = Array.isArray(sourceReport.failures)
             ? /* Use V2 failureList if present */
-              mapItemArray(sourceReport.failures || [])
+              mapItemArray(sourceReport.failures || [], StructuredReportItemLevel.ERROR)
             : /* Else use the legacy object type */
               mapItemObject(sourceReport.failures || {}, StructuredReportItemLevel.ERROR);
 
         const warnings = Array.isArray(sourceReport.warnings)
             ? /* Use V2 warning if present */
-              mapItemArray(sourceReport.warnings || [])
+              mapItemArray(sourceReport.warnings || [], StructuredReportItemLevel.WARN)
             : /* Else use the legacy object type */
               mapItemObject(sourceReport.warnings || {}, StructuredReportItemLevel.WARN);
 
         const infos = Array.isArray(sourceReport.infos)
             ? /* Use V2 infos if present */
-              mapItemArray(sourceReport.infos || [])
+              mapItemArray(sourceReport.infos || [], StructuredReportItemLevel.INFO)
             : /* Else use the legacy object type */
               mapItemObject(sourceReport.infos || {}, StructuredReportItemLevel.INFO);
 
