@@ -104,6 +104,7 @@ class QueryMetadata:
 
     upstreams: List[UrnStr]  # this is direct upstreams, which may be temp tables
     column_lineage: List[ColumnLineageInfo]
+    column_usage: Dict[UrnStr, Set[UrnStr]]
     confidence_score: float
 
     used_temp_tables: bool = True
@@ -129,6 +130,7 @@ class KnownQueryLineageInfo:
     downstream: UrnStr
     upstreams: List[UrnStr]
     column_lineage: Optional[List[ColumnLineageInfo]] = None
+    column_usage: Optional[Dict[UrnStr, Set[UrnStr]]] = None
 
     timestamp: Optional[datetime] = None
     session_id: Optional[str] = None
@@ -487,6 +489,7 @@ class SqlParsingAggregator(Closeable):
                 actor=None,
                 upstreams=known_query_lineage.upstreams,
                 column_lineage=known_query_lineage.column_lineage or [],
+                column_usage=known_query_lineage.column_usage or {},
                 confidence_score=1.0,
             ),
             merge_lineage=merge_lineage,
@@ -539,6 +542,7 @@ class SqlParsingAggregator(Closeable):
                 actor=None,
                 upstreams=[upstream_urn],
                 column_lineage=[],
+                column_usage={},
                 confidence_score=1.0,
             )
         )
@@ -663,6 +667,11 @@ class SqlParsingAggregator(Closeable):
         if not _is_internal:
             self.report.num_preparsed_queries += 1
 
+        if parsed.timestamp:
+            # Sanity check - some of our usage subroutines require the timestamp to be in UTC.
+            # Ideally we'd actually reject missing tzinfo too, but we can tighten that later.
+            assert parsed.timestamp.tzinfo in {None, timezone.utc}
+
         query_fingerprint = parsed.query_id
         if not query_fingerprint:
             query_fingerprint = get_query_fingerprint(
@@ -718,6 +727,7 @@ class SqlParsingAggregator(Closeable):
                 actor=parsed.user,
                 upstreams=parsed.upstreams,
                 column_lineage=parsed.column_lineage or [],
+                column_usage=parsed.column_usage or {},
                 confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
             )
@@ -851,6 +861,7 @@ class SqlParsingAggregator(Closeable):
                 actor=None,
                 upstreams=parsed.in_tables,
                 column_lineage=parsed.column_lineage or [],
+                column_usage=compute_upstream_fields(parsed),
                 confidence_score=parsed.debug_info.confidence,
             )
         )
@@ -932,6 +943,7 @@ class SqlParsingAggregator(Closeable):
                 # here just in case more schemas got registered in the interim.
                 current.upstreams = new.upstreams
                 current.column_lineage = new.column_lineage
+                current.column_usage = new.column_usage
                 current.confidence_score = new.confidence_score
             else:
                 # In the case of known query lineage, we might get things one at a time.
@@ -1148,6 +1160,22 @@ class SqlParsingAggregator(Closeable):
         if not self.can_generate_query(query_id):
             return
 
+        query_subject_urns: List[UrnStr] = []
+        for upstream in query.upstreams:
+            query_subject_urns.append(upstream)
+            for column in query.column_usage.get(upstream, []):
+                query_subject_urns.append(
+                    builder.make_schema_field_urn(upstream, column)
+                )
+        if downstream_urn:
+            query_subject_urns.append(downstream_urn)
+            for column_lineage in query.column_lineage:
+                query_subject_urns.append(
+                    builder.make_schema_field_urn(
+                        downstream_urn, column_lineage.downstream.column
+                    )
+                )
+
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=self._query_urn(query_id),
             aspects=[
@@ -1162,10 +1190,8 @@ class SqlParsingAggregator(Closeable):
                 ),
                 models.QuerySubjectsClass(
                     subjects=[
-                        models.QuerySubjectClass(entity=dataset_urn)
-                        for dataset_urn in itertools.chain(
-                            [downstream_urn], query.upstreams
-                        )
+                        models.QuerySubjectClass(entity=urn)
+                        for urn in query_subject_urns
                     ]
                 ),
                 models.DataPlatformInstanceClass(
@@ -1210,7 +1236,7 @@ class SqlParsingAggregator(Closeable):
                     ),
                 )
 
-            self.report.num_query_usage_stats_generated += 1
+                self.report.num_query_usage_stats_generated += 1
 
     def _resolve_query_with_temp_tables(
         self,

@@ -4,7 +4,7 @@ import logging
 import pathlib
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 import pydantic
@@ -267,6 +267,9 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
         # TODO implement email address mapping
         user = CorpUserUrn(res["user_name"])
 
+        timestamp: datetime = res["query_start_time"]
+        timestamp = timestamp.astimezone(timezone.utc)
+
         # TODO need to map snowflake query types to ours
         query_type = SNOWFLAKE_QUERY_TYPE_MAPPING.get(
             res["query_type"], QueryType.UNKNOWN
@@ -283,7 +286,7 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
             confidence_score=1,
             query_count=res["query_count"],
             user=user,
-            timestamp=res["query_start_time"],
+            timestamp=timestamp,
             session_id=res["session_id"],
             query_type=query_type,
         )
@@ -332,7 +335,7 @@ fingerprinted_queries as (
     SELECT
         *,
         DATE_TRUNC(
-            'DAY',
+            {time_bucket_size},
             CONVERT_TIMEZONE('UTC', start_time)
         ) AS bucket_start_time,
         COUNT(*) OVER (PARTITION BY bucket_start_time, query_fingerprint) AS query_count,
