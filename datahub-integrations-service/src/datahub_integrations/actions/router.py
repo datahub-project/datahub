@@ -35,6 +35,7 @@ base_action_config = {
         "config": {
             "topic_routes": {
                 "mcl": "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}",
+                "mcl_timeseries": "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:-MetadataChangeLog_Timeseries_v1}",
                 "pe": "${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}",
             },
             "connection": {

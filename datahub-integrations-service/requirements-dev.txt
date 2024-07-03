@@ -11,7 +11,7 @@
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
-acryl-datahub-actions==0.0.15
+acryl-datahub-actions==0.0.18
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
@@ -88,7 +88,7 @@ avro==1.11.3
     #   -r requirements.txt
     #   acryl-datahub
     #   avro-gen3
-avro-gen3==0.7.12
+avro-gen3==0.7.13
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -124,6 +124,7 @@ cachetools==5.3.3
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub
     #   acryl-datahub-integrations
 catalogue==2.0.10
     # via
@@ -578,6 +579,7 @@ notebook-shim==0.2.4
 numpy==1.26.4
     # via
     #   -r requirements.txt
+    #   acryl-datahub
     #   altair
     #   blis
     #   great-expectations
