@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Set, cast
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.source_common import ALL_ENV_TYPES
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -111,6 +112,12 @@ class DataFlow:
         return [tags]
 
     def generate_mce(self) -> MetadataChangeEventClass:
+        env = self.cluster
+        if self.cluster not in ALL_ENV_TYPES:
+            logger.warning(
+                f"cluster {self.cluster} is not a valid environment type so Environment filter won't work."
+            )
+            env = None
         flow_mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=str(self.urn),
@@ -120,7 +127,7 @@ class DataFlow:
                         description=self.description,
                         customProperties=self.properties,
                         externalUrl=self.url,
-                        env=self.cluster,
+                        env=env,
                     ),
                     *self.generate_ownership_aspect(),
                     *self.generate_tags_aspect(),
