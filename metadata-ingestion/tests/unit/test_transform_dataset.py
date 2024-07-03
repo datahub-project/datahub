@@ -70,7 +70,10 @@ from datahub.ingestion.transformer.dataset_domain import (
 from datahub.ingestion.transformer.dataset_domain_based_on_tags import (
     DatasetTagDomainMapper,
 )
-from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
+from datahub.ingestion.transformer.dataset_transformer import (
+    DatasetTransformer,
+    TagTransformer,
+)
 from datahub.ingestion.transformer.extract_dataset_tags import ExtractDatasetTags
 from datahub.ingestion.transformer.extract_ownership_from_tags import (
     ExtractOwnersFromTagsTransformer,
@@ -86,6 +89,7 @@ from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
 from datahub.ingestion.transformer.replace_external_url import ReplaceExternalUrl
+from datahub.ingestion.transformer.tags_to_terms import TagsToTermMapper
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DatasetPropertiesClass,
@@ -1891,12 +1895,14 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
 
 
 def run_dataset_transformer_pipeline(
-    transformer_type: Type[DatasetTransformer],
+    transformer_type: Type[Union[DatasetTransformer, TagTransformer]],
     aspect: Optional[builder.Aspect],
     config: dict,
-    pipeline_context: PipelineContext = PipelineContext(run_id="transformer_pipe_line"),
+    pipeline_context: Optional[PipelineContext] = None,
     use_mce: bool = False,
 ) -> List[RecordEnvelope]:
+    if pipeline_context is None:
+        pipeline_context = PipelineContext(run_id="transformer_pipe_line")
     transformer: DatasetTransformer = cast(
         DatasetTransformer, transformer_type.create(config, pipeline_context)
     )
@@ -3651,3 +3657,213 @@ def test_domain_mapping_based_on_tags_with_no_tags(mock_datahub_graph):
     assert len(transformed_aspect.domains) == 1
     assert acryl_domain in transformed_aspect.domains
     assert server_domain not in transformed_aspect.domains
+
+
+def test_tags_to_terms_transformation(mock_datahub_graph):
+    # Create domain URNs for the test
+    term_urn_example1 = builder.make_term_urn("example1")
+    term_urn_example2 = builder.make_term_urn("example2")
+
+    def fake_get_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(
+            tags=[
+                TagAssociationClass(tag=builder.make_tag_urn("example1")),
+                TagAssociationClass(tag=builder.make_tag_urn("example2")),
+            ]
+        )
+
+    # fake the server response
+    def fake_schema_metadata(entity_urn: str) -> models.SchemaMetadataClass:
+        return models.SchemaMetadataClass(
+            schemaName="customer",  # not used
+            platform=builder.make_data_platform_urn(
+                "hive"
+            ),  # important <- platform must be an urn
+            version=0,
+            # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
+            hash="",
+            # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
+            platformSchema=models.OtherSchemaClass(
+                rawSchema="__insert raw schema here__"
+            ),
+            fields=[
+                models.SchemaFieldClass(
+                    fieldPath="first_name",
+                    globalTags=models.GlobalTagsClass(
+                        tags=[
+                            models.TagAssociationClass(
+                                tag=builder.make_tag_urn("example2")
+                            )
+                        ],
+                    ),
+                    glossaryTerms=models.GlossaryTermsClass(
+                        terms=[
+                            models.GlossaryTermAssociationClass(
+                                urn=builder.make_term_urn("pii")
+                            )
+                        ],
+                        auditStamp=models.AuditStampClass._construct_with_defaults(),
+                    ),
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="mobile_number",
+                    glossaryTerms=models.GlossaryTermsClass(
+                        terms=[
+                            models.GlossaryTermAssociationClass(
+                                urn=builder.make_term_urn("pii")
+                            )
+                        ],
+                        auditStamp=models.AuditStampClass._construct_with_defaults(),
+                    ),
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+            ],
+        )
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    pipeline_context.graph.get_tags = fake_get_tags  # type: ignore
+    pipeline_context.graph.get_schema_metadata = fake_schema_metadata  # type: ignore
+
+    # Configuring the transformer
+    config = {"tags": ["example1", "example2"]}
+
+    # Running the transformer within a test pipeline
+    output = run_dataset_transformer_pipeline(
+        transformer_type=TagsToTermMapper,
+        aspect=models.GlossaryTermsClass(
+            terms=[
+                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii"))
+            ],
+            auditStamp=models.AuditStampClass._construct_with_defaults(),
+        ),
+        config=config,
+        pipeline_context=pipeline_context,
+    )
+
+    # Expected results
+    expected_terms = [term_urn_example2, term_urn_example1]
+
+    # Verify the output
+    assert len(output) == 2  # One for result and one for end of stream
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == len(expected_terms)
+    assert set(term.urn for term in terms_aspect.terms) == {
+        "urn:li:glossaryTerm:example1",
+        "urn:li:glossaryTerm:example2",
+    }
+
+
+def test_tags_to_terms_with_no_matching_terms(mock_datahub_graph):
+    # Setup for test where no tags match the provided term mappings
+    def fake_get_tags_no_match(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(
+            tags=[
+                TagAssociationClass(tag=builder.make_tag_urn("nonMatchingTag1")),
+                TagAssociationClass(tag=builder.make_tag_urn("nonMatchingTag2")),
+            ]
+        )
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    pipeline_context.graph.get_tags = fake_get_tags_no_match  # type: ignore
+
+    # No matching terms in config
+    config = {"tags": ["example1", "example2"]}
+
+    # Running the transformer within a test pipeline
+    output = run_dataset_transformer_pipeline(
+        transformer_type=TagsToTermMapper,
+        aspect=models.GlossaryTermsClass(
+            terms=[
+                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii"))
+            ],
+            auditStamp=models.AuditStampClass._construct_with_defaults(),
+        ),
+        config=config,
+        pipeline_context=pipeline_context,
+    )
+
+    # Verify the output
+    assert len(output) == 2  # One for result and one for end of stream
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == 1
+
+
+def test_tags_to_terms_with_missing_tags(mock_datahub_graph):
+    # Setup for test where no tags are present
+    def fake_get_no_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(tags=[])
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    pipeline_context.graph.get_tags = fake_get_no_tags  # type: ignore
+
+    config = {"tags": ["example1", "example2"]}
+
+    # Running the transformer with no tags
+    output = run_dataset_transformer_pipeline(
+        transformer_type=TagsToTermMapper,
+        aspect=models.GlossaryTermsClass(
+            terms=[
+                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii"))
+            ],
+            auditStamp=models.AuditStampClass._construct_with_defaults(),
+        ),
+        config=config,
+        pipeline_context=pipeline_context,
+    )
+
+    # Verify that no terms are added when there are no tags
+    assert len(output) == 2
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == 1
+
+
+def test_tags_to_terms_with_partial_match(mock_datahub_graph):
+    # Setup for partial match scenario
+    def fake_get_partial_match_tags(entity_urn: str) -> models.GlobalTagsClass:
+        return models.GlobalTagsClass(
+            tags=[
+                TagAssociationClass(
+                    tag=builder.make_tag_urn("example1")
+                ),  # Should match
+                TagAssociationClass(
+                    tag=builder.make_tag_urn("nonMatchingTag")
+                ),  # No match
+            ]
+        )
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+    pipeline_context.graph.get_tags = fake_get_partial_match_tags  # type: ignore
+
+    config = {"tags": ["example1"]}  # Only 'example1' has a term mapped
+
+    # Running the transformer with partial matching tags
+    output = run_dataset_transformer_pipeline(
+        transformer_type=TagsToTermMapper,
+        aspect=models.GlossaryTermsClass(
+            terms=[
+                models.GlossaryTermAssociationClass(urn=builder.make_term_urn("pii"))
+            ],
+            auditStamp=models.AuditStampClass._construct_with_defaults(),
+        ),
+        config=config,
+        pipeline_context=pipeline_context,
+    )
+
+    # Verify that only matched term is added
+    assert len(output) == 2
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == 1
+    assert terms_aspect.terms[0].urn == "urn:li:glossaryTerm:example1"
