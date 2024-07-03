@@ -9,7 +9,7 @@ def check_mce_file(filepath: str) -> str:
     mce_source = GenericFileSource.create({"filename": filepath}, None)
     for _ in mce_source.get_workunits():
         pass
-    if mce_source.get_report().failures:
+    if len(mce_source.get_report().failures):
         # raise the first failure found
         logger.error(
             f"Event file check failed with errors. Raising first error found. Full report {mce_source.get_report().as_string()}"
