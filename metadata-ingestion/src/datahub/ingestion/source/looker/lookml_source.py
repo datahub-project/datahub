@@ -529,8 +529,8 @@ class LookerModel:
                 )
             elif not included_files:
                 reporter.report_failure(
-                    "Error Resolving Include",
-                    f"Did not resolve anything for wildcard include {inc}",
+                    title="Error Resolving Include",
+                    message=f"Did not resolve anything for wildcard include {inc}",
                     context=f"Path: {path}",
                 )
             # only load files that we haven't seen so far
@@ -684,9 +684,9 @@ class LookerViewFileLoader:
                 raw_file_content = file.read()
         except Exception as e:
             self.reporter.report_failure(
-                "Error Loading View File",
-                "Failed to load view field",
-                context=f"Path: {path}, Exception: {e}",
+                message="Failed to read view file",
+                context=f"Path: {path}",
+                exc=e,
             )
             return None
         try:
@@ -706,9 +706,9 @@ class LookerViewFileLoader:
             return looker_viewfile
         except Exception as e:
             self.reporter.report_failure(
-                title="Error Loading View File",
-                message="Failed to properly load View file",
-                context=f"Path: {path}, Exception: {e}",
+                message="Failed to parse view file",
+                context=f"Path: {path}",
+                exc=e,
             )
             return None
 

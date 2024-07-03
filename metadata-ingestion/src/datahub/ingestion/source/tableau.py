@@ -802,7 +802,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             self.report.failure(
                 title="Tableau Login Error",
                 message="Failed to authenticate with Tableau.",
-                context=str(e),
+                exc=e,
             )
 
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:

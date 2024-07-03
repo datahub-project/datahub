@@ -64,18 +64,102 @@ class SourceCapability(Enum):
 
 
 class StructuredLogLevel(Enum):
-    INFO = "INFO"
-    WARN = "WARN"
-    ERROR = "ERROR"
+    INFO = logging.INFO
+    WARN = logging.WARN
+    ERROR = logging.ERROR
 
 
 @dataclass
-class StructuredLog(Report):
+class StructuredLogEntry(Report):
     level: StructuredLogLevel
     title: Optional[str]
     message: Optional[str]
     context: LossyList[str]
-    stacktrace: Optional[str] = None
+
+
+@dataclass
+class StructuredLogs(Report):
+    # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
+    _entries: Dict[StructuredLogLevel, LossyDict[str, StructuredLogEntry]] = field(
+        default_factory=lambda: {
+            StructuredLogLevel.ERROR: LossyDict(10),
+            StructuredLogLevel.WARN: LossyDict(10),
+            StructuredLogLevel.INFO: LossyDict(10),
+        }
+    )
+
+    def report_log(
+        self,
+        level: StructuredLogLevel,
+        message: LiteralString,
+        title: Optional[LiteralString] = None,
+        context: Optional[str] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = False,
+    ) -> None:
+        """
+        Report a user-facing warning for the ingestion run.
+
+        Args:
+            level: The level of the log entry.
+            message: The main message associated with the report entry. This should be a human-readable message.
+            title: The category / heading to present on for this message in the UI.
+            context: Additional context (e.g. where, how) for the log entry.
+            exc: The exception associated with the event. We'll show the stack trace when in debug mode.
+        """
+
+        stacklevel = 2
+
+        log_key = f"{title}-{message}"
+        entries = self._entries[level]
+
+        log_content = f"{message} => {context}" if context else message
+        if exc:
+            log_content += f"{log_content}: {exc}"
+            logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
+            logger.log(
+                level=logging.DEBUG,
+                msg="Full stack trace:",
+                stacklevel=stacklevel,
+                exc_info=exc,
+            )
+
+            # Add the simple exception details to the context.
+            context = f"{context}: {exc}"
+        else:
+            logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
+
+        if log_key not in entries:
+            context_list: LossyList[str] = LossyList()
+            if context is not None:
+                context_list.append(context)
+            entries[log_key] = StructuredLogEntry(
+                level=level,
+                title=title,
+                message=message,
+                context=context_list,
+            )
+        else:
+            if context is not None:
+                entries[log_key].context.append(context)
+
+    def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
+        result: LossyList[StructuredLogEntry] = LossyList()
+        for log in self._entries[level].values():
+            result.append(log)
+        return result
+
+    @property
+    def warnings(self) -> LossyList[StructuredLogEntry]:
+        return self._get_of_type(StructuredLogLevel.WARN)
+
+    @property
+    def failures(self) -> LossyList[StructuredLogEntry]:
+        return self._get_of_type(StructuredLogLevel.ERROR)
+
+    @property
+    def infos(self) -> LossyList[StructuredLogEntry]:
+        return self._get_of_type(StructuredLogLevel.INFO)
 
 
 @dataclass
@@ -92,35 +176,19 @@ class SourceReport(Report):
         default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
     )
 
-    # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
-    _errors: LossyDict[str, StructuredLog] = field(
-        default_factory=lambda: LossyDict(10)
-    )
-    _warnings: LossyDict[str, StructuredLog] = field(
-        default_factory=lambda: LossyDict(10)
-    )
-    _infos: LossyDict[str, StructuredLog] = field(default_factory=lambda: LossyDict(10))
+    _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
     @property
-    def warnings(self) -> LossyList[StructuredLog]:
-        result: LossyList[StructuredLog] = LossyList()
-        for log in self._warnings.values():
-            result.append(log)
-        return result
+    def warnings(self) -> LossyList[StructuredLogEntry]:
+        return self._structured_logs.warnings
 
     @property
-    def failures(self) -> LossyList[StructuredLog]:
-        result: LossyList[StructuredLog] = LossyList()
-        for log in self._errors.values():
-            result.append(log)
-        return result
+    def failures(self) -> LossyList[StructuredLogEntry]:
+        return self._structured_logs.failures
 
     @property
-    def infos(self) -> LossyList[StructuredLog]:
-        result: LossyList[StructuredLog] = LossyList()
-        for log in self._infos.values():
-            result.append(log)
-        return result
+    def infos(self) -> LossyList[StructuredLogEntry]:
+        return self._structured_logs.infos
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
@@ -154,151 +222,71 @@ class SourceReport(Report):
 
     def report_warning(
         self,
-        title: Optional[LiteralString],
         message: LiteralString,
         context: Optional[str] = None,
-        stacktrace: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
     ) -> None:
-        """
-        Report a user-facing warning for the ingestion run.
-
-        Parameters
-        ----------
-        title : Optional[str]
-            The WHAT: The type or category of the warning. This will be used for displaying the title of the warning.
-        message : str
-            The WHY: The message describing the why the warning was raised. This will used for displaying the subtitle or description of the warning.
-        context : Optional[str], optional
-            The WHERE + HOW: Additional context for the warning, by default None.
-        stacktrace : Optional[str], optional
-            Additional technical details about the failure used for debugging
-        """
-        log_key = f"{title}-{message}"
-        if log_key not in self._warnings:
-            context_list: LossyList[str] = LossyList()
-            if context is not None:
-                context_list.append(context)
-            self._warnings[log_key] = StructuredLog(
-                level=StructuredLogLevel.WARN,
-                title=title,
-                message=message,
-                context=context_list,
-                stacktrace=stacktrace,
-            )
-        else:
-            if context is not None:
-                self._warnings[log_key].context.append(context)
+        self._structured_logs.report_log(
+            StructuredLogLevel.WARN, message, title, context, exc, log=False
+        )
 
     def warning(
         self,
-        title: Optional[LiteralString],
         message: LiteralString,
         context: Optional[str] = None,
-        stacktrace: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
     ) -> None:
-        self.report_warning(title, message, context, stacktrace)
-        logger.warning(f"{message} => {context}", stacklevel=2)
+        self._structured_logs.report_log(
+            StructuredLogLevel.WARN, message, title, context, exc, log=True
+        )
 
     def report_failure(
         self,
-        title: Optional[LiteralString],
         message: LiteralString,
         context: Optional[str] = None,
-        stacktrace: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
     ) -> None:
-        """
-        Report a user-facing error for the ingestion run.
-
-        Parameters
-        ----------
-        title : Optional[str]
-            The WHAT: The type of the error. This will be used for displaying the title of the error.
-        message : str
-            The WHY: The message describing the why the error was raised. This will used for displaying the subtitle or description of the error.
-        context : Optional[str], optional
-            The WHERE + HOW: Additional context for the error, by default None.
-        stacktrace : Optional[str], optional
-            Additional technical details about the failure used for debugging
-        """
-        log_key = f"{title}-{message}"
-        if log_key not in self._errors:
-            context_list: LossyList[str] = LossyList()
-            if context is not None:
-                context_list.append(context)
-            self._errors[log_key] = StructuredLog(
-                level=StructuredLogLevel.ERROR,
-                title=title,
-                message=message,
-                context=context_list,
-                stacktrace=stacktrace,
-            )
-        else:
-            if context is not None:
-                self._errors[log_key].context.append(context)
+        self._structured_logs.report_log(
+            StructuredLogLevel.ERROR, message, title, context, exc, log=False
+        )
 
     def failure(
         self,
-        title: Optional[LiteralString],
         message: LiteralString,
         context: Optional[str] = None,
-        stacktrace: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
     ) -> None:
-        self.report_failure(title, message, context, stacktrace)
-        logger.error(f"{message} => {context}", stacklevel=2)
-
-    def report_info(
-        self,
-        title: Optional[LiteralString],
-        message: LiteralString,
-        context: Optional[str] = None,
-    ) -> None:
-        """
-        Report a user-facing info log for the ingestion run.
-
-        Parameters
-        ----------
-        title : Optional[str]
-            The WHAT: The type of the info log. This will be used for displaying the title of the info log.
-        message : str
-            The WHY: The message describing the information. This will used for displaying the subtitle or description of the error.
-        context : Optional[str], optional
-            The WHERE + HOW: Additional context for the info, by default None.
-        """
-        log_key = f"{title}-{message}"
-        if log_key not in self._infos:
-            context_list: LossyList[str] = LossyList()
-            if context is not None:
-                context_list.append(context)
-            self._infos[log_key] = StructuredLog(
-                level=StructuredLogLevel.INFO,
-                title=title,
-                message=message,
-                context=context_list,
-            )
-        else:
-            if context is not None:
-                self._infos[log_key].context.append(context)
+        self._structured_logs.report_log(
+            StructuredLogLevel.ERROR, message, title, context, exc, log=True
+        )
 
     def info(
         self,
-        title: Optional[LiteralString],
         message: LiteralString,
         context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
     ) -> None:
-        self.report_info(title, message, context)
-        logger.info(f"{message} => {context}", stacklevel=2)
+        self._structured_logs.report_log(
+            StructuredLogLevel.INFO, message, title, context, exc, log=True
+        )
 
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()
         self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
 
     def as_obj(self) -> dict:
-        base_obj = super().as_obj()
-        # Materialize Properties for Report Object
-        base_obj["infos"] = Report.to_pure_python_obj(self.infos)
-        base_obj["failures"] = Report.to_pure_python_obj(self.failures)
-        base_obj["warnings"] = Report.to_pure_python_obj(self.warnings)
-        return base_obj
+        return {
+            # To reduce the amount of nesting, we pull these fields out of the structured log.
+            "failures": Report.to_pure_python_obj(self.failures),
+            "warnings": Report.to_pure_python_obj(self.warnings),
+            "infos": Report.to_pure_python_obj(self.infos),
+            **super().as_obj(),
+        }
 
     def compute_stats(self) -> None:
         duration = datetime.datetime.now() - self.start_time
