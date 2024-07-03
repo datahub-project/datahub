@@ -182,8 +182,10 @@ information like tokens.
 | spark.datahub.tags                                                  |          |         | Comma separated list of tags to attach to the DataFlow                                                                                                                                    |
 | spark.datahub.domains                                               |          |         | Comma separated list of domain urns to attach to the DataFlow                                                                                                                             |
 | spark.datahub.stage_metadata_coalescing                             |          |         | Normally it coalesce and send metadata at the onApplicationEnd event which is never called on Databricks or on Glue. You should enable this on Databricks if you want coalesced run .     |
-| spark.datahub.patch.enabled                                         |          | false   | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default it is enabled.                                               |
-|
+| spark.datahub.patch.enabled                                         |          | false   | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default it is disabled.                                              |
+| spark.datahub.metadata.dataset.lowerCaseUrns                        |          | false   | Set this to true to lowercase dataset urns. By default it is disabled.                                                                                                                    |
+| spark.datahub.disableSymlinkResolution                              |          | false   | Set this to true if you prefer not use dataset symlink (for example if you prefer to have the s3 location instead of the Hive table). By default it is disabled.                          |
+
 
 ## What to Expect: The Metadata Model
 
@@ -343,3 +345,9 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ```
 ## Known limitations
 
+## Changelog
+### Version 0.2.12
+- Add option to lowercase dataset URNs
+- Add option to set platform instance and/or env per platform with `spark.datahub.platform.<platform_name>.env` and `spark.datahub.platform.<platform_name>.platform_instance` config parameter
+- Fixing platform instance setting for datasets when `spark.datahub.metadata.dataset.platformInstance` is set
+- Fixing column level lineage support when patch is enabled
