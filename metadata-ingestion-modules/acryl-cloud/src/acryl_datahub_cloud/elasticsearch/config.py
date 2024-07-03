@@ -1,6 +1,8 @@
 import os
 from typing import Optional
 
+import pydantic
+
 from datahub.configuration import ConfigModel
 
 
@@ -15,6 +17,12 @@ class ElasticSearchClientConfig(ConfigModel):
     username: Optional[str] = os.getenv("ELASTICSEARCH_USERNAME", "admin")
     password: Optional[str] = os.getenv("ELASTICSEARCH_PASSWORD", "admin")
     index_prefix: str = os.getenv("INDEX_PREFIX", "")
+
+    @pydantic.validator("index_prefix", always=True)
+    def index_prefix_must_end_with_underscore_if_not_empty(cls, v: str) -> str:
+        if v and not v.endswith("_"):
+            return f"{v}_"
+        return v
 
     @property
     def endpoint(self) -> str:
