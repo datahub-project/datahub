@@ -184,7 +184,7 @@ information like tokens.
 | spark.datahub.stage_metadata_coalescing                             |          |         | Normally it coalesce and send metadata at the onApplicationEnd event which is never called on Databricks or on Glue. You should enable this on Databricks if you want coalesced run .     |
 | spark.datahub.patch.enabled                                         |          | false   | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default it is disabled.                                              |
 | spark.datahub.metadata.dataset.lowerCaseUrns                        |          | false   | Set this to true to lowercase dataset urns. By default it is disabled.                                                                                                                    |
-| spark.datahub.disableSymlinkResolution                              |          | false   | Set this to true if you prefer not use dataset symlink (for example if you prefer to have the s3 location instead of the Hive table). By default it is disabled.                          |
+| spark.datahub.disableSymlinkResolution                              |          | false   | Set this to true if you prefer using the s3 location instead of the Hive table. By default, it is disabled.                          |
 
 ## What to Expect: The Metadata Model
 
