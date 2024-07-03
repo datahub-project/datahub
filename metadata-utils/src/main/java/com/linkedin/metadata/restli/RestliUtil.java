@@ -6,7 +6,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
-import com.linkedin.restli.server.errors.ServiceError;
 import java.util.Optional;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
@@ -75,46 +74,14 @@ public class RestliUtil {
     return toTask(() -> supplier.get().orElseThrow(RestliUtil::resourceNotFoundException));
   }
 
-  public static class NoLogRestLiServiceException extends RestLiServiceException {
-
-    public NoLogRestLiServiceException(HttpStatus status) {
-      super(status);
-    }
-
-    public NoLogRestLiServiceException(HttpStatus status, String message) {
-      super(status, message);
-    }
-
-    public NoLogRestLiServiceException(HttpStatus status, Throwable cause) {
-      super(status, cause);
-    }
-
-    public NoLogRestLiServiceException(HttpStatus status, String message, Throwable cause) {
-      super(status, message, cause);
-    }
-
-    public NoLogRestLiServiceException(
-        HttpStatus status, String message, Throwable cause, boolean writableStackTrace) {
-      super(status, message, cause, writableStackTrace);
-    }
-
-    public NoLogRestLiServiceException(ServiceError serviceError) {
-      super(serviceError);
-    }
-
-    public NoLogRestLiServiceException(ServiceError serviceError, Throwable cause) {
-      super(serviceError, cause);
-    }
-  }
-
   @Nonnull
   public static RestLiServiceException resourceNotFoundException() {
     return resourceNotFoundException(null);
   }
 
   @Nonnull
-  public static RestLiServiceException noLogResourceNotFoundException() {
-    return new NoLogRestLiServiceException(HttpStatus.S_404_NOT_FOUND);
+  public static RestLiServiceException nonExceptionResourceNotFound() {
+    return new NonExceptionHttpErrorResponse(HttpStatus.S_404_NOT_FOUND);
   }
 
   @Nonnull

@@ -13,7 +13,6 @@ import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
@@ -21,7 +20,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
@@ -154,7 +152,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
               _entityService.getVersionedAspect(opContext, urn, aspectName, version);
           if (aspect == null) {
               log.warn("Did not find urn: {} aspect: {} version: {}", urn, aspectName, version);
-              throw RestliUtil.noLogResourceNotFoundException();
+              throw RestliUtil.nonExceptionResourceNotFound();
           }
           return new AnyRecord(aspect.data());
         },
