@@ -882,7 +882,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 error and (error.get(c.EXTENSIONS) or {}).get(c.SEVERITY) == c.WARNING
                 for error in errors
             ):
-                self.report.warning(title=connection_type, message=f"{errors}")
+                self.report.warning(
+                    message=f"Received error fetching Query Connection {connection_type}",
+                    context=f"Errors: {errors}",
+                )
             else:
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 

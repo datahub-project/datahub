@@ -421,7 +421,8 @@ class LookerModel:
                 reporter.report_warning(
                     title="Error Loading Include File",
                     message="Failed to load included file",
-                    context=f"Include Details: {included_file}, Exception: {e}",
+                    context=f"Include Details: {included_file}",
+                    exc=e,
                 )
                 # continue in this case, as it might be better to load and resolve whatever we can
 
@@ -572,7 +573,8 @@ class LookerModel:
                     reporter.report_warning(
                         title="Error Loading Include",
                         message="Failed to load include file",
-                        context=f"Include Details: {included_file}, Exception: {e}",
+                        context=f"Include Details: {included_file}",
+                        exc=e,
                     )
                     # continue in this case, as it might be better to load and resolve whatever we can
 
@@ -1368,7 +1370,8 @@ class LookerView:
             reporter.report_warning(
                 title="Error Parsing SQL",
                 message="Failed to parse sql query, lineage will not be accurate.",
-                context=f"Table Name: {sql_table_name}, Query: {sql_query}, Exception: {e}",
+                context=f"Table Name: {sql_table_name}, Query: {sql_query}",
+                exc=e,
             )
 
         sql_table_names = [table for table in sql_table_names if "{%" not in table]
@@ -2082,7 +2085,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.reporter.report_warning(
                     title="Error Loading Model File",
                     message="Unable to load Looker model from file.",
-                    context=f"Model Name: {model_name}, File Path: {file_path}, Exception: {e}",
+                    context=f"Model Name: {model_name}, File Path: {file_path}",
+                    exc=e,
                 )
                 continue
 
@@ -2136,8 +2140,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                     except Exception as e:
                         self.reporter.report_warning(
                             title="Failed to process explores",
-                            message="Failed to process explore dictionary. Run with --debug for full stacktrace",
-                            context=f"Explore Details: {explore_dict}, Exception: {e}",
+                            message="Failed to process explore dictionary.",
+                            context=f"Explore Details: {explore_dict}",
+                            exc=e,
                         )
                         logger.debug("Failed to process explore", exc_info=e)
 
@@ -2219,7 +2224,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                             self.reporter.report_warning(
                                 title="Error Loading View",
                                 message="Unable to load Looker View.",
-                                context=f"View Details: {raw_view}, Exception: {repr(e)}",
+                                context=f"View Details: {raw_view}",
+                                exc=e,
                             )
                             continue
 

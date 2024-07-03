@@ -560,17 +560,19 @@ class ModeSource(StatefulIngestionSourceBase):
             "histogram": ChartTypeClass.HISTOGRAM,
         }
         if not display_type:
-            self.report.report_warning(
-                title="Unrecognized chart type found",
-                message=f"{token}: Chart type is missing. Setting to None",
+            self.report.info(
+                title="Missing chart type found",
+                message="Chart type is missing. Setting to None",
+                context=f"Token: {token}",
             )
             return None
         try:
             chart_type = type_mapping[display_type]
         except KeyError:
-            self.report.report_warning(
+            self.report.info(
                 title="Unrecognized chart type found",
-                message=f"{token}: Chart type {display_type} not supported. Setting to None",
+                message=f"Chart type {display_type} not supported. Setting to None",
+                context=f"Token: {token}",
             )
             chart_type = None
 
@@ -679,7 +681,7 @@ class ModeSource(StatefulIngestionSourceBase):
             self.report.report_failure(
                 title="Failed to retrieve Data Sources",
                 message="Unable to retrieve data sources from Mode.",
-                context=f"Error:{str(http_error)}",
+                context=f"Error: {str(http_error)}",
             )
 
         return data_sources
@@ -693,8 +695,8 @@ class ModeSource(StatefulIngestionSourceBase):
         if not data_sources:
             self.report.report_failure(
                 title="No Data Sources Found",
-                message=f"No data sources found for datasource with id: "
-                f"{data_source_id}",
+                message="Could not find data sources matching some ids",
+                context=f"Data Soutce ID: {data_source_id}",
             )
             return None, None
 
