@@ -25,14 +25,22 @@ export default function useTagsAndTermsRenderer(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 
-        const businessAttributeTags = record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags?.tags || [];
-        const businessAttributeTerms = record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.glossaryTerms?.terms || [];
+        const businessAttributeTags =
+            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags
+                ?.tags || [];
+        const businessAttributeTerms =
+            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+                ?.glossaryTerms?.terms || [];
 
         return (
             <TagTermGroup
                 uneditableTags={options.showTags ? { tags: [...(tags?.tags || []), ...businessAttributeTags] } : null}
                 editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
-                uneditableGlossaryTerms={options.showTerms ? { terms: [...(record?.glossaryTerms?.terms || []), ...businessAttributeTerms] } : null}
+                uneditableGlossaryTerms={
+                    options.showTerms
+                        ? { terms: [...(record?.glossaryTerms?.terms || []), ...businessAttributeTerms] }
+                        : null
+                }
                 editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
                 canRemove={canEdit}
                 buttonProps={{ size: 'small' }}

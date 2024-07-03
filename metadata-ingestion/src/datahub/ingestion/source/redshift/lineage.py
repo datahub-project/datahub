@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -661,7 +661,7 @@ class RedshiftLineageExtractor:
         if self.config.resolve_temp_table_in_lineage:
             self._init_temp_table_schema(
                 database=database,
-                temp_tables=self.get_temp_tables(connection=connection),
+                temp_tables=list(self.get_temp_tables(connection=connection)),
             )
 
         populate_calls: List[Tuple[str, LineageCollectorType]] = []
@@ -893,7 +893,7 @@ class RedshiftLineageExtractor:
 
     def get_temp_tables(
         self, connection: redshift_connector.Connection
-    ) -> List[TempTableRow]:
+    ) -> Iterable[TempTableRow]:
         ddl_query: str = self.queries.temp_table_ddl_query(
             start_time=self.config.start_time,
             end_time=self.config.end_time,
@@ -901,15 +901,11 @@ class RedshiftLineageExtractor:
 
         logger.debug(f"Temporary table ddl query = {ddl_query}")
 
-        temp_table_rows: List[TempTableRow] = []
-
         for row in RedshiftDataDictionary.get_temporary_rows(
             conn=connection,
             query=ddl_query,
         ):
-            temp_table_rows.append(row)
-
-        return temp_table_rows
+            yield row
 
     def find_temp_tables(
         self, temp_table_rows: List[TempTableRow], temp_table_names: List[str]

@@ -66,7 +66,7 @@ def _parse_statement(
     sql: sqlglot.exp.ExpOrStr, dialect: sqlglot.Dialect
 ) -> sqlglot.Expression:
     statement: sqlglot.Expression = sqlglot.maybe_parse(
-        sql, dialect=dialect, error_level=sqlglot.ErrorLevel.RAISE
+        sql, dialect=dialect, error_level=sqlglot.ErrorLevel.IMMEDIATE
     )
     return statement
 
@@ -315,8 +315,8 @@ def try_format_query(
 
     try:
         dialect = get_dialect(platform)
-        expression = parse_statement(expression, dialect=dialect)
-        return expression.sql(dialect=dialect, pretty=True)
+        parsed_expression = parse_statement(expression, dialect=dialect)
+        return parsed_expression.sql(dialect=dialect, pretty=True)
     except Exception as e:
         if raises:
             raise

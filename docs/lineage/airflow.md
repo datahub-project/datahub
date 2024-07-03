@@ -66,11 +66,12 @@ enabled = True  # default
 ```
 
 | Name                       | Default value        | Description                                                                              |
-| -------------------------- | -------------------- | ---------------------------------------------------------------------------------------- |
+|----------------------------|----------------------|------------------------------------------------------------------------------------------|
 | enabled                    | true                 | If the plugin should be enabled.                                                         |
 | conn_id                    | datahub_rest_default | The name of the datahub rest connection.                                                 |
-| cluster                    | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance                                                            |
+| cluster                    | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance             |
 | capture_ownership_info     | true                 | Extract DAG ownership.                                                                   |
+| capture_ownership_as_group | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user             |
 | capture_tags_info          | true                 | Extract DAG tags.                                                                        |
 | capture_executions         | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab. |
 | materialize_iolets         | true                 | Create or un-soft-delete all entities referenced in lineage.                             |
@@ -130,18 +131,19 @@ conn_id = datahub_rest_default  # or datahub_kafka_default
 # etc.
 ```
 
-| Name                   | Default value        | Description                                                                                                                                                                            |
-| ---------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| enabled                | true                 | If the plugin should be enabled.                                                                                                                                                       |
-| conn_id                | datahub_rest_default | The name of the datahub connection you set in step 1.                                                                                                                                  |
-| cluster                | prod                 | name of the airflow cluster                                                                                                                                                            |
-| capture_ownership_info | true                 | If true, the owners field of the DAG will be capture as a DataHub corpuser.                                                                                                            |
-| capture_tags_info      | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
-| capture_executions     | true                 | If true, we'll capture task runs in DataHub in addition to DAG definitions.                                                                                                            |
-| materialize_iolets     | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                                                                           |
-| datajob_url_link       | taskinstance         | If taskinstance, the datajob url will be taskinstance link on airflow. It can also be grid.                                                                                            |
-|                        |
-| graceful_exceptions    | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
+| Name                       | Default value        | Description                                                                                                                                                                            |
+|----------------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| enabled                    | true                 | If the plugin should be enabled.                                                                                                                                                       |
+| conn_id                    | datahub_rest_default | The name of the datahub connection you set in step 1.                                                                                                                                  |
+| cluster                    | prod                 | name of the airflow cluster                                                                                                                                                            |
+| capture_ownership_info     | true                 | If true, the owners field of the DAG will be capture as a DataHub corpuser.                                                                                                            |
+| capture_ownership_as_group | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user.                                                                                                          |
+| capture_tags_info          | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
+| capture_executions         | true                 | If true, we'll capture task runs in DataHub in addition to DAG definitions.                                                                                                            |
+| materialize_iolets         | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                                                                           |
+| datajob_url_link           | taskinstance         | If taskinstance, the datajob url will be taskinstance link on airflow. It can also be grid.                                                                                            |
+|                            |
+| graceful_exceptions        | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
 
 #### Validate that the plugin is working
 
@@ -232,6 +234,37 @@ Note: these are only supported in the v2 plugin.
 You can also create a custom extractor to extract lineage from any operator. This is useful if you're using a built-in Airflow operator for which we don't support automatic lineage extraction.
 
 See this [example PR](https://github.com/datahub-project/datahub/pull/10452) which adds a custom extractor for the `BigQueryInsertJobOperator` operator.
+
+## Cleanup obsolete pipelines and tasks from Datahub
+
+There might be a case where the DAGs are removed from the Airflow but the corresponding pipelines and tasks are still there in the Datahub, let's call such pipelines ans tasks, `obsolete pipelines and tasks`
+
+Following are the steps to cleanup them from the datahub:
+- create a DAG named `Datahub_Cleanup`, i.e.
+
+```python
+from datetime import datetime
+
+from airflow import DAG
+from airflow.operators.bash import BashOperator
+
+from datahub_airflow_plugin.entities import Dataset, Urn
+
+with DAG(
+    "Datahub_Cleanup",
+    start_date=datetime(2024, 1, 1),
+    schedule_interval=None,
+    catchup=False,
+) as dag:
+    task = BashOperator(
+        task_id="cleanup_obsolete_data",
+        dag=dag,
+        bash_command="echo 'cleaning up the obsolete data from datahub'",
+    )
+
+```
+- ingest this DAG, and it will remove all the obsolete pipelines and tasks from the Datahub based on the `cluster` value set in the `airflow.cfg`
+
 
 ## Emit Lineage Directly
 

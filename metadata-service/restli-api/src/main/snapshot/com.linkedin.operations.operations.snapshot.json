@@ -2081,6 +2081,29 @@
       "doc" : "DataHub-native Title, e.g. 'Software Engineer'",
       "optional" : true
     }, {
+      "name" : "platforms",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "The platforms that the user commonly works with",
+      "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "dataPlatform" ],
+          "name" : "IsUserOf"
+        }
+      }
+    }, {
+      "name" : "persona",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "The user's persona type, based on their role",
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "dataHubPersona" ],
+        "name" : "IsPersona"
+      }
+    }, {
       "name" : "slack",
       "type" : "string",
       "doc" : "Slack handle for the user",
@@ -3021,6 +3044,7 @@
       "name" : "MLFeatureProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a MLFeature",
+      "include" : [ "com.linkedin.common.CustomProperties" ],
       "fields" : [ {
         "name" : "description",
         "type" : "string",

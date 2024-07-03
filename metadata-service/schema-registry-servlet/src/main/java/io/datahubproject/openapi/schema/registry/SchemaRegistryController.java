@@ -36,6 +36,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 /** DataHub Rest Controller implementation for Confluent's Schema Registry OpenAPI spec. */
@@ -249,14 +250,21 @@ public class SchemaRegistryController
 
   @Override
   public ResponseEntity<Config> getSubjectLevelConfig(String subject, Boolean defaultToGlobal) {
-    log.error("[ConfigApi] getSubjectLevelConfig method not implemented");
-    return ConfigApi.super.getSubjectLevelConfig(subject, defaultToGlobal);
+    return getTopLevelConfig();
   }
 
+  @RequestMapping(
+      value = {"/config", "/config/"},
+      produces = {
+        "application/vnd.schemaregistry.v1+json",
+        "application/vnd.schemaregistry+json; qs=0.9",
+        "application/json; qs=0.5"
+      },
+      method = RequestMethod.GET)
   @Override
   public ResponseEntity<Config> getTopLevelConfig() {
-    log.error("[ConfigApi] getTopLevelConfig method not implemented");
-    return ConfigApi.super.getTopLevelConfig();
+    return ResponseEntity.ok(
+        new Config().compatibilityLevel(Config.CompatibilityLevelEnum.BACKWARD));
   }
 
   @Override

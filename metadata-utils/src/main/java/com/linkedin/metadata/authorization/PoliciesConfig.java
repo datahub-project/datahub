@@ -151,6 +151,18 @@ public class PoliciesConfig {
           "Manage Connections",
           "Manage connections to external DataHub platforms.");
 
+  public static final Privilege MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_STRUCTURED_PROPERTIES",
+          "Manage Structured Properties",
+          "Manage structured properties in your instance.");
+
+  public static final Privilege MANAGE_DOCUMENTATION_FORMS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DOCUMENTATION_FORMS",
+          "Manage Documentation Forms",
+          "Manage forms assigned to assets to assist in documentation efforts.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -175,7 +187,9 @@ public class PoliciesConfig {
           MANAGE_GLOBAL_OWNERSHIP_TYPES,
           CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
-          MANAGE_CONNECTIONS_PRIVILEGE);
+          MANAGE_CONNECTIONS_PRIVILEGE,
+          MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
+          MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -346,6 +360,12 @@ public class PoliciesConfig {
           "EDIT_ENTITY_QUERIES",
           "Edit Dataset Queries",
           "The ability to edit the Queries for a Dataset.");
+
+  public static final Privilege EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_DATA_CONTRACT",
+          "Edit Data Contract",
+          "The ability to edit the Data Contract for an entity.");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =

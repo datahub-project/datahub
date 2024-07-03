@@ -252,6 +252,16 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         self._emit_generic(url, payload)
 
+    def emit_mcps(
+        self, mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
+    ) -> None:
+        url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
+
+        mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
+        payload = json.dumps({"proposals": mcp_objs})
+
+        self._emit_generic(url, payload)
+
     @deprecated
     def emit_usage(self, usageStats: UsageAggregation) -> None:
         url = f"{self._gms_server}/usageStats?action=batchIngest"
