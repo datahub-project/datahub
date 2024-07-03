@@ -949,8 +949,10 @@ class GlueSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        database_seen = set()
         databases, tables = self.get_all_databases_and_tables()
+
+        for database in databases.values():
+            yield from self.gen_database_containers(database)
 
         for table in tables:
             database_name = table["DatabaseName"]
@@ -962,9 +964,6 @@ class GlueSource(StatefulIngestionSourceBase):
             ) or not self.source_config.table_pattern.allowed(full_table_name):
                 self.report.report_table_dropped(full_table_name)
                 continue
-            if database_name not in database_seen:
-                database_seen.add(database_name)
-                yield from self.gen_database_containers(databases[database_name])
 
             dataset_urn = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
