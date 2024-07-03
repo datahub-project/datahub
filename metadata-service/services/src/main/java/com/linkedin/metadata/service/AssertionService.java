@@ -37,7 +37,6 @@ import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -1266,8 +1265,7 @@ public class AssertionService extends BaseService {
       @Nonnull Urn assertionUrn,
       @Nonnull Urn asserteeUrn,
       @Nonnull Long timestampMillis,
-      @Nonnull AssertionResult assertionResult,
-      @Nullable StringMap contextParameters) {
+      @Nonnull AssertionResult assertionResult) {
     AssertionRunEvent assertionRunEvent = new AssertionRunEvent();
     assertionRunEvent.setTimestampMillis(timestampMillis);
     assertionRunEvent.setRunId(timestampMillis.toString());
@@ -1275,9 +1273,6 @@ public class AssertionService extends BaseService {
     assertionRunEvent.setAsserteeUrn(asserteeUrn);
     assertionRunEvent.setStatus(AssertionRunStatus.COMPLETE);
     assertionRunEvent.setResult(assertionResult);
-    if (contextParameters != null) {
-      assertionRunEvent.setRuntimeContext(contextParameters);
-    }
 
     try {
       this.entityClient.ingestProposal(

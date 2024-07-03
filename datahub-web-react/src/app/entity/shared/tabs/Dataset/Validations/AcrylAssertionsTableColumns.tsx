@@ -187,7 +187,10 @@ export function ActionsColumn({
         <ActionButtonContainer>
             {platform && platform.urn !== UNKNOWN_DATA_PLATFORM && (
                 <AssertionPlatformWrapper>
-                    <AssertionPlatformAvatar platform={platform} lastEvaluationUrl={lastEvaluationUrl} />
+                    <AssertionPlatformAvatar
+                        platform={platform}
+                        externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
+                    />
                 </AssertionPlatformWrapper>
             )}
             <Actions

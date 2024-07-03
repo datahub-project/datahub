@@ -158,7 +158,7 @@ export const ASSERTION_INFO = [
         visible: true,
     },
     {
-        name: 'Custom',
+        name: 'SQL',
         description: 'Define & monitor your expectations using custom SQL rules',
         icon: <StyledConsoleSqlOutlined />,
         type: AssertionType.Sql,
@@ -169,7 +169,7 @@ export const ASSERTION_INFO = [
     },
     {
         name: 'Other',
-        description: 'Assertions that are defined and maintained outside of DataHub.',
+        description: 'Other assertions that are defined and maintained outside of DataHub.',
         icon: <StyledApiOutlined />,
         type: AssertionType.Dataset,
         entityTypes: [EntityType.Dataset],
@@ -183,12 +183,12 @@ ASSERTION_INFO.forEach((info) => {
     ASSERTION_TYPE_TO_INFO.set(info.type, info);
 });
 
-const getAssertionGroupName = (type: AssertionType): string => {
-    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : 'Unknown';
+const getAssertionGroupName = (type: string): string => {
+    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
-const getAssertionGroupTypeIcon = (type: AssertionType) => {
-    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : undefined;
+const getAssertionGroupTypeIcon = (type: string) => {
+    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 
 export type AssertionWithMonitorDetails = Assertion & {
@@ -280,10 +280,11 @@ export const createAssertionGroups = (assertions: Array<AssertionWithMonitorDeta
     assertions
         .filter((assertion) => assertion.info?.type)
         .forEach((assertion) => {
-            const groupType = assertion.info?.type;
-            const groupedAssertions = typeToAssertions.get(groupType) || [];
+            const assertionType: string | undefined = assertion?.info?.customAssertion?.type || assertion?.info?.type;
+            const assertionGroup: string = assertionType || 'Unknown';
+            const groupedAssertions = typeToAssertions.get(assertionGroup) || [];
             groupedAssertions.push(assertion);
-            typeToAssertions.set(groupType, groupedAssertions);
+            typeToAssertions.set(assertionGroup, groupedAssertions);
         });
 
     // Now, create summary for each type and build the AssertionGroup object
@@ -372,7 +373,6 @@ export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, mayb
         return undefined;
     }
 };
-
 export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
     return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
         ...type,
@@ -433,6 +433,9 @@ export const getEntityUrnForAssertion = (assertion: Assertion) => {
     }
     if (assertion.info?.type === AssertionType.DataSchema) {
         return assertion.info?.schemaAssertion?.entityUrn;
+    }
+    if (assertion.info?.type === AssertionType.Custom) {
+        return assertion.info?.customAssertion?.entityUrn;
     }
     console.error(`Unable to extract entity urn from unrecognized assertion with type ${assertion.info?.type}`);
     return undefined;

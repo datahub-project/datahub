@@ -287,6 +287,8 @@ export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEv
             return getFormattedReasonTextForSchemaAssertion(coalescedRun);
         case AssertionType.Dataset:
             return getFormattedReasonTextForDefaultAssertion(coalescedRun);
+        case AssertionType.Custom:
+            return getFormattedReasonTextForDefaultAssertion(coalescedRun);
         default:
             return 'No reason provided';
     }

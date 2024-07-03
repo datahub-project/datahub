@@ -8,6 +8,7 @@ import { AssertionSourceType, AssertionType } from '../../../../../../../../../t
 export const isExternalAssertion = (assertion) => {
     return (
         assertion?.info?.type === AssertionType.Dataset || // Legacy, non-native assertion type.
+        assertion?.info?.type === AssertionType.Custom ||
         (assertion?.info?.source?.type !== AssertionSourceType.Inferred &&
             assertion?.info?.source?.type !== AssertionSourceType.Native)
     );

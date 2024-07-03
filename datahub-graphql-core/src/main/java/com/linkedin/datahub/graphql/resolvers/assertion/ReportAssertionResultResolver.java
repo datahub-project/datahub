@@ -72,9 +72,10 @@ public class ReportAssertionResultResolver implements DataFetcher<CompletableFut
                 context.getOperationContext(),
                 assertionUrn,
                 asserteeUrn,
-                input.getTimestampMillis(),
-                assertionResult,
-                mapContextParameters(input.getProperties()));
+                input.getTimestampMillis() != null
+                    ? input.getTimestampMillis()
+                    : System.currentTimeMillis(),
+                assertionResult);
             return true;
           }
           throw new AuthorizationException(
@@ -98,6 +99,9 @@ public class ReportAssertionResultResolver implements DataFetcher<CompletableFut
     assertionResult.setExternalUrl(input.getExternalUrl(), SetMode.IGNORE_NULL);
     if (assertionResult.getType() == AssertionResultType.ERROR && input.getError() != null) {
       assertionResult.setError(mapAssertionResultError(input));
+    }
+    if (input.getProperties() != null) {
+      assertionResult.setNativeResults(mapContextParameters(input.getProperties()));
     }
     return assertionResult;
   }

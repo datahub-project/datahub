@@ -61,8 +61,8 @@ public class ReportAssertionResultResolverTest {
                           .setType(com.linkedin.assertion.AssertionResultErrorType.UNKNOWN_ERROR)
                           .setProperties(
                               new StringMap(Map.of("message", "an unknown error occurred"))))
-                  .setExternalUrl(customAssertionUrl))
-          .setRuntimeContext(new StringMap(Map.of("prop1", "value1")));
+                  .setExternalUrl(customAssertionUrl)
+                  .setNativeResults(new StringMap(Map.of("prop1", "value1"))));
 
   @Test
   public void testGetSuccessReportAssertionRunEvent() throws Exception {
@@ -91,8 +91,7 @@ public class ReportAssertionResultResolverTest {
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_DATASET_URN),
             Mockito.eq(TEST_ASSERTION_RUN_EVENT.getTimestampMillis()),
-            Mockito.eq(TEST_ASSERTION_RUN_EVENT.getResult()),
-            Mockito.eq(TEST_ASSERTION_RUN_EVENT.getRuntimeContext()));
+            Mockito.eq(TEST_ASSERTION_RUN_EVENT.getResult()));
   }
 
   @Test
@@ -126,7 +125,6 @@ public class ReportAssertionResultResolverTest {
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),
-            Mockito.any(),
             Mockito.any());
   }
 
@@ -143,7 +141,6 @@ public class ReportAssertionResultResolverTest {
         .when(mockService)
         .addAssertionRunEvent(
             any(OperationContext.class),
-            Mockito.any(),
             Mockito.any(),
             Mockito.any(),
             Mockito.any(),

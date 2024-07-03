@@ -85,7 +85,7 @@ export const DatasetAssertionsSummary = ({ summary }: Props) => {
     return (
         <SummaryHeader>
             <SummaryContainer>
-                <Tooltip title="This status is based on the most recent run of each assertion.">
+                <Tooltip title="This status is based on the most recent result of each assertion.">
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         {summaryIcon}
                         <SummaryMessage>

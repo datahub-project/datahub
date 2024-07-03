@@ -11,16 +11,16 @@ const PlatformContainer = styled.div`
 
 type Props = {
     platform: DataPlatform;
-    lastEvaluationUrl?: string;
+    externalUrl?: string;
 };
 
-export const AssertionPlatformAvatar = ({ platform, lastEvaluationUrl }: Props) => {
+export const AssertionPlatformAvatar = ({ platform, externalUrl }: Props) => {
     const entityRegistry = useEntityRegistry();
     return (
         <Tooltip title={`Run by ${entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}`}>
             <PlatformContainer>
-                {(platform.properties?.logoUrl && (
-                    <LinkWrapper to={lastEvaluationUrl} target="_blank" onClick={(e) => e.stopPropagation()}>
+                <LinkWrapper to={externalUrl} target="_blank" onClick={(e) => e.stopPropagation()}>
+                    {(platform.properties?.logoUrl && (
                         <Image
                             preview={false}
                             height={24}
@@ -28,12 +28,12 @@ export const AssertionPlatformAvatar = ({ platform, lastEvaluationUrl }: Props) 
                             src={platform.properties?.logoUrl}
                             style={{ objectFit: 'fill', borderRadius: 12 }}
                         />
-                    </LinkWrapper>
-                )) || (
-                    <Typography.Text>
-                        {entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}
-                    </Typography.Text>
-                )}
+                    )) || (
+                        <Typography.Text>
+                            {entityRegistry.getDisplayName(EntityType.DataPlatform, platform)}
+                        </Typography.Text>
+                    )}
+                </LinkWrapper>
             </PlatformContainer>
         </Tooltip>
     );

@@ -10,6 +10,7 @@ import { CopyLinkAction } from './CopyLinkAction';
 import { CopyUrnAction } from './CopyUrnAction';
 import { SubscribeAction } from './SubscribeAction';
 import { RunAction } from './RunAction';
+import { ExternalUrlAction } from './ExternalUrlAction';
 
 const ActionList = styled.div`
     display: flex;
@@ -40,6 +41,7 @@ export const Actions = ({
     return (
         <ActionList>
             <StartStopAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
+            <ExternalUrlAction assertion={assertion} />
             <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
             <SubscribeAction assertion={assertion} refetch={refetch} />
             <ContractAction
