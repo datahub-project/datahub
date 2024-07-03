@@ -34,8 +34,11 @@
 			"@conf/*": [
 				"./src/conf/*"
 			],
+			"@components": [
+				"./src/alchemy-components"
+			],
 			"@components/*": [
-				"./src/components/*"
+				"./src/alchemy-components/*"
 			],
 			"@graphql/*": [
 				"./src/graphql/*"
@@ -89,9 +92,6 @@
 		"src/conf/theme/styled-components.d.ts",
 		"vite.config.ts",
 		".eslintrc.js",
-		"functions"
-	],
-	"exclude": [
-		"docs",
+		"functions",
 	]
 }

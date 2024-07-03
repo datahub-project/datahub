@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Tag, Typography } from 'antd';
-// Import Material-UI components
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
+import { Button, Tag, Typography, Tooltip } from 'antd';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { SUCCESS_COLOR_HEX } from '../entity/shared/tabs/Incident/incidentUtils';
 import { useGetTestResultsSummaryQuery } from '../../graphql/test.generated';
@@ -155,9 +152,7 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
             <LastComputed>
                 Last computed: {lastComputed}
                 <Tooltip title="Refresh summary results">
-                    <IconButton onClick={handleRefreshClick} size="small">
-                        <RefreshIcon fontSize="small" /> {/* Adjust fontSize as needed */}
-                    </IconButton>
+                    <RefreshIcon fontSize="small" onClick={handleRefreshClick} /> {/* Adjust fontSize as needed */}
                 </Tooltip>
             </LastComputed>
         </Container>

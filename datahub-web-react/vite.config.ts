@@ -103,7 +103,7 @@ export default defineConfig(({ mode }) => {
 				'@src': path.resolve(__dirname, '/src'),
 				'@app': path.resolve(__dirname, '/src/app'),
 				'@conf': path.resolve(__dirname, '/src/conf'),
-				'@components': path.resolve(__dirname, 'src/components'),
+				'@components': path.resolve(__dirname, 'src/alchemy-components'),
 				'@graphql': path.resolve(__dirname, 'src/graphql'),
 				'@graphql-mock': path.resolve(__dirname, 'src/graphql-mock'),
 				'@images': path.resolve(__dirname, 'src/images'),

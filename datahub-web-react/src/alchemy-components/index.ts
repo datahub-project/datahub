@@ -1,0 +1,8 @@
+// example usage: import { colors } from '@components/theme';
+export * from './theme';
+
+// example usage: import { Button } from '@components';
+export * from './components/Button';
+export * from './components/Heading';
+export * from './components/Icon';
+export * from './components/Text';

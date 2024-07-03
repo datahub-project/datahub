@@ -1,6 +1,9 @@
 import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
 
+import { Remirror, useRemirror } from '@remirror/react';
+import { ItalicExtension, UnderlineExtension } from 'remirror/extensions';
+
 import { HelmetProvider } from 'react-helmet-async';
 import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
@@ -65,6 +68,14 @@ export default ({ children, initialEntries }: Props) => {
     });
     vi.mock('js-cookie', () => ({ default: { get: () => 'urn:li:corpuser:2' } }));
 
+    // mock remirror
+    const extensions = () => [new ItalicExtension(), new UnderlineExtension()];
+    const { manager, state } = useRemirror({
+        extensions,
+        content: '<p>This is the initial value</p>',
+        stringHandler: 'html',
+    });
+
     return (
         <HelmetProvider>
             <CustomThemeProvider>
@@ -72,26 +83,28 @@ export default ({ children, initialEntries }: Props) => {
                     <EntityRegistryContext.Provider value={entityRegistry}>
                         <UserContextProvider>
                             <AppConfigProvider>
-                                <LineageExplorerContext.Provider
-                                    value={{
-                                        expandTitles: false,
-                                        showColumns: false,
-                                        collapsedColumnsNodes: {},
-                                        setCollapsedColumnsNodes: null,
-                                        fineGrainedMap: {},
-                                        selectedField: null,
-                                        setSelectedField: () => {},
-                                        highlightedEdges: [],
-                                        setHighlightedEdges: () => {},
-                                        visibleColumnsByUrn: {},
-                                        setVisibleColumnsByUrn: () => {},
-                                        columnsByUrn: {},
-                                        setColumnsByUrn: () => {},
-                                        refetchCenterNode: () => {},
-                                    }}
-                                >
-                                    {children}
-                                </LineageExplorerContext.Provider>
+                                <Remirror manager={manager} state={state}>
+                                    <LineageExplorerContext.Provider
+                                        value={{
+                                            expandTitles: false,
+                                            showColumns: false,
+                                            collapsedColumnsNodes: {},
+                                            setCollapsedColumnsNodes: null,
+                                            fineGrainedMap: {},
+                                            selectedField: null,
+                                            setSelectedField: () => {},
+                                            highlightedEdges: [],
+                                            setHighlightedEdges: () => {},
+                                            visibleColumnsByUrn: {},
+                                            setVisibleColumnsByUrn: () => {},
+                                            columnsByUrn: {},
+                                            setColumnsByUrn: () => {},
+                                            refetchCenterNode: () => {},
+                                        }}
+                                    >
+                                        {children}
+                                    </LineageExplorerContext.Provider>
+                                </Remirror>
                             </AppConfigProvider>
                         </UserContextProvider>
                     </EntityRegistryContext.Provider>
