@@ -71,9 +71,8 @@ class StructuredLogLevel(Enum):
 
 @dataclass
 class StructuredLogEntry(Report):
-    level: StructuredLogLevel
     title: Optional[str]
-    message: Optional[str]
+    message: str
     context: LossyList[str]
 
 
@@ -136,7 +135,6 @@ class StructuredLogs(Report):
             if context is not None:
                 context_list.append(context)
             entries[log_key] = StructuredLogEntry(
-                level=level,
                 title=title,
                 message=message,
                 context=context_list,
@@ -146,9 +144,11 @@ class StructuredLogs(Report):
                 entries[log_key].context.append(context)
 
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
+        entries = self._entries[level]
         result: LossyList[StructuredLogEntry] = LossyList()
-        for log in self._entries[level].values():
+        for log in entries.values():
             result.append(log)
+        result.set_total(entries.total_key_count())
         return result
 
     @property
@@ -283,11 +283,11 @@ class SourceReport(Report):
 
     def as_obj(self) -> dict:
         return {
+            **super().as_obj(),
             # To reduce the amount of nesting, we pull these fields out of the structured log.
             "failures": Report.to_pure_python_obj(self.failures),
             "warnings": Report.to_pure_python_obj(self.warnings),
             "infos": Report.to_pure_python_obj(self.infos),
-            **super().as_obj(),
         }
 
     def compute_stats(self) -> None:
