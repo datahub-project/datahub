@@ -868,6 +868,7 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
 
 @freeze_time(FROZEN_TIME)
 def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "duplicate_ingest_mces_output.json"
 
@@ -882,6 +883,31 @@ def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
     pipeline.raise_from_status(raise_warnings=True)
 
     golden_path = test_resources_dir / "duplicate_field_ingestion_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "field_tag_mces_output.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/lkml_samples_duplicate_field",
+    )
+
+    new_recipe["source"]["config"]["tag_measures_and_dimensions"] = True
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "field_tag_ingestion_golden.json"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_out_file,

@@ -4,6 +4,7 @@ import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -253,5 +254,64 @@ public class UpstreamLineageTemplateTest {
 
     assertEquals(result.getUpstreams().size(), 187, "Expected 1 less upstream");
     assertEquals(result.getFineGrainedLineages().size(), 607);
+  }
+
+  @Test
+  public void testPatchWithFieldWithForwardSlash() throws JsonProcessingException {
+
+    String downstreamUrn =
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)";
+    String unescapedUpstreamUrn =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),slash/column)";
+    String escapedUpstreamUrn =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),slash~1column)";
+    String lineagePath = downstreamUrn + "//" + escapedUpstreamUrn;
+
+    UpstreamLineageTemplate upstreamLineageTemplate = new UpstreamLineageTemplate();
+    UpstreamLineage upstreamLineage = upstreamLineageTemplate.getDefault();
+    JsonPatchBuilder jsonPatchBuilder = Json.createPatchBuilder();
+
+    JsonObjectBuilder fineGrainedLineageNode = Json.createObjectBuilder();
+    JsonValue upstreamConfidenceScore = Json.createValue(1.0f);
+    fineGrainedLineageNode.add("confidenceScore", upstreamConfidenceScore);
+
+    jsonPatchBuilder.add(lineagePath, fineGrainedLineageNode.build());
+
+    // Initial population test
+    UpstreamLineage result =
+        upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatchBuilder.build());
+
+    assertEquals(
+        result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(),
+        unescapedUpstreamUrn);
+  }
+
+  @Test
+  public void testPatchWithFieldWithTilde() throws JsonProcessingException {
+
+    String downstreamUrn =
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c1)";
+    String unescapedUpstreamUrn =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),tilde~column)";
+    String escapedUpstreamUrn =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),tilde~0column)";
+    String lineagePath = downstreamUrn + "//" + escapedUpstreamUrn;
+
+    UpstreamLineageTemplate upstreamLineageTemplate = new UpstreamLineageTemplate();
+    UpstreamLineage upstreamLineage = upstreamLineageTemplate.getDefault();
+    JsonPatchBuilder jsonPatchBuilder = Json.createPatchBuilder();
+
+    JsonObjectBuilder fineGrainedLineageNode = Json.createObjectBuilder();
+    JsonValue upstreamConfidenceScore = Json.createValue(1.0f);
+    fineGrainedLineageNode.add("confidenceScore", upstreamConfidenceScore);
+
+    jsonPatchBuilder.add(lineagePath, fineGrainedLineageNode.build());
+
+    // Initial population test
+    UpstreamLineage result =
+        upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatchBuilder.build());
+    assertEquals(
+        result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(),
+        unescapedUpstreamUrn);
   }
 }
