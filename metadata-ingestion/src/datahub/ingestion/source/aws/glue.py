@@ -901,7 +901,7 @@ class GlueSource(StatefulIngestionSourceBase):
             parameters["LocationUri"] = database["LocationUri"]
         if database.get("CreateTime") is not None:
             create_time: datetime.datetime = database["CreateTime"]
-            parameters["CreateTime"] = create_time.strftime("%B %-d, %Y at %H:%M:%S")
+            parameters["CreateTime"] = create_time.strftime("%B %d, %Y at %H:%M:%S")
         yield from gen_containers(
             container_key=database_container_key,
             name=database["Name"],
