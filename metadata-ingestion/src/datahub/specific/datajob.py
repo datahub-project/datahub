@@ -378,9 +378,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         )
         return self
 
-    def add_input_dataset_field(
-        self, input: Union[Urn, str]
-    ) -> "DataJobPatchBuilder":
+    def add_input_dataset_field(self, input: Union[Urn, str]) -> "DataJobPatchBuilder":
         """
         Adds an input dataset field to the DataJobPatchBuilder.
 
@@ -396,9 +394,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         input_urn = str(input)
         urn = Urn.create_from_string(input_urn)
         if not urn.get_type() == "schemaField":
-            raise ValueError(
-                f"Input {input} is not a Schema Field urn"
-            )
+            raise ValueError(f"Input {input} is not a Schema Field urn")
 
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
@@ -472,9 +468,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         output_urn = str(output)
         urn = Urn.create_from_string(output_urn)
         if not urn.get_type() == "schemaField":
-            raise ValueError(
-                f"Input {output} is not a Schema Field urn"
-            )
+            raise ValueError(f"Input {output} is not a Schema Field urn")
 
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
