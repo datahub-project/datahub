@@ -177,12 +177,21 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
 
     /* V2 helper function to map backend failure or warning lists into StructuredReportLogEntry[] */
     const mapItemArray = (items): StructuredReportLogEntry[] => {
-        return items.map((item) => ({
-            level: getStructuredReportItemLevel(item.level),
-            title: item.title || 'An unexpected issue occurred',
-            message: item.message,
-            context: item.context,
-        }));
+        return items.map((item) => {
+
+            if (typeof item === 'string') {
+                // Handle "sampled from" case..
+                return null; 
+            }
+
+            return {
+                level: getStructuredReportItemLevel(item.level),
+                title: item.title || 'An unexpected issue occurred',
+                message: item.message,
+                context: item.context,
+            }
+            
+        }).filter(item => item != null);
     };
 
     try {

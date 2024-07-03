@@ -283,11 +283,11 @@ class SourceReport(Report):
 
     def as_obj(self) -> dict:
         return {
+            **super().as_obj(),
             # To reduce the amount of nesting, we pull these fields out of the structured log.
             "failures": Report.to_pure_python_obj(self.failures),
             "warnings": Report.to_pure_python_obj(self.warnings),
             "infos": Report.to_pure_python_obj(self.infos),
-            **super().as_obj(),
         }
 
     def compute_stats(self) -> None:
