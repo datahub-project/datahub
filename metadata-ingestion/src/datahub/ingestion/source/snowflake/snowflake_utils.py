@@ -257,12 +257,10 @@ class SnowflakeCommonMixin:
             self.report_error(key, reason)
 
     def report_warning(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        self.logger.warning(f"{key} => {reason}")
+        self.report.warning(key, reason)
 
     def report_error(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        self.logger.error(f"{key} => {reason}")
+        self.report.failure(key, reason)
 
 
 class SnowflakeConnectionProtocol(SnowflakeLoggingProtocol, Protocol):

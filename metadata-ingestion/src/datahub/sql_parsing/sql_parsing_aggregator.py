@@ -1143,6 +1143,7 @@ class SqlParsingAggregator(Closeable):
         if not self.generate_queries or not self.generate_query_usage_statistics:
             return
 
+        assert self._query_usage_counts is not None
         for query_id in self._query_usage_counts:
             if query_id in queries_generated:
                 continue
@@ -1227,12 +1228,16 @@ class SqlParsingAggregator(Closeable):
                         ),
                         queryCount=count,
                         uniqueUserCount=1,
-                        userCounts=[
-                            models.DatasetUserUsageCountsClass(
-                                user=user.urn(),
-                                count=count,
-                            )
-                        ],
+                        userCounts=(
+                            [
+                                models.DatasetUserUsageCountsClass(
+                                    user=user.urn(),
+                                    count=count,
+                                )
+                            ]
+                            if user
+                            else None
+                        ),
                     ),
                 )
 

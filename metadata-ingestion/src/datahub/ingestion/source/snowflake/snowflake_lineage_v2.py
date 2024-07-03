@@ -358,7 +358,7 @@ class SnowflakeLineageExtractor(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
         if key not in discovered_tables:
-            return
+            return None
 
         if db_row["UPSTREAM_LOCATIONS"] is not None:
             external_locations = json.loads(db_row["UPSTREAM_LOCATIONS"])
@@ -370,6 +370,8 @@ class SnowflakeLineageExtractor(
                         upstream_urn=make_s3_urn_for_lineage(loc, self.config.env),
                         downstream_urn=self.dataset_urn_builder(key),
                     )
+
+        return None
 
     def _fetch_upstream_lineages_for_tables(self) -> Iterable[UpstreamLineageEdge]:
         query: str = SnowflakeQuery.table_to_table_lineage_history_v2(
