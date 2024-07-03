@@ -168,7 +168,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible(domainName);
     moveDomaintoRootLevel();
     cy.waitTextVisible("Moved Domain!");
-    cy.ensureTextNotPresent('Moved Domain!');
+    cy.ensureTextNotPresent("Moved Domain!");
     cy.goToDomainList();
     cy.waitTextVisible("1 sub-domain");
   });
@@ -176,7 +176,7 @@ describe("Verify nested domains test functionalities", () => {
   it("Verify Move domain parent level to root level", () => {
     moveDomaintoParent();
     cy.waitTextVisible("Moved Domain!");
-    cy.ensureTextNotPresent('Moved Domain!');
+    cy.ensureTextNotPresent("Moved Domain!");
     cy.goToDomainList();
     cy.waitTextVisible(domainName);
   });
