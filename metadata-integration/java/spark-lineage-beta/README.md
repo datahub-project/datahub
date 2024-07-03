@@ -186,7 +186,6 @@ information like tokens.
 | spark.datahub.metadata.dataset.lowerCaseUrns                        |          | false   | Set this to true to lowercase dataset urns. By default it is disabled.                                                                                                                    |
 | spark.datahub.disableSymlinkResolution                              |          | false   | Set this to true if you prefer not use dataset symlink (for example if you prefer to have the s3 location instead of the Hive table). By default it is disabled.                          |
 
-
 ## What to Expect: The Metadata Model
 
 As of current writing, the Spark agent produces metadata related to the Spark job, tasks and lineage edges to datasets.
