@@ -140,11 +140,6 @@ export const validateURL = (fieldName: string) => {
     };
 };
 
-const getStructuredReportItemLevel = (rawLevel: string) => {
-    const normalizedLevel = rawLevel.toLocaleUpperCase();
-    return StructuredReportItemLevel[normalizedLevel as keyof typeof StructuredReportItemLevel];
-};
-
 const createStructuredReport = (items: StructuredReportLogEntry[]): StructuredReport => {
     const errorCount = items.filter((item) => item.level === StructuredReportItemLevel.ERROR).length;
     const warnCount = items.filter((item) => item.level === StructuredReportItemLevel.WARN).length;
