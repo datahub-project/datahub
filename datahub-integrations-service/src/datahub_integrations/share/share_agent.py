@@ -552,6 +552,11 @@ class ShareAgent:
 
         logger.debug(f"Using destination graph: {self.destination_graph!r}")
 
+        if not lineage_direction:
+            # If lineage direction is not provided, we need to determine the lineage direction from the share aspect.
+            # This only applies to re-shares. If this is a new share, nothing is impacted.
+            lineage_direction = self.get_lineage_direction_from_share_aspect(entity_urn)
+
         # First, we need to build the full set of entities to sync.
         entities_to_sync = self.determine_entities_to_sync(entity_urn)
         if lineage_direction:
