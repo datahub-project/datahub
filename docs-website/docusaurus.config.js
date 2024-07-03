@@ -20,7 +20,7 @@ module.exports = {
       defer: true,
     },
     {
-      src: "./src/rb2b.js",
+      src: "/scripts/rb2b.js",
       async: true,
       defer: true,
     }
