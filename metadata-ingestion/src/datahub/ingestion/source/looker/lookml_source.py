@@ -1090,6 +1090,7 @@ class LookerView:
                 is_primary_key=is_primary_key,
                 field_type=type_cls,
                 upstream_fields=upstream_fields,
+                tags=field_dict.get("tags") or [],
             )
             fields.append(field)
         return fields
