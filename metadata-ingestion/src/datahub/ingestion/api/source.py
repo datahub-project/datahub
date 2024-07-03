@@ -116,17 +116,19 @@ class StructuredLogs(Report):
         log_content = f"{message} => {context}" if context else message
         if exc:
             log_content += f"{log_content}: {exc}"
-            logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
-            logger.log(
-                level=logging.DEBUG,
-                msg="Full stack trace:",
-                stacklevel=stacklevel,
-                exc_info=exc,
-            )
+
+            if log:
+                logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
+                logger.log(
+                    level=logging.DEBUG,
+                    msg="Full stack trace:",
+                    stacklevel=stacklevel,
+                    exc_info=exc,
+                )
 
             # Add the simple exception details to the context.
             context = f"{context}: {exc}"
-        else:
+        elif log:
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 
         if log_key not in entries:
