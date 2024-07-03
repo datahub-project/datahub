@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { StructuredReportItem as StructuredReportItemType } from '../../types';
 import { StructuredReportItem } from './StructuredReportItem';
 import { ShowMoreSection } from '../../../../shared/ShowMoreSection';
+import { StructuredReportLogEntry } from '../../types';
 
 const ItemList = styled.div`
     display: flex;
@@ -11,7 +11,7 @@ const ItemList = styled.div`
 `;
 
 interface Props {
-    items: StructuredReportItemType[];
+    items: StructuredReportLogEntry[];
     color: string;
     icon?: React.ComponentType<any>;
     pageSize?: number;
