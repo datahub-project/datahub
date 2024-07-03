@@ -72,8 +72,6 @@ export default ({ children, initialEntries }: Props) => {
     const extensions = () => [new ItalicExtension(), new UnderlineExtension()];
     const { manager, state } = useRemirror({
         extensions,
-        content: '<p>This is the initial value</p>',
-        stringHandler: 'html',
     });
 
     return (

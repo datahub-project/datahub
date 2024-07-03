@@ -21,6 +21,7 @@
 		"@remirror/pm": "^2.0.3",
 		"@remirror/react": "^2.0.24",
 		"@remirror/styles": "^2.0.3",
+		"@remirror/types": "^1.0.1",
 		"@testing-library/jest-dom": "^6.1.4",
 		"@testing-library/react": "^12.0.0",
 		"@testing-library/react-hooks": "^8.0.1",
@@ -179,8 +180,6 @@
 		"vitest": "^0.34.6"
 	},
 	"resolutions": {
-		"@types/react": "17.0.14",
-		"@types/react-dom": "17.0.14",
 		"@ant-design/colors": "6.0.0",
 		"refractor": "3.3.1",
 		"json-schema": "0.4.0",
