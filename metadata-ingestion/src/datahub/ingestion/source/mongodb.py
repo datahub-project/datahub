@@ -421,8 +421,8 @@ class MongoDBSource(StatefulIngestionSourceBase):
                         # downsample the schema, using frequency as the sort key
                         self.report.report_warning(
                             title="Too many schema fields",
-                            message=f"Downsampling the collection schema because it has {collection_schema_size} fields. Threshold is {max_schema_size}",
-                            context=dataset_urn,
+                            message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
+                            context=f"Schema Size: {collection_schema_size}, Collection: {dataset_urn}",
                         )
                         # Add this information to the custom properties so user can know they are looking at downsampled schema
                         dataset_properties.customProperties[
