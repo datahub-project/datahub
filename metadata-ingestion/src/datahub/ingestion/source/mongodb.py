@@ -317,10 +317,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
         try:
             type_string = PYMONGO_TYPE_TO_MONGO_TYPE[field_type]
         except KeyError:
-            self.report.report_warning(
-                "Unrecognized column types found",
-                f"unable to map type {field_type} to metadata schema",
-                context=collection_name,
+            self.report.warning(
+                message="Unrecognized column types found",
+                context=f"Collection: {collection_name}, field type {field_type}",
             )
             PYMONGO_TYPE_TO_MONGO_TYPE[field_type] = "unknown"
             type_string = "unknown"
@@ -343,10 +342,9 @@ class MongoDBSource(StatefulIngestionSourceBase):
         TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
-            self.report.report_warning(
-                "Unrecognized column type found",
-                f"unable to map type {field_type} to metadata schema",
-                context=collection_name,
+            self.report.warning(
+                message="Unrecognized column type found",
+                context=f"Collection: {collection_name}, field type {field_type}",
             )
             TypeClass = NullTypeClass
 

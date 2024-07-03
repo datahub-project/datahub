@@ -800,9 +800,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
-                type="Tableau Login Error",
+                title="Tableau Login Error",
                 message="Failed to authenticate with Tableau.",
-                context=str(e),
+                exc=e,
             )
 
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
