@@ -2327,7 +2327,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # sheet contained in dashboard
             site_part = f"/t/{self.config.site}" if self.config.site else ""
             dashboard_path = sheet[c.CONTAINED_IN_DASHBOARDS][0][c.PATH]
-            sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{quote(sheet.get(c.NAME, ''))}"
+            sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{quote(sheet.get(c.NAME, ''), safe='')}"
         else:
             # hidden or viz-in-tooltip sheet
             sheet_external_url = None
