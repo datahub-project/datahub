@@ -15,7 +15,7 @@ def check_mce_file(filepath: str) -> str:
             f"Event file check failed with errors. Raising first error found. Full report {mce_source.get_report().as_string()}"
         )
         for failure in mce_source.get_report().failures:
-            raise Exception(failure.message)
+            raise Exception(failure.context)
         raise Exception(
             f"Failed to process file due to {mce_source.get_report().failures}"
         )
