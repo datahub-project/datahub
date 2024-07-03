@@ -1982,6 +1982,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                 Collections.singletonList(criterion),
                 0,
                 100,
+                null,
                 null);
     assertTrue(
         result.getEntities().size() > 2,
@@ -2046,4 +2047,46 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         .getTokens()
         .stream();
   }
+
+  /* SAAS ONLY */
+  @Test
+  public void testFilterOnNumValuesFieldPredicate() {
+    AssertJUnit.assertNotNull(getSearchService());
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("numInputDatasets")
+                                        .setValue("")
+                                        .setValues(new StringArray(ImmutableList.of("1"))))))));
+    String predicateJson =
+        "{\"and\": [{\"property\": \"numInputDatasets\",\"operator\": \"equals\",\"values\": [\"1\"]}]}";
+    // Test just predicate
+    SearchResult searchResult =
+        searchAcrossEntitiesPredicate(
+            getOperationContext(),
+            getSearchService(),
+            Collections.singletonList(DATA_JOB_ENTITY_NAME),
+            "*",
+            null,
+            predicateJson);
+    assertEquals(searchResult.getEntities().size(), 4);
+
+    // Test combined with filter
+    searchResult =
+        searchAcrossEntitiesPredicate(
+            getOperationContext(),
+            getSearchService(),
+            Collections.singletonList(DATA_JOB_ENTITY_NAME),
+            "*",
+            filter,
+            predicateJson);
+    assertEquals(searchResult.getEntities().size(), 4);
+  }
+  /* END SAAS ONLY */
 }

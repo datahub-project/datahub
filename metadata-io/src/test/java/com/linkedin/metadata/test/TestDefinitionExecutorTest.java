@@ -66,7 +66,9 @@ public class TestDefinitionExecutorTest {
     Mockito.when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(List.of());
 
     Predicate testPredicate = result.getOn().getConditions();
-    Filter filter = PredicateToFilter.transformPredicateToFilter(testPredicate, Mockito.mock(OperationContext.class));
+    Filter filter =
+        PredicateToFilter.transformPredicateToFilter(
+            testPredicate, Mockito.mock(OperationContext.class));
     assertEquals(
         filter.toString(),
         "{or=[{and=[{condition=EQUAL, field=platform, value=urn:li:dataPlatform:teradata, values=[urn:li:dataPlatform:teradata]}]}]}");

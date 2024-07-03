@@ -107,9 +107,10 @@ public class SearchService {
       @Nullable Filter postFilters,
       @Nullable List<SortCriterion> sortCriteria,
       int from,
-      int size) {
+      int size,
+      @Nullable String predicateJson) {
     return searchAcrossEntities(
-        opContext, entities, input, postFilters, sortCriteria, from, size, null);
+        opContext, entities, input, postFilters, sortCriteria, from, size, null, predicateJson);
   }
 
   /**
@@ -136,7 +137,8 @@ public class SearchService {
       @Nullable List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nullable List<String> facets,
+      @Nullable String predicateJson) {
     log.debug(
         String.format(
             "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
@@ -158,9 +160,24 @@ public class SearchService {
       // Optimization: If the indices are all empty, return empty result
       return getEmptySearchResult(from, size);
     }
-    SearchResult result =
-        _cachingEntitySearchService.search(
-            opContext, nonEmptyEntities, input, postFilters, sortCriteria, from, size, facets);
+    SearchResult result;
+    if (predicateJson != null) {
+      result =
+          _cachingEntitySearchService.predicateSearch(
+              opContext,
+              nonEmptyEntities,
+              input,
+              postFilters,
+              sortCriteria,
+              from,
+              size,
+              facets,
+              predicateJson);
+    } else {
+      result =
+          _cachingEntitySearchService.search(
+              opContext, nonEmptyEntities, input, postFilters, sortCriteria, from, size, facets);
+    }
     if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
       Optional<AggregationMetadata> entityTypeAgg =
           result.getMetadata().getAggregations().stream()

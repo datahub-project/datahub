@@ -70,6 +70,7 @@ public class NumEntitiesToCompleteResolver implements DataFetcher<CompletableFut
                     filter,
                     0,
                     0,
+                    null,
                     null);
 
             // 3. return the number of entities that match this query

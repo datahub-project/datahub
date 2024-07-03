@@ -187,6 +187,7 @@ public class ListDataProductAssetsResolver
                         finalFilter,
                         start,
                         count,
+                        null,
                         null));
             results
                 .getSearchResults()

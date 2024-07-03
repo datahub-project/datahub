@@ -1,10 +1,14 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.utils.ESPredicateUtils.*;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
+import com.google.common.collect.ImmutableList;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -18,6 +22,9 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.test.definition.expression.Query;
+import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.test.query.QueryOperation;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -257,7 +264,7 @@ public class AggregationQueryBuilder {
     return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
   }
 
-  private void processTermAggregations(
+  public void processTermAggregations(
       final Map.Entry<String, Aggregation> entry,
       final List<AggregationMetadata> aggregationMetadataList) {
     final Map<String, Long> oneTermAggResult =
@@ -393,6 +400,23 @@ public class AggregationQueryBuilder {
       @Nonnull final Criterion criterion,
       @Nonnull final List<AggregationMetadata> aggregationMetadata,
       @Nullable AspectRetriever aspectRetriever) {
+    if (criterion.hasValues()) {
+      addFacetFiltersToAggregationMetadata(
+          criterion.getField(), criterion.getValues(), aggregationMetadata, aspectRetriever);
+    } else {
+      addFacetFiltersToAggregationMetadata(
+          criterion.getField(),
+          ImmutableList.of(criterion.getValue()),
+          aggregationMetadata,
+          aspectRetriever);
+    }
+  }
+
+  private void addFacetFiltersToAggregationMetadata(
+      @Nonnull final String fieldName,
+      @Nonnull final List<String> fieldValues,
+      @Nonnull final List<AggregationMetadata> aggregationMetadata,
+      @Nullable AspectRetriever aspectRetriever) {
 
     // We should never see duplicate aggregation for the same field in aggregation metadata list.
     final Map<String, AggregationMetadata> aggregationMetadataMap =
@@ -400,13 +424,13 @@ public class AggregationQueryBuilder {
             .collect(Collectors.toMap(AggregationMetadata::getName, agg -> agg));
 
     // Map a filter criterion to a facet field (e.g. domains.keyword -> domains)
-    final String finalFacetField = toParentField(criterion.getField(), aspectRetriever);
+    final String finalFacetField = toParentField(fieldName, aspectRetriever);
 
     if (finalFacetField == null) {
       log.warn(
           String.format(
               "Found invalid filter field for entity search. Invalid or unrecognized facet %s",
-              criterion.getField()));
+              fieldName));
       return;
     }
 
@@ -425,15 +449,8 @@ public class AggregationQueryBuilder {
        * Elasticsearch.
        */
       AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(finalFacetField);
-      if (criterion.hasValues()) {
-        criterion
-            .getValues()
-            .forEach(
-                value ->
-                    addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
-      } else {
-        addMissingAggregationValueToAggregationMetadata(criterion.getValue(), originalAggMetadata);
-      }
+      fieldValues.forEach(
+          value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
     } else {
       /*
        * If we do not have ANY aggregation for the facet field, then inject a new aggregation metadata object for the
@@ -445,10 +462,9 @@ public class AggregationQueryBuilder {
           buildAggregationMetadata(
               finalFacetField,
               getFacetToDisplayNames().getOrDefault(finalFacetField, finalFacetField),
-              new LongMap(
-                  criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
+              new LongMap(fieldValues.stream().collect(Collectors.toMap(i -> i, i -> 0L))),
               new FilterValueArray(
-                  criterion.getValues().stream()
+                  fieldValues.stream()
                       .map(value -> createFilterValue(value, 0L, true))
                       .collect(Collectors.toList()))));
     }
@@ -595,4 +611,65 @@ public class AggregationQueryBuilder {
       return s1;
     };
   }
+
+  /* SAAS ONLY */
+
+  public List<AggregationMetadata> extractPredicateAggregationMetadata(
+      @Nonnull SearchResponse searchResponse,
+      @Nullable Predicate predicate,
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<PathSpec, String> searchableFieldPaths,
+      @Nonnull Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    if (searchResponse.getAggregations() == null) {
+      return addPredicatesToAggregationMetadata(
+          aggregationMetadataList,
+          predicate,
+          opContext,
+          searchableFieldPaths,
+          searchableFieldTypes);
+    }
+    for (Map.Entry<String, Aggregation> entry :
+        searchResponse.getAggregations().getAsMap().entrySet()) {
+      if (entry.getValue() instanceof ParsedTerms) {
+        processTermAggregations(entry, aggregationMetadataList);
+      }
+      if (entry.getValue() instanceof ParsedMissing) {
+        processMissingAggregations(entry, aggregationMetadataList);
+      }
+    }
+    return addPredicatesToAggregationMetadata(
+        aggregationMetadataList, predicate, opContext, searchableFieldPaths, searchableFieldTypes);
+  }
+
+  private List<AggregationMetadata> addPredicatesToAggregationMetadata(
+      @Nonnull final List<AggregationMetadata> originalMetadata,
+      @Nullable final Predicate predicate,
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<PathSpec, String> searchableFieldPaths,
+      @Nonnull Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    if (predicate == null) {
+      return originalMetadata;
+    }
+    Set<QueryOperation> queryOperations = Predicate.extractQueryOperationsForPredicate(predicate);
+    queryOperations.forEach(
+        queryOperation -> {
+          String fieldName =
+              resolveField(
+                  new Query(queryOperation.getQuery().getQuery()),
+                  searchableFieldPaths,
+                  searchableFieldTypes,
+                  opContext.getAspectRetriever());
+          List<String> values =
+              queryOperation.getValues().stream()
+                  .map(literal -> getSearchValueField(literal, fieldName, opContext))
+                  .flatMap(StringArray::stream)
+                  .collect(Collectors.toList());
+          addFacetFiltersToAggregationMetadata(
+              fieldName, values, originalMetadata, opContext.getAspectRetriever());
+        });
+    return originalMetadata;
+  }
+
+  // END SAAS ONLY -- Add methods prior to this section
 }

@@ -116,6 +116,7 @@ public class GetQuickFiltersResolverTest {
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null),
                 Mockito.eq(null)))
         .thenThrow(new RemoteInvocationException());
 
@@ -302,6 +303,7 @@ public class GetQuickFiltersResolverTest {
                 Mockito.eq(start),
                 Mockito.eq(limit),
                 Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null),
                 Mockito.eq(null)))
         .thenReturn(result);
     return client;

@@ -263,6 +263,13 @@ input SearchAcrossEntitiesInput {
   Optional - filter on how to search for entities by metadata forms
   """
   formFilter: FormFilter
+
+  # SAAS ONLY
+  """
+  Optional - Predicate filter for search, will combine with specified filters if present. Represented as a json string
+  of rules.
+  """
+  predicateFilter: String
 }
 
 """

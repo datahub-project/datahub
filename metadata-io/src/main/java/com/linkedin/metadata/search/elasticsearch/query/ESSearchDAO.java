@@ -742,7 +742,7 @@ public class ESSearchDAO {
    * @param input the search input text
    * @param predicateFilter the request map with fields and values as filters to be applied to
    *     search hits
-   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param facets list of facets we want aggregations for
@@ -766,8 +766,6 @@ public class ESSearchDAO {
             .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
             .collect(Collectors.toList());
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    // TODO: Support _entityType virtual field
-    // Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
     // Step 1: construct the query
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(entitySpecs, searchConfiguration, customSearchConfiguration)
@@ -777,7 +775,35 @@ public class ESSearchDAO {
         entityNames.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new));
     searchRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
-    // TODO: Support aggregations by predicate filter
-    return executeAndExtract(opContext, entitySpecs, searchRequest, null, from, size);
+    return executeAndExtractPredicateSearch(
+        opContext, entitySpecs, searchRequest, predicateFilter, from, size);
+  }
+
+  @Nonnull
+  @WithSpan
+  private SearchResult executeAndExtractPredicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpec,
+      @Nonnull SearchRequest searchRequest,
+      @Nullable Predicate predicate,
+      int from,
+      int size) {
+    long id = System.currentTimeMillis();
+    try (Timer.Context ignored =
+        MetricUtils.timer(this.getClass(), "executeAndExtract_search").time()) {
+      log.debug("Executing request {}: {}", id, searchRequest);
+      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+      // extract results, validated against document model as well
+      return transformIndexIntoEntityName(
+          opContext.getSearchContext().getIndexConvention(),
+          SearchRequestHandler.getBuilder(
+                  entitySpec, searchConfiguration, customSearchConfiguration)
+              .extractPredicateResult(opContext, searchResponse, predicate, from, size));
+    } catch (Exception e) {
+      log.error("Search query failed", e);
+      throw new ESQueryException("Search query failed:", e);
+    } finally {
+      log.debug("Returning from request {}.", id);
+    }
   }
 }

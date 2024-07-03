@@ -112,6 +112,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                     start,
                     count,
                     Collections.emptyList(),
+                    null,
                     null));
 
           } catch (Exception e) {

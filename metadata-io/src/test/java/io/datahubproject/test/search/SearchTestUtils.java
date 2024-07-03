@@ -76,7 +76,8 @@ public class SearchTestUtils {
         null,
         0,
         100,
-        facets);
+        facets,
+        null);
   }
 
   public static SearchResult searchAcrossEntities(
@@ -107,6 +108,7 @@ public class SearchTestUtils {
         null,
         0,
         100,
+        null,
         null);
   }
 
@@ -165,7 +167,8 @@ public class SearchTestUtils {
         null,
         null,
         0,
-        100);
+        100,
+        null);
   }
 
   public static LineageSearchResult lineage(
@@ -259,4 +262,26 @@ public class SearchTestUtils {
               }
             });
   }
+
+  /* SAAS ONLY */
+  public static SearchResult searchAcrossEntitiesPredicate(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
+      Filter filter,
+      String predicateJson) {
+    return searchService.searchAcrossEntities(
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
+        entityNames,
+        query,
+        filter,
+        null,
+        0,
+        100,
+        null,
+        predicateJson);
+  }
+  /* END SAAS ONLY */
 }

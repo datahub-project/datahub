@@ -94,6 +94,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
                     start,
                     count,
                     Collections.emptyList(),
+                    null,
                     null));
 
           } catch (Exception e) {

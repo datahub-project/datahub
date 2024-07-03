@@ -113,19 +113,29 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
               return SearchUtils.createEmptySearchResults(start, count);
             }
 
+            Filter finalFilter =
+                maybeResolvedView != null
+                    ? SearchUtils.combineFilters(
+                        baseFilter, maybeResolvedView.getDefinition().getFilter())
+                    : baseFilter;
+            /* SAAS ONLY */
+            String predicateJson = null;
+            if (input.getPredicateFilter() != null) {
+              predicateJson = input.getPredicateFilter();
+            }
+            /* END SAAS ONLY */
+
             return UrnSearchResultsMapper.map(
                 context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     finalEntities,
                     sanitizedQuery,
-                    maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            baseFilter, maybeResolvedView.getDefinition().getFilter())
-                        : baseFilter,
+                    finalFilter,
                     start,
                     count,
-                    sortCriteria));
+                    sortCriteria,
+                    predicateJson));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

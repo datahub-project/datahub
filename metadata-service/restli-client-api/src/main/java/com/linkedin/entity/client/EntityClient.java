@@ -269,7 +269,8 @@ public interface EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable List<SortCriterion> sortCriteria)
+      @Nullable List<SortCriterion> sortCriteria,
+      @Nullable String predicateJson)
       throws RemoteInvocationException;
 
   /**
@@ -280,7 +281,8 @@ public interface EntityClient {
    * @param filter search filters
    * @param start start offset for search results
    * @param count max number of search results requested
-   * @param facets list of facets we want aggregations for
+   * @param facets list of facets we want aggregations for SAAS ONLY *
+   * @param predicateJson json string of a predicate rule to be used as a filter for the query
    * @return Snapshot key
    * @throws RemoteInvocationException when unable to execute request
    */
@@ -292,7 +294,8 @@ public interface EntityClient {
       int start,
       int count,
       @Nonnull List<SortCriterion> sortCriteria,
-      List<String> facets)
+      List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException;
 
   /**

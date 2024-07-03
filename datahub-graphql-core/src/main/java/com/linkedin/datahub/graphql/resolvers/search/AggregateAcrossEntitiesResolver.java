@@ -101,7 +101,8 @@ public class AggregateAcrossEntitiesResolver
                     0,
                     0, // 0 entity count because we don't want resolved entities
                     Collections.emptyList(),
-                    facets));
+                    facets,
+                    null));
           } catch (Exception e) {
             log.error(
                 "Failed to execute aggregate across entities: entity types {}, query {}, filters: {}",
