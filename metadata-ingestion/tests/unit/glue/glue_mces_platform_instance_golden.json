@@ -58,6 +58,61 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ac4381240e82d55400c22e4392e744a4",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "glue",
+                "instance": "some_instance_name",
+                "env": "PROD",
+                "database": "empty-database",
+                "CreateTime": "June 1, 2021 at 14:55:13"
+            },
+            "name": "empty-database",
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/empty-database"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ac4381240e82d55400c22e4392e744a4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ac4381240e82d55400c22e4392e744a4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ac4381240e82d55400c22e4392e744a4",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.flights-database.avro,PROD)",
