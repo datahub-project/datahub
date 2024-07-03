@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
@@ -11,7 +11,8 @@ import {
     SubnodeOutlined,
 } from '@ant-design/icons';
 import { Button, Select, Tooltip, Typography } from 'antd';
-import { LineageDirection } from '../../../../../types.generated';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { EntityType, LineageDirection } from '../../../../../types.generated';
 import ManageLineageMenu from '../../../../lineage/manage/ManageLineageMenu';
 import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
@@ -63,6 +64,10 @@ const RefreshCacheButton = styled(Button)`
     margin-left: 8px;
 `;
 
+interface SchemaFieldEntityData extends GenericEntityProperties {
+    fieldPath?: string;
+}
+
 interface Props {
     defaultDirection: LineageDirection;
 }
@@ -74,7 +79,6 @@ export function LineageColumnView({ defaultDirection }: Props) {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
-    const [isColumnLevelLineage, setIsColumnLevelLineage] = useState(!!params?.column);
     const [shouldRefetch, setShouldRefetch] = useState(false);
     const [skipCache, setSkipCache] = useState(false);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
@@ -83,6 +87,13 @@ export function LineageColumnView({ defaultDirection }: Props) {
     function resetShouldRefetch() {
         setShouldRefetch(false);
     }
+
+    const columnForLineage = useMemo(
+        () =>
+            entityType === EntityType.SchemaField ? (entityData as SchemaFieldEntityData)?.fieldPath : selectedColumn,
+        [entityType, selectedColumn, entityData],
+    );
+    const [isColumnLevelLineage, setIsColumnLevelLineage] = useState(!!columnForLineage);
 
     const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn);
     const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, urn);
@@ -147,12 +158,14 @@ export function LineageColumnView({ defaultDirection }: Props) {
                         canEditLineage={canEditLineage}
                         disableDropdown={!canEditLineage}
                     />
-                    <ColumnsLineageSelect
-                        selectedColumn={selectedColumn}
-                        isColumnLevelLineage={isColumnLevelLineage}
-                        setSelectedColumn={setSelectedColumn}
-                        setIsColumnLevelLineage={setIsColumnLevelLineage}
-                    />
+                    {entityType !== EntityType.SchemaField && (
+                        <ColumnsLineageSelect
+                            selectedColumn={columnForLineage}
+                            isColumnLevelLineage={isColumnLevelLineage}
+                            setSelectedColumn={setSelectedColumn}
+                            setIsColumnLevelLineage={setIsColumnLevelLineage}
+                        />
+                    )}
                     <LineageTabTimeSelector />
                     <Tooltip title="Click to refresh data">
                         <RefreshCacheButton type="text" onClick={() => setSkipCache(true)}>
