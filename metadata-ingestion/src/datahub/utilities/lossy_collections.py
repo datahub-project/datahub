@@ -158,7 +158,7 @@ class LossyDict(Dict[_KT, _VT], Generic[_KT, _VT]):
 
     def total_key_count(self) -> int:
         """Returns the total number of keys that have been added to this dictionary."""
-        return self.max_elements + self._overflow
+        return super().__len__() + self._overflow
 
     def dropped_keys_count(self) -> int:
         """Returns the number of keys that have been dropped from this dictionary."""
