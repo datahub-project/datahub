@@ -24,7 +24,7 @@ When running jobs using spark-submit, the agent needs to be configured in the co
 
 ```text
 #Configuring DataHub spark agent jar
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.12
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.13
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    http://localhost:8080
 ```
@@ -32,7 +32,7 @@ spark.datahub.rest.server                    http://localhost:8080
 ## spark-submit command line
 
 ```sh
-spark-submit --packages io.acryl:acryl-spark-lineage:0.2.12 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
+spark-submit --packages io.acryl:acryl-spark-lineage:0.2.13 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
 ```
 
 ### Configuration Instructions:  Amazon EMR
@@ -41,7 +41,7 @@ Set the following spark-defaults configuration properties as it
 stated [here](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-spark-configure.html)
 
 ```text
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.12
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.13
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    https://your_datahub_host/gms
 #If you have authentication set up then you also need to specify the Datahub access token
@@ -56,7 +56,7 @@ When running interactive jobs from a notebook, the listener can be configured wh
 spark = SparkSession.builder
 .master("spark://spark-master:7077")
 .appName("test-application")
-.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.2.12")
+.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.2.13")
 .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
 .config("spark.datahub.rest.server", "http://localhost:8080")
 .enableHiveSupport()
@@ -79,7 +79,7 @@ appName("test-application")
 config("spark.master","spark://spark-master:7077")
         .
 
-config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.2.12")
+config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.2.13")
         .
 
 config("spark.extraListeners","datahub.spark.DatahubSparkListener")
@@ -159,7 +159,7 @@ information like tokens.
 
 | Field                                                               | Required | Default | Description                                                                                                                                                                               |
 |---------------------------------------------------------------------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| spark.jars.packages                                                 | ✅        |         | Set with latest/required version  io.acryl:acryl-spark-lineage:0.2.12                                                                                                                     |
+| spark.jars.packages                                                 | ✅        |         | Set with latest/required version  io.acryl:acryl-spark-lineage:0.2.13                                                                                                                     |
 | spark.extraListeners                                                | ✅        |         | datahub.spark.DatahubSparkListener                                                                                                                                                        |
 | spark.datahub.rest.server                                           | ✅        |         | Datahub server url  eg:<http://localhost:8080>                                                                                                                                            |
 | spark.datahub.rest.token                                            |          |         | Authentication token.                                                                                                                                                                     |
@@ -348,8 +348,9 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ## Changelog
 
 ### Version 0.2.12
+- Silencing some chatty warnings in RddPathUtils
 
-
+### Version 0.2.12
 
 - Add option to lowercase dataset URNs
 - Add option to set platform instance and/or env per platform with `spark.datahub.platform.<platform_name>.env` and `spark.datahub.platform.<platform_name>.platform_instance` config parameter
