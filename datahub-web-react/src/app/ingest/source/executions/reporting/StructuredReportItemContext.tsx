@@ -2,8 +2,8 @@ import React from 'react';
 import styled from 'styled-components';
 import { Tooltip } from 'antd';
 
-import { StructuredReportItem as StructuredReportItemType } from '../../types';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { StructuredReportLogEntry } from '../../types';
 
 const Container = styled.div`
     display: flex;
@@ -26,7 +26,7 @@ const Item = styled.div`
 `;
 
 interface Props {
-    item: StructuredReportItemType;
+    item: StructuredReportLogEntry;
 }
 
 export function StructuredReportItemContext({ item }: Props) {
