@@ -26,7 +26,12 @@ export function StructuredReportItemList({ items, color, icon, pageSize = 3 }: P
         <>
             <ItemList>
                 {visibleItems.map((item) => (
-                    <StructuredReportItem item={item} color={color} icon={icon} key={item.rawType} />
+                    <StructuredReportItem
+                        item={item}
+                        color={color}
+                        icon={icon}
+                        key={`${item.message}-${item.context}`}
+                    />
                 ))}
             </ItemList>
             {totalCount > visibleCount ? (
