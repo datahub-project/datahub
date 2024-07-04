@@ -1941,7 +1941,7 @@ def test_simple_add_dataset_domain_aspect_name(mock_datahub_graph):
 
 def test_simple_add_dataset_domain(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
 
     pipeline_context: PipelineContext = PipelineContext(
         run_id="test_simple_add_dataset_domain"
@@ -1969,7 +1969,7 @@ def test_simple_add_dataset_domain(mock_datahub_graph):
 
 def test_simple_add_dataset_domain_mce_support(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
 
     pipeline_context: PipelineContext = PipelineContext(
         run_id="test_simple_add_dataset_domain"
@@ -2000,7 +2000,7 @@ def test_simple_add_dataset_domain_mce_support(mock_datahub_graph):
 
 def test_simple_add_dataset_domain_replace_existing(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
 
     pipeline_context: PipelineContext = PipelineContext(
         run_id="test_simple_add_dataset_domain"
@@ -2028,7 +2028,7 @@ def test_simple_add_dataset_domain_replace_existing(mock_datahub_graph):
 
 def test_simple_add_dataset_domain_semantics_overwrite(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
     server_domain = builder.make_domain_urn("test.io")
 
     pipeline_context = PipelineContext(run_id="transformer_pipe_line")
@@ -2067,7 +2067,7 @@ def test_simple_add_dataset_domain_semantics_patch(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
     server_domain = builder.make_domain_urn("test.io")
 
     pipeline_context = PipelineContext(run_id="transformer_pipe_line")
@@ -2117,7 +2117,7 @@ def test_pattern_add_dataset_domain_aspect_name(mock_datahub_graph):
 
 def test_pattern_add_dataset_domain_match(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
 
     pipeline_context: PipelineContext = PipelineContext(
@@ -2148,7 +2148,7 @@ def test_pattern_add_dataset_domain_match(mock_datahub_graph):
 
 def test_pattern_add_dataset_domain_no_match(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:invalid,.*"
 
     pipeline_context: PipelineContext = PipelineContext(
@@ -2179,7 +2179,7 @@ def test_pattern_add_dataset_domain_no_match(mock_datahub_graph):
 
 def test_pattern_add_dataset_domain_replace_existing_match(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
 
     pipeline_context: PipelineContext = PipelineContext(
@@ -2211,7 +2211,7 @@ def test_pattern_add_dataset_domain_replace_existing_match(mock_datahub_graph):
 
 def test_pattern_add_dataset_domain_replace_existing_no_match(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:invalid,.*"
 
     pipeline_context: PipelineContext = PipelineContext(
@@ -2241,7 +2241,7 @@ def test_pattern_add_dataset_domain_replace_existing_no_match(mock_datahub_graph
 
 def test_pattern_add_dataset_domain_semantics_overwrite(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
     server_domain = builder.make_domain_urn("test.io")
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
 
@@ -2281,7 +2281,7 @@ def test_pattern_add_dataset_domain_semantics_patch(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
-    datahub_domain = builder.make_domain_urn("datahub.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
     server_domain = builder.make_domain_urn("test.io")
     pattern = "urn:li:dataset:\\(urn:li:dataPlatform:bigquery,.*"
 

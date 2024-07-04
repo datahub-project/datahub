@@ -87,7 +87,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:abc xyz",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
@@ -99,7 +99,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720001894140,
+        "lastObserved": 1720073670616,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -304,7 +304,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:abc xyz",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
@@ -316,7 +316,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720001894185,
+        "lastObserved": 1720073670661,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -434,7 +434,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:abc xyz",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
@@ -446,7 +446,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720001894196,
+        "lastObserved": 1720073670669,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1116,7 +1116,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:abc xyz",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
@@ -1128,7 +1128,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720001894261,
+        "lastObserved": 1720073670731,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1293,7 +1293,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:abc xyz",
+                    "owner": "urn:li:corpuser:john doe",
                     "type": "DATAOWNER"
                 }
             ],
@@ -1305,7 +1305,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720001894272,
+        "lastObserved": 1720073670744,
         "runId": "qlik-sense-test",
         "lastRunId": "no-run-id-provided"
     }

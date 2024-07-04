@@ -204,8 +204,8 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 "tenantId": "ysA4KqhDrbdy36hO9wwo4HUvPxeaKT7A",
                 "status": "active",
                 "subject": "auth0|fd95ee6facf82e692d2eac4ccb5ddb18ef05c22a7575fcc4d26d7bc9aefedb4f",
-                "name": "abc xyz",
-                "email": "abc.xyz@domain.com",
+                "name": "john doe",
+                "email": "john.doe@example.com",
                 "roles": [
                     "TenantAdmin",
                     "AnalyticsAdmin",
