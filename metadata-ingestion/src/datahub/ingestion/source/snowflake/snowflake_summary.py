@@ -12,6 +12,9 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDatabase,
     SnowflakeDataDictionary,
@@ -20,7 +23,6 @@ from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
-from datahub.ingestion.source_config.sql.snowflake import SnowflakeConnectionConfig
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.utilities.lossy_collections import LossyList
 

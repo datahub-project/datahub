@@ -23,10 +23,12 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.ingestion.source_config.sql.snowflake import SnowflakeConnectionConfig
 from datahub.metadata._urns.urn_defs import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,

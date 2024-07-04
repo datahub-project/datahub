@@ -4,23 +4,25 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, Set, cast
 
+import pydantic
 from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import UUID_REGEX
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
     StatefulUsageConfigMixin,
-)
-from datahub.ingestion.source_config.sql.snowflake import (
-    SnowflakeConfig,
-    SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
 from datahub.utilities.global_warning_util import add_global_warning
@@ -71,6 +73,36 @@ class SnowflakeShareConfig(ConfigModel):
     @property
     def source_database(self) -> DatabaseId:
         return DatabaseId(self.database, self.platform_instance)
+
+
+class SnowflakeConfig(SnowflakeConnectionConfig, BaseTimeWindowConfig, SQLCommonConfig):
+    include_table_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
+    )
+    include_view_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake view->table and table->view lineages. Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
+    )
+
+    database_pattern: AllowDenyPattern = AllowDenyPattern(
+        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
+    )
+
+    ignore_start_time_lineage: bool = False
+    upstream_lineage_in_report: bool = False
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def validate_include_view_lineage(cls, values):
+        if (
+            "include_table_lineage" in values
+            and not values.get("include_table_lineage")
+            and values.get("include_view_lineage")
+        ):
+            raise ValueError(
+                "include_table_lineage must be True for include_view_lineage to be set."
+            )
+        return values
 
 
 class SnowflakeV2Config(

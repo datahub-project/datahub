@@ -13,6 +13,9 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -20,7 +23,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.ingestion.source_config.sql.snowflake import SnowflakeConnectionConfig
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)

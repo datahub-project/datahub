@@ -34,7 +34,10 @@ from datahub.ingestion.source.snowflake.snowflake_assertion import (
     SnowflakeAssertionsHandler,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakeConnectionConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
@@ -63,7 +66,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source_config.sql.snowflake import SnowflakeConnectionConfig
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
