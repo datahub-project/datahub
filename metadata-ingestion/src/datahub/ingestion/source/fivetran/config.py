@@ -20,7 +20,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
+from datahub.ingestion.source_config.sql.snowflake import SnowflakeConnectionConfig
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ KNOWN_DATA_PLATFORM_MAPPING = {
 }
 
 
-class SnowflakeDestinationConfig(BaseSnowflakeConfig):
+class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
     database: str = Field(description="The fivetran connector log database.")
     log_schema: str = Field(description="The fivetran connector log schema.")
 

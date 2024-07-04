@@ -12,13 +12,10 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeConnectionMixin,
-    SnowflakeQueryMixin,
-)
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResult,
     AssertionResultType,
@@ -40,30 +37,25 @@ class DataQualityMonitoringResult(BaseModel):
     VALUE: int
 
 
-class SnowflakeAssertionsHandler(
-    SnowflakeCommonMixin, SnowflakeQueryMixin, SnowflakeConnectionMixin
-):
+class SnowflakeAssertionsHandler(SnowflakeCommonMixin):
     def __init__(
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
+        connection: SnowflakeConnection,
         dataset_urn_builder: Callable[[str], str],
     ) -> None:
         self.config = config
         self.report = report
         self.logger = logger
         self.dataset_urn_builder = dataset_urn_builder
-        self.connection = None
+        self.connection = connection
         self._urns_processed: List[str] = []
 
     def get_assertion_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        self.connection = self.create_connection()
-        if self.connection is None:
-            return
-
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.dmf_assertion_results(
                 datetime_to_ts_millis(self.config.start_time),
                 datetime_to_ts_millis(self.config.end_time),

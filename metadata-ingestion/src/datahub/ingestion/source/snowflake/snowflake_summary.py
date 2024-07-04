@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import Dict, Iterable, List, Optional
 
 import pydantic
-from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import LowerCaseDatasetUrnConfigMixin
@@ -20,18 +19,14 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeConnectionMixin,
-    SnowflakeQueryMixin,
-)
-from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
+from datahub.ingestion.source_config.sql.snowflake import SnowflakeConnectionConfig
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.utilities.lossy_collections import LossyList
 
 
 class SnowflakeSummaryConfig(
-    BaseSnowflakeConfig, BaseTimeWindowConfig, LowerCaseDatasetUrnConfigMixin
+    SnowflakeConnectionConfig, BaseTimeWindowConfig, LowerCaseDatasetUrnConfigMixin
 ):
 
     # Copied from SnowflakeConfig.
@@ -81,8 +76,6 @@ class SnowflakeSummaryReport(SourceReport, BaseTimeWindowReport):
 @config_class(SnowflakeSummaryConfig)
 @support_status(SupportStatus.INCUBATING)
 class SnowflakeSummarySource(
-    SnowflakeQueryMixin,
-    SnowflakeConnectionMixin,
     SnowflakeCommonMixin,
     Source,
 ):
@@ -90,24 +83,12 @@ class SnowflakeSummarySource(
         super().__init__(ctx)
         self.config: SnowflakeSummaryConfig = config
         self.report: SnowflakeSummaryReport = SnowflakeSummaryReport()
-
-        self.data_dictionary = SnowflakeDataDictionary()
-        self.connection: Optional[SnowflakeConnection] = None
         self.logger = logging.getLogger(__name__)
 
-    def create_connection(self) -> Optional[SnowflakeConnection]:
-        # TODO: Eventually we'll want to use the implementation from SnowflakeConnectionMixin,
-        # since it has better error reporting.
-        # return super().create_connection()
-        return self.config.get_connection()
+        self.connection = self.config.get_connection()
+        self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self.connection = self.create_connection()
-        if self.connection is None:
-            return
-
-        self.data_dictionary.set_connection(self.connection)
-
         # Databases.
         databases: List[SnowflakeDatabase] = []
         for database in self.get_databases() or []:  # type: ignore
@@ -139,7 +120,7 @@ class SnowflakeSummarySource(
         # Queries for usage.
         start_time_millis = self.config.start_time.timestamp() * 1000
         end_time_millis = self.config.end_time.timestamp() * 1000
-        for row in self.query(
+        for row in self.connection.query(
             f"""\
 SELECT COUNT(*) AS CNT
 FROM snowflake.account_usage.query_history
@@ -150,7 +131,7 @@ WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
             self.report.num_snowflake_queries = row["CNT"]
 
         # Queries for lineage/operations.
-        for row in self.query(
+        for row in self.connection.query(
             f"""\
 SELECT COUNT(*) AS CNT
 FROM

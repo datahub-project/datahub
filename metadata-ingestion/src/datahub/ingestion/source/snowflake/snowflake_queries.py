@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 import pydantic
-from snowflake.connector.cursor import DictCursor
 from typing_extensions import Self
 
 from datahub.configuration.source_common import (
@@ -27,7 +26,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
+from datahub.ingestion.source_config.sql.snowflake import SnowflakeConnectionConfig
 from datahub.metadata._urns.urn_defs import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
@@ -49,7 +48,7 @@ logger = logging.getLogger(__name__)
 class SnowflakeQueriesConfig(
     PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
 ):
-    connection: BaseSnowflakeConfig
+    connection: SnowflakeConnectionConfig
 
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
@@ -187,8 +186,7 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
         )
 
         conn = self.config.connection.get_connection()
-        resp = conn.cursor(DictCursor).execute(audit_log_query)
-        assert resp is not None
+        resp = conn.query(audit_log_query)
 
         for row in resp:
             assert isinstance(row, dict)

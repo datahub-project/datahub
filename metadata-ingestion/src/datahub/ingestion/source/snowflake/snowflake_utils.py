@@ -1,15 +1,11 @@
 import logging
-from typing import Any, Optional
+from typing import Optional
 
-from snowflake.connector import SnowflakeConnection
-from snowflake.connector.cursor import DictCursor
 from typing_extensions import Protocol
 
-from datahub.configuration.common import MetaError
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.snowflake.constants import (
-    GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
     SnowflakeCloudProvider,
     SnowflakeObjectDomain,
@@ -20,32 +16,10 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class SnowflakePermissionError(MetaError):
-    """A permission error has happened"""
-
-
 # Required only for mypy, since we are using mixin classes, and not inheritance.
 # Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
 class SnowflakeLoggingProtocol(Protocol):
     logger: logging.Logger
-
-
-class SnowflakeQueryProtocol(SnowflakeLoggingProtocol, Protocol):
-    def get_connection(self) -> SnowflakeConnection:
-        ...
-
-
-class SnowflakeQueryMixin:
-    def query(self: SnowflakeQueryProtocol, query: str) -> Any:
-        try:
-            self.logger.info(f"Query : {query}", stacklevel=2)
-            resp = self.get_connection().cursor(DictCursor).execute(query)
-            return resp
-
-        except Exception as e:
-            if is_permission_error(e):
-                raise SnowflakePermissionError(e) from e
-            raise
 
 
 class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
@@ -261,62 +235,3 @@ class SnowflakeCommonMixin:
 
     def report_error(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
         self.report.failure(key, reason)
-
-
-class SnowflakeConnectionProtocol(SnowflakeLoggingProtocol, Protocol):
-    connection: Optional[SnowflakeConnection]
-    config: SnowflakeV2Config
-    report: SnowflakeV2Report
-
-    def create_connection(self) -> Optional[SnowflakeConnection]:
-        ...
-
-    def report_error(self, key: str, reason: str) -> None:
-        ...
-
-
-class SnowflakeConnectionMixin:
-    def get_connection(self: SnowflakeConnectionProtocol) -> SnowflakeConnection:
-        if self.connection is None:
-            # Ideally this is never called here
-            self.logger.info("Did you forget to initialize connection for module?")
-            self.connection = self.create_connection()
-
-        # Connection is already present by the time its used for query
-        # Every module initializes the connection or fails and returns
-        assert self.connection is not None
-        return self.connection
-
-    # If connection succeeds, return connection, else return None and report failure
-    def create_connection(
-        self: SnowflakeConnectionProtocol,
-    ) -> Optional[SnowflakeConnection]:
-        try:
-            conn = self.config.get_connection()
-        except Exception as e:
-            logger.debug(e, exc_info=e)
-            if "not granted to this user" in str(e):
-                self.report_error(
-                    GENERIC_PERMISSION_ERROR_KEY,
-                    f"Failed to connect with snowflake due to error {e}",
-                )
-            else:
-                logger.debug(e, exc_info=e)
-                self.report_error(
-                    "snowflake-connection",
-                    f"Failed to connect to snowflake instance due to error {e}.",
-                )
-            return None
-        else:
-            return conn
-
-    def close(self: SnowflakeConnectionProtocol) -> None:
-        if self.connection is not None and not self.connection.is_closed():
-            self.connection.close()
-
-
-def is_permission_error(e: Exception) -> bool:
-    msg = str(e)
-    # 002003 (02000): SQL compilation error: Database/SCHEMA 'XXXX' does not exist or not authorized.
-    # Insufficient privileges to operate on database 'XXXX'
-    return "Insufficient privileges" in msg or "not authorized" in msg

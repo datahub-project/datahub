@@ -7,8 +7,6 @@ import platform
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
-from snowflake.connector import SnowflakeConnection
-
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -36,6 +34,7 @@ from datahub.ingestion.source.snowflake.snowflake_assertion import (
     SnowflakeAssertionsHandler,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
@@ -52,11 +51,7 @@ from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesH
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeConnectionMixin,
-    SnowflakeQueryMixin,
-)
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -68,7 +63,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
+from datahub.ingestion.source_config.sql.snowflake import SnowflakeConnectionConfig
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
@@ -119,8 +114,6 @@ logger: logging.Logger = logging.getLogger(__name__)
     supported=True,
 )
 class SnowflakeV2Source(
-    SnowflakeQueryMixin,
-    SnowflakeConnectionMixin,
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
     TestableSource,
@@ -130,7 +123,8 @@ class SnowflakeV2Source(
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
         self.logger = logger
-        self.connection: Optional[SnowflakeConnection] = None
+
+        self.connection = self.config.get_connection()
 
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
@@ -139,7 +133,7 @@ class SnowflakeV2Source(
             )
 
         # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary()
+        self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
         self.aggregator: Optional[SqlParsingAggregator] = None
 
@@ -180,6 +174,7 @@ class SnowflakeV2Source(
             self.lineage_extractor = SnowflakeLineageExtractor(
                 config,
                 self.report,
+                connection=self.connection,
                 dataset_urn_builder=self.gen_dataset_urn,
                 redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                 sql_aggregator=self.aggregator,
@@ -200,6 +195,7 @@ class SnowflakeV2Source(
             self.usage_extractor = SnowflakeUsageExtractor(
                 config,
                 self.report,
+                connection=self.connection,
                 dataset_urn_builder=self.gen_dataset_urn,
                 redundant_run_skip_handler=redundant_usage_run_skip_handler,
             )
@@ -232,7 +228,9 @@ class SnowflakeV2Source(
         test_report = TestConnectionReport()
 
         try:
-            connection_conf = BaseSnowflakeConfig.parse_obj_allow_extras(config_dict)
+            connection_conf = SnowflakeConnectionConfig.parse_obj_allow_extras(
+                config_dict
+            )
 
             connection: SnowflakeConnection = connection_conf.get_connection()
             assert connection
@@ -258,7 +256,7 @@ class SnowflakeV2Source(
 
     @staticmethod
     def check_capabilities(
-        conn: SnowflakeConnection, connection_conf: BaseSnowflakeConfig
+        conn: SnowflakeConnection, connection_conf: SnowflakeConnectionConfig
     ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
         # Currently only overall capabilities are reported.
         # Resource level variations in capabilities are not considered.
@@ -269,19 +267,14 @@ class SnowflakeV2Source(
             object_name: str
             object_type: str
 
-        def query(query):
-            logger.info(f"Query : {query}")
-            resp = conn.cursor().execute(query)
-            return resp
-
         _report: Dict[Union[SourceCapability, str], CapabilityReport] = dict()
         privileges: List[SnowflakePrivilege] = []
         capabilities: List[SourceCapability] = [c.capability for c in SnowflakeV2Source.get_capabilities() if c.capability not in (SourceCapability.PLATFORM_INSTANCE, SourceCapability.DOMAINS, SourceCapability.DELETION_DETECTION)]  # type: ignore
 
-        cur = query("select current_role()")
+        cur = conn.query("select current_role()")
         current_role = [row[0] for row in cur][0]
 
-        cur = query("select current_secondary_roles()")
+        cur = conn.query("select current_secondary_roles()")
         secondary_roles_str = json.loads([row[0] for row in cur][0])["roles"]
         secondary_roles = (
             [] if secondary_roles_str == "" else secondary_roles_str.split(",")
@@ -298,7 +291,7 @@ class SnowflakeV2Source(
             role = roles[i]
             i = i + 1
             # for some roles, quoting is necessary. for example test-role
-            cur = query(f'show grants to role "{role}"')
+            cur = conn.query(f'show grants to role "{role}"')
             for row in cur:
                 privilege = SnowflakePrivilege(
                     privilege=row[1], object_type=row[2], object_name=row[3]
@@ -363,7 +356,7 @@ class SnowflakeV2Source(
                 ):
                     roles.append(privilege.object_name)
 
-        cur = query("select current_warehouse()")
+        cur = conn.query("select current_warehouse()")
         current_warehouse = [row[0] for row in cur][0]
 
         default_failure_messages = {
@@ -425,11 +418,11 @@ class SnowflakeV2Source(
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 
-        self.connection = self.create_connection()
+        self.connection = self.config.get_connection()
         if self.connection is None:
             return
 
-        self.inspect_session_metadata()
+        self.inspect_session_metadata(self.connection)
 
         snowsight_base_url = None
         if self.config.include_external_url:
@@ -499,7 +492,7 @@ class SnowflakeV2Source(
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(
-                self.config, self.report, self.gen_dataset_urn
+                self.config, self.report, self.connection, self.gen_dataset_urn
             ).get_assertion_workunits(discovered_datasets)
 
     def report_warehouse_failure(self) -> None:
@@ -536,22 +529,22 @@ class SnowflakeV2Source(
             self.config.end_time,
         )
 
-    def inspect_session_metadata(self) -> None:
+    def inspect_session_metadata(self, connection: SnowflakeConnection) -> None:
         try:
             logger.info("Checking current version")
-            for db_row in self.query(SnowflakeQuery.current_version()):
+            for db_row in connection.query(SnowflakeQuery.current_version()):
                 self.report.saas_version = db_row["CURRENT_VERSION()"]
         except Exception as e:
             self.report_error("version", f"Error: {e}")
         try:
             logger.info("Checking current role")
-            for db_row in self.query(SnowflakeQuery.current_role()):
+            for db_row in connection.query(SnowflakeQuery.current_role()):
                 self.report.role = db_row["CURRENT_ROLE()"]
         except Exception as e:
             self.report_error("version", f"Error: {e}")
         try:
             logger.info("Checking current warehouse")
-            for db_row in self.query(SnowflakeQuery.current_warehouse()):
+            for db_row in connection.query(SnowflakeQuery.current_warehouse()):
                 self.report.default_warehouse = db_row["CURRENT_WAREHOUSE()"]
         except Exception as e:
             self.report_error("current_warehouse", f"Error: {e}")
@@ -568,10 +561,10 @@ class SnowflakeV2Source(
     def get_snowsight_base_url(self) -> Optional[str]:
         try:
             # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#finding-the-region-and-locator-for-an-account
-            for db_row in self.query(SnowflakeQuery.current_account()):
+            for db_row in self.connection.query(SnowflakeQuery.current_account()):
                 account_locator = db_row["CURRENT_ACCOUNT()"]
 
-            for db_row in self.query(SnowflakeQuery.current_region()):
+            for db_row in self.connection.query(SnowflakeQuery.current_region()):
                 region = db_row["CURRENT_REGION()"]
 
             self.report.account_locator = account_locator
@@ -604,7 +597,7 @@ class SnowflakeV2Source(
 
     def is_standard_edition(self) -> bool:
         try:
-            self.query(SnowflakeQuery.show_tags())
+            self.connection.query(SnowflakeQuery.show_tags())
             return False
         except Exception as e:
             if "Unsupported feature 'TAG'" in str(e):

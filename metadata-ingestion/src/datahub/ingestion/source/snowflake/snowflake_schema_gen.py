@@ -4,8 +4,6 @@ import logging
 import queue
 from typing import Dict, Iterable, List, Optional, Union
 
-from snowflake.connector import SnowflakeConnection
-
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -32,6 +30,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -51,9 +53,6 @@ from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtract
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeCommonProtocol,
-    SnowflakeConnectionMixin,
-    SnowflakePermissionError,
-    SnowflakeQueryMixin,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -141,8 +140,6 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 
 
 class SnowflakeSchemaGenerator(
-    SnowflakeQueryMixin,
-    SnowflakeConnectionMixin,
     SnowflakeCommonMixin,
     SnowflakeCommonProtocol,
 ):
@@ -161,8 +158,9 @@ class SnowflakeSchemaGenerator(
         self.connection: SnowflakeConnection = connection
         self.logger = logger
 
-        self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary()
-        self.data_dictionary.set_connection(self.connection)
+        self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary(
+            connection=self.connection
+        )
         self.report.data_dictionary_cache = self.data_dictionary
 
         self.domain_registry: Optional[DomainRegistry] = domain_registry

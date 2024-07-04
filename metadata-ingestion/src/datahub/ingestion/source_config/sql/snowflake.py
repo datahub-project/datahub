@@ -12,7 +12,11 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationError,
+)
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.oauth import OAuthConfiguration, OAuthIdentityProvider
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
@@ -20,6 +24,10 @@ from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
+)
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
 )
 from datahub.ingestion.source.sql.oauth_generator import OAuthTokenGenerator
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
@@ -43,7 +51,7 @@ VALID_AUTH_TYPES: Dict[str, str] = {
 SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
 
 
-class BaseSnowflakeConfig(ConfigModel):
+class SnowflakeConnectionConfig(ConfigModel):
     # Note: this config model is also used by the snowflake-usage source.
 
     _connection = auto_connection_resolver()
@@ -310,7 +318,7 @@ class BaseSnowflakeConfig(ConfigModel):
             **connect_args,
         )
 
-    def get_connection(self) -> snowflake.connector.SnowflakeConnection:
+    def get_native_connection(self) -> snowflake.connector.SnowflakeConnection:
         connect_args = self.get_options()["connect_args"]
         if self.authentication_type == "DEFAULT_AUTHENTICATOR":
             return snowflake.connector.connect(
@@ -341,8 +349,23 @@ class BaseSnowflakeConfig(ConfigModel):
             # not expected to be here
             raise Exception("Not expected to be here.")
 
+    def get_connection(self) -> SnowflakeConnection:
+        try:
+            return SnowflakeConnection(self.get_native_connection())
+        except Exception as e:
+            logger.debug(e, exc_info=e)
 
-class SnowflakeConfig(BaseSnowflakeConfig, BaseTimeWindowConfig, SQLCommonConfig):
+            if "not granted to this user" in str(e):
+                raise SnowflakePermissionError(
+                    f"Permissions error when connecting to snowflake: {e}"
+                ) from e
+
+            raise ConfigurationError(
+                f"Failed to connect to snowflake instance: {e}"
+            ) from e
+
+
+class SnowflakeConfig(SnowflakeConnectionConfig, BaseTimeWindowConfig, SQLCommonConfig):
     include_table_lineage: bool = pydantic.Field(
         default=True,
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",

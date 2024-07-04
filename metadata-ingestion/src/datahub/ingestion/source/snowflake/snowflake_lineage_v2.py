@@ -5,9 +5,9 @@ from datetime import datetime
 from typing import Any, Callable, Collection, Iterable, List, Optional, Set, Tuple, Type
 
 from pydantic import BaseModel, validator
-from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.datetimes import parse_absolute_time
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.constants import (
@@ -15,14 +15,13 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeEdition,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeConnectionMixin,
-    SnowflakePermissionError,
-    SnowflakeQueryMixin,
-)
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
@@ -102,9 +101,7 @@ class SnowflakeColumnId:
     object_domain: Optional[str] = None
 
 
-class SnowflakeLineageExtractor(
-    SnowflakeQueryMixin, SnowflakeConnectionMixin, SnowflakeCommonMixin
-):
+class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     """
     Extracts Lineage from Snowflake.
     Following lineage edges are considered.
@@ -121,6 +118,7 @@ class SnowflakeLineageExtractor(
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
+        connection: SnowflakeConnection,
         dataset_urn_builder: Callable[[str], str],
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler],
         sql_aggregator: SqlParsingAggregator,
@@ -129,7 +127,7 @@ class SnowflakeLineageExtractor(
         self.report = report
         self.logger = logger
         self.dataset_urn_builder = dataset_urn_builder
-        self.connection: Optional[SnowflakeConnection] = None
+        self.connection = connection
         self.sql_aggregator = sql_aggregator
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
@@ -164,10 +162,6 @@ class SnowflakeLineageExtractor(
         discovered_views: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
-            return
-
-        self.connection = self.create_connection()
-        if self.connection is None:
             return
 
         # s3 dataset -> snowflake table
@@ -293,7 +287,7 @@ class SnowflakeLineageExtractor(
     ) -> Iterable[KnownLineageMapping]:
         external_tables_query: str = SnowflakeQuery.show_external_tables()
         try:
-            for db_row in self.query(external_tables_query):
+            for db_row in self.connection.query(external_tables_query):
                 key = self.get_dataset_identifier(
                     db_row["name"], db_row["schema_name"], db_row["database_name"]
                 )
@@ -332,7 +326,7 @@ class SnowflakeLineageExtractor(
         )
 
         try:
-            for db_row in self.query(query):
+            for db_row in self.connection.query(query):
                 known_lineage_mapping = self._process_external_lineage_result_row(
                     db_row, discovered_tables
                 )
@@ -382,7 +376,7 @@ class SnowflakeLineageExtractor(
             include_column_lineage=self.config.include_column_lineage,
         )
         try:
-            for db_row in self.query(query):
+            for db_row in self.connection.query(query):
                 edge = self._process_upstream_lineage_row(db_row)
                 if edge:
                     yield edge
@@ -561,3 +555,6 @@ class SnowflakeLineageExtractor(
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
+
+    def close(self) -> None:
+        pass

@@ -19,8 +19,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source_config.sql.snowflake import (
-    BaseSnowflakeConfig,
     SnowflakeConfig,
+    SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
 from datahub.utilities.global_warning_util import add_global_warning
@@ -259,7 +259,7 @@ class SnowflakeV2Config(
         password: Optional[SecretStr] = None,
         role: Optional[str] = None,
     ) -> str:
-        return BaseSnowflakeConfig.get_sql_alchemy_url(
+        return SnowflakeConnectionConfig.get_sql_alchemy_url(
             self, database=database, username=username, password=password, role=role
         )
 
