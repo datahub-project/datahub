@@ -578,8 +578,8 @@ class LookerUtil:
             )
         else:
             reporter.report_warning(
-                "lookml",
-                f"Failed to map view field type {field.field_type}. Won't emit tags for measure and dimension",
+                title="Failed to Map View Field Type",
+                message=f"Failed to map view field type {field.field_type}. Won't emit tags for measure and dimension",
             )
 
         if schema_field_tags:
@@ -835,8 +835,9 @@ class LookerExplore:
                             potential_views.append(view_name)
                         except AssertionError:
                             reporter.report_warning(
-                                key=f"chart-field-{field_name}",
-                                reason="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
+                                title="Missing View Name",
+                                message="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
+                                context=view_name,
                             )
                             continue
 
@@ -982,8 +983,9 @@ class LookerExplore:
 
         except AssertionError:
             reporter.report_warning(
-                key="chart-",
-                reason="Was unable to find dependent views for this chart",
+                title="Unable to find Views",
+                message="Encountered exception while attempting to find dependent views for this chart",
+                context=f"Explore: {explore_name}, Mode: {model}, Views: {views}",
             )
         return None
 
