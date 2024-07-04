@@ -286,7 +286,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 f"Failed to parse usage statistics for dataset {dataset_identifier} due to error {e}.",
                 exc_info=e,
             )
-            self.report_warning(
+            self.report.warning(
                 "Failed to parse usage statistics for dataset", dataset_identifier
             )
 
@@ -404,7 +404,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                     )
                 else:
                     logger.debug(e, exc_info=e)
-                    self.report_warning(
+                    self.report.warning(
                         "usage",
                         f"Extracting the date range for usage data from Snowflake failed due to error {e}.",
                     )
@@ -416,7 +416,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         or db_row["MIN_TIME"] is None
                         or db_row["MAX_TIME"] is None
                     ):
-                        self.report_warning(
+                        self.report.warning(
                             "check-usage-data",
                             f"Missing data for access_history {db_row}.",
                         )
@@ -502,7 +502,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             yield event
         except Exception as e:
             self.report.rows_parsing_error += 1
-            self.report_warning(
+            self.report.warning(
                 "operation",
                 f"Failed to parse operation history row {event_dict}, {e}",
             )

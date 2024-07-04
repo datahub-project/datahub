@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 
 from typing_extensions import Protocol
@@ -13,16 +12,10 @@ from datahub.ingestion.source.snowflake.constants import (
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 
-logger: logging.Logger = logging.getLogger(__name__)
-
 
 # Required only for mypy, since we are using mixin classes, and not inheritance.
 # Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
-class SnowflakeLoggingProtocol(Protocol):
-    logger: logging.Logger
-
-
-class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
+class SnowflakeCommonProtocol(Protocol):
     platform: str = "snowflake"
 
     config: SnowflakeV2Config
