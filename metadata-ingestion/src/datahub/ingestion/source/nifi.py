@@ -826,7 +826,7 @@ class NifiSource(Source):
             outgoing = list(
                 filter(lambda x: x[0] == component.id, self.nifi_flow.connections)
             )
-            inputJobs = []
+            inputJobs = set()
             jobProperties = None
 
             if component.nifi_type is NifiType.PROCESSOR:
@@ -877,7 +877,7 @@ class NifiSource(Source):
                         dataset_urn,
                     )
                 else:
-                    inputJobs.append(
+                    inputJobs.add(
                         builder.make_data_job_urn_with_flow(flow_urn, incoming_from)
                     )
 
@@ -957,7 +957,7 @@ class NifiSource(Source):
                 job_properties=jobProperties,
                 inlets=list(component.inlets.keys()),
                 outlets=list(component.outlets.keys()),
-                inputJobs=inputJobs,
+                inputJobs=list(inputJobs),
                 status=component.status,
             )
 
