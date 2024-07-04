@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 from typing_extensions import Protocol
 
@@ -78,7 +78,10 @@ class SnowflakeCommonMixin:
         return url
 
     @staticmethod
-    def get_cloud_region_from_snowflake_region_id(region):
+    def get_cloud_region_from_snowflake_region_id(
+        region: str,
+    ) -> Tuple[str, str]:
+        cloud: str
         if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
             cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
         elif region.startswith(("aws_", "gcp_", "azure_")):
