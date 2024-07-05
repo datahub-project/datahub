@@ -293,6 +293,16 @@ class TableauConfig(
         "By default, all projects will be ingested.",
     )
 
+    project_path_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filter for specific Tableau projects by checking their full path. For example, use 'My Project/Nested Project' to ingest a nested project with name 'Nested Project'. "
+        "The difference to project_pattern is that project_path_pattern exclusively checks the projects path and not both the path and the name."
+        "This is needed if you for example want to exclude all nested projects of a specific project."
+        "You can both allow and deny projects based on their path using a path, or a Regex pattern. "
+        "Deny patterns always take precedence over allow patterns. "
+        "By default, all projects will be ingested.",
+    )
+
     project_path_separator: str = Field(
         default="/",
         description="The separator used for the project_pattern field between project names. By default, we use a slash. "
@@ -681,29 +691,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     def _is_allowed_project(self, project: TableauProject) -> bool:
         # Either project name or project path should exist in allow
-        is_allowed: bool = self.config.project_pattern.allowed(
-            project.name
-        ) or self.config.project_pattern.allowed(self._get_project_path(project))
+        is_allowed: bool = (
+            self.config.project_pattern.allowed(project.name)
+            or self.config.project_pattern.allowed(self._get_project_path(project))
+        ) and self.config.project_path_pattern.allowed(self._get_project_path(project))
         if is_allowed is False:
             logger.info(
-                f"project({project.name}) is not allowed as per project_pattern"
+                f"Project ({project.name}) is not allowed as per project_pattern or project_path_pattern"
             )
         return is_allowed
-
-    def _is_denied_project(self, project: TableauProject) -> bool:
-        # Either project name or project path should exist in deny
-        for deny_pattern in self.config.project_pattern.deny:
-            # Either name or project path is denied
-            if re.match(
-                deny_pattern, project.name, self.config.project_pattern.regex_flags
-            ) or re.match(
-                deny_pattern,
-                self._get_project_path(project),
-                self.config.project_pattern.regex_flags,
-            ):
-                return True
-        logger.info(f"project({project.name}) is not denied as per project_pattern")
-        return False
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
@@ -717,23 +713,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             logger.debug(f"Project {project.name} is added in project registry")
             self.tableau_project_registry[project.id] = project
-
-        if self.config.extract_project_hierarchy is False:
-            logger.debug(
-                "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
-                "disabled"
-            )
-            return
-
-        logger.debug("Reevaluating projects as extract_project_hierarchy is enabled")
-
-        for project in list_of_skip_projects:
-            if (
-                project.parent_id in self.tableau_project_registry
-                and self._is_denied_project(project) is False
-            ):
-                logger.debug(f"Project {project.name} is added in project registry")
-                self.tableau_project_registry[project.id] = project
 
     def _init_datasource_registry(self) -> None:
         if self.server is None:
