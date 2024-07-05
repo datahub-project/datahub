@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
@@ -167,8 +168,8 @@ class GlueSourceConfig(
         default=False,
         description="If an S3 Objects Tags should be created for the Tables ingested by Glue.",
     )
-    profiling: Optional[GlueProfilingConfig] = Field(
-        default=None,
+    profiling: GlueProfilingConfig = Field(
+        default_factory=GlueProfilingConfig,
         description="Configs to ingest data profiles from glue table",
     )
     # Custom Stateful Ingestion settings
@@ -186,7 +187,7 @@ class GlueSourceConfig(
     )
 
     def is_profiling_enabled(self) -> bool:
-        return self.profiling is not None and is_profiling_enabled(
+        return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
         )
 
@@ -867,34 +868,39 @@ class GlueSource(StatefulIngestionSourceBase):
             # instantiate column profile class for each column
             column_profile = DatasetFieldProfileClass(fieldPath=column_name)
 
-            if self.source_config.profiling.unique_count in column_params:
-                column_profile.uniqueCount = int(
-                    float(column_params[self.source_config.profiling.unique_count])
-                )
-            if self.source_config.profiling.unique_proportion in column_params:
-                column_profile.uniqueProportion = float(
-                    column_params[self.source_config.profiling.unique_proportion]
-                )
-            if self.source_config.profiling.null_count in column_params:
-                column_profile.nullCount = int(
-                    float(column_params[self.source_config.profiling.null_count])
-                )
-            if self.source_config.profiling.null_proportion in column_params:
-                column_profile.nullProportion = float(
-                    column_params[self.source_config.profiling.null_proportion]
-                )
-            if self.source_config.profiling.min in column_params:
-                column_profile.min = column_params[self.source_config.profiling.min]
-            if self.source_config.profiling.max in column_params:
-                column_profile.max = column_params[self.source_config.profiling.max]
-            if self.source_config.profiling.mean in column_params:
-                column_profile.mean = column_params[self.source_config.profiling.mean]
-            if self.source_config.profiling.median in column_params:
-                column_profile.median = column_params[
-                    self.source_config.profiling.median
-                ]
-            if self.source_config.profiling.stdev in column_params:
-                column_profile.stdev = column_params[self.source_config.profiling.stdev]
+            if not self.source_config.profiling.profile_table_level_only:
+                if self.source_config.profiling.unique_count in column_params:
+                    column_profile.uniqueCount = int(
+                        float(column_params[self.source_config.profiling.unique_count])
+                    )
+                if self.source_config.profiling.unique_proportion in column_params:
+                    column_profile.uniqueProportion = float(
+                        column_params[self.source_config.profiling.unique_proportion]
+                    )
+                if self.source_config.profiling.null_count in column_params:
+                    column_profile.nullCount = int(
+                        float(column_params[self.source_config.profiling.null_count])
+                    )
+                if self.source_config.profiling.null_proportion in column_params:
+                    column_profile.nullProportion = float(
+                        column_params[self.source_config.profiling.null_proportion]
+                    )
+                if self.source_config.profiling.min in column_params:
+                    column_profile.min = column_params[self.source_config.profiling.min]
+                if self.source_config.profiling.max in column_params:
+                    column_profile.max = column_params[self.source_config.profiling.max]
+                if self.source_config.profiling.mean in column_params:
+                    column_profile.mean = column_params[
+                        self.source_config.profiling.mean
+                    ]
+                if self.source_config.profiling.median in column_params:
+                    column_profile.median = column_params[
+                        self.source_config.profiling.median
+                    ]
+                if self.source_config.profiling.stdev in column_params:
+                    column_profile.stdev = column_params[
+                        self.source_config.profiling.stdev
+                    ]
 
             dataset_profile.fieldProfiles.append(column_profile)
 
@@ -914,9 +920,7 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_profile_if_enabled(
         self, mce: MetadataChangeEventClass, database_name: str, table_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        # We don't need both checks only the second one
-        # but then lint believes that GlueProfilingConfig can be None
-        if self.source_config.profiling and self.source_config.is_profiling_enabled():
+        if self.source_config.is_profiling_enabled():
             # for cross-account ingestion
             kwargs = dict(
                 DatabaseName=database_name,
@@ -944,21 +948,22 @@ class GlueSource(StatefulIngestionSourceBase):
                 partitions = response["Partitions"]
                 partition_keys = [k["Name"] for k in partition_keys]
 
-                for p in partitions:
-                    table_stats = p.get("Parameters", {})
-                    column_stats = p["StorageDescriptor"]["Columns"]
-
-                    # only support single partition key
-                    partition_spec = str({partition_keys[0]: p["Values"][0]})
-
-                    if self.source_config.profiling.partition_patterns.allowed(
-                        partition_spec
-                    ):
-                        yield self._create_profile_mcp(
-                            mce, table_stats, column_stats, partition_spec
-                        ).as_workunit()
-                    else:
-                        continue
+                with ThreadPoolExecutor(
+                    max_workers=self.source_config.profiling.max_workers
+                ) as executor:
+                    futures = [
+                        executor.submit(
+                            self._create_partition_profile_mcp, mce, partition_keys, p
+                        )
+                        for p in partitions
+                    ]
+                    for future in as_completed(futures):
+                        try:
+                            result = future.result()
+                            if result:
+                                yield result
+                        except Exception as e:
+                            logger.error(f"Error profiling partition: {e}")
             else:
                 # ingest data profile without partition
                 table_stats = response["Table"]["Parameters"]
@@ -966,6 +971,21 @@ class GlueSource(StatefulIngestionSourceBase):
                 yield self._create_profile_mcp(
                     mce, table_stats, column_stats
                 ).as_workunit()
+
+    def _create_partition_profile_mcp(
+        self,
+        mce: MetadataChangeEventClass,
+        partition_keys: List[str],
+        partition: Dict[str, Any],
+    ) -> Optional[MetadataWorkUnit]:
+        table_stats = partition.get("Parameters", {})
+        column_stats = partition["StorageDescriptor"]["Columns"]
+        partition_spec = str({partition_keys[0]: partition["Values"][0]})
+        if self.source_config.profiling.partition_patterns.allowed(partition_spec):
+            return self._create_profile_mcp(
+                mce, table_stats, column_stats, partition_spec
+            ).as_workunit()
+        return None
 
     def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
