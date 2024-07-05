@@ -551,6 +551,11 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     "Enabled by default, configure using `extract_column_level_lineage`",
 )
 class TableauSource(StatefulIngestionSourceBase, TestableSource):
+    platform = "tableau"
+
+    def __hash__(self):
+        return id(self)
+
     def __init__(
             self,
             config: TableauConfig,
@@ -618,12 +623,12 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         logger.info(f"Skip site '{site.name}' as it's excluded in site_name_pattern or inactive.")
                         continue
                     self.server.auth.switch_site(site)
-                    site_source = TableauSiteSource(config=self.config, ctx=self.ctx, site=site, report=self.report, server=self.server)
+                    site_source = TableauSiteSource(config=self.config, ctx=self.ctx, site=site, report=self.report, server=self.server, platform=self.platform)
                     logger.info(f"Ingesting assets of site '{site.content_url}'.")
                     yield from site_source.ingest_tableau_site()
             else:
                 site = self.server.sites.get_by_id(self.server.site_id)
-                site_source = TableauSiteSource(config=self.config, ctx=self.ctx, site=site, report=self.report, server=self.server)
+                site_source = TableauSiteSource(config=self.config, ctx=self.ctx, site=site, report=self.report, server=self.server, platform=self.platform)
                 yield from site_source.ingest_tableau_site()
         except MetadataQueryException as md_exception:
             self.report.failure(
@@ -647,24 +652,21 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
 
 class TableauSiteSource:
-    platform = "tableau"
-
-    def __hash__(self):
-        return id(self)
-
     def __init__(
         self,
         config: TableauConfig,
         ctx: PipelineContext,
         site: SiteItem,
         report: TableauSourceReport,
-        server: Server
+        server: Server,
+        platform: str
     ):
         self.config: TableauConfig = config
         self.report = report
         self.server: Server = server
         self.ctx: PipelineContext = ctx
         self.site: SiteItem = site
+        self.platform = platform
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
@@ -797,27 +799,12 @@ class TableauSiteSource:
         # Either project name or project path should exist in allow
         is_allowed: bool = self.config.project_pattern.allowed(
             project.name
-        ) or self.config.project_pattern.allowed(self._get_project_path(project))
+        ) and self.config.project_pattern.allowed(self._get_project_path(project))
         if is_allowed is False:
             logger.info(
                 f"project({project.name}) is not allowed as per project_pattern"
             )
         return is_allowed
-
-    def _is_denied_project(self, project: TableauProject) -> bool:
-        # Either project name or project path should exist in deny
-        for deny_pattern in self.config.project_pattern.deny:
-            # Either name or project path is denied
-            if re.match(
-                deny_pattern, project.name, self.config.project_pattern.regex_flags
-            ) or re.match(
-                deny_pattern,
-                self._get_project_path(project),
-                self.config.project_pattern.regex_flags,
-            ):
-                return True
-        logger.info(f"project({project.name}) is not denied as per project_pattern")
-        return False
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
@@ -831,23 +818,6 @@ class TableauSiteSource:
                 continue
             logger.debug(f"Project {project.name} is added in project registry")
             projects_to_ingest[project.id] = project
-
-        if self.config.extract_project_hierarchy is False:
-            logger.debug(
-                "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
-                "disabled"
-            )
-            return
-
-        logger.debug("Reevaluating projects as extract_project_hierarchy is enabled")
-
-        for project in list_of_skip_projects:
-            if (
-                project.parent_id in projects_to_ingest
-                and self._is_denied_project(project) is False
-            ):
-                logger.debug(f"Project {project.name} is added in project registry")
-                projects_to_ingest[project.id] = project
 
         # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
         # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
