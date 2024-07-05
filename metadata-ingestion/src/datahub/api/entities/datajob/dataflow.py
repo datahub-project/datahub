@@ -138,6 +138,12 @@ class DataFlow:
         return flow_mce
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+        env = self.cluster
+        if self.cluster not in ALL_ENV_TYPES:
+            logger.warning(
+                f"cluster {self.cluster} is not a valid environment type so Environment filter won't work."
+            )
+            env = None
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataFlowInfoClass(
@@ -145,6 +151,7 @@ class DataFlow:
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
+                env=env,
             ),
         )
         yield mcp
