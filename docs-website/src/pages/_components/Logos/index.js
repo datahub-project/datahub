@@ -1,10 +1,13 @@
-import React from "react";
 import clsx from "clsx";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-
+import React, { useRef, useState } from "react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/pagination";
+import { Pagination } from "swiper/modules";
 import styles from "./logos.module.scss";
 
 const companiesByIndustry = [
@@ -25,16 +28,19 @@ const companiesByIndustry = [
         name: "Airtel",
         imageUrl: "/img/logos/companies/airtel.png",
         imageSize: "large",
+        link: "https://www.youtube.com/watch?v=yr24mM91BN4&list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi&index=9",
       },
       {
         name: "Coursera",
         imageUrl: "/img/logos/companies/coursera.svg",
         imageSize: "small",
+        link: "https://www.youtube.com/watch?v=bd5v4fn4d4s",
       },
       {
         name: "Geotab",
         imageUrl: "/img/logos/companies/geotab.jpg",
         imageSize: "small",
+        link: "https://www.youtube.com/watch?v=boyjT2OrlU4",
       },
       {
         name: "ThoughtWorks",
@@ -60,11 +66,13 @@ const companiesByIndustry = [
         name: "Zynga",
         imageUrl: "/img/logos/companies/zynga.png",
         imageSize: "default",
+        link: "https://www.youtube.com/watch?v=VCU3-Hd_glI",
       },
       {
         name: "Hurb",
         imageUrl: "/img/logos/companies/hurb.png",
         imageSize: "medium",
+        link: "https://www.youtube.com/watch?v=G-xOe5OGGw4",
       },
       {
         name: "Razer",
@@ -85,6 +93,7 @@ const companiesByIndustry = [
         name: "Saxo Bank",
         imageUrl: "/img/logos/companies/saxobank.svg",
         imageSize: "default",
+        link: "https://www.youtube.com/watch?v=8EsgE8urqHI",
       },
       {
         name: "Klarna",
@@ -125,6 +134,7 @@ const companiesByIndustry = [
         name: "Adevinta",
         imageUrl: "/img/logos/companies/adevinta.png",
         imageSize: "medium",
+        link: "https://www.youtube.com/watch?v=u9DRa_5uPIM",
       },
       {
         name: "VanMoof",
@@ -135,6 +145,7 @@ const companiesByIndustry = [
         name: "Grofers",
         imageUrl: "/img/logos/companies/grofers.png",
         imageSize: "medium",
+        link: "https://www.youtube.com/watch?v=m9kUYAuezFI",
       },
       {
         name: "SpotHero",
@@ -150,6 +161,7 @@ const companiesByIndustry = [
         name: "Wolt",
         imageUrl: "/img/logos/companies/wolt.png",
         imageSize: "default",
+        link: "https://www.youtube.com/watch?v=D8XsfoZuwt0&t=75s",
       },
       {
         name: "Showroomprive.com",
@@ -180,6 +192,7 @@ const companiesByIndustry = [
         name: "Viasat",
         imageUrl: "/img/logos/companies/viasat.png",
         imageSize: "medium",
+        link: "https://www.youtube.com/watch?v=2SrDAJnzkjE",
       },
       {
         name: "DFDS",
@@ -195,6 +208,7 @@ const companiesByIndustry = [
         name: "Optum",
         imageUrl: "/img/logos/companies/optum.jpg",
         imageSize: "medium",
+        link: "https://www.youtube.com/watch?v=NuLLc88ij-s",
       },
     ],
   },
@@ -315,10 +329,19 @@ const platformLogos = [
 ];
 
 export const PlatformLogos = () => (
-  <Link to={useBaseUrl("docs/metadata-ingestion#installing-plugins/")} className={styles.marquee}>
+  <Link
+    to={useBaseUrl("docs/metadata-ingestion#installing-plugins/")}
+    className={styles.marquee}
+  >
     <div>
       {[...platformLogos, ...platformLogos].map((logo, idx) => (
-        <img src={useBaseUrl(logo.imageUrl)} alt={logo.name} title={logo.name} key={idx} className={styles.platformLogo} />
+        <img
+          src={useBaseUrl(logo.imageUrl)}
+          alt={logo.name}
+          title={logo.name}
+          key={idx}
+          className={styles.platformLogo}
+        />
       ))}
     </div>
   </Link>
@@ -326,20 +349,54 @@ export const PlatformLogos = () => (
 
 export const CompanyLogos = () => (
   <div className={clsx("container", styles.companyLogoContainer)}>
-    <Tabs className="pillTabs">
+    <Tabs className={clsx(styles.pillTabs)}>
       {companiesByIndustry.map((industry, idx) => (
-        <TabItem value={`industry-${idx}`} label={industry.name} key={idx} default={idx === 0}>
-          <div className={styles.companyWrapper}>
+        <TabItem
+          value={`industry-${idx}`}
+          label={industry.name}
+          key={idx}
+          default={idx === 0}
+        >
+          <Swiper
+            slidesPerView={6}
+            spaceBetween={30}
+            pagination={{ clickable: true }}
+            modules={[Pagination]}
+            className={clsx("mySwiper", styles.companyWrapper)}
+          >
             {industry.companies.map((company, idx) => (
-              <img
-                src={useBaseUrl(company.imageUrl)}
-                alt={company.name}
-                title={company.name}
-                key={idx}
-                className={clsx(styles.companyLogo, styles[company.imageSize])}
-              />
+              <SwiperSlide key={idx}>
+                {company.link ? (
+                  <a
+                    href={company.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <img
+                      src={useBaseUrl(company.imageUrl)}
+                      alt={company.name}
+                      title={company.name}
+                      className={clsx(
+                        styles.companyLogo,
+                        styles.companyLogoWithLink,
+                        styles[company.imageSize]
+                      )}
+                    />
+                  </a>
+                ) : (
+                  <img
+                    src={useBaseUrl(company.imageUrl)}
+                    alt={company.name}
+                    title={company.name}
+                    className={clsx(
+                      styles.companyLogo,
+                      styles[company.imageSize]
+                    )}
+                  />
+                )}
+              </SwiperSlide>
             ))}
-          </div>
+          </Swiper>
         </TabItem>
       ))}
     </Tabs>

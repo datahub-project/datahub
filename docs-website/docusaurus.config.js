@@ -130,8 +130,8 @@ module.exports = {
               label: "YouTube",
             },
             {
-              href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvGCKMQC2dJEZ6cUqWsREbFi",
-              label: "Case Studies",
+              href: "/docs/what-is-datahub/customer-stories",
+              label: "Customer Stories",
             },
             {
               href: "https://www.youtube.com/playlist?list=PLdCtLs64vZvErAXMiqUYH9e63wyDaMBgg",

@@ -6,9 +6,8 @@ import CodeBlock from "@theme/CodeBlock";
 
 import Hero from "./_components/Hero";
 import Features from "./_components/Features";
-import Quotes from "./_components/Quotes";
 import { Section, PromoSection } from "./_components/Section";
-import { PlatformLogos, CompanyLogos } from "./_components/Logos";
+import { PlatformLogos } from "./_components/Logos";
 import RoundedImage from "./_components/RoundedImage";
 
 const example_recipe = `
@@ -156,10 +155,6 @@ function Home() {
             </div>
           </div>
         </div>
-      </Section>
-      <Section title="Trusted Across the Industry">
-        <CompanyLogos />
-        <Quotes />
       </Section>
     </Layout>
   ) : null;

@@ -9,6 +9,8 @@ import styles from "./hero.module.scss";
 import CodeBlock from "@theme/CodeBlock";
 import CardCTAs from "../CardCTAs";
 import TownhallButton from "../TownhallButton";
+import { CompanyLogos } from "../Logos";
+import { Section } from "../Section";
 
 const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
   <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
@@ -50,6 +52,17 @@ const Hero = ({}) => {
             <TownhallButton />
           </div>
         </div>
+        <Section title="Trusted Across the Industry">
+          <CompanyLogos />
+          <div style={{ textAlign: "center" }}>
+            <Link
+              className="button button--secondary button--md"
+              to={useBaseUrl("docs/what-is-datahub/customer-stories")}
+            >
+              Check Out Adoption Stories →
+            </Link>
+          </div>
+        </Section>
         <CardCTAs />
         <div className={styles.quickstartContent}>
           <h1 className={styles.quickstartTitle}>Get Started Now</h1>
