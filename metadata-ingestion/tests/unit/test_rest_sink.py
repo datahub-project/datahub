@@ -262,6 +262,15 @@ basicAuditStamp = models.AuditStampClass(
                         "value": '{"owners": [{"owner": "urn:li:corpuser:fbar", "type": "DATAOWNER"}], "ownerTypes": {}, "lastModified": {"time": 0, "actor": "urn:li:corpuser:fbar"}}',
                         "contentType": "application/json",
                     },
+                    "systemMetadata": {
+                        "lastObserved": 0,
+                        "lastRunId": "no-run-id-provided",
+                        "properties": {
+                            "clientId": "acryl-datahub",
+                            "clientVersion": "1!0.0.0.dev0",
+                        },
+                        "runId": "no-run-id-provided",
+                    },
                 }
             },
         ),
