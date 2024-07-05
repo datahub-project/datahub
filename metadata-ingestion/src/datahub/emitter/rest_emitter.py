@@ -233,6 +233,8 @@ class DataHubRestEmitter(Closeable, Emitter):
             f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
         )
         ensure_has_system_metadata(mce)
+        # To make lint happy
+        assert mce.systemMetadata is not None
         system_metadata_obj = mce.systemMetadata.to_obj()
         snapshot = {
             "entity": {"value": {snapshot_fqn: mce_obj}},

@@ -698,7 +698,9 @@ def generate_access_token(
 
 
 def ensure_has_system_metadata(
-    event: Union[MetadataChangeProposal, MetadataChangeProposalWrapper, MetadataChangeEvent]
+    event: Union[
+        MetadataChangeProposal, MetadataChangeProposalWrapper, MetadataChangeEvent
+    ]
 ) -> None:
     if event.systemMetadata is None:
         event.systemMetadata = SystemMetadataClass()
