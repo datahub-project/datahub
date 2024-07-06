@@ -357,7 +357,7 @@ services:
 
 networks:
   default:
-    name: datahub_network
+    name: acryl_network
 
 volumes:
   neo4jdata:

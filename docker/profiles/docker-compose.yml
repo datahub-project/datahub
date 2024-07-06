@@ -1,5 +1,5 @@
 ---
-name: datahub
+name: acryl
 
 include:
   # Contains storage layers: i.e. mysql, kafka, elasticsearch
