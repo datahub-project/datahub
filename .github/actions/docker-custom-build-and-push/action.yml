@@ -48,13 +48,17 @@ runs:
   steps:
     - name: Docker meta
       id: docker_meta
-      uses: crazy-max/ghaction-docker-meta@v1
+      uses: docker/metadata-action@v5
       with:
         # list of Docker images to use as base name for tags
         images: ${{ inputs.images }}
         # add git short SHA as Docker tag
-        tag-custom: ${{ inputs.tags }}
-        tag-custom-only: true
+        tags: |
+          type=ref,event=branch
+          type=ref,event=tag
+          type=ref,event=pr,prefix=pr
+          type=sha
+          type=raw,value=${{ inputs.tags }}
 
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
