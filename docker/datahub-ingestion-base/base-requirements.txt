@@ -44,7 +44,7 @@ cachelib==0.9.0
 cachetools==5.3.3
 catalogue==2.0.10
 cattrs==23.2.3
-certifi==2024.6.2
+certifi==2024.7.4
 cffi==1.16.0
 chardet==5.2.0
 charset-normalizer==3.3.2
