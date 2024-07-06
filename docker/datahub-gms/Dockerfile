@@ -62,6 +62,7 @@ COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/script
 
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh \
     && addgroup -S datahub && adduser -S datahub -G datahub \
+    && mkdir -p /etc/datahub \
     && chown -R datahub:datahub /datahub/datahub-gms /etc/datahub
 
 FROM base as dev-install
