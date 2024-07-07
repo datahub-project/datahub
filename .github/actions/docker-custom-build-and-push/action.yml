@@ -33,6 +33,9 @@ inputs:
     # e.g. latest,head,sha12345
     description: "List of tags to use for the Docker image"
     required: true
+  flavor:
+    description: 'Image flavor (e.g., slim, full)'
+    required: false
   target:
     description: "Sets the target stage to build"
     required: false
@@ -51,10 +54,13 @@ runs:
       uses: docker/metadata-action@v5
       with:
         images: ${{ inputs.images }}
+        flavor: |
+          latest=false
+          suffix=${{ inputs.flavor && format('-{0}', inputs.flavor) || '' }}
         tags: |
           type=raw,value=head,enable=${{ github.ref == format('refs/heads/{0}', 'acryl-main') }}
           type=ref,event=pr,prefix=pr
-          type=raw,value=${{ inputs.tags }}
+          type=sha,prefix=,format=short
 
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)

@@ -601,6 +601,7 @@ jobs:
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           tags: ${{ needs.setup.outputs.slim_tag }}
+          flavor: slim
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           build-args: |
@@ -643,6 +644,7 @@ jobs:
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           tags: ${{ needs.setup.outputs.full_tag }}
+          flavor: full
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           build-args: |
@@ -701,6 +703,7 @@ jobs:
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
             APP_ENV=slim
           tags: ${{ needs.setup.outputs.slim_tag }}
+          flavor: slim
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
