@@ -197,8 +197,16 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
 
         for row in resp:
             assert isinstance(row, dict)
-            entry = self._parse_audit_log_response(row)
-            yield entry
+            try:
+                entry = self._parse_audit_log_response(row)
+            except Exception as e:
+                self.report.warning(
+                    "Error parsing audit log row",
+                    context=f"{e}",
+                    exc=e,
+                )
+            else:
+                yield entry
 
     # HACK: This makes mypy happy with our usage of the mixin methods.
     gen_dataset_urn = SnowflakeCommonMixin.gen_dataset_urn
