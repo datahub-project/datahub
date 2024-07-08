@@ -147,7 +147,9 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
       @RequestParam(value = "skipCache", required = false, defaultValue = "false")
-          Boolean skipCache)
+          Boolean skipCache,
+      @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
+          Boolean includeSoftDelete)
       throws URISyntaxException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -175,7 +177,8 @@ public abstract class GenericEntitiesController<
         searchService.scrollAcrossEntities(
             opContext
                 .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
-                .withSearchFlags(flags -> flags.setSkipCache(skipCache)),
+                .withSearchFlags(flags -> flags.setSkipCache(skipCache))
+                .withSearchFlags(flags -> flags.setIncludeSoftDeleted(includeSoftDelete)),
             List.of(entitySpec.getName()),
             query,
             null,
