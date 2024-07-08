@@ -343,6 +343,7 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
+        "dask[dataframe]<2024.7.0",
     },
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
