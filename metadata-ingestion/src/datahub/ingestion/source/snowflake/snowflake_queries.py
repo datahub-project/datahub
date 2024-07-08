@@ -69,6 +69,12 @@ class SnowflakeQueriesConfig(
         description="Whether to convert dataset urns to lowercase.",
     )
 
+    include_lineage: bool = True
+    include_queries: bool = True
+    include_usage_statistics: bool = True
+    include_query_usage_statistics: bool = False
+    include_operations: bool = True
+
 
 @dataclass
 class SnowflakeQueriesReport(SourceReport):
@@ -90,18 +96,17 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             # graph=self.ctx.graph,
-            # TODO: Make these configurable.
-            generate_lineage=True,
-            generate_queries=True,
-            generate_usage_statistics=True,
-            generate_query_usage_statistics=True,
+            generate_lineage=self.config.include_lineage,
+            generate_queries=self.config.include_queries,
+            generate_usage_statistics=self.config.include_usage_statistics,
+            generate_query_usage_statistics=self.config.include_query_usage_statistics,
             usage_config=BaseUsageConfig(
                 bucket_duration=self.config.window.bucket_duration,
                 start_time=self.config.window.start_time,
                 end_time=self.config.window.end_time,
                 # TODO make the rest of the fields configurable
             ),
-            generate_operations=True,
+            generate_operations=self.config.include_operations,
             format_queries=False,
         )
         self.report.sql_aggregator = self.aggregator.report
