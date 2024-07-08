@@ -31,6 +31,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   ```
   Re-running with stateful ingestion should automatically clear up the entities with old URNS and add entities with new URNs, therefore not duplicating the containers or jobs. 
 
+- Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this 
+  behavior is required.
+
 ### Potential Downtime
 
 ### Deprecations

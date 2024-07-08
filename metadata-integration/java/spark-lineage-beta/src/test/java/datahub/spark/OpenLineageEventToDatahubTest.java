@@ -511,7 +511,6 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     }
   }
 
-
   public void testProcessGlueOlEventSymlinkDisabled() throws URISyntaxException, IOException {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();

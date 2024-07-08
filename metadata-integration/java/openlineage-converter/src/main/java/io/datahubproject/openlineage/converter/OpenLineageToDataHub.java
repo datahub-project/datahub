@@ -102,7 +102,9 @@ public class OpenLineageToDataHub {
     String namespace = dataset.getNamespace();
     String datasetName = dataset.getName();
     Optional<DatasetUrn> datahubUrn;
-    if (dataset.getFacets() != null && dataset.getFacets().getSymlinks() != null && !mappingConfig.isDisableSymlinkResolution()) {
+    if (dataset.getFacets() != null
+        && dataset.getFacets().getSymlinks() != null
+        && !mappingConfig.isDisableSymlinkResolution()) {
       Optional<DatasetUrn> originalUrn =
           getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :

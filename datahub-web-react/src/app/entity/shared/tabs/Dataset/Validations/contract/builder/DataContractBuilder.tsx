@@ -110,6 +110,21 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
 
     const hasAssertions = freshnessAssertions.length || schemaAssertions.length || dataQualityAssertions.length;
 
+    const onSelectFreshnessOrSchemaAssertion = (assertionUrn: string, type: string) => {
+        const selected = builderState[type]?.assertionUrn === assertionUrn;
+        if (selected) {
+            setBuilderState({
+                ...builderState,
+                [type]: undefined,
+            });
+        } else {
+            setBuilderState({
+                ...builderState,
+                [type]: { assertionUrn },
+            });
+        }
+    };
+
     return (
         <>
             {(hasAssertions && <HeaderText>Select the assertions that will make up your contract.</HeaderText>) || (
@@ -124,7 +139,7 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
                         selectedUrns={
                             (builderState.freshness?.assertionUrn && [builderState.freshness?.assertionUrn]) || []
                         }
-                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'freshness')}
+                        onSelect={(selectedUrn: string) => onSelectFreshnessOrSchemaAssertion(selectedUrn, 'freshness')}
                     />
                 )) ||
                     undefined}
@@ -134,7 +149,7 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
                         assertions={schemaAssertions}
                         multiple={false}
                         selectedUrns={(builderState.schema?.assertionUrn && [builderState.schema?.assertionUrn]) || []}
-                        onSelect={(selectedUrn: string) => onSelectDataAssertion(selectedUrn, 'schema')}
+                        onSelect={(selectedUrn: string) => onSelectFreshnessOrSchemaAssertion(selectedUrn, 'schema')}
                     />
                 )) ||
                     undefined}

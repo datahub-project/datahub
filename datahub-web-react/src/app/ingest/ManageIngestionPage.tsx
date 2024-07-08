@@ -58,9 +58,9 @@ export const ManageIngestionPage = () => {
         <PageContainer>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Ingestion</PageTitle>
+                <PageTitle level={3}>Manage Data Sources</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    Create, schedule, and run DataHub ingestion sources.
+                    Configure and schedule syncs to import data from your data sources
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>

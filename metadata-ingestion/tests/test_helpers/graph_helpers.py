@@ -42,7 +42,7 @@ class MockDataHubGraph(DataHubGraph):
         )
         for wu in file_source.get_workunits():
             if isinstance(wu, MetadataWorkUnit):
-                metadata = wu.get_metadata().get("metadata")
+                metadata = wu.metadata
                 mcps: Iterable[
                     Union[
                         MetadataChangeProposal,

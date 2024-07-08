@@ -570,9 +570,9 @@ class NifiSource(Source):
             )
 
             if not pg_response.ok:
-                self.report_warning(
-                    self.config.site_url,
+                self.report.warning(
                     "Failed to get process group flow " + pg.get("id"),
+                    self.config.site_url,
                 )
                 continue
 
@@ -619,11 +619,11 @@ class NifiSource(Source):
                 or c.name.startswith("Fetch")
                 or c.name.startswith("Put")
             ):
-                self.report_warning(
-                    self.config.site_url,
+                self.report.warning(
                     f"Dropping NiFi Processor of type {c.type}, id {c.id}, name {c.name} from lineage view. \
                     This is likely an Ingress or Egress node which may be reading to/writing from external datasets \
                     However not currently supported in datahub",
+                    self.config.site_url,
                 )
             else:
                 logger.debug(
@@ -734,10 +734,10 @@ class NifiSource(Source):
                     processor, eventType, startDate, oldest_event_time
                 )
         else:
-            self.report_warning(
-                self.config.site_url,
-                f"provenance events could not be fetched for processor \
+            self.report.warning(
+                f"Provenance events could not be fetched for processor \
                     {processor.id} of type {processor.name}",
+                self.config.site_url,
             )
             logger.warning(provenance_response.text)
         return
@@ -794,10 +794,6 @@ class NifiSource(Source):
 
         return provenance_response
 
-    def report_warning(self, key: str, reason: str) -> None:
-        logger.warning(f"{key}: {reason}")
-        self.report.report_warning(key, reason)
-
     def delete_provenance(self, provenance_uri):
         delete_response = self.session.delete(provenance_uri)
         if not delete_response.ok:
@@ -826,7 +822,7 @@ class NifiSource(Source):
             outgoing = list(
                 filter(lambda x: x[0] == component.id, self.nifi_flow.connections)
             )
-            inputJobs = []
+            inputJobs = set()
             jobProperties = None
 
             if component.nifi_type is NifiType.PROCESSOR:
@@ -877,7 +873,7 @@ class NifiSource(Source):
                         dataset_urn,
                     )
                 else:
-                    inputJobs.append(
+                    inputJobs.add(
                         builder.make_data_job_urn_with_flow(flow_urn, incoming_from)
                     )
 
@@ -900,11 +896,11 @@ class NifiSource(Source):
                 site_urls = component.target_uris.split(",")  # type: ignore
                 for site_url in site_urls:
                     if site_url not in self.config.site_url_to_site_name:
-                        self.report_warning(
-                            site_url,
+                        self.report.warning(
                             f"Site with url {site_url} is being used in flow but\
                             corresponding site name is not configured via site_url_to_site_name.\
                             This may result in broken lineage.",
+                            site_url,
                         )
                     else:
                         site_name = self.config.site_url_to_site_name[site_url]
@@ -921,11 +917,11 @@ class NifiSource(Source):
                 site_urls = component.target_uris.split(",")  # type: ignore
                 for site_url in site_urls:
                     if site_url not in self.config.site_url_to_site_name:
-                        self.report_warning(
-                            self.config.site_url,
+                        self.report.warning(
                             f"Site with url {site_url} is being used in flow but\
                             corresponding site name is not configured via site_url_to_site_name.\
                             This may result in broken lineage.",
+                            self.config.site_url,
                         )
                     else:
                         site_name = self.config.site_url_to_site_name[site_url]
@@ -957,7 +953,7 @@ class NifiSource(Source):
                 job_properties=jobProperties,
                 inlets=list(component.inlets.keys()),
                 outlets=list(component.outlets.keys()),
-                inputJobs=inputJobs,
+                inputJobs=list(inputJobs),
                 status=component.status,
             )
 
@@ -1054,17 +1050,15 @@ class NifiSource(Source):
         try:
             self.authenticate()
         except Exception as e:
-            logger.error("Failed to authenticate", exc_info=e)
-            self.report.report_failure(self.config.site_url, "Failed to authenticate")
+            self.report.failure("Failed to authenticate", self.config.site_url, exc=e)
             return
 
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         try:
             self.create_nifi_flow()
         except Exception as e:
-            logger.error("Failed to get root process group flow", exc_info=e)
-            self.report.report_failure(
-                self.config.site_url, "Failed to get root process group flow"
+            self.report.failure(
+                "Failed to get root process group flow", self.config.site_url, exc=e
             )
             return
 

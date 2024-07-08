@@ -42,6 +42,7 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.CorpUserEditableProperties;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
 import com.linkedin.datahub.graphql.generated.Dashboard;
@@ -53,10 +54,12 @@ import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
+import com.linkedin.datahub.graphql.generated.Deprecation;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
@@ -121,6 +124,8 @@ import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.ReportAssertionResultResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpsertCustomAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.DebugAccessResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenMetadataResolver;
@@ -168,8 +173,11 @@ import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
+import com.linkedin.datahub.graphql.resolvers.form.CreateFormResolver;
+import com.linkedin.datahub.graphql.resolvers.form.DeleteFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.IsFormAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.form.SubmitFormPromptResolver;
+import com.linkedin.datahub.graphql.resolvers.form.UpdateFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.VerifyFormResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.AddRelatedTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryNodeResolver;
@@ -281,6 +289,9 @@ import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsR
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.CreateStructuredPropertyResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.RemoveStructuredPropertiesResolver;
+import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpdateStructuredPropertyResolver;
 import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
@@ -377,6 +388,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
@@ -454,6 +466,7 @@ public class GmsGraphQLEngine {
   private final FormService formService;
   private final RestrictedService restrictedService;
   private ConnectionService connectionService;
+  private AssertionService assertionService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -575,6 +588,7 @@ public class GmsGraphQLEngine {
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
+    this.assertionService = args.assertionService;
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -775,6 +789,7 @@ public class GmsGraphQLEngine {
     configureBusinessAttributeResolver(builder);
     configureBusinessAttributeAssociationResolver(builder);
     configureConnectionResolvers(builder);
+    configureDeprecationResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -1221,6 +1236,10 @@ public class GmsGraphQLEngine {
                   new CreateTestConnectionRequestResolver(
                       this.entityClient, this.ingestionConfiguration))
               .dataFetcher(
+                  "upsertCustomAssertion", new UpsertCustomAssertionResolver(assertionService))
+              .dataFetcher(
+                  "reportAssertionResult", new ReportAssertionResultResolver(assertionService))
+              .dataFetcher(
                   "deleteAssertion",
                   new DeleteAssertionResolver(this.entityClient, this.entityService))
               .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
@@ -1305,10 +1324,23 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "upsertStructuredProperties",
                   new UpsertStructuredPropertiesResolver(this.entityClient))
+              .dataFetcher(
+                  "removeStructuredProperties",
+                  new RemoveStructuredPropertiesResolver(this.entityClient))
+              .dataFetcher(
+                  "createStructuredProperty",
+                  new CreateStructuredPropertyResolver(this.entityClient))
+              .dataFetcher(
+                  "updateStructuredProperty",
+                  new UpdateStructuredPropertyResolver(this.entityClient))
               .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
               .dataFetcher(
                   "updateIncidentStatus",
-                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService));
+                  new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
+              .dataFetcher(
+                  "createForm", new CreateFormResolver(this.entityClient, this.formService))
+              .dataFetcher("deleteForm", new DeleteFormResolver(this.entityClient))
+              .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient));
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(
@@ -1814,6 +1846,18 @@ public class GmsGraphQLEngine {
                 new LoadableTypeResolver<>(
                     corpUserType,
                     (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn())));
+    builder.type(
+        "CorpUserEditableProperties",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "platforms",
+                new LoadableTypeBatchResolver<>(
+                    dataPlatformType,
+                    (env) ->
+                        ((CorpUserEditableProperties) env.getSource())
+                            .getPlatforms().stream()
+                                .map(DataPlatform::getUrn)
+                                .collect(Collectors.toList()))));
   }
 
   /**
@@ -3119,5 +3163,15 @@ public class GmsGraphQLEngine {
                           ? connection.getPlatform().getUrn()
                           : null;
                     })));
+  }
+
+  private void configureDeprecationResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Deprecation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "actorEntity",
+                new EntityTypeResolver(
+                    entityTypes, (env) -> ((Deprecation) env.getSource()).getActorEntity())));
   }
 }

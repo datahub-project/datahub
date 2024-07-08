@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql;
 
+import com.google.common.collect.ImmutableSet;
+import java.util.Set;
+
 /** Constants relating to GraphQL type system & execution. */
 public class Constants {
 
@@ -28,4 +31,11 @@ public class Constants {
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
   public static final String ENTITY_FILTER_NAME = "_entityType";
+
+  public static final Set<String> DEFAULT_PERSONA_URNS =
+      ImmutableSet.of(
+          "urn:li:dataHubPersona:technicalUser",
+          "urn:li:dataHubPersona:businessUser",
+          "urn:li:dataHubPersona:dataLeader",
+          "urn:li:dataHubPersona:dataSteward");
 }

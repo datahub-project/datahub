@@ -61,9 +61,7 @@ export const Assertions = () => {
     const assertions =
         (combinedData && combinedData.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion)) ||
         [];
-    const filteredAssertions = assertions.filter(
-        (assertion) => !removedUrns.includes(assertion.urn) && !!assertion.info?.datasetAssertion,
-    );
+    const filteredAssertions = assertions.filter((assertion) => !removedUrns.includes(assertion.urn));
 
     // Pre-sort the list of assertions based on which has been most recently executed.
     assertions.sort(sortAssertions);

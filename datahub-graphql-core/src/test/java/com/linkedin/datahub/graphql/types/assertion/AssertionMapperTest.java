@@ -5,12 +5,14 @@ import static org.testng.Assert.assertEquals;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionSource;
+import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionStdParameter;
 import com.linkedin.assertion.AssertionStdParameterType;
 import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FreshnessAssertionInfo;
@@ -23,6 +25,7 @@ import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
@@ -115,6 +118,22 @@ public class AssertionMapperTest {
     verifyAssertionInfo(input, output);
   }
 
+  @Test
+  public void testMapCustomAssertion() {
+    // Case 1: Without nullable fields
+    AssertionInfo input = createCustomAssertionInfoWithoutNullableFields();
+    EntityResponse customAssertionEntityResponse = createAssertionInfoEntityResponse(input);
+    Assertion output = AssertionMapper.map(null, customAssertionEntityResponse);
+    verifyAssertionInfo(input, output);
+
+    // Case 2: With nullable fields
+    input = createCustomAssertionInfoWithNullableFields();
+    EntityResponse customAssertionEntityResponseWithNullables =
+        createAssertionInfoEntityResponse(input);
+    output = AssertionMapper.map(null, customAssertionEntityResponseWithNullables);
+    verifyAssertionInfo(input, output);
+  }
+
   private void verifyAssertionInfo(AssertionInfo input, Assertion output) {
     Assert.assertNotNull(output);
     Assert.assertNotNull(output.getInfo());
@@ -123,6 +142,10 @@ public class AssertionMapperTest {
 
     if (input.hasDatasetAssertion()) {
       verifyDatasetAssertion(input.getDatasetAssertion(), output.getInfo().getDatasetAssertion());
+    }
+
+    if (input.hasExternalUrl()) {
+      Assert.assertEquals(input.getExternalUrl().toString(), output.getInfo().getExternalUrl());
     }
 
     if (input.hasFreshnessAssertion()) {
@@ -136,6 +159,10 @@ public class AssertionMapperTest {
 
     if (input.hasSource()) {
       verifySource(input.getSource(), output.getInfo().getSource());
+    }
+
+    if (input.hasCustomAssertion()) {
+      verifyCustomAssertion(input.getCustomAssertion(), output.getInfo().getCustomAssertion());
     }
   }
 
@@ -182,6 +209,19 @@ public class AssertionMapperTest {
     Assert.assertEquals(output.getCompatibility().toString(), input.getCompatibility().toString());
     Assert.assertEquals(
         output.getSchema().getFields().size(), input.getSchema().getFields().size());
+  }
+
+  private void verifyCustomAssertion(
+      CustomAssertionInfo input,
+      com.linkedin.datahub.graphql.generated.CustomAssertionInfo output) {
+    Assert.assertEquals(output.getEntityUrn(), input.getEntity().toString());
+    Assert.assertEquals(output.getType(), input.getType());
+    if (input.hasLogic()) {
+      Assert.assertEquals(output.getLogic(), input.getLogic());
+    }
+    if (input.hasField()) {
+      Assert.assertEquals(output.getField().getPath(), input.getField().getEntityKey().get(1));
+    }
   }
 
   private void verifyCronSchedule(
@@ -312,6 +352,35 @@ public class AssertionMapperTest {
                             .setNullable(false)
                             .setNativeDataType("string")
                             .setFieldPath("test")))));
+    return info;
+  }
+
+  private AssertionInfo createCustomAssertionInfoWithoutNullableFields() {
+    AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.CUSTOM);
+    CustomAssertionInfo customAssertionInfo = new CustomAssertionInfo();
+    customAssertionInfo.setType("Custom Type 1");
+    customAssertionInfo.setEntity(UrnUtils.getUrn("urn:li:dataset:1"));
+    info.setCustomAssertion(customAssertionInfo);
+    return info;
+  }
+
+  private AssertionInfo createCustomAssertionInfoWithNullableFields() {
+    AssertionInfo info = new AssertionInfo();
+    info.setType(AssertionType.CUSTOM);
+    info.setExternalUrl(new Url("https://xyz.com"));
+    info.setDescription("Description of custom assertion");
+    CustomAssertionInfo customAssertionInfo = new CustomAssertionInfo();
+    customAssertionInfo.setType("Custom Type 1");
+    customAssertionInfo.setEntity(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
+    customAssertionInfo.setField(
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD),field)"));
+    customAssertionInfo.setLogic("custom logic");
+    info.setCustomAssertion(customAssertionInfo);
+    info.setSource(new AssertionSource().setType(AssertionSourceType.EXTERNAL));
+
     return info;
   }
 

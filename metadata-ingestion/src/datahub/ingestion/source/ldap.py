@@ -334,10 +334,12 @@ class LDAPSource(StatefulIngestionSourceBase):
                     manager_ldap = guess_person_ldap(m_attrs, self.config, self.report)
 
                     m_email = get_attr_or_none(
-                        m_attrs, self.config.user_attrs_map["email"], manager_ldap
+                        m_attrs, self.config.user_attrs_map["email"]
                     )
                     make_manager_urn = (
-                        m_email if self.config.use_email_as_username else manager_ldap
+                        m_email
+                        if m_email and self.config.use_email_as_username
+                        else manager_ldap
                     )
 
             except ldap.LDAPError as e:
@@ -377,7 +379,7 @@ class LDAPSource(StatefulIngestionSourceBase):
         last_name = attrs[self.config.user_attrs_map["lastName"]][0].decode()
         groups = parse_groups(attrs, self.config.user_attrs_map["memberOf"])
 
-        email = get_attr_or_none(attrs, self.config.user_attrs_map["email"], ldap_user)
+        email = get_attr_or_none(attrs, self.config.user_attrs_map["email"])
         display_name = get_attr_or_none(
             attrs, self.config.user_attrs_map["displayName"], full_name
         )
@@ -404,7 +406,9 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
-        make_user_urn = email if self.config.use_email_as_username else ldap_user
+        make_user_urn = (
+            email if email and self.config.use_email_as_username else ldap_user
+        )
 
         user_snapshot = CorpUserSnapshotClass(
             urn=f"urn:li:corpuser:{make_user_urn}",
@@ -438,9 +442,7 @@ class LDAPSource(StatefulIngestionSourceBase):
             admins = parse_users(attrs, self.config.group_attrs_map["admins"])
             members = parse_users(attrs, self.config.group_attrs_map["members"])
 
-            email = get_attr_or_none(
-                attrs, self.config.group_attrs_map["email"], full_name
-            )
+            email = get_attr_or_none(attrs, self.config.group_attrs_map["email"])
             description = get_attr_or_none(
                 attrs, self.config.group_attrs_map["description"]
             )
@@ -448,7 +450,9 @@ class LDAPSource(StatefulIngestionSourceBase):
                 attrs, self.config.group_attrs_map["displayName"]
             )
 
-            make_group_urn = email if self.config.use_email_as_username else full_name
+            make_group_urn = (
+                email if email and self.config.use_email_as_username else full_name
+            )
 
             group_snapshot = CorpGroupSnapshotClass(
                 urn=f"urn:li:corpGroup:{make_group_urn}",

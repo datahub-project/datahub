@@ -326,8 +326,9 @@ public class SparkConfigParser {
     if (!datahubConfig.hasPath(DISABLE_SYMLINK_RESOLUTION)) {
       return false;
     }
-    return datahubConfig.hasPath(DISABLE_SYMLINK_RESOLUTION) && datahubConfig.getBoolean(DISABLE_SYMLINK_RESOLUTION);
- }
+    return datahubConfig.hasPath(DISABLE_SYMLINK_RESOLUTION)
+        && datahubConfig.getBoolean(DISABLE_SYMLINK_RESOLUTION);
+  }
 
   public static boolean isEmitCoalescePeriodically(Config datahubConfig) {
     if (!datahubConfig.hasPath(STAGE_METADATA_COALESCING)) {

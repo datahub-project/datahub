@@ -20,7 +20,7 @@ This guide will show you how to execute the following actions with structured pr
 - Add structured properties to a dataset
 - Patch structured properties (add / remove / update a single property)
 - Update structured property with breaking schema changes
-- Search using structured properties
+- Search & aggregations using structured properties
 
 ## Prerequisites
 
@@ -1107,7 +1107,7 @@ schema changes will remove previously written data.
 Breaking schema changes are implemented by setting a version string within the Structured Property definition. This
 version must be in the following format: `yyyyMMddhhmmss`, i.e. `20240614080000`
 
-:::IMPORTANT NOTES
+:::note IMPORTANT NOTES
 Old values will not be retrieve-able after the new Structured Property definition is applied. 
 
 The old values will be subject to deletion asynchronously (future work).
@@ -1234,7 +1234,7 @@ Example Response:
 </TabItem>
 </Tabs>
 
-## Structured Properties & Search
+## Structured Properties - Search & Aggregation
 
 Currently Structured Properties can be used to filter search results. This currently excludes fulltext search.
 
@@ -1522,6 +1522,74 @@ Example Response:
       }
     }
   ]
+}
+```
+
+</TabItem>
+</Tabs>
+
+### Structured Property Aggregations
+
+Structured properties can also be used in GraphQL's aggregation queries using the same naming convention outlined above 
+for search filter field names. There are currently no aggregation endpoints for OpenAPI.
+
+<Tabs>
+<TabItem value="GraphQL" label="GraphQL" default>
+
+Aggregation Query:
+
+```graphql
+query {
+  aggregateAcrossEntities(
+    input: {
+      types: [], 
+      facets: [
+        "structuredProperties.io.acryl.privacy.retentionTime02",
+        "structuredProperties.io.acryl.privacy.retentionTime"], 
+      query: "*", 
+      orFilters: [], 
+      searchFlags: {maxAggValues: 100}
+    }) {
+  facets {
+    field
+      aggregations {
+        value
+        count
+      }
+    }
+  }
+}
+```
+
+Example Response:
+
+```json
+{
+  "data": {
+    "aggregateAcrossEntities": {
+      "facets": [
+        {
+          "field": "structuredProperties.io.acryl.privacy.retentionTime02",
+          "aggregations": [
+            {
+              "value": "bar2",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "field": "structuredProperties.io.acryl.privacy.retentionTime",
+          "aggregations": [
+            {
+              "value": "60.0",
+              "count": 1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "extensions": {}
 }
 ```
 

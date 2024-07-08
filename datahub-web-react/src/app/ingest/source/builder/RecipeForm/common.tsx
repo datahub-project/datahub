@@ -276,7 +276,7 @@ export const INCLUDE_LINEAGE: RecipeField = {
 export const INCLUDE_TABLE_LINEAGE: RecipeField = {
     name: 'include_table_lineage',
     label: 'Include Table Lineage',
-    tooltip: 'Extract Tabel-Level lineage metadata. Enabling this may increase the duration of the extraction process.',
+    tooltip: 'Extract Tabel-Level lineage metadata. Enabling this may increase the duration of the sync.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_table_lineage',
     rules: null,
@@ -286,8 +286,7 @@ const isProfilingEnabledFieldPath = 'source.config.profiling.enabled';
 export const TABLE_PROFILING_ENABLED: RecipeField = {
     name: 'profiling.enabled',
     label: 'Enable Table Profiling',
-    tooltip:
-        'Generate Data Profiles for extracted Tables. Enabling this may increase the duration of the extraction process.',
+    tooltip: 'Generate Data Profiles for extracted Tables. Enabling this may increase the duration of the sync.',
     type: FieldType.BOOLEAN,
     fieldPath: isProfilingEnabledFieldPath,
     rules: null,
@@ -298,7 +297,7 @@ export const COLUMN_PROFILING_ENABLED: RecipeField = {
     name: 'column_profiling.enabled',
     label: 'Enable Column Profiling',
     tooltip:
-        'Generate Data Profiles for the Columns in extracted Tables. Enabling this may increase the duration of the extraction process.',
+        'Generate Data Profiles for the Columns in extracted Tables. Enabling this may increase the duration of the sync.',
     type: FieldType.BOOLEAN,
     fieldPath: isTableProfilingOnlyFieldPath,
     rules: null,
@@ -466,7 +465,7 @@ export const START_TIME: RecipeField = {
     name: 'start_time',
     label: 'Start Time',
     tooltip:
-        'Earliest date used when processing audit logs for lineage, usage, and more. Default: Last full day in UTC or last time DataHub ingested usage (if stateful ingestion is enabled). Tip: Set this to an older date (e.g. 1 month ago) to bootstrap your first ingestion run, and then reduce for subsequent runs. Changing this may increase the duration of the extraction process.',
+        'Earliest date used when processing audit logs for lineage, usage, and more. Default: Last full day in UTC or last time DataHub ingested usage (if stateful ingestion is enabled). Tip: Set this to an older date (e.g. 1 month ago) to bootstrap your first ingestion run, and then reduce for subsequent runs. Changing this may increase the duration of the sync.',
     placeholder: 'Select date and time',
     type: FieldType.DATE,
     fieldPath: startTimeFieldPath,

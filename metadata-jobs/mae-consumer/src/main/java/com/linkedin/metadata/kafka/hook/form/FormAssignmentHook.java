@@ -38,9 +38,6 @@ import org.springframework.stereotype.Component;
  * <p>3. When a form is hard deleted, any automations used for assigning the form, or validating
  * prompts, are automatically deleted.
  *
- * <p>Note that currently, Datasets, Dashboards, Charts, Data Jobs, Data Flows, Containers, are the
- * only asset types supported for this hook.
- *
  * <p>TODO: In the future, let's decide whether we want to support automations to auto-mark form
  * prompts as "completed" when they do in fact have the correct metadata. (Without user needing to
  * explicitly fill out a form prompt response)

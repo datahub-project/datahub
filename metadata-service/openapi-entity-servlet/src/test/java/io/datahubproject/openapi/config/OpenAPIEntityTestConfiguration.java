@@ -3,6 +3,7 @@ package io.datahubproject.openapi.config;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +34,7 @@ import io.datahubproject.openapi.v1.entities.EntitiesController;
 import io.datahubproject.openapi.v1.relationships.RelationshipsController;
 import io.datahubproject.openapi.v2.controller.TimelineControllerV2;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -109,11 +111,11 @@ public class OpenAPIEntityTestConfiguration {
   @Primary
   public EntitiesController entitiesController() {
     EntitiesController entitiesController = mock(EntitiesController.class);
-    when(entitiesController.getEntities(any(), any()))
+    when(entitiesController.getEntities(nullable(HttpServletRequest.class), any(), any()))
         .thenAnswer(
             params -> {
-              String[] urns = params.getArgument(0);
-              String[] aspects = params.getArgument(1);
+              String[] urns = params.getArgument(1);
+              String[] aspects = params.getArgument(2);
               return ResponseEntity.ok(
                   UrnResponseMap.builder()
                       .responses(

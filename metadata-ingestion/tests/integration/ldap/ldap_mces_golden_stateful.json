@@ -9,7 +9,6 @@
                         "customProperties": {},
                         "active": true,
                         "displayName": "Bart Simpson",
-                        "email": "bsimpson",
                         "title": "Mr. Boss",
                         "firstName": "Bart",
                         "lastName": "Simpson",
@@ -26,7 +25,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
     }
 },
 {
@@ -59,7 +60,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
     }
 },
 {
@@ -74,7 +77,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
     }
 },
 {
@@ -89,7 +94,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "ldap-test-pipeline"
     }
 }
 ]

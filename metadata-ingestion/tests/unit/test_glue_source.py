@@ -135,6 +135,11 @@ def test_glue_ingest(
             get_tables_response_2,
             {"DatabaseName": "test-database"},
         )
+        glue_stubber.add_response(
+            "get_tables",
+            {"TableList": []},
+            {"DatabaseName": "empty-database"},
+        )
         glue_stubber.add_response("get_jobs", get_jobs_response, {})
         glue_stubber.add_response(
             "get_dataflow_graph",
