@@ -333,6 +333,7 @@ public class AggregateAcrossEntitiesResolverTest {
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null),
                 Mockito.eq(null)))
         .thenThrow(new RemoteInvocationException());
 
@@ -406,7 +407,8 @@ public class AggregateAcrossEntitiesResolverTest {
                 Mockito.eq(start),
                 Mockito.eq(limit),
                 Mockito.eq(Collections.emptyList()),
-                Mockito.eq(facets)))
+                Mockito.eq(facets),
+                Mockito.eq(null)))
         .thenReturn(result);
     return client;
   }
@@ -429,7 +431,8 @@ public class AggregateAcrossEntitiesResolverTest {
             Mockito.eq(start),
             Mockito.eq(limit),
             Mockito.eq(Collections.emptyList()),
-            Mockito.eq(facets));
+            Mockito.eq(facets),
+            Mockito.eq(null));
   }
 
   private static void verifyMockViewService(ViewService mockService, Urn viewUrn) {

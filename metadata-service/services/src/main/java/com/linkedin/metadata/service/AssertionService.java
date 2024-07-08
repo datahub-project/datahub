@@ -366,7 +366,8 @@ public class AssertionService extends BaseService {
               buildFilterForAssertionSummary(assertionUrn),
               0,
               MAX_ENTITIES_TO_LIST,
-              Collections.emptyList());
+              Collections.emptyList(),
+              null);
       if (result == null || !result.hasEntities()) {
         return Collections.emptyList();
       }

@@ -107,6 +107,7 @@ public class SearchAcrossEntitiesResolverTest {
             TEST_VIEW_URN.toString(),
             null,
             null,
+            null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -212,6 +213,7 @@ public class SearchAcrossEntitiesResolverTest {
             TEST_VIEW_URN.toString(),
             null,
             null,
+            null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -283,7 +285,7 @@ public class SearchAcrossEntitiesResolverTest {
 
     final SearchAcrossEntitiesInput testInput =
         new SearchAcrossEntitiesInput(
-            null, "", 0, 10, null, null, TEST_VIEW_URN.toString(), null, null, null);
+            null, "", 0, 10, null, null, TEST_VIEW_URN.toString(), null, null, null, null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
@@ -364,6 +366,7 @@ public class SearchAcrossEntitiesResolverTest {
             TEST_VIEW_URN.toString(),
             null,
             null,
+            null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -424,6 +427,7 @@ public class SearchAcrossEntitiesResolverTest {
             TEST_VIEW_URN.toString(),
             null,
             null,
+            null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -468,6 +472,7 @@ public class SearchAcrossEntitiesResolverTest {
             TEST_VIEW_URN.toString(),
             null,
             null,
+            null,
             null);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
@@ -500,7 +505,8 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.eq(Collections.emptyList())))
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null)))
         .thenReturn(result);
     return client;
   }
@@ -521,7 +527,8 @@ public class SearchAcrossEntitiesResolverTest {
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
-            Mockito.eq(Collections.emptyList()));
+            Mockito.eq(Collections.emptyList()),
+            Mockito.eq(null));
   }
 
   private static void verifyMockViewService(ViewService mockService, Urn viewUrn) {

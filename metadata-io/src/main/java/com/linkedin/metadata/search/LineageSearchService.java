@@ -568,7 +568,8 @@ public class LineageSearchService {
                   finalFilter,
                   sortCriteria,
                   queryFrom,
-                  querySize),
+                  querySize,
+                  null),
               urnToRelationship);
       queryFrom = Math.max(0, from - resultForBatch.getNumEntities());
       querySize = Math.max(0, size - resultForBatch.getEntities().size());

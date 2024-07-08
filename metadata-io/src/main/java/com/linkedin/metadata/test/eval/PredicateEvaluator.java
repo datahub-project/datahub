@@ -67,12 +67,12 @@ public class PredicateEvaluator {
     return INSTANCE;
   }
 
-  private BaseOperatorEvaluator getOperationEvaluator(OperatorType operatorType) {
-    if (!operationEvaluators.containsKey(operatorType)) {
+  private static BaseOperatorEvaluator getOperationEvaluator(OperatorType operatorType) {
+    if (!INSTANCE.operationEvaluators.containsKey(operatorType)) {
       throw new IllegalArgumentException(
           String.format("Unsupported operator type %s", operatorType));
     }
-    return operationEvaluators.get(operatorType);
+    return INSTANCE.operationEvaluators.get(operatorType);
   }
 
   /**
@@ -82,7 +82,7 @@ public class PredicateEvaluator {
    * @param predicate Predicate to validate
    * @throws InvalidOperandException if parameters are not sufficient to evaluate the operation
    */
-  public void validate(Predicate predicate) throws InvalidOperandException {
+  public static void validate(Predicate predicate) throws InvalidOperandException {
     getOperationEvaluator(predicate.getOperatorType()).validate(predicate.getOperands());
   }
 
@@ -143,9 +143,9 @@ public class PredicateEvaluator {
             "Unsupported operation param type: %s", expression.getClass().getSimpleName()));
   }
 
-  public boolean isOperationValid(String operation) {
+  public static boolean isOperationValid(String operation) {
     try {
-      return operationEvaluators.containsKey(OperatorType.fromCommonName(operation));
+      return INSTANCE.operationEvaluators.containsKey(OperatorType.fromCommonName(operation));
     } catch (IllegalArgumentException e) {
       return false;
     }

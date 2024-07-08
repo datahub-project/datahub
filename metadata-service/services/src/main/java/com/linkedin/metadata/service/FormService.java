@@ -1312,7 +1312,8 @@ public class FormService extends BaseService {
             0,
             0, // doing an aggregate request here, count = 0
             Collections.emptyList(),
-            formFacets);
+            formFacets,
+            null);
 
     // get the form urns from the aggregations query we make above
     final Set<Urn> formsOnOwnedEntities = new HashSet<>();

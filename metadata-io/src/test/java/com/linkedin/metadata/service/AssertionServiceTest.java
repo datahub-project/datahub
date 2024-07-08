@@ -1429,7 +1429,8 @@ public class AssertionServiceTest {
                 Mockito.eq(expectedFilter),
                 Mockito.eq(0),
                 Mockito.eq(MAX_ENTITIES_TO_LIST),
-                Mockito.eq(Collections.emptyList())))
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)

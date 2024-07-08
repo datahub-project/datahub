@@ -437,7 +437,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count,
-      @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
+      @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags,
+      @ActionParam(PARAM_PREDICATE_FILTER) @Optional String predicateFilterJson) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
@@ -458,7 +459,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtil.toTask(
         () -> {
-          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
+          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter,
+              sortCriterionList, start, count, null);
           if (!isAPIAuthorizedResult(
                   auth,
                   authorizer,

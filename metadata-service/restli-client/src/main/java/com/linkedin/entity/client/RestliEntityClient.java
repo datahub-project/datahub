@@ -646,10 +646,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      List<SortCriterion> sortCriteria)
+      List<SortCriterion> sortCriteria,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriteria, null);
+        opContext, entities, input, filter, start, count, sortCriteria, null, predicateJson);
   }
 
   /**
@@ -674,7 +675,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       int start,
       int count,
       @Nonnull List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets)
+      @Nullable List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -698,6 +700,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (!CollectionUtils.isEmpty(sortCriteria)) {
       requestBuilder.sortParam(sortCriteria.get(0));
       requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
+    }
+
+    if (predicateJson != null) {
+      requestBuilder.predicateFilterParam(predicateJson);
     }
 
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();

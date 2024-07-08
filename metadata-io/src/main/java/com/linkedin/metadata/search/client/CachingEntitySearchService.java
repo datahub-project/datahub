@@ -4,6 +4,9 @@ import static com.datahub.util.RecordUtils.toJsonString;
 import static com.datahub.util.RecordUtils.toRecordTemplate;
 
 import com.codahale.metrics.Timer;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -13,6 +16,10 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
+import com.linkedin.metadata.search.utils.acryl.AcrylSearchUtils;
+import com.linkedin.metadata.test.definition.TestDefinitionParser;
+import com.linkedin.metadata.test.definition.operator.OperatorType;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -20,6 +27,7 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import org.javatuples.Octet;
 import org.javatuples.Septet;
 import org.javatuples.Sextet;
 import org.opensearch.core.common.util.CollectionUtils;
@@ -403,5 +411,107 @@ public class CachingEntitySearchService {
   /** Returns true if the cache should be used or skipped when fetching search results */
   private boolean enableCache(@Nullable final SearchFlags searchFlags) {
     return enableCache && (searchFlags == null || !searchFlags.isSkipCache());
+  }
+
+  /* SAAS ONLY */
+  /**
+   * Retrieves cached search results. If the query has been cached, this will return quickly. If
+   * not, a full search request will be made.
+   *
+   * @param opContext the operation's context
+   * @param entityNames the names of the entity to search
+   * @param query the search query
+   * @param filters the filters to include
+   * @param sortCriteria the sort criteria
+   * @param from the start offset
+   * @param size the count
+   * @param facets list of facets we want aggregations for
+   * @param predicateJson json representation of predicate filter
+   * @return a {@link SearchResult} containing the requested batch of search results
+   */
+  public SearchResult predicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      int size,
+      @Nullable List<String> facets,
+      @Nullable String predicateJson) {
+    return getCachedPredicateSearchResults(
+        opContext, entityNames, query, filters, sortCriteria, from, size, facets, predicateJson);
+  }
+
+  /**
+   * Get search results corresponding to the input "from" and "size" It goes through batches,
+   * starting from the beginning, until we get enough results to return This lets us have batches
+   * that return a variable number of results (we have no idea which batch the "from" "size" page
+   * corresponds to)
+   */
+  public SearchResult getCachedPredicateSearchResults(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      List<SortCriterion> sortCriteria,
+      int from,
+      int size,
+      @Nullable List<String> facets,
+      @Nullable String predicateJson) {
+    return new CacheableSearcher<>(
+            cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
+            batchSize,
+            querySize ->
+                getRawPredicateSearchResults(
+                    opContext,
+                    entityNames,
+                    query,
+                    filters,
+                    sortCriteria,
+                    querySize.getFrom(),
+                    querySize.getSize(),
+                    facets,
+                    predicateJson),
+            querySize ->
+                Octet.with(
+                    opContext.getSearchContextId(),
+                    entityNames,
+                    query,
+                    filters != null ? toJsonString(filters) : null,
+                    !CollectionUtils.isEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+                    facets,
+                    querySize,
+                    predicateJson),
+            enableCache)
+        .getSearchResults(opContext, from, size);
+  }
+
+  /** Executes the expensive search query using the {@link EntitySearchService} */
+  private SearchResult getRawPredicateSearchResults(
+      @Nonnull OperationContext opContext,
+      final List<String> entityNames,
+      final String input,
+      final Filter filters,
+      final List<SortCriterion> sortCriteria,
+      final int start,
+      final int count,
+      @Nullable final List<String> facets,
+      @Nullable String predicateJson) {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRawSearchResults").time()) {
+      Predicate finalFilterPredicate =
+          filters != null ? AcrylSearchUtils.convertFilterToPredicate(filters) : null;
+      JsonNode predicateJsonNode = opContext.getObjectMapper().readTree(predicateJson);
+      Predicate inputPredicate = TestDefinitionParser.deserializeRule(predicateJsonNode);
+      final Predicate finalPredicate =
+          finalFilterPredicate != null
+              ? Predicate.of(
+                  OperatorType.AND, ImmutableList.of(finalFilterPredicate, inputPredicate))
+              : inputPredicate;
+      return entitySearchService.predicateSearch(
+          opContext, entityNames, input, finalPredicate, sortCriteria, start, count, facets);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

@@ -149,7 +149,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             null,
             null,
             0,
-            10);
+            10,
+            null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     searchResult =
         searchService.searchAcrossEntities(
@@ -159,7 +160,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             null,
             null,
             0,
-            10);
+            10,
+            null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
 
@@ -181,7 +183,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             null,
             null,
             0,
-            10);
+            10,
+            null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -204,7 +207,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             null,
             null,
             0,
-            10);
+            10,
+            null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
     clearCache();
@@ -225,7 +229,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             null,
             null,
             0,
-            10);
+            10,
+            null);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
   }
 
@@ -262,7 +267,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             filterWithCondition,
             null,
             0,
-            10);
+            10,
+            null);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -310,7 +316,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             filterWithCondition,
             null,
             0,
-            10);
+            10,
+            null);
     assertEquals(searchResult.getNumEntities().intValue(), 2);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     assertEquals(searchResult.getEntities().get(1).getEntity(), urn2);
@@ -350,7 +357,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             filterWithCondition,
             null,
             0,
-            10);
+            10,
+            null);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -401,7 +409,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             filterWithCondition,
             null,
             0,
-            10);
+            10,
+            null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     clearCache();
@@ -432,7 +441,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             filterWithCondition,
             null,
             0,
-            10);
+            10,
+            null);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache();
@@ -483,7 +493,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             filterWithCondition,
             null,
             0,
-            10);
+            10,
+            null);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn3);
     clearCache();

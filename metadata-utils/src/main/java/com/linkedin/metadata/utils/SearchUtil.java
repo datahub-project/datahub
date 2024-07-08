@@ -32,7 +32,6 @@ public class SearchUtil {
   public static final String MISSING_SPECIAL_TYPE = "missing";
   public static final String INDEX_VIRTUAL_FIELD = "_entityType";
   public static final String ES_INDEX_FIELD = "_index";
-  public static final String KEYWORD_SUFFIX = ".keyword";
   private static final String URN_PREFIX = "urn:";
 
   private SearchUtil() {}

@@ -707,4 +707,56 @@ public class SearchRequestHandler {
 
     return ESPredicateUtils.applyDefaultSearchFilters(opContext, predicate, filterQuery);
   }
+
+  @WithSpan
+  public SearchResult extractPredicateResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Predicate predicate,
+      int from,
+      int size) {
+    int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
+    SearchResultMetadata searchResultMetadata =
+        extractPredicateSearchResultMetadata(opContext, searchResponse, predicate);
+
+    return new SearchResult()
+        .setEntities(new SearchEntityArray(resultList))
+        .setMetadata(searchResultMetadata)
+        .setFrom(from)
+        .setPageSize(size)
+        .setNumEntities(totalCount);
+  }
+
+  /**
+   * Extracts SearchResultMetadata section.
+   *
+   * @param searchResponse the raw {@link SearchResponse} as obtained from the search engine
+   * @param predicate the provided predicate to use with Elasticsearch
+   * @return {@link SearchResultMetadata} with aggregation and list of urns obtained from {@link
+   *     SearchResponse}
+   */
+  @Nonnull
+  private SearchResultMetadata extractPredicateSearchResultMetadata(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      @Nullable Predicate predicate) {
+    final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    final SearchResultMetadata searchResultMetadata =
+        new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
+
+    if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
+      final List<AggregationMetadata> aggregationMetadataList =
+          aggregationQueryBuilder.extractPredicateAggregationMetadata(
+              searchResponse, predicate, opContext, searchableFieldPaths, searchableFieldTypes);
+      searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
+    }
+
+    final List<SearchSuggestion> searchSuggestions = extractSearchSuggestions(searchResponse);
+    searchResultMetadata.setSuggestions(new SearchSuggestionArray(searchSuggestions));
+
+    return searchResultMetadata;
+  }
+
+  // END SAAS ONLY -- Add methods prior to this section
 }

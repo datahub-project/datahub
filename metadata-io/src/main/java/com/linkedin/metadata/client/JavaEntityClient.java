@@ -453,10 +453,11 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       int start,
       int count,
-      @Nullable List<SortCriterion> sortCriteria)
+      @Nullable List<SortCriterion> sortCriteria,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriteria, null);
+        opContext, entities, input, filter, start, count, sortCriteria, null, predicateJson);
   }
 
   /**
@@ -481,7 +482,8 @@ public class JavaEntityClient implements EntityClient {
       int start,
       int count,
       @Nonnull List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets)
+      @Nullable List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateSearchResult(
@@ -494,7 +496,8 @@ public class JavaEntityClient implements EntityClient {
             sortCriteria,
             start,
             count,
-            facets),
+            facets,
+            predicateJson),
         entityService);
   }
 

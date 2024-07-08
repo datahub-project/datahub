@@ -14,6 +14,7 @@ import com.linkedin.metadata.test.definition.expression.Query;
 import com.linkedin.metadata.test.definition.operator.Operand;
 import com.linkedin.metadata.test.definition.operator.OperatorType;
 import com.linkedin.metadata.test.definition.operator.Predicate;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -41,9 +42,10 @@ public class PredicateToFilter {
     return null;
   }
 
-  public static boolean canConvertPredicateToFilter(Predicate predicate) {
+  public static boolean canConvertPredicateToFilter(
+      Predicate predicate, OperationContext opContext) {
     try {
-      transformPredicateToFilter(predicate);
+      transformPredicateToFilter(predicate, opContext);
     } catch (UnsupportedOperationException e) {
       log.warn("Failed to convert predicate to filter: {}", e.toString());
       return false;
@@ -51,17 +53,17 @@ public class PredicateToFilter {
     return true;
   }
 
-  public static Filter transformPredicateToFilter(Predicate predicate) {
+  public static Filter transformPredicateToFilter(Predicate predicate, OperationContext opContext) {
     Filter filter = new Filter();
     if (predicate == null) {
       return filter;
     }
     if (predicate.getOperatorType() == OperatorType.OR) {
-      ConjunctiveCriterionArray orCriteria = processOrPredicate(predicate);
+      ConjunctiveCriterionArray orCriteria = processOrPredicate(predicate, opContext);
       filter.setOr(orCriteria);
     } else {
       // For a single AND predicate or any leaf predicate
-      ConjunctiveCriterion conjunctiveCriterion = processPredicate(predicate);
+      ConjunctiveCriterion conjunctiveCriterion = processPredicate(predicate, opContext);
       if (conjunctiveCriterion != null) {
         ConjunctiveCriterionArray conjunctiveCriteria = new ConjunctiveCriterionArray();
         conjunctiveCriteria.add(conjunctiveCriterion);
@@ -72,13 +74,14 @@ public class PredicateToFilter {
     return filter;
   }
 
-  private static ConjunctiveCriterionArray processOrPredicate(Predicate predicate) {
+  private static ConjunctiveCriterionArray processOrPredicate(
+      Predicate predicate, OperationContext opContext) {
     ConjunctiveCriterionArray orCriteria = new ConjunctiveCriterionArray();
     // Assuming OR predicate contains a list of AND predicates or leaf predicates
     for (Operand operand : predicate.getOperands().get()) {
       if (operand.getExpression() instanceof Predicate) {
         Predicate subPredicate = (Predicate) operand.getExpression();
-        ConjunctiveCriterion conjunctiveCriterion = processPredicate(subPredicate);
+        ConjunctiveCriterion conjunctiveCriterion = processPredicate(subPredicate, opContext);
         if (conjunctiveCriterion != null) {
           orCriteria.add(conjunctiveCriterion);
         }
@@ -87,7 +90,8 @@ public class PredicateToFilter {
     return orCriteria;
   }
 
-  private static ConjunctiveCriterion processPredicate(Predicate predicate) {
+  private static ConjunctiveCriterion processPredicate(
+      Predicate predicate, OperationContext opContext) {
     if (predicate.getOperatorType() == OperatorType.AND) {
       ConjunctiveCriterion conjunctiveCriterion =
           new ConjunctiveCriterion().setAnd(new CriterionArray());
@@ -98,7 +102,7 @@ public class PredicateToFilter {
           if (subPredicate.getOperatorType() != OperatorType.AND
               && subPredicate.getOperatorType() != OperatorType.OR) {
             // Leaf predicate
-            Criterion criterion = convertLeafPredicateToCriterion(subPredicate);
+            Criterion criterion = convertLeafPredicateToCriterion(subPredicate, opContext);
             if (criterion != null) {
               CriterionArray criteriaList = conjunctiveCriterion.getAnd();
               if (criteriaList.isEmpty()) {
@@ -109,7 +113,8 @@ public class PredicateToFilter {
             }
           } else {
             // Nested AND or OR, call recursively
-            ConjunctiveCriterion nestedConjunctiveCriterion = processPredicate(subPredicate);
+            ConjunctiveCriterion nestedConjunctiveCriterion =
+                processPredicate(subPredicate, opContext);
             if (nestedConjunctiveCriterion != null) {
               // Wrap nested criteria in a new conjunctive criterion if needed
               CriterionArray criterionArray = new CriterionArray();
@@ -124,7 +129,7 @@ public class PredicateToFilter {
       return conjunctiveCriterion;
     } else {
       // Leaf predicate
-      Criterion leafCriterion = convertLeafPredicateToCriterion(predicate);
+      Criterion leafCriterion = convertLeafPredicateToCriterion(predicate, opContext);
       if (leafCriterion != null) {
         return new ConjunctiveCriterion()
             .setAnd(new CriterionArray(Collections.singletonList(leafCriterion)));
@@ -133,7 +138,8 @@ public class PredicateToFilter {
     return null;
   }
 
-  private static Criterion convertLeafPredicateToCriterion(Predicate predicate) {
+  private static Criterion convertLeafPredicateToCriterion(
+      Predicate predicate, OperationContext opContext) {
     // Implement conversion based on your predicate structure
     // For example, for an EQUAL operator type:
     switch (predicate.getOperatorType()) {
@@ -161,7 +167,8 @@ public class PredicateToFilter {
               throw new UnsupportedOperationException(
                   "Unsupported field in query: " + query.getQuery().getQuery());
             }
-            StringArray values = getSearchValueField(valueOperand);
+            StringArray values =
+                getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
             return new Criterion()
                 .setField(fieldName)
                 .setValue(values.get(0), SetMode.IGNORE_NULL)
@@ -184,7 +191,8 @@ public class PredicateToFilter {
                 new Criterion().setField(fieldName).setCondition(Condition.IN);
             // single value
             Operand valueOperand = predicate.getOperands().get(1);
-            StringArray values = getSearchValueField(valueOperand);
+            StringArray values =
+                getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
             containsCriterion.setValue(values.get(0)).setValues(values, SetMode.IGNORE_NULL);
             return containsCriterion;
           }
@@ -201,7 +209,8 @@ public class PredicateToFilter {
               throw new UnsupportedOperationException(
                   "Unsupported field in query: " + query.getQuery().getQuery());
             }
-            StringArray values = getSearchValueField(valueOperand);
+            StringArray values =
+                getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
             return new Criterion()
                 .setField(fieldName)
                 .setValue(values.get(0), SetMode.IGNORE_NULL)
@@ -221,7 +230,8 @@ public class PredicateToFilter {
               throw new UnsupportedOperationException(
                   "Unsupported field in query: " + query.getQuery().getQuery());
             }
-            StringArray values = getSearchValueField(valueOperand);
+            StringArray values =
+                getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
             return new Criterion()
                 .setField(fieldName)
                 .setValue(values.get(0), SetMode.IGNORE_NULL)
@@ -241,7 +251,8 @@ public class PredicateToFilter {
               throw new UnsupportedOperationException(
                   "Unsupported field in query: " + query.getQuery().getQuery());
             }
-            StringArray values = getSearchValueField(valueOperand);
+            StringArray values =
+                getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
             return new Criterion()
                 .setField(fieldName)
                 .setValue(values.get(0), SetMode.IGNORE_NULL)
@@ -261,7 +272,8 @@ public class PredicateToFilter {
               throw new UnsupportedOperationException(
                   "Unsupported field in query: " + query.getQuery().getQuery());
             }
-            StringArray values = getSearchValueField(valueOperand);
+            StringArray values =
+                getSearchValueField(valueOperand.getExpression(), fieldName, opContext);
             return new Criterion()
                 .setField(fieldName)
                 .setValue(values.get(0), SetMode.IGNORE_NULL)

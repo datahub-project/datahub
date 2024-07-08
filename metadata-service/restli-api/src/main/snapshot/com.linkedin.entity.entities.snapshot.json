@@ -7428,6 +7428,10 @@
           "name" : "searchFlags",
           "type" : "com.linkedin.metadata.query.SearchFlags",
           "optional" : true
+        }, {
+          "name" : "predicateFilter",
+          "type" : "string",
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
