@@ -28,13 +28,15 @@ def create_deny_regex_sql_filter(
 
 
 class SnowflakeQuery:
-    ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = (
-        "("
-        f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.VIEW.capitalize()}',"
-        f"'{SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize()}'"
-        ")"
+    ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
+        SnowflakeObjectDomain.TABLE.capitalize(),
+        SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
+        SnowflakeObjectDomain.VIEW.capitalize(),
+        SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
+    }
+
+    ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
+        ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
     )
     ACCESS_HISTORY_TABLE_DOMAINS_FILTER = (
         "("

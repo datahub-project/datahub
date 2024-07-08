@@ -227,8 +227,8 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
             dataset = self.gen_dataset_urn(self.snowflake_identifier(obj["objectName"]))
 
             columns = set()
-            for column in obj["columns"]:
-                columns.add(self.snowflake_identifier(column["columnName"]))
+            for modified_column in obj["columns"]:
+                columns.add(self.snowflake_identifier(modified_column["columnName"]))
 
             upstreams.append(dataset)
             column_usage[dataset] = columns
@@ -243,12 +243,14 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
                 self.snowflake_identifier(obj["objectName"])
             )
             column_lineage = []
-            for column in obj["columns"]:
+            for modified_column in obj["columns"]:
                 column_lineage.append(
                     ColumnLineageInfo(
                         downstream=DownstreamColumnRef(
                             dataset=downstream,
-                            column=self.snowflake_identifier(column["columnName"]),
+                            column=self.snowflake_identifier(
+                                modified_column["columnName"]
+                            ),
                         ),
                         upstreams=[
                             ColumnRef(
@@ -259,8 +261,9 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
                                     upstream["columnName"]
                                 ),
                             )
-                            for upstream in column["directSources"]
-                            # TODO Check object domain.
+                            for upstream in modified_column["directSources"]
+                            if upstream["objectDomain"]
+                            in SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS
                         ],
                     )
                 )
