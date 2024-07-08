@@ -5,7 +5,9 @@ apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {
     implementation externalDependency.jacksonDataBind
-
+    implementation (externalDependency.windsClient) {
+        exclude group: 'io.netty', module: 'netty-handler'
+    }
     implementation externalDependency.slf4jApi
 
     // Newer Spring libraries require JDK17 classes, allow for JDK11

@@ -41,8 +41,13 @@ dependencies {
     exclude group: 'com.fasterxml.jackson.core'
   }
   api externalDependency.datastaxOssQueryBuilder
-  api externalDependency.elasticSearchRest
-  api externalDependency.elasticSearchJava
+  api (externalDependency.elasticSearchRest){
+    exclude group: 'org.apache.lucene', module: 'lucene-core'
+  }
+  api (externalDependency.elasticSearchJava){
+    exclude group: 'org.apache.lucene', module: 'lucene-core'
+  }
+  implementation externalDependency.luceneCore
   implementation externalDependency.javatuples
   api externalDependency.javaxValidation
   runtimeOnly externalDependency.jna
