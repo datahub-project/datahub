@@ -2,6 +2,8 @@ package datahub.spark.consumer.impl;
 
 import com.typesafe.config.Config;
 import datahub.client.Emitter;
+import datahub.client.kafka.KafkaEmitter;
+import datahub.client.kafka.KafkaEmitterConfig;
 import datahub.client.rest.RestEmitter;
 import datahub.client.rest.RestEmitterConfig;
 import datahub.event.MetadataChangeProposalWrapper;
@@ -9,6 +11,7 @@ import datahub.spark.model.LineageConsumer;
 import datahub.spark.model.LineageEvent;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -18,12 +21,18 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class McpEmitter implements LineageConsumer {
 
-  private String emitterType;
+  private final String emitterType;
   private Optional<RestEmitterConfig> restEmitterConfig;
+  private Optional<KafkaEmitterConfig> kafkaEmitterConfig;
+
   private static final String TRANSPORT_KEY = "transport";
   private static final String GMS_URL_KEY = "rest.server";
   private static final String GMS_AUTH_TOKEN = "rest.token";
   private static final String DISABLE_SSL_VERIFICATION_KEY = "rest.disable_ssl_verification";
+  private static final String KAFKA_BOOTSTRAP = "kafka.connection.bootstrap";
+  private static final String KAFKA_PRODUCER_CONFIG = "kafka.connection.producer_config";
+  private static final String KAFKA_SCHEMA_REGISTRY_URL = "kafka.connection.schema_registry_url";
+  private static final String KAFKA_SCHEMA_REGISTRY_CONFIG = "kafka.connection.schema_registry_config";
 
   private Optional<Emitter> getEmitter() {
     Optional<Emitter> emitter = Optional.empty();
@@ -31,6 +40,15 @@ public class McpEmitter implements LineageConsumer {
       case "rest":
         if (restEmitterConfig.isPresent()) {
           emitter = Optional.of(new RestEmitter(restEmitterConfig.get()));
+        }
+        break;
+      case "kafka":
+        if (kafkaEmitterConfig.isPresent()) {
+          try {
+            emitter = Optional.of(new KafkaEmitter(kafkaEmitterConfig.get()));
+          } catch (IOException e) {
+            log.error("Failed to create KafkaEmitter", e);
+          }
         }
         break;
 
@@ -88,15 +106,13 @@ public class McpEmitter implements LineageConsumer {
         String token =
             datahubConf.hasPath(GMS_AUTH_TOKEN) ? datahubConf.getString(GMS_AUTH_TOKEN) : null;
         boolean disableSslVerification =
-            datahubConf.hasPath(DISABLE_SSL_VERIFICATION_KEY)
-                ? datahubConf.getBoolean(DISABLE_SSL_VERIFICATION_KEY)
-                : false;
+            datahubConf.hasPath(DISABLE_SSL_VERIFICATION_KEY) && datahubConf.getBoolean(DISABLE_SSL_VERIFICATION_KEY);
         log.info(
             "REST Emitter Configuration: GMS url {}{}",
             gmsUrl,
             (datahubConf.hasPath(GMS_URL_KEY) ? "" : "(default)"));
         if (token != null) {
-          log.info("REST Emitter Configuration: Token {}", (token != null) ? "XXXXX" : "(empty)");
+          log.info("REST Emitter Configuration: Token {}", "XXXXX");
         }
         if (disableSslVerification) {
           log.warn("REST Emitter Configuration: ssl verification will be disabled.");
@@ -110,6 +126,41 @@ public class McpEmitter implements LineageConsumer {
                     .build());
 
         break;
+      case "kafka":
+        String kafkaBootstrap =
+            datahubConf.hasPath(KAFKA_BOOTSTRAP)
+                ? datahubConf.getString(KAFKA_BOOTSTRAP)
+                : "localhost:9092";
+          Map<String, String> producerConfig =
+            datahubConf.hasPath(KAFKA_PRODUCER_CONFIG)
+                ? datahubConf.getConfig(KAFKA_PRODUCER_CONFIG).entrySet().stream()
+                    .collect(
+                        Collectors.toMap(Map.Entry::getKey,
+                            entry -> entry.getValue().unwrapped().toString()))
+                : null;
+        String schemaRegistryUrl =
+            datahubConf.hasPath(KAFKA_SCHEMA_REGISTRY_URL)
+                ? datahubConf.getString(KAFKA_SCHEMA_REGISTRY_URL)
+                : null;
+        Map<String, String> schemaRegistryConfig =
+            datahubConf.hasPath(KAFKA_SCHEMA_REGISTRY_CONFIG)
+                ? datahubConf.getConfig(KAFKA_SCHEMA_REGISTRY_CONFIG).entrySet().stream()
+                    .collect(
+                        Collectors.toMap(Map.Entry::getKey,
+                            entry -> entry.getValue().unwrapped().toString()))
+                : null;
+        log.info(
+            "Kafka Emitter Configuration: Kafka bootstrap {}{}",
+            kafkaBootstrap,
+            (datahubConf.hasPath(KAFKA_BOOTSTRAP) ? "" : "(default)"));
+        kafkaEmitterConfig =
+            Optional.of(
+                KafkaEmitterConfig.builder()
+                    .bootstrap(kafkaBootstrap)
+                    .producerConfig(producerConfig)
+                    .schemaRegistryUrl(schemaRegistryUrl)
+                    .schemaRegistryConfig(schemaRegistryConfig)
+                    .build());
       default:
         log.error(
             "DataHub Transport {} not recognized. DataHub Lineage emission will not work",
