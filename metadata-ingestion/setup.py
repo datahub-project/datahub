@@ -512,7 +512,7 @@ base_dev_requirements = {
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
-    "mypy",
+    "mypy==1.10.1",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
