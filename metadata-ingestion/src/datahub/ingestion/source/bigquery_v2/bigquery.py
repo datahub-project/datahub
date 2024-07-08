@@ -644,7 +644,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 "Maybe resourcemanager.projects.get permission is missing for the service account. "
                 "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
             )
-            return []
+            return
 
         for project in projects:
             if self.config.project_id_pattern.allowed(project.id):
