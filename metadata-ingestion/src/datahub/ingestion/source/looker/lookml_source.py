@@ -315,11 +315,11 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.reporter._looker_api = self.looker_client
             try:
                 self.looker_client.all_connections()
-            except SDKError:
+            except SDKError as err:
                 raise ValueError(
                     "Failed to retrieve connections from looker client. Please check to ensure that you have "
                     "manage_models permission enabled on this API key."
-                )
+                ) from err
 
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
