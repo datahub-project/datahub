@@ -5,7 +5,7 @@ export MAIN_BRANCH="acryl-main"
 export MAIN_BRANCH_TAG="head"
 
 function get_short_sha {
-    echo $(git rev-parse --short "$GITHUB_SHA")
+    echo $(git rev-parse --short "$GITHUB_SHA"|head -c7)
 }
 
 export SHORT_SHA=$(get_short_sha)
