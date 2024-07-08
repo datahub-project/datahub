@@ -1,0 +1,63 @@
+name: Storybook Preview
+on:
+  push:
+    branches:
+      - master
+      - acryl-main
+    paths: 
+      - 'datahub-web-react/acryl-components/**'
+      - 'datahub-web-react/.storybook/**'
+      - '.github/workflows/storybook-cloudflare-pages.yml'
+  pull_request:
+    branches:
+      - "**"
+    paths: 
+      - 'datahub-web-react/acryl-components/**'
+      - 'datahub-web-react/.storybook/**'
+      - '.github/workflows/storybook-cloudflare-pages.yml'
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - uses: ./.github/actions/ci-optimization
+        id: ci-optimize
+
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    timeout-minutes: 30
+    needs: setup
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+      - name: Build Storybook
+        run: |
+          cd datahub-web-react
+          yarn install
+          yarn build-storybook
+        env:
+          NODE_OPTIONS: "--max-old-space-size=3072"
+      - name: Publish
+        uses: cloudflare/pages-action@1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: acryl-component-library
+          workingDirectory: datahub-web-react
+          directory: storybook-static
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
