@@ -882,10 +882,31 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 error and (error.get(c.EXTENSIONS) or {}).get(c.SEVERITY) == c.WARNING
                 for error in errors
             ):
+                # filter out PERMISSIONS_MODE_SWITCHED to report error in human-readable format
+                other_errors = []
+                permission_mode_errors = []
+                for error in errors:
+                    if (
+                        error.get("extensions")
+                        and errors["extensions"].get("code")
+                        == "PERMISSIONS_MODE_SWITCHED"
+                    ):
+                        permission_mode_errors.append(error)
+                    else:
+                        other_errors.append(error)
+
                 self.report.warning(
                     message=f"Received error fetching Query Connection {connection_type}",
-                    context=f"Errors: {errors}",
+                    context=f"Errors: {other_errors}",
                 )
+
+                if permission_mode_errors:
+                    self.report.warning(
+                        title="Derived Permission Error",
+                        message="Please check derived permissions as shared at https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error",
+                        context=f"${permission_mode_errors}",
+                    )
+
             else:
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
