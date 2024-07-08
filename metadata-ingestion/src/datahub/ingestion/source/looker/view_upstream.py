@@ -190,7 +190,9 @@ def _generate_fully_qualified_name(
         return dataset_name.lower()
 
     reporter.report_warning(
-        key=sql_table_name, reason=f"{sql_table_name} has more than 3 parts."
+        title="Malformed Table Name",
+        message="Table name has more than 3 parts.",
+        context=f"Table Name: {sql_table_name}",
     )
     return sql_table_name.lower()
 
@@ -621,8 +623,9 @@ def create_view_upstream(
         )
 
     reporter.report_warning(
-        view_context.view_file_name(),
-        "No implementation found to resolve upstream of the view",
+        title="Implementation Not Found",
+        message="No implementation found to resolve upstream of the view",
+        context=view_context.view_file_name(),
     )
 
     return EmptyImplementation(

@@ -101,64 +101,6 @@ from datahub.utilities.sql_parser import SQLParser
 logger = logging.getLogger(__name__)
 
 
-def _platform_names_have_2_parts(platform: str) -> bool:
-    return platform in {"hive", "mysql", "athena"}
-
-
-def _generate_fully_qualified_name(
-    sql_table_name: str,
-    connection_def: LookerConnectionDefinition,
-    reporter: LookMLSourceReport,
-) -> str:
-    """Returns a fully qualified dataset name, resolved through a connection definition.
-    Input sql_table_name can be in three forms: table, db.table, db.schema.table"""
-    # TODO: This function should be extracted out into a Platform specific naming class since name translations
-    #  are required across all connectors
-
-    # Bigquery has "project.db.table" which can be mapped to db.schema.table form
-    # All other relational db's follow "db.schema.table"
-    # With the exception of mysql, hive, athena which are "db.table"
-
-    # first detect which one we have
-    parts = len(sql_table_name.split("."))
-
-    if parts == 3:
-        # fully qualified, but if platform is of 2-part, we drop the first level
-        if _platform_names_have_2_parts(connection_def.platform):
-            sql_table_name = ".".join(sql_table_name.split(".")[1:])
-        return sql_table_name.lower()
-
-    if parts == 1:
-        # Bare table form
-        if _platform_names_have_2_parts(connection_def.platform):
-            dataset_name = f"{connection_def.default_db}.{sql_table_name}"
-        else:
-            dataset_name = f"{connection_def.default_db}.{connection_def.default_schema}.{sql_table_name}"
-        return dataset_name.lower()
-
-    if parts == 2:
-        # if this is a 2 part platform, we are fine
-        if _platform_names_have_2_parts(connection_def.platform):
-            return sql_table_name.lower()
-        # otherwise we attach the default top-level container
-        dataset_name = f"{connection_def.default_db}.{sql_table_name}"
-        return dataset_name.lower()
-
-    reporter.report_warning(
-        key=sql_table_name, reason=f"{sql_table_name} has more than 3 parts."
-    )
-    return sql_table_name.lower()
-
-
-@dataclass
-class SQLInfo:
-    table_names: List[str]
-    column_names: List[str]
-
-
-_SQL_FUNCTIONS = ["UNNEST"]
-
-
 @dataclass
 class LookerView:
     id: LookerViewId
@@ -307,38 +249,6 @@ class LookerView:
             raw_file_content=view_context.view_file.raw_file_content,
             view_details=view_details,
         )
-
-    @classmethod
-    def _extract_metadata_from_derived_table_explore(
-        cls,
-        reporter: LookMLSourceReport,
-        view_name: str,
-        explore_source: dict,
-        fields: List[ViewField],
-    ) -> Tuple[List[ViewField], List[str]]:
-        logger.debug(
-            f"Parsing explore_source from derived table section of view: {view_name}"
-        )
-
-        upstream_explores = [explore_source["name"]]
-
-        explore_columns = explore_source.get("columns", [])
-        # TODO: We currently don't support column-level lineage for derived_column.
-        # In order to support it, we'd need to parse the `sql` field of the derived_column.
-        # The fields in the view are actually references to the fields in the explore.
-        # As such, we need to perform an extra mapping step to update
-        # the upstream column names.
-        for field in fields:
-            for i, upstream_field in enumerate(field.upstream_fields):
-                # Find the matching column in the explore.
-                for explore_column in explore_columns:
-                    if explore_column["name"] == upstream_field:
-                        field.upstream_fields[i] = explore_column.get(
-                            "field", explore_column["name"]
-                        )
-                        break
-
-        return fields, upstream_explores
 
 
 @dataclass
@@ -677,7 +587,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             if not self.report.events_produced and not self.report.failures:
                 # Don't pass if we didn't produce any events.
                 self.report.report_failure(
-                    "<main>",
+                    "No Metadata Produced",
                     "No metadata was produced. Check the logs for more details.",
                 )
 
@@ -805,7 +715,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                 model = self._load_model(str(file_path))
             except Exception as e:
                 self.reporter.report_warning(
-                    model_name, f"unable to load Looker model at {file_path}: {repr(e)}"
+                    title="Error Loading Model File",
+                    message="Unable to load Looker model from file.",
+                    context=f"Model Name: {model_name}, File Path: {file_path}",
+                    exc=e,
                 )
                 continue
 
@@ -819,9 +732,9 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             if connection_definition is None:
                 self.reporter.report_warning(
-                    f"model-{model_name}",
-                    f"Failed to load connection {model.connection}. Check your API key permissions and/or "
-                    f"connection_to_platform_map configuration.",
+                    title="Failed to Load Connection",
+                    message="Failed to load connection. Check your API key permissions and/or connection_to_platform_map configuration.",
+                    context=f"Connection: {model.connection}",
                 )
                 self.reporter.report_models_dropped(model_name)
                 continue
@@ -862,8 +775,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 explore_reachable_views.add(view_name.include)
                     except Exception as e:
                         self.reporter.report_warning(
-                            f"{model}.explores",
-                            f"failed to process {explore_dict} due to {e}. Run with --debug for full stacktrace",
+                            title="Failed to process explores",
+                            message="Failed to process explore dictionary.",
+                            context=f"Explore Details: {explore_dict}",
+                            exc=e,
                         )
                         logger.debug("Failed to process explore", exc_info=e)
 
@@ -957,8 +872,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                             )
                         except Exception as e:
                             self.reporter.report_warning(
-                                include.include,
-                                f"unable to load Looker view {raw_view}: {repr(e)}",
+                                title="Error Loading View",
+                                message="Unable to load Looker View.",
+                                context=f"View Details: {raw_view}",
+                                exc=e,
                             )
 
                             logger.debug(e, exc_info=e)

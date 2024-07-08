@@ -13,6 +13,7 @@ import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -48,6 +49,7 @@ public class AspectTemplateEngine {
               CHART_INFO_ASPECT_NAME,
               DASHBOARD_INFO_ASPECT_NAME,
               STRUCTURED_PROPERTIES_ASPECT_NAME,
+              STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
               FORM_INFO_ASPECT_NAME)
           .collect(Collectors.toSet());
 

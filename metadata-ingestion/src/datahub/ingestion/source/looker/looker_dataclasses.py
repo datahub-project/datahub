@@ -73,7 +73,10 @@ class LookerModel:
                 explores.extend(included_explores)
             except Exception as e:
                 reporter.report_warning(
-                    path, f"Failed to load {included_file} due to {e}"
+                    title="Error Loading Include",
+                    message="Failed to load include file",
+                    context=f"Include Details: {included_file}",
+                    exc=e,
                 )
                 # continue in this case, as it might be better to load and resolve whatever we can
 
@@ -174,10 +177,16 @@ class LookerModel:
                 f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}"
             )
             if "*" not in inc and not included_files:
-                reporter.report_failure(path, f"cannot resolve include {inc}")
+                reporter.report_failure(
+                    title="Error Resolving Include",
+                    message=f"Cannot resolve include {inc}",
+                    context=f"Path: {path}",
+                )
             elif not included_files:
                 reporter.report_failure(
-                    path, f"did not resolve anything for wildcard include {inc}"
+                    title="Error Resolving Include",
+                    message=f"Did not resolve anything for wildcard include {inc}",
+                    context=f"Path: {path}",
                 )
             # only load files that we haven't seen so far
             included_files = [x for x in included_files if x not in seen_so_far]
@@ -216,7 +225,10 @@ class LookerModel:
                         )
                 except Exception as e:
                     reporter.report_warning(
-                        path, f"Failed to load {included_file} due to {e}"
+                        title="Error Loading Include File",
+                        message="Failed to load included file",
+                        context=f"Include Details: {included_file}",
+                        exc=e,
                     )
                     # continue in this case, as it might be better to load and resolve whatever we can
 
