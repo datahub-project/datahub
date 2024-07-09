@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.v2.models;
+package io.datahubproject.openapi.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;

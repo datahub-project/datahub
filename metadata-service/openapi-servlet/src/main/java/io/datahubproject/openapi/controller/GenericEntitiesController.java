@@ -16,6 +16,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
@@ -48,6 +49,8 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.models.BatchGetUrnRequest;
+import io.datahubproject.openapi.models.BatchGetUrnResponse;
 import io.datahubproject.openapi.models.GenericEntity;
 import io.datahubproject.openapi.models.GenericEntityScrollResult;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,9 +59,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -424,6 +425,48 @@ public abstract class GenericEntitiesController<
     } else {
       return ResponseEntity.accepted().body(buildEntityList(results, withSystemMetadata));
     }
+  }
+
+  @Tag(name = "Generic Entities")
+  @PostMapping(value = "/batch/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Get a batch of entities")
+  public ResponseEntity<BatchGetUrnResponse<E>> getEntityBatch(
+      HttpServletRequest httpServletRequest,
+      @PathVariable("entityName") String entityName,
+      @RequestBody BatchGetUrnRequest request)
+      throws URISyntaxException {
+
+    List<Urn> urns = request.getUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(authentication, authorizationChain, READ, urns)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
+    }
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    httpServletRequest,
+                    "getEntityBatch",
+                    entityName),
+            authorizationChain,
+            authentication,
+            true);
+
+    return ResponseEntity.of(
+        Optional.of(
+            BatchGetUrnResponse.<E>builder()
+                .entities(
+                    new ArrayList<>(
+                        buildEntityList(
+                            opContext,
+                            urns,
+                            new HashSet<>(request.getAspectNames()),
+                            request.isWithSystemMetadata())))
+                .build()));
   }
 
   @Tag(name = "Generic Aspects")
