@@ -31,6 +31,7 @@ module.exports = {
           label: "Demo",
           href: "https://demo.datahubproject.io/",
         },
+        "docs/what-is-datahub/customer-stories",
         "docs/what-is-datahub/datahub-concepts",
       ],
     },
@@ -78,6 +79,18 @@ module.exports = {
               type: "doc",
               id: "docs/managed-datahub/observe/volume-assertions",
               className: "saasOnly",
+            },
+            {
+              label: "Open Assertions Specification",
+              type: "category",
+              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
             },
           ],
         },
@@ -207,11 +220,6 @@ module.exports = {
           className: "saasOnly",
         },
         {
-          "Metadata Ingestion With Acryl": [
-            "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
-          ],
-        },
-        {
           "DataHub API": [
             {
               type: "doc",
@@ -264,6 +272,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_3",
             "docs/managed-datahub/release-notes/v_0_3_2",
             "docs/managed-datahub/release-notes/v_0_3_1",
             "docs/managed-datahub/release-notes/v_0_2_16",
@@ -754,7 +763,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Datahub Actions",
+      label: "DataHub Actions",
       link: { type: "doc", id: "docs/act-on-metadata" },
       items: [
         "docs/actions/README",
@@ -800,6 +809,12 @@ module.exports = {
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
+        "docs/api/tutorials/custom-properties",
+        "docs/api/tutorials/assertions",
+        "docs/api/tutorials/custom-assertions",
+        "docs/api/tutorials/incidents",
+        "docs/api/tutorials/operations",
+        "docs/api/tutorials/data-contracts",
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",

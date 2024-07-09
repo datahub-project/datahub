@@ -160,7 +160,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     // 2. Retrieve Entity
     com.linkedin.entity.Entity readEntity =
-        _entityServiceImpl.getEntity(opContext, entityUrn, Collections.emptySet());
+        _entityServiceImpl.getEntity(opContext, entityUrn, Collections.emptySet(), true);
 
     // 3. Compare Entity Objects
     assertEquals(
@@ -206,7 +206,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     // 2. Retrieve Entity
     com.linkedin.entity.Entity readEntity =
-        _entityServiceImpl.getEntity(opContext, entityUrn, Collections.emptySet());
+        _entityServiceImpl.getEntity(opContext, entityUrn, Collections.emptySet(), true);
 
     // 3. Compare Entity Objects
     assertEquals(
@@ -261,7 +261,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     // 2. Retrieve Entities
     Map<Urn, Entity> readEntities =
         _entityServiceImpl.getEntities(
-            opContext, ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet());
+            opContext, ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet(), true);
 
     // 3. Compare Entity Objects
 
@@ -927,28 +927,28 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1019,21 +1019,21 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
                 .recordTemplate(writeKey1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1112,35 +1112,35 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
                 .recordTemplate(writeKey1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1188,7 +1188,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1244,7 +1244,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata2)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1298,7 +1298,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1325,7 +1325,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1394,7 +1394,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1450,7 +1450,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1511,42 +1511,42 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1a)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1b)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2a)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2b)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
@@ -1587,14 +1587,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1c)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()),
+                .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2c)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getRetrieverContext().get().getAspectRetriever()));
+                .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()

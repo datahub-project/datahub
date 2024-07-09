@@ -19,6 +19,11 @@ module.exports = {
       async: true,
       defer: true,
     },
+    {
+      src: "/scripts/rb2b.js",
+      async: true,
+      defer: true,
+    }
   ],
   noIndex: isSaas,
   customFields: {
@@ -97,6 +102,10 @@ module.exports = {
             {
               to: "/champions",
               label: "Champions",
+            },
+            {
+              label: "Share Your Journey",
+              href: "/customer-stories-survey",
             },
           ],
         },

@@ -110,7 +110,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter = SigmaSourceReport()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
         try:
-            self.sigma_api = SigmaAPI(self.config)
+            self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
             raise ConfigurationError(f"Unable to connect sigma API. Exception: {e}")
 
@@ -118,7 +118,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            SigmaAPI(SigmaSourceConfig.parse_obj_allow_extras(config_dict))
+            SigmaAPI(
+                SigmaSourceConfig.parse_obj_allow_extras(config_dict),
+                SigmaSourceReport(),
+            )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -175,9 +178,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             last_modified=int(workspace.updatedAt.timestamp() * 1000),
         )
 
-    def _get_sigma_dataset_identifier(self, dataset: SigmaDataset) -> str:
-        return dataset.datasetId
-
     def _gen_sigma_dataset_urn(self, dataset_identifier: str) -> str:
         return builder.make_dataset_urn_with_platform_instance(
             name=dataset_identifier,
@@ -201,9 +201,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             externalUrl=dataset.url,
             created=TimeStamp(time=int(dataset.createdAt.timestamp() * 1000)),
             lastModified=TimeStamp(time=int(dataset.updatedAt.timestamp() * 1000)),
+            customProperties={"datasetId": dataset.datasetId},
             tags=[dataset.badge] if dataset.badge else None,
         )
-        dataset_properties.customProperties.update({"path": dataset.path})
+        if dataset.path:
+            dataset_properties.customProperties["path"] = dataset.path
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=dataset_properties
         ).as_workunit()
@@ -262,18 +264,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_dataset_workunit(
         self, dataset: SigmaDataset
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_identifier = self._get_sigma_dataset_identifier(dataset)
-        dataset_urn = self._gen_sigma_dataset_urn(dataset_identifier)
+        dataset_urn = self._gen_sigma_dataset_urn(dataset.get_urn_part())
 
         yield self._gen_entity_status_aspect(dataset_urn)
 
         yield self._gen_dataset_properties(dataset_urn, dataset)
 
-        yield from add_entity_to_container(
-            container_key=self._gen_workspace_key(dataset.workspaceId),
-            entity_type="dataset",
-            entity_urn=dataset_urn,
-        )
+        if dataset.workspaceId:
+            yield from add_entity_to_container(
+                container_key=self._gen_workspace_key(dataset.workspaceId),
+                entity_type="dataset",
+                entity_urn=dataset_urn,
+            )
 
         dpi_aspect = self._gen_dataplatform_instance_aspect(dataset_urn)
         if dpi_aspect:
@@ -288,15 +290,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             aspect=SubTypes(typeNames=[DatasetSubTypes.SIGMA_DATASET]),
         ).as_workunit()
 
-        paths = dataset.path.split("/")[1:]
-        if len(paths) > 0:
-            yield self._gen_entity_browsepath_aspect(
-                entity_urn=dataset_urn,
-                parent_entity_urn=builder.make_container_urn(
-                    self._gen_workspace_key(dataset.workspaceId)
-                ),
-                paths=paths,
-            )
+        if dataset.path and dataset.workspaceId:
+            paths = dataset.path.split("/")[1:]
+            if len(paths) > 0:
+                yield self._gen_entity_browsepath_aspect(
+                    entity_urn=dataset_urn,
+                    parent_entity_urn=builder.make_container_urn(
+                        self._gen_workspace_key(dataset.workspaceId)
+                    ),
+                    paths=paths,
+                )
 
         if dataset.badge:
             yield MetadataChangeProposalWrapper(
@@ -322,7 +325,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _gen_dashboard_info_workunit(self, page: Page) -> MetadataWorkUnit:
-        dashboard_urn = self._gen_dashboard_urn(page.pageId)
+        dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
         dashboard_info_cls = DashboardInfoClass(
             title=page.name,
             description="",
@@ -330,7 +333,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 builder.make_chart_urn(
                     platform=self.platform,
                     platform_instance=self.config.platform_instance,
-                    name=element.elementId,
+                    name=element.get_urn_part(),
                 )
                 for element in page.elements
             ],
@@ -424,12 +427,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
                 platform_instance=self.config.platform_instance,
-                name=element.elementId,
+                name=element.get_urn_part(),
             )
 
             custom_properties = {
                 "VizualizationType": str(element.vizualizationType),
-                "type": str(element.type),
+                "type": str(element.type) if element.type else "Unknown",
             }
 
             yield self._gen_entity_status_aspect(chart_urn)
@@ -490,7 +493,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Map Sigma workbook page to Datahub dashboard
         """
         for page in workbook.pages:
-            dashboard_urn = self._gen_dashboard_urn(page.pageId)
+            dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
 
             yield self._gen_entity_status_aspect(dashboard_urn)
 
@@ -513,7 +516,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             yield MetadataChangeProposalWrapper(
-                entityUrn=self._gen_dashboard_urn(page.pageId),
+                entityUrn=dashboard_urn,
                 aspect=InputFieldsClass(fields=all_input_fields),
             ).as_workunit()
 
@@ -522,11 +525,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Map Sigma Workbook to Datahub container
         """
         owner_username = self.sigma_api.get_user_name(workbook.createdBy)
+        workbook_key = self._gen_workbook_key(workbook.workbookId)
         yield from gen_containers(
-            container_key=self._gen_workbook_key(workbook.workbookId),
+            container_key=workbook_key,
             name=workbook.name,
             sub_types=[BIContainerSubTypes.SIGMA_WORKBOOK],
-            parent_container_key=self._gen_workspace_key(workbook.workspaceId),
+            parent_container_key=self._gen_workspace_key(workbook.workspaceId)
+            if workbook.workspaceId
+            else None,
             extra_properties={
                 "path": workbook.path,
                 "latestVersion": str(workbook.latestVersion),
@@ -541,11 +547,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         paths = workbook.path.split("/")[1:]
-        if len(paths) > 0:
+        if len(paths) > 0 and workbook.workspaceId:
             yield self._gen_entity_browsepath_aspect(
-                entity_urn=builder.make_container_urn(
-                    self._gen_workbook_key(workbook.workbookId),
-                ),
+                entity_urn=builder.make_container_urn(workbook_key),
                 parent_entity_urn=builder.make_container_urn(
                     self._gen_workspace_key(workbook.workspaceId)
                 ),
@@ -578,12 +582,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Datahub Ingestion framework invoke this method
         """
         logger.info("Sigma plugin execution is started")
-        entities = self.sigma_api.get_sigma_entities()
-        for entity in entities:
-            if isinstance(entity, Workbook):
-                yield from self._gen_workbook_workunit(entity)
-            elif isinstance(entity, SigmaDataset):
-                yield from self._gen_dataset_workunit(entity)
+        self.sigma_api.fill_workspaces()
+
+        for dataset in self.sigma_api.get_sigma_datasets():
+            yield from self._gen_dataset_workunit(dataset)
+        for workbook in self.sigma_api.get_sigma_workbooks():
+            yield from self._gen_workbook_workunit(workbook)
+
         for workspace in self._get_allowed_workspaces():
             yield from self._gen_workspace_workunit(workspace)
         yield from self._gen_sigma_dataset_upstream_lineage_workunit()

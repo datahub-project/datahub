@@ -11,12 +11,14 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubViewKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -177,6 +179,20 @@ public class ViewService extends BaseService {
     try {
       this.entityClient.deleteEntity(
           opContext, Objects.requireNonNull(viewUrn, "viewUrn must not be null"));
+
+      // Asynchronously delete all references to the entity (to return quickly)
+      CompletableFuture.runAsync(
+          () -> {
+            try {
+              this.entityClient.deleteEntityReferences(opContext, viewUrn);
+            } catch (RemoteInvocationException e) {
+              log.error(
+                  String.format(
+                      "Caught exception while attempting to clear all entity references for view with urn %s",
+                      viewUrn),
+                  e);
+            }
+          });
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to delete View with urn %s", viewUrn), e);
     }

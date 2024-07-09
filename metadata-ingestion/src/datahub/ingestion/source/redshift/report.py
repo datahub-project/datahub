@@ -44,6 +44,7 @@ class RedshiftReport(
     num_lineage_dropped_query_parser: int = 0
     num_lineage_dropped_not_support_copy_path: int = 0
     num_lineage_processed_temp_tables = 0
+    num_lineage_dropped_s3_path: int = 0
 
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None

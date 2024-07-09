@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
@@ -374,12 +375,13 @@ public class ESAggregatedStatsDAO {
             filter,
             true,
             opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
-            opContext.getRetrieverContext().get().getAspectRetriever());
+            opContext.getAspectRetriever());
 
     AspectSpec aspectSpec = getTimeseriesAspectSpec(opContext, entityName, aspectName);
     // Build and attach the grouping aggregations
     final Pair<AggregationBuilder, AggregationBuilder> topAndBottomAggregations =
-        makeGroupingAggregationBuilder(aspectSpec, null, groupingBuckets);
+        makeGroupingAggregationBuilder(
+            aspectSpec, null, groupingBuckets, opContext.getAspectRetriever());
     AggregationBuilder rootAggregationBuilder = topAndBottomAggregations.getFirst();
     AggregationBuilder mostNested = topAndBottomAggregations.getSecond();
 
@@ -462,7 +464,8 @@ public class ESAggregatedStatsDAO {
   private Pair<AggregationBuilder, AggregationBuilder> makeGroupingAggregationBuilder(
       AspectSpec aspectSpec,
       @Nullable AggregationBuilder baseAggregationBuilder,
-      @Nullable GroupingBucket[] groupingBuckets) {
+      @Nullable GroupingBucket[] groupingBuckets,
+      @Nonnull AspectRetriever aspectRetriever) {
 
     AggregationBuilder firstAggregationBuilder = baseAggregationBuilder;
     AggregationBuilder lastAggregationBuilder = baseAggregationBuilder;
@@ -481,7 +484,8 @@ public class ESAggregatedStatsDAO {
         } else if (curGroupingBucket.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
           // Process the string grouping bucket using the 'terms' aggregation.
           // The field can be Keyword, Numeric, ip, boolean, or binary.
-          String fieldName = ESUtils.toKeywordField(curGroupingBucket.getKey(), true);
+          String fieldName =
+              ESUtils.toKeywordField(curGroupingBucket.getKey(), true, aspectRetriever);
           DataSchema.Type fieldType = getGroupingBucketKeyType(aspectSpec, curGroupingBucket);
           curAggregationBuilder =
               AggregationBuilders.terms(getGroupingBucketAggName(curGroupingBucket))
