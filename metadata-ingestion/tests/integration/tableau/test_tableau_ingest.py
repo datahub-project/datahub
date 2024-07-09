@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 from requests.adapters import ConnectionError
+from tableauserverclient import Server
 from tableauserverclient.models import (
     DatasourceItem,
     ProjectItem,
@@ -19,7 +20,12 @@ from tableauserverclient.models import (
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.tableau import TableauConfig, TableauSource, TableauSiteSource
+from datahub.ingestion.source.tableau import (
+    TableauConfig,
+    TableauSiteSource,
+    TableauSource,
+    TableauSourceReport,
+)
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
     TableauUpstreamReference,
@@ -925,8 +931,14 @@ def test_tableau_unsupported_csql():
         "user_source": "user_source",
     }
 
-    source = TableauSource(config=config, ctx=context)
-    site_source = TableauSiteSource(config=source.config, ctx=source.ctx, platform=source.platform, site=SiteItem(name="Site 1", content_url="site1"), report=source.report, server=source.server)
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteItem(name="Site 1", content_url="site1"),
+        report=TableauSourceReport(),
+        server=Server("https://test-tableau-server.com"),
+    )
 
     lineage = site_source._create_lineage_from_unsupported_csql(
         csql_urn=csql_urn,
