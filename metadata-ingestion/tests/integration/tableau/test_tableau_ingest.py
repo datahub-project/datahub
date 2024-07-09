@@ -131,17 +131,17 @@ def side_effect_site_data(*arg, **kwargs):
 
     site1: SiteItem = SiteItem(name="Acryl", content_url="acryl")
     site1._id = "190a6a5c-63ed-4de1-8045-site1"
+    site1.state = "Active"
 
-    site2: SiteItem = SiteItem(name="Site 1", content_url="site2")
+    site2: SiteItem = SiteItem(name="Site 2", content_url="site2")
     site2._id = "190a6a5c-63ed-4de1-8045-site2"
+    site2.state = "Active"
 
     site3: SiteItem = SiteItem(name="Site 3", content_url="site3")
     site3._id = "190a6a5c-63ed-4de1-8045-site3"
+    site3.state = "Suspended"
 
-    site4: SiteItem = SiteItem(name="Site 4", content_url="site4")
-    site4._id = "190a6a5c-63ed-4de1-8045-site4"
-
-    return [site1, site2, site3, site4], mock_pagination
+    return [site1, site2, site3], mock_pagination
 
 
 def side_effect_datasource_data(*arg, **kwargs):
@@ -989,4 +989,108 @@ def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph)
         mock_datahub_graph,
         pipeline_name="test_tableau_ingest",
         datasources_side_effect=ValueError("project_id must be defined."),
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_mces_multiple_sites.json"
+    golden_file_name: str = "tableau_multiple_sites_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "add_site_container": True,
+        "ingest_multiple_sites": True,
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_multiple_site_ingestion",
+        pipeline_config=new_pipeline_config,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_mces_ingest_sites_as_container.json"
+    golden_file_name: str = "tableau_sites_as_container_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "add_site_container": True,
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_multiple_site_ingestion",
+        pipeline_config=new_pipeline_config,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_site_name_pattern_mces.json"
+    golden_file_name: str = "tableau_site_name_pattern_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["ingest_multiple_sites"] = True
+    new_config["add_site_container"] = True
+    new_config["site_name_pattern"] = {"allow": ["^Site.*$"]}
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_site_name_pattern_ingest",
     )
