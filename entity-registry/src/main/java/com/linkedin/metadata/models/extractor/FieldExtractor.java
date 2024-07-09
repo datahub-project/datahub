@@ -42,7 +42,7 @@ public class FieldExtractor {
       if (!value.isPresent()) {
         extractedFields.put(fieldSpec, Collections.emptyList());
       } else {
-        long numArrayWildcards = getNumArrayWildcards(fieldSpec.getPath());
+        int numArrayWildcards = (int) getNumArrayWildcards(fieldSpec.getPath());
         // Not an array field
         if (numArrayWildcards == 0) {
           // For maps, convert it into a list of the form key=value (Filter out long values)
@@ -63,7 +63,7 @@ public class FieldExtractor {
         } else {
           List<Object> valueList = (List<Object>) value.get();
           // If the field is a nested list of values, flatten it
-          for (int i = 0; i < (int) numArrayWildcards - 1; i++) {
+          for (int i = 0; i < numArrayWildcards - 1; i++) {
             valueList =
                 valueList.stream()
                     .flatMap(v -> ((List<Object>) v).stream())
