@@ -18,7 +18,7 @@ from datahub.ingestion.glossary.classification_mixin import (
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -75,7 +75,40 @@ class SnowflakeShareConfig(ConfigModel):
         return DatabaseId(self.database, self.platform_instance)
 
 
-class SnowflakeConfig(SnowflakeConnectionConfig, BaseTimeWindowConfig, SQLCommonConfig):
+class SnowflakeFilterConfig(SQLFilterConfig):
+    database_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern(
+            deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"],
+        ),
+        description="Regex patterns for databases to filter in ingestion.",
+    )
+
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for schemas to filter in ingestion. Will match against the full `database.schema` name if `match_fully_qualified_names` is enabled.",
+    )
+    # table_pattern and view_pattern are inherited from SQLFilterConfig
+
+    match_fully_qualified_names: bool = Field(
+        default=False,
+        description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
+    )
+
+
+class SnowflakeIdentifierConfig(ConfigModel):
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+    )
+
+
+class SnowflakeConfig(
+    SnowflakeConnectionConfig,
+    BaseTimeWindowConfig,
+    SQLCommonConfig,
+    # SnowflakeFilterConfig must come after SQLCommon config, so that the documentation overrides are applied.
+    SnowflakeFilterConfig,
+    SnowflakeIdentifierConfig,
+):
     include_table_lineage: bool = pydantic.Field(
         default=True,
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
@@ -83,10 +116,6 @@ class SnowflakeConfig(SnowflakeConnectionConfig, BaseTimeWindowConfig, SQLCommon
     include_view_lineage: bool = pydantic.Field(
         default=True,
         description="If enabled, populates the snowflake view->table and table->view lineages. Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
-    )
-
-    database_pattern: AllowDenyPattern = AllowDenyPattern(
-        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
 
     ignore_start_time_lineage: bool = False
@@ -113,10 +142,6 @@ class SnowflakeV2Config(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
-    convert_urns_to_lowercase: bool = Field(
-        default=True,
-    )
-
     include_usage_stats: bool = Field(
         default=True,
         description="If enabled, populates the snowflake usage statistics. Requires appropriate grants given to the role.",
@@ -163,11 +188,6 @@ class SnowflakeV2Config(
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate Snowsight url for Snowflake Objects",
-    )
-
-    match_fully_qualified_names: bool = Field(
-        default=False,
-        description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
     _use_legacy_lineage_method_removed = pydantic_removed_field(
