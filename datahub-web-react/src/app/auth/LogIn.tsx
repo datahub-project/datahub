@@ -94,8 +94,8 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     analytics.event({ type: EventType.LogInEvent });
                     return Promise.resolve();
                 })
-                .catch((_) => {
-                    message.error(`Failed to log in! An unexpected error occurred.`);
+                .catch((e) => {
+                    message.error(`Failed to log in! ${e}`);
                 })
                 .finally(() => setLoading(false));
         },
