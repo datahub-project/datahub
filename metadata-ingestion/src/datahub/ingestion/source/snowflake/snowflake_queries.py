@@ -195,7 +195,10 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
         conn = self.config.connection.get_connection()
         resp = conn.query(audit_log_query)
 
-        for row in resp:
+        for i, row in enumerate(resp):
+            if i % 1000 == 0:
+                logger.info(f"Processed {i} audit log rows")
+
             assert isinstance(row, dict)
             try:
                 entry = self._parse_audit_log_response(row)

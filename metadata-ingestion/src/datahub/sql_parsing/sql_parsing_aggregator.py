@@ -218,7 +218,7 @@ class SqlAggregatorReport(Report):
     schema_resolver_count: Optional[int] = None
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
-    num_queries_entities_generated: int = 0
+    num_query_entities_generated: int = 0
 
     # Usage-related.
     usage_skipped_missing_timestamp: int = 0
@@ -1200,7 +1200,7 @@ class SqlParsingAggregator(Closeable):
                 ),
             ],
         )
-        self.report.num_queries_entities_generated += 1
+        self.report.num_query_entities_generated += 1
 
         if self._query_usage_counts is not None:
             assert self.usage_config is not None
