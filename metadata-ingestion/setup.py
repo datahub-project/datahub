@@ -166,6 +166,7 @@ looker_common = {
     "sql-metadata==2.2.2",
     *sqllineage_lib,
     "GitPython>2",
+    "python-liquid",
 }
 
 bigquery_common = {
@@ -343,6 +344,7 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
+        "dask[dataframe]<2024.7.0",
     },
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -370,7 +372,7 @@ plugins: Dict[str, Set[str]] = {
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    "lookml": looker_common,
+    "lookml": looker_common | sqlglot_lib,
     "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {
         "mlflow-skinny>=2.3.0",
@@ -511,7 +513,7 @@ base_dev_requirements = {
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
-    "mypy==1.0.0",
+    "mypy==1.10.1",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
