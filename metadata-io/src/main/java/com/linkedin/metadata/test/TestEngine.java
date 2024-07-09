@@ -1150,7 +1150,7 @@ public class TestEngine {
     return results;
   }
 
-  private void defaultSelect(TestDefinition testDefinition, Urn testUrn, Set<Urn> candidateUrns) {
+  public void defaultSelect(TestDefinition testDefinition, Urn testUrn, Set<Urn> candidateUrns) {
     log.info("ElasticSearchTestExecutor cannot select test {}", testUrn);
     testDefinition
         .getOn()

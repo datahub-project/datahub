@@ -82,8 +82,7 @@
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "SHARE_ENTITY",
-        "EXPLAIN_TESTS_PRIVILEGE"
+        "SHARE_ENTITY"
       ],
       "displayName":"Root User - Edit and View All Resources",
       "description":"Grants all edit and view privileges for all resources to root user.",
@@ -164,8 +163,7 @@
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_ENTITY_PRIVILEGE",
         "GET_TIMELINE_PRIVILEGE",
-        "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EXPLAIN_TESTS_PRIVILEGE"
+        "ES_EXPLAIN_QUERY_PRIVILEGE"
       ],
       "displayName":"All Users - View Entity Page",
       "description":"Grants entity view to all users",
@@ -309,8 +307,7 @@
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
-        "SHARE_ENTITY",
-        "EXPLAIN_TESTS_PRIVILEGE"
+        "SHARE_ENTITY"
       ],
       "displayName":"Admins - Metadata Policy",
       "description":"Admins have all metadata privileges.",
@@ -404,8 +401,7 @@
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
-        "SHARE_ENTITY",
-        "EXPLAIN_TESTS_PRIVILEGE"
+        "SHARE_ENTITY"
       ],
       "displayName":"Editors - Metadata Policy",
       "description":"Editors have all metadata privileges.",
@@ -511,8 +507,7 @@
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_ENTITY_PRIVILEGE",
         "GET_TIMELINE_PRIVILEGE",
-        "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EXPLAIN_TESTS_PRIVILEGE"
+        "ES_EXPLAIN_QUERY_PRIVILEGE"
       ],
       "displayName":"Readers - Metadata Policy",
       "description":"Readers can view all assets.",
@@ -572,8 +567,7 @@
         "EDIT_ENTITY_PROPERTIES",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
-        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
-        "EXPLAIN_TESTS_PRIVILEGE"
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS"
       ],
       "displayName":"Asset Owners - Metadata Policy",
       "description":"Asset Owners have all metadata privileges ONLY for assets they own.",

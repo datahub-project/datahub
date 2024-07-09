@@ -131,7 +131,8 @@ public class TestUtils {
   public static SelectionTooLargeException abortBeyondLimitExecution(
       TestDefinition testDefinition, int count) {
     return new SelectionTooLargeException(
-        String.format("Too many entities selected for test %s, count: %s", testDefinition, count));
+        String.format("Too many entities selected for test %s, count: %s", testDefinition, count),
+        count);
   }
 
   private TestUtils() {}
