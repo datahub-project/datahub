@@ -1027,8 +1027,9 @@ def sqlglot_lineage(
     can be brittle with respect to missing schema information and complex
     SQL logic like UNNESTs.
 
-    The SQL dialect is inferred from the schema_resolver's platform. The
-    set of supported dialects is the same as sqlglot's. See their
+    The SQL dialect can be given as an argument called default_dialect or it can 
+    be inferred from the schema_resolver's platform. 
+    The set of supported dialects is the same as sqlglot's. See their
     `documentation <https://sqlglot.com/sqlglot/dialects/dialect.html#Dialects>`_
     for the full list.
 
@@ -1042,6 +1043,7 @@ def sqlglot_lineage(
         schema_resolver: The schema resolver to use for resolving table schemas.
         default_db: The default database to use for unqualified table names.
         default_schema: The default schema to use for unqualified table names.
+        default_dialect: A default dialect to override the dialect provided by 'schema_resolver'. 
 
     Returns:
         A SqlParsingResult object containing the parsed lineage information.
