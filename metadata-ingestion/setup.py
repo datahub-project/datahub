@@ -167,6 +167,7 @@ looker_common = {
     *sqllineage_lib,
     "GitPython>2",
     "python-liquid",
+    *sqlglot_lib,
 }
 
 bigquery_common = {
@@ -372,7 +373,7 @@ plugins: Dict[str, Set[str]] = {
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    "lookml": looker_common | sqlglot_lib,
+    "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {
         "mlflow-skinny>=2.3.0",
