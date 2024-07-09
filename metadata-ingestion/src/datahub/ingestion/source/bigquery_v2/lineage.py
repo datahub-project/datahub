@@ -48,6 +48,7 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
     bigquery_audit_metadata_query_template_lineage,
 )
+from datahub.ingestion.source.gcs import gcs_utils
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
@@ -968,24 +969,39 @@ class BigqueryLineageExtractor:
         self,
         gcs_parser_schema_resolver: SchemaResolver,
         dataset_urn: str,
-        browse_path: str,
+        source_uris: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         urns = gcs_parser_schema_resolver.get_urns()
         if not urns:
             return
 
-        regex = self.pattern_to_regex_for_gcs(browse_path)
-        matching_urns = {
-            urn for urn in urns if regex.match(self.extract_path(urn) or "")
-        }
+        upstreams_list = []
+        for source_uri in source_uris:
+            # Check that storage_location have the gs:// prefix.
+            # Right now we are only supporting GCS lineage
+            if not gcs_utils.is_gcs_uri(source_uri):
+                continue
+            regex = self.pattern_to_regex_for_gcs(
+                gcs_utils.strip_gcs_prefix(source_uri)
+            )
+            matching_urns = {
+                urn for urn in urns if regex.match(self.extract_path(urn) or "")
+            }
 
-        if not matching_urns:
+            if not matching_urns:
+                continue
+
+            upstreams_list.extend(
+                [
+                    UpstreamClass(
+                        dataset=source_dataset_urn, type=DatasetLineageTypeClass.VIEW
+                    )
+                    for source_dataset_urn in matching_urns
+                ]
+            )
+
+        if not upstreams_list:
             return
-
-        upstreams_list = [
-            UpstreamClass(dataset=source_dataset_urn, type=DatasetLineageTypeClass.VIEW)
-            for source_dataset_urn in matching_urns
-        ]
 
         upstream_lineage = UpstreamLineageClass(upstreams=upstreams_list)
         yield from self.gen_lineage(dataset_urn, upstream_lineage)

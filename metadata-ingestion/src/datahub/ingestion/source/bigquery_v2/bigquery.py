@@ -73,7 +73,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.gcs import gcs_utils
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -1146,15 +1145,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             uris_match = re.search(r"uris=\[([^\]]+)\]", table.ddl)
             if uris_match:
                 uris_str = uris_match.group(1)
-                uris_list = json.loads(f"[{uris_str}]")
-                storage_location = str(uris_list[0])
-                # Check that storage_location have the gs:// prefix.
-                if gcs_utils.is_gcs_uri(storage_location):
-                    yield from self.lineage_extractor.gen_lineage_workunits_with_gcs(
-                        self.gcs_parser_schema_resolver,
-                        dataset_urn,
-                        gcs_utils.strip_gcs_prefix(storage_location),
-                    )
+                source_uris = json.loads(f"[{uris_str}]")
+                yield from self.lineage_extractor.gen_lineage_workunits_with_gcs(
+                    self.gcs_parser_schema_resolver, dataset_urn, source_uris
+                )
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(

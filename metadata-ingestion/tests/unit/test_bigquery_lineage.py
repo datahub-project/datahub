@@ -201,13 +201,13 @@ def validate_workunits(workunits, expected_upstreams):
     "gcs_pattern, expected_upstreams",
     [
         (
-            "my-bucket/foo/tests/bar.avro",
+            ["gs://my-bucket/foo/tests/bar.avro"],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/bar.avro,PROD)"
             ],
         ),
         (
-            "my-bucket/foo/tests/*.*",
+            ["gs://my-bucket/foo/tests/*.*"],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/sample2.parquet,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/bar.avro,PROD)",
@@ -215,21 +215,21 @@ def validate_workunits(workunits, expected_upstreams):
             ],
         ),
         (
-            "my-bucket/foo/tests/{table}/*.avro",
+            ["gs://my-bucket/foo/tests/{table}/*.avro"],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/table1/file2.avro,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/table1/file1.avro,PROD)",
             ],
         ),
         (
-            "my-bucket/foo/tests/{table}/*/*.avro",
+            ["gs://my-bucket/foo/tests/{table}/*/*.avro"],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/table2/part1/file1.avro,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/table2/part2/file2.avro,PROD)",
             ],
         ),
         (
-            "my-bucket/foo/tests/{table}/*.*",
+            ["gs://my-bucket/foo/tests/{table}/*.*"],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/table3/file2.csv,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/table3/file1.txt,PROD)",
@@ -238,7 +238,7 @@ def validate_workunits(workunits, expected_upstreams):
             ],
         ),
         (
-            "my-bucket/{dept}/tests/{table}/*.avro",
+            ["gs://my-bucket/{dept}/tests/{table}/*.avro"],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept1/tests/table4/file1.avro,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept1/tests/table4/file2.avro,PROD)",
@@ -247,21 +247,27 @@ def validate_workunits(workunits, expected_upstreams):
             ],
         ),
         (
-            "my-bucket/{dept}/tests/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.avro",
+            [
+                "gs://my-bucket/{dept}/tests/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.avro"
+            ],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept2/tests/table5/year=2023/month=06/file1.avro,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept2/tests/table5/year=2023/month=07/file2.avro,PROD)",
             ],
         ),
         (
-            "my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.avro",
+            [
+                "gs://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.avro"
+            ],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept3/tests/table6/2023/06/29/file1.avro,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept3/tests/table6/2023/06/30/file2.avro,PROD)",
             ],
         ),
         (
-            "my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.*",
+            [
+                "gs://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.*"
+            ],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept3/tests/table6/2023/06/30/file2.avro,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept4/tests/table7/2023/06/29/file2.csv,PROD)",
@@ -270,7 +276,9 @@ def validate_workunits(workunits, expected_upstreams):
             ],
         ),
         (
-            "my-bucket/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.*",
+            [
+                "gs://my-bucket/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.*"
+            ],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept2/tests/table5/year=2023/month=07/file2.avro,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/level1/table8/2023/06/29/file1.txt,PROD)",
@@ -279,7 +287,9 @@ def validate_workunits(workunits, expected_upstreams):
             ],
         ),
         (
-            "my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.*",
+            [
+                "gs://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.*"
+            ],
             [
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept3/tests/table6/2023/06/30/file2.avro,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/dept3/tests/table6/2023/06/29/file1.avro,PROD)",
@@ -289,11 +299,22 @@ def validate_workunits(workunits, expected_upstreams):
                 "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/level1/level2/table9/2023/06/29/file1.txt,PROD)",
             ],
         ),
+        (
+            [
+                "gs://my-bucket/foo/tests/bar.avro",
+                "gs://my-bucket/foo/tests/{table}/*.avro",
+            ],
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/bar.avro,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/table1/file2.avro,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/table1/file1.avro,PROD)",
+            ],
+        ),
     ],
 )
 def test_gen_lineage_workunits_with_gcs(
     mock_schema_resolver: MockSchemaResolver,
-    gcs_pattern: str,
+    gcs_pattern: List[str],
     expected_upstreams: List[str],
 ) -> None:
     config = BigQueryV2Config()
@@ -306,7 +327,7 @@ def test_gen_lineage_workunits_with_gcs(
 
     workunits = list(
         extractor.gen_lineage_workunits_with_gcs(
-            mock_schema_resolver, dataset_urn, gcs_pattern
+            mock_schema_resolver, dataset_urn, source_uris=gcs_pattern
         )
     )
 
