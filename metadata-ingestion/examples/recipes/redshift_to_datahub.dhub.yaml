@@ -1,24 +1,47 @@
 ---
 # see https://datahubproject.io/docs/generated/ingestion/sources/redshift for complete documentation
 source:
-  type: redshift
+  type: "redshift"
   config:
-    host_port: 'redshift-cluster-for-testing-connectors.cdj7lmroi8gs.us-west-2.redshift.amazonaws.com:5439'
-    username: connector_test_exceptions
-    include_table_lineage: true
-    include_tables: true
-    include_views: true
-    profiling:
-      enabled: true
-      profile_table_level_only: false
-      profile_external_tables: true
-    profile_pattern:
-      allow:
-        - "dev.public.*"
-    stateful_ingestion:
-      enabled: false
-    database: dev
-    password: TestPassword1
+    # Coordinates
+    host_port: host:port
+    database: database_name
+    options:
+      connect_args:
+        sslmode: prefer
+    # Credentials
+    username: datahub
+    password: datahub
+    #include_tables: true
+    #include_views: true
+    #include_table_lineage: true
+    #default_schema: public
+    #table_lineage_mode: stl_scan_based
+    #include_copy_lineage: true
+    #start_time: 2020-12-15T20:08:23.091Z
+    #end_time: 2023-12-15T20:08:23.091Z
+    #profiling:
+    #  enabled: true
+    #  turn_off_expensive_profiling_metrics: false
+    #  limit: 10
+    #  query_combiner_enabled: true
+    #  max_number_of_fields_to_profile: 8
+    #  profile_table_level_only: false
+    #  include_field_null_count: true
+    #  include_field_min_value: true
+    #  include_field_max_value: true
+    #  include_field_mean_value: true
+    #  include_field_median_value: true
+    #  include_field_stddev_value: false
+    #  include_field_quantiles: false
+    #  include_field_distinct_value_frequencies: false
+    #  include_field_histogram: false
+    #  include_field_sample_values: false
+    #profile_pattern:
+    #  allow:
+    #  - "schema.table.column"
+    #  deny:
+    #  - "*.*.*"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
