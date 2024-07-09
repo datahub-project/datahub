@@ -616,7 +616,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             return
         try:
             if self.config.ingest_multiple_sites:
-                for site in TSC.Pager(self.server.sites):
+                for site in list(TSC.Pager(self.server.sites)):
                     if (
                         site.state != "Active"
                         or not self.config.site_name_pattern.allowed(site.name)

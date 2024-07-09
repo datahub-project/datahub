@@ -11,6 +11,7 @@ from requests.adapters import ConnectionError
 from tableauserverclient.models import (
     DatasourceItem,
     ProjectItem,
+    SiteItem,
     ViewItem,
     WorkbookItem,
 )
@@ -18,7 +19,7 @@ from tableauserverclient.models import (
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.tableau import TableauConfig, TableauSource
+from datahub.ingestion.source.tableau import TableauConfig, TableauSource, TableauSiteSource
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
     TableauUpstreamReference,
@@ -124,6 +125,25 @@ def side_effect_project_data(*arg, **kwargs):
     return [project1, project2, project3, project4], mock_pagination
 
 
+def side_effect_site_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    site1: SiteItem = SiteItem(name="Acryl", content_url="acryl")
+    site1._id = "190a6a5c-63ed-4de1-8045-site1"
+
+    site2: SiteItem = SiteItem(name="Site 1", content_url="site2")
+    site2._id = "190a6a5c-63ed-4de1-8045-site2"
+
+    site3: SiteItem = SiteItem(name="Site 3", content_url="site3")
+    site3._id = "190a6a5c-63ed-4de1-8045-site3"
+
+    site4: SiteItem = SiteItem(name="Site 4", content_url="site4")
+    site4._id = "190a6a5c-63ed-4de1-8045-site4"
+
+    return [site1, site2, site3, site4], mock_pagination
+
+
 def side_effect_datasource_data(*arg, **kwargs):
     mock_pagination = mock.MagicMock()
     mock_pagination.total_available = None
@@ -199,6 +219,13 @@ def side_effect_datasource_get_by_id(id, *arg, **kwargs):
             return ds
 
 
+def side_effect_site_get_by_id(id, *arg, **kwargs):
+    sites, _ = side_effect_site_data()
+    for site in sites:
+        if site._id == id:
+            return site
+
+
 def tableau_ingest_common(
     pytestconfig,
     tmp_path,
@@ -223,9 +250,14 @@ def tableau_ingest_common(
             mocked_metadata.query.side_effect = side_effect_query_metadata_response
             mock_client.metadata = mocked_metadata
             mock_client.auth = mock.Mock()
+            mock_client.site_id = "190a6a5c-63ed-4de1-8045-site1"
             mock_client.views = mock.Mock()
             mock_client.projects = mock.Mock()
+            mock_client.sites = mock.Mock()
+
             mock_client.projects.get.side_effect = side_effect_project_data
+            mock_client.sites.get.side_effect = side_effect_site_data
+            mock_client.sites.get_by_id.side_effect = side_effect_site_get_by_id
             mock_client.datasources = mock.Mock()
             mock_client.datasources.get.side_effect = datasources_side_effect
             mock_client.datasources.get_by_id.side_effect = (
@@ -892,8 +924,9 @@ def test_tableau_unsupported_csql():
     }
 
     source = TableauSource(config=config, ctx=context)
+    site_source = TableauSiteSource(config=source.config, ctx=source.ctx, platform=source.platform, site=SiteItem(name="Site 1", content_url="site1"), report=source.report, server=source.server)
 
-    lineage = source._create_lineage_from_unsupported_csql(
+    lineage = site_source._create_lineage_from_unsupported_csql(
         csql_urn=csql_urn,
         csql={
             "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
@@ -914,7 +947,7 @@ def test_tableau_unsupported_csql():
     )
 
     # With database as None
-    lineage = source._create_lineage_from_unsupported_csql(
+    lineage = site_source._create_lineage_from_unsupported_csql(
         csql_urn=csql_urn,
         csql={
             "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM my_bigquery_project.invent_dw.UserDetail ) source_user WHERE rank_ = 1",
