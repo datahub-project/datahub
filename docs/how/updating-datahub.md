@@ -32,6 +32,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   No loss of functionality expected unless explicitly mentioned in Breaking Changes.
 
 ### Other Notable Changes
+- #10498 - Tableau ingestion can now be configured to ingest multiple sites at once and add the sites as containers. The feature is currently only available for Tableau Server.
 
 ## 0.13.3
 
