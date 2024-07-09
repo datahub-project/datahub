@@ -132,7 +132,8 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
                             inspector = inspect(conn)
                             yield inspector
                 except Exception as e:
-                    logger.exception(f"Failed to create connection with Database {db} -> {e}")
+                    self.warn(logger, f"Failed to create connection with Database {db}", f"{e}")
+                    logger.debug(f"", f"Connection error: {e}", exc_info=True))
 
     def gen_schema_containers(
         self,

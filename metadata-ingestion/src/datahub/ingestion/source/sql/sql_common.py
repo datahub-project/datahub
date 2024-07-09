@@ -923,11 +923,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             if len(columns) == 0:
                 self.warn(logger, MISSING_COLUMN_INFO, dataset_name)
         except Exception as e:
-            self.warn(
-                logger,
-                dataset_name,
-                f"unable to get column information due to an error -> {''.join(traceback.format_tb(e.__traceback__))}",
-            )
+            self.warn(logger, dataset_name, f"unable to get column information due to an error: {e}")
+            logger.debug(dataset_name, f"unable to get column information due to an error: {e}", exc_info=True))
         return columns
 
     def _get_foreign_keys(
