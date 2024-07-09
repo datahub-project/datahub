@@ -1117,7 +1117,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def _try_get_redshift_connection(
         self,
         config: RedshiftConfig,
-    ) -> Union[None, redshift_connector.Connection]:
+    ) -> Optional[redshift_connector.Connection]:
         try:
             return RedshiftSource.get_redshift_connection(config)
         except redshift_connector.Error as e:
