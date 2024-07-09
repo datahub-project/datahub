@@ -15,7 +15,7 @@ from typing import (
     Union,
     cast,
 )
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -665,6 +665,12 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 cur_proj = all_project_map[project_id]
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
+                    if cur_proj.parent_id not in all_project_map:
+                        self.report.report_warning(
+                            "project-issue",
+                            f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
+                        )
+                        break
                     cur_proj = all_project_map[cur_proj.parent_id]
                     ancestors = [cur_proj.name, *ancestors]
                 return ancestors
@@ -794,8 +800,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
-                key="tableau-login",
-                reason=str(e),
+                title="Tableau Login Error",
+                message="Failed to authenticate with Tableau.",
+                exc=e,
             )
 
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
@@ -875,7 +882,10 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 error and (error.get(c.EXTENSIONS) or {}).get(c.SEVERITY) == c.WARNING
                 for error in errors
             ):
-                self.report.warning(key=connection_type, reason=f"{errors}")
+                self.report.warning(
+                    message=f"Received error fetching Query Connection {connection_type}",
+                    context=f"Errors: {errors}",
+                )
             else:
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
@@ -2321,7 +2331,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             # sheet contained in dashboard
             site_part = f"/t/{self.config.site}" if self.config.site else ""
             dashboard_path = sheet[c.CONTAINED_IN_DASHBOARDS][0][c.PATH]
-            sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{sheet.get(c.NAME, '')}"
+            sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{quote(sheet.get(c.NAME, ''), safe='')}"
         else:
             # hidden or viz-in-tooltip sheet
             sheet_external_url = None
@@ -2815,8 +2825,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.emit_upstream_tables()
         except MetadataQueryException as md_exception:
             self.report.failure(
-                key="tableau-metadata",
-                reason=f"Unable to retrieve metadata from tableau. Information: {str(md_exception)}",
+                title="Failed to Retrieve Tableau Metadata",
+                message="Unable to retrieve metadata from tableau.",
+                context=str(md_exception),
             )
 
     def get_report(self) -> TableauSourceReport:
