@@ -54,7 +54,10 @@ from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesH
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeCommonMixin,
+    SnowsightUrlBuilder,
+)
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -426,9 +429,9 @@ class SnowflakeV2Source(
 
         self.inspect_session_metadata(self.connection)
 
-        snowsight_base_url = None
+        snowsight_url_builder = None
         if self.config.include_external_url:
-            snowsight_base_url = self.get_snowsight_base_url()
+            snowsight_url_builder = self.get_snowsight_url_builder()
 
         if self.report.default_warehouse is None:
             self.report_warehouse_failure()
@@ -441,7 +444,7 @@ class SnowflakeV2Source(
             domain_registry=self.domain_registry,
             profiler=self.profiler,
             aggregator=self.aggregator,
-            snowsight_base_url=snowsight_base_url,
+            snowsight_url_builder=snowsight_url_builder,
         )
 
         self.report.set_ingestion_stage("*", METADATA_EXTRACTION)
@@ -560,7 +563,7 @@ class SnowflakeV2Source(
         except Exception:
             self.report.edition = None
 
-    def get_snowsight_base_url(self) -> Optional[str]:
+    def get_snowsight_url_builder(self) -> Optional[SnowsightUrlBuilder]:
         try:
             # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#finding-the-region-and-locator-for-an-account
             for db_row in self.connection.query(SnowflakeQuery.current_account()):
@@ -576,24 +579,19 @@ class SnowflakeV2Source(
             region = region.split(".")[-1].lower()
             account_locator = account_locator.lower()
 
-            cloud, cloud_region_id = self.get_cloud_region_from_snowflake_region_id(
-                region
-            )
-
-            # For privatelink, account identifier ends with .privatelink
-            # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
-            return self.create_snowsight_base_url(
+            return SnowsightUrlBuilder(
                 account_locator,
-                cloud_region_id,
-                cloud,
-                self.config.account_id.endswith(".privatelink"),  # type:ignore
+                region,
+                # For privatelink, account identifier ends with .privatelink
+                # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
+                privatelink=self.config.account_id.endswith(".privatelink"),
             )
 
         except Exception as e:
-            self.warn(
-                self.logger,
-                "snowsight url",
-                f"unable to get snowsight base url due to an error -> {e}",
+            self.report.warning(
+                title="External URL Generation Failed",
+                message="We were unable to infer the Snowsight base URL for your Snowflake account. External URLs will not be generated.",
+                exc=e,
             )
             return None
 

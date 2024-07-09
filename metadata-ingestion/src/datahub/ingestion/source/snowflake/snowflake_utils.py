@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import ClassVar, Literal, Optional, Tuple
 
 from typing_extensions import Protocol
 
@@ -39,10 +39,8 @@ class SnowflakeCommonProtocol(Protocol):
         ...
 
 
-class SnowflakeCommonMixin:
-    platform = "snowflake"
-
-    CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX = [
+class SnowsightUrlBuilder:
+    CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX: ClassVar = [
         "us-west-2",
         "us-east-1",
         "eu-west-1",
@@ -50,6 +48,14 @@ class SnowflakeCommonMixin:
         "ap-southeast-1",
         "ap-southeast-2",
     ]
+
+    snowsight_base_url: str
+
+    def __init__(self, account_locator: str, region: str, privatelink: bool = False):
+        cloud, cloud_region_id = self.get_cloud_region_from_snowflake_region_id(region)
+        self.snowsight_base_url = self.create_snowsight_base_url(
+            account_locator, cloud_region_id, cloud, privatelink
+        )
 
     @staticmethod
     def create_snowsight_base_url(
@@ -66,7 +72,7 @@ class SnowflakeCommonMixin:
             # https://docs.snowflake.com/en/user-guide/admin-account-identifier#non-vps-account-locator-formats-by-cloud-platform-and-region
             if (
                 cloud_region_id
-                in SnowflakeCommonMixin.CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX
+                in SnowsightUrlBuilder.CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX
             ):
                 url_cloud_provider_suffix = ""
             else:
@@ -91,6 +97,28 @@ class SnowflakeCommonMixin:
         else:
             raise Exception(f"Unknown snowflake region {region}")
         return cloud, cloud_region_id
+
+    # domain is either "view" or "table"
+    def get_external_url_for_table(
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
+        domain: Literal[SnowflakeObjectDomain.TABLE, SnowflakeObjectDomain.VIEW],
+    ) -> Optional[str]:
+        return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+
+    def get_external_url_for_schema(
+        self, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
+
+    def get_external_url_for_database(self, db_name: str) -> Optional[str]:
+        return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
+
+
+class SnowflakeCommonMixin:
+    platform = "snowflake"
 
     def _is_dataset_pattern_allowed(
         self: SnowflakeCommonProtocol,

@@ -53,6 +53,7 @@ from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtract
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeCommonProtocol,
+    SnowsightUrlBuilder,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -151,7 +152,7 @@ class SnowflakeSchemaGenerator(
         domain_registry: Optional[DomainRegistry],
         profiler: Optional[SnowflakeProfiler],
         aggregator: Optional[SqlParsingAggregator],
-        snowsight_base_url: Optional[str],
+        snowsight_url_builder: Optional[SnowsightUrlBuilder],
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -169,7 +170,9 @@ class SnowflakeSchemaGenerator(
             config, self.data_dictionary, self.report
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
-        self.snowsight_base_url: Optional[str] = snowsight_base_url
+        self.snowsight_url_builder: Optional[
+            SnowsightUrlBuilder
+        ] = snowsight_url_builder
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
@@ -770,7 +773,7 @@ class SnowflakeSchemaGenerator(
             qualifiedName=f"{db_name}.{schema_name}.{table.name}",
             customProperties={},
             externalUrl=(
-                self.get_external_url_for_table(
+                self.snowsight_url_builder.get_external_url_for_table(
                     table.name,
                     schema_name,
                     db_name,
@@ -780,7 +783,7 @@ class SnowflakeSchemaGenerator(
                         else SnowflakeObjectDomain.VIEW
                     ),
                 )
-                if self.config.include_external_url
+                if self.snowsight_url_builder
                 else None
             ),
         )
@@ -909,8 +912,8 @@ class SnowflakeSchemaGenerator(
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             external_url=(
-                self.get_external_url_for_database(database.name)
-                if self.config.include_external_url
+                self.snowsight_url_builder.get_external_url_for_database(database.name)
+                if self.snowsight_url_builder
                 else None
             ),
             description=database.comment,
@@ -965,8 +968,10 @@ class SnowflakeSchemaGenerator(
             domain_registry=self.domain_registry,
             description=schema.comment,
             external_url=(
-                self.get_external_url_for_schema(schema.name, db_name)
-                if self.config.include_external_url
+                self.snowsight_url_builder.get_external_url_for_schema(
+                    schema.name, db_name
+                )
+                if self.snowsight_url_builder
                 else None
             ),
             created=(
@@ -977,11 +982,7 @@ class SnowflakeSchemaGenerator(
             last_modified=(
                 int(schema.last_altered.timestamp() * 1000)
                 if schema.last_altered is not None
-                else (
-                    int(schema.created.timestamp() * 1000)
-                    if schema.created is not None
-                    else None
-                )
+                else None
             ),
             tags=(
                 [self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
@@ -1046,23 +1047,3 @@ class SnowflakeSchemaGenerator(
 
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name, [])
-
-    # domain is either "view" or "table"
-    def get_external_url_for_table(
-        self, table_name: str, schema_name: str, db_name: str, domain: str
-    ) -> Optional[str]:
-        if self.snowsight_base_url is not None:
-            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
-        return None
-
-    def get_external_url_for_schema(
-        self, schema_name: str, db_name: str
-    ) -> Optional[str]:
-        if self.snowsight_base_url is not None:
-            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
-        return None
-
-    def get_external_url_for_database(self, db_name: str) -> Optional[str]:
-        if self.snowsight_base_url is not None:
-            return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
-        return None
