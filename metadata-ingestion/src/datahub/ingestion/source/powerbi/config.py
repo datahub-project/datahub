@@ -46,6 +46,7 @@ class Constant:
     Authorization = "Authorization"
     WORKSPACE_ID = "workspaceId"
     DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
+    DATASET_EXECUTE_QUERIES = "DATASET_EXECUTE_QUERIES_POST"
     DATASET_ID = "datasetId"
     REPORT_ID = "reportId"
     SCAN_ID = "ScanId"
@@ -59,9 +60,12 @@ class Constant:
     STATUS = "status"
     CHART_ID = "powerbi.linkedin.com/charts/{}"
     CHART_KEY = "chartKey"
+    COLUMN_TYPE = "columnType"
+    DATA_TYPE = "dataType"
     DASHBOARD = "dashboard"
     DASHBOARDS = "dashboards"
     DASHBOARD_KEY = "dashboardKey"
+    DESCRIPTION = "description"
     OWNERSHIP = "ownership"
     BROWSERPATH = "browsePaths"
     DASHBOARD_INFO = "dashboardInfo"
@@ -108,6 +112,7 @@ class Constant:
     TABLES = "tables"
     EXPRESSION = "expression"
     SOURCE = "source"
+    SCHEMA_METADATA = "schemaMetadata"
     PLATFORM_NAME = "powerbi"
     REPORT_TYPE_NAME = BIAssetSubTypes.REPORT
     CHART_COUNT = "chartCount"
@@ -235,6 +240,13 @@ class OwnershipMapping(ConfigModel):
     owner_criteria: Optional[List[str]] = pydantic.Field(
         default=None,
         description="Need to have certain authority to qualify as owner for example ['ReadWriteReshareExplore','Owner','Admin']",
+    )
+
+
+class PowerBiProfilingConfig(ConfigModel):
+    enabled: bool = pydantic.Field(
+        default=False,
+        description="Whether profiling of PowerBI datasets should be done",
     )
 
 
@@ -420,6 +432,13 @@ class PowerBiDashboardSourceConfig(
         "enabled."
         "Works for M-Query where native SQL is used for transformation.",
     )
+
+    profile_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter tables for profiling during ingestion. Note that only tables "
+        "allowed by the `table_pattern` will be considered. Matched format is 'workspacename.datasetname.tablename'",
+    )
+    profiling: PowerBiProfilingConfig = PowerBiProfilingConfig()
 
     @root_validator(skip_on_failure=True)
     def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
