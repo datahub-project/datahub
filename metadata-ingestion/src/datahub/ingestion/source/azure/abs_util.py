@@ -144,7 +144,7 @@ def get_abs_properties(
 def add_property(
     key: str, value: str, custom_properties: Dict[str, str], resource_name: str
 ) -> Dict[str, str]:
-    if key in custom_properties.keys():
+    if key in custom_properties:
         key = f"{key}_{resource_name}"
     if value is not None:
         custom_properties[key] = str(value)
@@ -274,7 +274,7 @@ def list_folders(
             continue
 
         folder_name = f"{prefix}{folder_name}"
-        if folder_name in this_dict.keys():
+        if folder_name in this_dict:
             continue
         else:
             this_dict[folder_name] = folder_name
