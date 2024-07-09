@@ -1,14 +1,19 @@
-from typing import Any, Callable, Iterable, TypeVar, Union
+from typing import Callable, Iterable, TypeVar, Union
 
 import redshift_connector
+from typing_extensions import ParamSpec
 
 from datahub.ingestion.source.redshift.report import RedshiftReport
 
 T = TypeVar("T")
+P = ParamSpec("P")
 
 
 def handle_redshift_exceptions(
-    report: RedshiftReport, func: Callable[..., T], *args: Any, **kwargs: Any
+    report: RedshiftReport,
+    func: Callable[P, T],
+    *args: P.args,
+    **kwargs: P.kwargs,
 ) -> Union[T, None]:
     try:
         return func(*args, **kwargs)
@@ -18,7 +23,10 @@ def handle_redshift_exceptions(
 
 
 def handle_redshift_exceptions_yield(
-    report: RedshiftReport, func: Callable[..., Iterable[T]], *args: Any, **kwargs: Any
+    report: RedshiftReport,
+    func: Callable[P, Iterable[T]],
+    *args: P.args,
+    **kwargs: P.kwargs,
 ) -> Iterable[T]:
     try:
         yield from func(*args, **kwargs)
