@@ -628,6 +628,12 @@ public class PoliciesConfig {
           "Produce Platform Event API",
           "The ability to produce Platform Events using the API.");
 
+  /* SAAS ONLY */
+  public static final Privilege EXPLAIN_TEST_PRIVILEGE =
+      Privilege.of(
+          "EXPLAIN_TEST_PRIVILEGE", "Explain Test API", "The ability to use the Explain Test API.");
+  /* END SAAS ONLY */
+
   public static final ResourcePrivileges DATASET_PRIVILEGES =
       ResourcePrivileges.of(
           "dataset",

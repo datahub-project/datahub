@@ -69,6 +69,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -107,7 +108,7 @@ public class TestEngine {
   private final Set<String> _supportedEntityTypes;
   private final boolean isPartialFetcher;
 
-  private final ElasticSearchTestExecutor _elasticSearchTestExecutor;
+  @Getter private final ElasticSearchTestExecutor elasticSearchTestExecutor;
 
   private final TimeseriesAspectService _timeseriesAspectService;
 
@@ -192,7 +193,7 @@ public class TestEngine {
     }
 
     _supportedEntityTypes = TestUtils.getSupportedEntityTypes(systemOpContext.getEntityRegistry());
-    _elasticSearchTestExecutor =
+    elasticSearchTestExecutor =
         new ElasticSearchTestExecutor(
             searchService,
             timeseriesAspectService,
@@ -1095,17 +1096,17 @@ public class TestEngine {
     // Prefer ElasticSearchTestExecutor if it can execute the test
     try {
       boolean canSelect =
-          elasticSearchExecutorEnabled && _elasticSearchTestExecutor.canSelect(testDefinition);
-      if (canSelect && _elasticSearchTestExecutor.canEvaluate(testDefinition)) {
+          elasticSearchExecutorEnabled && elasticSearchTestExecutor.canSelect(testDefinition);
+      if (canSelect && elasticSearchTestExecutor.canEvaluate(testDefinition)) {
         log.info("ElasticSearchTestExecutor can execute test {}", testUrn);
         tempResults =
-            _elasticSearchTestExecutor.evaluate(testDefinition, batchTestRunResults.get(testUrn));
+            elasticSearchTestExecutor.evaluate(testDefinition, batchTestRunResults.get(testUrn));
         log.info("Test results size for test {} is {}", testUrn, tempResults.size());
       } else {
         final Set<Urn> candidateUrns = new HashSet<>();
         if (canSelect) {
           log.info("ElasticSearchTestExecutor can select test {}", testUrn);
-          candidateUrns.addAll(_elasticSearchTestExecutor.select(testDefinition));
+          candidateUrns.addAll(elasticSearchTestExecutor.select(testDefinition));
         } else {
           defaultSelect(testDefinition, testUrn, candidateUrns);
         }

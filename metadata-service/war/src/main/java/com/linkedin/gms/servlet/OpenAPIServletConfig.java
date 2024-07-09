@@ -19,7 +19,8 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
       "io.datahubproject.openapi.v2",
       "io.datahubproject.openapi.v3",
       "com.linkedin.gms.factory.timeline",
-      "org.springdoc"
+      "org.springdoc",
+      "io.datahubproject.openapi.tests"
     })
 @Configuration
 public class OpenAPIServletConfig {}

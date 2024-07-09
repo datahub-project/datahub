@@ -42,7 +42,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class SpringWebConfig implements WebMvcConfigurer {
   private static final Set<String> OPERATIONS_PACKAGES =
-      Set.of("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health");
+      Set.of(
+          "io.datahubproject.openapi.operations",
+          "io.datahubproject.openapi.health",
+          "io.datahubproject.openapi.tests");
   private static final Set<String> V1_PACKAGES = Set.of("io.datahubproject.openapi.v1");
   private static final Set<String> V2_PACKAGES = Set.of("io.datahubproject.openapi.v2");
   private static final Set<String> V3_PACKAGES = Set.of("io.datahubproject.openapi.v3");
