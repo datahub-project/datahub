@@ -1220,7 +1220,7 @@ class DatahubGEProfiler:
                 error_message = str(e).lower()
                 if "permission denied" in error_message:
                     self.report.warning(
-                        title="Unauthorized to extract statistics",
+                        title="Unauthorized to extract data profile statistics",
                         message="We were denied access while attempting to generate profiling statistics for some assets. Please ensure the provided user has permission to query these tables and views.",
                         context=f"Asset: {pretty_name}",
                         exc=e,
