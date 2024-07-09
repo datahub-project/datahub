@@ -425,6 +425,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.db_views[database] = defaultdict()
         self.db_schemas.setdefault(database, {})
 
+        # TODO: Ideally, we'd push down exception handling to the place where the connection is used, as opposed to keeping
+        # this fallback. For now, this gets us broad coverage quickly.
         yield from handle_redshift_exceptions_yield(
             self.report, self._extract_metadata, connection, database
         )
