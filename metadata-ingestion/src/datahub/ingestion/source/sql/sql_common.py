@@ -716,7 +716,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         )
                     except Exception as e:
                         self.warn(logger, f"{schema}.{table}", f"Ingestion error: {e}")
-                        logger.debug(f"{schema}.{table} - Ingestion error: {e}", exc_info=True)
+                        logger.debug(
+                            f"{schema}.{table} - Ingestion error: {e}", exc_info=True
+                        )
             except Exception as e:
                 self.error(logger, f"{schema}", f"Tables error: {e}")
 
@@ -924,8 +926,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             if len(columns) == 0:
                 self.warn(logger, "missing column information", dataset_name)
         except Exception as e:
-            self.warn(logger, dataset_name, f"unable to get column information due to an error: {e}")
-            logger.debug(f"{dataset_name} - unable to get column information due to an error: {e}", exc_info=True)
+            self.warn(
+                logger,
+                dataset_name,
+                f"unable to get column information due to an error: {e}",
+            )
+            logger.debug(
+                f"{dataset_name} - unable to get column information due to an error: {e}",
+                exc_info=True,
+            )
         return columns
 
     def _get_foreign_keys(
