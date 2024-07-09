@@ -1,5 +1,4 @@
 import React from 'react';
-import { message } from 'antd';
 import { EntityType } from '../../../types.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
 import UrlButton from './UrlButton';
