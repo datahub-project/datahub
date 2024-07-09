@@ -1,6 +1,9 @@
+import datetime
+import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field as dataclass_field
+from functools import lru_cache
 from typing import (
     Any,
     DefaultDict,
@@ -98,6 +101,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logger = logging.getLogger(__name__)
@@ -115,9 +119,10 @@ class GlueSourceConfig(
         description=f"The platform to use for the dataset URNs. Must be one of {VALID_PLATFORMS}.",
     )
 
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-owner
     extract_owners: Optional[bool] = Field(
         default=True,
-        description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",
+        description="When enabled, extracts ownership from Glue table property and overwrites existing owners (DATAOWNER). When disabled, ownership is left empty for datasets. Expects a corpGroup urn, a corpuser urn or only the identifier part for the latter. Not used in the normal course of AWS Glue operations.",
     )
     extract_transforms: Optional[bool] = Field(
         default=True, description="Whether to extract Glue transform jobs."
@@ -160,6 +165,10 @@ class GlueSourceConfig(
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
+    )
+    extract_delta_schema_from_parameters: Optional[bool] = Field(
+        default=False,
+        description="If enabled, delta schemas can be alternatively fetched from table parameters.",
     )
 
     def is_profiling_enabled(self) -> bool:
@@ -204,6 +213,8 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_job_script_failed_parsing: int = 0
     num_job_without_nodes: int = 0
     num_dataset_to_dataset_edges_in_job: int = 0
+    num_dataset_invalid_delta_schema: int = 0
+    num_dataset_valid_delta_schema: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -887,6 +898,12 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database["Name"])
         database_container_key = self.gen_database_key(database["Name"])
+        parameters = database.get("Parameters", {})
+        if database.get("LocationUri") is not None:
+            parameters["LocationUri"] = database["LocationUri"]
+        if database.get("CreateTime") is not None:
+            create_time: datetime.datetime = database["CreateTime"]
+            parameters["CreateTime"] = create_time.strftime("%B %d, %Y at %H:%M:%S")
         yield from gen_containers(
             container_key=database_container_key,
             name=database["Name"],
@@ -896,6 +913,7 @@ class GlueSource(StatefulIngestionSourceBase):
             qualified_name=self.get_glue_arn(
                 account_id=database["CatalogId"], database=database["Name"]
             ),
+            extra_properties=parameters,
         )
 
     def add_table_to_database_container(
@@ -933,8 +951,10 @@ class GlueSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        database_seen = set()
         databases, tables = self.get_all_databases_and_tables()
+
+        for database in databases.values():
+            yield from self.gen_database_containers(database)
 
         for table in tables:
             database_name = table["DatabaseName"]
@@ -946,9 +966,6 @@ class GlueSource(StatefulIngestionSourceBase):
             ) or not self.source_config.table_pattern.allowed(full_table_name):
                 self.report.report_table_dropped(full_table_name)
                 continue
-            if database_name not in database_seen:
-                database_seen.add(database_name)
-                yield from self.gen_database_containers(databases[database_name])
 
             dataset_urn = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
@@ -1009,7 +1026,7 @@ class GlueSource(StatefulIngestionSourceBase):
         # in Glue, it's possible for two buckets to have files of different extensions
         # if this happens, we append the extension in the URN so the sources can be distinguished
         # see process_dataflow_node() for details
-        s3_formats: DefaultDict[str, Set[Optional[str]]] = defaultdict(lambda: set())
+        s3_formats: DefaultDict[str, Set[Optional[str]]] = defaultdict(set)
         for dag in dags.values():
             if dag is not None:
                 for s3_name, extension in self.get_dataflow_s3_names(dag):
@@ -1045,20 +1062,6 @@ class GlueSource(StatefulIngestionSourceBase):
         logger.debug(
             f"extract record from table={table_name} for dataset={dataset_urn}"
         )
-
-        def get_owner() -> Optional[OwnershipClass]:
-            owner = table.get("Owner")
-            if owner:
-                owners = [
-                    OwnerClass(
-                        owner=f"urn:li:corpuser:{owner}",
-                        type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
-                return OwnershipClass(
-                    owners=owners,
-                )
-            return None
 
         def get_dataset_properties() -> DatasetPropertiesClass:
             return DatasetPropertiesClass(
@@ -1147,10 +1150,41 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             return new_tags
 
+        def _is_delta_schema(
+            provider: str, num_parts: int, columns: Optional[List[Mapping[str, Any]]]
+        ) -> bool:
+            return (
+                (self.source_config.extract_delta_schema_from_parameters is True)
+                and (provider == "delta")
+                and (num_parts > 0)
+                and (columns is not None)
+                and (len(columns) == 1)
+                and (columns[0].get("Name", "") == "col")
+                and (columns[0].get("Type", "") == "array<string>")
+            )
+
         def get_schema_metadata() -> Optional[SchemaMetadata]:
-            if not table.get("StorageDescriptor"):
+            # As soon as the hive integration with Spark is correctly providing the schema as expected in the
+            # StorageProperties, the alternative path to fetch schema from table parameters for delta schemas can be removed.
+            # https://github.com/delta-io/delta/pull/2310
+            provider = table.get("Parameters", {}).get("spark.sql.sources.provider", "")
+            num_parts = int(
+                table.get("Parameters", {}).get(
+                    "spark.sql.sources.schema.numParts", "0"
+                )
+            )
+            columns = table.get("StorageDescriptor", {}).get("Columns", [{}])
+
+            if _is_delta_schema(provider, num_parts, columns):
+                return _get_delta_schema_metadata()
+
+            elif table.get("StorageDescriptor"):
+                return _get_glue_schema_metadata()
+
+            else:
                 return None
 
+        def _get_glue_schema_metadata() -> Optional[SchemaMetadata]:
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
             for field in schema:
@@ -1183,6 +1217,51 @@ class GlueSource(StatefulIngestionSourceBase):
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
+        def _get_delta_schema_metadata() -> Optional[SchemaMetadata]:
+            assert (
+                table["Parameters"]["spark.sql.sources.provider"] == "delta"
+                and int(table["Parameters"]["spark.sql.sources.schema.numParts"]) > 0
+            )
+
+            try:
+                numParts = int(table["Parameters"]["spark.sql.sources.schema.numParts"])
+                schema_str = "".join(
+                    [
+                        table["Parameters"][f"spark.sql.sources.schema.part.{i}"]
+                        for i in range(numParts)
+                    ]
+                )
+                schema_json = json.loads(schema_str)
+                fields: List[SchemaField] = []
+                for field in schema_json["fields"]:
+                    field_type = delta_type_to_hive_type(field.get("type", "unknown"))
+                    schema_fields = get_schema_fields_for_hive_column(
+                        hive_column_name=field["name"],
+                        hive_column_type=field_type,
+                        description=field.get("description"),
+                        default_nullable=bool(field.get("nullable", True)),
+                    )
+                    assert schema_fields
+                    fields.extend(schema_fields)
+
+                self.report.num_dataset_valid_delta_schema += 1
+                return SchemaMetadata(
+                    schemaName=table_name,
+                    version=0,
+                    fields=fields,
+                    platform=f"urn:li:dataPlatform:{self.platform}",
+                    hash="",
+                    platformSchema=MySqlDDL(tableSchema=""),
+                )
+
+            except Exception as e:
+                self.report_warning(
+                    dataset_urn,
+                    f"Could not parse schema for {table_name} because of {type(e).__name__}: {e}",
+                )
+                self.report.num_dataset_invalid_delta_schema += 1
+                return None
+
         def get_data_platform_instance() -> DataPlatformInstanceClass:
             return DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
@@ -1192,6 +1271,20 @@ class GlueSource(StatefulIngestionSourceBase):
                 if self.source_config.platform_instance
                 else None,
             )
+
+        @lru_cache(maxsize=None)
+        def _get_ownership(owner: str) -> Optional[OwnershipClass]:
+            if owner:
+                owners = [
+                    OwnerClass(
+                        owner=mce_builder.make_user_urn(owner),
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+                return OwnershipClass(
+                    owners=owners,
+                )
+            return None
 
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
@@ -1207,8 +1300,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
         dataset_snapshot.aspects.append(get_data_platform_instance())
 
+        # Ownership
         if self.extract_owners:
-            optional_owner_aspect = get_owner()
+            owner = table.get("Owner")
+            optional_owner_aspect = _get_ownership(owner)
             if optional_owner_aspect is not None:
                 dataset_snapshot.aspects.append(optional_owner_aspect)
 

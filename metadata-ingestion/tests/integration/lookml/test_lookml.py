@@ -12,6 +12,10 @@ from looker_sdk.sdk.api40.models import DBConnection
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
+from datahub.ingestion.source.looker.looker_template_language import (
+    SpecialVariable,
+    resolve_liquid_variable,
+)
 from datahub.ingestion.source.looker.lookml_source import (
     LookerModel,
     LookerRefinementResolver,
@@ -40,12 +44,13 @@ def get_default_recipe(output_file_path, base_folder_path):
             "type": "lookml",
             "config": {
                 "base_folder": base_folder_path,
-                "connection_to_platform_map": {"my_connection": "conn"},
+                "connection_to_platform_map": {"my_connection": "postgres"},
                 "parse_table_names_from_sql": True,
                 "tag_measures_and_dimensions": False,
                 "project_name": "lkml_samples",
                 "model_pattern": {"deny": ["data2"]},
                 "emit_reachable_views_only": False,
+                "liquid_variable": {"order_region": "ap-south-1"},
             },
         },
         "sink": {
@@ -63,9 +68,9 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "expected_output.json"
 
-    # Note this config below is known to create "bad" lineage since the config author has not provided enough information
-    # to resolve relative table names (which are not fully qualified)
-    # We keep this check just to validate that ingestion doesn't croak on this config
+    # Note this config below is known to create "bad" lineage since the config author has not provided enough
+    # information to resolve relative table names (which are not fully qualified) We keep this check just to validate
+    # that ingestion doesn't croak on this config
 
     pipeline = Pipeline.create(
         get_default_recipe(
@@ -158,7 +163,7 @@ def test_lookml_explore_refinement(pytestconfig, tmp_path, mock_time):
             {"name": "+book", "extends__all": [["order"]]},
             {"name": "+book", "extends__all": [["transaction"]]},
         ],
-        connection=str(),
+        connection="",
         resolved_includes=[],
         includes=[],
     )
@@ -488,6 +493,9 @@ def ingestion_test(
                         "model_pattern": {"deny": ["data2"]},
                         "emit_reachable_views_only": False,
                         "process_refinements": False,
+                        "liquid_variable": {
+                            "order_region": "ap-south-1",
+                        },
                     },
                 },
                 "sink": {
@@ -864,3 +872,163 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
 
     manifest = load_lkml(manifest_file)
     assert manifest
+
+
+@freeze_time(FROZEN_TIME)
+def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "duplicate_ingest_mces_output.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/lkml_samples_duplicate_field",
+    )
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "duplicate_field_ingestion_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "vv_lineage_liquid_template_golden.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/vv-lineage-and-liquid-templates",
+    )
+
+    new_recipe["source"]["config"]["liquid_variable"] = {
+        "_user_attributes": {
+            "looker_env": "dev",
+            "dev_database_prefix": "employee",
+            "dev_schema_prefix": "public",
+        },
+        "dw_eff_dt_date": {
+            "_is_selected": True,
+        },
+        "source_region": "ap-south-1",
+    }
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "vv_lineage_liquid_template_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_special_liquid_variables():
+    text: str = """
+        SELECT
+          employee_id,
+          employee_name,
+          {% if dw_eff_dt_date._is_selected or finance_dw_eff_dt_date._is_selected %}
+            prod_core.data.r_metric_summary_v2
+          {% elsif dw_eff_dt_week._is_selected or finance_dw_eff_dt_week._in_query %}
+            prod_core.data.r_metric_summary_v3
+          {% elsif dw_eff_dt_week._is_selected or finance_dw_eff_dt_week._is_filtered %}
+            prod_core.data.r_metric_summary_v4
+          {% else %}
+            'default_table' as source
+          {% endif %},
+          employee_income
+        FROM source_table
+    """
+    input_liquid_variable: dict = {}
+
+    expected_liquid_variable: dict = {
+        **input_liquid_variable,
+        "dw_eff_dt_date": {"_is_selected": True},
+        "finance_dw_eff_dt_date": {"_is_selected": True},
+        "dw_eff_dt_week": {"_is_selected": True},
+        "finance_dw_eff_dt_week": {
+            "_in_query": True,
+            "_is_filtered": True,
+        },
+    }
+
+    actual_liquid_variable = SpecialVariable(
+        input_liquid_variable
+    ).liquid_variable_with_default(text)
+    assert (
+        expected_liquid_variable == actual_liquid_variable
+    )  # Here new keys with default value should get added
+
+    # change input
+    input_liquid_variable = {
+        "finance_dw_eff_dt_week": {"_is_filtered": False},
+    }
+
+    expected_liquid_variable = {
+        **input_liquid_variable,
+        "dw_eff_dt_date": {"_is_selected": True},
+        "finance_dw_eff_dt_date": {"_is_selected": True},
+        "dw_eff_dt_week": {"_is_selected": True},
+        "finance_dw_eff_dt_week": {
+            "_in_query": True,
+            "_is_filtered": False,
+        },
+    }
+
+    actual_liquid_variable = SpecialVariable(
+        input_liquid_variable
+    ).liquid_variable_with_default(text)
+    assert (
+        expected_liquid_variable == actual_liquid_variable
+    )  # should not overwrite the actual value present in
+    # input_liquid_variable
+
+    # Match template after resolution of liquid variables
+    actual_text = resolve_liquid_variable(
+        text=text,
+        liquid_variable=input_liquid_variable,
+    )
+
+    expected_text: str = (
+        "\n        SELECT\n          employee_id,\n          employee_name,\n          \n            "
+        "prod_core.data.r_metric_summary_v2\n          ,\n          employee_income\n        FROM "
+        "source_table\n    "
+    )
+    assert actual_text == expected_text
+
+
+@freeze_time(FROZEN_TIME)
+def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "field_tag_mces_output.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/lkml_samples_duplicate_field",
+    )
+
+    new_recipe["source"]["config"]["tag_measures_and_dimensions"] = True
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "field_tag_ingestion_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )

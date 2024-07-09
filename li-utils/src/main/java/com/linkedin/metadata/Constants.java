@@ -21,6 +21,10 @@ public class Constants {
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
       STRUCTURED_PROPERTY_MAPPING_FIELD + ".";
+  public static final String STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD = "_versioned";
+  public static final String STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX =
+      String.join(
+          ".", STRUCTURED_PROPERTY_MAPPING_FIELD, STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, "");
 
   // !!!!!!! IMPORTANT !!!!!!!
   // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
@@ -125,6 +129,7 @@ public class Constants {
   public static final String ROLE_MEMBERSHIP_ASPECT_NAME = "roleMembership";
 
   public static final String CORP_USER_SETTINGS_ASPECT_NAME = "corpUserSettings";
+  public static final String CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME = "statusLastModifiedAt";
 
   // Group
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
@@ -284,6 +289,7 @@ public class Constants {
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
+  public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
 
   // Tests
   public static final String TEST_ENTITY_NAME = "test";
@@ -340,6 +346,7 @@ public class Constants {
 
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
+  public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";
@@ -356,6 +363,16 @@ public class Constants {
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+
+  // Connection
+  public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
+  public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
+
+  // Data Contracts
+  public static final String DATA_CONTRACT_ENTITY_NAME = "dataContract";
+  public static final String DATA_CONTRACT_PROPERTIES_ASPECT_NAME = "dataContractProperties";
+  public static final String DATA_CONTRACT_KEY_ASPECT_NAME = "dataContractKey";
+  public static final String DATA_CONTRACT_STATUS_ASPECT_NAME = "dataContractStatus";
 
   // Relationships
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";

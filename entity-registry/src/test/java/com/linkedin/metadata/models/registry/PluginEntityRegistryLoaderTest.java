@@ -76,7 +76,7 @@ public class PluginEntityRegistryLoaderTest {
 
     MergedEntityRegistry configEntityRegistry = new MergedEntityRegistry(baseEntityRegistry);
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60)
+        new PluginEntityRegistryLoader(TestConstants.BASE_DIRECTORY, 60, null)
             .withBaseRegistry(configEntityRegistry)
             .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
@@ -171,7 +171,7 @@ public class PluginEntityRegistryLoaderTest {
 
     MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(getBaseEntityRegistry());
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(BASE_DIRECTORY, 60)
+        new PluginEntityRegistryLoader(BASE_DIRECTORY, 60, null)
             .withBaseRegistry(mergedEntityRegistry)
             .start(true);
     assertEquals(pluginEntityRegistryLoader.getPatchRegistries().size(), 1);
@@ -216,7 +216,7 @@ public class PluginEntityRegistryLoaderTest {
     String multiversionPluginDir = "src/test_plugins/";
 
     PluginEntityRegistryLoader pluginEntityRegistryLoader =
-        new PluginEntityRegistryLoader(multiversionPluginDir, 60)
+        new PluginEntityRegistryLoader(multiversionPluginDir, 60, null)
             .withBaseRegistry(mergedEntityRegistry)
             .start(true);
     Map<String, Map<ComparableVersion, Pair<EntityRegistry, EntityRegistryLoadResult>>>

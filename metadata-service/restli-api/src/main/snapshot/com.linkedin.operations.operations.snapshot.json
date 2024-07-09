@@ -576,7 +576,7 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
@@ -585,6 +585,7 @@
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
+      "RVW" : "Designates review fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
       "UAT" : "Designates user acceptance testing fabrics"
@@ -2080,6 +2081,29 @@
       "doc" : "DataHub-native Title, e.g. 'Software Engineer'",
       "optional" : true
     }, {
+      "name" : "platforms",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "The platforms that the user commonly works with",
+      "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "dataPlatform" ],
+          "name" : "IsUserOf"
+        }
+      }
+    }, {
+      "name" : "persona",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "The user's persona type, based on their role",
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "dataHubPersona" ],
+        "name" : "IsPersona"
+      }
+    }, {
       "name" : "slack",
       "type" : "string",
       "doc" : "Slack handle for the user",
@@ -2215,7 +2239,13 @@
     }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who last modified the status and when."
+      "doc" : "Audit stamp containing who last modified the status and when.",
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "statusLastModifiedAt",
+          "fieldType" : "COUNT"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "corpUserStatus"
@@ -2587,8 +2617,9 @@
             }, {
               "name" : "label",
               "type" : "string",
-              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.",
+              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.\n\nNote that this field is deprecated and is not surfaced in the UI.",
               "optional" : true,
+              "Deprecated" : true,
               "Searchable" : {
                 "boostScore" : 0.2,
                 "fieldName" : "fieldLabels",
@@ -3013,6 +3044,7 @@
       "name" : "MLFeatureProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a MLFeature",
+      "include" : [ "com.linkedin.common.CustomProperties" ],
       "fields" : [ {
         "name" : "description",
         "type" : "string",

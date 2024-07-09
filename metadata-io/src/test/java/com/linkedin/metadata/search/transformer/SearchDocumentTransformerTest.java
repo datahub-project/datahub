@@ -21,6 +21,7 @@ import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -60,6 +61,7 @@ public class SearchDocumentTransformerTest {
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
+    assertEquals(parsedJson.get("doubleField").asDouble(), 100.456);
     assertEquals(parsedJson.get("keyPart1").asText(), "key");
     assertFalse(parsedJson.has("keyPart2"));
     assertEquals(parsedJson.get("keyPart3").asText(), "VALUE_1");
@@ -106,6 +108,7 @@ public class SearchDocumentTransformerTest {
     parsedJson.get("nestedIntegerField").getNodeType().equals(JsonNodeType.NULL);
     parsedJson.get("feature1").getNodeType().equals(JsonNodeType.NULL);
     parsedJson.get("feature2").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("doubleField").getNodeType().equals(JsonNodeType.NULL);
   }
 
   @Test
@@ -184,6 +187,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     searchDocumentTransformer.setSearchableRefValue(
@@ -239,6 +243,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
@@ -275,6 +280,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
@@ -307,6 +313,7 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();

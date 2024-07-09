@@ -143,33 +143,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "foo"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD)",
@@ -194,8 +167,65 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,..my_table,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_table,PROD)",
                                 "type": "VIEW"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_table,PROD),country)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD),country)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_table,PROD),city)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD),city)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_table,PROD),is_latest)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD),is_latest)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_table,PROD),timestamp)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD),timestamp)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_table,PROD),measurement)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD),average_measurement)"
+                                ],
+                                "confidenceScore": 1.0
                             }
                         ]
                     }
@@ -353,6 +383,33 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "foo"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.bar.view.my_derived_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -404,33 +461,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.bar.view.my_derived_view,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "bar"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.bar.view.my_derived_view,PROD)",
@@ -455,8 +485,54 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.bar.view.my_view,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD)",
                                 "type": "VIEW"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD),country)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.bar.view.my_derived_view,PROD),country)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD),city)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.bar.view.my_derived_view,PROD),city)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD),timestamp)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.bar.view.my_derived_view,PROD),timestamp)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.foo.view.my_view,PROD),measurement)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.bar.view.my_derived_view,PROD),average_measurement)"
+                                ],
+                                "confidenceScore": 1.0
                             }
                         ]
                     }
@@ -593,6 +669,33 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.bar.view.my_derived_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "bar"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.included_view_file.view.include_able_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -644,33 +747,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.included_view_file.view.include_able_view,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "included_view_file"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.included_view_file.view.include_able_view,PROD)",
@@ -695,7 +771,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.looker_schema.include_able,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,.looker_schema.include_able,PROD)",
                                 "type": "VIEW"
                             }
                         ]
@@ -710,6 +786,33 @@
                         "name": "include_able_view",
                         "tags": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.included_view_file.view.include_able_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "included_view_file"
                 }
             ]
         }
@@ -764,33 +867,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.looker_events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "view_declarations"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -824,7 +900,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.looker_schema.events,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,.looker_schema.events,PROD)",
                                 "type": "VIEW"
                             }
                         ]
@@ -839,6 +915,33 @@
                         "name": "looker_events",
                         "tags": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.looker_events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "view_declarations"
                 }
             ]
         }
@@ -902,33 +1005,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.extending_looker_events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "view_declarations"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.extending_looker_events,PROD)",
@@ -953,8 +1029,21 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.looker_schema.events,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,.looker_schema.events,PROD)",
                                 "type": "VIEW"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.looker_schema.events,PROD),additional_measure)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.extending_looker_events,PROD),additional_measure)"
+                                ],
+                                "confidenceScore": 1.0
                             }
                         ]
                     }
@@ -1025,6 +1114,33 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.extending_looker_events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "view_declarations"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.autodetect_sql_name_based_on_view_name,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -1067,33 +1183,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.autodetect_sql_name_based_on_view_name,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "view_declarations"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -1127,7 +1216,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,..autodetect_sql_name_based_on_view_name,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,..autodetect_sql_name_based_on_view_name,PROD)",
                                 "type": "VIEW"
                             }
                         ]
@@ -1142,6 +1231,33 @@
                         "name": "autodetect_sql_name_based_on_view_name",
                         "tags": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.autodetect_sql_name_based_on_view_name,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "view_declarations"
                 }
             ]
         }
@@ -1205,33 +1321,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.test_include_external_view,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "view_declarations"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.test_include_external_view,PROD)",
@@ -1256,7 +1345,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.looker_schema.include_able,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,.looker_schema.include_able,PROD)",
                                 "type": "VIEW"
                             }
                         ]
@@ -1271,6 +1360,33 @@
                         "name": "test_include_external_view",
                         "tags": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view_declarations.view.test_include_external_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "view_declarations"
                 }
             ]
         }
@@ -1307,7 +1423,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "date DATE encode ZSTD, \n         platform VARCHAR(20) encode ZSTD AS aliased_platform, \n         country VARCHAR(20) encode ZSTD",
+            "viewLogic": "SELECT date AS DATE,\n         platform  AS aliased_platform,\n         country",
             "viewLanguage": "sql"
         }
     },
@@ -1325,6 +1441,157 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.nested.fragment_derived.view.fragment_derived_view,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/looker/lkml_samples/nested/fragment_derived/views"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,fragment_derived_view,PROD)",
+                                "type": "VIEW"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fragment_derived_view,PROD),date)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.nested.fragment_derived.view.fragment_derived_view,PROD),date)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fragment_derived_view,PROD),platform)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.nested.fragment_derived.view.fragment_derived_view,PROD),aliased_platform)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fragment_derived_view,PROD),country)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.nested.fragment_derived.view.fragment_derived_view,PROD),country)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "fragment_derived_view",
+                        "platform": "urn:li:dataPlatform:looker",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "date",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "aliased_platform",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "country",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "looker.file.path": "nested/fragment_derived.view.lkml",
+                            "looker.model": "data"
+                        },
+                        "name": "fragment_derived_view",
+                        "tags": []
+                    }
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1364,131 +1631,6 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.nested.fragment_derived.view.fragment_derived_view,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/prod/looker/lkml_samples/nested/fragment_derived/views"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,..fragment_derived_view,PROD)",
-                                "type": "VIEW"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "fragment_derived_view",
-                        "platform": "urn:li:dataPlatform:looker",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "aliased_platform",
-                                "nullable": false,
-                                "description": "",
-                                "label": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "country",
-                                "nullable": false,
-                                "description": "",
-                                "label": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "date",
-                                "nullable": false,
-                                "description": "",
-                                "label": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "isPartOfKey": false
-                            }
-                        ],
-                        "primaryKeys": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "looker.file.path": "nested/fragment_derived.view.lkml",
-                            "looker.model": "data"
-                        },
-                        "name": "fragment_derived_view",
-                        "tags": []
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.liquid.view.customer_facts,PROD)",
     "changeType": "UPSERT",
@@ -1514,7 +1656,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SELECT\n        customer_id,\n        SUM(sale_price) AS lifetime_spend\n      FROM\n        order\n      WHERE\n        {% condition order_region %} order.region {% endcondition %}\n      GROUP BY 1",
+            "viewLogic": "SELECT\n            customer_id,\n            SUM(sale_price) AS lifetime_spend\n          FROM\n            order\n          WHERE\n            order.region='ap-south-1'\n          GROUP BY 1",
             "viewLanguage": "sql"
         }
     },
@@ -1532,33 +1674,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.liquid.view.customer_facts,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "liquid"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -1592,10 +1707,86 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,..order,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,order,PROD)",
                                 "type": "VIEW"
                             }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,order,PROD),customer_id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.liquid.view.customer_facts,PROD),customer_id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,order,PROD),sale_price)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.liquid.view.customer_facts,PROD),lifetime_spend)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
                         ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "customer_facts",
+                        "platform": "urn:li:dataPlatform:looker",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "lifetime_spend",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": []
                     }
                 },
                 {
@@ -1607,6 +1798,33 @@
                         "name": "customer_facts",
                         "tags": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.liquid.view.customer_facts,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "liquid"
                 }
             ]
         }
@@ -1670,33 +1888,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.ability.view.ability,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "ability"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.ability.view.ability,PROD)",
@@ -1721,7 +1912,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.ecommerce.ability,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,.ecommerce.ability,PROD)",
                                 "type": "VIEW"
                             }
                         ],
@@ -1729,11 +1920,22 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.ecommerce.ability,PROD),pk)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.ecommerce.ability,PROD),pk)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.ability.view.ability,PROD),pk)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.ecommerce.ability,PROD),count)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.ability.view.ability,PROD),count)"
                                 ],
                                 "confidenceScore": 1.0
                             }
@@ -1827,6 +2029,33 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.ability.view.ability,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "ability"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.owners.view.owners,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -1878,33 +2107,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.owners.view.owners,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "owners"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.owners.view.owners,PROD)",
@@ -1929,7 +2131,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,..owners,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,..owners,PROD)",
                                 "type": "VIEW"
                             }
                         ],
@@ -1937,7 +2139,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,..owners,PROD),id)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..owners,PROD),id)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -1948,7 +2150,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,..owners,PROD),owner_name)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..owners,PROD),owner_name)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -1959,7 +2161,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,..owners,PROD),owner_name)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,..owners,PROD),owner_name)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -2080,6 +2282,33 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.owners.view.owners,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "owners"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.native_derived_table.view.view_derived_explore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -2122,33 +2351,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.native_derived_table.view.view_derived_explore,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "native_derived_table"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -2206,6 +2408,28 @@
                                 "downstreamType": "FIELD",
                                 "downstreams": [
                                     "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.native_derived_table.view.view_derived_explore,PROD),city)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view_explore,PROD),my_view_explore.country)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.native_derived_table.view.view_derived_explore,PROD),unique_countries)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view_explore,PROD),my_view_explore.is_latest)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.native_derived_table.view.view_derived_explore,PROD),derived_col)"
                                 ],
                                 "confidenceScore": 1.0
                             }
@@ -2341,6 +2565,33 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.native_derived_table.view.view_derived_explore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "native_derived_table"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.flights.view.flights,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -2392,33 +2643,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.flights.view.flights,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Develop"
-                },
-                {
-                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
-                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
-                },
-                {
-                    "id": "flights"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.flights.view.flights,PROD)",
@@ -2443,7 +2667,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.flightstats.accidents,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,.flightstats.accidents,PROD)",
                                 "type": "VIEW"
                             }
                         ],
@@ -2451,7 +2675,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.flightstats.accidents,PROD),id)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.flightstats.accidents,PROD),id)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -2518,6 +2742,33 @@
                         "name": "flights",
                         "tags": []
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.flights.view.flights,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:78f22c19304954b15e8adb1d9809975e",
+                    "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
+                },
+                {
+                    "id": "flights"
                 }
             ]
         }

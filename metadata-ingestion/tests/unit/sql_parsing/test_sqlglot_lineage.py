@@ -84,6 +84,40 @@ JOIN cte2 ON cte1.col2 = cte2.col4
     )
 
 
+def test_select_with_complex_ctes():
+    # This one has group bys in the CTEs, which means they can't be collapsed into the main query.
+    assert_sql_result(
+        """
+WITH cte1 AS (
+    SELECT col1, col2
+    FROM table1
+    WHERE col1 = 'value1'
+    GROUP BY 1, 2
+), cte2 AS (
+    SELECT col3, col4
+    FROM table2
+    WHERE col2 = 'value2'
+    GROUP BY col3, col4
+)
+SELECT cte1.col1, cte2.col3
+FROM cte1
+JOIN cte2 ON cte1.col2 = cte2.col4
+""",
+        dialect="oracle",
+        expected_file=RESOURCE_DIR / "test_select_with_complex_ctes.json",
+    )
+
+
+def test_multiple_select_subqueries():
+    assert_sql_result(
+        """
+SELECT SUM((SELECT max(a) a from x) + (SELECT min(b) b from x) + c) AS y FROM x
+""",
+        dialect="mysql",
+        expected_file=RESOURCE_DIR / "test_multiple_select_subqueries.json",
+    )
+
+
 def test_create_view_as_select():
     assert_sql_result(
         """
@@ -956,7 +990,6 @@ FROM table1
     )
 
 
-@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
 def test_postgres_update_subselect():
     assert_sql_result(
         """
@@ -1078,7 +1111,6 @@ CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spect
     )
 
 
-@pytest.mark.skip(reason="sqlglot doesn't recognize the BACKUP directive right now")
 def test_redshift_system_automove() -> None:
     # Came across this in the Redshift query log, but it seems to be a system-generated query.
     assert_sql_result(
@@ -1107,4 +1139,35 @@ AS (
         dialect="redshift",
         default_db="my_db",
         expected_file=RESOURCE_DIR / "test_redshift_system_automove.json",
+    )
+
+
+def test_snowflake_with_unnamed_column_from_udf_call() -> None:
+    assert_sql_result(
+        """SELECT
+  A.ID,
+  B.NAME,
+  PARSE_JSON(B.MY_JSON) AS :userInfo,
+  B.ADDRESS
+FROM my_db.my_schema.my_table AS A
+LEFT JOIN my_db.my_schema.my_table_B AS B
+  ON A.ID = B.ID
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        expected_file=RESOURCE_DIR / "test_snowflake_unnamed_column_udf.json",
+    )
+
+
+def test_sqlite_insert_into_values() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO my_table (id, month, total_cost, area)
+    VALUES
+        (1, '2021-01', 100, 10),
+        (2, '2021-02', 200, 20),
+        (3, '2021-03', 300, 30)
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_insert_into_values.json",
     )

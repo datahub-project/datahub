@@ -102,7 +102,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SubTypesClass,
 )
-from datahub.utilities.advanced_thread_executor import BackpressureAwareExecutor
+from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -284,8 +284,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 views.add(view_name)
             except AssertionError:
                 self.reporter.report_warning(
-                    key=f"chart-field-{field_name}",
-                    reason="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
+                    title="Failed to Extract View Name from Field",
+                    message="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
+                    context=f"Field Name: {field_name}",
                 )
                 continue
 
@@ -370,7 +371,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             if field is None:
                 continue
 
-            # we haven't loaded in metadata about the explore yet, so we need to wait until explores are populated later to fetch this
+            # we haven't loaded in metadata about the explore yet, so we need to wait until explores are populated
+            # later to fetch this
             result.append(
                 InputFieldElement(
                     name=field, view_field=None, model=query.model, explore=query.view
@@ -437,6 +439,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     for exp in explores
                 ],
                 input_fields=input_fields,
+                owner=None,
             )
 
         # Dashboard elements can *alternatively* link to an existing look
@@ -488,6 +491,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         if element.look.folder
                         else None
                     ),
+                    owner=self._get_looker_user(element.look.user_id),
                 )
 
         # Failing the above two approaches, pick out details from result_maker
@@ -558,6 +562,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     LookerExplore(model_name=model, name=exp) for exp in explores
                 ],
                 input_fields=input_fields,
+                owner=None,
             )
 
         logger.debug(f"Element {element.title}: Unable to parse LookerDashboardElement")
@@ -590,16 +595,18 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         type_str = dashboard_element.type
         if not type_str:
             self.reporter.report_warning(
-                key=f"looker-chart-{dashboard_element.id}",
-                reason=f"Chart type {type_str} is missing. Setting to None",
+                title="Unrecognized Chart Type",
+                message=f"Chart type {type_str} is not recognized. Setting to None",
+                context=f"Dashboard Id: {dashboard_element.id}",
             )
             return None
         try:
             chart_type = type_mapping[type_str]
         except KeyError:
             self.reporter.report_warning(
-                key=f"looker-chart-{dashboard_element.id}",
-                reason=f"Chart type {type_str} not supported. Setting to None",
+                title="Unrecognized Chart Type",
+                message=f"Chart type {type_str} is not recognized. Setting to None",
+                context=f"Dashboard Id: {dashboard_element.id}",
             )
             chart_type = None
 
@@ -644,9 +651,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             customProperties={
                 "upstream_fields": (
                     ",".join(
-                        sorted(
-                            set(field.name for field in dashboard_element.input_fields)
-                        )
+                        sorted({field.name for field in dashboard_element.input_fields})
                     )
                     if dashboard_element.input_fields
                     else ""
@@ -690,6 +695,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         if dashboard is not None:
             ownership = self.get_ownership(dashboard)
+            if ownership is not None:
+                chart_snapshot.aspects.append(ownership)
+        elif dashboard is None and dashboard_element is not None:
+            ownership = self.get_ownership(dashboard_element)
             if ownership is not None:
                 chart_snapshot.aspects.append(ownership)
 
@@ -969,14 +978,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         dashboard_events = self._make_dashboard_metadata_events(
             looker_dashboard, list(chart_urns)
         )
-        for dashboard_event in dashboard_events:
-            yield dashboard_event
+        yield from dashboard_events
 
     def get_ownership(
-        self, looker_dashboard: LookerDashboard
+        self, looker_dashboard_look: Union[LookerDashboard, LookerDashboardElement]
     ) -> Optional[OwnershipClass]:
-        if looker_dashboard.owner is not None:
-            owner_urn = looker_dashboard.owner.get_urn(
+        if looker_dashboard_look.owner is not None:
+            owner_urn = looker_dashboard_look.owner.get_urn(
                 self.source_config.strip_user_ids_from_email
             )
             if owner_urn is not None:
@@ -1175,7 +1183,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     if relevant_field is not None:
                         view_field_for_reference = relevant_field
 
-            if view_field_for_reference is not None:
+            if view_field_for_reference and view_field_for_reference.name:
                 fields_for_mcp.append(
                     InputFieldClass(
                         schemaFieldUrn=builder.make_schema_field_urn(
@@ -1247,8 +1255,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         except SDKError:
             # A looker dashboard could be deleted in between the list and the get
             self.reporter.report_warning(
-                dashboard_id,
-                f"Error occurred while loading dashboard {dashboard_id}. Skipping.",
+                title="Error Loading Dashboard",
+                message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
+                context=f"Dashboard ID: {dashboard_id}",
             )
             return [], None, dashboard_id, start_time, datetime.datetime.now()
 
@@ -1258,7 +1267,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 or dashboard_object.folder.is_personal_descendant
             ):
                 self.reporter.report_warning(
-                    dashboard_id, "Dropped due to being a personal folder"
+                    title="Dropped Dashboard",
+                    message="Dropped due to being a personal folder",
+                    context=f"Dashboard ID: {dashboard_id}",
                 )
                 self.reporter.report_dashboards_dropped(dashboard_id)
                 return [], None, dashboard_id, start_time, datetime.datetime.now()
@@ -1384,7 +1395,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_start("extract_independent_looks")
 
         logger.debug("Extracting looks not part of Dashboard")
-        look_fields: List[str] = ["id", "title", "description", "query_id", "folder"]
+        look_fields: List[str] = [
+            "id",
+            "title",
+            "description",
+            "query_id",
+            "folder",
+            "user_id",
+        ]
         query_fields: List[str] = [
             "id",
             "view",
@@ -1429,7 +1447,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     subtitle_text=look.description,
                     look_id=look.id,
                     dashboard_id=None,  # As this is independent look
-                    look=LookWithQuery(query=query, folder=look.folder),
+                    look=LookWithQuery(
+                        query=query, folder=look.folder, user_id=look.user_id
+                    ),
                 ),
             )
 
@@ -1527,7 +1547,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         ):
             # Looks like we tried to extract owners and could not find their email addresses. This is likely a permissions issue
             self.reporter.report_warning(
-                "api",
+                "Failed to extract owner emails",
                 "Failed to extract owners emails for any dashboards. Please enable the see_users permission for your Looker API key",
             )
 

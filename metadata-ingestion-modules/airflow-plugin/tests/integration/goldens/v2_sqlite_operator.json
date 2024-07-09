@@ -38,6 +38,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -53,6 +54,43 @@
     "aspect": {
         "json": {
             "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "sqlite_operator"
+                }
+            ]
         }
     }
 },
@@ -76,13 +114,46 @@
                 "downstream_task_ids": "['populate_cost_table']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=create_cost_table",
             "name": "create_cost_table",
             "type": {
                 "string": "COMMAND"
             }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -140,13 +211,26 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_costs)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
             "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -166,6 +250,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -203,16 +288,16 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "5",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=create_cost_table&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=create_cost_table&map_index=-1&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "create_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=create_cost_table&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=create_cost_table&map_index=-1&tab=logs",
             "name": "sqlite_operator_create_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1707253651059,
+                "time": 1718715882139,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -247,10 +332,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -261,13 +348,31 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253651059,
+            "timestampMillis": 1717179743558,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "status": "STARTED",
             "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1717179743932,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1717179743932
         }
     }
 },
@@ -291,7 +396,7 @@
                 "downstream_task_ids": "['populate_cost_table']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=create_cost_table",
             "name": "create_cost_table",
@@ -394,10 +499,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -417,6 +524,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -442,7 +550,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253651425,
+            "timestampMillis": 1717179743960,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -475,7 +583,9 @@
                 "downstream_task_ids": "['transform_cost_table']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"}"
+                "datahub_sql_parser_error": "SqlUnderstandingError: Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)",
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=populate_cost_table",
             "name": "populate_cost_table",
@@ -507,10 +617,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -530,6 +642,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -576,7 +689,7 @@
             "name": "sqlite_operator_populate_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1707253655698,
+                "time": 1718715886259,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -611,10 +724,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -625,13 +740,31 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253655698,
+            "timestampMillis": 1717179748679,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "status": "STARTED",
             "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1717179749258,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1717179749258
         }
     }
 },
@@ -655,7 +788,9 @@
                 "downstream_task_ids": "['transform_cost_table']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"}"
+                "datahub_sql_parser_error": "SqlUnderstandingError: Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)",
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Failed to build scope for statement - scope was empty: INSERT INTO public.costs (id, month, total_cost, area) VALUES (1, '2021-01', 100, 10), (2, '2021-02', 200, 20), (3, '2021-03', 300, 30)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=populate_cost_table",
             "name": "populate_cost_table",
@@ -687,10 +822,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -710,6 +847,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -735,7 +873,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253656320,
+            "timestampMillis": 1717179749324,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -768,7 +906,7 @@
                 "downstream_task_ids": "['cleanup_costs', 'cleanup_processed_costs']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -859,10 +997,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -870,10 +1010,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.processed_costs",
+            "origin": "PROD"
         }
     }
 },
@@ -893,6 +1035,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -930,16 +1073,16 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "3",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&map_index=-1&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "transform_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&map_index=-1&tab=logs",
             "name": "sqlite_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1707253660584,
+                "time": 1718715894274,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -987,10 +1130,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -998,10 +1143,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.processed_costs",
+            "origin": "PROD"
         }
     }
 },
@@ -1012,13 +1159,31 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253660584,
+            "timestampMillis": 1717179757397,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "status": "STARTED",
             "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1717179758424,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "actor": "urn:li:corpuser:airflow",
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1717179758424
         }
     }
 },
@@ -1042,7 +1207,7 @@
                 "downstream_task_ids": "['cleanup_costs', 'cleanup_processed_costs']",
                 "inlets": "[]",
                 "outlets": "[]",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        \"}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=transform_cost_table",
             "name": "transform_cost_table",
@@ -1189,10 +1354,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -1200,10 +1367,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.processed_costs",
+            "origin": "PROD"
         }
     }
 },
@@ -1223,6 +1392,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -1248,7 +1418,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253661682,
+            "timestampMillis": 1717179758496,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -1281,15 +1451,28 @@
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
                 "outlets": "[]",
-                "datahub_sql_parser_error": "Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE costs\\n            \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
+                "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE costs\\n            \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
             },
             "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_costs",
             "name": "cleanup_costs",
             "type": {
                 "string": "COMMAND"
             }
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
         }
     }
 },
@@ -1312,17 +1495,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_costs)",
     "changeType": "UPSERT",
@@ -1338,6 +1510,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -1353,6 +1526,58 @@
     "aspect": {
         "json": {
             "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.processed_costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.processed_costs",
+            "origin": "PROD"
         }
     }
 },
@@ -1375,16 +1600,16 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_costs&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_costs&map_index=-1&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "cleanup_costs"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_costs&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_costs&map_index=-1&tab=logs",
             "name": "sqlite_operator_cleanup_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1707253669241,
+                "time": 1718733767964,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1403,6 +1628,19 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlite",
+            "name": "public.processed_costs",
+            "origin": "PROD"
+        }
+    }
+},
+{
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
     "changeType": "UPSERT",
@@ -1416,24 +1654,13 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253669241,
+            "timestampMillis": 1718733767964,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -1444,108 +1671,13 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_costs)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "depends_on_past": "False",
-                "email": "None",
-                "label": "'cleanup_costs'",
-                "execution_timeout": "None",
-                "sla": "None",
-                "sql": "'\\n            DROP TABLE costs\\n            '",
-                "task_id": "'cleanup_costs'",
-                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
-                "wait_for_downstream": "False",
-                "downstream_task_ids": "[]",
-                "inlets": "[]",
-                "outlets": "[]",
-                "datahub_sql_parser_error": "Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE costs\\n            \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
-            },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_costs",
-            "name": "cleanup_costs",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_costs)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)"
-            ],
-            "outputDatasets": [],
-            "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),transform_cost_table)"
-            ],
-            "fineGrainedLineages": []
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_costs)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:airflow",
-                    "type": "DEVELOPER",
-                    "source": {
-                        "type": "SERVICE"
-                    }
-                }
-            ],
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:airflow"
-            }
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_costs)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": []
-        }
-    }
-},
-{
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253670409,
+            "timestampMillis": 1718733768638,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -1554,38 +1686,6 @@
             "result": {
                 "type": "SUCCESS",
                 "nativeResultType": "airflow"
-            }
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "depends_on_past": "False",
-                "email": "None",
-                "label": "'cleanup_processed_costs'",
-                "execution_timeout": "None",
-                "sla": "None",
-                "sql": "'\\n            DROP TABLE processed_costs\\n            '",
-                "task_id": "'cleanup_processed_costs'",
-                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
-                "wait_for_downstream": "False",
-                "downstream_task_ids": "[]",
-                "inlets": "[]",
-                "outlets": "[]",
-                "datahub_sql_parser_error": "Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE processed_costs\\n            \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
-            },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_processed_costs",
-            "name": "cleanup_processed_costs",
-            "type": {
-                "string": "COMMAND"
             }
         }
     }
@@ -1609,13 +1709,34 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
-            "removed": false
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'cleanup_processed_costs'",
+                "execution_timeout": "None",
+                "sla": "None",
+                "sql": "'\\n            DROP TABLE processed_costs\\n            '",
+                "task_id": "'cleanup_processed_costs'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]",
+                "datahub_sql_parser_error": "UnsupportedStatementTypeError: Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
+                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE processed_costs\\n            \"}",
+                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.12.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_processed_costs",
+            "name": "cleanup_processed_costs",
+            "type": {
+                "string": "COMMAND"
+            }
         }
     }
 },
@@ -1635,6 +1756,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -1672,18 +1794,31 @@
                 "state": "running",
                 "operator": "SqliteOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_processed_costs&dag_id=sqlite_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_processed_costs&map_index=-1&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "sqlite_operator",
                 "task_id": "cleanup_processed_costs"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=cleanup_processed_costs&dag_id=sqlite_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator/grid?dag_run_id=manual_run_test&task_id=cleanup_processed_costs&map_index=-1&tab=logs",
             "name": "sqlite_operator_cleanup_processed_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1707253675107,
+                "time": 1718733773354,
                 "actor": "urn:li:corpuser:datahub"
             }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
+            ]
         }
     }
 },
@@ -1703,34 +1838,10 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
-    "aspect": {
-        "json": {
-            "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
-    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253675107,
+            "timestampMillis": 1718733773354,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -1741,108 +1852,13 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "depends_on_past": "False",
-                "email": "None",
-                "label": "'cleanup_processed_costs'",
-                "execution_timeout": "None",
-                "sla": "None",
-                "sql": "'\\n            DROP TABLE processed_costs\\n            '",
-                "task_id": "'cleanup_processed_costs'",
-                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
-                "wait_for_downstream": "False",
-                "downstream_task_ids": "[]",
-                "inlets": "[]",
-                "outlets": "[]",
-                "datahub_sql_parser_error": "Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)",
-                "openlineage_job_facet_sql": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/SqlJobFacet\", \"query\": \"\\n            DROP TABLE processed_costs\\n            \"}",
-                "openlineage_run_facet_extractionError": "{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/ExtractionErrorRunFacet\", \"errors\": [{\"_producer\": \"https://github.com/OpenLineage/OpenLineage/tree/1.2.0/integration/airflow\", \"_schemaURL\": \"https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/BaseFacet\", \"errorMessage\": \"Can only generate column-level lineage for select-like inner statements, not <class 'sqlglot.expressions.Drop'> (outer statement type: <class 'sqlglot.expressions.Drop'>)\", \"task\": \"datahub_sql_parser\"}], \"failedTasks\": 1, \"totalTasks\": 1}"
-            },
-            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_processed_costs",
-            "name": "cleanup_processed_costs",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)"
-            ],
-            "outputDatasets": [],
-            "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),transform_cost_table)"
-            ],
-            "fineGrainedLineages": []
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlite,public.processed_costs,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:airflow",
-                    "type": "DEVELOPER",
-                    "source": {
-                        "type": "SERVICE"
-                    }
-                }
-            ],
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:airflow"
-            }
-        }
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,sqlite_operator,prod),cleanup_processed_costs)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": []
-        }
-    }
-},
-{
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1707253676482,
+            "timestampMillis": 1718733774147,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"

@@ -226,4 +226,60 @@ public class PluginsTest {
             .count(),
         0);
   }
+
+  @Test
+  public void testEmptyMerges() throws EntityRegistryException {
+    ConfigEntityRegistry configEntityRegistry1 =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_1));
+    ConfigEntityRegistry emptyEntityRegistry =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_2),
+            (config, classLoaders) -> PluginFactory.empty());
+
+    MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(configEntityRegistry1);
+    mergedEntityRegistry.apply(emptyEntityRegistry);
+    assertEquals(mergedEntityRegistry.getPluginFactory(), configEntityRegistry1.getPluginFactory());
+
+    MergedEntityRegistry mergedEntityRegistry2 = new MergedEntityRegistry(emptyEntityRegistry);
+    mergedEntityRegistry2.apply(configEntityRegistry1);
+    assertEquals(
+        mergedEntityRegistry2.getPluginFactory(), configEntityRegistry1.getPluginFactory());
+  }
+
+  @Test
+  public void testUnloadedMerge() throws EntityRegistryException {
+    ConfigEntityRegistry configEntityRegistry1 =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_1),
+            (config, classLoaders) -> new PluginFactory(config, classLoaders));
+    ConfigEntityRegistry configEntityRegistry2 =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream(REGISTRY_FILE_2),
+            (config, classLoaders) -> new PluginFactory(config, classLoaders));
+
+    MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(configEntityRegistry1);
+    mergedEntityRegistry.apply(configEntityRegistry2);
+
+    assertEquals(
+        mergedEntityRegistry.getAllAspectPayloadValidators().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+    assertEquals(
+        mergedEntityRegistry.getAllMutationHooks().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+    assertEquals(
+        mergedEntityRegistry.getAllMCLSideEffects().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+    assertEquals(
+        mergedEntityRegistry.getAllMCPSideEffects().stream()
+            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+            .count(),
+        1);
+  }
 }

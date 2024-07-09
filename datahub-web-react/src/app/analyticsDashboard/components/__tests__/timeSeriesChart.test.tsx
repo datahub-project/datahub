@@ -36,7 +36,7 @@ describe('timeSeriesChart', () => {
         });
 
         it('compute lines works works correctly for monthly case', () => {
-            const chartData:TimeSeriesChart = {
+            const chartData: TimeSeriesChart = {
                 title: 'Weekly Active Users',
                 lines: [
                     {

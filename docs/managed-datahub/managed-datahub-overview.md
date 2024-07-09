@@ -1,6 +1,6 @@
 # How Acryl DataHub compares to DataHub
 
-DataHub is the #1 open source metadata platform for developers.
+DataHub is the #1 open source data catalog for developers.
 
 Acryl DataHub takes DataHub to the next level by offering features that allow
 you to roll out the product to the entire organization beyond your central data
@@ -109,8 +109,8 @@ Fill out
 ## Additional Integrations
 
 - [Slack Integration](docs/managed-datahub/saas-slack-setup.md)
+- [Remote Ingestion Executor](docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md)
 - [AWS Privatelink](docs/managed-datahub/integrations/aws-privatelink.md)
-- [AWS Ingestion Executor](docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws.md)
 - [AWS Eventbridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
 
 ## Additional SSO/Login Support

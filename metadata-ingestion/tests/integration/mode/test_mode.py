@@ -14,7 +14,7 @@ FROZEN_TIME = "2021-12-07 07:00:00"
 JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/verify": "verify.json",
     "https://app.mode.com/api/account": "user.json",
-    "https://app.mode.com/api/acryl/spaces": "spaces.json",
+    "https://app.mode.com/api/acryl/spaces?filter=all": "spaces.json",
     "https://app.mode.com/api/acryl/spaces/157933cc1168/reports": "reports_157933cc1168.json",
     "https://app.mode.com/api/acryl/spaces/75737b70402e/reports": "reports_75737b70402e.json",
     "https://app.mode.com/api/modeuser": "user.json",
@@ -51,7 +51,7 @@ class MockResponse:
 
     def raise_for_status(self):
         if self.error_list is not None and self.url in self.error_list:
-            http_error_msg = "%s Client Error: %s for url: %s" % (
+            http_error_msg = "{} Client Error: {} for url: {}".format(
                 400,
                 "Simulate error",
                 self.url,
@@ -139,7 +139,3 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
         except PipelineExecutionError as exec_error:
             assert exec_error.args[0] == "Source reported errors"
             assert len(exec_error.args[1].failures) == 1
-            assert (
-                list(exec_error.args[1].failures.keys())[0]
-                == "mode-report-75737b70402e"
-            )

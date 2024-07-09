@@ -26,8 +26,10 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,
       int retryCount,
-      EntityClientCacheConfig cacheConfig) {
-    super(restliClient, backoffPolicy, retryCount);
+      EntityClientCacheConfig cacheConfig,
+      int batchGetV2Size,
+      int batchGetV2Concurrency) {
+    super(restliClient, backoffPolicy, retryCount, batchGetV2Size, batchGetV2Concurrency);
     this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
     this.entityClientCache = buildEntityClientCache(SystemRestliEntityClient.class, cacheConfig);
   }

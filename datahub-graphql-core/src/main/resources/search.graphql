@@ -748,6 +748,11 @@ type SearchAcrossLineageResult {
   explored: Boolean!
 
   """
+  Indicates this destination node has additional unexplored child relationships
+  """
+  truncatedChildren: Boolean!
+
+  """
   Whether this relationship was ignored as a hop
   """
   ignoredAsHop: Boolean!

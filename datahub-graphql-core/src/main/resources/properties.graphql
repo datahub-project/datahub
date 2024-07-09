@@ -3,6 +3,21 @@ extend type Mutation {
     Upsert structured properties onto a given asset
     """
     upsertStructuredProperties(input: UpsertStructuredPropertiesInput!): StructuredProperties!
+
+    """
+    Upsert structured properties onto a given asset
+    """
+    removeStructuredProperties(input: RemoveStructuredPropertiesInput!): StructuredProperties!
+
+    """
+    Create a new structured property
+    """
+    createStructuredProperty(input: CreateStructuredPropertyInput!): StructuredPropertyEntity!
+
+    """
+    Update an existing structured property
+    """
+    updateStructuredProperty(input: UpdateStructuredPropertyInput!): StructuredPropertyEntity!
 }
 
 """
@@ -75,6 +90,11 @@ type StructuredPropertyDefinition {
     Entity types that this structured property can be applied to
     """
     entityTypes: [EntityTypeEntity!]!
+
+    """
+    Whether or not this structured property is immutable
+    """
+    immutable: Boolean!
 }
 
 """
@@ -180,6 +200,21 @@ input UpsertStructuredPropertiesInput {
 }
 
 """
+Input for removing structured properties on a given asset
+"""
+input RemoveStructuredPropertiesInput {
+    """
+    The urn of the asset that we are removing properties from
+    """
+    assetUrn: String!
+
+    """
+    The list of structured properties you want to remove from this asset
+    """
+    structuredPropertyUrns: [String!]!
+}
+
+"""
 A data type registered in DataHub
 """
 type DataTypeEntity implements Entity {
@@ -262,4 +297,153 @@ type DataTypeInfo {
     The description of this type
     """
     description: String
+}
+
+"""
+Input for creating a new structured property entity
+"""
+input CreateStructuredPropertyInput {
+    """
+    (Advanced) An optional unique ID to use when creating the urn of this entity
+    """
+    id: String
+
+    """
+    The unique fully qualified name of this structured property, dot delimited.
+    """
+    qualifiedName: String!
+
+    """
+    The optional display name for this property
+    """
+    displayName: String
+
+    """
+    The optional description for this property
+    """
+    description: String
+
+    """
+    Whether the property will be mutable once it is applied or not. Default is false.
+    """
+    immutable: Boolean
+
+    """
+    The urn of the value type that this structured property accepts.
+    For example: urn:li:dataType:datahub.string or urn:li:dataType:datahub.date
+    """
+    valueType: String!
+
+    """
+    The optional input for specifying specific entity types as values
+    """
+    typeQualifier: TypeQualifierInput
+
+    """
+    The optional input for specifying a list of allowed values
+    """
+    allowedValues: [AllowedValueInput!]
+
+    """
+    The optional input for specifying if one or multiple values can be applied.
+    Default is one value (single cardinality)
+    """
+    cardinality: PropertyCardinality
+
+    """
+    The list of entity types that this property can be applied to.
+    For example: ["urn:li:entityType:datahub.dataset"]
+    """
+    entityTypes: [String!]!
+}
+
+"""
+Input for specifying specific entity types as values
+"""
+input TypeQualifierInput {
+    """
+    The list of allowed entity types as urns (ie. ["urn:li:entityType:datahub.corpuser"])
+    """
+    allowedTypes: [String!]
+}
+
+"""
+An input entry for an allowed value for a structured property
+"""
+input AllowedValueInput {
+    """
+    The allowed string value if the value is of type string
+    Either this or numberValue is required.
+    """
+    stringValue: String
+
+    """
+    The allowed number value if the value is of type number.
+    Either this or stringValue is required.
+    """
+    numberValue: Float
+
+    """
+    The description of this allowed value
+    """
+    description: String
+}
+
+"""
+Input for updating an existing structured property entity
+"""
+input UpdateStructuredPropertyInput {
+    """
+    The urn of the structured property being updated
+    """
+    urn: String!
+
+    """
+    The optional display name for this property
+    """
+    displayName: String
+
+    """
+    The optional description for this property
+    """
+    description: String
+
+    """
+    Whether the property will be mutable once it is applied or not. Default is false.
+    """
+    immutable: Boolean
+
+    """
+    The optional input for specifying specific entity types as values
+    """
+    typeQualifier: UpdateTypeQualifierInput
+
+    """
+    Append to the list of allowed values for this property.
+    For backwards compatibility, this is append only.
+    """
+    newAllowedValues: [AllowedValueInput!]
+
+    """
+    Set to true if you want to change the cardinality of this structured property
+    to multiple. Cannot change from multiple to single for backwards compatibility reasons.
+    """
+    setCardinalityAsMultiple: Boolean
+
+    """
+    Append to the list of entity types that this property can be applied to.
+    For backwards compatibility, this is append only.
+    """
+    newEntityTypes: [String!]
+}
+
+"""
+Input for updating specifying specific entity types as values
+"""
+input UpdateTypeQualifierInput {
+    """
+    Append to the list of allowed entity types as urns for this property (ie. ["urn:li:entityType:datahub.corpuser"])
+    For backwards compatibility, this is append only.
+    """
+    newAllowedTypes: [String!]
 }

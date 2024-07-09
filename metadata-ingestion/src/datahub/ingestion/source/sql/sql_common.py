@@ -21,7 +21,7 @@ from typing import (
 )
 
 import sqlalchemy.dialects.postgresql.base
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import LegacyRow
 from sqlalchemy.exc import ProgrammingError
@@ -128,8 +128,6 @@ if TYPE_CHECKING:
     )
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-MISSING_COLUMN_INFO = "missing column information"
 
 
 @dataclass
@@ -326,7 +324,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
     def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
-        super(SQLAlchemySource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
@@ -536,6 +534,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options.setdefault("echo", True)
+            # Patch to avoid duplicate logging
+            # Known issue with sqlalchemy https://stackoverflow.com/questions/60804288/pycharm-duplicated-log-for-sqlalchemy-echo-true
+            sqlalchemy_log._add_default_handler = lambda x: None  # type: ignore
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -918,7 +919,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.warn(logger, MISSING_COLUMN_INFO, dataset_name)
+                self.warn(logger, "missing column information", dataset_name)
         except Exception as e:
             self.warn(
                 logger,
@@ -1253,13 +1254,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 tables_seen.add(dataset_name)
             else:
                 logger.debug(f"{dataset_name} has already been seen, skipping...")
-                continue
-
-            missing_column_info_warn = self.report.warnings.get(MISSING_COLUMN_INFO)
-            if (
-                missing_column_info_warn is not None
-                and dataset_name in missing_column_info_warn
-            ):
                 continue
 
             (partition, custom_sql) = self.generate_partition_profiler_query(

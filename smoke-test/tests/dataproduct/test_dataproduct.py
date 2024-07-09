@@ -87,7 +87,7 @@ sleep_sec, sleep_times = get_sleep_info()
 
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(request):
-    new_file, filename = tempfile.mkstemp()
+    new_file, filename = tempfile.mkstemp(suffix=".json")
     try:
         create_test_data(filename)
         print("ingesting data products test data")

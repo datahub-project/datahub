@@ -2,10 +2,12 @@ package io.datahubproject.metadata.context;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
@@ -120,6 +122,24 @@ public class OperationContext {
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext) {
+    return asSystem(
+        config,
+        systemAuthentication,
+        entityRegistry,
+        servicesRegistryContext,
+        indexConvention,
+        retrieverContext,
+        ObjectMapperContext.DEFAULT);
+  }
+
+  public static OperationContext asSystem(
+      @Nonnull OperationContextConfig config,
+      @Nonnull Authentication systemAuthentication,
+      @Nullable EntityRegistry entityRegistry,
+      @Nullable ServicesRegistryContext servicesRegistryContext,
+      @Nullable IndexConvention indexConvention,
+      @Nullable RetrieverContext retrieverContext,
+      @Nonnull ObjectMapperContext objectMapperContext) {
 
     ActorContext systemActorContext =
         ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
@@ -139,6 +159,7 @@ public class OperationContext {
         // Authorizer.EMPTY doesn't actually apply to system auth
         .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
         .retrieverContext(retrieverContext)
+        .objectMapperContext(objectMapperContext)
         .build(systemAuthentication);
   }
 
@@ -152,6 +173,7 @@ public class OperationContext {
   @Nullable private final RequestContext requestContext;
   @Nullable private final ViewAuthorizationContext viewAuthorizationContext;
   @Nullable private final RetrieverContext retrieverContext;
+  @Nonnull private final ObjectMapperContext objectMapperContext;
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
@@ -264,6 +286,15 @@ public class OperationContext {
     return Optional.ofNullable(retrieverContext);
   }
 
+  @Nullable
+  public AspectRetriever getAspectRetriever() {
+    return getAspectRetrieverOpt().orElse(null);
+  }
+
+  public Optional<AspectRetriever> getAspectRetrieverOpt() {
+    return getRetrieverContext().map(RetrieverContext::getAspectRetriever);
+  }
+
   /**
    * Return a unique id for this context. Typically useful for building cache keys. We combine the
    * different context components to create a single string representation of the hashcode across
@@ -298,6 +329,7 @@ public class OperationContext {
                 getRetrieverContext().isPresent()
                     ? getRetrieverContext().get()
                     : EmptyContext.EMPTY)
+            .add(getObjectMapperContext())
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -360,6 +392,11 @@ public class OperationContext {
     return Optional.ofNullable(requestContext).map(RequestContext::getRequestID).orElse("");
   }
 
+  @Nonnull
+  public ObjectMapper getObjectMapper() {
+    return objectMapperContext.getObjectMapper();
+  }
+
   public static class OperationContextBuilder {
 
     @Nonnull
@@ -392,7 +429,10 @@ public class OperationContext {
           this.servicesRegistryContext,
           this.requestContext,
           this.viewAuthorizationContext,
-          this.retrieverContext);
+          this.retrieverContext,
+          this.objectMapperContext != null
+              ? this.objectMapperContext
+              : ObjectMapperContext.DEFAULT);
     }
 
     private OperationContext build() {

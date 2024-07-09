@@ -92,6 +92,11 @@ type PlatformPrivileges {
   manageTokens: Boolean!
 
   """
+  Whether the user is able to view Tests
+  """
+  viewTests: Boolean!
+
+  """
   Whether the user is able to manage Tests
   """
   manageTests: Boolean!
@@ -487,6 +492,11 @@ type FeatureFlagsConfig {
   Whether business attribute entity should be shown
   """
   businessAttributeEntityEnabled: Boolean!
+
+  """
+  Whether data contracts should be enabled
+  """
+  dataContractsEnabled: Boolean!
 }
 
 """

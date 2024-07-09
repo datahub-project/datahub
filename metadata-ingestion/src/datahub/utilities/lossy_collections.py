@@ -1,5 +1,5 @@
 import random
-from typing import Dict, Generic, Iterator, List, Set, TypeVar, Union
+from typing import Dict, Generic, Iterable, Iterator, List, Set, TypeVar, Union
 
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 
@@ -31,6 +31,10 @@ class LossyList(List[T], Generic[T]):
         finally:
             self.total_elements += 1
 
+    def extend(self, __iterable: Iterable[T]) -> None:
+        for item in __iterable:
+            self.append(item)
+
     def __len__(self) -> int:
         return self.total_elements
 
@@ -54,10 +58,18 @@ class LossyList(List[T], Generic[T]):
             return core_schema.no_info_after_validator_function(cls, handler(list))
 
     def as_obj(self) -> List[Union[T, str]]:
-        base_list: List[Union[T, str]] = list(self.__iter__())
+        from datahub.ingestion.api.report import Report
+
+        base_list: List[Union[T, str]] = [
+            Report.to_pure_python_obj(value) for value in list(self.__iter__())
+        ]
         if self.sampled:
             base_list.append(f"... sampled of {self.total_elements} total elements")
         return base_list
+
+    def set_total(self, total: int) -> None:
+        self.total_elements = total
+        self.sampled = self.total_elements > self.max_elements
 
 
 class LossySet(Set[T], Generic[T]):
@@ -141,8 +153,12 @@ class LossyDict(Dict[_KT, _VT], Generic[_KT, _VT]):
         if self.sampled:
             base_dict[
                 "sampled"
-            ] = f"{len(self.keys())} sampled of at most {self.max_elements + self._overflow} entries."
+            ] = f"{len(self.keys())} sampled of at most {self.total_key_count()} entries."
         return base_dict
+
+    def total_key_count(self) -> int:
+        """Returns the total number of keys that have been added to this dictionary."""
+        return super().__len__() + self._overflow
 
     def dropped_keys_count(self) -> int:
         """Returns the number of keys that have been dropped from this dictionary."""

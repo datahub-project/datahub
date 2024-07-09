@@ -84,7 +84,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
                   .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
                   .recordTemplate(dataPlatformInstance.get())
                   .auditStamp(aspectAuditStamp)
-                  .build(systemOperationContext.getRetrieverContext().get().getAspectRetriever()));
+                  .build(systemOperationContext.getAspectRetrieverOpt().get()));
         }
       }
 

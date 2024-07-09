@@ -12,8 +12,6 @@ from typing import (
     Union,
 )
 
-import boto3
-import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -42,6 +40,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
     classification_workunit_processor,
 )
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.dynamodb.data_reader import DynamoDBTableItemsReader
 from datahub.ingestion.source.schema_inference.object import SchemaDescription
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -93,12 +92,8 @@ class DynamoDBConfig(
     DatasetSourceConfigMixin,
     StatefulIngestionConfigBase,
     ClassificationSourceConfigMixin,
+    AwsSourceConfig,
 ):
-    # TODO: refactor the config to use AwsConnectionConfig and create a method get_dynamodb_client
-    # in the class to provide optional region name input
-    aws_access_key_id: str = Field(description="AWS Access Key ID.")
-    aws_secret_access_key: pydantic.SecretStr = Field(description="AWS Secret Key.")
-
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description="regex patterns for tables to filter to assign domain_key. ",
@@ -119,6 +114,10 @@ class DynamoDBConfig(
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    @property
+    def dynamodb_client(self):
+        return self.get_dynamodb_client()
 
 
 @dataclass
@@ -212,41 +211,27 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # This is a offline call to get available region names from botocore library
-        session = boto3.Session()
-        dynamodb_regions = session.get_available_regions("dynamodb")
-        logger.info(f"region names {dynamodb_regions}")
+        dynamodb_client = self.config.dynamodb_client
+        region = dynamodb_client.meta.region_name
 
-        # traverse databases in sorted order so output is consistent
-        for region in dynamodb_regions:
-            logger.info(f"Processing region {region}")
-            # create a new dynamodb client for each region,
-            # it seems for one client we could only list the table of one specific region,
-            # the list_tables() method don't take any config that related to region
-            dynamodb_client = boto3.client(
-                "dynamodb",
-                region_name=region,
-                aws_access_key_id=self.config.aws_access_key_id,
-                aws_secret_access_key=self.config.aws_secret_access_key.get_secret_value(),
+        data_reader = DynamoDBTableItemsReader.create(dynamodb_client)
+
+        for table_name in self._list_tables(dynamodb_client):
+            dataset_name = f"{region}.{table_name}"
+            if not self.config.table_pattern.allowed(dataset_name):
+                logger.debug(f"skipping table: {dataset_name}")
+                self.report.report_dropped(dataset_name)
+                continue
+
+            table_wu_generator = self._process_table(
+                region, dynamodb_client, table_name, dataset_name
             )
-            data_reader = DynamoDBTableItemsReader.create(dynamodb_client)
-
-            for table_name in self._list_tables(dynamodb_client):
-                dataset_name = f"{region}.{table_name}"
-                if not self.config.table_pattern.allowed(dataset_name):
-                    logger.debug(f"skipping table: {dataset_name}")
-                    self.report.report_dropped(dataset_name)
-                    continue
-
-                table_wu_generator = self._process_table(
-                    region, dynamodb_client, table_name, dataset_name
-                )
-                yield from classification_workunit_processor(
-                    table_wu_generator,
-                    self.classification_handler,
-                    data_reader,
-                    [region, table_name],
-                )
+            yield from classification_workunit_processor(
+                table_wu_generator,
+                self.classification_handler,
+                data_reader,
+                [region, table_name],
+            )
 
     def _process_table(
         self,
@@ -481,8 +466,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         if schema_size > MAX_SCHEMA_SIZE:
             # downsample the schema, using frequency as the sort key
             self.report.report_warning(
-                key=dataset_urn,
-                reason=f"Downsampling the table schema because MAX_SCHEMA_SIZE threshold is {MAX_SCHEMA_SIZE}",
+                title="Schema Size Too Large",
+                message=f"Downsampling the table schema because MAX_SCHEMA_SIZE threshold is {MAX_SCHEMA_SIZE}",
+                context=f"Collection: {dataset_urn}",
             )
 
             # Add this information to the custom properties so user can know they are looking at down sampled schema
@@ -550,7 +536,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         )
         if type_string is None:
             self.report.report_warning(
-                table_name, f"unable to map type {attribute_type} to native data type"
+                title="Unable to Map Attribute Type",
+                message=f"Unable to map type {attribute_type} to native data type",
+                context=f"Collection: {table_name}",
             )
             return _attribute_type_to_native_type_mapping[attribute_type]
         return type_string
@@ -565,8 +553,9 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
         if type_class is None:
             self.report.report_warning(
-                table_name,
-                f"unable to map type {attribute_type} to metadata schema field type",
+                title="Unable to Map Field Type",
+                message=f"Unable to map type {attribute_type} to metadata schema field type",
+                context=f"Collection: {table_name}",
             )
             type_class = NullTypeClass
         return SchemaFieldDataType(type=type_class())
