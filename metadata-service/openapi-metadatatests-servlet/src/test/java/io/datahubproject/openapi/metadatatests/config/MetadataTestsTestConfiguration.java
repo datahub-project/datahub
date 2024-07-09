@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -120,4 +121,5 @@ public class MetadataTestsTestConfiguration {
   @MockBean public RelationshipController relationshipsController;
   @MockBean public HealthCheckController healthCheckController;
   @MockBean public OperationsController operationsController;
+  @MockBean public TestEngine testEngine;
 }
