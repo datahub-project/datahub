@@ -158,6 +158,7 @@ class SnowflakeV2Source(
                         and self.config.include_tables
                         and self.config.include_views
                     )
+                    and not self.config.lazy_schema_resolver
                     else None
                 ),
                 generate_usage_statistics=False,

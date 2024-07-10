@@ -18,14 +18,14 @@ extend type Mutation {
     createForm(input: CreateFormInput!): Form!
 
     """
-    Update an existing form based on the input
-    """
-    updateForm(input: UpdateFormInput!): Form!
-
-    """
     Delete a given form
     """
     deleteForm(input: DeleteFormInput!): Boolean!
+
+    """
+    Update an existing form based on the input
+    """
+    updateForm(input: UpdateFormInput!): Form!
 }
 
 """

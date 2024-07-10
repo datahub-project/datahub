@@ -60,8 +60,8 @@ public class AspectTemplateEngine {
               CHART_INFO_ASPECT_NAME,
               DASHBOARD_INFO_ASPECT_NAME,
               STRUCTURED_PROPERTIES_ASPECT_NAME,
-              FORM_INFO_ASPECT_NAME,
-              STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+              STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+              FORM_INFO_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;

@@ -19,6 +19,11 @@ module.exports = {
       async: true,
       defer: true,
     },
+    {
+      src: "/scripts/rb2b.js",
+      async: true,
+      defer: true,
+    }
   ],
   noIndex: isSaas,
   customFields: {

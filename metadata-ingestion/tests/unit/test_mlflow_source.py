@@ -72,7 +72,7 @@ def test_stages(source):
         None,
     }
     workunits = source._get_tags_workunits()
-    names = [wu.get_metadata()["metadata"].aspect.name for wu in workunits]
+    names = [wu.metadata.aspect.name for wu in workunits]
 
     assert len(names) == len(mlflow_registered_model_stages)
     assert set(names) == {
@@ -100,7 +100,7 @@ def test_model_without_run(source, registered_model, model_version):
         model_version=model_version,
         run=run,
     )
-    aspect = wu.get_metadata()["metadata"].aspect
+    aspect = wu.metadata.aspect
 
     assert aspect.hyperParams is None
     assert aspect.trainingMetrics is None

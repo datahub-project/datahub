@@ -30,7 +30,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.goToIngestionPage();
     cy.get("#ingestion-create-source").click();
     cy.clickOptionWithText("Snowflake");
-    cy.waitTextVisible("Snowflake Recipe");
+    cy.waitTextVisible("Snowflake Details");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
     cy.get("#username").type(username);
@@ -41,7 +41,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.get("button").contains("Next").click();
     cy.waitTextVisible("Configure an Ingestion Schedule");
     cy.get("button").contains("Next").click();
-    cy.waitTextVisible("Give this ingestion source a name.");
+    cy.waitTextVisible("Give this data source a name");
     cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
     cy.get("button").contains("Save").click();
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000);
@@ -69,7 +69,7 @@ describe("managing secrets for ingestion creation", () => {
     // Verify secret is not present during ingestion source creation for password dropdown
     cy.clickOptionWithText("Create new source");
     cy.clickOptionWithText("Snowflake");
-    cy.waitTextVisible("Snowflake Recipe");
+    cy.waitTextVisible("Snowflake Details");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
     cy.get("#username").type(username);
@@ -90,7 +90,7 @@ describe("managing secrets for ingestion creation", () => {
     cy.get("button").contains("Next").click();
     cy.waitTextVisible("Configure an Ingestion Schedule");
     cy.get("button").contains("Next").click();
-    cy.waitTextVisible("Give this ingestion source a name.");
+    cy.waitTextVisible("Give this data source a name");
     cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
     cy.get("button").contains("Save").click();
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000); // prevent issue with missing form data

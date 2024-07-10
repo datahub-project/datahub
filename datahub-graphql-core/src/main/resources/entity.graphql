@@ -8522,6 +8522,7 @@ enum AssertionType {
     A schema or structural assertion.
     """
     DATA_SCHEMA
+
     """
     A custom assertion.
     """
@@ -13026,6 +13027,7 @@ input CreateDataProductPropertiesInput {
     description: String
 }
 
+
 """
 Input properties required for update a DataProduct
 """
@@ -13189,6 +13191,16 @@ input UpdateOwnershipTypeInput {
     The description of the Custom Ownership Type
     """
     description: String
+}
+
+"""
+A standardized type of a user
+"""
+type DataHubPersona {
+    """
+    The urn of the persona type
+    """
+    urn: String!
 }
 
 """

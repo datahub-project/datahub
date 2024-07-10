@@ -176,7 +176,7 @@ public class DatahubEventEmitter extends EventEmitter {
     AtomicLong maxEndTime = new AtomicLong();
     _datahubJobs.forEach(
         storedDatahubJob -> {
-          log.info("Merging job stored job {} to {}", storedDatahubJob, datahubJob);
+          log.info("Merging job stored job {} with {}", storedDatahubJob, datahubJob);
           DataJobUrn jobUrn =
               jobUrn(
                   storedDatahubJob.getFlowUrn(), storedDatahubJob.getFlowUrn().getFlowIdEntity());

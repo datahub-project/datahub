@@ -57,6 +57,7 @@ public class OpenAPIV3Generator {
   private static final String ASPECT_RESPONSE_SUFFIX = "Aspect" + RESPONSE_SUFFIX;
   private static final String ENTITY_REQUEST_SUFFIX = "Entity" + REQUEST_SUFFIX;
   private static final String ENTITY_RESPONSE_SUFFIX = "Entity" + RESPONSE_SUFFIX;
+  private static final String NAME_SKIP_CACHE = "skipCache";
 
   public static OpenAPI generateOpenApiSpec(EntityRegistry entityRegistry) {
     final Set<String> aspectNames = entityRegistry.getAspectSpecs().keySet();
@@ -106,6 +107,8 @@ public class OpenAPIV3Generator {
                   entityName + ENTITY_RESPONSE_SUFFIX, buildEntitySchema(e, aspectNames, true));
               components.addSchemas(
                   "Scroll" + entityName + ENTITY_RESPONSE_SUFFIX, buildEntityScrollSchema(e));
+              components.addSchemas(
+                  "BatchGet" + entityName + ENTITY_RESPONSE_SUFFIX, buildEntityBatchGetSchema(e));
             });
     // Parameters
     entityRegistry.getEntitySpecs().values().stream()
@@ -126,6 +129,9 @@ public class OpenAPIV3Generator {
               paths.addPathItem(
                   String.format("/v3/entity/%s", e.getName().toLowerCase()),
                   buildListEntityPath(e));
+              paths.addPathItem(
+                  String.format("/v3/entity/batch/%s", e.getName().toLowerCase()),
+                  buildBatchGetEntityPath(e));
               paths.addPathItem(
                   String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
                   buildSingleEntityPath(e));
@@ -249,8 +255,18 @@ public class OpenAPIV3Generator {
         List.of(
             new Parameter()
                 .in(NAME_QUERY)
-                .name("systemMetadata")
+                .name(NAME_SYSTEM_METADATA)
                 .description("Include systemMetadata with response.")
+                .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_INCLUDE_SOFT_DELETE)
+                .description("Include soft-deleted aspects with response.")
+                .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_SKIP_CACHE)
+                .description("Skip cache when listing entities.")
                 .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter()
                 .$ref(
@@ -345,6 +361,74 @@ public class OpenAPIV3Generator {
                 new ApiResponses()
                     .addApiResponse("200", apiCreateResponse)
                     .addApiResponse("202", apiCreateAsyncResponse)));
+
+    return result;
+  }
+
+  private static PathItem buildBatchGetEntityPath(final EntitySpec entity) {
+    final String upperFirst = toUpperFirst(entity.getName());
+    final PathItem result = new PathItem();
+    // Post Operation
+    final List<String> aspectNames =
+        entity.getAspectSpecs().stream()
+            .map(AspectSpec::getName)
+            .distinct()
+            .collect(Collectors.toList());
+    if (aspectNames.isEmpty()) {
+      aspectNames.add(entity.getKeyAspectName());
+    }
+    final Schema aspectNamesSchema =
+        new Schema()
+            .type(TYPE_ARRAY)
+            .description("List of aspect names to get")
+            .items(
+                new Schema()
+                    .type(TYPE_STRING)
+                    ._enum(aspectNames)
+                    ._default(aspectNames.stream().findFirst().orElse(null)));
+    final Content requestBatch =
+        new Content()
+            .addMediaType(
+                "application/json",
+                new MediaType()
+                    .schema(
+                        new Schema()
+                            .properties(
+                                Map.of(
+                                    "urns",
+                                        new Schema()
+                                            .type(TYPE_ARRAY)
+                                            .items(
+                                                new Schema()
+                                                    .type(TYPE_STRING)
+                                                    .description("List of urns to get")),
+                                    "aspectNames", aspectNamesSchema,
+                                    "withSystemMetadata",
+                                        new Schema().type(TYPE_BOOLEAN)._default(true)))));
+    final ApiResponse apiResponse =
+        new ApiResponse()
+            .description("Create a batch of " + entity.getName() + " entities.")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                new Schema<>()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/BatchGet%s%s",
+                                            upperFirst, ENTITY_RESPONSE_SUFFIX)))));
+    result.setPost(
+        new Operation()
+            .summary("Batch Get " + upperFirst + " entities.")
+            .tags(List.of(entity.getName() + " Entity"))
+            .requestBody(
+                new RequestBody()
+                    .description("Batch Get " + entity.getName() + " entities.")
+                    .required(true)
+                    .content(requestBatch))
+            .responses(new ApiResponses().addApiResponse("200", apiResponse)));
 
     return result;
   }
@@ -543,6 +627,27 @@ public class OpenAPIV3Generator {
                             String.format(
                                 "#/components/schemas/%s%s",
                                 toUpperFirst(entity.getName()), ENTITY_RESPONSE_SUFFIX))));
+  }
+
+  private static Schema buildEntityBatchGetSchema(final EntitySpec entity) {
+    return new Schema<>()
+        .type(TYPE_OBJECT)
+        .description("Batch get " + toUpperFirst(entity.getName()) + " objects.")
+        .required(List.of("entities"))
+        .addProperty(
+            "entities",
+            new Schema()
+                .properties(
+                    Map.of(
+                        "urn",
+                        new Schema().type(TYPE_STRING).description("Entity key urn"),
+                        "aspects",
+                        new Schema<>()
+                            .description(toUpperFirst(entity.getName()) + " object.")
+                            .$ref(
+                                String.format(
+                                    "#/components/schemas/%s%s",
+                                    toUpperFirst(entity.getName()), ENTITY_RESPONSE_SUFFIX)))));
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {

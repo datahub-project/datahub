@@ -214,7 +214,7 @@ public class EntitiesControllerTest {
             .build();
     datasetAspects.add(glossaryTerms);
 
-    _entitiesController.postEntities(datasetAspects, false, false, false);
+    _entitiesController.postEntities(null, datasetAspects, false, false, false);
   }
 
   //  @Test

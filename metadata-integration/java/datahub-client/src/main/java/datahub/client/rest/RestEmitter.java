@@ -35,6 +35,7 @@ import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
 import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
 import org.apache.hc.client5.http.async.methods.SimpleRequestBuilder;
 import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.config.TlsConfig;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
@@ -45,6 +46,7 @@ import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
+import org.apache.hc.core5.http2.HttpVersionPolicy;
 import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.TimeValue;
 
@@ -106,6 +108,14 @@ public class RestEmitter implements Emitter {
                   config.getTimeoutSec() * 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
               .build());
     }
+    PoolingAsyncClientConnectionManagerBuilder poolingAsyncClientConnectionManagerBuilder =
+        PoolingAsyncClientConnectionManagerBuilder.create();
+
+    // Forcing http 1.x as 2.0 is not supported yet
+    TlsConfig tlsHttp1Config =
+        TlsConfig.copy(TlsConfig.DEFAULT).setVersionPolicy(HttpVersionPolicy.FORCE_HTTP_1).build();
+    poolingAsyncClientConnectionManagerBuilder.setDefaultTlsConfig(tlsHttp1Config);
+
     if (config.isDisableSslVerification()) {
       try {
         SSLContext sslcontext =
@@ -115,15 +125,12 @@ public class RestEmitter implements Emitter {
                 .setSslContext(sslcontext)
                 .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
                 .build();
-
-        httpClientBuilder.setConnectionManager(
-            PoolingAsyncClientConnectionManagerBuilder.create()
-                .setTlsStrategy(tlsStrategy)
-                .build());
+        poolingAsyncClientConnectionManagerBuilder.setTlsStrategy(tlsStrategy);
       } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
         throw new RuntimeException("Error while creating insecure http client", e);
       }
     }
+    httpClientBuilder.setConnectionManager(poolingAsyncClientConnectionManagerBuilder.build());
 
     httpClientBuilder.setRetryStrategy(
         new DatahubHttpRequestRetryStrategy(

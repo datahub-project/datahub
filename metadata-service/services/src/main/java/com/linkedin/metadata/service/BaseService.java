@@ -20,9 +20,10 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
+import io.datahubproject.openapi.models.BatchGetUrnRequest;
+import io.datahubproject.openapi.models.BatchGetUrnResponse;
 import io.datahubproject.openapi.models.GenericEntity;
-import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
-import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
+import io.datahubproject.openapi.v2.models.GenericEntityV2;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -105,7 +106,7 @@ public class BaseService {
               .aspectNames(Collections.singletonList(aspectName))
               .withSystemMetadata(true)
               .build();
-      BatchGetUrnResponse response =
+      BatchGetUrnResponse<GenericEntityV2> response =
           openApiClient.getBatchUrns(
               entityUrns.stream().findFirst().get().getEntityType(),
               getUrnRequest,

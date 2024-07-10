@@ -132,7 +132,12 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       OperationContext opContext =
           OperationContext.asSession(
               systemOpContext,
-              RequestContext.builder().buildOpenapi("evaluateEntity", entityUrn.getEntityType()),
+              RequestContext.builder()
+                  .buildOpenapi(
+                      auth.getActor().toUrnStr(),
+                      getRequest().get(),
+                      "evaluateEntity",
+                      entityUrn.getEntityType()),
               authorizationChain,
               auth,
               true);
@@ -188,7 +193,12 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       OperationContext opContext =
           OperationContext.asSession(
               systemOpContext,
-              RequestContext.builder().buildOpenapi("evaluateTest", testUrn.getEntityType()),
+              RequestContext.builder()
+                  .buildOpenapi(
+                      auth.getActor().toUrnStr(),
+                      getRequest().get(),
+                      "evaluateTest",
+                      testUrn.getEntityType()),
               authorizationChain,
               auth,
               true);
@@ -456,23 +466,25 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
   @Override
   public ResponseEntity<List<TestEntityResponseV2>> create(
       List<TestEntityRequestV2> body, Boolean createIfNotExists, Boolean createEntityIfNotExists) {
-    return entityApiDelegate.create(body, createIfNotExists, createEntityIfNotExists);
+    return entityApiDelegate
+        .setRequest(getRequest().get())
+        .create(body, createIfNotExists, createEntityIfNotExists);
   }
 
   @Override
   public ResponseEntity<Void> delete(String urn) {
-    return entityApiDelegate.delete(urn);
+    return entityApiDelegate.setRequest(getRequest().get()).delete(urn);
   }
 
   @Override
   public ResponseEntity<TestEntityResponseV2> get(
       String urn, Boolean systemMetadata, List<String> aspects) {
-    return entityApiDelegate.get(urn, systemMetadata, aspects);
+    return entityApiDelegate.setRequest(getRequest().get()).get(urn, systemMetadata, aspects);
   }
 
   @Override
   public ResponseEntity<Void> head(String urn) {
-    return entityApiDelegate.head(urn);
+    return entityApiDelegate.setRequest(getRequest().get()).head(urn);
   }
 
   @Override
@@ -484,8 +496,9 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       List<String> sort,
       SortOrder sortOrder,
       String query) {
-    return entityApiDelegate.scroll(
-        systemMetadata, aspects, count, scrollId, sort, sortOrder, query);
+    return entityApiDelegate
+        .setRequest(getRequest().get())
+        .scroll(systemMetadata, aspects, count, scrollId, sort, sortOrder, query);
   }
 
   private static Optional<EnvelopedAspect> optionalEnvelopedAspect(

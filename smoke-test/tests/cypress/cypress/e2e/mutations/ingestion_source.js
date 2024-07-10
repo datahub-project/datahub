@@ -13,7 +13,7 @@ describe("ingestion source creation flow", () => {
     cy.goToIngestionPage();
     cy.clickOptionWithTestId("create-ingestion-source-button");
     cy.clickOptionWithText("Snowflake");
-    cy.waitTextVisible("Snowflake Recipe");
+    cy.waitTextVisible("Snowflake Details");
     cy.get("#account_id").type(accound_id);
     cy.get("#warehouse").type(warehouse_id);
     cy.get("#username").type(username);
@@ -34,7 +34,7 @@ describe("ingestion source creation flow", () => {
     cy.clickOptionWithTestId("recipe-builder-next-button");
     cy.waitTextVisible("Configure an Ingestion Schedule");
     cy.clickOptionWithTestId("ingestion-schedule-next-button");
-    cy.waitTextVisible("Give this ingestion source a name.");
+    cy.waitTextVisible("Give this data source a name");
     cy.get('[data-testid="source-name-input"]').type(ingestion_source_name);
     cy.clickOptionWithTestId("ingestion-source-save-button");
     cy.waitTextVisible("Successfully created ingestion source!").wait(5000);
@@ -47,7 +47,7 @@ describe("ingestion source creation flow", () => {
     cy.get('[data-testid="ingestion-source-table-edit-button"]')
       .first()
       .click();
-    cy.waitTextVisible("Edit Ingestion Source");
+    cy.waitTextVisible("Edit Data Source");
     cy.get("#account_id").should("have.value", accound_id);
     cy.get("#warehouse").should("have.value", warehouse_id);
     cy.get("#username").should("have.value", username);

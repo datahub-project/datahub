@@ -13,11 +13,17 @@ from deprecated import deprecated
 from requests.models import Response
 from requests.sessions import Session
 
+import datahub
 from datahub.cli import config_utils
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.metadata.schema_classes import _Aspect
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
+from datahub.metadata.schema_classes import SystemMetadataClass, _Aspect
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
@@ -522,6 +528,7 @@ def get_aspects_for_entity(
     aspects: List[str],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
+    details: bool = False,
 ) -> Dict[str, Union[dict, _Aspect]]:
     # Process non-timeseries aspects
     non_timeseries_aspects = [a for a in aspects if a not in TIMESERIES_ASPECT_MAP]
@@ -553,7 +560,12 @@ def get_aspects_for_entity(
             aspect_name
         )
 
-        aspect_dict = a["value"]
+        if details:
+            aspect_dict = a
+            for k in ["name", "version", "type"]:
+                del aspect_dict[k]
+        else:
+            aspect_dict = a["value"]
         if not typed:
             aspect_map[aspect_name] = aspect_dict
         elif aspect_py_class:
@@ -683,3 +695,18 @@ def generate_access_token(
     return token_name, response.json().get("data", {}).get("createAccessToken", {}).get(
         "accessToken", None
     )
+
+
+def ensure_has_system_metadata(
+    event: Union[
+        MetadataChangeProposal, MetadataChangeProposalWrapper, MetadataChangeEvent
+    ]
+) -> None:
+    if event.systemMetadata is None:
+        event.systemMetadata = SystemMetadataClass()
+    metadata = event.systemMetadata
+    if metadata.properties is None:
+        metadata.properties = {}
+    props = metadata.properties
+    props["clientId"] = datahub.__package_name__
+    props["clientVersion"] = datahub.__version__

@@ -68,6 +68,28 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     const { user } = userContext;
     const viewUrn = userContext.localState?.selectedViewUrn;
 
+    const { title, updateTitle } = useBrowserTitle();
+
+    useEffect(() => {
+        // Update the title only if it's not already set and there is a valid pathname
+        if (!title && location.pathname) {
+            const formattedPath = location.pathname
+                .split('/')
+                .filter((word) => word !== '')
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' | ');
+
+            if (formattedPath) {
+                return updateTitle(formattedPath);
+            }
+        }
+
+        // Clean up the title when the component unmounts
+        return () => {
+            updateTitle('');
+        };
+    }, [location.pathname, title, updateTitle]);
+
     useEffect(() => {
         if (suggestionsData !== undefined) {
             setNewSuggestionData(suggestionsData);

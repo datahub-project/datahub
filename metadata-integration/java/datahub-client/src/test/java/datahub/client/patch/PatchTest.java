@@ -656,6 +656,140 @@ public class PatchTest {
 
   @Test
   @Ignore
+  public void testLocalStructuredPropertyDefinitionAdd() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      StringArrayMap typeQualifier = new StringArrayMap();
+      typeQualifier.put(
+          "allowedTypes",
+          new StringArray(
+              "urn:li:entityType:datahub.corpuser", "urn:li:entityType:datahub.corpGroup"));
+      PropertyValue propertyValue1 = new PropertyValue();
+      PrimitivePropertyValue value1 = new PrimitivePropertyValue();
+      value1.setString("test value 1");
+      propertyValue1.setValue(value1);
+      PropertyValue propertyValue2 = new PropertyValue();
+      PrimitivePropertyValue value2 = new PrimitivePropertyValue();
+      value2.setString("test value 2");
+      propertyValue2.setValue(value2);
+
+      MetadataChangeProposal structuredPropertyDefinitionPatch =
+          new StructuredPropertyDefinitionPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:structuredProperty:123456"))
+              .setQualifiedName("test.testing.123")
+              .setDisplayName("Test Display Name")
+              .setValueType("urn:li:dataType:datahub.urn")
+              .setTypeQualifier(typeQualifier)
+              .addAllowedValue(propertyValue1)
+              .addAllowedValue(propertyValue2)
+              .setCardinality(PropertyCardinality.MULTIPLE)
+              .addEntityType("urn:li:entityType:datahub.dataFlow")
+              .setDescription("test description")
+              .setImmutable(true)
+              .build();
+
+      Future<MetadataWriteResponse> response = restEmitter.emit(structuredPropertyDefinitionPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalFormInfoAdd() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      FormPrompt newPrompt =
+          new FormPrompt()
+              .setId("1234")
+              .setTitle("First Prompt")
+              .setType(FormPromptType.STRUCTURED_PROPERTY)
+              .setRequired(true)
+              .setStructuredPropertyParams(
+                  new StructuredPropertyParams()
+                      .setUrn(UrnUtils.getUrn("urn:li:structuredProperty:property1")));
+      FormPrompt newPrompt2 =
+          new FormPrompt()
+              .setId("abcd")
+              .setTitle("Second Prompt")
+              .setType(FormPromptType.FIELDS_STRUCTURED_PROPERTY)
+              .setRequired(false)
+              .setStructuredPropertyParams(
+                  new StructuredPropertyParams()
+                      .setUrn(UrnUtils.getUrn("urn:li:structuredProperty:property1")));
+
+      MetadataChangeProposal formInfoPatch =
+          new FormInfoPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:form:123456"))
+              .addPrompts(List.of(newPrompt, newPrompt2))
+              .setName("Metadata Initiative 2024 (edited)")
+              .setDescription("Edited description")
+              .setOwnershipForm(true)
+              .addAssignedUser("urn:li:corpuser:admin")
+              .addAssignedGroup("urn:li:corpGroup:jdoe")
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(formInfoPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalStructuredPropertiesUpdate() {
+    try {
+      MetadataChangeProposal mcp =
+          new StructuredPropertiesPatchBuilder()
+              .urn(
+                  UrnUtils.getUrn(
+                      "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)"))
+              .setNumberProperty(
+                  UrnUtils.getUrn(
+                      "urn:li:structuredProperty:io.acryl.dataManagement.replicationSLA"),
+                  3456)
+              .build();
+
+      String token = "";
+      RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:8080").token(token));
+      Future<MetadataWriteResponse> response = emitter.emit(mcp, null);
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalFormInfoRemove() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      MetadataChangeProposal formInfoPatch =
+          new FormInfoPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:form:123456"))
+              .removePrompts(List.of("1234", "abcd"))
+              .setName("Metadata Initiative 2024 (edited - again)")
+              .setDescription(null)
+              .removeAssignedUser("urn:li:corpuser:admin")
+              .removeAssignedGroup("urn:li:corpGroup:jdoe")
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(formInfoPatch);
+
+      System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
   public void testLocalFormInfoAdd() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {

@@ -1,5 +1,5 @@
 export function downloadFile(data: string, title: string) {
-    const blobx = new Blob([data], { type: 'text/plain' }); // ! Blob
+    const blobx = new Blob([data], { type: 'text/plain;chartset=utf-8' }); // ! Blob
     const elemx = window.document.createElement('a');
     elemx.href = window.URL.createObjectURL(blobx); // ! createObjectURL
     elemx.download = title;

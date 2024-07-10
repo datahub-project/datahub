@@ -61,6 +61,23 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     const me = useUserContext();
     const isProfileOwner = me?.user?.urn === urn;
 
+    const { updateTitle } = useBrowserTitle();
+
+    useEffect(() => {
+        // You can use the title and updateTitle function here
+        // For example, updating the title when the component mounts
+        if (name) {
+            updateTitle(`User | ${name}`);
+        }
+        // // Don't forget to clean up the title when the component unmounts
+        return () => {
+            if (name) {
+                // added to condition for rerendering issue
+                updateTitle('');
+            }
+        };
+    }, [name, updateTitle]);
+
     const getEditModalData = {
         urn,
         name,
