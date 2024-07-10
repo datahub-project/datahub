@@ -340,7 +340,7 @@ log4j.logger.datahub.client.rest=DEBUG
 Use Java 8 to build the project. The project uses Gradle as the build tool. To build the project, run the following command:
 
 ```shell
-./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage-beta:shadowJar
+./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:acryl-spark-lineage:shadowJar
 ```
 ## Known limitations
 
@@ -352,10 +352,7 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ### Version 0.2.13
 - Silencing some chatty warnings in RddPathUtils
 
-### Version 0.2.12
-
-
-
+### Version 0.2.11
 - Add option to lowercase dataset URNs
 - Add option to set platform instance and/or env per platform with `spark.datahub.platform.<platform_name>.env` and `spark.datahub.platform.<platform_name>.platform_instance` config parameter
 - Fixing platform instance setting for datasets when `spark.datahub.metadata.dataset.platformInstance` is set

@@ -38,7 +38,7 @@ public class InsertIntoHadoopFsRelationVisitor
     OpenLineage.OutputDataset outputDataset;
 
     if (catalogTable.isEmpty()) {
-      DatasetIdentifier di = PathUtils.fromURI(command.outputPath().toUri(), "file");
+      DatasetIdentifier di = PathUtils.fromPath(command.outputPath());
       if (SaveMode.Overwrite == command.mode()) {
         outputDataset =
             outputDataset()
@@ -51,18 +51,24 @@ public class InsertIntoHadoopFsRelationVisitor
       }
       return Collections.singletonList(outputDataset);
     } else {
+
+      if (!context.getSparkSession().isPresent()) {
+        return Collections.emptyList();
+      }
+
       if (SaveMode.Overwrite == command.mode()) {
         return Collections.singletonList(
             outputDataset()
                 .getDataset(
-                    PathUtils.fromCatalogTable(catalogTable.get()),
+                    PathUtils.fromCatalogTable(catalogTable.get(), context.getSparkSession().get()),
                     catalogTable.get().schema(),
                     OpenLineage.LifecycleStateChangeDatasetFacet.LifecycleStateChange.CREATE));
       } else {
         return Collections.singletonList(
             outputDataset()
                 .getDataset(
-                    PathUtils.fromCatalogTable(catalogTable.get()), catalogTable.get().schema()));
+                    PathUtils.fromCatalogTable(catalogTable.get(), context.getSparkSession().get()),
+                    catalogTable.get().schema()));
       }
     }
   }
@@ -70,10 +76,18 @@ public class InsertIntoHadoopFsRelationVisitor
   @Override
   public Optional<String> jobNameSuffix(InsertIntoHadoopFsRelationCommand command) {
     if (command.catalogTable().isEmpty()) {
-      DatasetIdentifier di = PathUtils.fromURI(command.outputPath().toUri(), "file");
+      DatasetIdentifier di = PathUtils.fromPath(command.outputPath());
       return Optional.of(trimPath(di.getName()));
     }
+
+    if (!context.getSparkSession().isPresent()) {
+      return Optional.empty();
+    }
+
     return Optional.of(
-        trimPath(PathUtils.fromCatalogTable(command.catalogTable().get()).getName()));
+        trimPath(
+            PathUtils.fromCatalogTable(
+                    command.catalogTable().get(), context.getSparkSession().get())
+                .getName()));
   }
 }
