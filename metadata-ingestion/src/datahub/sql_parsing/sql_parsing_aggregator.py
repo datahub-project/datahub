@@ -218,11 +218,16 @@ class SqlAggregatorReport(Report):
     schema_resolver_count: Optional[int] = None
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
-    num_query_entities_generated: int = 0
+    num_queries_entities_generated: int = 0
+    num_lineage_skipped_due_to_filters: int = 0
 
     # Usage-related.
     usage_skipped_missing_timestamp: int = 0
     num_query_usage_stats_generated: int = 0
+
+    # Operation-related.
+    num_operations_generated: int = 0
+    num_operations_skipped_due_to_filters: int = 0
 
     def compute_stats(self) -> None:
         self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
@@ -245,11 +250,13 @@ class SqlParsingAggregator(Closeable):
         graph: Optional[DataHubGraph] = None,
         generate_lineage: bool = True,
         generate_queries: bool = True,
+        generate_query_subject_fields: bool = False,
         generate_usage_statistics: bool = False,
         generate_query_usage_statistics: bool = False,
         generate_operations: bool = False,
         usage_config: Optional[BaseUsageConfig] = None,
         is_temp_table: Optional[Callable[[UrnStr], bool]] = None,
+        is_allowed_table: Optional[Callable[[UrnStr], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
     ) -> None:
@@ -259,6 +266,7 @@ class SqlParsingAggregator(Closeable):
 
         self.generate_lineage = generate_lineage
         self.generate_queries = generate_queries
+        self.generate_query_subject_fields = generate_query_subject_fields
         self.generate_usage_statistics = generate_usage_statistics
         self.generate_query_usage_statistics = generate_query_usage_statistics
         self.generate_operations = generate_operations
@@ -274,7 +282,8 @@ class SqlParsingAggregator(Closeable):
         self.report = SqlAggregatorReport(_aggregator=self)
 
         # can be used by BQ where we have a "temp_table_dataset_prefix"
-        self.is_temp_table = is_temp_table
+        self._is_temp_table = is_temp_table
+        self._is_allowed_table = is_allowed_table
 
         self.format_queries = format_queries
         self.query_log = query_log
@@ -435,6 +444,18 @@ class SqlParsingAggregator(Closeable):
             with self.report.sql_formatting_timer:
                 return try_format_query(query, self.platform.platform_name)
         return query
+
+    def is_temp_table(self, urn: UrnStr) -> bool:
+        if self._is_temp_table is None:
+            return False
+        return self._is_temp_table(urn)
+
+    def is_allowed_table(self, urn: UrnStr) -> bool:
+        if self.is_temp_table(urn):
+            return False
+        if self._is_allowed_table is None:
+            return True
+        return self._is_allowed_table(urn)
 
     def add(
         self, item: Union[KnownQueryLineageInfo, KnownLineageMapping, PreparsedQuery]
@@ -691,8 +712,8 @@ class SqlParsingAggregator(Closeable):
         else:
             upstream_fields = parsed.column_usage or {}
             for upstream_urn in parsed.upstreams:
-                # If the upstream table is a temp table, don't log usage for it.
-                if (self.is_temp_table and self.is_temp_table(upstream_urn)) or (
+                # If the upstream table is a temp table or otherwise denied by filters, don't log usage for it.
+                if not self.is_allowed_table(upstream_urn) or (
                     require_out_table_schema
                     and not self._schema_resolver.has_urn(upstream_urn)
                 ):
@@ -753,7 +774,7 @@ class SqlParsingAggregator(Closeable):
             or (
                 not is_renamed_table
                 and (
-                    (self.is_temp_table and self.is_temp_table(out_table))
+                    self.is_temp_table(out_table)
                     or (
                         require_out_table_schema
                         and not self._schema_resolver.has_urn(out_table)
@@ -772,9 +793,10 @@ class SqlParsingAggregator(Closeable):
 
         else:
             # Non-temp tables immediately generate lineage.
-            self._lineage_map.for_mutation(out_table, OrderedSet()).add(
-                query_fingerprint
-            )
+            if self.is_allowed_table(out_table):
+                self._lineage_map.for_mutation(out_table, OrderedSet()).add(
+                    query_fingerprint
+                )
 
     def add_table_rename(
         self,
@@ -980,6 +1002,10 @@ class SqlParsingAggregator(Closeable):
 
         # Generate lineage and queries.
         for downstream_urn in sorted(self._lineage_map):
+            if not self.is_allowed_table(downstream_urn):
+                self.report.num_lineage_skipped_due_to_filters += 1
+                continue
+
             yield from self._gen_lineage_for_downstream(
                 downstream_urn, queries_generated=queries_generated
             )
@@ -1164,18 +1190,20 @@ class SqlParsingAggregator(Closeable):
         query_subject_urns: List[UrnStr] = []
         for upstream in query.upstreams:
             query_subject_urns.append(upstream)
-            for column in query.column_usage.get(upstream, []):
-                query_subject_urns.append(
-                    builder.make_schema_field_urn(upstream, column)
-                )
+            if self.generate_query_subject_fields:
+                for column in query.column_usage.get(upstream, []):
+                    query_subject_urns.append(
+                        builder.make_schema_field_urn(upstream, column)
+                    )
         if downstream_urn:
             query_subject_urns.append(downstream_urn)
-            for column_lineage in query.column_lineage:
-                query_subject_urns.append(
-                    builder.make_schema_field_urn(
-                        downstream_urn, column_lineage.downstream.column
+            if self.generate_query_subject_fields:
+                for column_lineage in query.column_lineage:
+                    query_subject_urns.append(
+                        builder.make_schema_field_urn(
+                            downstream_urn, column_lineage.downstream.column
+                        )
                     )
-                )
 
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=self._query_urn(query_id),
@@ -1200,7 +1228,7 @@ class SqlParsingAggregator(Closeable):
                 ),
             ],
         )
-        self.report.num_query_entities_generated += 1
+        self.report.num_queries_entities_generated += 1
 
         if self._query_usage_counts is not None:
             assert self.usage_config is not None
@@ -1407,6 +1435,11 @@ class SqlParsingAggregator(Closeable):
             # We don't generate operations for SELECTs.
             return
 
+        if not self.is_allowed_table(downstream_urn):
+            self.report.num_operations_skipped_due_to_filters += 1
+            return
+
+        self.report.num_operations_generated += 1
         aspect = models.OperationClass(
             timestampMillis=make_ts_millis(datetime.now(tz=timezone.utc)),
             operationType=operation_type,

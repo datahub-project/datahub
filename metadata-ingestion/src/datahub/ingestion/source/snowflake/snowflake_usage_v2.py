@@ -232,7 +232,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         logger.debug(f"Processing usage row number {results.rownumber}")
                         logger.debug(self.report.usage_aggregation.as_string())
 
-                    if not self._is_dataset_pattern_allowed(
+                    if not self.is_dataset_pattern_allowed(
                         row["OBJECT_NAME"],
                         row["OBJECT_DOMAIN"],
                     ):
@@ -561,7 +561,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
     def _is_object_valid(self, obj: Dict[str, Any]) -> bool:
         if self._is_unsupported_object_accessed(
             obj
-        ) or not self._is_dataset_pattern_allowed(
+        ) or not self.is_dataset_pattern_allowed(
             obj.get("objectName"), obj.get("objectDomain")
         ):
             return False

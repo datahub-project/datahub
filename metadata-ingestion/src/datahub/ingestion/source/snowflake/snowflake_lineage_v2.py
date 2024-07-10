@@ -422,7 +422,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                     )
                     if upstream_name and (
                         not self.config.validate_upstreams_against_patterns
-                        or self._is_dataset_pattern_allowed(
+                        or self.is_dataset_pattern_allowed(
                             upstream_name,
                             upstream_table.upstream_object_domain,
                         )
@@ -508,7 +508,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 and upstream_col.column_name
                 and (
                     not self.config.validate_upstreams_against_patterns
-                    or self._is_dataset_pattern_allowed(
+                    or self.is_dataset_pattern_allowed(
                         upstream_col.object_name,
                         upstream_col.object_domain,
                     )

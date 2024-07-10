@@ -105,7 +105,7 @@ class RedshiftSqlLineageV2:
             for schema, tables in schemas.items()
             for table in tables
         }
-        self.aggregator.is_temp_table = lambda urn: urn not in self.known_urns
+        self.aggregator._is_temp_table = lambda urn: urn not in self.known_urns
 
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:

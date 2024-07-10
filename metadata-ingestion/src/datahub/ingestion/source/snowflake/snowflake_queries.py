@@ -2,6 +2,7 @@ import functools
 import json
 import logging
 import pathlib
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -19,7 +20,9 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import (
+    DEFAULT_TABLES_DENY_LIST,
     SnowflakeFilterConfig,
     SnowflakeIdentifierConfig,
 )
@@ -58,7 +61,12 @@ class SnowflakeQueriesExtractorConfig(SnowflakeIdentifierConfig, SnowflakeFilter
     # TODO: make this a proper allow/deny pattern
     deny_usernames: List[str] = []
 
-    # TODO: support temporary_tables_pattern
+    temporary_tables_pattern: List[str] = pydantic.Field(
+        default=DEFAULT_TABLES_DENY_LIST,
+        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to "
+        "match the entire table name in database.schema.table format. Defaults are to set in such a way "
+        "to ignore the temporary staging tables created by known ETL tools.",
+    )
 
     local_temp_path: Optional[pathlib.Path] = pydantic.Field(
         default=None,
@@ -126,6 +134,8 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
                 # TODO make the rest of the fields configurable
             ),
             generate_operations=self.config.include_operations,
+            is_temp_table=self.is_temp_table,
+            is_allowed_table=self.is_allowed_table,
             format_queries=False,
         )
         self.report.sql_aggregator = self.aggregator.report
@@ -152,6 +162,14 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
         path.mkdir(parents=True, exist_ok=True)
         logger.info(f"Using local temp path: {path}")
         return path
+
+    def is_temp_table(self, name: str) -> bool:
+        return any(
+            re.match(pattern, name) for pattern in self.config.temporary_tables_pattern
+        )
+
+    def is_allowed_table(self, name: str) -> bool:
+        return self.is_dataset_pattern_allowed(name, SnowflakeObjectDomain.TABLE)
 
     def get_workunits_internal(
         self,

@@ -152,7 +152,7 @@ class SnowflakeFilterMixin(SnowflakeStructuredReportMixin):
     ) -> str:
         return f"{db_name}.{schema_name}.{table_name}"
 
-    def _is_dataset_pattern_allowed(
+    def is_dataset_pattern_allowed(
         self,
         dataset_name: Optional[str],
         dataset_type: Optional[str],
