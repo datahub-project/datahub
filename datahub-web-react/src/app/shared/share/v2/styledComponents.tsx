@@ -67,7 +67,8 @@ export const StyledButton = styled(Button)<{ $type?: string; $color?: string; $h
 
 export const StyledModal = styled(Modal)`
     font-family: Mulish;
-    max-width: 480px;
+    width: 580px !important;
+    max-width: 680px;
 
     &&& .ant-modal-content {
         background-color: #eeecfa;

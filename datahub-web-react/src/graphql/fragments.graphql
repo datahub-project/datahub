@@ -1474,6 +1474,54 @@ fragment entityDisplayNameFields on Entity {
     }
 }
 
+fragment entityPlatformFields on Entity {
+    ... on Dataset {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Dashboard {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Chart {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataFlow {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Container {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLFeatureTable {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLModel {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLModelGroup {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataPlatformInstance {
+        platform {
+            ...platformFields
+        }
+    }
+}
+
 fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
     name
     source {
@@ -1720,6 +1768,9 @@ fragment shareResultFields on ShareResult {
     }
     implicitShareEntity {
         urn
+        type
+        ...entityDisplayNameFields
+        ...entityPlatformFields
     }
     status
     message

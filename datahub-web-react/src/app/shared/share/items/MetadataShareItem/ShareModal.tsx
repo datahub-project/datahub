@@ -70,7 +70,8 @@ export const StyledContainer = styled.div`
 
 const ButtonContainer = styled.div`
     display: flex;
-    justify-content: center;
+    justify-content: end;
+    gap: 8px;
 
     .ant-btn {
         font-weight: 500;
@@ -216,29 +217,29 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
     };
 
     // Handle the mutation
-    const handleSubmit = () => {
-        if (selectedInstances) {
+    const handleSubmit = (instances, isResync) => {
+        if (instances) {
             message.loading('Sharing asset...');
             shareEntityMutation({
                 variables: {
                     input: {
                         entityUrn: urn,
-                        connectionUrns: selectedInstances,
-                        lineageDirection: shouldShareLineage ? ShareLineageDirection.Both : undefined,
+                        connectionUrns: instances,
+                        lineageDirection: !isResync && shouldShareLineage ? ShareLineageDirection.Both : undefined,
                     },
                 },
             })
                 .then(({ data, errors }) => {
                     message.destroy();
                     const shareResult = data?.shareEntity.share.lastShareResults.filter((result) =>
-                        selectedInstances.includes(result.destination?.urn || ''),
+                        instances.includes(result.destination?.urn || ''),
                     )[0];
                     if (!errors && !(shareResult?.status === ShareResultState.Failure)) {
                         analytics.event({
                             type: EventType.SharedEntityEvent,
                             entityType: EntityType.DatahubConnection,
                             entityUrn: urn,
-                            connectionUrns: selectedInstances,
+                            connectionUrns: instances,
                         });
                         if (shareResult?.status === ShareResultState.Success) {
                             message.success({
@@ -253,6 +254,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         }
                         form.resetFields();
                         setSelectedInstances([]);
+                        setSelectedInstancesToUnshare([]);
                         refetch();
                         closeModal();
                     } else {
@@ -269,7 +271,12 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
     const isLoading = loading && searchLoading;
     const isDisabled = isLoading || !selectedInstances.length;
     const filteredResults = lastShareResults?.filter(
-        (result) => !!result.lastSuccess?.time || result.status === ShareResultState.Running,
+        (result) =>
+            (!!result.lastSuccess?.time || result.status === ShareResultState.Running) && !result.implicitShareEntity,
+    );
+    const implicitShares = lastShareResults?.filter(
+        (result) =>
+            (!!result.lastSuccess?.time || result.status === ShareResultState.Running) && !!result.implicitShareEntity,
     );
 
     const handleClose = () => {
@@ -282,9 +289,10 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
         <Modal
             open={isModalVisible}
             onCancel={handleClose}
-            onOk={handleSubmit}
+            onOk={() => handleSubmit(selectedInstances, false)}
             okButtonProps={{ disabled: isDisabled }}
             title={<ModalTitle>Send to another instance</ModalTitle>}
+            width={550}
         >
             {filteredResults && filteredResults.length > 0 && (
                 <>
@@ -293,16 +301,32 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                             selectedInstancesToUnshare={selectedInstancesToUnshare}
                             setSelectedInstancesToUnshare={setSelectedInstancesToUnshare}
                             lastShareResults={filteredResults}
-                            showMore
                             showSelectMode
+                            isImplicitList={false}
                         />
                         {selectedInstancesToUnshare.length > 0 && (
                             <ButtonContainer>
                                 <Button type="primary" onClick={handleUnshare}>
                                     Unshare
                                 </Button>
+                                <Button onClick={() => handleSubmit(selectedInstancesToUnshare, true)}>Resync</Button>
                             </ButtonContainer>
                         )}
+                    </StyledContainer>
+                    <Divider />
+                </>
+            )}
+            {implicitShares && implicitShares.length > 0 && (
+                <>
+                    <StyledContainer>
+                        <SharedEntityInfo
+                            selectedInstancesToUnshare={selectedInstancesToUnshare}
+                            setSelectedInstancesToUnshare={setSelectedInstancesToUnshare}
+                            lastShareResults={implicitShares}
+                            showMore
+                            showSelectMode
+                            isImplicitList
+                        />
                     </StyledContainer>
                     <Divider />
                 </>

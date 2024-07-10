@@ -10,6 +10,8 @@ import SectionActionButton from '../SectionActionButton';
 import ShareModal from '../../../../../../shared/share/v2/items/MetadataShareItem/ShareModal';
 import SharingList from './SharingList';
 import { ShareResultState } from '../../../../../../../types.generated';
+import { REDESIGN_COLORS } from '../../../../constants';
+import SharedByInfo from './SharedByInfo';
 
 const SharingInfo = styled.div`
     margin: 5px 0;
@@ -24,6 +26,15 @@ const InfoText = styled(Typography.Text)`
     font-weight: 500;
 `;
 
+const Header = styled.div`
+    font-weight: 700;
+    margin-top: 10px;
+    font-size: 14px;
+    color: ${REDESIGN_COLORS.DARK_GREY};
+    display: flex;
+    align-items: center;
+`;
+
 const NumberText = styled(Typography.Text)`
     color: #5b6282;
     font-weight: 700;
@@ -35,8 +46,12 @@ const SharingAssetSection = () => {
     const lastShareResults = entityData?.share?.lastShareResults?.filter(
         (result) => !!result.lastSuccess?.time || result.status === ShareResultState.Running,
     );
-    const [isShareModalVisible, setIsShareModalVisible] = useState(false);
     const sortedResults = lastShareResults && sortSharedList(lastShareResults);
+    const directShares = sortedResults?.filter((result) => !result.implicitShareEntity);
+    const implicitShareResults = sortedResults?.filter((result) => !!result.implicitShareEntity);
+    const distinctInstances = new Set(lastShareResults?.map((result) => result.destination?.urn));
+
+    const [isShareModalVisible, setIsShareModalVisible] = useState(false);
 
     return (
         <>
@@ -47,10 +62,12 @@ const SharingAssetSection = () => {
                         sortedResults.length > 1 ? (
                             <SharingInfo>
                                 <InfoText> Shared with </InfoText>
-                                <NumberText>{`${sortedResults.length} Acryl ${pluralize(
-                                    sortedResults.length,
-                                    'Instance',
-                                )}`}</NumberText>
+                                <NumberText>
+                                    {`${distinctInstances.size} Acryl ${pluralize(distinctInstances.size, 'Instance')}`}
+                                    {implicitShareResults &&
+                                        implicitShareResults.length > 0 &&
+                                        `, ${implicitShareResults?.length} via Lineage`}
+                                </NumberText>
                             </SharingInfo>
                         ) : (
                             <SharingContainer>
@@ -60,7 +77,23 @@ const SharingAssetSection = () => {
                     }
                     collapsible={sortedResults.length !== 1}
                     expandedByDefault={sortedResults.length === 1}
-                    content={<>{sortedResults.length > 1 && <SharingList resultsList={sortedResults} />}</>}
+                    content={
+                        <>
+                            {sortedResults.length > 1 && directShares && directShares?.length > 0 && (
+                                <SharingList resultsList={directShares} />
+                            )}
+
+                            {sortedResults.length > 1 && implicitShareResults && implicitShareResults?.length > 0 && (
+                                <>
+                                    <Header>
+                                        Shared by &nbsp;
+                                        <SharedByInfo />
+                                    </Header>
+                                    <SharingList resultsList={implicitShareResults} />
+                                </>
+                            )}
+                        </>
+                    }
                     extra={
                         <>
                             <SectionActionButton

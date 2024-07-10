@@ -1,25 +1,21 @@
 import React, { useState } from 'react';
-import { Typography, Button, Tooltip, message, Checkbox } from 'antd';
-import { SyncOutlined, LoadingOutlined, PartitionOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { getShareResultStatus } from '@src/app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { Typography, Button, Tooltip, Checkbox } from 'antd';
+import { LoadingOutlined, PartitionOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
+import { Link } from 'react-router-dom';
+import SharedByInfo from '@src/app/shared/share/items/MetadataShareItem/SharedByInfo';
+import { getShareResultStatus } from '../../../../../entityV2/shared/containers/profile/sidebar/shared/utils';
 import { useEntityContext } from '../../../EntityContext';
 import { ANTD_GRAY } from '../../../constants';
 import { toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
 import { sortSharedList } from '../utils';
-import analytics, { EventType } from '../../../../../analytics';
-import { useShareEntityMutation } from '../../../../../../graphql/share.generated';
-import {
-    EntityType,
-    Maybe,
-    ShareLineageDirection,
-    ShareResult,
-    ShareResultState,
-} from '../../../../../../types.generated';
-import { StyledLabel } from '../../../../../entityV2/shared/containers/profile/sidebar/shared/styledComponents';
+import { ShareResult } from '../../../../../../types.generated';
 import StyledButton from '../../../components/styled/StyledButton';
 import { REDESIGN_COLORS } from '../../../../../entityV2/shared/constants';
 import useShareResultsPolling from '../../../../../entityV2/shared/containers/profile/sidebar/shared/useShareResultsPolling';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import PlatformIcon from '../../../../../sharedV2/icons/PlatformIcon';
 
 export const StyledContainer = styled.div`
     font-size: 11px;
@@ -56,8 +52,10 @@ const ButtonContainer = styled.div`
     justify-content: center;
 `;
 
-export const StyledTitle = styled(Typography.Title)<{ $color?: string }>`
-    text-wrap: balance;
+const StyledTitle = styled.div<{ $color?: string }>`
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 13px !important;
     margin-bottom: 0px !important;
 
@@ -71,6 +69,7 @@ const SharedWith = styled.div`
     display: flex;
     align-items: center;
     justify-content: flex-start;
+    gap: 8px;
 `;
 
 export const ResyncBytton = styled(Button)`
@@ -101,12 +100,29 @@ const StyledExclamation = styled(ExclamationCircleOutlined)`
     margin-right: 8px;
 `;
 
+const SectionLabel = styled.span`
+    font-size: 14px;
+    font-weight: 600;
+`;
+
+const SubText = styled.span`
+    font-size: 12px;
+    font-weight: 500;
+    color: ${ANTD_GRAY[7]};
+`;
+
+const LabelText = styled.div`
+    font-weight: 500;
+`;
+
 interface Props {
     lastShareResults: ShareResult[];
     selectedInstancesToUnshare?: string[];
     setSelectedInstancesToUnshare?: React.Dispatch<React.SetStateAction<string[]>>;
     showMore?: boolean;
     showSelectMode?: boolean;
+    isImplicitList?: boolean;
+    showOnSidebar?: boolean;
 }
 
 export const SharedEntityInfo = ({
@@ -115,65 +131,21 @@ export const SharedEntityInfo = ({
     setSelectedInstancesToUnshare,
     showMore = true,
     showSelectMode = false,
+    isImplicitList,
+    showOnSidebar,
 }: Props) => {
-    const { entityData, refetch } = useEntityContext();
-    const [shareEntityMutation] = useShareEntityMutation();
+    const { entityData } = useEntityContext();
+    const history = useHistory();
+    const entityRegistry = useEntityRegistry();
     useShareResultsPolling();
 
     const [shownCount, setShownCount] = useState(showMore ? 1 : 100);
-    const [entityLoading, setEntityLoading] = useState<string>();
 
     // Hide if no share result
     if (!lastShareResults || lastShareResults?.length === 0 || !lastShareResults[0]) return null;
 
-    // TODO (PRD-944): handle partial successes and have no need to filter these anymore
-    // filter results to get only those that have succeeded before or are in a RUNNING state
-    const filteredResults = lastShareResults.filter(
-        (result) => !!result.lastSuccess?.time || result.status === ShareResultState.Running,
-    );
-
     // Sort the list
-    const sortedResults = sortSharedList(filteredResults);
-
-    // Handle Resync
-    const handleSubmit = (connectionUrn: string, hasSharedLineage?: Maybe<boolean>) => {
-        setEntityLoading(connectionUrn);
-
-        if (entityData?.urn)
-            shareEntityMutation({
-                variables: {
-                    input: {
-                        entityUrn: entityData.urn,
-                        connectionUrn,
-                        lineageDirection: hasSharedLineage ? ShareLineageDirection.Both : undefined,
-                    },
-                },
-            })
-                .then(({ data, errors }) => {
-                    message.destroy();
-                    if (!errors && data?.shareEntity.succeeded) {
-                        analytics.event({
-                            type: EventType.SharedEntityEvent,
-                            entityType: EntityType.DatahubConnection,
-                            entityUrn: entityData.urn || '',
-                            connectionUrn,
-                        });
-                        message.success({
-                            content: `Shared entity!`,
-                            duration: 3,
-                        });
-                        refetch();
-                        setEntityLoading(undefined);
-                    } else {
-                        message.error({ content: `Failed to share entity`, duration: 3 });
-                    }
-                })
-                .catch((e) => {
-                    message.destroy();
-                    message.error({ content: `Failed to share entity!: \n ${e.message || ''}`, duration: 3 });
-                    setEntityLoading(undefined);
-                });
-    };
+    const sortedResults = sortSharedList(lastShareResults);
 
     const handleCheckboxChange = (instanceUrn: string) => {
         if (instanceUrn && setSelectedInstancesToUnshare) {
@@ -189,8 +161,24 @@ export const SharedEntityInfo = ({
         <>
             {showSelectMode && (
                 <HeaderContainer>
-                    <StyledLabel>Sharing with</StyledLabel>
-                    {selectedInstancesToUnshare.length > 0 && (
+                    <TitleContainer>
+                        <SectionLabel>
+                            {isImplicitList ? 'Shared by' : 'Sharing with'}{' '}
+                            {isImplicitList && (
+                                <>
+                                    {' '}
+                                    &nbsp;
+                                    <SharedByInfo />
+                                </>
+                            )}
+                        </SectionLabel>
+                        {isImplicitList && (
+                            <SubText>
+                                Assets shared with another asset can only be unshared from the original shared asset.
+                            </SubText>
+                        )}
+                    </TitleContainer>
+                    {!isImplicitList && selectedInstancesToUnshare.length > 0 && (
                         <ButtonContainer>
                             <StyledButton
                                 type="primary"
@@ -222,26 +210,38 @@ export const SharedEntityInfo = ({
                         ? { isInProgress: false, failed: false }
                         : getShareResultStatus(unshareResult);
                     const hasDestination = !!result.destination;
+                    const platform = (result as any)?.implicitShareEntity?.platform;
+                    const implicitShareEntity = (result as any)?.implicitShareEntity;
+                    const linkedEntityName = implicitShareEntity
+                        ? entityRegistry.getDisplayName(implicitShareEntity?.type, implicitShareEntity)
+                        : '';
+                    const linkedEntityUrl = implicitShareEntity
+                        ? entityRegistry.getEntityUrl(implicitShareEntity.type, implicitShareEntity.urn)
+                        : null;
                     return (
                         <StyledContainer>
                             <TitleContainer>
                                 <SharedWith>
-                                    <StyledTitle level={5} $color={hasDestination ? undefined : 'red'}>
-                                        Shared with&nbsp;
+                                    <StyledTitle $color={hasDestination ? undefined : 'red'}>
+                                        {isImplicitList && (
+                                            <>
+                                                <LabelText>Shared from:</LabelText>
+                                                <PlatformIcon platform={platform} size={14} />
+                                                <Link to={linkedEntityUrl}>{linkedEntityName}</Link>
+                                                <LabelText>to</LabelText>
+                                            </>
+                                        )}
+                                        {!isImplicitList && `Shared with `}
                                         <span>
                                             {name}
-                                            {hasSharedLineage && <SharedLineageIcon result={result} />}
+                                            {hasSharedLineage && !result.implicitShareEntity && (
+                                                <SharedLineageIcon result={result} />
+                                            )}
                                         </span>
                                     </StyledTitle>
                                     {hasDestination && (
-                                        <ResyncBytton
-                                            type="text"
-                                            shape="circle"
-                                            onClick={() =>
-                                                handleSubmit(result.destination?.urn || '', hasSharedLineage)
-                                            }
-                                        >
-                                            {entityLoading === result.destination?.urn || isSharing || isUnsharing ? (
+                                        <>
+                                            {isSharing || isUnsharing ? (
                                                 <Tooltip
                                                     title={isUnsharing ? 'Unsharing asset...' : 'Sharing asset...'}
                                                 >
@@ -260,29 +260,43 @@ export const SharedEntityInfo = ({
                                                             <StyledExclamation />
                                                         </Tooltip>
                                                     )}
-                                                    <Tooltip title="Sync entity">
-                                                        <SyncOutlined />
-                                                    </Tooltip>
                                                 </>
                                             )}
-                                        </ResyncBytton>
+                                        </>
                                     )}
                                 </SharedWith>
                                 {!!lastSuccessTime && <>last synced on {toLocalDateTimeString(lastSuccessTime)}</>}
                             </TitleContainer>
-                            {showSelectMode && !isSharing && !isUnsharing && (
+                            {!isImplicitList && showSelectMode && !isSharing && !isUnsharing && (
                                 <Checkbox
                                     checked={selectedInstancesToUnshare.includes(result.destination!.urn)}
                                     onChange={() => handleCheckboxChange(result.destination!.urn)}
                                 />
                             )}
+                            {!showOnSidebar &&
+                                isImplicitList &&
+                                result?.implicitShareEntity?.type &&
+                                result?.implicitShareEntity?.urn && (
+                                    <Button
+                                        onClick={() =>
+                                            history.push(
+                                                `${entityRegistry.getEntityUrl(
+                                                    result!.implicitShareEntity!.type,
+                                                    result!.implicitShareEntity!.urn,
+                                                )}/`,
+                                            )
+                                        }
+                                    >
+                                        View
+                                    </Button>
+                                )}
                         </StyledContainer>
                     );
                 })}
             </Instances>
-            {showMore && filteredResults.length > 1 && (
-                <ViewLink onClick={() => setShownCount(shownCount > 1 ? 1 : filteredResults.length)}>
-                    {shownCount > 1 ? 'View Less' : `View All (${filteredResults.length})`}
+            {showMore && sortedResults.length > 1 && (
+                <ViewLink onClick={() => setShownCount(shownCount > 1 ? 1 : sortedResults.length)}>
+                    {shownCount > 1 ? 'View Less' : `View All (${sortedResults.length})`}
                 </ViewLink>
             )}
         </>
