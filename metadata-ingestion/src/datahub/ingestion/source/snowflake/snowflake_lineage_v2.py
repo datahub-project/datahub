@@ -372,7 +372,10 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             start_time_millis=int(self.start_time.timestamp() * 1000),
             end_time_millis=int(self.end_time.timestamp() * 1000),
             upstreams_deny_pattern=self.config.temporary_tables_pattern,
-            include_view_lineage=self.config.include_view_lineage,
+            # The self.config.include_view_lineage setting is about fetching upstreams of views.
+            # We always generate lineage pointing at views from tables, even if self.config.include_view_lineage is False.
+            # TODO: Remove this `include_view_lineage` flag, since it's effectively dead code.
+            include_view_lineage=True,
             include_column_lineage=self.config.include_column_lineage,
         )
         try:
