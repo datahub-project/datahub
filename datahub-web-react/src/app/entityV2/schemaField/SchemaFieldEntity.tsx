@@ -1,19 +1,23 @@
+import * as React from 'react';
+
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { GlobalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { FetchedEntity } from '@app/lineage/types';
 import { useGetSchemaFieldQuery } from '@graphql/schemaField.generated';
-import * as React from 'react';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
 import { PartitionOutlined, PicCenterOutlined } from '@ant-design/icons';
 import { EntityType, SchemaFieldEntity as SchemaField, SearchResult } from '@types';
+
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 
+const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
 export class SchemaFieldEntity implements Entity<SchemaField> {
     type: EntityType = EntityType.SchemaField;
 
@@ -41,6 +45,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
             urn={urn}
             entityType={EntityType.SchemaField}
             useEntityQuery={useGetSchemaFieldQuery}
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: 'Lineage',
