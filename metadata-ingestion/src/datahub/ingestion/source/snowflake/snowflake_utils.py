@@ -1,16 +1,35 @@
+import abc
 from typing import ClassVar, Literal, Optional, Tuple
 
 from typing_extensions import Protocol
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
     SnowflakeCloudProvider,
     SnowflakeObjectDomain,
 )
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeFilterConfig,
+    SnowflakeV2Config,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+
+
+class SnowflakeStructuredReportMixin(abc.ABC):
+    @property
+    @abc.abstractmethod
+    def structured_reporter(self) -> SourceReport:
+        ...
+
+    # TODO: Eventually I want to deprecate these methods and use the structured_reporter directly.
+    def report_warning(self, key: str, reason: str) -> None:
+        self.structured_reporter.warning(key, reason)
+
+    def report_error(self, key: str, reason: str) -> None:
+        self.structured_reporter.failure(key, reason)
 
 
 # Required only for mypy, since we are using mixin classes, and not inheritance.
@@ -24,6 +43,9 @@ class SnowflakeCommonProtocol(Protocol):
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
+        ...
+
+    def cleanup_qualified_name(self, qualified_name: str) -> str:
         ...
 
     def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
@@ -63,7 +85,7 @@ class SnowsightUrlBuilder:
         cloud_region_id: str,
         cloud: str,
         privatelink: bool = False,
-    ) -> Optional[str]:
+    ) -> str:
         if cloud:
             url_cloud_provider_suffix = f".{cloud}"
 
@@ -117,17 +139,23 @@ class SnowsightUrlBuilder:
         return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
 
 
-class SnowflakeCommonMixin:
-    platform = "snowflake"
+class SnowflakeFilterMixin(SnowflakeStructuredReportMixin):
+    @property
+    @abc.abstractmethod
+    def filter_config(self) -> SnowflakeFilterConfig:
+        ...
+
+    @staticmethod
+    def _combine_identifier_parts(
+        table_name: str, schema_name: str, db_name: str
+    ) -> str:
+        return f"{db_name}.{schema_name}.{table_name}"
 
     def _is_dataset_pattern_allowed(
-        self: SnowflakeCommonProtocol,
+        self,
         dataset_name: Optional[str],
         dataset_type: Optional[str],
-        is_upstream: bool = False,
     ) -> bool:
-        if is_upstream and not self.config.validate_upstreams_against_patterns:
-            return True
         if not dataset_type or not dataset_name:
             return True
         dataset_params = dataset_name.split(".")
@@ -146,32 +174,64 @@ class SnowflakeCommonMixin:
             # NOTE: this case returned `True` earlier when extracting lineage
             return False
 
-        if not self.config.database_pattern.allowed(
+        if not self.filter_config.database_pattern.allowed(
             dataset_params[0].strip('"')
         ) or not is_schema_allowed(
-            self.config.schema_pattern,
+            self.filter_config.schema_pattern,
             dataset_params[1].strip('"'),
             dataset_params[0].strip('"'),
-            self.config.match_fully_qualified_names,
+            self.filter_config.match_fully_qualified_names,
         ):
             return False
 
         if dataset_type.lower() in {
             SnowflakeObjectDomain.TABLE
-        } and not self.config.table_pattern.allowed(
-            self.get_dataset_identifier_from_qualified_name(dataset_name)
+        } and not self.filter_config.table_pattern.allowed(
+            self.cleanup_qualified_name(dataset_name)
         ):
             return False
 
         if dataset_type.lower() in {
-            "view",
-            "materialized_view",
-        } and not self.config.view_pattern.allowed(
-            self.get_dataset_identifier_from_qualified_name(dataset_name)
+            SnowflakeObjectDomain.VIEW,
+            SnowflakeObjectDomain.MATERIALIZED_VIEW,
+        } and not self.filter_config.view_pattern.allowed(
+            self.cleanup_qualified_name(dataset_name)
         ):
             return False
 
         return True
+
+    # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
+    # For example "test-database"."test-schema".test_table
+    # whereas we generate urns without quotes even for quoted identifiers for backward compatibility
+    # and also unavailability of utility function to identify whether current table/schema/database
+    # name should be quoted in above method get_dataset_identifier
+    def cleanup_qualified_name(self, qualified_name: str) -> str:
+        name_parts = qualified_name.split(".")
+        if len(name_parts) != 3:
+            self.structured_reporter.report_warning(
+                title="Unexpected dataset pattern",
+                message="We failed to parse a Snowflake qualified name into its constituent parts. DB/schema/table filtering may not work as expected.",
+                context=f"{qualified_name} has {len(name_parts)} parts",
+            )
+            return qualified_name.replace('"', "")
+        return SnowflakeFilterMixin._combine_identifier_parts(
+            table_name=name_parts[2].strip('"'),
+            schema_name=name_parts[1].strip('"'),
+            db_name=name_parts[0].strip('"'),
+        )
+
+
+class SnowflakeCommonMixin(SnowflakeFilterMixin):
+    platform = "snowflake"
+
+    @property
+    def structured_reporter(self: SnowflakeCommonProtocol) -> SourceReport:
+        return self.report
+
+    @property
+    def filter_config(self: SnowflakeCommonProtocol) -> SnowflakeFilterConfig:
+        return self.config
 
     def snowflake_identifier(self: SnowflakeCommonProtocol, identifier: str) -> str:
         # to be in in sync with older connector, convert name to lowercase
@@ -202,26 +262,16 @@ class SnowflakeCommonMixin:
     def get_dataset_identifier(
         self: SnowflakeCommonProtocol, table_name: str, schema_name: str, db_name: str
     ) -> str:
-        return self.snowflake_identifier(f"{db_name}.{schema_name}.{table_name}")
+        return self.snowflake_identifier(
+            SnowflakeCommonMixin._combine_identifier_parts(
+                table_name=table_name, schema_name=schema_name, db_name=db_name
+            )
+        )
 
-    # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
-    # For example "test-database"."test-schema".test_table
-    # whereas we generate urns without quotes even for quoted identifiers for backward compatibility
-    # and also unavailability of utility function to identify whether current table/schema/database
-    # name should be quoted in above method get_dataset_identifier
     def get_dataset_identifier_from_qualified_name(
         self: SnowflakeCommonProtocol, qualified_name: str
     ) -> str:
-        name_parts = qualified_name.split(".")
-        if len(name_parts) != 3:
-            self.report.report_warning(
-                "invalid-dataset-pattern",
-                f"Found non-parseable {name_parts} for {qualified_name}",
-            )
-            return self.snowflake_identifier(qualified_name.replace('"', ""))
-        return self.get_dataset_identifier(
-            name_parts[2].strip('"'), name_parts[1].strip('"'), name_parts[0].strip('"')
-        )
+        return self.snowflake_identifier(self.cleanup_qualified_name(qualified_name))
 
     # Note - decide how to construct user urns.
     # Historically urns were created using part before @ from user's email.
@@ -253,9 +303,3 @@ class SnowflakeCommonMixin:
             self.report_warning(key, reason)
         else:
             self.report_error(key, reason)
-
-    def report_warning(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
-        self.report.warning(key, reason)
-
-    def report_error(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
-        self.report.failure(key, reason)

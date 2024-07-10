@@ -3,15 +3,13 @@ import logging
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional
 
-import pydantic
-
-from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import LowerCaseDatasetUrnConfigMixin
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeFilterConfig
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
@@ -28,29 +26,12 @@ from datahub.utilities.lossy_collections import LossyList
 
 
 class SnowflakeSummaryConfig(
-    SnowflakeConnectionConfig, BaseTimeWindowConfig, LowerCaseDatasetUrnConfigMixin
+    SnowflakeFilterConfig,
+    SnowflakeConnectionConfig,
+    BaseTimeWindowConfig,
+    LowerCaseDatasetUrnConfigMixin,
 ):
-
-    # Copied from SnowflakeConfig.
-    database_pattern: AllowDenyPattern = AllowDenyPattern(
-        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
-    )
-    schema_pattern: AllowDenyPattern = pydantic.Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for schemas to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
-    )
-    table_pattern: AllowDenyPattern = pydantic.Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in database.schema.table format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
-    )
-    view_pattern: AllowDenyPattern = pydantic.Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for views to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
-    )
-    match_fully_qualified_names: bool = pydantic.Field(
-        default=True,
-        description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
-    )
+    pass
 
 
 @dataclasses.dataclass

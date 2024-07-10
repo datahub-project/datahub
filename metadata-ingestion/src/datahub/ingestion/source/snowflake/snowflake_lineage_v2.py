@@ -420,10 +420,12 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                     upstream_name = self.get_dataset_identifier_from_qualified_name(
                         upstream_table.upstream_object_name
                     )
-                    if upstream_name and self._is_dataset_pattern_allowed(
-                        upstream_name,
-                        upstream_table.upstream_object_domain,
-                        is_upstream=True,
+                    if upstream_name and (
+                        not self.config.validate_upstreams_against_patterns
+                        or self._is_dataset_pattern_allowed(
+                            upstream_name,
+                            upstream_table.upstream_object_domain,
+                        )
                     ):
                         upstreams.append(self.dataset_urn_builder(upstream_name))
                 except Exception as e:
@@ -504,10 +506,12 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             if (
                 upstream_col.object_name
                 and upstream_col.column_name
-                and self._is_dataset_pattern_allowed(
-                    upstream_col.object_name,
-                    upstream_col.object_domain,
-                    is_upstream=True,
+                and (
+                    not self.config.validate_upstreams_against_patterns
+                    or self._is_dataset_pattern_allowed(
+                        upstream_col.object_name,
+                        upstream_col.object_domain,
+                    )
                 )
             ):
                 upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
