@@ -15,7 +15,6 @@ import {
     getParents,
     isQuery,
     isTransformational,
-    LINEAGE_FILTER_ID_PREFIX,
     LINEAGE_FILTER_PAGINATION,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
@@ -28,6 +27,7 @@ import {
     FineGrainedOperationRef,
     isUrnTransformational,
     parseColumnRef,
+    createLineageFilterNodeId,
 } from './common';
 import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from './lineageUtils';
 import NodeBuilder, { LineageVisualizationNode } from './NodeBuilder';
@@ -152,10 +152,9 @@ function applyFilters(
     const shownNodes = filteredChildren.slice(Math.max(0, filteredChildren.length - limit));
     const result: LineageNode[] = [];
     if (childrenToFilter.size > LINEAGE_FILTER_PAGINATION && (!node?.direction || node.direction === direction)) {
-        const dir = direction === LineageDirection.Upstream ? 'u:' : 'd:';
         const filterNode: LineageFilter = {
             // id starts with 's' so it is always sorted first, before urn:li:...
-            id: `${LINEAGE_FILTER_ID_PREFIX}${dir}${urn}`,
+            id: createLineageFilterNodeId(urn, direction),
             type: LINEAGE_FILTER_TYPE,
             parent: urn,
             direction,

@@ -71,6 +71,8 @@ export default class NodeBuilder {
 
     nodeHeight: number;
 
+    separationNodeHeight: number;
+
     transformationalOffset: number; // Offset transformation nodes, not sure why this is needed
 
     // Must set node layers in rough topological order
@@ -99,6 +101,9 @@ export default class NodeBuilder {
         this.nodeHeight = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_HEIGHT : LINEAGE_NODE_HEIGHT;
         this.nodeWidth = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_WIDTH : LINEAGE_NODE_WIDTH;
         this.transformationalOffset = (this.nodeHeight - 30) / 2;
+        // +15 accounts for column footer
+        this.separationNodeHeight = this.nodeHeight + (homeType === EntityType.SchemaField ? 15 : 0);
+
         this.isHomeTransformational = isTransformational({ urn: homeUrn, type: homeType });
         nodes.forEach((node) => {
             this.nodeInformation[node.id] = { urn: node.urn, type: node.type };
@@ -303,8 +308,8 @@ export default class NodeBuilder {
         sortedLayers.forEach((layer) => {
             const { mini } = parseLayer(layer);
             const nodeHeight = mini
-                ? this.nodeHeight * MINI_Y_SEP_RATIO + TRANSFORMATION_NODE_SIZE
-                : this.nodeHeight * MAIN_Y_SEP_RATIO + this.nodeHeight;
+                ? this.separationNodeHeight * MINI_Y_SEP_RATIO + TRANSFORMATION_NODE_SIZE
+                : this.separationNodeHeight * MAIN_Y_SEP_RATIO + this.separationNodeHeight;
             const nodes = this.layerNodes.get(layer) || new Set();
             const goalY: Record<string, number> = {};
 

@@ -13,14 +13,18 @@ import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EntityType, LineageDirection } from '@types';
-import { Skeleton, Spin } from 'antd';
+import { Skeleton, Spin, Tooltip } from 'antd';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
+import LinkOut from '@images/link-out.svg?react';
 
 export const SCHEMA_FIELD_NODE_HEIGHT = 40;
 export const SCHEMA_FIELD_NODE_WIDTH = 160;
 const NODE_COLOR = COLORS.blue_7;
+
+const LinkOutIcon = styled(LinkOut)``;
 
 const NodeWrapper = styled.div<{
     selected: boolean;
@@ -38,6 +42,16 @@ const NodeWrapper = styled.div<{
     overflow-y: hidden;
     width: ${SCHEMA_FIELD_NODE_WIDTH}px;
     cursor: pointer;
+
+    ${LinkOutIcon} {
+        display: none;
+    }
+
+    :hover {
+        ${LinkOutIcon} {
+            display: inline;
+        }
+    }
 `;
 
 const CARD_HEIGHT = SCHEMA_FIELD_NODE_HEIGHT - 2; // Inside border
@@ -103,6 +117,7 @@ const PlatformIcon = styled.img`
 const MainTextWrapper = styled.div`
     display: flex;
     flex-direction: column;
+    justify-content: center;
     flex-grow: 1;
     height: 100%;
     min-width: 0;
@@ -136,6 +151,16 @@ const StyledNodeSkeleton = styled(NodeSkeleton)`
 
 const ParentContainerPath = styled(ContainerPath)`
     font-size: 10px;
+`;
+
+const ColumnLinkWrapper = styled(Link)`
+    display: flex;
+    margin-left: auto;
+
+    color: inherit;
+    :hover {
+        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    }
 `;
 
 const SchemaFieldDrawer = styled.div<{
@@ -275,13 +300,25 @@ export default function SchemaFieldNodeContents({
                                                 baseUrl={entityRegistry.getEntityUrl(type, urn)}
                                             />
                                         )}
+                                        {parent.urn && (
+                                            <ColumnLinkWrapper
+                                                to={`${entityRegistry.getEntityUrl(parent.type, parent.urn)}/Lineage`}
+                                                onClick={(e) => e.stopPropagation()}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
+                                                    <LinkOutIcon />
+                                                </Tooltip>
+                                            </ColumnLinkWrapper>
+                                        )}
                                     </TitleWrapper>
                                 </Header>
                             )}
                         </MainTextWrapper>
                     )}
+                    {!entity && <StyledNodeSkeleton numRows={2} />}
                 </ParentWrapper>
-                {!entity && <StyledNodeSkeleton />}
                 {entity && (
                     <SchemaFieldDrawer selected={selected} color={NODE_COLOR}>
                         <Title title={entity.name} />

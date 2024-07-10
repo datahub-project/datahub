@@ -471,7 +471,7 @@ fragment entityLineage on Entity {
     }
 }
 
-fragment lineageV2ResultFields on EntityLineageResult {
+fragment lineageV2Result on EntityLineageResult {
     filtered
     total
     relationships {
@@ -489,6 +489,18 @@ fragment lineageV2ResultFields on EntityLineageResult {
     }
 }
 
+fragment lineageSchemaField on SchemaField {
+    fieldPath
+    type
+    nativeDataType
+    schemaFieldEntity {
+        lineageFeatures {
+            upstreamCount
+            downstreamCount
+        }
+    }
+}
+
 fragment entityLineageV2 on Entity {
     urn
     type
@@ -496,12 +508,19 @@ fragment entityLineageV2 on Entity {
     ...canEditLineageFragment
     ... on Dataset {
         schemaMetadata(version: 0) @include(if: $showColumns) {
-            ...schemaMetadataFields
+            fields {
+                ...lineageSchemaField
+            }
         }
     }
     ... on Chart {
         inputFields @include(if: $showColumns) {
-            ...inputFieldsFields
+            fields {
+                schemaFieldUrn
+                schemaField {
+                    ...lineageSchemaField
+                }
+            }
         }
     }
     ... on EntityWithRelationships {
@@ -515,7 +534,7 @@ fragment entityLineageV2 on Entity {
                 endTimeMillis: $endTimeMillis
             }
         ) @skip(if: $excludeUpstream) {
-            ...lineageV2ResultFields
+            ...lineageV2Result
         }
         downstream: lineage(
             input: {
@@ -527,7 +546,7 @@ fragment entityLineageV2 on Entity {
                 endTimeMillis: $endTimeMillis
             }
         ) @skip(if: $excludeDownstream) {
-            ...lineageV2ResultFields
+            ...lineageV2Result
         }
     }
     ... on SchemaFieldEntity {

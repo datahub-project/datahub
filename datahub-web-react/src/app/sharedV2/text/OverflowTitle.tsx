@@ -8,15 +8,14 @@ const Wrapper = styled.div<{ scale: number }>`
     max-height: 15px;
 
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: ${({ scale }) => (scale <= 0.5 ? 'normal' : 'nowrap')};
     word-break: break-all;
 `;
 
-const LINE_THRESHOLDS = [2, 6, Infinity]; // Series is [1*2, 2*3, 3*4, ...]
+const LINE_THRESHOLDS = [2, Infinity]; // Series is [1*2, 2*3, 3*4, ...]
 const MIN_SCALE = 1 / LINE_THRESHOLDS.length; // Minimum text size, in em
 const TOOLTIP_THRESHOLD = 0.75; // Show tooltip if text is smaller than TOOLTIP_THRESHOLD em
-const TRUNCATED_MAX_CHARACTERS = 150; // Truncate text to this many characters, if text overflows vertically
+const TRUNCATED_MAX_CHARACTERS = 75; // Truncate text to this many characters, if text overflows vertically
 
 interface Props {
     title?: string;
@@ -46,9 +45,7 @@ export default function OverflowTitle({ title, className, placement = 'top' }: P
                 if (scale === 1) {
                     setRatio(node.scrollWidth / node.clientWidth);
                 }
-                if (node.scrollHeight > node.clientHeight) {
-                    setTruncated(true);
-                }
+                setTruncated(node.scrollHeight > node.clientHeight);
             }
         },
         [scale],

@@ -24,13 +24,14 @@ const Wrapper = styled.div`
 `;
 
 interface Props {
+    numRows?: number;
     className?: string;
 }
 
-export default function NodeSkeleton({ className }: Props) {
+export default function NodeSkeleton({ numRows = 3, className }: Props) {
     return (
         <Wrapper className={className}>
-            <Skeleton active title={false} paragraph={{ rows: 3 }} />
+            <Skeleton active title={false} paragraph={{ rows: numRows }} />
         </Wrapper>
     );
 }

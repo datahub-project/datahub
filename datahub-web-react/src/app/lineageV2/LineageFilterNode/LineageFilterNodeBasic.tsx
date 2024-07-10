@@ -17,7 +17,7 @@ const NodeWrapper = styled.div`
     background-color: white;
     border: 1px solid ${LINEAGE_COLORS.NODE_BORDER};
     border-radius: 12px;
-    cursor: auto;
+    cursor: pointer;
     padding: 8px;
     width: ${LINEAGE_NODE_WIDTH}px;
 `;
@@ -86,7 +86,7 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     useAvoidIntersectionsOften(id, 52);
 
     return (
-        <NodeWrapper className="nodrag">
+        <NodeWrapper>
             <ExtraCard className="extra-card" bottom={-3} />
             <ExtraCard className="extra-card" bottom={-6} />
             <CustomHandle type="target" position={Position.Left} isConnectable={false} />

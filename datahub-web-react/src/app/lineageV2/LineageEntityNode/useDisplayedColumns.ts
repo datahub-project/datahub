@@ -1,5 +1,5 @@
 import { useContext, useMemo, useRef } from 'react';
-import { SchemaFieldDataType } from '../../../types.generated';
+import { SchemaFieldDataType } from '@types';
 import { createColumnRef, FineGrainedLineage, LineageDisplayContext } from '../common';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { ColumnAsset, FetchedEntityV2, LineageAssetType } from '../types';
@@ -12,6 +12,8 @@ type FieldPath = string;
 export interface LineageDisplayColumn {
     fieldPath: FieldPath;
     highlighted: boolean;
+    hasLineage: boolean;
+    connectedToHomeNode: boolean;
     type?: SchemaFieldDataType;
     nativeDataType?: string | null;
 }
@@ -91,51 +93,57 @@ function useComputeValues({
             };
         }
 
-        const fieldMap = new Map<string, ColumnAsset>();
-        entity.lineageAssets?.forEach((asset) => {
-            if (asset.type === LineageAssetType.Column) {
-                fieldMap.set(asset.name, asset);
-            }
-        });
         const columnHighlights = highlightedColumns.get(urn) || new Set<string>();
+        const columns = getDisplayColumns(urn, entity, columnHighlights, fineGrainedLineage);
 
-        function makeLineageDisplayColumn(fieldPath: string): LineageDisplayColumn {
-            return {
-                fieldPath,
-                highlighted: columnHighlights.has(fieldPath),
-                type: fieldMap.get(fieldPath)?.dataType,
-                nativeDataType: fieldMap.get(fieldPath)?.nativeDataType,
-            };
-        }
-
-        const fields = entity.lineageAssets?.map((asset) => asset.name) || [];
-        const withLineageFields = filterColumnsByLineage(fields, urn, fineGrainedLineage);
-        const filteredFields = filterColumnsByText(onlyWithLineage ? withLineageFields : fields, filterText);
-        const paginatedFields = filteredFields.slice(
+        const columnsWithLineage = columns.filter((field) => field.hasLineage);
+        const filteredColumns = filterColumnsByText(onlyWithLineage ? columnsWithLineage : columns, filterText);
+        const paginatedColumns = filteredColumns.slice(
             pageIndex * NUM_COLUMNS_PER_PAGE,
             pageIndex * NUM_COLUMNS_PER_PAGE + NUM_COLUMNS_PER_PAGE,
         );
-        const missingHighlightedFields = Array.from(columnHighlights).filter(
-            (field) => !showColumns || !paginatedFields.includes(field),
+        const paginatedFields = new Set(paginatedColumns.map((column) => column.fieldPath));
+        const extraHighlightedColumns = columns.filter(
+            (column) =>
+                columnHighlights.has(column.fieldPath) && (!showColumns || !paginatedFields.has(column.fieldPath)),
         );
         return {
-            paginatedColumns: paginatedFields.map(makeLineageDisplayColumn),
-            extraHighlightedColumns: missingHighlightedFields.map(makeLineageDisplayColumn),
-            numFilteredColumns: filteredFields.length,
-            numColumnsTotal: fields.length,
-            numColumnsWithLineage: withLineageFields.length,
+            paginatedColumns,
+            extraHighlightedColumns,
+            numFilteredColumns: filteredColumns.length,
+            numColumnsTotal: columns.length,
+            numColumnsWithLineage: columnsWithLineage.length,
         };
     }, [urn, entity, showColumns, pageIndex, filterText, highlightedColumns, onlyWithLineage, fineGrainedLineage]);
 }
 
-function filterColumnsByText(fields: FieldPath[], filterText: string): FieldPath[] {
-    const formattedFilterText = filterText.toLocaleLowerCase();
-    return fields?.filter((field) => field.toLocaleLowerCase().includes(formattedFilterText));
+function getDisplayColumns(
+    urn: string,
+    entity: FetchedEntityV2,
+    columnHighlights: Set<string>,
+    fineGrainedLineage: FineGrainedLineage,
+): LineageDisplayColumn[] {
+    if (!entity.lineageAssets) return [];
+
+    return entity.lineageAssets
+        .filter((asset): asset is ColumnAsset => asset.type === LineageAssetType.Column)
+        .map((columnAsset) => {
+            const columnRef = createColumnRef(urn, columnAsset.name);
+            const connectedToHomeNode =
+                fineGrainedLineage.upstream.has(columnRef) || fineGrainedLineage.downstream.has(columnRef);
+
+            return {
+                fieldPath: columnAsset.name,
+                type: columnAsset.dataType,
+                nativeDataType: columnAsset.nativeDataType,
+                highlighted: columnHighlights.has(columnAsset.name),
+                hasLineage: !!columnAsset.numUpstream || !!columnAsset.numDownstream || connectedToHomeNode,
+                connectedToHomeNode,
+            };
+        });
 }
 
-function filterColumnsByLineage(fields: FieldPath[], urn: string, fineGrainedLineage: FineGrainedLineage): FieldPath[] {
-    return fields.filter((fieldPath) => {
-        const columnRef = createColumnRef(urn, fieldPath);
-        return fineGrainedLineage.downstream.has(columnRef) || fineGrainedLineage.upstream.has(columnRef);
-    });
+function filterColumnsByText(fields: LineageDisplayColumn[], filterText: string): LineageDisplayColumn[] {
+    const formattedFilterText = filterText.toLocaleLowerCase();
+    return fields?.filter((field) => field.fieldPath.toLocaleLowerCase().includes(formattedFilterText));
 }
