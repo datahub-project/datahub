@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.v2.models;
+package io.datahubproject.openapi.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -13,8 +13,8 @@ import lombok.Value;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonDeserialize(builder = BatchGetUrnResponse.BatchGetUrnResponseBuilder.class)
-public class BatchGetUrnResponse implements Serializable {
+public class BatchGetUrnResponse<T extends GenericEntity> implements Serializable {
   @JsonProperty("entities")
   @Schema(description = "List of entity responses")
-  List<GenericEntityV2> entities;
+  List<T> entities;
 }

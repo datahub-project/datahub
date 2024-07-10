@@ -2,8 +2,8 @@ package io.datahubproject.openapi.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
-import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
+import io.datahubproject.openapi.models.BatchGetUrnRequest;
+import io.datahubproject.openapi.models.BatchGetUrnResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
