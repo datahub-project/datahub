@@ -83,6 +83,10 @@ const SidebarBody = styled.div`
     height: calc(100% - 47px);
     overflow: auto;
     white-space: nowrap;
+    /* Hide scrollbar altoghether for Chrome, Safari, and Opera */
+    &::-webkit-scrollbar {
+        display: none;
+    }
     scrollbar-gutter: stable;
     -moz-scrollbar-gutter: stable;
     -webkit-scrollbar-gutter: stable;
