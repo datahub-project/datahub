@@ -133,11 +133,18 @@ const PROPOSAL_NOTIFICATIONS = [
     },
 ];
 
-export const NOTIFICATION_GROUPS = [
+export const RECOMMENDED_PLATFORM_NOTIFICATIONS = [
     {
         title: 'Ingestion',
         notifications: INGESTION_NOTIFICATIONS,
     },
+    {
+        title: 'Proposals',
+        notifications: PROPOSAL_NOTIFICATIONS,
+    },
+];
+
+export const NON_RECOMMENDED_PLATFORM_NOTIFICATIONS = [
     {
         title: 'Changes',
         notifications: CHANGE_NOTIFICATIONS,
@@ -149,10 +156,6 @@ export const NOTIFICATION_GROUPS = [
     {
         title: 'Incidents',
         notifications: INCIDENT_NOTIFICATIONS,
-    },
-    {
-        title: 'Proposals',
-        notifications: PROPOSAL_NOTIFICATIONS,
     },
 ];
 

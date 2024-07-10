@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
-
 import styled from 'styled-components';
 import { Typography, Form, Input, Button, Space, Tooltip } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { useUserContext } from '@src/app/context/useUserContext';
 
 const InputDiv = styled.div`
+    width: 360px;
+`;
+
+const MessageDiv = styled.div`
+    margin-top: 5px;
     width: 360px;
 `;
 
@@ -24,18 +32,36 @@ const StyledButton = styled(Button)`
     background: #00615f;
 `;
 
+const StyledInfoCircleOutlined = styled(InfoCircleOutlined)<{ $isChannelUpdated: boolean }>`
+    margin-right: 5px;
+    color: ${(props) => (props.$isChannelUpdated ? REDESIGN_COLORS.RED_NORMAL : ANTD_GRAY[7])};
+`;
+
+const SlackChannelLabel = styled(Typography.Paragraph)`
+    margin-top: 5px;
+`;
+
+const SlackChannelLabelText = styled(Typography.Text)<{ $isChannelUpdated: boolean }>`
+    color: ${(props) => (props.$isChannelUpdated ? REDESIGN_COLORS.RED_NORMAL : ANTD_GRAY[7])};
+`;
+
 interface Props {
     isSlackEnabled?: boolean;
     channel?: string;
     onChange: (newChannel: string | undefined) => void;
+    botToken?: string;
 }
 
-export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange }: Props) => {
-    const [editing, setEditing] = useState<boolean>(isSlackEnabled && !channel?.length);
+export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botToken }: Props) => {
+    const [editing, setEditing] = useState<boolean>(isSlackEnabled);
     const [inputValue, setInputValue] = useState<string | undefined>(channel);
+    const [isChannelUpdated, setIsChannelUpdated] = useState<boolean>(false);
+    const me = useUserContext();
+    const isAdminAccess = me?.platformPrivileges?.manageGlobalSettings || false;
+    const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to setup the Slack integration.`;
 
     useEffect(() => {
-        setEditing(isSlackEnabled && !channel?.trim()?.length);
+        setEditing(isSlackEnabled);
     }, [channel, isSlackEnabled]);
 
     useEffect(() => {
@@ -44,13 +70,14 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange }: Pro
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setInputValue(e.target.value);
+        setIsChannelUpdated(e.target.value !== channel);
     };
 
     const onSave = async () => {
-        if (inputValue) {
-            onChange(inputValue);
-            setEditing(false);
-        }
+        const sanitizedValue = inputValue?.trim().replace(/^#+/, ''); // Remove leading # and trim spaces
+        onChange(sanitizedValue || '');
+        setEditing(false);
+        setIsChannelUpdated(false);
     };
 
     return (
@@ -92,17 +119,34 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange }: Pro
                                     }
                                 }}
                             />
-                            <StyledButton
-                                type="primary"
-                                onClick={onSave}
-                                disabled={!isSlackEnabled || !inputValue?.length}
-                            >
+                            <StyledButton type="primary" onClick={onSave} disabled={!isSlackEnabled}>
                                 Save
                             </StyledButton>
                         </>
                     )}
                 </Space>
+                {editing && (
+                    <Space direction="vertical">
+                        <SlackChannelLabel>
+                            <StyledInfoCircleOutlined $isChannelUpdated={isChannelUpdated} />
+                            <SlackChannelLabelText $isChannelUpdated={isChannelUpdated}>
+                                Please ensure the slack bot has been added to this channel
+                            </SlackChannelLabelText>
+                        </SlackChannelLabel>
+                    </Space>
+                )}
             </InputDiv>
+            {!botToken &&
+                (isAdminAccess ? (
+                    <MessageDiv>
+                        In order to enable,&nbsp;
+                        <Link to="/settings/integrations/slack" style={{ color: REDESIGN_COLORS.BLUE }}>
+                            click here to setup a Slack integration
+                        </Link>
+                    </MessageDiv>
+                ) : (
+                    <MessageDiv>{unsupportedSinkDescription}</MessageDiv>
+                ))}
         </Form.Item>
     );
 };

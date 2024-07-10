@@ -15,7 +15,7 @@ const InstructionsTitle = styled(Typography.Text)`
 `;
 
 const InstructionsSection = styled.div`
-    margin-top: 12px;
+    margin-bottom: 12px;
     font-size: 12px;
 `;
 
@@ -25,14 +25,10 @@ export const SlackInstructions = () => {
             title={
                 <>
                     <InfoCircleOutlined style={{ color: REDESIGN_COLORS.BLUE }} />
-                    <InstructionsTitle strong>Prerequisites</InstructionsTitle>
+                    <InstructionsTitle strong>What are these tokens for?</InstructionsTitle>
                 </>
             }
         >
-            <InstructionsSection>
-                Enabling the Slack integration requires that you either generate a Slack <b>App Configuration Token</b>{' '}
-                (recommended) or a Slack <b>Bot Token</b>.
-            </InstructionsSection>
             <InstructionsSection>
                 App Configuration Tokens allow DataHub to automatically connect to Slack upon a Slack admin&apos;s
                 approval. Instructions for generating an App Configuration Token can be found

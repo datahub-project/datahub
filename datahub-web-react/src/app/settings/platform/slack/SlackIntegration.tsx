@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { isEqual } from 'lodash';
 import { Button, Divider, Form, Input, message, Typography, Alert, Radio, Image } from 'antd';
+import { InfoCircleFilled } from '@ant-design/icons';
+import { green } from '@ant-design/colors';
+import { Link } from 'react-router-dom';
 import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
 import {
     useGetIntegrationSettingsQuery,
@@ -26,6 +29,7 @@ import {
 import { SlackInstructions } from './SlackInstructions';
 import analytics from '../../../analytics/analytics';
 import { EventType } from '../../../analytics';
+import { SlackIntegrationHint } from './SlackIntegrationHint';
 
 const Page = styled.div`
     width: 100%;
@@ -73,6 +77,20 @@ const PlatformLogo = styled(Image)`
     background-color: transparent;
 `;
 
+const InfoIcon = styled(InfoCircleFilled)`
+    color: ${green[6]};
+    margin-right: 8px;
+`;
+
+const GlobalNotificationsBanner = styled.div`
+    background-color: ${green[0]};
+    border-radius: 8px;
+    border: 1px solid ${green[6]};
+    padding: 8px 16px;
+    margin: 18px 0 25px;
+    font-size: 14px;
+`;
+
 export const SlackIntegration = () => {
     const [settings, setSettings] = useState<SlackIntegrationSettings>(DEFAULT_SETTINGS);
     const [connection, setConnection] = useState<SlackConnection>(DEFAULT_CONNECTION);
@@ -93,6 +111,10 @@ export const SlackIntegration = () => {
     useEffect(() => {
         if (slackConnData && connection === DEFAULT_CONNECTION) {
             setConnection(slackConnData);
+            // render bot token tab if there bot token and no app token
+            if (!slackConnData.appConfigToken && slackConnData.botToken) {
+                setSelectTypeValue(BOT_TOKEN_SELECT_ID);
+            }
         }
     }, [slackConnData, connection]);
 
@@ -169,6 +191,32 @@ export const SlackIntegration = () => {
         slackConnData?.botToken ||
         settings.botToken;
 
+    const getSlackButtonName = (): string => {
+        let slackButtonName = isConnected ? 'Re-connect to Slack' : 'Connect to Slack';
+        if (selectTypeValue === BOT_TOKEN_SELECT_ID && isConnected) {
+            slackButtonName = 'Update Configuration';
+        }
+        return slackButtonName;
+    };
+
+    const renderConnectionButton = (): JSX.Element => {
+        // disable slack button if there is no app & refresh token for only App config tab
+        const disableSlackButton =
+            selectTypeValue === APP_CONFIG_SELECT_ID &&
+            (!connection.appConfigToken || !connection.appConfigRefreshToken);
+
+        return (
+            <Button
+                onClick={() => updateSlackSettings()}
+                data-testid="connect-to-slack-button"
+                disabled={disableSlackButton}
+            >
+                <PlatformLogo preview={false} src={slackLogo} alt="slack-logo" />
+                {getSlackButtonName()}
+            </Button>
+        );
+    };
+
     return (
         <Page>
             <ContentContainer>
@@ -178,6 +226,15 @@ export const SlackIntegration = () => {
                 <Typography.Title level={3}>Slack</Typography.Title>
                 <Typography.Text type="secondary">Configure an integration with Slack</Typography.Text>
                 <Divider />
+                {isConnected ? (
+                    <GlobalNotificationsBanner>
+                        <InfoIcon />
+                        The Slack integration is ready! Now switch to the{' '}
+                        <Link to="/settings/notifications">Platform Notifications Tab</Link> to try it out.
+                    </GlobalNotificationsBanner>
+                ) : (
+                    <SlackIntegrationHint visible={!isConnected} />
+                )}
                 <Content>
                     <FormColumn>
                         <Form layout="vertical">
@@ -278,11 +335,7 @@ export const SlackIntegration = () => {
                                 </>
                             )}
                         </Form>
-
-                        <Button onClick={() => updateSlackSettings()} data-testid="connect-to-slack-button">
-                            <PlatformLogo preview={false} src={slackLogo} alt="slack-logo" />
-                            {isConnected ? 'Re-connect to Slack' : 'Connect to Slack'}
-                        </Button>
+                        {renderConnectionButton()}
                     </FormColumn>
                     <InstructionColumn>
                         <SlackInstructions />

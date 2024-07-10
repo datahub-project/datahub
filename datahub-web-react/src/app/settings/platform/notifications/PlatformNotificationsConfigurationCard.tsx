@@ -1,10 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { Divider, Typography, Card, Image, Alert } from 'antd';
+import { InfoCircleFilled } from '@ant-design/icons';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Message } from '../../../shared/Message';
 import { NotificationTypeOptionsButton } from './NotificationTypeOptionButton';
 import { PlatformNotificationOptionsModal } from './PlatformNotificationOptionsModal';
-import { NOTIFICATION_GROUPS, NOTIFICATION_SINKS, PlatformNotificationOptions } from '../types';
+import {
+    RECOMMENDED_PLATFORM_NOTIFICATIONS,
+    NON_RECOMMENDED_PLATFORM_NOTIFICATIONS,
+    NOTIFICATION_SINKS,
+    PlatformNotificationOptions,
+} from '../types';
 import { useUpdateGlobalNotificationSettingsMutation } from '../../../../graphql/settings.generated';
 import { GlobalSettings, NotificationScenarioType, StringMapEntry } from '../../../../types.generated';
 import { isSinkEnabled } from '../../utils';
@@ -31,7 +38,9 @@ const SettingsTitle = styled(Typography.Text)`
     font-size: 18px;
 `;
 
-const SettingsSection = styled.div``;
+const SettingsSection = styled.div`
+    margin-bottom: 15px;
+`;
 
 const OptionsPlaceholder = styled.div`
     width: 66px;
@@ -77,11 +86,36 @@ const NotificationSinkName = styled(Typography.Text)`
     }
 `;
 
+const GlobalNotificationsBanner = styled.div`
+    background: ${REDESIGN_COLORS.YELLOW_200};
+    border-radius: 8px;
+    border: 1px solid ${REDESIGN_COLORS.YELLOW_600};
+    padding: 8px 16px;
+    margin: 18px 0 25px;
+    font-size: 14px;
+    .anticon-info-circle {
+        color: ${REDESIGN_COLORS.YELLOW_600};
+    }
+`;
+
+const InfoIcon = styled(InfoCircleFilled)`
+    color: #7532a4;
+    margin-right: 8px;
+`;
+
 type Props = {
     loading: boolean;
     error: any;
     refetch: () => void;
     globalSettings?: Partial<GlobalSettings>;
+};
+
+type INotificationGroup = {
+    title: string;
+    notifications: {
+        type: NotificationScenarioType;
+        description: string;
+    }[];
 };
 
 export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading, error, refetch }: Props) => {
@@ -152,6 +186,38 @@ export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading
         (sink) => sink.options && isSinkEnabled(sink.id, globalSettings, config),
     );
 
+    const renderNotificationGroups = (notifications: INotificationGroup[]) => {
+        return notifications.map((group) => (
+            <span key={group.title}>
+                <SettingsSection>
+                    <Typography.Title level={5}>{group.title}</Typography.Title>
+                    {group.notifications.map((notif) => (
+                        <Setting key={notif.type}>
+                            <NotificationTypeDescription>{notif.description}</NotificationTypeDescription>
+                            <SettingValues>
+                                {NOTIFICATION_SINKS.map((sink) => (
+                                    <NotificationSettingValue
+                                        sink={sink}
+                                        notificationType={notif.type}
+                                        existingNotificationSettings={formattedNotificationSettings}
+                                        refetch={refetch}
+                                        globalSettings={globalSettings as GlobalSettings}
+                                        key={sink.id}
+                                    />
+                                ))}
+                                {(notificationOptionsEnabled && (
+                                    <NotificationTypeOptionsButton
+                                        onClick={() => openNotificationOptions(notif.type)}
+                                    />
+                                )) || <OptionsPlaceholder />}
+                            </SettingValues>
+                        </Setting>
+                    ))}
+                </SettingsSection>
+            </span>
+        ));
+    };
+
     return (
         <>
             {loading && (
@@ -172,36 +238,15 @@ export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading
                     </NotificationSinkHeaders>
                 </SettingsHeader>
                 <Divider />
-                {NOTIFICATION_GROUPS.map((group, index) => (
-                    <span key={group.title}>
-                        <SettingsSection>
-                            <Typography.Title level={5}>{group.title}</Typography.Title>
-                            {group.notifications.map((notif) => (
-                                <Setting key={notif.type}>
-                                    <NotificationTypeDescription>{notif.description}</NotificationTypeDescription>
-                                    <SettingValues>
-                                        {NOTIFICATION_SINKS.map((sink) => (
-                                            <NotificationSettingValue
-                                                sink={sink}
-                                                notificationType={notif.type}
-                                                existingNotificationSettings={formattedNotificationSettings}
-                                                refetch={refetch}
-                                                globalSettings={globalSettings as GlobalSettings}
-                                                key={sink.id}
-                                            />
-                                        ))}
-                                        {(notificationOptionsEnabled && (
-                                            <NotificationTypeOptionsButton
-                                                onClick={() => openNotificationOptions(notif.type)}
-                                            />
-                                        )) || <OptionsPlaceholder />}
-                                    </SettingValues>
-                                </Setting>
-                            ))}
-                        </SettingsSection>
-                        {index < NOTIFICATION_GROUPS.length - 1 && <Divider />}
-                    </span>
-                ))}
+                {renderNotificationGroups(RECOMMENDED_PLATFORM_NOTIFICATIONS)}
+                <Divider />
+
+                <GlobalNotificationsBanner>
+                    <InfoIcon />
+                    Subscribing to the below platform events could create a lot of noise in the channel you&apos;ve
+                    selected.
+                </GlobalNotificationsBanner>
+                {renderNotificationGroups(NON_RECOMMENDED_PLATFORM_NOTIFICATIONS)}
             </StyledCard>
             {focusedNotificationType && (
                 <PlatformNotificationOptionsModal

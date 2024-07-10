@@ -1,8 +1,10 @@
 import { MoreOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { Typography, Switch, Input, Button, Form } from 'antd';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../entity/shared/constants';
 import { SlackNotificationSettings, SlackNotificationSettingsInput } from '../../../../../types.generated';
 import { getSlackSettingsChannel } from '../../../../shared/subscribe/drawer/utils';
 
@@ -93,6 +95,7 @@ export const SlackSinkSettingsSection = ({
     const [editing, setIsEditing] = useState<boolean>(false);
     const [inputValue, setInputValue] = useState(channelOrUserId);
     const [form] = Form.useForm();
+    const me = useUserContext();
 
     form.setFieldsValue({ slackFormValue: inputValue });
 
@@ -105,12 +108,9 @@ export const SlackSinkSettingsSection = ({
         setInputValue(channelOrUserId);
     }, [channelOrUserId]);
 
-    const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
-    const supportedSinkDescription = `Receive Slack notifications for entities ${actorDescription} subscribed to at Slack ${
-        isPersonal ? 'member' : 'channel'
-    } ID: `;
-    const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to setup the Slack integration.`;
     const slackInputPlaceholder = isPersonal ? 'Slack Member ID' : 'Slack Channel ID';
+
+    const isAdminAccess = me?.platformPrivileges?.manageGlobalSettings || false;
 
     const saveSettings = () => {
         const input = isPersonal ? { userHandle: inputValue } : { channels: inputValue ? [inputValue] : [] };
@@ -133,13 +133,37 @@ export const SlackSinkSettingsSection = ({
         toggleSink(enabled);
     };
 
+    const renderSinkDescription = () => {
+        const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
+        const supportedSinkDescription = `Receive Slack notifications for entities ${actorDescription} subscribed to at Slack ${
+            isPersonal ? 'member' : 'channel'
+        } ID: `;
+        const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to setup the Slack integration.`;
+
+        let description = <>{supportedSinkDescription}</>;
+        if (!sinkSupported && isAdminAccess) {
+            description = (
+                <>
+                    In order to enable,&nbsp;
+                    <Link to="/settings/integrations/slack" style={{ color: REDESIGN_COLORS.BLUE }}>
+                        click here to setup a Slack integration
+                    </Link>
+                </>
+            );
+        }
+        if (!isAdminAccess) {
+            description = <>{unsupportedSinkDescription}</>;
+        }
+        return description;
+    };
+
     return (
         <SinkSettings>
             <Switch disabled={!sinkSupported} checked={sinkEnabled} onChange={onToggle} />
             <SinkTextContainer>
                 <SinkTitle strong>Slack Notifications</SinkTitle>
                 <SinkDescription>
-                    {sinkSupported ? supportedSinkDescription : unsupportedSinkDescription}
+                    {renderSinkDescription()}
                     {sinkSupported && <strong>{inputValue}</strong>}
                     {sinkEnabled && inputValue && !editing && (
                         <>
