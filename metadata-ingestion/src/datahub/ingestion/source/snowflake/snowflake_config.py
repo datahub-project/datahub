@@ -102,12 +102,12 @@ class SnowflakeIdentifierConfig(ConfigModel):
 
 
 class SnowflakeConfig(
+    SnowflakeFilterConfig,
+    SnowflakeIdentifierConfig,
+    # SnowflakeFilterConfig must come before (higher precedence) the SQLCommon config, so that the documentation overrides are applied.
     SnowflakeConnectionConfig,
     BaseTimeWindowConfig,
     SQLCommonConfig,
-    # SnowflakeFilterConfig must come after SQLCommon config, so that the documentation overrides are applied.
-    SnowflakeFilterConfig,
-    SnowflakeIdentifierConfig,
 ):
     include_table_lineage: bool = pydantic.Field(
         default=True,
