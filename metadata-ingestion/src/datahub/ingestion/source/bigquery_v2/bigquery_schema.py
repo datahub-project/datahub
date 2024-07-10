@@ -1,4 +1,5 @@
 import logging
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -24,9 +25,11 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryTableType,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
+SCHEMA_PARALLELISM = int(os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20))
 
 
 @dataclass
@@ -163,6 +166,7 @@ class BigQuerySchemaApi:
             return True
 
         with self.report.list_projects:
+            self.report.num_list_projects_api_requests += 1
             try:
                 # Bigquery API has limit in calling project.list request i.e. 2 request per second.
                 # https://cloud.google.com/bigquery/quotas#api_request_quotas
@@ -180,7 +184,7 @@ class BigQuerySchemaApi:
                     BigqueryProject(id=p.project_id, name=p.friendly_name)
                     for p in projects_iterator
                 ]
-                self.report.num_list_projects = len(projects)
+                self.report.num_listed_projects = len(projects)
                 return projects
             except Exception as e:
                 logger.error(f"Error getting projects. {e}", exc_info=True)
@@ -190,6 +194,7 @@ class BigQuerySchemaApi:
         self, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
         with self.report.list_datasets:
+            self.report.num_list_datasets_api_requests += 1
             datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
             return [
                 BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets
@@ -222,10 +227,12 @@ class BigQuerySchemaApi:
     def list_tables(
         self, dataset_name: str, project_id: str
     ) -> Iterator[TableListItem]:
-        with self.report.list_tables as current_timer:
+        with PerfTimer() as current_timer:
             for table in self.bq_client.list_tables(f"{project_id}.{dataset_name}"):
                 with current_timer.pause():
                     yield table
+            self.report.num_list_tables_api_requests += 1
+            self.report.list_tables_sec += current_timer.elapsed_seconds()
 
     def get_tables_for_dataset(
         self,
@@ -235,7 +242,7 @@ class BigQuerySchemaApi:
         with_data_read_permission: bool = False,
         report: Optional[BigQueryV2Report] = None,
     ) -> Iterator[BigqueryTable]:
-        with self.report.get_tables_for_dataset as current_timer:
+        with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables.keys())
 
             if with_data_read_permission:
@@ -284,6 +291,8 @@ class BigQuerySchemaApi:
                             "metadata-extraction",
                             f"Failed to get table {table_name}: {e}",
                         )
+            self.report.num_get_tables_for_dataset_api_requests += 1
+            self.report.get_tables_for_dataset_sec += current_timer.elapsed_seconds()
 
     @staticmethod
     def _make_bigquery_table(
@@ -332,7 +341,7 @@ class BigQuerySchemaApi:
         has_data_read: bool,
         report: BigQueryV2Report,
     ) -> Iterator[BigqueryView]:
-        with self.report.get_views_for_dataset as current_timer:
+        with PerfTimer() as current_timer:
             if has_data_read:
                 # If profiling is enabled
                 cur = self.get_query_result(
@@ -361,6 +370,8 @@ class BigQuerySchemaApi:
                         "metadata-extraction",
                         f"Failed to get view {view_name}: {e}",
                     )
+            self.report.num_get_views_for_dataset_api_requests += 1
+            self.report.get_views_for_dataset_sec += current_timer.elapsed_seconds()
 
     @staticmethod
     def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
@@ -445,7 +456,7 @@ class BigQuerySchemaApi:
         rate_limiter: Optional[RateLimiter] = None,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
-        with self.report.get_columns_for_dataset:
+        with PerfTimer() as timer:
             try:
                 cur = self.get_query_result(
                     (
@@ -468,43 +479,47 @@ class BigQuerySchemaApi:
 
             last_seen_table: str = ""
             for column in cur:
-                if (
-                    column_limit
-                    and column.table_name in columns
-                    and len(columns[column.table_name]) >= column_limit
-                ):
-                    if last_seen_table != column.table_name:
-                        logger.warning(
-                            f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
-                        )
-                        last_seen_table = column.table_name
-                else:
-                    columns[column.table_name].append(
-                        BigqueryColumn(
-                            name=column.column_name,
-                            ordinal_position=column.ordinal_position,
-                            field_path=column.field_path,
-                            is_nullable=column.is_nullable == "YES",
-                            data_type=column.data_type,
-                            comment=column.comment,
-                            is_partition_column=column.is_partitioning_column == "YES",
-                            cluster_column_position=column.clustering_ordinal_position,
-                            policy_tags=(
-                                list(
-                                    self.get_policy_tags_for_column(
-                                        project_id,
-                                        dataset_name,
-                                        column.table_name,
-                                        column.column_name,
-                                        report,
-                                        rate_limiter,
+                with timer.pause():
+                    if (
+                        column_limit
+                        and column.table_name in columns
+                        and len(columns[column.table_name]) >= column_limit
+                    ):
+                        if last_seen_table != column.table_name:
+                            logger.warning(
+                                f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                            )
+                            last_seen_table = column.table_name
+                    else:
+                        columns[column.table_name].append(
+                            BigqueryColumn(
+                                name=column.column_name,
+                                ordinal_position=column.ordinal_position,
+                                field_path=column.field_path,
+                                is_nullable=column.is_nullable == "YES",
+                                data_type=column.data_type,
+                                comment=column.comment,
+                                is_partition_column=column.is_partitioning_column
+                                == "YES",
+                                cluster_column_position=column.clustering_ordinal_position,
+                                policy_tags=(
+                                    list(
+                                        self.get_policy_tags_for_column(
+                                            project_id,
+                                            dataset_name,
+                                            column.table_name,
+                                            column.column_name,
+                                            report,
+                                            rate_limiter,
+                                        )
                                     )
-                                )
-                                if extract_policy_tags_from_catalog
-                                else []
-                            ),
+                                    if extract_policy_tags_from_catalog
+                                    else []
+                                ),
+                            )
                         )
-                    )
+            self.report.num_get_columns_for_dataset_api_requests += 1
+            self.report.get_columns_for_dataset_sec += timer.elapsed_seconds()
 
         return columns
 
@@ -554,7 +569,7 @@ class BigQuerySchemaApi:
         has_data_read: bool,
         report: BigQueryV2Report,
     ) -> Iterator[BigqueryTableSnapshot]:
-        with self.report.get_snapshots_for_dataset as current_timer:
+        with PerfTimer() as current_timer:
             if has_data_read:
                 # If profiling is enabled
                 cur = self.get_query_result(
@@ -583,6 +598,8 @@ class BigQuerySchemaApi:
                         "metadata-extraction",
                         f"Failed to get view {snapshot_name}: {e}",
                     )
+            self.report.num_get_snapshots_for_dataset_api_requests += 1
+            self.report.get_snapshots_for_dataset_sec += current_timer.elapsed_seconds()
 
     @staticmethod
     def _make_bigquery_table_snapshot(snapshot: bigquery.Row) -> BigqueryTableSnapshot:
