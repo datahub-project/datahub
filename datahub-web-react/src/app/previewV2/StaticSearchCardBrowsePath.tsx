@@ -4,11 +4,12 @@ import KeyboardArrowRightOutlinedIcon from '@mui/icons-material/KeyboardArrowRig
 
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { getSubTypeIcon } from '../entityV2/shared/components/subtypes';
-import { BrowsePathV2, EntityType, Maybe } from '../../types.generated';
+import { BrowsePathV2, Dataset, EntityType, Maybe } from '../../types.generated';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { useEntityRegistryV2 } from '../useEntityRegistry';
 import { IconStyleType } from '../entityV2/Entity';
 import ContainerLink from './SearchCardBrowsePathContainerLink';
+import { GenericEntityProperties } from '../entity/shared/types';
 
 const PlatformContentWrapper = styled.div`
     display: flex;
@@ -65,9 +66,10 @@ interface Props {
     type?: string;
     isCompactView?: boolean;
     browsePaths?: Maybe<BrowsePathV2> | undefined;
+    parentEntity?: Maybe<GenericEntityProperties> | undefined;
 }
 
-function StaticSearchCardBrowsePath({ browsePaths, entityType, type, isCompactView }: Props) {
+function StaticSearchCardBrowsePath({ browsePaths, entityType, type, isCompactView, parentEntity }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const paths = browsePaths?.path || [];
     const entityTypeIcon =
@@ -85,9 +87,15 @@ function StaticSearchCardBrowsePath({ browsePaths, entityType, type, isCompactVi
             <PlatformText $maxWidth={150} $isCompactView={isCompactView} title={capitalizeFirstLetter(type)}>
                 {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
                 <PlatFormTitle>{capitalizeFirstLetter(type)}</PlatFormTitle>
-                {paths.length > 0 && divider}
+                {(paths.length > 0 || parentEntity) && divider}
             </PlatformText>
-
+            {/* For parentEntity type */}
+            {parentEntity && (
+                <>
+                    <ContainerLink key={parentEntity.urn} container={parentEntity as Dataset} />
+                    {paths.length > 0 && divider}
+                </>
+            )}
             {/* Render the paths if they exist */}
             {browsePaths &&
                 paths.map((path: any, key: number) => {
