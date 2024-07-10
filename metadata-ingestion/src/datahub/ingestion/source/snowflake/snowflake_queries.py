@@ -10,21 +10,21 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import pydantic
 from typing_extensions import Self
 
-from datahub.configuration.source_common import (
-    EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
-    PlatformInstanceConfigMixin,
-)
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
 )
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeFilterConfig,
+    SnowflakeIdentifierConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
     SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
@@ -51,11 +51,7 @@ from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBac
 logger = logging.getLogger(__name__)
 
 
-class SnowflakeQueriesConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
-):
-    connection: SnowflakeConnectionConfig
-
+class SnowflakeQueriesExtractorConfig(SnowflakeIdentifierConfig, SnowflakeFilterConfig):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
@@ -64,8 +60,13 @@ class SnowflakeQueriesConfig(
 
     # TODO: support temporary_tables_pattern
 
-    local_temp_path: Optional[pathlib.Path] = None
-    # TODO: support copying files to s3
+    local_temp_path: Optional[pathlib.Path] = pydantic.Field(
+        default=None,
+        description="Local path to store the audit log.",
+        # TODO: For now, this is simply an advanced config to make local testing easier.
+        # Eventually, we will want to store date-specific files in the directory and use it as a cache.
+        hidden_from_docs=True,
+    )
 
     convert_urns_to_lowercase: bool = pydantic.Field(
         # Override the default.
@@ -80,26 +81,34 @@ class SnowflakeQueriesConfig(
     include_operations: bool = True
 
 
+class SnowflakeQueriesSourceConfig(SnowflakeQueriesExtractorConfig):
+    connection: SnowflakeConnectionConfig
+
+
 @dataclass
-class SnowflakeQueriesReport(SourceReport):
+class SnowflakeQueriesExtractorReport(Report):
     window: Optional[BaseTimeWindowConfig] = None
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
 
+@dataclass
+class SnowflakeQueriesSourceReport(SourceReport):
+    queries_extractor: Optional[SnowflakeQueriesExtractorReport] = None
+
+
 class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
-    def __init__(self, config: SnowflakeQueriesConfig, report: SnowflakeQueriesReport):
+    def __init__(
+        self,
+        connection: SnowflakeConnection,
+        config: SnowflakeQueriesExtractorConfig,
+        structured_report: SourceReport,
+    ):
+        self.connection = connection
+
         self.config = config
-        self.report = report
-
-
-class SnowflakeQueriesSource(Source):
-    def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesConfig):
-        self.ctx = ctx
-        self.config = config
-        self.report = SnowflakeQueriesReport()
-
-        self.platform = "snowflake"
+        self.report = SnowflakeQueriesExtractorReport()
+        self._structured_report = structured_report
 
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
@@ -121,10 +130,17 @@ class SnowflakeQueriesSource(Source):
         )
         self.report.sql_aggregator = self.aggregator.report
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
-        config = SnowflakeQueriesConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+    @property
+    def structured_reporter(self) -> SourceReport:
+        return self._structured_report
+
+    @property
+    def filter_config(self) -> SnowflakeFilterConfig:
+        return self.config
+
+    @property
+    def identifier_config(self) -> SnowflakeIdentifierConfig:
+        return self.config
 
     @functools.cached_property
     def local_temp_path(self) -> pathlib.Path:
@@ -146,6 +162,7 @@ class SnowflakeQueriesSource(Source):
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
 
+        queries: FileBackedList[Union[KnownLineageMapping, PreparsedQuery]]
         if use_cached_audit_log:
             logger.info("Using cached audit log")
             shared_connection = ConnectionWrapper(audit_log_file)
@@ -202,8 +219,7 @@ class SnowflakeQueriesSource(Source):
             deny_usernames=self.config.deny_usernames,
         )
 
-        conn = self.config.connection.get_connection()
-        resp = conn.query(audit_log_query)
+        resp = self.connection.query(audit_log_query)
 
         for i, row in enumerate(resp):
             if i % 1000 == 0:
@@ -213,21 +229,17 @@ class SnowflakeQueriesSource(Source):
             try:
                 entry = self._parse_audit_log_response(row)
             except Exception as e:
-                self.report.warning(
+                self.structured_reporter.warning(
                     "Error parsing audit log row",
-                    context=f"{e}",
+                    context=f"{row}",
                     exc=e,
                 )
             else:
                 yield entry
 
-    def gen_dataset_urn(self, dataset_identifier: str) -> str:
-        return make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=dataset_identifier,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
+        # Copied from SnowflakeCommonMixin.
+        return self.snowflake_identifier(self.cleanup_qualified_name(qualified_name))
 
     def _parse_audit_log_response(self, row: Dict[str, Any]) -> PreparsedQuery:
         json_fields = {
@@ -249,7 +261,9 @@ class SnowflakeQueriesSource(Source):
         column_usage = {}
 
         for obj in direct_objects_accessed:
-            dataset = self.gen_dataset_urn(self.snowflake_identifier(obj["objectName"]))
+            dataset = self.gen_dataset_urn(
+                self.get_dataset_identifier_from_qualified_name(obj["objectName"])
+            )
 
             columns = set()
             for modified_column in obj["columns"]:
@@ -265,7 +279,7 @@ class SnowflakeQueriesSource(Source):
             # TODO: Warn if that happens.
 
             downstream = self.gen_dataset_urn(
-                self.snowflake_identifier(obj["objectName"])
+                self.get_dataset_identifier_from_qualified_name(obj["objectName"])
             )
             column_lineage = []
             for modified_column in obj["columns"]:
@@ -280,7 +294,9 @@ class SnowflakeQueriesSource(Source):
                         upstreams=[
                             ColumnRef(
                                 table=self.gen_dataset_urn(
-                                    self.snowflake_identifier(upstream["objectName"])
+                                    self.get_dataset_identifier_from_qualified_name(
+                                        upstream["objectName"]
+                                    )
                                 ),
                                 column=self.snowflake_identifier(
                                     upstream["columnName"]
@@ -325,7 +341,34 @@ class SnowflakeQueriesSource(Source):
         )
         return entry
 
-    def get_report(self) -> SnowflakeQueriesReport:
+
+class SnowflakeQueriesSource(Source):
+    def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesSourceConfig):
+        self.ctx = ctx
+        self.config = config
+        self.report = SnowflakeQueriesSourceReport()
+
+        self.platform = "snowflake"
+
+        self.connection = self.config.connection.get_connection()
+
+        self.queries_extractor = SnowflakeQueriesExtractor(
+            connection=self.connection,
+            config=self.config,
+            structured_report=self.report,
+        )
+        self.report.queries_extractor = self.queries_extractor.report
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
+        config = SnowflakeQueriesSourceConfig.parse_obj(config_dict)
+        return cls(ctx, config)
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        # TODO: Disable auto status processor?
+        return self.queries_extractor.get_workunits_internal()
+
+    def get_report(self) -> SnowflakeQueriesSourceReport:
         return self.report
 
 

@@ -212,7 +212,8 @@ class SnowflakeFilterMixin(SnowflakeStructuredReportMixin):
         if len(name_parts) != 3:
             self.structured_reporter.report_warning(
                 title="Unexpected dataset pattern",
-                message="We failed to parse a Snowflake qualified name into its constituent parts. DB/schema/table filtering may not work as expected.",
+                message="We failed to parse a Snowflake qualified name into its constituent parts. "
+                "DB/schema/table filtering may not work as expected on these entities.",
                 context=f"{qualified_name} has {len(name_parts)} parts",
             )
             return qualified_name.replace('"', "")
