@@ -65,6 +65,7 @@ class SnowflakeSummarySource(Source):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         schema_generator = SnowflakeSchemaGenerator(
+            # This is a hack, but we just hope that the config / report have all the fields we need.
             config=self.config,  # type: ignore
             report=self.report,  # type: ignore
             connection=self.connection,

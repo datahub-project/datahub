@@ -246,6 +246,14 @@ class SnowflakeIdentifierMixin(abc.ABC):
             )
         )
 
+    def gen_dataset_urn(self, dataset_identifier: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_identifier,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
 
 # TODO: We're most of the way there on fully removing SnowflakeCommonProtocol.
 class SnowflakeCommonMixin(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
@@ -260,14 +268,6 @@ class SnowflakeCommonMixin(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
     @property
     def identifier_config(self: SnowflakeCommonProtocol) -> SnowflakeIdentifierConfig:
         return self.config
-
-    def gen_dataset_urn(self: SnowflakeCommonProtocol, dataset_identifier: str) -> str:
-        return make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=dataset_identifier,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
 
     @staticmethod
     def get_quoted_identifier_for_database(db_name):

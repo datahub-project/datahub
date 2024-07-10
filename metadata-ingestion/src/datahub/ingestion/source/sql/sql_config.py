@@ -8,8 +8,9 @@ from sqlalchemy.engine import URL
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
+    EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -62,7 +63,8 @@ class SQLFilterConfig(ConfigModel):
 
 class SQLCommonConfig(
     StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     IncrementalLineageConfigMixin,
     ClassificationSourceConfigMixin,

@@ -498,7 +498,7 @@ class SnowflakeV2Source(
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(
-                self.config, self.report, self.connection, self.gen_dataset_urn
+                self.config, self.report, self.connection
             ).get_assertion_workunits(discovered_datasets)
 
     def report_warehouse_failure(self) -> None:

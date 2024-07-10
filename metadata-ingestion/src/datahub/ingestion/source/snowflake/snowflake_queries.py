@@ -19,6 +19,7 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
 )
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
@@ -27,7 +28,10 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeFilterMixin,
+    SnowflakeIdentifierMixin,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata._urns.urn_defs import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -83,7 +87,13 @@ class SnowflakeQueriesReport(SourceReport):
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
 
-class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
+class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
+    def __init__(self, config: SnowflakeQueriesConfig, report: SnowflakeQueriesReport):
+        self.config = config
+        self.report = report
+
+
+class SnowflakeQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesConfig):
         self.ctx = ctx
         self.config = config
@@ -211,9 +221,13 @@ class SnowflakeQueriesSource(Source, SnowflakeCommonMixin):
             else:
                 yield entry
 
-    # HACK: This makes mypy happy with our usage of the mixin methods.
-    gen_dataset_urn = SnowflakeCommonMixin.gen_dataset_urn
-    snowflake_identifier = SnowflakeCommonMixin.snowflake_identifier
+    def gen_dataset_urn(self, dataset_identifier: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_identifier,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
     def _parse_audit_log_response(self, row: Dict[str, Any]) -> PreparsedQuery:
         json_fields = {

@@ -9,7 +9,11 @@ from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import UUID_REGEX
-from datahub.configuration.source_common import LowerCaseDatasetUrnConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -120,7 +124,9 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         return values
 
 
-class SnowflakeIdentifierConfig(LowerCaseDatasetUrnConfigMixin):
+class SnowflakeIdentifierConfig(
+    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
     # Changing default value here.
     convert_urns_to_lowercase: bool = Field(
         default=True,
@@ -129,8 +135,8 @@ class SnowflakeIdentifierConfig(LowerCaseDatasetUrnConfigMixin):
 
 # TODO: SnowflakeConfig is unused except for this inheritance. We should collapse the config inheritance hierarchy.
 class SnowflakeConfig(
-    SnowflakeFilterConfig,
     SnowflakeIdentifierConfig,
+    SnowflakeFilterConfig,
     # SnowflakeFilterConfig must come before (higher precedence) the SQLCommon config, so that the documentation overrides are applied.
     SnowflakeConnectionConfig,
     BaseTimeWindowConfig,

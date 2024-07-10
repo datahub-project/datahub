@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Callable, Iterable, List, Optional
+from typing import Iterable, List, Optional
 
 from pydantic import BaseModel
 
@@ -46,12 +46,10 @@ class SnowflakeAssertionsHandler(SnowflakeIdentifierMixin):
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
         connection: SnowflakeConnection,
-        dataset_urn_builder: Callable[[str], str],
     ) -> None:
         self.config = config
         self.report = report
         self.logger = logger
-        self.dataset_urn_builder = dataset_urn_builder
         self.connection = connection
         self._urns_processed: List[str] = []
 
@@ -109,7 +107,7 @@ class SnowflakeAssertionsHandler(SnowflakeIdentifierMixin):
                     aspect=AssertionRunEvent(
                         timestampMillis=datetime_to_ts_millis(result.MEASUREMENT_TIME),
                         runId=result.MEASUREMENT_TIME.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        asserteeUrn=self.dataset_urn_builder(assertee),
+                        asserteeUrn=self.gen_dataset_urn(assertee),
                         status=AssertionRunStatus.COMPLETE,
                         assertionUrn=make_assertion_urn(assertion_guid),
                         result=AssertionResult(
