@@ -61,6 +61,14 @@ public class ElasticSearchTestExecutor {
     return convertor.canEvaluate(testDefinition);
   }
 
+  public List<String> explainSelect(TestDefinition testDefinition) {
+    return convertor.explainSelect(testDefinition);
+  }
+
+  public List<String> explainEvaluate(TestDefinition testDefinition) {
+    return convertor.explainEvaluate(testDefinition);
+  }
+
   public List<Urn> select(TestDefinition testDefinition) {
     ElasticTestDefinition elasticTestDefinition = convertor.convert(testDefinition);
     SearchResult searchResult =

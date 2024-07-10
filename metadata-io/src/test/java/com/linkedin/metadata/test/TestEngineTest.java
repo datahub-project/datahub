@@ -1,5 +1,6 @@
 package com.linkedin.metadata.test;
 
+import static com.linkedin.metadata.test.TestConstants.*;
 import static com.linkedin.metadata.test.TestDefinitionParserTest.loadTest;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -117,7 +118,7 @@ public class TestEngineTest {
 
     testDefinition = buildNonESCompatibleTest("456");
     tests = List.of(testDefinition);
-    buildTestEngine(tests);
+    testEngine = buildTestEngine(tests);
     searchResult.setNumEntities(1);
     SearchEntityArray searchEntities = new SearchEntityArray();
     SearchEntity searchEntity = new SearchEntity();
@@ -140,6 +141,32 @@ public class TestEngineTest {
     assertNotNull(ex);
   }
 
+  @Test
+  public void testExplain() throws Exception {
+    TestFetcher.Test test = buildSimpleTest("123");
+    List<TestFetcher.Test> tests = List.of(test);
+    TestEngine testEngine = buildTestEngine(tests);
+    com.linkedin.metadata.test.definition.TestDefinition testDefinition =
+        buildSimpleTestDefinition(testEngine);
+
+    assertNotNull(testEngine);
+    List<String> explainSelect =
+        testEngine.getElasticSearchTestExecutor().explainSelect(testDefinition);
+    assertEquals(explainSelect.size(), 1);
+    List<String> explainEvaluate =
+        testEngine.getElasticSearchTestExecutor().explainEvaluate(testDefinition);
+    assertEquals(explainEvaluate.size(), 1);
+
+    test = buildNonESCompatibleTest("456");
+    tests = List.of(test);
+    testEngine = buildTestEngine(tests);
+    testDefinition = buildNonESCompatibleTestDefinition(testEngine);
+    explainSelect = testEngine.getElasticSearchTestExecutor().explainSelect(testDefinition);
+    assertEquals(explainSelect.size(), 1);
+    explainEvaluate = testEngine.getElasticSearchTestExecutor().explainEvaluate(testDefinition);
+    assertEquals(explainEvaluate.size(), 2);
+  }
+
   /** on: types: - dataset rules: and: - property: status.removed operator: is_true */
   private TestFetcher.Test buildSimpleTest(String id) throws Exception {
     Urn testUrn = UrnUtils.getUrn("urn:li:test:" + id);
@@ -156,6 +183,13 @@ public class TestEngineTest {
     return new TestFetcher.Test(testUrn, testInfo);
   }
 
+  private com.linkedin.metadata.test.definition.TestDefinition buildSimpleTestDefinition(
+      TestEngine testEngine) throws Exception {
+    return testEngine
+        .getParser()
+        .deserialize(DUMMY_TEST_URN, loadTest("test/valid_testengine_simple.yaml"));
+  }
+
   private TestFetcher.Test buildNonESCompatibleTest(String id) throws Exception {
     Urn testUrn = UrnUtils.getUrn("urn:li:test:" + id);
 
@@ -169,6 +203,13 @@ public class TestEngineTest {
     testInfo.setDefinition(testDefinition);
 
     return new TestFetcher.Test(testUrn, testInfo);
+  }
+
+  private com.linkedin.metadata.test.definition.TestDefinition buildNonESCompatibleTestDefinition(
+      TestEngine testEngine) throws Exception {
+    return testEngine
+        .getParser()
+        .deserialize(DUMMY_TEST_URN, loadTest("test/valid_non_elastic_test.yaml"));
   }
 
   private TestEngine buildTestEngine(List<TestFetcher.Test> withTests) throws Exception {
