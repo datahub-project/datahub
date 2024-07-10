@@ -445,6 +445,7 @@ class SnowflakeV2Source(
             profiler=self.profiler,
             aggregator=self.aggregator,
             snowsight_url_builder=snowsight_url_builder,
+            dataset_urn_builder=self.gen_dataset_urn,
         )
 
         self.report.set_ingestion_stage("*", METADATA_EXTRACTION)

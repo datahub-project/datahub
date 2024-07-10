@@ -13,14 +13,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeFilterC
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
-from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeDatabase,
-    SnowflakeDataDictionary,
-)
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDatabase
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.utilities.lossy_collections import LossyList
 
@@ -58,10 +54,7 @@ class SnowflakeSummaryReport(SourceReport, BaseTimeWindowReport):
 
 @config_class(SnowflakeSummaryConfig)
 @support_status(SupportStatus.INCUBATING)
-class SnowflakeSummarySource(
-    SnowflakeCommonMixin,
-    Source,
-):
+class SnowflakeSummarySource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeSummaryConfig):
         super().__init__(ctx)
         self.config: SnowflakeSummaryConfig = config
@@ -69,12 +62,22 @@ class SnowflakeSummarySource(
         self.logger = logging.getLogger(__name__)
 
         self.connection = self.config.get_connection()
-        self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        schema_generator = SnowflakeSchemaGenerator(
+            config=self.config,  # type: ignore
+            report=self.report,  # type: ignore
+            connection=self.connection,
+            dataset_urn_builder=lambda x: "",
+            domain_registry=None,
+            profiler=None,
+            aggregator=None,
+            snowsight_url_builder=None,
+        )
+
         # Databases.
         databases: List[SnowflakeDatabase] = []
-        for database in self.get_databases() or []:  # type: ignore
+        for database in schema_generator.get_databases() or []:
             # TODO: Support database_patterns.
             if not self.config.database_pattern.allowed(database.name):
                 self.report.report_dropped(f"{database.name}.*")
@@ -83,16 +86,16 @@ class SnowflakeSummarySource(
 
         # Schemas.
         for database in databases:
-            self.fetch_schemas_for_database(database, database.name)  # type: ignore
+            schema_generator.fetch_schemas_for_database(database, database.name)
 
             self.report.schema_counters[database.name] = len(database.schemas)
 
             for schema in database.schemas:
                 # Tables/views.
-                tables = self.fetch_tables_for_schema(  # type: ignore
+                tables = schema_generator.fetch_tables_for_schema(
                     schema, database.name, schema.name
                 )
-                views = self.fetch_views_for_schema(  # type: ignore
+                views = schema_generator.fetch_views_for_schema(
                     schema, database.name, schema.name
                 )
 
@@ -129,17 +132,6 @@ WHERE query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
 
         # This source doesn't produce any metadata itself. All important information goes into the report.
         yield from []
-
-    # This is a bit of a hack, but lets us reuse the code from the main ingestion source.
-    # Mypy doesn't really know how to deal with it though, which is why we have all these
-    # type ignore comments.
-    get_databases = SnowflakeSchemaGenerator.get_databases
-    get_databases_from_ischema = SnowflakeSchemaGenerator.get_databases_from_ischema
-    fetch_schemas_for_database = SnowflakeSchemaGenerator.fetch_schemas_for_database
-    fetch_tables_for_schema = SnowflakeSchemaGenerator.fetch_tables_for_schema
-    fetch_views_for_schema = SnowflakeSchemaGenerator.fetch_views_for_schema
-    get_tables_for_schema = SnowflakeSchemaGenerator.get_tables_for_schema
-    get_views_for_schema = SnowflakeSchemaGenerator.get_views_for_schema
 
     def get_report(self) -> SnowflakeSummaryReport:
         return self.report

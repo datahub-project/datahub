@@ -2,7 +2,7 @@ import concurrent.futures
 import itertools
 import logging
 import queue
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
@@ -27,6 +28,8 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeFilterConfig,
+    SnowflakeIdentifierConfig,
     SnowflakeV2Config,
     TagOption,
 )
@@ -51,8 +54,8 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
 from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeCommonProtocol,
+    SnowflakeFilterMixin,
+    SnowflakeIdentifierMixin,
     SnowsightUrlBuilder,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -140,15 +143,13 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 }
 
 
-class SnowflakeSchemaGenerator(
-    SnowflakeCommonMixin,
-    SnowflakeCommonProtocol,
-):
+class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
     def __init__(
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
         connection: SnowflakeConnection,
+        dataset_urn_builder: Callable[[str], str],
         domain_registry: Optional[DomainRegistry],
         profiler: Optional[SnowflakeProfiler],
         aggregator: Optional[SqlParsingAggregator],
@@ -157,7 +158,7 @@ class SnowflakeSchemaGenerator(
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
         self.connection: SnowflakeConnection = connection
-        self.logger = logger
+        self.dataset_urn_builder = dataset_urn_builder
 
         self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary(
             connection=self.connection
@@ -181,11 +182,23 @@ class SnowflakeSchemaGenerator(
     def get_connection(self) -> SnowflakeConnection:
         return self.connection
 
+    @property
+    def structured_reporter(self) -> SourceReport:
+        return self.report
+
+    @property
+    def filter_config(self) -> SnowflakeFilterConfig:
+        return self.config
+
+    @property
+    def identifier_config(self) -> SnowflakeIdentifierConfig:
+        return self.config
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.databases = []
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
-            if not self.config.database_pattern.allowed(database.name):
+            if not self.filter_config.database_pattern.allowed(database.name):
                 self.report.report_dropped(f"{database.name}.*")
             else:
                 self.databases.append(database)
@@ -349,10 +362,10 @@ class SnowflakeSchemaGenerator(
             for schema in self.data_dictionary.get_schemas_for_database(db_name):
                 self.report.report_entity_scanned(schema.name, "schema")
                 if not is_schema_allowed(
-                    self.config.schema_pattern,
+                    self.filter_config.schema_pattern,
                     schema.name,
                     db_name,
-                    self.config.match_fully_qualified_names,
+                    self.filter_config.match_fully_qualified_names,
                 ):
                     self.report.report_dropped(f"{db_name}.{schema.name}.*")
                 else:
@@ -433,7 +446,7 @@ class SnowflakeSchemaGenerator(
                     )
                     if view.view_definition:
                         self.aggregator.add_view_definition(
-                            view_urn=self.gen_dataset_urn(view_identifier),
+                            view_urn=self.dataset_urn_builder(view_identifier),
                             view_definition=view.view_definition,
                             default_db=db_name,
                             default_schema=schema_name,
@@ -463,7 +476,7 @@ class SnowflakeSchemaGenerator(
 
                 self.report.report_entity_scanned(view_name, "view")
 
-                if not self.config.view_pattern.allowed(view_name):
+                if not self.filter_config.view_pattern.allowed(view_name):
                     self.report.report_dropped(view_name)
                 else:
                     views.append(view)
@@ -496,7 +509,7 @@ class SnowflakeSchemaGenerator(
                     table.name, schema_name, db_name
                 )
                 self.report.report_entity_scanned(table_identifier)
-                if not self.config.table_pattern.allowed(table_identifier):
+                if not self.filter_config.table_pattern.allowed(table_identifier):
                     self.report.report_dropped(table_identifier)
                 else:
                     tables.append(table)
@@ -665,7 +678,7 @@ class SnowflakeSchemaGenerator(
                 yield from self._process_tag(tag)
 
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-        dataset_urn = self.gen_dataset_urn(dataset_name)
+        dataset_urn = self.dataset_urn_builder(dataset_name)
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
@@ -807,7 +820,7 @@ class SnowflakeSchemaGenerator(
         db_name: str,
     ) -> SchemaMetadata:
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-        dataset_urn = self.gen_dataset_urn(dataset_name)
+        dataset_urn = self.dataset_urn_builder(dataset_name)
 
         foreign_keys: Optional[List[ForeignKeyConstraint]] = None
         if isinstance(table, SnowflakeTable) and len(table.foreign_keys) > 0:

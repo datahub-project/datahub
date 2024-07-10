@@ -11,11 +11,14 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeIdentifierConfig,
+    SnowflakeV2Config,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeIdentifierMixin
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResult,
     AssertionResultType,
@@ -37,7 +40,7 @@ class DataQualityMonitoringResult(BaseModel):
     VALUE: int
 
 
-class SnowflakeAssertionsHandler(SnowflakeCommonMixin):
+class SnowflakeAssertionsHandler(SnowflakeIdentifierMixin):
     def __init__(
         self,
         config: SnowflakeV2Config,
@@ -51,6 +54,10 @@ class SnowflakeAssertionsHandler(SnowflakeCommonMixin):
         self.dataset_urn_builder = dataset_urn_builder
         self.connection = connection
         self._urns_processed: List[str] = []
+
+    @property
+    def identifier_config(self) -> SnowflakeIdentifierConfig:
+        return self.config
 
     def get_assertion_workunits(
         self, discovered_datasets: List[str]

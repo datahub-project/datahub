@@ -13,6 +13,7 @@ from datahub.ingestion.source.snowflake.constants import (
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeFilterConfig,
+    SnowflakeIdentifierConfig,
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -222,9 +223,32 @@ class SnowflakeFilterMixin(SnowflakeStructuredReportMixin):
         )
 
 
-class SnowflakeCommonMixin(SnowflakeFilterMixin):
+class SnowflakeIdentifierMixin(abc.ABC):
     platform = "snowflake"
 
+    @property
+    @abc.abstractmethod
+    def identifier_config(self) -> SnowflakeIdentifierConfig:
+        ...
+
+    def snowflake_identifier(self, identifier: str) -> str:
+        # to be in in sync with older connector, convert name to lowercase
+        if self.identifier_config.convert_urns_to_lowercase:
+            return identifier.lower()
+        return identifier
+
+    def get_dataset_identifier(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> str:
+        return self.snowflake_identifier(
+            SnowflakeCommonMixin._combine_identifier_parts(
+                table_name=table_name, schema_name=schema_name, db_name=db_name
+            )
+        )
+
+
+# TODO: We're most of the way there on fully removing SnowflakeCommonProtocol.
+class SnowflakeCommonMixin(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
     @property
     def structured_reporter(self: SnowflakeCommonProtocol) -> SourceReport:
         return self.report
@@ -233,11 +257,9 @@ class SnowflakeCommonMixin(SnowflakeFilterMixin):
     def filter_config(self: SnowflakeCommonProtocol) -> SnowflakeFilterConfig:
         return self.config
 
-    def snowflake_identifier(self: SnowflakeCommonProtocol, identifier: str) -> str:
-        # to be in in sync with older connector, convert name to lowercase
-        if self.config.convert_urns_to_lowercase:
-            return identifier.lower()
-        return identifier
+    @property
+    def identifier_config(self: SnowflakeCommonProtocol) -> SnowflakeIdentifierConfig:
+        return self.config
 
     def gen_dataset_urn(self: SnowflakeCommonProtocol, dataset_identifier: str) -> str:
         return make_dataset_urn_with_platform_instance(
@@ -255,23 +277,12 @@ class SnowflakeCommonMixin(SnowflakeFilterMixin):
     def get_quoted_identifier_for_schema(db_name, schema_name):
         return f'"{db_name}"."{schema_name}"'
 
+    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
+        return self.snowflake_identifier(self.cleanup_qualified_name(qualified_name))
+
     @staticmethod
     def get_quoted_identifier_for_table(db_name, schema_name, table_name):
         return f'"{db_name}"."{schema_name}"."{table_name}"'
-
-    def get_dataset_identifier(
-        self: SnowflakeCommonProtocol, table_name: str, schema_name: str, db_name: str
-    ) -> str:
-        return self.snowflake_identifier(
-            SnowflakeCommonMixin._combine_identifier_parts(
-                table_name=table_name, schema_name=schema_name, db_name=db_name
-            )
-        )
-
-    def get_dataset_identifier_from_qualified_name(
-        self: SnowflakeCommonProtocol, qualified_name: str
-    ) -> str:
-        return self.snowflake_identifier(self.cleanup_qualified_name(qualified_name))
 
     # Note - decide how to construct user urns.
     # Historically urns were created using part before @ from user's email.
