@@ -3,6 +3,9 @@ import { Alert, Checkbox, Form, Input, InputRef, Radio, RadioChangeEvent, Space,
 import styled from 'styled-components/macro';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { useForm } from 'antd/lib/form/Form';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { Link } from 'react-router-dom';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
@@ -94,6 +97,7 @@ export default function SlackNotificationRecipientSection() {
     const { config } = useAppConfig();
     const [form] = useForm();
     const actions = useDrawerActions();
+    const me = useUserContext();
 
     const slack = useDrawerSelector(selectSlack);
     const isPersonal = useDrawerSelector(selectIsPersonal);
@@ -136,6 +140,62 @@ export default function SlackNotificationRecipientSection() {
     const onChangeSaveAsDefaultCheckbox = ({ target: { checked } }: CheckboxChangeEvent) => {
         actions.setSlackSaveAsDefault(checked);
     };
+    const isAdminAccess = me?.platformPrivileges?.manageGlobalSettings || false;
+
+    const renderSlackSink = () => {
+        let slackSinkHtml = (
+            <StyledRadioGroup
+                disabled={!slack.enabled || !slackSinkSupported}
+                value={slack.channelSelection}
+                onChange={onChangeSlackRadioGroup}
+            >
+                <Space direction="vertical">
+                    {settingsSlackChannel && (
+                        <Radio value={ChannelSelections.SETTINGS}>
+                            <UseDefaultText>
+                                Use default: <SettingsSlackChannel>{settingsSlackChannel}</SettingsSlackChannel>
+                            </UseDefaultText>
+                        </Radio>
+                    )}
+                    <Radio value={ChannelSelections.SUBSCRIPTION} data-testid="alternative-slack-radio">
+                        <Form form={form}>
+                            <StyledFormItem name="slackFormValue">
+                                <StyledInput
+                                    size="small"
+                                    ref={channelInputRef}
+                                    placeholder={slackInputPlaceholder}
+                                    data-testid="alternative-slack-member-id"
+                                    disabled={!slack.enabled || !slackSinkSupported || isSettingsChannelSelected}
+                                    value={slack.subscription.channel}
+                                    onChange={onChangeChannelInput}
+                                    status={
+                                        isSubscriptionChannelSelected && !slack.subscription.channel
+                                            ? 'error'
+                                            : undefined
+                                    }
+                                />
+                            </StyledFormItem>
+                        </Form>
+                    </Radio>
+                </Space>
+            </StyledRadioGroup>
+        );
+        if (!slackSinkSupported) {
+            slackSinkHtml = isAdminAccess ? (
+                <DisabledText>
+                    Slack notifications are disabled. In order to enable,{' '}
+                    <Link to="/settings/integrations/slack" style={{ color: REDESIGN_COLORS.BLUE }}>
+                        setup a Slack integration.
+                    </Link>
+                </DisabledText>
+            ) : (
+                <DisabledText>
+                    Slack notifications are disabled. Reach out to your Acryl admins for more information.
+                </DisabledText>
+            );
+        }
+        return slackSinkHtml;
+    };
 
     return (
         <NotificationSwitchContainer>
@@ -156,48 +216,8 @@ export default function SlackNotificationRecipientSection() {
                     showIcon
                 />
             )}
-            {slackSinkSupported ? (
-                <StyledRadioGroup
-                    disabled={!slack.enabled || !slackSinkSupported}
-                    value={slack.channelSelection}
-                    onChange={onChangeSlackRadioGroup}
-                >
-                    <Space direction="vertical">
-                        {settingsSlackChannel && (
-                            <Radio value={ChannelSelections.SETTINGS}>
-                                <UseDefaultText>
-                                    Use default: <SettingsSlackChannel>{settingsSlackChannel}</SettingsSlackChannel>
-                                </UseDefaultText>
-                            </Radio>
-                        )}
-                        <Radio value={ChannelSelections.SUBSCRIPTION} data-testid="alternative-slack-radio">
-                            <Form form={form}>
-                                <StyledFormItem name="slackFormValue">
-                                    <StyledInput
-                                        size="small"
-                                        ref={channelInputRef}
-                                        placeholder={slackInputPlaceholder}
-                                        data-testid="alternative-slack-member-id"
-                                        disabled={!slack.enabled || !slackSinkSupported || isSettingsChannelSelected}
-                                        value={slack.subscription.channel}
-                                        onChange={onChangeChannelInput}
-                                        status={
-                                            isSubscriptionChannelSelected && !slack.subscription.channel
-                                                ? 'error'
-                                                : undefined
-                                        }
-                                    />
-                                </StyledFormItem>
-                            </Form>
-                        </Radio>
-                    </Space>
-                </StyledRadioGroup>
-            ) : (
-                <DisabledText>
-                    Slack notifications are disabled. Reach out to your Acryl admins for more information..
-                </DisabledText>
-            )}
-            {isSubscriptionChannelSelected && (
+            {renderSlackSink()}
+            {isSubscriptionChannelSelected && slackSinkSupported && (
                 <StyledCheckbox
                     disabled={!slack.enabled || !slackSinkSupported}
                     checked={slack.subscription.saveAsDefault}
