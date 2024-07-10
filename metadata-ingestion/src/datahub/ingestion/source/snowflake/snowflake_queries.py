@@ -227,7 +227,7 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
 
             assert isinstance(row, dict)
             try:
-                entry = self._parse_audit_log_response(row)
+                entry = self._parse_audit_log_row(row)
             except Exception as e:
                 self.structured_reporter.warning(
                     "Error parsing audit log row",
@@ -241,7 +241,7 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
         # Copied from SnowflakeCommonMixin.
         return self.snowflake_identifier(self.cleanup_qualified_name(qualified_name))
 
-    def _parse_audit_log_response(self, row: Dict[str, Any]) -> PreparsedQuery:
+    def _parse_audit_log_row(self, row: Dict[str, Any]) -> PreparsedQuery:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
             "OBJECTS_MODIFIED",
@@ -276,7 +276,11 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
         column_lineage = None
         for obj in objects_modified:
             # We don't expect there to be more than one object modified.
-            # TODO: Warn if that happens.
+            if downstream:
+                self.structured_reporter.report_warning(
+                    message="Unexpectedly got multiple downstream entities from the Snowflake audit log.",
+                    context=f"{row}",
+                )
 
             downstream = self.gen_dataset_urn(
                 self.get_dataset_identifier_from_qualified_name(obj["objectName"])
