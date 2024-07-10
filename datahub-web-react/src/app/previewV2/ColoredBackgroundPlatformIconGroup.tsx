@@ -67,7 +67,7 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                             />
                         )}
                         {!!platformLogoUrls &&
-                            platformLogoUrls
+                            [...new Set(platformLogoUrls)]
                                 .slice(0, 2)
                                 .map((url, idx) => (
                                     <ImageWithColoredBackground

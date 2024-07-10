@@ -114,7 +114,7 @@ function PlatformContentView(props: Props) {
                         <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
                     )}
                     {!!platformLogoUrls &&
-                        platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
+                        [...new Set(platformLogoUrls)].slice(0, 2).map((platformLogoUrlsEntry) => (
                             <>
                                 <PreviewImage preview={false} src={platformLogoUrlsEntry || ''} alt={platformName} />
                             </>
@@ -122,7 +122,7 @@ function PlatformContentView(props: Props) {
                 </LogoIcon>
             )}
             <PlatformText>
-                {platformNames ? platformNames.join(' & ') : platformName}
+                {platformNames ? [...new Set(platformNames)].join(' & ') : platformName}
                 {(directParentContainer || instanceId) && <StyledRightOutlined data-testid="right-arrow" />}
             </PlatformText>
             {instanceId && (
