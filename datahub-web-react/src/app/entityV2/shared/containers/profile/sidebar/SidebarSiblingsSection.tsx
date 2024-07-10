@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useDataNotCombinedWithSiblings, useEntityData } from '../../../../../entity/shared/EntityContext';
 import { stripSiblingsFromEntity } from '../../../../../entity/shared/siblingUtils';
@@ -8,6 +8,8 @@ import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../..
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { SidebarSection } from './SidebarSection';
 import { REDESIGN_COLORS } from '../../../constants';
+import { EmbeddedListSearchModal } from '../../../components/styled/search/EmbeddedListSearchModal';
+import { UnionType } from '../../../../../searchV2/utils/constants';
 
 const EntityListContainer = styled.div`
     display: flex;
@@ -21,14 +23,21 @@ const EntityListContainer = styled.div`
 
 const AndMoreWrapper = styled.div`
     margin-left: 4px;
+    margin-top: 5px;
+    :hover {
+        cursor: pointer;
+        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
+    }
 `;
 
 export const SidebarSiblingsSection = () => {
-    const { entityData } = useEntityData();
+    const { entityData, urn } = useEntityData();
 
     const dataNotCombinedWithSiblings = useDataNotCombinedWithSiblings<GetDatasetQuery>();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
+
+    const [showAllSiblings, setShowAllSiblings] = useState(false);
 
     if (!entityData) {
         return <></>;
@@ -63,18 +72,34 @@ export const SidebarSiblingsSection = () => {
     const numSiblingsNotShown = (entityData?.siblingsSearch?.total || 0) - allSiblingsInGroup.length + 1;
 
     return (
-        <SidebarSection
-            title="Composed of"
-            content={
-                <EntityListContainer>
-                    <CompactEntityNameList
-                        entities={allSiblingsInGroupThatExist}
-                        linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
-                        showTooltips
-                    />
-                    {numSiblingsNotShown > 0 && <AndMoreWrapper>and {numSiblingsNotShown} more</AndMoreWrapper>}
-                </EntityListContainer>
-            }
-        />
+        <>
+            <SidebarSection
+                title="Composed of"
+                content={
+                    <EntityListContainer>
+                        <CompactEntityNameList
+                            entities={allSiblingsInGroupThatExist}
+                            linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
+                            showTooltips
+                        />
+                        {numSiblingsNotShown > 0 && (
+                            <AndMoreWrapper onClick={() => setShowAllSiblings(true)}>
+                                and {numSiblingsNotShown} more
+                            </AndMoreWrapper>
+                        )}
+                    </EntityListContainer>
+                }
+            />
+            {showAllSiblings && (
+                <EmbeddedListSearchModal
+                    title="View All Siblings"
+                    fixedFilters={{
+                        unionType: UnionType.OR,
+                        filters: [{ field: 'siblings', values: [urn] }],
+                    }}
+                    onClose={() => setShowAllSiblings(false)}
+                />
+            )}
+        </>
     );
 };

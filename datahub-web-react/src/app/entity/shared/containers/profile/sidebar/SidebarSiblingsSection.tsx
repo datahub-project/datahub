@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+import { blue } from '@ant-design/colors';
 import { ANTD_GRAY } from '../../../constants';
 import { useDataNotCombinedWithSiblings, useEntityData } from '../../../EntityContext';
 import { SidebarHeader } from './SidebarHeader';
@@ -7,6 +8,8 @@ import { CompactEntityNameList } from '../../../../../recommendations/renderer/c
 import { Dataset, Entity } from '../../../../../../types.generated';
 import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import { EmbeddedListSearchModal } from '../../../components/styled/search/EmbeddedListSearchModal';
+import { UnionType } from '../../../../../search/utils/constants';
 
 const EntityListContainer = styled.div`
     display: flex;
@@ -19,15 +22,23 @@ const EntityListContainer = styled.div`
 
 const AndMoreWrapper = styled.div`
     margin-left: 4px;
+    margin-top: 5px;
     color: ${ANTD_GRAY[8]};
+
+    :hover {
+        cursor: pointer;
+        color: ${blue[6]};
+    }
 `;
 
 export const SidebarSiblingsSection = () => {
-    const { entityData } = useEntityData();
+    const { entityData, urn } = useEntityData();
 
     const dataNotCombinedWithSiblings = useDataNotCombinedWithSiblings<GetDatasetQuery>();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
+
+    const [showAllSiblings, setShowAllSiblings] = useState(false);
 
     if (!entityData) {
         return <></>;
@@ -68,8 +79,23 @@ export const SidebarSiblingsSection = () => {
                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
                     showTooltips
                 />
-                {numSiblingsNotShown > 0 && <AndMoreWrapper>and {numSiblingsNotShown} more</AndMoreWrapper>}
+                {numSiblingsNotShown > 0 && (
+                    <AndMoreWrapper onClick={() => setShowAllSiblings(true)}>
+                        and {numSiblingsNotShown} more
+                    </AndMoreWrapper>
+                )}
             </EntityListContainer>
+            {showAllSiblings && (
+                <EmbeddedListSearchModal
+                    title="View All Siblings"
+                    searchBarStyle={{ width: 600, marginRight: 40 }}
+                    fixedFilters={{
+                        unionType: UnionType.OR,
+                        filters: [{ field: 'siblings', values: [urn] }],
+                    }}
+                    onClose={() => setShowAllSiblings(false)}
+                />
+            )}
         </div>
     );
 };
