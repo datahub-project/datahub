@@ -250,7 +250,7 @@ class SqlParsingAggregator(Closeable):
         graph: Optional[DataHubGraph] = None,
         generate_lineage: bool = True,
         generate_queries: bool = True,
-        generate_query_subject_fields: bool = False,
+        generate_query_subject_fields: bool = True,
         generate_usage_statistics: bool = False,
         generate_query_usage_statistics: bool = False,
         generate_operations: bool = False,
