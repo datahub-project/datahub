@@ -243,11 +243,14 @@ public class SlackNotificationSink implements NotificationSink {
 
       // Slack should be enabled. Let's try to create a slack client (if one doesn't already exist)
       ObjectNode slackConnectionDetails = getSlackConnection(opContext);
+      boolean didInitFromSlackConnectionDetails = false;
       if (slackConnectionDetails != null) {
         // First, let's try using the New Connection Entity.
-        initSlackClientFromConnection(slackConnectionDetails);
-      } else {
-        // If no connection was found, let's fallback to using Global Settings
+        didInitFromSlackConnectionDetails = initSlackClientFromConnection(slackConnectionDetails);
+      }
+
+      if (!didInitFromSlackConnectionDetails) {
+        // If no valid connection was found, fallback to using Global Settings
         initSlackClientFromGlobalSettings(globalSettings);
       }
 
@@ -1075,7 +1078,7 @@ public class SlackNotificationSink implements NotificationSink {
     }
   }
 
-  private void initSlackClientFromConnection(@Nonnull final ObjectNode jsonConnection) {
+  private boolean initSlackClientFromConnection(@Nonnull final ObjectNode jsonConnection) {
     // Attempt to init the slack client from the connection object
     // Next, attempt to instantiate a slack client using a bot token from static config or
     // settings. Bot token provided in dynamic settings
@@ -1084,6 +1087,7 @@ public class SlackNotificationSink implements NotificationSink {
       try {
         final String botToken = jsonConnection.get("bot_token").asText();
         createSlackClient(botToken);
+        return true;
       } catch (Exception e) {
         log.error(
             "Caught exception while attempting to resolve bot token secret. Failed to create slack client.",
@@ -1093,6 +1097,7 @@ public class SlackNotificationSink implements NotificationSink {
       log.warn(
           "Failed to create Slack client using Connection JSON! Falling back to legacy settings.");
     }
+    return false;
   }
 
   private void createSlackClient(final String botToken) {

@@ -161,7 +161,12 @@ public class SlackNotificationSinkTest {
     Mockito.when(
             mockConnectionService.getConnectionDetails(
                 any(OperationContext.class), eq(SLACK_CONNECTION_URN)))
-        .thenReturn(null);
+        .thenReturn(
+            new DataHubConnectionDetails()
+                .setType(DataHubConnectionDetailsType.JSON)
+                .setJson(new DataHubJsonConnection().setEncryptedBlob("blob")));
+    // No bot_token field in the json
+    Mockito.when(mockSecretProvider.decryptSecret("blob")).thenReturn("{}");
     sink.init(
         new NotificationSinkConfig(
             ImmutableMap.of("botToken", TEST_BOT_TOKEN, "defaultChannel", "#test"),
