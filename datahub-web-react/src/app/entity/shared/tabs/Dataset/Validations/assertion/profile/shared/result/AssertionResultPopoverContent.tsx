@@ -46,11 +46,27 @@ const Actions = styled.div`
     gap: 8px;
 `;
 
+const TimestampContainer = styled.div`
+    gap: 5px;
+    display: flex;
+    flex-direction: column;
+`;
+
 const LastResultsRow = styled.div`
     font-size: 14px;
     display: flex;
     align-items: center;
     font-weight: 500;
+`;
+const LastRunRow = styled.div`
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    color: ${ANTD_GRAY[7]};
+    .anticon-clock-circle {
+        font-size: 10px;
+    }
 `;
 
 const ReasonRow = styled.div``;
@@ -101,6 +117,7 @@ export const AssertionResultPopoverContent = ({
 }: Props) => {
     // Last run time
     const timestamp = run && new Date(run?.timestampMillis);
+    const reportedTimestamp = run && run?.lastObservedMillis;
 
     // Reason
     const result = run?.result ? run.result! : undefined;
@@ -122,14 +139,21 @@ export const AssertionResultPopoverContent = ({
     return (
         <>
             <HeaderRow>
-                {/* NOTE: we don't show the assertion title in the header because the assertion's current title may not accurately represent the assertion that actually ran at this point in time. */}
-                <LastResultsRow>
-                    {(timestamp && (
-                        <>
-                            <StyledClockCircleOutlined /> Ran {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
-                        </>
-                    )) || <>No results yet</>}
-                </LastResultsRow>
+                <TimestampContainer>
+                    {/* NOTE: we don't show the assertion title in the header because the assertion's current title may not accurately represent the assertion that actually ran at this point in time. */}
+                    <LastResultsRow>
+                        {(timestamp && (
+                            <>
+                                <StyledClockCircleOutlined /> Ran {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
+                            </>
+                        )) || <>No results yet</>}
+                    </LastResultsRow>
+                    {reportedTimestamp && (
+                        <LastRunRow>
+                            Reported {reportedTimestamp && toReadableLocalDateTimeString(reportedTimestamp)}
+                        </LastRunRow>
+                    )}
+                </TimestampContainer>
                 <Actions>
                     <AssertionResultPill result={result} type={resultStatusType} />
                     {(showProfileButton && onClickProfileButton && (

@@ -165,6 +165,7 @@ export const DatasetAssertionsList = ({
                         <DatasetAssertionDescription
                             description={description}
                             assertionInfo={record.datasetAssertionInfo}
+                            lastEvaluation={record.lastEvaluation}
                         />
                         {(isPartOfContract && entityData?.urn && (
                             <Tooltip
