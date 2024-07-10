@@ -4,7 +4,7 @@ import tempfile
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import lkml
 import lkml.simple
@@ -22,7 +22,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
@@ -96,7 +95,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
-from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)
 
@@ -110,15 +108,6 @@ class LookerView:
     fields: List[ViewField]
     raw_file_content: str
     view_details: Optional[ViewProperties] = None
-
-    @classmethod
-    def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
-        assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        parser_cls = import_path(sql_parser_path)
-
-        if not issubclass(parser_cls, SQLParser):
-            raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-        return parser_cls
 
     @classmethod
     def determine_view_file_path(
