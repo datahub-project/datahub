@@ -82,8 +82,13 @@ class GrafanaSource(StatefulIngestionSourceBase):
             "Authorization": f"Bearer {self.source_config.service_account_token.get_secret_value()}",
             "Content-Type": "application/json",
         }
-        response = requests.get(f"{self.source_config.url}/api/search", headers=headers)
-        if response.status_code != 200:
+        try:
+            response = requests.get(
+                f"{self.source_config.url}/api/search", headers=headers
+            )
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            self.report.report_failure(f"Failed to fetch dashboards: {str(e)}")
             return
         res_json = response.json()
         for item in res_json:
