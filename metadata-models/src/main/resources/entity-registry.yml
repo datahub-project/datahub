@@ -542,6 +542,11 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
+  - name: dataHubPersona
+    category: internal
+    keyAspect: dataHubPersonaKey
+    aspects:
+      - dataHubPersonaInfo
   - name: entityType
     doc: A type of entity in the DataHub Metadata Model.
     category: core
@@ -611,6 +616,18 @@ plugins:
       supportedOperations:
         - CREATE
         - CREATE_ENTITY
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: '*'
+    - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
+        - DELETE
+        - UPSERT
+        - UPDATE
+        - PATCH
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'

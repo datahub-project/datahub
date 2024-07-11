@@ -1,4 +1,5 @@
 import contextlib
+import enum
 import itertools
 import logging
 import os
@@ -38,6 +39,9 @@ from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
+from datahub.ingestion.transformer.system_metadata_transformer import (
+    SystemMetadataTransformer,
+)
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.telemetry import stats, telemetry
@@ -46,7 +50,7 @@ from datahub.utilities.global_warning_util import (
     clear_global_warnings,
     get_global_warnings,
 )
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 _REPORT_PRINT_INTERVAL_SECONDS = 60
@@ -115,6 +119,13 @@ class DeadLetterQueueCallback(WriteCallback):
 
 class PipelineInitError(Exception):
     pass
+
+
+class PipelineStatus(enum.Enum):
+    UNKNOWN = enum.auto()
+    COMPLETED = enum.auto()
+    ERROR = enum.auto()
+    CANCELLED = enum.auto()
 
 
 @contextlib.contextmanager
@@ -309,6 +320,9 @@ class Pipeline:
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
 
+        # Add the system metadata transformer at the end of the list.
+        self.transformers.append(SystemMetadataTransformer(self.ctx))
+
     def _configure_reporting(
         self, report_to: Optional[str], no_default_report: bool
     ) -> None:
@@ -366,11 +380,11 @@ class Pipeline:
             try:
                 reporter.on_completion(
                     status="CANCELLED"
-                    if self.final_status == "cancelled"
+                    if self.final_status == PipelineStatus.CANCELLED
                     else "FAILURE"
                     if self.has_failures()
                     else "SUCCESS"
-                    if self.final_status == "completed"
+                    if self.final_status == PipelineStatus.COMPLETED
                     else "UNKNOWN",
                     report=self._get_structured_report(),
                     ctx=self.ctx,
@@ -422,7 +436,7 @@ class Pipeline:
                     )
                 )
 
-            self.final_status = "unknown"
+            self.final_status = PipelineStatus.UNKNOWN
             self._notify_reporters_on_ingestion_start()
             callback = None
             try:
@@ -459,9 +473,7 @@ class Pipeline:
                                         f"Failed to write record: {e}"
                                     )
 
-                    except RuntimeError:
-                        raise
-                    except SystemExit:
+                    except (RuntimeError, SystemExit):
                         raise
                     except Exception as e:
                         logger.error(
@@ -490,11 +502,14 @@ class Pipeline:
                         self.sink.write_record_async(record_envelope, callback)
 
                 self.process_commits()
-                self.final_status = "completed"
-            except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
-                self.final_status = "cancelled"
+                self.final_status = PipelineStatus.COMPLETED
+            except (SystemExit, KeyboardInterrupt) as e:
+                self.final_status = PipelineStatus.CANCELLED
                 logger.error("Caught error", exc_info=e)
                 raise
+            except Exception as exc:
+                self.final_status = PipelineStatus.ERROR
+                self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
 
@@ -604,11 +619,8 @@ class Pipeline:
             self.ctx.graph,
         )
 
-    def _approx_all_vals(self, d: LossyDict[str, LossyList]) -> int:
-        result = d.dropped_keys_count()
-        for k in d:
-            result += len(d[k])
-        return result
+    def _approx_all_vals(self, d: LossyList[Any]) -> int:
+        return d.total_elements
 
     def _get_text_color(self, running: bool, failures: bool, warnings: bool) -> str:
         if running:
@@ -629,19 +641,29 @@ class Pipeline:
     def pretty_print_summary(
         self, warnings_as_failure: bool = False, currently_running: bool = False
     ) -> int:
-        click.echo()
-        click.secho("Cli report:", bold=True)
-        click.secho(self.cli_report.as_string())
-        click.secho(f"Source ({self.source_type}) report:", bold=True)
-        click.echo(self.source.get_report().as_string())
-        click.secho(f"Sink ({self.sink_type}) report:", bold=True)
-        click.echo(self.sink.get_report().as_string())
-        global_warnings = get_global_warnings()
-        if len(global_warnings) > 0:
-            click.secho("Global Warnings:", bold=True)
-            click.echo(global_warnings)
-        click.echo()
         workunits_produced = self.sink.get_report().total_records_written
+
+        if (
+            not workunits_produced
+            and not currently_running
+            and self.final_status == PipelineStatus.ERROR
+        ):
+            # If the pipeline threw an uncaught exception before doing anything, printing
+            # out the report would just be annoying.
+            pass
+        else:
+            click.echo()
+            click.secho("Cli report:", bold=True)
+            click.secho(self.cli_report.as_string())
+            click.secho(f"Source ({self.source_type}) report:", bold=True)
+            click.echo(self.source.get_report().as_string())
+            click.secho(f"Sink ({self.sink_type}) report:", bold=True)
+            click.echo(self.sink.get_report().as_string())
+            global_warnings = get_global_warnings()
+            if len(global_warnings) > 0:
+                click.secho("Global Warnings:", bold=True)
+                click.echo(global_warnings)
+            click.echo()
 
         duration_message = f"in {humanfriendly.format_timespan(self.source.get_report().running_time)}."
         if currently_running:
@@ -691,6 +713,14 @@ class Pipeline:
                 bold=True,
             )
             return 0
+
+    def _handle_uncaught_pipeline_exception(self, exc: Exception) -> None:
+        logger.exception("Ingestion pipeline threw an uncaught exception")
+        self.source.get_report().report_failure(
+            title="Pipeline Error",
+            message="Ingestion pipeline raised an unexpected exception!",
+            exc=exc,
+        )
 
     def _get_structured_report(self) -> Dict[str, Any]:
         return {
