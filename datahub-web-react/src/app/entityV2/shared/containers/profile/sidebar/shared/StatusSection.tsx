@@ -42,14 +42,13 @@ const Title = styled.div`
 `;
 
 export const StyledCollapse = styled(Collapse)`
-    margin-bottom: 4px;
     .ant-collapse-header {
         padding: 0px 0px !important;
         align-items: center !important;
     }
 
     .ant-collapse-content-box {
-        padding: 0 0 4px 20px !important;
+        padding: 0 0 6px 20px !important;
     }
 
     .ant-collapse-arrow {
@@ -100,6 +99,9 @@ const StatusSection = () => {
         : undefined;
 
     const isDeprecated = entityData?.deprecation?.deprecated;
+    const deprecatedByEntity = entityData?.deprecation?.actorEntity;
+    const deprecatedByEntityName =
+        deprecatedByEntity?.type && entityRegistry.getDisplayName(deprecatedByEntity.type, deprecatedByEntity);
     const decommissionTime = entityData?.deprecation?.decommissionTime;
 
     const hasTimeProperties = !!(
@@ -139,7 +141,14 @@ const StatusSection = () => {
                         <StyledIcon>{isActive ? <KeyboardArrowDown /> : <KeyboardArrowRight />} </StyledIcon>
                     )}
                 >
-                    <Collapse.Panel header={<TimeProperty labelText="Deprecated" />} key={1}>
+                    <Collapse.Panel
+                        header={
+                            <TimeProperty
+                                labelText={`Deprecated${!!deprecatedByEntityName && `: by ${deprecatedByEntityName}`}`}
+                            />
+                        }
+                        key={1}
+                    >
                         {decommissionTime ? (
                             <TimeProperty
                                 labelText="Scheduled Decommission:"
@@ -153,7 +162,7 @@ const StatusSection = () => {
             )}
             {!sourceInstance && !!lastIngested && (
                 <SyncedOrShared
-                    labelText="Synched"
+                    labelText="Synced:"
                     time={lastIngested}
                     platformName={platformName}
                     platform={platform}
@@ -161,7 +170,7 @@ const StatusSection = () => {
             )}
             {!!sourceInstance && (
                 <SyncedOrShared
-                    labelText="Shared"
+                    labelText="Shared:"
                     time={sharedTime}
                     platformName={ACRYL_PLATFORM}
                     instanceName={instanceName}
