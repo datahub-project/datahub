@@ -36,7 +36,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.metadata._urns.urn_defs import CorpUserUrn
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
     PreparsedQuery,
