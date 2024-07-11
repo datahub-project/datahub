@@ -71,7 +71,9 @@ class DataHubReportingFormsSource(Source):
         query_result = self.graph.execute_graphql(query=form_config_query)
         if query_result:
             if query_result.get(query_name, {}).get("enabled") is False:
-                return FormAnalyticsConfig(enabled=False)
+                return FormAnalyticsConfig(
+                    enabled=False, dataset_urn=None, physical_uri_prefix=None
+                )
             result_map = query_result.get(query_name, {})
             return FormAnalyticsConfig.parse_obj(
                 dict(

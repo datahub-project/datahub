@@ -21,6 +21,7 @@ import {
 } from '../shared/SidebarStyledComponents';
 import GroupMembersSideBarSection from './GroupMembersSideBarSection';
 import { useUserContext } from '../../context/useUserContext';
+import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
 import StripMarkdownText, { removeMarkdown } from '../shared/components/styled/StripMarkdownText';
 import { Editor } from '../shared/tabs/Documentation/components/editor/Editor';
 import EditGroupDescriptionModal from './EditGroupDescriptionModal';

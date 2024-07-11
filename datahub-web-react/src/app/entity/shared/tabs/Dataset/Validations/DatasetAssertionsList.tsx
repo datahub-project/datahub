@@ -168,11 +168,13 @@ export const DatasetAssertionsList = ({
                                 </Tag>
                             </Tooltip>
                         </div>
-                        {record.datasetAssertionInfo ? (<DatasetAssertionDescription
-                            description={description}
-                            assertionInfo={record.datasetAssertionInfo}
-                            lastEvaluation={record.lastEvaluation}
-                        />) : (
+                        {record.datasetAssertionInfo ? (
+                            <DatasetAssertionDescription
+                                description={description}
+                                assertionInfo={record.datasetAssertionInfo}
+                                lastEvaluation={record.lastEvaluation}
+                            />
+                        ) : (
                             <AssertionDescriptionContainer>
                                 {description ?? 'No description provided'}
                             </AssertionDescriptionContainer>

@@ -1,5 +1,5 @@
 import { Divider, message, Space, Button, Typography, Tag } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { EntityRelationship, DataHubRole } from '../../../types.generated';
@@ -21,6 +21,7 @@ import {
 import EntityGroups from '../shared/EntityGroups';
 import { mapRoleIcon } from '../../identity/user/UserUtils';
 import { useUserContext } from '../../context/useUserContext';
+import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
 
 const { Paragraph } = Typography;
 
