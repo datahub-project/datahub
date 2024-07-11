@@ -337,7 +337,8 @@ public class OpenAPIV3Generator {
                     new Parameter()
                         .in(NAME_QUERY)
                         .name("validate")
-                        .description("Whether the aspects being ingested should be validated or not.")
+                        .description(
+                            "Whether the aspects being ingested should be validated or not.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(true))))
             .summary("Create " + upperFirst + " entities.")
             .tags(List.of(entity.getName() + " Entity"))

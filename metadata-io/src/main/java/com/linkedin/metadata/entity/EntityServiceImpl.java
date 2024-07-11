@@ -1040,10 +1040,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   /**
    * Wrapper around batch method for single item
    *
-   * @param proposal   the proposal
+   * @param proposal the proposal
    * @param auditStamp an audit stamp representing the time and actor proposing the change
-   * @param async      a flag to control whether we commit to primary store or just write to proposal log before
-   *                   returning
+   * @param async a flag to control whether we commit to primary store or just write to proposal log
+   *     before returning
    * @return an {@link IngestResult} containing the results
    */
   @Override
@@ -1064,15 +1064,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
-   * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any additional aspects or do
-   * any enrichment, instead it changes only those which are provided inside the metadata change proposal.
+   * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any
+   * additional aspects or do any enrichment, instead it changes only those which are provided
+   * inside the metadata change proposal.
    *
    * <p>Do not use this method directly for creating new entities, as it DOES NOT create an Entity
    * Key aspect in the DB. Instead, use an Entity Client.
    *
    * @param aspectsBatch the proposals to ingest
-   * @param async        a flag to control whether we commit to primary store or just write to proposal log before
-   *                     returning
+   * @param async a flag to control whether we commit to primary store or just write to proposal log
+   *     before returning
    * @return an {@link IngestResult} containing the results
    */
   @Override
@@ -1081,8 +1082,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
-        async ? ingestProposalAsync(aspectsBatch) :
-            ingestProposalSync(opContext, aspectsBatch);
+        async ? ingestProposalAsync(aspectsBatch) : ingestProposalSync(opContext, aspectsBatch);
 
     return Stream.concat(timeseriesIngestResults, nonTimeseriesIngestResults)
         .collect(Collectors.toSet());
@@ -1198,7 +1198,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @return produced items to the MCP topic
    */
   private Stream<IngestResult> ingestProposalAsync(AspectsBatch aspectsBatch) {
-    // TODO: Assuming custom unvalidated aspects are non-timeseries. Might need better handling with mutator occurring before this
+    // TODO: Assuming custom unvalidated aspects are non-timeseries. Might need better handling with
+    // mutator occurring before this
     List<? extends MCPItem> nonTimeseries =
         aspectsBatch.getMCPItems().stream()
             .filter(item -> item.getAspectSpec() == null || !item.getAspectSpec().isTimeseries())

@@ -80,7 +80,8 @@ public class UpsertActionPipelineResolver implements DataFetcher<CompletableFutu
                       actionPipelineUrn, Constants.ACTIONS_PIPELINE_INFO_ASPECT_NAME, actionInfo);
 
               String result =
-                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
+                  _entityClient.ingestProposal(
+                      context.getOperationContext(), proposal, false, true);
 
               if (!_integrationsService.reloadAction(result)) {
                 throw new DataHubGraphQLException(

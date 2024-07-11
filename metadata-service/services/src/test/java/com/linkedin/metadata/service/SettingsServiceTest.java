@@ -444,7 +444,8 @@ public class SettingsServiceTest {
         buildUpdateCorpGroupSettingsChangeProposal(GROUP_URN, UPDATED_CORP_GROUP_SETTINGS);
 
     when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN))).thenReturn(true);
-    when(mockClient.ingestProposal(any(OperationContext.class), eq(expectedProposal), eq(true), true))
+    when(mockClient.ingestProposal(
+            any(OperationContext.class), eq(expectedProposal), eq(true), true))
         .thenReturn(GROUP_URN.toString());
     final SettingsService service =
         new SettingsService(mockClient, mock(OpenApiClient.class), new ObjectMapper());
@@ -462,7 +463,8 @@ public class SettingsServiceTest {
         buildUpdateCorpGroupSettingsChangeProposal(GROUP_URN, UPDATED_CORP_GROUP_SETTINGS);
 
     when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN))).thenReturn(true);
-    when(mockClient.ingestProposal(any(OperationContext.class), eq(expectedProposal), eq(true), true))
+    when(mockClient.ingestProposal(
+            any(OperationContext.class), eq(expectedProposal), eq(true), true))
         .thenThrow(new RemoteInvocationException());
     final SettingsService service =
         new SettingsService(mockClient, mock(OpenApiClient.class), new ObjectMapper());

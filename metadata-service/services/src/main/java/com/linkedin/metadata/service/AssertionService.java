@@ -280,7 +280,8 @@ public class AssertionService extends BaseService {
         opContext,
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, Constants.ASSERTIONS_SUMMARY_ASPECT_NAME, newSummary),
-        false, true);
+        false,
+        true);
   }
 
   /** Patches an assertions summary aspect */
@@ -1280,7 +1281,8 @@ public class AssertionService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               assertionUrn, Constants.ASSERTION_RUN_EVENT_ASPECT_NAME, assertionRunEvent),
-          false, true);
+          false,
+          true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(

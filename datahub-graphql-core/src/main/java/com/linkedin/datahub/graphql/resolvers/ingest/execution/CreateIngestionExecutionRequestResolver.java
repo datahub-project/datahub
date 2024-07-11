@@ -146,7 +146,8 @@ public class CreateIngestionExecutionRequestResolver
                       EXECUTION_REQUEST_ENTITY_NAME,
                       EXECUTION_REQUEST_INPUT_ASPECT_NAME,
                       execInput);
-              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
+              return _entityClient.ingestProposal(
+                  context.getOperationContext(), proposal, false, true);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to create new ingestion execution request %s", input), e);

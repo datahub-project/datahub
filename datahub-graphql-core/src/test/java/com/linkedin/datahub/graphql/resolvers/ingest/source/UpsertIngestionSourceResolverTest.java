@@ -68,7 +68,8 @@ public class UpsertIngestionSourceResolverTest {
             Mockito.eq(
                 MutationUtils.buildMetadataChangeProposalWithUrn(
                     TEST_INGESTION_SOURCE_URN, INGESTION_INFO_ASPECT_NAME, info)),
-            Mockito.eq(false), true);
+            Mockito.eq(false),
+            true);
   }
 
   @Test

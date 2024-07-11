@@ -523,7 +523,8 @@ public interface EntityClient {
   String ingestProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      final boolean async, boolean validate)
+      final boolean async,
+      boolean validate)
       throws RemoteInvocationException;
 
   @Deprecated

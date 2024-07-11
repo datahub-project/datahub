@@ -135,7 +135,8 @@ public class FormService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               formUrn, Constants.DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME, dynamicFormAssignment),
-          false, true);
+          false,
+          true);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create form", e);
     }
@@ -1350,7 +1351,8 @@ public class FormService extends BaseService {
       this.entityClient.ingestProposal(
           opContext,
           AspectUtils.buildMetadataChangeProposal(formUrn, FORM_INFO_ASPECT_NAME, formInfo),
-          false, true);
+          false,
+          true);
       return formUrn;
     } catch (Exception e) {
       throw new RuntimeException("Failed to create form", e);

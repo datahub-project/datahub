@@ -132,7 +132,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       OperationContext opContext =
           OperationContext.asSession(
               systemOpContext,
-              RequestContext.builder().buildOpenapi("evaluateEntity", entityUrn.getEntityType(), true),
+              RequestContext.builder()
+                  .buildOpenapi("evaluateEntity", entityUrn.getEntityType(), true),
               authorizationChain,
               auth,
               true);

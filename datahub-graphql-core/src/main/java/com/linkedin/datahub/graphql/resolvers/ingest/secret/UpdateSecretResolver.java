@@ -67,7 +67,8 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithUrn(
                       secretUrn, SECRET_VALUE_ASPECT_NAME, updatedVal);
-              return entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
+              return entityClient.ingestProposal(
+                  context.getOperationContext(), proposal, false, true);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format(

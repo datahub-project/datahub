@@ -86,7 +86,8 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
                       mapGlossaryTermInfo(input));
 
               String glossaryTermUrn =
-                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
+                  _entityClient.ingestProposal(
+                      context.getOperationContext(), proposal, false, true);
 
               OwnerUtils.addCreatorAsOwner(
                   context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);

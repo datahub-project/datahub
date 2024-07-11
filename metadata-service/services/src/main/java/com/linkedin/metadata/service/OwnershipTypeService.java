@@ -87,7 +87,8 @@ public class OwnershipTypeService extends BaseService {
               opContext,
               AspectUtils.buildMetadataChangeProposal(
                   entityUrn, Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME, ownershipTypeInfo),
-              false, true));
+              false,
+              true));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create Ownership Type", e);
     }
@@ -143,7 +144,8 @@ public class OwnershipTypeService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               urn, Constants.OWNERSHIP_TYPE_INFO_ASPECT_NAME, info),
-          false, true);
+          false,
+          true);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", urn), e);
     }
@@ -173,7 +175,8 @@ public class OwnershipTypeService extends BaseService {
             opContext,
             AspectUtils.buildMetadataChangeProposal(
                 urn, Constants.STATUS_ASPECT_NAME, statusAspect),
-            false, true);
+            false,
+            true);
       } else {
         this.entityClient.deleteEntity(opContext, urn);
         if (deleteReferences) {

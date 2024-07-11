@@ -34,14 +34,20 @@ public abstract class PluginSpec {
       @Nullable ChangeType changeType,
       @Nonnull EntitySpec entitySpec,
       @Nullable AspectSpec aspectSpec) {
-    return shouldApply(changeType, entitySpec.getName(), aspectSpec == null ? GenericAspect.dataSchema().getName() :
-        aspectSpec.getName());
+    return shouldApply(
+        changeType,
+        entitySpec.getName(),
+        aspectSpec == null ? GenericAspect.dataSchema().getName() : aspectSpec.getName());
   }
 
   public boolean shouldApply(
-      @Nullable ChangeType changeType, @Nonnull String entityName, @Nullable AspectSpec aspectSpec) {
-    return shouldApply(changeType, entityName, aspectSpec == null ? GenericAspect.dataSchema().getName() :
-        aspectSpec.getName());
+      @Nullable ChangeType changeType,
+      @Nonnull String entityName,
+      @Nullable AspectSpec aspectSpec) {
+    return shouldApply(
+        changeType,
+        entityName,
+        aspectSpec == null ? GenericAspect.dataSchema().getName() : aspectSpec.getName());
   }
 
   public boolean shouldApply(
@@ -53,8 +59,9 @@ public abstract class PluginSpec {
 
   protected boolean isEntityAspectSupported(
       @Nonnull EntitySpec entitySpec, @Nullable AspectSpec aspectSpec) {
-    return isEntityAspectSupported(entitySpec.getName(), aspectSpec == null ? GenericAspect.dataSchema().getName() :
-        aspectSpec.getName());
+    return isEntityAspectSupported(
+        entitySpec.getName(),
+        aspectSpec == null ? GenericAspect.dataSchema().getName() : aspectSpec.getName());
   }
 
   protected boolean isEntityAspectSupported(

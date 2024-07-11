@@ -147,7 +147,8 @@ public class ChangeItemImpl implements ChangeMCP {
         aspectSpec(ValidationApiUtils.validate(this.entitySpec, this.aspectName));
         log.debug("aspect spec = {}", this.aspectSpec);
 
-        ValidationApiUtils.validateRecordTemplate(this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
+        ValidationApiUtils.validateRecordTemplate(
+            this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
       }
 
       return new ChangeItemImpl(
@@ -168,8 +169,12 @@ public class ChangeItemImpl implements ChangeMCP {
         MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
       return build(mcp, auditStamp, aspectRetriever, true);
     }
+
     public static ChangeItemImpl build(
-        MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever, boolean validate) {
+        MetadataChangeProposal mcp,
+        AuditStamp auditStamp,
+        AspectRetriever aspectRetriever,
+        boolean validate) {
 
       log.debug("entity type = {}", mcp.getEntityType());
       EntitySpec entitySpec =
@@ -180,7 +185,10 @@ public class ChangeItemImpl implements ChangeMCP {
 
         if (!MCPItem.isValidChangeType(ChangeType.UPSERT, aspectSpec)) {
           throw new UnsupportedOperationException(
-              "ChangeType not supported: " + mcp.getChangeType() + " for aspect " + mcp.getAspectName());
+              "ChangeType not supported: "
+                  + mcp.getChangeType()
+                  + " for aspect "
+                  + mcp.getAspectName());
         }
       } else {
         aspectSpec = null;
@@ -218,12 +226,15 @@ public class ChangeItemImpl implements ChangeMCP {
       RecordTemplate aspect;
       if (validate) {
         try {
-          aspect = GenericRecordUtils.deserializeAspect(mcp.getAspect().getValue(), mcp.getAspect().getContentType(),
-              aspectSpec);
+          aspect =
+              GenericRecordUtils.deserializeAspect(
+                  mcp.getAspect().getValue(), mcp.getAspect().getContentType(), aspectSpec);
           ValidationApiUtils.validateOrThrow(aspect);
         } catch (ModelConversionException e) {
           throw new RuntimeException(
-              String.format("Could not deserialize %s for aspect %s", mcp.getAspect().getValue(), mcp.getAspectName()));
+              String.format(
+                  "Could not deserialize %s for aspect %s",
+                  mcp.getAspect().getValue(), mcp.getAspectName()));
         }
       } else {
         aspect = mcp.getAspect();

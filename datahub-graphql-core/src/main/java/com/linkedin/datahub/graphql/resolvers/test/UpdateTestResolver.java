@@ -61,7 +61,8 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
             String ingestResult;
             try {
               ingestResult =
-                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
+                  _entityClient.ingestProposal(
+                      context.getOperationContext(), proposal, false, true);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to perform update against Test with urn %s", input), e);

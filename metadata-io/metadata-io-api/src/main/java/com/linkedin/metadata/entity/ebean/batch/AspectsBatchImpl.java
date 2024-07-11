@@ -104,6 +104,7 @@ public class AspectsBatchImpl implements AspectsBatch {
         RetrieverContext retrieverContext) {
       return mcps(mcps, auditStamp, retrieverContext, true);
     }
+
     public AspectsBatchImplBuilder mcps(
         List<MetadataChangeProposal> mcps,
         AuditStamp auditStamp,

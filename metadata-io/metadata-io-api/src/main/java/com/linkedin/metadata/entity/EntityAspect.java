@@ -160,8 +160,10 @@ public class EntityAspect {
         if (entityAspect.getMetadata() != null) {
           this.recordTemplate =
               RecordUtils.toRecordTemplate(
-                  (Class<? extends RecordTemplate>) (aspectSpec == null ? GenericAspect.class
-                      : aspectSpec.getDataTemplateClass()),
+                  (Class<? extends RecordTemplate>)
+                      (aspectSpec == null
+                          ? GenericAspect.class
+                          : aspectSpec.getDataTemplateClass()),
                   entityAspect.getMetadata());
         }
 

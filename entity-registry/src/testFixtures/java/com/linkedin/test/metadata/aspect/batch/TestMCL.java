@@ -28,6 +28,8 @@ public class TestMCL implements MCLItem {
   @Nonnull
   @Override
   public String getAspectName() {
-    return getAspectSpec() == null ? GenericAspect.dataSchema().getName() : getAspectSpec().getName();
+    return getAspectSpec() == null
+        ? GenericAspect.dataSchema().getName()
+        : getAspectSpec().getName();
   }
 }

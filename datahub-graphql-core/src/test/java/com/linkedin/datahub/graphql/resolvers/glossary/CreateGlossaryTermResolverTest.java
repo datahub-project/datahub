@@ -170,7 +170,8 @@ public class CreateGlossaryTermResolverTest {
     CreateGlossaryTermResolver resolver = new CreateGlossaryTermResolver(mockClient, mockService);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
   }
 
   private EntityClient initMockClient() throws Exception {

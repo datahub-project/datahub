@@ -84,7 +84,8 @@ public class CreateIngestionExecutionRequestResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
   }
 
   @Test

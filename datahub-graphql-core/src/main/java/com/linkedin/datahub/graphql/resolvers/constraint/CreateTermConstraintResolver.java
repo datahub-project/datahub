@@ -77,7 +77,8 @@ public class CreateTermConstraintResolver implements DataFetcher<CompletableFutu
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithKey(
                       key, CONSTRAINT_ENTITY_NAME, CONSTRAINT_INFO_ASPECT_NAME, info);
-              return _aspectClient.ingestProposal(context.getOperationContext(), proposal, false, true);
+              return _aspectClient.ingestProposal(
+                  context.getOperationContext(), proposal, false, true);
             } catch (Exception e) {
               throw new RuntimeException("Failed to create constraint", e);
             }

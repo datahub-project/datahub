@@ -191,8 +191,8 @@ public class EntitiesController {
                     "postEntities",
                     proposals.stream()
                         .map(MetadataChangeProposal::getEntityType)
-                        .collect(Collectors.toSet())
-                    , true),
+                        .collect(Collectors.toSet()),
+                    true),
             _authorizerChain,
             authentication,
             true);

@@ -476,9 +476,9 @@ public interface EntityService<U extends ChangeMCP> {
   /**
    * If you have more than 1 proposal use the {AspectsBatch} method
    *
-   * @param proposal   the metadata proposal to ingest
+   * @param proposal the metadata proposal to ingest
    * @param auditStamp audit information
-   * @param async      async ingestion or sync ingestion
+   * @param async async ingestion or sync ingestion
    * @return ingestion result
    */
   IngestResult ingestProposal(
