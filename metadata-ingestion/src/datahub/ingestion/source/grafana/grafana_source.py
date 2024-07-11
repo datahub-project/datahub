@@ -77,7 +77,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
         return self.report
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # assert self.source_config.service_account_token is not None
         headers = {
             "Authorization": f"Bearer {self.source_config.service_account_token.get_secret_value()}",
             "Content-Type": "application/json",
