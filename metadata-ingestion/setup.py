@@ -99,14 +99,18 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==24.0.1.dev7",
+    "acryl-sqlglot[rs]==25.3.1.dev3",
 }
 
 classification_lib = {
-    "acryl-datahub-classify==0.0.10",
+    "acryl-datahub-classify==0.0.11",
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
+    # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
+    # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
+    # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+    "numpy<2",
 }
 
 sql_common = (
@@ -159,9 +163,10 @@ looker_common = {
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.4",
-    "sql-metadata==2.2.2",
-    *sqllineage_lib,
+    *sqlglot_lib,
     "GitPython>2",
+    "python-liquid",
+    *sqlglot_lib,
 }
 
 bigquery_common = {
@@ -339,6 +344,7 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
+        "dask[dataframe]<2024.7.0",
     },
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -507,7 +513,7 @@ base_dev_requirements = {
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
-    "mypy==1.0.0",
+    "mypy==1.10.1",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
@@ -711,6 +717,7 @@ entry_points = {
         "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl",
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
         "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
+        "tags_to_term = datahub.ingestion.transformer.tags_to_terms:TagsToTermMapper",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -729,6 +736,11 @@ entry_points = {
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
     "datahub.custom_packages": [],
+    "datahub.fs.plugins": [
+        "s3 = datahub.ingestion.fs.s3_fs:S3FileSystem",
+        "file = datahub.ingestion.fs.local_fs:LocalFileSystem",
+        "http = datahub.ingestion.fs.http_fs:HttpFileSystem",
+    ],
 }
 
 

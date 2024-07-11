@@ -16,6 +16,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataFlowKeyClass,
     DataJobKeyClass,
     FineGrainedLineageClass,
@@ -534,15 +536,38 @@ class DataHubListener:
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
 
+        event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+            entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
+        )
+        self.emitter.emit(event)
+
+        for task in dag.tasks:
+            task_urn = builder.make_data_job_urn_with_flow(
+                str(dataflow.urn), task.task_id
+            )
+            event = MetadataChangeProposalWrapper(
+                entityUrn=task_urn, aspect=StatusClass(removed=False)
+            )
+            self.emitter.emit(event)
+
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
 
-            event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+            event = MetadataChangeProposalWrapper(
                 entityUrn=tag_urn, aspect=StatusClass(removed=False)
             )
-
             self.emitter.emit(event)
+
+        browse_path_v2_event: MetadataChangeProposalWrapper = (
+            MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn),
+                aspect=BrowsePathsV2Class(
+                    path=[BrowsePathEntryClass(str(dag.dag_id))],
+                ),
+            )
+        )
+        self.emitter.emit(browse_path_v2_event)
 
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
             assert self.graph

@@ -176,6 +176,15 @@ def get_property_from_entity(
     return None
 
 
+def to_es_name(property_name=None, namespace=default_namespace, qualified_name=None):
+    if property_name:
+        namespace_field = namespace.replace(".", "_")
+        return f"structuredProperties.{namespace_field}_{property_name}"
+    else:
+        escaped_qualified_name = qualified_name.replace(".", "_")
+        return f"structuredProperties.{escaped_qualified_name}"
+
+
 # @tenacity.retry(
 #     stop=tenacity.stop_after_attempt(sleep_times),
 #     wait=tenacity.wait_fixed(sleep_sec),
@@ -406,10 +415,6 @@ def test_dataset_yaml_loader(ingest_cleanup_data, graph):
 
 
 def test_structured_property_search(ingest_cleanup_data, graph: DataHubGraph, caplog):
-    def to_es_name(property_name, namespace=default_namespace):
-        namespace_field = namespace.replace(".", "_")
-        return f"structuredProperties.{namespace_field}_{property_name}"
-
     # Attach structured property to entity and to field
     field_property_name = f"deprecationDate{randint(10, 10000)}"
 
@@ -573,28 +578,6 @@ def test_dataset_structured_property_patch(ingest_cleanup_data, graph, caplog):
     assert actual_property_values == [property_value_other]
 
 
-def test_dataset_structured_property_hard_delete(ingest_cleanup_data, graph, caplog):
-    property_name = f"hardDeleteTest{randint(10, 10000)}Property"
-    value_type = "string"
-    property_urn = f"urn:li:structuredProperty:{default_namespace}.{property_name}"
-
-    create_property_definition(
-        property_name=property_name, graph=graph, value_type=value_type
-    )
-
-    test_property = StructuredProperties.from_datahub(graph=graph, urn=property_urn)
-    assert test_property is not None
-
-    try:
-        graph.hard_delete_entity(urn=property_urn)
-        raise AssertionError("Should not be able to HARD delete structured property")
-    except Exception as e:
-        if "Hard delete of Structured Property Definitions is not supported" in str(e):
-            pass
-        else:
-            raise e
-
-
 def test_dataset_structured_property_soft_delete_validation(
     ingest_cleanup_data, graph, caplog
 ):
@@ -685,10 +668,6 @@ def test_dataset_structured_property_soft_delete_read_mutation(
 def test_dataset_structured_property_soft_delete_search_filter_validation(
     ingest_cleanup_data, graph, caplog
 ):
-    def to_es_name(property_name, namespace=default_namespace):
-        namespace_field = namespace.replace(".", "_")
-        return f"structuredProperties.{namespace_field}_{property_name}"
-
     # Create a test structured property
     dataset_property_name = f"softDeleteSearchFilter{randint(10, 10000)}"
     property_value = 30
@@ -744,3 +723,97 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
             pass
         else:
             raise e
+
+
+def test_dataset_structured_property_delete(ingest_cleanup_data, graph, caplog):
+    # Create property, assign value to target dataset urn
+    def create_property(target_dataset, prop_value):
+        property_name = f"hardDeleteTest{randint(10, 10000)}Property"
+        value_type = "string"
+        property_urn = f"urn:li:structuredProperty:{default_namespace}.{property_name}"
+
+        create_property_definition(
+            property_name=property_name,
+            graph=graph,
+            value_type=value_type,
+            cardinality="SINGLE",
+        )
+
+        test_property = StructuredProperties.from_datahub(graph=graph, urn=property_urn)
+        assert test_property is not None
+
+        # assign
+        dataset_patcher: DatasetPatchBuilder = DatasetPatchBuilder(urn=target_dataset)
+        dataset_patcher.set_structured_property(
+            StructuredPropertyUrn.make_structured_property_urn(property_urn),
+            prop_value,
+        )
+        for mcp in dataset_patcher.build():
+            graph.emit(mcp)
+
+        return test_property
+
+    # create and assign 2 structured properties with values
+    property1 = create_property(dataset_urns[0], "foo")
+    property2 = create_property(dataset_urns[0], "bar")
+    wait_for_writes_to_sync()
+
+    # validate #1 & #2 properties assigned
+    assert get_property_from_entity(
+        dataset_urns[0],
+        property1.qualified_name,
+        graph=graph,
+    ) == ["foo"]
+    assert get_property_from_entity(
+        dataset_urns[0],
+        property2.qualified_name,
+        graph=graph,
+    ) == ["bar"]
+
+    def validate_search(qualified_name, expected):
+        entity_urns = list(
+            graph.get_urns_by_filter(
+                extraFilters=[
+                    {
+                        "field": to_es_name(qualified_name=qualified_name),
+                        "negated": "false",
+                        "condition": "EXISTS",
+                    }
+                ]
+            )
+        )
+        assert entity_urns == expected
+
+    # Validate search works for property #1 & #2
+    validate_search(property1.qualified_name, expected=[dataset_urns[0]])
+    validate_search(property2.qualified_name, expected=[dataset_urns[0]])
+
+    # delete the structured property #1
+    graph.hard_delete_entity(urn=property1.urn)
+    wait_for_writes_to_sync()
+
+    # validate property #1 deleted and property #2 remains
+    assert (
+        get_property_from_entity(
+            dataset_urns[0],
+            property1.qualified_name,
+            graph=graph,
+        )
+        is None
+    )
+    assert get_property_from_entity(
+        dataset_urns[0],
+        property2.qualified_name,
+        graph=graph,
+    ) == ["bar"]
+
+    # assert property 1 definition was removed
+    property1_definition = graph.get_aspect(
+        property1.urn, StructuredPropertyDefinitionClass
+    )
+    assert property1_definition is None
+
+    wait_for_writes_to_sync()
+    # Validate search works for property #1 & #2
+    validate_search(property1.qualified_name, expected=[])
+    validate_search(property2.qualified_name, expected=[dataset_urns[0]])

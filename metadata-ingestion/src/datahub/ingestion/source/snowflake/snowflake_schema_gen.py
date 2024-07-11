@@ -1,4 +1,5 @@
 import concurrent.futures
+import itertools
 import logging
 import queue
 from typing import Dict, Iterable, List, Optional, Union
@@ -321,7 +322,7 @@ class SnowflakeSchemaGenerator(
 
             # Read from the queue and yield the work units until all futures are done.
             while True:
-                if q.empty():
+                if not q.empty():
                     while not q.empty():
                         yield q.get_nowait()
                 else:
@@ -394,18 +395,24 @@ class SnowflakeSchemaGenerator(
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
+        # We need to do this first so that we can use it when fetching columns.
         if self.config.include_tables:
             tables = self.fetch_tables_for_schema(
                 snowflake_schema, db_name, schema_name
             )
+        if self.config.include_views:
+            views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
+
+        if self.config.include_tables:
             db_tables[schema_name] = tables
 
             if self.config.include_technical_schema:
                 data_reader = self.make_data_reader()
                 for table in tables:
                     table_wu_generator = self._process_table(
-                        table, schema_name, db_name
+                        table, snowflake_schema, db_name
                     )
+
                     yield from classification_workunit_processor(
                         table_wu_generator,
                         self.classification_handler,
@@ -414,7 +421,6 @@ class SnowflakeSchemaGenerator(
                     )
 
         if self.config.include_views:
-            views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
             if (
                 self.aggregator
                 and self.config.include_view_lineage
@@ -434,7 +440,7 @@ class SnowflakeSchemaGenerator(
 
             if self.config.include_technical_schema:
                 for view in views:
-                    yield from self._process_view(view, schema_name, db_name)
+                    yield from self._process_view(view, snowflake_schema, db_name)
 
         if self.config.include_technical_schema and snowflake_schema.tags:
             for tag in snowflake_schema.tags:
@@ -522,16 +528,27 @@ class SnowflakeSchemaGenerator(
     def _process_table(
         self,
         table: SnowflakeTable,
-        schema_name: str,
+        snowflake_schema: SnowflakeSchema,
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+        schema_name = snowflake_schema.name
         table_identifier = self.get_dataset_identifier(table.name, schema_name, db_name)
 
-        self.fetch_columns_for_table(table, schema_name, db_name, table_identifier)
-
-        self.fetch_pk_for_table(table, schema_name, db_name, table_identifier)
-
-        self.fetch_foreign_keys_for_table(table, schema_name, db_name, table_identifier)
+        try:
+            table.columns = self.get_columns_for_table(
+                table.name, snowflake_schema, db_name
+            )
+            table.column_count = len(table.columns)
+            if self.config.extract_tags != TagOption.skip:
+                table.column_tags = self.tag_extractor.get_column_tags_for_table(
+                    table.name, schema_name, db_name
+                )
+        except Exception as e:
+            logger.debug(
+                f"Failed to get columns for table {table_identifier} due to error {e}",
+                exc_info=e,
+            )
+            self.report_warning("Failed to get columns for table", table_identifier)
 
         if self.config.extract_tags != TagOption.skip:
             table.tags = self.tag_extractor.get_tags_on_object(
@@ -542,12 +559,13 @@ class SnowflakeSchemaGenerator(
             )
 
         if self.config.include_technical_schema:
-            if table.tags:
-                for tag in table.tags:
-                    yield from self._process_tag(tag)
-            for column_name in table.column_tags:
-                for tag in table.column_tags[column_name]:
-                    yield from self._process_tag(tag)
+            if self.config.include_primary_keys:
+                self.fetch_pk_for_table(table, schema_name, db_name, table_identifier)
+
+            if self.config.include_foreign_keys:
+                self.fetch_foreign_keys_for_table(
+                    table, schema_name, db_name, table_identifier
+                )
 
             yield from self.gen_dataset_workunits(table, schema_name, db_name)
 
@@ -587,37 +605,19 @@ class SnowflakeSchemaGenerator(
             )
             self.report_warning("Failed to get primary key for table", table_identifier)
 
-    def fetch_columns_for_table(
-        self,
-        table: SnowflakeTable,
-        schema_name: str,
-        db_name: str,
-        table_identifier: str,
-    ) -> None:
-        try:
-            table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
-            table.column_count = len(table.columns)
-            if self.config.extract_tags != TagOption.skip:
-                table.column_tags = self.tag_extractor.get_column_tags_for_table(
-                    table.name, schema_name, db_name
-                )
-        except Exception as e:
-            logger.debug(
-                f"Failed to get columns for table {table_identifier} due to error {e}",
-                exc_info=e,
-            )
-            self.report_warning("Failed to get columns for table", table_identifier)
-
     def _process_view(
         self,
         view: SnowflakeView,
-        schema_name: str,
+        snowflake_schema: SnowflakeSchema,
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+        schema_name = snowflake_schema.name
         view_name = self.get_dataset_identifier(view.name, schema_name, db_name)
 
         try:
-            view.columns = self.get_columns_for_table(view.name, schema_name, db_name)
+            view.columns = self.get_columns_for_table(
+                view.name, snowflake_schema, db_name
+            )
             if self.config.extract_tags != TagOption.skip:
                 view.column_tags = self.tag_extractor.get_column_tags_for_table(
                     view.name, schema_name, db_name
@@ -638,13 +638,6 @@ class SnowflakeSchemaGenerator(
             )
 
         if self.config.include_technical_schema:
-            if view.tags:
-                for tag in view.tags:
-                    yield from self._process_tag(tag)
-            for column_name in view.column_tags:
-                for tag in view.column_tags[column_name]:
-                    yield from self._process_tag(tag)
-
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
@@ -663,6 +656,13 @@ class SnowflakeSchemaGenerator(
         schema_name: str,
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+        if table.tags:
+            for tag in table.tags:
+                yield from self._process_tag(tag)
+        for column_name in table.column_tags:
+            for tag in table.column_tags[column_name]:
+                yield from self._process_tag(tag)
+
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
         dataset_urn = self.gen_dataset_urn(dataset_name)
 
@@ -1011,27 +1011,20 @@ class SnowflakeSchemaGenerator(
     ) -> List[SnowflakeView]:
         views = self.data_dictionary.get_views_for_database(db_name)
 
-        # get all views for database failed,
-        # falling back to get views for schema
-        if views is None:
-            self.report.num_get_views_for_schema_queries += 1
-            return self.data_dictionary.get_views_for_schema(schema_name, db_name)
-
         # Some schema may not have any table
         return views.get(schema_name, [])
 
     def get_columns_for_table(
-        self, table_name: str, schema_name: str, db_name: str
+        self, table_name: str, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> List[SnowflakeColumn]:
-        columns = self.data_dictionary.get_columns_for_schema(schema_name, db_name)
-
-        # get all columns for schema failed,
-        # falling back to get columns for table
-        if columns is None:
-            self.report.num_get_columns_for_table_queries += 1
-            return self.data_dictionary.get_columns_for_table(
-                table_name, schema_name, db_name
-            )
+        schema_name = snowflake_schema.name
+        columns = self.data_dictionary.get_columns_for_schema(
+            schema_name,
+            db_name,
+            cache_exclude_all_objects=itertools.chain(
+                snowflake_schema.tables, snowflake_schema.views
+            ),
+        )
 
         # Access to table but none of its columns - is this possible ?
         return columns.get(table_name, [])

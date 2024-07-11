@@ -38,7 +38,7 @@ class SnowflakeQueryProtocol(SnowflakeLoggingProtocol, Protocol):
 class SnowflakeQueryMixin:
     def query(self: SnowflakeQueryProtocol, query: str) -> Any:
         try:
-            self.logger.debug(f"Query : {query}", stacklevel=2)
+            self.logger.info(f"Query : {query}", stacklevel=2)
             resp = self.get_connection().cursor(DictCursor).execute(query)
             return resp
 

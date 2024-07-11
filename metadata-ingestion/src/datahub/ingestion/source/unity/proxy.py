@@ -122,7 +122,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         response = self._workspace_client.catalogs.list()
         if not response:
             logger.info("Catalogs not found")
-            return []
+            return
         for catalog in response:
             optional_catalog = self._create_catalog(metastore, catalog)
             if optional_catalog:
@@ -151,7 +151,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         response = self._workspace_client.schemas.list(catalog_name=catalog.name)
         if not response:
             logger.info(f"Schemas not found for catalog {catalog.id}")
-            return []
+            return
         for schema in response:
             optional_schema = self._create_schema(catalog, schema)
             if optional_schema:
@@ -170,7 +170,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
             if not response:
                 logger.info(f"Tables not found for schema {schema.id}")
-                return []
+                return
             for table in response:
                 try:
                     optional_table = self._create_table(
