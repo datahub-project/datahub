@@ -5,7 +5,7 @@ set -euxo pipefail
 ./metadata-ingestion/scripts/install_deps.sh
 
 # Set up java version for gradle
-yum install java-17-amazon-corretto
+yum install java-17-amazon-corretto -y
 java --version
 
 # Build python from source.
