@@ -44,6 +44,7 @@ DEFAULT_TABLES_DENY_LIST = [
     r".*__DBT_TMP$",  # dbt
     rf".*\.SEGMENT_{UUID_REGEX}",  # segment
     rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
+    r".*\.(ge_tmp_|ge_temp_|gx_temp_)[0-9a-f]{8}",  # great expectations
 ]
 
 

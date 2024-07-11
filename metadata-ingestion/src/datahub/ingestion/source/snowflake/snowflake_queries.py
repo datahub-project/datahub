@@ -165,7 +165,8 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
 
     def is_temp_table(self, name: str) -> bool:
         return any(
-            re.match(pattern, name) for pattern in self.config.temporary_tables_pattern
+            re.match(pattern, name, flags=re.IGNORECASE)
+            for pattern in self.config.temporary_tables_pattern
         )
 
     def is_allowed_table(self, name: str) -> bool:

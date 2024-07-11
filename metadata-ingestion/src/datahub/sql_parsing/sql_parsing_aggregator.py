@@ -1,6 +1,7 @@
 import contextlib
 import dataclasses
 import enum
+import functools
 import itertools
 import json
 import logging
@@ -218,8 +219,11 @@ class SqlAggregatorReport(Report):
     schema_resolver_count: Optional[int] = None
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
-    num_queries_entities_generated: int = 0
     num_lineage_skipped_due_to_filters: int = 0
+
+    # Queries.
+    num_queries_entities_generated: int = 0
+    num_queries_skipped_due_to_filters: int = 0
 
     # Usage-related.
     usage_skipped_missing_timestamp: int = 0
@@ -255,8 +259,8 @@ class SqlParsingAggregator(Closeable):
         generate_query_usage_statistics: bool = False,
         generate_operations: bool = False,
         usage_config: Optional[BaseUsageConfig] = None,
-        is_temp_table: Optional[Callable[[UrnStr], bool]] = None,
-        is_allowed_table: Optional[Callable[[UrnStr], bool]] = None,
+        is_temp_table: Optional[Callable[[str], bool]] = None,
+        is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
     ) -> None:
@@ -445,17 +449,27 @@ class SqlParsingAggregator(Closeable):
                 return try_format_query(query, self.platform.platform_name)
         return query
 
+    @functools.lru_cache(maxsize=128)
+    def _name_from_urn(self, urn: UrnStr) -> str:
+        name = DatasetUrn.from_string(urn).name
+        if (
+            platform_instance := self._schema_resolver.platform_instance
+        ) and name.startswith(platform_instance):
+            # Remove the platform instance from the name.
+            name = name[len(platform_instance) + 1 :]
+        return name
+
     def is_temp_table(self, urn: UrnStr) -> bool:
         if self._is_temp_table is None:
             return False
-        return self._is_temp_table(urn)
+        return self._is_temp_table(self._name_from_urn(urn))
 
     def is_allowed_table(self, urn: UrnStr) -> bool:
         if self.is_temp_table(urn):
             return False
         if self._is_allowed_table is None:
             return True
-        return self._is_allowed_table(urn)
+        return self._is_allowed_table(self._name_from_urn(urn))
 
     def add(
         self, item: Union[KnownQueryLineageInfo, KnownLineageMapping, PreparsedQuery]
@@ -793,10 +807,9 @@ class SqlParsingAggregator(Closeable):
 
         else:
             # Non-temp tables immediately generate lineage.
-            if self.is_allowed_table(out_table):
-                self._lineage_map.for_mutation(out_table, OrderedSet()).add(
-                    query_fingerprint
-                )
+            self._lineage_map.for_mutation(out_table, OrderedSet()).add(
+                query_fingerprint
+            )
 
     def add_table_rename(
         self,
@@ -1002,10 +1015,6 @@ class SqlParsingAggregator(Closeable):
 
         # Generate lineage and queries.
         for downstream_urn in sorted(self._lineage_map):
-            if not self.is_allowed_table(downstream_urn):
-                self.report.num_lineage_skipped_due_to_filters += 1
-                continue
-
             yield from self._gen_lineage_for_downstream(
                 downstream_urn, queries_generated=queries_generated
             )
@@ -1027,6 +1036,10 @@ class SqlParsingAggregator(Closeable):
     def _gen_lineage_for_downstream(
         self, downstream_urn: str, queries_generated: Set[QueryId]
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        if not self.is_allowed_table(downstream_urn):
+            self.report.num_lineage_skipped_due_to_filters += 1
+            return
+
         query_ids = self._lineage_map[downstream_urn]
         queries: List[QueryMetadata] = [
             self._resolve_query_with_temp_tables(self._query_map[query_id])
@@ -1185,6 +1198,13 @@ class SqlParsingAggregator(Closeable):
     ) -> Iterable[MetadataChangeProposalWrapper]:
         query_id = query.query_id
         if not self.can_generate_query(query_id):
+            return
+
+        # If a query doesn't involve any allowed tables, skip it.
+        if downstream_urn is None and not any(
+            self.is_allowed_table(urn) for urn in query.upstreams
+        ):
+            self.report.num_queries_skipped_due_to_filters += 1
             return
 
         query_subject_urns: List[UrnStr] = []
