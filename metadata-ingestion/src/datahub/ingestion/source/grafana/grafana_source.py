@@ -51,7 +51,7 @@ class GrafanaReport(StaleEntityRemovalSourceReport):
 class GrafanaSource(StatefulIngestionSourceBase):
     """
     This is experimental source for Grafana. Not a lot of testing done yet.
-    It currently only ingests dashboards and nothig else not even charts.
+    It currently only ingests dashboards and nothing else. (not even charts)
     """
 
     def __init__(self, config: GrafanaSourceConfig, ctx: PipelineContext):
