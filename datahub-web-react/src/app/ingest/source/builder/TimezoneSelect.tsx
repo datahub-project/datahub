@@ -13,7 +13,7 @@ type Props = {
     disabled?: boolean;
 };
 
-export const TimezoneSelect = ({ value, onChange, ...props }: Props) => {
+export const TimezoneSelect = ({ value, onChange, ..._props }: Props) => {
     const timezones = moment.tz.names();
     return (
         <>

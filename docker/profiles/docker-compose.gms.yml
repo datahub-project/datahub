@@ -133,7 +133,6 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     SHOW_BROWSE_V2: true
     METADATA_TESTS_ENABLED: true
     ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED: true
-    ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE: '/etc/datahub/search/search_config.yaml'
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml

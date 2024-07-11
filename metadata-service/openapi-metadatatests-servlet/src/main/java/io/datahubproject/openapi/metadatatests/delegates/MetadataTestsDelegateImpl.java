@@ -43,6 +43,7 @@ import io.datahubproject.openapi.generated.TestEntityResponseV2;
 import io.datahubproject.openapi.generated.TestResultType;
 import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiDelegate;
 import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -118,7 +119,10 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
   @Override
   public ResponseEntity<MetadataTestEntityResultV1> evaluateEntity(
-      String entityUrnStr, List<String> testUrnStrings, Boolean evaluateOnly) {
+      HttpServletRequest request,
+      String entityUrnStr,
+      List<String> testUrnStrings,
+      Boolean evaluateOnly) {
     Optional<MetadataTestEntityResultV1> result;
 
     try {
@@ -135,7 +139,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
               RequestContext.builder()
                   .buildOpenapi(
                       auth.getActor().toUrnStr(),
-                      getRequest().get(),
+                      request,
                       "evaluateEntity",
                       entityUrn.getEntityType()),
               authorizationChain,
@@ -179,7 +183,10 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
   @Override
   public ResponseEntity<MetadataTestResultV1> evaluateTest(
-      String testUrnStr, Boolean evaluateOnly, List<String> entityUrnStrings) {
+      HttpServletRequest request,
+      String testUrnStr,
+      Boolean evaluateOnly,
+      List<String> entityUrnStrings) {
     Optional<MetadataTestResultV1> result;
 
     try {
@@ -195,10 +202,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
               systemOpContext,
               RequestContext.builder()
                   .buildOpenapi(
-                      auth.getActor().toUrnStr(),
-                      getRequest().get(),
-                      "evaluateTest",
-                      testUrn.getEntityType()),
+                      auth.getActor().toUrnStr(), request, "evaluateTest", testUrn.getEntityType()),
               authorizationChain,
               auth,
               true);
@@ -465,30 +469,34 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
   @Override
   public ResponseEntity<List<TestEntityResponseV2>> create(
-      List<TestEntityRequestV2> body, Boolean createIfNotExists, Boolean createEntityIfNotExists) {
+      HttpServletRequest request,
+      List<TestEntityRequestV2> body,
+      Boolean createIfNotExists,
+      Boolean createEntityIfNotExists) {
     return entityApiDelegate
-        .setRequest(getRequest().get())
+        .setRequest(request)
         .create(body, createIfNotExists, createEntityIfNotExists);
   }
 
   @Override
-  public ResponseEntity<Void> delete(String urn) {
-    return entityApiDelegate.setRequest(getRequest().get()).delete(urn);
+  public ResponseEntity<Void> delete(HttpServletRequest request, String urn) {
+    return entityApiDelegate.setRequest(request).delete(urn);
   }
 
   @Override
   public ResponseEntity<TestEntityResponseV2> get(
-      String urn, Boolean systemMetadata, List<String> aspects) {
-    return entityApiDelegate.setRequest(getRequest().get()).get(urn, systemMetadata, aspects);
+      HttpServletRequest request, String urn, Boolean systemMetadata, List<String> aspects) {
+    return entityApiDelegate.setRequest(request).get(urn, systemMetadata, aspects);
   }
 
   @Override
-  public ResponseEntity<Void> head(String urn) {
-    return entityApiDelegate.setRequest(getRequest().get()).head(urn);
+  public ResponseEntity<Void> head(HttpServletRequest request, String urn) {
+    return entityApiDelegate.setRequest(request).head(urn);
   }
 
   @Override
   public ResponseEntity<ScrollTestEntityResponseV2> scroll(
+      HttpServletRequest request,
       Boolean systemMetadata,
       List<String> aspects,
       Integer count,
@@ -497,7 +505,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       SortOrder sortOrder,
       String query) {
     return entityApiDelegate
-        .setRequest(getRequest().get())
+        .setRequest(request)
         .scroll(systemMetadata, aspects, count, scrollId, sort, sortOrder, query);
   }
 

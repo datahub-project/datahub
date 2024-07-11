@@ -256,6 +256,21 @@ public interface EntityService<U extends ChangeMCP> {
       boolean alwaysIncludeKeyAspect)
       throws URISyntaxException;
 
+  /**
+   * Retrieve the specified aspect versions for the given URNs
+   *
+   * @param opContext operation context
+   * @param urnAspectVersions map of the urn's aspect versions
+   * @param alwaysIncludeKeyAspect whether to include the key aspect
+   * @return enveloped aspects with the specific version
+   * @throws URISyntaxException
+   */
+  Map<Urn, List<EnvelopedAspect>> getEnvelopedVersionedAspects(
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<Urn, Map<String, Long>> urnAspectVersions,
+      boolean alwaysIncludeKeyAspect)
+      throws URISyntaxException;
+
   @Deprecated
   default Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)

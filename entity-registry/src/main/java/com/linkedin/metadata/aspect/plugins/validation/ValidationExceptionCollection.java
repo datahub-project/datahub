@@ -20,7 +20,7 @@ public class ValidationExceptionCollection
   }
 
   public void addException(AspectValidationException exception) {
-    super.computeIfAbsent(exception.getExceptionKey(), key -> new HashSet<>()).add(exception);
+    super.computeIfAbsent(exception.getAspectGroup(), key -> new HashSet<>()).add(exception);
   }
 
   public void addException(BatchItem item, String message) {

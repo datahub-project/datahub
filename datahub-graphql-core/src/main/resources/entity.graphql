@@ -13582,13 +13582,3 @@ type CronSchedule {
     timezone: String!
 }
 
-
-"""
-A standardized type of a user
-"""
-type DataHubPersona {
-    """
-    The urn of the persona type
-    """
-    urn: String!
-}

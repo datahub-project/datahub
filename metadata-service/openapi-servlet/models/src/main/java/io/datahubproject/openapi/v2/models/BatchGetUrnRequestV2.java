@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.models;
+package io.datahubproject.openapi.v2.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -13,9 +13,9 @@ import lombok.Value;
 @Value
 @EqualsAndHashCode
 @Builder
-@JsonDeserialize(builder = BatchGetUrnRequest.BatchGetUrnRequestBuilder.class)
+@JsonDeserialize(builder = BatchGetUrnRequestV2.BatchGetUrnRequestV2Builder.class)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class BatchGetUrnRequest implements Serializable {
+public class BatchGetUrnRequestV2 implements Serializable {
   @JsonProperty("urns")
   @Schema(required = true, description = "The list of urns to get.")
   List<String> urns;
