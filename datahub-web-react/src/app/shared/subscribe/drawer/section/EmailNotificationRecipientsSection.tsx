@@ -1,8 +1,21 @@
 import React, { useEffect, useRef } from 'react';
-import { Alert, Checkbox, Form, Input, InputRef, Radio, RadioChangeEvent, Space, Switch, Typography } from 'antd';
+import {
+    Alert,
+    Checkbox,
+    Form,
+    Input,
+    InputRef,
+    Radio,
+    RadioChangeEvent,
+    Space,
+    Switch,
+    Tooltip,
+    Typography,
+} from 'antd';
 import styled from 'styled-components/macro';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { useForm } from 'antd/lib/form/Form';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
 import { EMAIL_SINK, NOTIFICATION_SINKS } from '../../../../settings/platform/types';
@@ -89,7 +102,11 @@ const StyledAlert = styled(Alert)`
     margin: 8px 0 0 ${LEFT_PADDING}px;
 `;
 
-export default function EmailNotificationRecipientSection() {
+interface Props {
+    isPersonal: boolean;
+}
+
+export default function EmailNotificationRecipientSection({ isPersonal }: Props) {
     const { config } = useAppConfig();
     const [form] = useForm();
     const actions = useDrawerActions();
@@ -201,7 +218,18 @@ export default function EmailNotificationRecipientSection() {
                     checked={email.subscription.saveAsDefault}
                     onChange={onChangeSaveAsDefaultCheckbox}
                 >
-                    <SaveAsDefaultText>Save as default</SaveAsDefaultText>
+                    <SaveAsDefaultText>
+                        Save as default{' '}
+                        <Tooltip
+                            title={
+                                isPersonal
+                                    ? "You can manage defaults under the 'Settings' page > 'My Notifications' tab"
+                                    : "You can manage defaults by opening your group page from Settings > Users and Groups, then switching to the 'Notifications' tab"
+                            }
+                        >
+                            <InfoCircleOutlined />
+                        </Tooltip>
+                    </SaveAsDefaultText>
                 </StyledCheckbox>
             )}
         </NotificationSwitchContainer>

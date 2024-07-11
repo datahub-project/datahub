@@ -201,7 +201,15 @@ export const SlackSinkSettingsSection = ({
                             <HelperText>
                                 {isPersonal ? (
                                     <>
-                                        Find a member ID from the <MoreOutlined /> menu in your Slack profile
+                                        Find a member ID from the <MoreOutlined /> menu in your Slack profile.
+                                        <a
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            href="https://datahubproject.io/docs/managed-datahub/saas-slack-setup/#how-to-find-user-id-in-slack"
+                                        >
+                                            {' '}
+                                            See instructions.
+                                        </a>
                                     </>
                                 ) : (
                                     <>Find a channel ID at the bottom of the &quot;About&quot; tab for a channel</>

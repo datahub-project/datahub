@@ -85,7 +85,7 @@ const InfoIcon = styled(InfoCircleFilled)`
 const GlobalNotificationsBanner = styled.div`
     background-color: ${green[0]};
     border-radius: 8px;
-    border: 1px solid ${green[2]};
+    border: 1px solid ${green[6]};
     padding: 8px 16px;
     margin: 18px 0 25px;
     font-size: 14px;
@@ -226,14 +226,14 @@ export const SlackIntegration = () => {
                 <Typography.Title level={3}>Slack</Typography.Title>
                 <Typography.Text type="secondary">Configure an integration with Slack</Typography.Text>
                 <Divider />
-                {!isConnected ? (
+                {isConnected ? (
                     <GlobalNotificationsBanner>
                         <InfoIcon />
                         The Slack integration is ready! Now switch to the{' '}
                         <Link to="/settings/notifications">Platform Notifications Tab</Link> to try it out.
                     </GlobalNotificationsBanner>
                 ) : (
-                    <SlackIntegrationHint visible={!!isConnected} />
+                    <SlackIntegrationHint visible={!isConnected} />
                 )}
                 <Content>
                     <FormColumn>

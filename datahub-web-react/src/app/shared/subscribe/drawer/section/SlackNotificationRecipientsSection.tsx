@@ -1,8 +1,22 @@
 import React, { useEffect, useRef } from 'react';
-import { Alert, Checkbox, Form, Input, InputRef, Radio, RadioChangeEvent, Space, Switch, Typography } from 'antd';
+import {
+    Alert,
+    Checkbox,
+    Form,
+    Input,
+    InputRef,
+    Radio,
+    RadioChangeEvent,
+    Space,
+    Switch,
+    Tooltip,
+    Typography,
+} from 'antd';
 import styled from 'styled-components/macro';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { useForm } from 'antd/lib/form/Form';
+import { trim } from 'lodash';
+import { InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { Link } from 'react-router-dom';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
@@ -55,6 +69,11 @@ const DisabledText = styled(Typography.Text)`
     font-weight: 500;
     padding-left: ${LEFT_PADDING}px;
     margin-top: 8px;
+`;
+
+const MemberIdInstructionText = styled(Typography.Paragraph)`
+    margin-left: ${LEFT_PADDING + 24}px;
+    margin-top: 6px;
 `;
 
 const StyledFormItem = styled(Form.Item)`
@@ -115,7 +134,8 @@ export default function SlackNotificationRecipientSection() {
         isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
     );
     const slackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
-    const slackInputPlaceholder = isPersonal ? 'Alternate Slack Member ID' : 'Alternate Slack Channel ID';
+
+    const slackInputPlaceholder = isPersonal ? 'Alternate Slack Member ID' : '#my-team-channel';
 
     useEffect(() => {
         form.setFieldsValue({ slackFormValue: slack.subscription.channel });
@@ -134,7 +154,12 @@ export default function SlackNotificationRecipientSection() {
     };
 
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
-        actions.setSlackSubscriptionChannel(value);
+        let channelName = value;
+        if (!isPersonal) {
+            // trim # from string and add only one # in front
+            channelName = '#'.concat(trim(value, '#'));
+        }
+        actions.setSlackSubscriptionChannel(channelName);
     };
 
     const onChangeSaveAsDefaultCheckbox = ({ target: { checked } }: CheckboxChangeEvent) => {
@@ -218,13 +243,39 @@ export default function SlackNotificationRecipientSection() {
             )}
             {renderSlackSink()}
             {isSubscriptionChannelSelected && slackSinkSupported && (
-                <StyledCheckbox
-                    disabled={!slack.enabled || !slackSinkSupported}
-                    checked={slack.subscription.saveAsDefault}
-                    onChange={onChangeSaveAsDefaultCheckbox}
-                >
-                    <SaveAsDefaultText>Save as default</SaveAsDefaultText>
-                </StyledCheckbox>
+                <>
+                    <StyledCheckbox
+                        disabled={!slack.enabled || !slackSinkSupported}
+                        checked={slack.subscription.saveAsDefault}
+                        onChange={onChangeSaveAsDefaultCheckbox}
+                    >
+                        <SaveAsDefaultText>
+                            Save as default{' '}
+                            <Tooltip title="You can manage defaults under the 'Settings' page > 'My Notifications' tab">
+                                <InfoCircleOutlined />
+                            </Tooltip>
+                        </SaveAsDefaultText>
+                    </StyledCheckbox>
+                    <MemberIdInstructionText>
+                        {isPersonal ? (
+                            <>
+                                Find a member ID from the <MoreOutlined /> menu in your Slack profile.
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    href="https://datahubproject.io/docs/managed-datahub/saas-slack-setup/#how-to-find-user-id-in-slack"
+                                >
+                                    {' '}
+                                    See instructions.
+                                </a>
+                            </>
+                        ) : (
+                            <Typography.Paragraph>
+                                Ensure the Slack bot has been added to this channel
+                            </Typography.Paragraph>
+                        )}
+                    </MemberIdInstructionText>
+                </>
             )}
         </NotificationSwitchContainer>
     );
