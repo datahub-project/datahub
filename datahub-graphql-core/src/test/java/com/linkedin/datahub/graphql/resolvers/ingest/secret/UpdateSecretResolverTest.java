@@ -77,7 +77,7 @@ public class UpdateSecretResolverTest {
 
     // Invoke the resolver
     resolver.get(mockEnv).join();
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), any(), anyBoolean());
+    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), any(), anyBoolean(), true);
   }
 
   @Test(
@@ -91,6 +91,6 @@ public class UpdateSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     resolver.get(mockEnv).join();
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean());
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean(), true);
   }
 }

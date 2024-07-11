@@ -98,7 +98,7 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
             proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
             String domainUrn =
-                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
             OwnerUtils.addCreatorAsOwner(
                 context, domainUrn, OwnerEntityType.CORP_USER, _entityService);
             return domainUrn;

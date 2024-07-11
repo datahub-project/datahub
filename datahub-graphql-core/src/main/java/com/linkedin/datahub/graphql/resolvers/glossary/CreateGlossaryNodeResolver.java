@@ -68,7 +68,7 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
                       mapGlossaryNodeInfo(input));
 
               String glossaryNodeUrn =
-                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
 
               OwnerUtils.addCreatorAsOwner(
                   context, glossaryNodeUrn, OwnerEntityType.CORP_USER, _entityService);

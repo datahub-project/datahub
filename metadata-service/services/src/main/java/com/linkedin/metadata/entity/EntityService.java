@@ -413,7 +413,7 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final Urn urn,
       @Nonnull String entityName,
       @Nonnull String aspectName,
-      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final AspectSpec aspectSpec,
       @Nullable final RecordTemplate oldAspectValue,
       @Nullable final RecordTemplate newAspectValue,
       @Nullable final SystemMetadata oldSystemMetadata,
@@ -476,9 +476,9 @@ public interface EntityService<U extends ChangeMCP> {
   /**
    * If you have more than 1 proposal use the {AspectsBatch} method
    *
-   * @param proposal the metadata proposal to ingest
+   * @param proposal   the metadata proposal to ingest
    * @param auditStamp audit information
-   * @param async async ingestion or sync ingestion
+   * @param async      async ingestion or sync ingestion
    * @return ingestion result
    */
   IngestResult ingestProposal(

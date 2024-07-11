@@ -27,6 +27,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
@@ -84,7 +85,7 @@ public class AspectResourceTest {
     AuthenticationContext.setAuthentication(mockAuthentication);
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
-    aspectResource.ingestProposal(mcp, "true");
+    aspectResource.ingestProposal(mcp, "true", true);
     verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
     verifyNoMoreInteractions(producer);
     verifyNoMoreInteractions(aspectDao);
@@ -131,9 +132,31 @@ public class AspectResourceTest {
                     .auditStamp(new AuditStamp())
                     .request(req)
                     .build())));
-    aspectResource.ingestProposal(mcp, "false");
+    aspectResource.ingestProposal(mcp, "false", true);
     verify(producer, times(5))
         .produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(producer);
+  }
+
+  @Test
+  public void testNoValidateAsync() throws URISyntaxException {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+    mcp.setEntityUrn(urn);
+    GenericAspect properties = GenericRecordUtils.serializeAspect(new DatasetProperties().setName("name"));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(properties));
+    mcp.setAspectName("notAnAspect");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setSystemMetadata(new SystemMetadata());
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    Actor actor = new Actor(ActorType.USER, "user");
+    when(mockAuthentication.getActor()).thenReturn(actor);
+    aspectResource.ingestProposal(mcp, "true", false);
+    verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
+    verifyNoMoreInteractions(producer);
+    verifyNoMoreInteractions(aspectDao);
   }
 }

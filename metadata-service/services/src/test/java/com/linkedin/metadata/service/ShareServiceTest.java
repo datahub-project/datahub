@@ -68,7 +68,7 @@ public class ShareServiceTest {
     // Ingests new aspect
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -107,7 +107,7 @@ public class ShareServiceTest {
     // Ingests new aspect
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -145,7 +145,7 @@ public class ShareServiceTest {
     // Ingests new aspect
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -183,7 +183,7 @@ public class ShareServiceTest {
     // Ingests new aspect
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   private static EntityResponse createShareAspectResponse(Long time, Urn connectionUrn)

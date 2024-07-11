@@ -95,7 +95,7 @@ public class ViewService extends BaseService {
                   EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATAHUB_VIEW_ENTITY_NAME),
                   Constants.DATAHUB_VIEW_INFO_ASPECT_NAME,
                   newView),
-              false));
+              false, true));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create View", e);
     }
@@ -163,7 +163,7 @@ public class ViewService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               viewUrn, Constants.DATAHUB_VIEW_INFO_ASPECT_NAME, existingInfo),
-          false);
+          false, true);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", viewUrn), e);
     }

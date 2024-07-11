@@ -59,7 +59,7 @@ public class ShareService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               entityUrn, Constants.SHARE_ASPECT_NAME, updatedShareAspect),
-          false);
+          false, true);
       return updatedShareAspect;
     } catch (Exception e) {
       throw new RuntimeException(

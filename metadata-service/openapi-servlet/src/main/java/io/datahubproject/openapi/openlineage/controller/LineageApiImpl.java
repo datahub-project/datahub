@@ -68,7 +68,7 @@ public class LineageApiImpl implements LineageApi {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("postRunEventRaw", List.of()),
+            RequestContext.builder().buildOpenapi("postRunEventRaw", List.of(), true),
             _authorizerChain,
             authentication,
             true);

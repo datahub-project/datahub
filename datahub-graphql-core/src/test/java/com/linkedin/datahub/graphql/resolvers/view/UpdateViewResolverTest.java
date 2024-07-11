@@ -233,7 +233,7 @@ public class UpdateViewResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean());
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean(), true);
   }
 
   private static ViewService initViewService(DataHubViewType viewType) {

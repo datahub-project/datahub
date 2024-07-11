@@ -13,7 +13,6 @@ import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
@@ -21,8 +20,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.aspect.batch.MCPItem;
-import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
@@ -84,6 +81,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
   private static final String PARAM_LATEST_VALUE = "latestValue";
   private static final String PARAM_ASYNC = "async";
+  private static final String PARAM_VALIDATE = "validate";
 
   private static final String ASYNC_INGEST_DEFAULT_NAME = "ASYNC_INGEST_DEFAULT";
   private static final String UNSET = "unset";
@@ -154,7 +152,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get aspect for " + urn);
           }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli("authorizerChain", urn.getEntityType()), _authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli("authorizerChain", urn.getEntityType(),
+                    true), _authorizer, auth, true);
 
           final VersionedAspect aspect =
               _entityService.getVersionedAspect(opContext, urn, aspectName, version);
@@ -205,7 +204,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 "User is unauthorized to get timeseries aspect for " + urn);
           }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()), _authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType(),
+                    true), _authorizer, auth, true);
 
             GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
           response.setEntityName(entityName);
@@ -242,21 +242,23 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @WithSpan
   public Task<String> ingestProposal(
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal,
-      @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async)
+      @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async,
+      @ActionParam(PARAM_VALIDATE) @Optional("true") boolean validate)
       throws URISyntaxException {
-      log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
       String urn = metadataChangeProposal.getEntityUrn() != null ? metadataChangeProposal.getEntityUrn().toString() :
         java.util.Optional.ofNullable(metadataChangeProposal.getEntityKeyAspect()).orElse(new GenericAspect())
             .getValue().asString(StandardCharsets.UTF_8);
     String proposedValue = java.util.Optional.ofNullable(metadataChangeProposal.getAspect()).orElse(new GenericAspect())
         .getValue().asString(StandardCharsets.UTF_8);
+    log.info("Ingest content: urn: {} value: {}", urn, proposedValue);
     final boolean asyncBool;
     if (UNSET.equals(async)) {
       asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
     } else {
       asyncBool = Boolean.parseBoolean(async);
-    }return ingestProposals(List.of(metadataChangeProposal), asyncBool);
+    }
+    return ingestProposals(List.of(metadataChangeProposal), asyncBool, validate);
   }
 
   @Action(name = ACTION_INGEST_PROPOSAL_BATCH)
@@ -264,7 +266,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     @WithSpan
     public Task<String> ingestProposalBatch(
             @ActionParam(PARAM_PROPOSALS) @Nonnull MetadataChangeProposal[] metadataChangeProposals,
-            @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async)
+            @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async,
+            @ActionParam(PARAM_VALIDATE) @Optional("true") boolean validate)
             throws URISyntaxException {
         log.info("INGEST PROPOSAL BATCH proposals: {}", Arrays.asList(metadataChangeProposals));
 
@@ -275,13 +278,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             asyncBool = Boolean.parseBoolean(async);
         }
 
-        return ingestProposals(Arrays.asList(metadataChangeProposals), asyncBool);
+        return ingestProposals(Arrays.asList(metadataChangeProposals), asyncBool, validate);
   }
 
 
   private Task<String> ingestProposals(
           @Nonnull List<MetadataChangeProposal> metadataChangeProposals,
-          boolean asyncBool)
+          boolean asyncBool, boolean validate)
   throws URISyntaxException {
     Authentication authentication = AuthenticationContext.getAuthentication();
 
@@ -290,7 +293,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                                                      .collect(Collectors.toSet());
 
     final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(ACTION_INGEST_PROPOSAL, entityTypes), _authorizer, authentication, true);
+              systemOperationContext, RequestContext.builder().buildRestli(ACTION_INGEST_PROPOSAL, entityTypes,
+            validate), _authorizer, authentication, true);
 
     // Ingest Authorization Checks
     List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(authentication, _authorizer, ENTITY,
@@ -312,7 +316,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       log.debug("Proposals: {}", metadataChangeProposals);
       try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
-                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get())
+                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get(), validate)
                 .build();
 
         batch.getMCPItems().forEach(item ->
@@ -364,7 +368,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get aspect counts.");
           }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_COUNT, List.of()), _authorizer, authentication, true);
+                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_COUNT, List.of(), true), _authorizer, authentication, true);
 
             return _entityService.getCountAspect(opContext, aspectName, urnLike);
         },

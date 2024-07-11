@@ -83,7 +83,7 @@ public class SetDomainResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -146,7 +146,7 @@ public class SetDomainResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -191,7 +191,7 @@ public class SetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean(), true);
   }
 
   @Test
@@ -230,7 +230,7 @@ public class SetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean(), true);
   }
 
   @Test
@@ -248,7 +248,7 @@ public class SetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean(), true);
   }
 
   @Test
@@ -256,7 +256,7 @@ public class SetDomainResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), anyBoolean());
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
     SetDomainResolver resolver =
         new SetDomainResolver(mockClient, Mockito.mock(EntityService.class));
 

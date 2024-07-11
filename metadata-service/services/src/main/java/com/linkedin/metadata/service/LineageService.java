@@ -102,7 +102,7 @@ public class LineageService {
       MetadataChangeProposal changeProposal =
           buildDatasetLineageProposal(
               opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, changeProposal, false, true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update dataset lineage for urn %s", downstreamUrn), e);
@@ -183,7 +183,7 @@ public class LineageService {
       MetadataChangeProposal changeProposal =
           buildChartLineageProposal(
               opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, changeProposal, false, true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
@@ -265,7 +265,7 @@ public class LineageService {
       MetadataChangeProposal changeProposal =
           buildDashboardLineageProposal(
               opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, changeProposal, false, true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
@@ -481,7 +481,7 @@ public class LineageService {
       MetadataChangeProposal changeProposal =
           buildDataJobUpstreamLineageProposal(
               opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, changeProposal, false, true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
@@ -679,7 +679,7 @@ public class LineageService {
       final MetadataChangeProposal changeProposal =
           buildDataJobDownstreamLineageProposal(
               opContext, dataJobUrn, downstreamUrnsToAdd, downstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, changeProposal, false, true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", dataJobUrn), e);

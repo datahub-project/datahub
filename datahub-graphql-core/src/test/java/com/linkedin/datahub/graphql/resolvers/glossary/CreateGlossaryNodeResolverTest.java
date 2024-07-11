@@ -72,7 +72,7 @@ public class CreateGlossaryNodeResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
   }
 
   @Test
@@ -87,7 +87,7 @@ public class CreateGlossaryNodeResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
   }
 
   @Test
@@ -102,6 +102,6 @@ public class CreateGlossaryNodeResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
   }
 }

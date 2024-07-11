@@ -73,7 +73,8 @@ public class PlatformEntitiesController {
                     metadataChangeProposals.stream()
                         .map(MetadataChangeProposal::getEntityType)
                         .distinct()
-                        .collect(Collectors.toList())),
+                        .collect(Collectors.toList()),
+                    true),
             _authorizerChain,
             authentication,
             true);

@@ -64,7 +64,7 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
             // Create the Domains aspects
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(entityUrn, DOMAINS_ASPECT_NAME, domains);
-            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
             return true;
           } catch (Exception e) {
             log.error(

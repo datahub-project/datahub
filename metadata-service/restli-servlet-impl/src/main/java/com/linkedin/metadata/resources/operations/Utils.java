@@ -59,7 +59,7 @@ public class Utils {
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to restore indices.");
     }
     final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli("restoreIndices", List.of()), authorizer, auth, true);
+            systemOperationContext, RequestContext.builder().buildRestli("restoreIndices", List.of(), true), authorizer, auth, true);
 
     RestoreIndicesArgs args =
         new RestoreIndicesArgs()

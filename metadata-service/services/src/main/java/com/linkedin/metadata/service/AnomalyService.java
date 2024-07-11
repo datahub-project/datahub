@@ -91,7 +91,7 @@ public class AnomalyService extends BaseService {
         opContext,
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, Constants.ANOMALIES_SUMMARY_ASPECT_NAME, newSummary),
-        false);
+        false, true);
   }
 
   /** Deletes an anomaly with a given URN */
@@ -135,7 +135,7 @@ public class AnomalyService extends BaseService {
     this.entityClient.ingestProposal(
         opContext,
         AspectUtils.buildMetadataChangeProposal(urn, Constants.ANOMALY_INFO_ASPECT_NAME, newInfo),
-        false);
+        false, true);
     return urn;
   }
 
@@ -162,7 +162,7 @@ public class AnomalyService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               urn, Constants.ANOMALY_INFO_ASPECT_NAME, existingInfo),
-          false);
+          false, true);
     } else {
       throw new IllegalArgumentException(
           String.format("Failed to find anomaly with urn %s. Anomaly may not exist!", urn));

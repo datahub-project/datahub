@@ -175,6 +175,11 @@ public class PatchItemImpl implements PatchMCP {
 
     public static PatchItemImpl build(
         MetadataChangeProposal mcp, AuditStamp auditStamp, EntityRegistry entityRegistry) {
+      return build(mcp, auditStamp, entityRegistry, true);
+    }
+
+    public static PatchItemImpl build(
+        MetadataChangeProposal mcp, AuditStamp auditStamp, EntityRegistry entityRegistry, boolean validate) {
       log.debug("entity type = {}", mcp.getEntityType());
       EntitySpec entitySpec = entityRegistry.getEntitySpec(mcp.getEntityType());
       AspectSpec aspectSpec = validateAspect(mcp, entitySpec);

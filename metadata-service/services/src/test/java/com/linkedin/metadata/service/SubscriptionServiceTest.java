@@ -217,7 +217,7 @@ public class SubscriptionServiceTest {
             anyInt()))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
     when(_entityClient.ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean()))
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean(), true))
         .thenReturn(SUBSCRIPTION_URN_1_STRING);
 
     final Map.Entry<Urn, SubscriptionInfo> subscription =
@@ -312,7 +312,7 @@ public class SubscriptionServiceTest {
 
     verify(_entityClient, times(1))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean(), true);
     assertEquals(subscription, Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
   }
 
@@ -327,7 +327,7 @@ public class SubscriptionServiceTest {
 
     verify(_entityClient, times(1))
         .ingestProposal(
-            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean(), true);
     assertEquals(subscription, Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
   }
 

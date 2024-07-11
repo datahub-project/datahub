@@ -52,7 +52,7 @@ public class RemoveStructuredPropertiesResolverTest {
 
     // Validate that we called ingest
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -71,7 +71,7 @@ public class RemoveStructuredPropertiesResolverTest {
 
     // Validate that we did NOT call ingest
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -93,7 +93,7 @@ public class RemoveStructuredPropertiesResolverTest {
 
     // Validate that we did NOT call ingest
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   private EntityClient initMockEntityClient() throws Exception {

@@ -5,6 +5,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.mxe.GenericAspect;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
@@ -25,20 +26,22 @@ public abstract class PluginSpec {
   }
 
   public boolean shouldApply(
-      @Nullable ChangeType changeType, @Nonnull Urn entityUrn, @Nonnull AspectSpec aspectSpec) {
+      @Nullable ChangeType changeType, @Nonnull Urn entityUrn, @Nullable AspectSpec aspectSpec) {
     return shouldApply(changeType, entityUrn.getEntityType(), aspectSpec);
   }
 
   public boolean shouldApply(
       @Nullable ChangeType changeType,
       @Nonnull EntitySpec entitySpec,
-      @Nonnull AspectSpec aspectSpec) {
-    return shouldApply(changeType, entitySpec.getName(), aspectSpec.getName());
+      @Nullable AspectSpec aspectSpec) {
+    return shouldApply(changeType, entitySpec.getName(), aspectSpec == null ? GenericAspect.dataSchema().getName() :
+        aspectSpec.getName());
   }
 
   public boolean shouldApply(
-      @Nullable ChangeType changeType, @Nonnull String entityName, @Nonnull AspectSpec aspectSpec) {
-    return shouldApply(changeType, entityName, aspectSpec.getName());
+      @Nullable ChangeType changeType, @Nonnull String entityName, @Nullable AspectSpec aspectSpec) {
+    return shouldApply(changeType, entityName, aspectSpec == null ? GenericAspect.dataSchema().getName() :
+        aspectSpec.getName());
   }
 
   public boolean shouldApply(
@@ -49,8 +52,9 @@ public abstract class PluginSpec {
   }
 
   protected boolean isEntityAspectSupported(
-      @Nonnull EntitySpec entitySpec, @Nonnull AspectSpec aspectSpec) {
-    return isEntityAspectSupported(entitySpec.getName(), aspectSpec.getName());
+      @Nonnull EntitySpec entitySpec, @Nullable AspectSpec aspectSpec) {
+    return isEntityAspectSupported(entitySpec.getName(), aspectSpec == null ? GenericAspect.dataSchema().getName() :
+        aspectSpec.getName());
   }
 
   protected boolean isEntityAspectSupported(

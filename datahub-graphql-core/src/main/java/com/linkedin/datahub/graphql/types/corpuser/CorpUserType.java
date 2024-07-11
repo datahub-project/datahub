@@ -163,7 +163,7 @@ public class CorpUserType
               UrnUtils.getUrn(urn),
               CORP_USER_EDITABLE_INFO_NAME,
               mapCorpUserEditableInfo(input, existingCorpUserEditableInfo));
-      _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+      _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
 
       return load(urn, context).getData();
     }

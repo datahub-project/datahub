@@ -3,20 +3,17 @@ package com.linkedin.metadata.resources.entity;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.parseq.Task;
@@ -33,7 +30,6 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -89,7 +85,7 @@ public class EntityVersionedV2Resource
     }
       final OperationContext opContext = OperationContext.asSession(
               systemOperationContext, RequestContext.builder().buildRestli("authorizerChain", urns.stream()
-                      .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+                      .map(Urn::getEntityType).collect(Collectors.toList()), true), _authorizer, auth, true);
 
       log.debug("BATCH GET VERSIONED V2 {}", versionedUrnStrs);
     if (versionedUrnStrs.size() <= 0) {

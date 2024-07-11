@@ -194,7 +194,7 @@ public class SettingsServiceTest {
     when(mockClient.exists(any(OperationContext.class), eq(TEST_USER_URN))).thenReturn(true);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false)))
+                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true))
         .thenReturn(TEST_USER_URN.toString());
 
     final SettingsService service =
@@ -204,7 +204,7 @@ public class SettingsServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false));
+            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true);
   }
 
   @Test
@@ -215,7 +215,7 @@ public class SettingsServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false)))
+                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true))
         .thenThrow(new RemoteInvocationException());
 
     final SettingsService service =
@@ -288,7 +288,7 @@ public class SettingsServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false)))
+                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true))
         .thenReturn(GLOBAL_SETTINGS_URN.toString());
 
     final SettingsService service =
@@ -298,7 +298,7 @@ public class SettingsServiceTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false));
+            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true);
   }
 
   @Test
@@ -312,7 +312,7 @@ public class SettingsServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false)))
+                any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true))
         .thenThrow(new RemoteInvocationException());
 
     final SettingsService service =
@@ -444,7 +444,7 @@ public class SettingsServiceTest {
         buildUpdateCorpGroupSettingsChangeProposal(GROUP_URN, UPDATED_CORP_GROUP_SETTINGS);
 
     when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN))).thenReturn(true);
-    when(mockClient.ingestProposal(any(OperationContext.class), eq(expectedProposal), eq(true)))
+    when(mockClient.ingestProposal(any(OperationContext.class), eq(expectedProposal), eq(true), true))
         .thenReturn(GROUP_URN.toString());
     final SettingsService service =
         new SettingsService(mockClient, mock(OpenApiClient.class), new ObjectMapper());
@@ -452,7 +452,7 @@ public class SettingsServiceTest {
         mock(OperationContext.class), GROUP_URN, UPDATED_CORP_GROUP_SETTINGS);
 
     verify(mockClient, times(1))
-        .ingestProposal(any(OperationContext.class), eq(expectedProposal), eq(true));
+        .ingestProposal(any(OperationContext.class), eq(expectedProposal), eq(true), true);
   }
 
   @Test
@@ -462,7 +462,7 @@ public class SettingsServiceTest {
         buildUpdateCorpGroupSettingsChangeProposal(GROUP_URN, UPDATED_CORP_GROUP_SETTINGS);
 
     when(mockClient.exists(any(OperationContext.class), eq(GROUP_URN))).thenReturn(true);
-    when(mockClient.ingestProposal(any(OperationContext.class), eq(expectedProposal), eq(true)))
+    when(mockClient.ingestProposal(any(OperationContext.class), eq(expectedProposal), eq(true), true))
         .thenThrow(new RemoteInvocationException());
     final SettingsService service =
         new SettingsService(mockClient, mock(OpenApiClient.class), new ObjectMapper());

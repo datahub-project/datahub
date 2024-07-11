@@ -69,7 +69,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
                 buildMetadataChangeProposalWithKey(
                     key, TAG_ENTITY_NAME, TAG_PROPERTIES_ASPECT_NAME, mapTagProperties(input));
             String tagUrn =
-                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
 
             OwnerUtils.addCreatorAsOwner(
                 context, tagUrn, OwnerEntityType.CORP_USER, _entityService);

@@ -2,7 +2,6 @@ package com.linkedin.metadata.resources.entity;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
@@ -10,11 +9,9 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.parseq.Task;
@@ -79,7 +76,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli("getEntityV2", urn.getEntityType()), _authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli("getEntityV2", urn.getEntityType(), true), _authorizer, auth, true);
 
       return RestliUtil.toTask(
         () -> {
@@ -123,7 +120,8 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entities " + urnStrs);
     }
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli("getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli("getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList()),
+              true), _authorizer, auth, true);
 
       if (urns.size() <= 0) {
       return Task.value(Collections.emptyMap());

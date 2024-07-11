@@ -9,6 +9,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import java.sql.Timestamp;
 import javax.annotation.Nonnull;
@@ -65,7 +66,7 @@ public class EntityAspect {
     @Nullable private final RecordTemplate recordTemplate;
 
     @Nonnull private final EntitySpec entitySpec;
-    @Nonnull private final AspectSpec aspectSpec;
+    @Nullable private final AspectSpec aspectSpec;
 
     @Nonnull
     public String getUrnRaw() {
@@ -151,7 +152,7 @@ public class EntityAspect {
 
       public EntityAspect.EntitySystemAspect build(
           @Nonnull EntitySpec entitySpec,
-          @Nonnull AspectSpec aspectSpec,
+          @Nullable AspectSpec aspectSpec,
           @Nonnull EntityAspect entityAspect) {
         this.entityAspect = entityAspect;
         this.urn = UrnUtils.getUrn(entityAspect.getUrn());
@@ -159,7 +160,9 @@ public class EntityAspect {
         if (entityAspect.getMetadata() != null) {
           this.recordTemplate =
               RecordUtils.toRecordTemplate(
-                  aspectSpec.getDataTemplateClass(), entityAspect.getMetadata());
+                  (Class<? extends RecordTemplate>) (aspectSpec == null ? GenericAspect.class
+                      : aspectSpec.getDataTemplateClass()),
+                  entityAspect.getMetadata());
         }
 
         return new EntitySystemAspect(entityAspect, urn, recordTemplate, entitySpec, aspectSpec);

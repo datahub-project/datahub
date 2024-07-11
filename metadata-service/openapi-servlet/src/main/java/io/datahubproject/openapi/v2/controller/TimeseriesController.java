@@ -76,7 +76,7 @@ public class TimeseriesController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getAspects", entityName),
+            RequestContext.builder().buildOpenapi("getAspects", entityName, true),
             authorizationChain,
             authentication,
             true);

@@ -80,7 +80,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(
                     tagUrn, TAG_PROPERTIES_ASPECT_NAME, tagProperties);
-            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
             return true;
           } catch (Exception e) {
             log.error("Failed to set color for Tag with urn {}: {}", tagUrn, e.getMessage());

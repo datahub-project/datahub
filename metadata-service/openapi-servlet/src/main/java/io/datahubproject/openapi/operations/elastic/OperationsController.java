@@ -132,7 +132,7 @@ public class OperationsController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getIndexSizes", List.of()),
+            RequestContext.builder().buildOpenapi("getIndexSizes", List.of(), true),
             authorizerChain,
             authentication,
             true);
@@ -236,7 +236,7 @@ public class OperationsController {
     OperationContext opContext =
         systemOperationContext
             .asSession(
-                RequestContext.builder().buildOpenapi("explainSearchQuery", entityName),
+                RequestContext.builder().buildOpenapi("explainSearchQuery", entityName, true),
                 authorizerChain,
                 authentication)
             .withSearchFlags(flags -> searchFlags);
@@ -280,7 +280,7 @@ public class OperationsController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            RequestContext.builder().buildOpenapi("restoreIndices", List.of(), true),
             authorizerChain,
             authentication,
             true);
@@ -320,7 +320,7 @@ public class OperationsController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("restoreIndices", List.of()),
+            RequestContext.builder().buildOpenapi("restoreIndices", List.of(), true),
             authorizerChain,
             authentication,
             true);

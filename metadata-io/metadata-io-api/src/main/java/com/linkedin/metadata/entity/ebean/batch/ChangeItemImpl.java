@@ -55,7 +55,7 @@ public class ChangeItemImpl implements ChangeMCP {
       throw new RuntimeException(e);
     }
 
-    return builder.build(aspectRetriever);
+    return builder.build(aspectRetriever, true);
   }
 
   // type of change
@@ -77,7 +77,7 @@ public class ChangeItemImpl implements ChangeMCP {
 
   // derived
   @Nonnull private final EntitySpec entitySpec;
-  @Nonnull private final AspectSpec aspectSpec;
+  @Nullable private final AspectSpec aspectSpec;
 
   @Setter @Nullable private SystemAspect previousSystemAspect;
   @Setter private long nextAspectVersion;
@@ -128,8 +128,12 @@ public class ChangeItemImpl implements ChangeMCP {
       return this;
     }
 
-    @SneakyThrows
     public ChangeItemImpl build(AspectRetriever aspectRetriever) {
+      return build(aspectRetriever, true);
+    }
+
+    @SneakyThrows
+    public ChangeItemImpl build(AspectRetriever aspectRetriever, boolean validate) {
       // Apply change type default
       this.changeType = validateOrDefaultChangeType(changeType);
 
@@ -139,11 +143,12 @@ public class ChangeItemImpl implements ChangeMCP {
       entitySpec(aspectRetriever.getEntityRegistry().getEntitySpec(this.urn.getEntityType()));
       log.debug("entity spec = {}", this.entitySpec);
 
-      aspectSpec(ValidationApiUtils.validate(this.entitySpec, this.aspectName));
-      log.debug("aspect spec = {}", this.aspectSpec);
+      if (validate) {
+        aspectSpec(ValidationApiUtils.validate(this.entitySpec, this.aspectName));
+        log.debug("aspect spec = {}", this.aspectSpec);
 
-      ValidationApiUtils.validateRecordTemplate(
-          this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
+        ValidationApiUtils.validateRecordTemplate(this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
+      }
 
       return new ChangeItemImpl(
           this.changeType,
@@ -161,18 +166,24 @@ public class ChangeItemImpl implements ChangeMCP {
 
     public static ChangeItemImpl build(
         MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever) {
+      return build(mcp, auditStamp, aspectRetriever, true);
+    }
+    public static ChangeItemImpl build(
+        MetadataChangeProposal mcp, AuditStamp auditStamp, AspectRetriever aspectRetriever, boolean validate) {
 
       log.debug("entity type = {}", mcp.getEntityType());
       EntitySpec entitySpec =
           aspectRetriever.getEntityRegistry().getEntitySpec(mcp.getEntityType());
-      AspectSpec aspectSpec = AspectUtils.validateAspect(mcp, entitySpec);
+      AspectSpec aspectSpec;
+      if (validate) {
+        aspectSpec = AspectUtils.validateAspect(mcp, entitySpec);
 
-      if (!MCPItem.isValidChangeType(ChangeType.UPSERT, aspectSpec)) {
-        throw new UnsupportedOperationException(
-            "ChangeType not supported: "
-                + mcp.getChangeType()
-                + " for aspect "
-                + mcp.getAspectName());
+        if (!MCPItem.isValidChangeType(ChangeType.UPSERT, aspectSpec)) {
+          throw new UnsupportedOperationException(
+              "ChangeType not supported: " + mcp.getChangeType() + " for aspect " + mcp.getAspectName());
+        }
+      } else {
+        aspectSpec = null;
       }
 
       Urn urn = mcp.getEntityUrn();
@@ -188,8 +199,8 @@ public class ChangeItemImpl implements ChangeMCP {
               SystemMetadataUtils.generateSystemMetadataIfEmpty(mcp.getSystemMetadata()))
           .metadataChangeProposal(mcp)
           .auditStamp(auditStamp)
-          .recordTemplate(convertToRecordTemplate(mcp, aspectSpec))
-          .build(aspectRetriever);
+          .recordTemplate(convertToRecordTemplate(mcp, aspectSpec, validate))
+          .build(aspectRetriever, validate);
     }
 
     // specific to impl, other impls support PATCH, etc
@@ -203,18 +214,19 @@ public class ChangeItemImpl implements ChangeMCP {
     }
 
     private static RecordTemplate convertToRecordTemplate(
-        MetadataChangeProposal mcp, AspectSpec aspectSpec) {
+        MetadataChangeProposal mcp, AspectSpec aspectSpec, boolean validate) {
       RecordTemplate aspect;
-      try {
-        aspect =
-            GenericRecordUtils.deserializeAspect(
-                mcp.getAspect().getValue(), mcp.getAspect().getContentType(), aspectSpec);
-        ValidationApiUtils.validateOrThrow(aspect);
-      } catch (ModelConversionException e) {
-        throw new RuntimeException(
-            String.format(
-                "Could not deserialize %s for aspect %s",
-                mcp.getAspect().getValue(), mcp.getAspectName()));
+      if (validate) {
+        try {
+          aspect = GenericRecordUtils.deserializeAspect(mcp.getAspect().getValue(), mcp.getAspect().getContentType(),
+              aspectSpec);
+          ValidationApiUtils.validateOrThrow(aspect);
+        } catch (ModelConversionException e) {
+          throw new RuntimeException(
+              String.format("Could not deserialize %s for aspect %s", mcp.getAspect().getValue(), mcp.getAspectName()));
+        }
+      } else {
+        aspect = mcp.getAspect();
       }
       return aspect;
     }

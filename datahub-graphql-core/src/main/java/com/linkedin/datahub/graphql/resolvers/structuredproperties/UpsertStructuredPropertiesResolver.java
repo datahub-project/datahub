@@ -98,7 +98,7 @@ public class UpsertStructuredPropertiesResolver
                     assetUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
 
             _entityClient.ingestProposal(
-                context.getOperationContext(), structuredPropertiesProposal, false);
+                context.getOperationContext(), structuredPropertiesProposal, false, true);
 
             return StructuredPropertiesMapper.map(context, structuredProperties);
           } catch (Exception e) {

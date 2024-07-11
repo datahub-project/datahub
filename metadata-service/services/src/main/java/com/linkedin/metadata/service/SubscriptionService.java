@@ -88,7 +88,7 @@ public class SubscriptionService extends BaseService {
               SUBSCRIPTION_INFO_ASPECT_NAME,
               subscriptionInfo);
       final String subscriptionUrnString =
-          this.entityClient.ingestProposal(opContext, proposal, false);
+          this.entityClient.ingestProposal(opContext, proposal, false, true);
       final Urn subscriptionUrn = Urn.createFromString(subscriptionUrnString);
 
       return Map.entry(subscriptionUrn, subscriptionInfo);
@@ -235,7 +235,7 @@ public class SubscriptionService extends BaseService {
       final MetadataChangeProposal proposal =
           buildMetadataChangeProposal(
               subscriptionUrn, SUBSCRIPTION_INFO_ASPECT_NAME, subscriptionInfo);
-      this.entityClient.ingestProposal(systemOpContext, proposal, false);
+      this.entityClient.ingestProposal(systemOpContext, proposal, false, true);
 
       return Map.entry(subscriptionUrn, subscriptionInfo);
     } catch (Exception e) {
@@ -278,7 +278,7 @@ public class SubscriptionService extends BaseService {
       final MetadataChangeProposal proposal =
           buildMetadataChangeProposal(
               subscriptionUrn, SUBSCRIPTION_INFO_ASPECT_NAME, subscriptionInfo);
-      this.entityClient.ingestProposal(opContext, proposal, false);
+      this.entityClient.ingestProposal(opContext, proposal, false, true);
 
       return Map.entry(subscriptionUrn, subscriptionInfo);
     } catch (Exception e) {

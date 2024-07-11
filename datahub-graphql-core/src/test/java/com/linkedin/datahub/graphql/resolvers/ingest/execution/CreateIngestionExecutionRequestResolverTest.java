@@ -65,7 +65,7 @@ public class CreateIngestionExecutionRequestResolverTest {
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -84,7 +84,7 @@ public class CreateIngestionExecutionRequestResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean(), true);
   }
 
   @Test
@@ -93,7 +93,7 @@ public class CreateIngestionExecutionRequestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), anyBoolean());
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion("default");
     CreateIngestionExecutionRequestResolver resolver =

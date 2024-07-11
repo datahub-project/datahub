@@ -68,7 +68,7 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithUrn(
                     entityUrn, OPERATION_ASPECT_NAME, mapOperation(input, context));
-            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
             return true;
           } catch (Exception e) {
             log.error("Failed to report operation. {}", e.getMessage());

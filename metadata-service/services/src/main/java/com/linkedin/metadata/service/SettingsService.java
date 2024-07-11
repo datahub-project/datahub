@@ -144,7 +144,7 @@ public class SettingsService extends BaseService {
       MetadataChangeProposal proposal =
           AspectUtils.buildMetadataChangeProposal(
               user, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
-      this.entityClient.ingestProposal(opContext, proposal, false);
+      this.entityClient.ingestProposal(opContext, proposal, false, true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update CorpUserSettings for user with urn %s", user), e);
@@ -176,7 +176,7 @@ public class SettingsService extends BaseService {
       MetadataChangeProposal proposal =
           AspectUtils.buildMetadataChangeProposal(
               groupUrn, CORP_GROUP_SETTINGS_ASPECT_NAME, newSettings);
-      this.entityClient.ingestProposal(opContext, proposal, true);
+      this.entityClient.ingestProposal(opContext, proposal, true, true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update CorpGroupSettings for group with urn %s", groupUrn), e);
@@ -255,7 +255,7 @@ public class SettingsService extends BaseService {
       MetadataChangeProposal proposal =
           AspectUtils.buildMetadataChangeProposal(
               GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, newSettings);
-      this.entityClient.ingestProposal(opContext, proposal, false);
+      this.entityClient.ingestProposal(opContext, proposal, false, true);
     } catch (Exception e) {
       throw new RuntimeException("Failed to update Global settings", e);
     }

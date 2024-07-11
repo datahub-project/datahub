@@ -36,7 +36,7 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("raw", List.of()),
+            RequestContext.builder().buildOpenapi("raw", List.of(), true),
             _authorizationChain,
             authentication,
             true);

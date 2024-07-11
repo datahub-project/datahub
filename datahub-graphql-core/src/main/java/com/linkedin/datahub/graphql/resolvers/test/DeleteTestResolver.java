@@ -58,7 +58,7 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean
                   context.getOperationContext(),
                   AspectUtils.buildMetadataChangeProposal(
                       urn, Constants.STATUS_ASPECT_NAME, status),
-                  true);
+                  true, true);
 
               _testEngine.invalidateCache();
 

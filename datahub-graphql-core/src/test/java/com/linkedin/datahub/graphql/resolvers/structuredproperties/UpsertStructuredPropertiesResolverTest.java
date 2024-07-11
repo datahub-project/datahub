@@ -91,7 +91,7 @@ public class UpsertStructuredPropertiesResolverTest {
 
     // Validate that we called ingestProposal the correct number of times
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -124,7 +124,7 @@ public class UpsertStructuredPropertiesResolverTest {
 
     // Validate that we called ingestProposal the correct number of times
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -165,7 +165,7 @@ public class UpsertStructuredPropertiesResolverTest {
 
     // Validate that we called ingestProposal the correct number of times
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -184,7 +184,7 @@ public class UpsertStructuredPropertiesResolverTest {
 
     // Validate that we called ingestProposal the correct number of times
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   private EntityClient initMockEntityClient(

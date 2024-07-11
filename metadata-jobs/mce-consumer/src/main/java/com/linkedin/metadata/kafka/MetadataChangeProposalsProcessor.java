@@ -75,7 +75,7 @@ public class MetadataChangeProposalsProcessor {
         event = EventUtils.avroToPegasusMCP(record);
         log.debug("MetadataChangeProposal {}", event);
         // TODO: Get this from the event itself.
-        String urn = entityClient.ingestProposal(systemOperationContext, event, false);
+        String urn = entityClient.ingestProposal(systemOperationContext, event, false, true);
         log.info("Successfully processed MCP event urn: {}", urn);
       } catch (Throwable throwable) {
         log.error("MCP Processor Error", throwable);

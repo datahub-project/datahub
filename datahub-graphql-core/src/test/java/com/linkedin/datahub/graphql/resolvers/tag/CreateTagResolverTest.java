@@ -31,7 +31,7 @@ public class CreateTagResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(), Mockito.any(MetadataChangeProposal.class), anyBoolean()))
+                any(), Mockito.any(MetadataChangeProposal.class), anyBoolean(), true))
         .thenReturn(String.format("urn:li:tag:%s", TEST_INPUT.getId()));
     CreateTagResolver resolver = new CreateTagResolver(mockClient, mockService);
 
@@ -54,7 +54,7 @@ public class CreateTagResolverTest {
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
   }
 
   @Test
@@ -71,7 +71,7 @@ public class CreateTagResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean(), true);
   }
 
   @Test
@@ -81,7 +81,7 @@ public class CreateTagResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RuntimeException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), Mockito.eq(false));
+        .ingestProposal(any(), Mockito.any(), Mockito.eq(false), true);
     CreateTagResolver resolver = new CreateTagResolver(mockClient, mockService);
 
     // Execute resolver

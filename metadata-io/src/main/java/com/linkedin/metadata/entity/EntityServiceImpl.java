@@ -1040,10 +1040,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   /**
    * Wrapper around batch method for single item
    *
-   * @param proposal the proposal
+   * @param proposal   the proposal
    * @param auditStamp an audit stamp representing the time and actor proposing the change
-   * @param async a flag to control whether we commit to primary store or just write to proposal log
-   *     before returning
+   * @param async      a flag to control whether we commit to primary store or just write to proposal log before
+   *                   returning
    * @return an {@link IngestResult} containing the results
    */
   @Override
@@ -1064,16 +1064,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
-   * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any
-   * additional aspects or do any enrichment, instead it changes only those which are provided
-   * inside the metadata change proposal.
+   * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any additional aspects or do
+   * any enrichment, instead it changes only those which are provided inside the metadata change proposal.
    *
    * <p>Do not use this method directly for creating new entities, as it DOES NOT create an Entity
    * Key aspect in the DB. Instead, use an Entity Client.
    *
    * @param aspectsBatch the proposals to ingest
-   * @param async a flag to control whether we commit to primary store or just write to proposal log
-   *     before returning
+   * @param async        a flag to control whether we commit to primary store or just write to proposal log before
+   *                     returning
    * @return an {@link IngestResult} containing the results
    */
   @Override
@@ -1082,7 +1081,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
-        async ? ingestProposalAsync(aspectsBatch) : ingestProposalSync(opContext, aspectsBatch);
+        async ? ingestProposalAsync(aspectsBatch) :
+            ingestProposalSync(opContext, aspectsBatch);
 
     return Stream.concat(timeseriesIngestResults, nonTimeseriesIngestResults)
         .collect(Collectors.toSet());
@@ -1096,11 +1096,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   private Stream<IngestResult> ingestTimeseriesProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    // TODO: Assuming custom unvalidated aspects are non-timeseries.
+    //  Might need better handling with mutator occurring before this
     List<? extends BatchItem> unsupported =
         aspectsBatch.getItems().stream()
             .filter(
                 item ->
-                    item.getAspectSpec().isTimeseries()
+                    item.getAspectSpec() != null
+                        && item.getAspectSpec().isTimeseries()
                         && item.getChangeType() != ChangeType.UPSERT)
             .collect(Collectors.toList());
     if (!unsupported.isEmpty()) {
@@ -1111,9 +1114,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     if (!async) {
       // Create default non-timeseries aspects for timeseries aspects
+      // TODO: Assuming custom unvalidated aspects are non-timeseries.
+      //  Might need better handling with mutator occurring before this
       List<MCPItem> timeseriesKeyAspects =
           aspectsBatch.getMCPItems().stream()
-              .filter(item -> item.getAspectSpec().isTimeseries())
+              .filter(item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
               .map(
                   item ->
                       ChangeItemImpl.builder()
@@ -1139,9 +1144,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     // Emit timeseries MCLs
+    // TODO: Assuming custom unvalidated aspects are non-timeseries.
+    //  Might need better handling with mutator occurring before this
     List<Pair<ChangeItemImpl, Optional<Pair<Future<?>, Boolean>>>> timeseriesResults =
         aspectsBatch.getItems().stream()
-            .filter(item -> item.getAspectSpec().isTimeseries())
+            .filter(item -> item.getAspectSpec() != null && item.getAspectSpec().isTimeseries())
             .map(item -> (ChangeItemImpl) item)
             .map(
                 item ->
@@ -1191,9 +1198,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @return produced items to the MCP topic
    */
   private Stream<IngestResult> ingestProposalAsync(AspectsBatch aspectsBatch) {
+    // TODO: Assuming custom unvalidated aspects are non-timeseries. Might need better handling with mutator occurring before this
     List<? extends MCPItem> nonTimeseries =
         aspectsBatch.getMCPItems().stream()
-            .filter(item -> !item.getAspectSpec().isTimeseries())
+            .filter(item -> item.getAspectSpec() == null || !item.getAspectSpec().isTimeseries())
             .collect(Collectors.toList());
 
     List<Future<?>> futures =
@@ -1229,6 +1237,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private Stream<IngestResult> ingestProposalSync(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch) {
+
+    // TODO: Apply mutations for unvalidated aspects
     AspectsBatchImpl nonTimeseries =
         AspectsBatchImpl.builder()
             .retrieverContext(aspectsBatch.getRetrieverContext())
@@ -1641,7 +1651,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
-      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     Future<?> future = producer.produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
     return Pair.of(future, preprocessEvent(opContext, metadataChangeLog));
@@ -1653,7 +1663,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final Urn urn,
       @Nonnull String entityName,
       @Nonnull String aspectName,
-      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final AspectSpec aspectSpec,
       @Nullable final RecordTemplate oldAspectValue,
       @Nullable final RecordTemplate newAspectValue,
       @Nullable final SystemMetadata oldSystemMetadata,

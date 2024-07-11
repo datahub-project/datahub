@@ -102,6 +102,13 @@ public class AspectsBatchImpl implements AspectsBatch {
         List<MetadataChangeProposal> mcps,
         AuditStamp auditStamp,
         RetrieverContext retrieverContext) {
+      return mcps(mcps, auditStamp, retrieverContext, true);
+    }
+    public AspectsBatchImplBuilder mcps(
+        List<MetadataChangeProposal> mcps,
+        AuditStamp auditStamp,
+        RetrieverContext retrieverContext,
+        boolean validate) {
 
       retrieverContext(retrieverContext);
       items(
@@ -112,10 +119,11 @@ public class AspectsBatchImpl implements AspectsBatch {
                       return PatchItemImpl.PatchItemImplBuilder.build(
                           mcp,
                           auditStamp,
-                          retrieverContext.getAspectRetriever().getEntityRegistry());
+                          retrieverContext.getAspectRetriever().getEntityRegistry(),
+                          validate);
                     } else {
                       return ChangeItemImpl.ChangeItemImplBuilder.build(
-                          mcp, auditStamp, retrieverContext.getAspectRetriever());
+                          mcp, auditStamp, retrieverContext.getAspectRetriever(), validate);
                     }
                   })
               .collect(Collectors.toList()));

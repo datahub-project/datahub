@@ -102,13 +102,13 @@ public class QueryService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               entityUrn, Constants.QUERY_PROPERTIES_ASPECT_NAME, queryProperties),
-          false);
+          false, true);
       return UrnUtils.getUrn(
           this.entityClient.ingestProposal(
               opContext,
               AspectUtils.buildMetadataChangeProposal(
                   entityUrn, Constants.QUERY_SUBJECTS_ASPECT_NAME, querySubjects),
-              false));
+              false, true));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create Query", e);
     }

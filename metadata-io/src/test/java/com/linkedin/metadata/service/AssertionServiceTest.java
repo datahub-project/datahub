@@ -248,7 +248,7 @@ public class AssertionServiceTest {
     service.updateAssertionsSummary(opContext, TEST_DATASET_URN, mockAssertionSummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), Mockito.eq(mockAssertionSummaryMcp()), Mockito.eq(false));
+            any(OperationContext.class), Mockito.eq(mockAssertionSummaryMcp()), Mockito.eq(false), true);
   }
 
   @Test
@@ -1221,7 +1221,7 @@ public class AssertionServiceTest {
               return null;
             })
         .when(mockedEntityClient)
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false));
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), true);
 
     assertionService.addAssertionRunEvent(
         opContext,
@@ -1231,7 +1231,7 @@ public class AssertionServiceTest {
         new AssertionResult().setType(AssertionResultType.SUCCESS));
 
     Mockito.verify(mockedEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false));
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), true);
   }
 
   @Test
@@ -1273,7 +1273,7 @@ public class AssertionServiceTest {
               return null;
             })
         .when(mockedEntityClient)
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false));
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), true);
 
     assertionService.addAssertionRunEvent(
         opContext,
@@ -1290,7 +1290,7 @@ public class AssertionServiceTest {
                     .setProperties(errorProps)));
 
     Mockito.verify(mockedEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false));
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), true);
   }
 
   @Test
@@ -1383,7 +1383,7 @@ public class AssertionServiceTest {
     // Verify that ingestProposal was called once
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), Mockito.eq(mockAssertionSummaryMcp()), Mockito.eq(false));
+            any(OperationContext.class), Mockito.eq(mockAssertionSummaryMcp()), Mockito.eq(false), true);
   }
 
   @Test
@@ -1779,7 +1779,7 @@ public class AssertionServiceTest {
             mockClient.ingestProposal(
                 any(OperationContext.class),
                 Mockito.eq(mockAssertionSummaryMcp()),
-                Mockito.eq(false)))
+                Mockito.eq(false), true))
         .thenReturn(TEST_DATASET_URN.toString());
 
     return mockClient;

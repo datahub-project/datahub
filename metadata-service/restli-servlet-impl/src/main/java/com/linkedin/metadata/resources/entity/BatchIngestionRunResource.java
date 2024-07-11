@@ -1,10 +1,8 @@
 package com.linkedin.metadata.resources.entity;
 
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.service.RollbackService.ROLLBACK_FAILED_STATUS;
 
 import com.codahale.metrics.MetricRegistry;
@@ -95,7 +93,7 @@ public class BatchIngestionRunResource
                   HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entity");
       }
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli("rollback", List.of()), authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli("rollback", List.of(), true), authorizer, auth, true);
 
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
@@ -171,7 +169,7 @@ public class BatchIngestionRunResource
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
             }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli("describe", List.of()), authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli("describe", List.of(), true), authorizer, auth, true);
 
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(

@@ -6,12 +6,9 @@ import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.authorization.Disjunctive;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.filter.Condition;
@@ -37,7 +34,6 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -202,7 +198,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get index sizes.");
           }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_INDEX_SIZES, List.of(),
+                    true), _authorizer, auth, true);
 
             TimeseriesIndicesSizesResult result = new TimeseriesIndicesSizesResult();
           result.setIndexSizes(
@@ -232,7 +229,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to truncate timeseries index");
     }
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli("executeTruncateTimeseriesAspect", entityType), _authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli("executeTruncateTimeseriesAspect", entityType,
+              true), _authorizer, auth, true);
 
     if (forceDeleteByQuery != null && forceDeleteByQuery.equals(forceReindex)) {
       return "please only set forceReindex OR forceDeleteByQuery flags";

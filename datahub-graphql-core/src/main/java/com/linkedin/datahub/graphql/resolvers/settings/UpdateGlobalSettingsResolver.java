@@ -71,7 +71,7 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
                 buildMetadataChangeProposalWithUrn(
                     GLOBAL_SETTINGS_URN, GLOBAL_SETTINGS_INFO_ASPECT_NAME, globalSettings);
             try {
-              _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+              _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
               return true;
             } catch (Exception e) {
               throw new RuntimeException(

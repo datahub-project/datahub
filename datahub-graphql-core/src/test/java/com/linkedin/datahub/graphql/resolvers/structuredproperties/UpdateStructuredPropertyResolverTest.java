@@ -53,7 +53,7 @@ public class UpdateStructuredPropertyResolverTest {
 
     // Validate that we called ingest
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -72,7 +72,7 @@ public class UpdateStructuredPropertyResolverTest {
 
     // Validate that we did NOT call ingest
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   @Test
@@ -91,7 +91,7 @@ public class UpdateStructuredPropertyResolverTest {
 
     // Validate that ingest was called, but that caused a failure
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
   }
 
   private EntityClient initMockEntityClient(boolean shouldSucceed) throws Exception {

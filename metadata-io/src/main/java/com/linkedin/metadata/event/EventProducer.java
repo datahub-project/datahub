@@ -25,7 +25,7 @@ public interface EventProducer {
    */
   Future<?> produceMetadataChangeLog(
       @Nonnull final Urn urn,
-      @Nonnull AspectSpec aspectSpec,
+      @Nullable AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
 
   /**

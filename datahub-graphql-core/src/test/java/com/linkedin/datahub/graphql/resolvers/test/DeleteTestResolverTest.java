@@ -49,7 +49,7 @@ public class DeleteTestResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            nullable(OperationContext.class), Mockito.eq(expectedChangeProposal), Mockito.eq(true));
+            nullable(OperationContext.class), Mockito.eq(expectedChangeProposal), Mockito.eq(true), true);
   }
 
   @Test

@@ -333,7 +333,12 @@ public class OpenAPIV3Generator {
                         .in(NAME_QUERY)
                         .name(NAME_SYSTEM_METADATA)
                         .description("Include systemMetadata with response.")
-                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("validate")
+                        .description("Whether the aspects being ingested should be validated or not.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(true))))
             .summary("Create " + upperFirst + " entities.")
             .tags(List.of(entity.getName() + " Entity"))
             .requestBody(

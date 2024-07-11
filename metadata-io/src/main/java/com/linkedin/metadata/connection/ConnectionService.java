@@ -230,7 +230,7 @@ public class ConnectionService {
         AspectUtils.buildMetadataChangeProposal(
             connectionUrn, Constants.STATUS_ASPECT_NAME, status);
 
-    _entityClient.ingestProposal(opContext, mcp, false);
+    _entityClient.ingestProposal(opContext, mcp, false, true);
     return true;
   }
 }

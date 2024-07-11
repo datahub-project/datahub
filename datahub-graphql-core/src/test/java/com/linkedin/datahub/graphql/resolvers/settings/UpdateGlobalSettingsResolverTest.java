@@ -138,7 +138,7 @@ public class UpdateGlobalSettingsResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false));
+            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true);
   }
 
   @Test

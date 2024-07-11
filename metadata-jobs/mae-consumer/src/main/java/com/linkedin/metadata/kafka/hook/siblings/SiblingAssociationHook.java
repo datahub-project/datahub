@@ -268,7 +268,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     dbtSiblingProposal.setEntityUrn(dbtUrn);
 
     try {
-      systemEntityClient.ingestProposal(systemOperationContext, dbtSiblingProposal, true);
+      systemEntityClient.ingestProposal(systemOperationContext, dbtSiblingProposal, true, true);
     } catch (RemoteInvocationException e) {
       log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
       throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
@@ -315,7 +315,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     sourceSiblingProposal.setEntityUrn(sourceUrn);
 
     try {
-      systemEntityClient.ingestProposal(systemOperationContext, sourceSiblingProposal, true);
+      systemEntityClient.ingestProposal(systemOperationContext, sourceSiblingProposal, true, true);
     } catch (RemoteInvocationException e) {
       log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
       throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);

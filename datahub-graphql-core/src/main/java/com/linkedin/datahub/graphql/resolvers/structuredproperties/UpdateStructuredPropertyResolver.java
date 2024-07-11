@@ -78,7 +78,7 @@ public class UpdateStructuredPropertyResolver
             }
 
             MetadataChangeProposal mcp = builder.build();
-            _entityClient.ingestProposal(context.getOperationContext(), mcp, false);
+            _entityClient.ingestProposal(context.getOperationContext(), mcp, false, true);
 
             EntityResponse response =
                 _entityClient.getV2(

@@ -26,6 +26,10 @@ public class RequestContext implements ContextInterface {
    * monitoring
    */
   @Nonnull private final String requestID;
+  /**
+   * Used for ingestion, marks whether the aspect being ingested is going to be validated
+   */
+  private final boolean validated;
 
   @Override
   public Optional<Integer> getCacheKeyComponent() {
@@ -34,7 +38,7 @@ public class RequestContext implements ContextInterface {
 
   public static class RequestContextBuilder {
     private RequestContext build() {
-      return new RequestContext(this.requestAPI, this.requestID);
+      return new RequestContext(this.requestAPI, this.requestID, this.validated);
     }
 
     public RequestContext buildGraphql(@Nonnull String queryName, Map<String, Object> variables) {
@@ -43,30 +47,32 @@ public class RequestContext implements ContextInterface {
       return build();
     }
 
-    public RequestContext buildRestli(String action, @Nullable String entityName) {
-      return buildRestli(action, entityName == null ? null : List.of(entityName));
+    public RequestContext buildRestli(String action, @Nullable String entityName, boolean validate) {
+      return buildRestli(action, entityName == null ? null : List.of(entityName), validate);
     }
 
-    public RequestContext buildRestli(@Nonnull String action, @Nullable String[] entityNames) {
+    public RequestContext buildRestli(@Nonnull String action, @Nullable String[] entityNames, boolean validate) {
       return buildRestli(
           action,
-          entityNames == null ? null : Arrays.stream(entityNames).collect(Collectors.toList()));
+          entityNames == null ? null : Arrays.stream(entityNames).collect(Collectors.toList()), validate);
     }
 
-    public RequestContext buildRestli(String action, @Nullable Collection<String> entityNames) {
+    public RequestContext buildRestli(String action, @Nullable Collection<String> entityNames, boolean validate) {
       requestAPI(RequestAPI.RESTLI);
       requestID(buildRequestId(action, entityNames));
+      validated(validate);
       return build();
     }
 
-    public RequestContext buildOpenapi(@Nonnull String action, @Nullable String entityName) {
-      return buildOpenapi(action, entityName == null ? null : List.of(entityName));
+    public RequestContext buildOpenapi(@Nonnull String action, @Nullable String entityName, boolean validate) {
+      return buildOpenapi(action, entityName == null ? null : List.of(entityName), validate);
     }
 
     public RequestContext buildOpenapi(
-        @Nonnull String action, @Nullable Collection<String> entityNames) {
+        @Nonnull String action, @Nullable Collection<String> entityNames, boolean validate) {
       requestAPI(RequestAPI.OPENAPI);
       requestID(buildRequestId(action, entityNames));
+      validated(validate);
       return build();
     }
 

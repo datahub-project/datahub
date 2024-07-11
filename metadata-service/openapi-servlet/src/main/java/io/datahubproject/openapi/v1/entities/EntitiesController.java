@@ -122,7 +122,8 @@ public class EntitiesController {
                     entityUrns.stream()
                         .map(Urn::getEntityType)
                         .distinct()
-                        .collect(Collectors.toList())),
+                        .collect(Collectors.toList()),
+                    true),
             _authorizerChain,
             authentication,
             true);
@@ -190,7 +191,8 @@ public class EntitiesController {
                     "postEntities",
                     proposals.stream()
                         .map(MetadataChangeProposal::getEntityType)
-                        .collect(Collectors.toSet())),
+                        .collect(Collectors.toSet())
+                    , true),
             _authorizerChain,
             authentication,
             true);
@@ -275,7 +277,8 @@ public class EntitiesController {
               RequestContext.builder()
                   .buildOpenapi(
                       "deleteEntities",
-                      entityUrns.stream().map(Urn::getEntityType).collect(Collectors.toSet())),
+                      entityUrns.stream().map(Urn::getEntityType).collect(Collectors.toSet()),
+                      true),
               _authorizerChain,
               authentication,
               true);

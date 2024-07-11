@@ -280,7 +280,7 @@ public class AssertionService extends BaseService {
         opContext,
         AspectUtils.buildMetadataChangeProposal(
             entityUrn, Constants.ASSERTIONS_SUMMARY_ASPECT_NAME, newSummary),
-        false);
+        false, true);
   }
 
   /** Patches an assertions summary aspect */
@@ -289,7 +289,7 @@ public class AssertionService extends BaseService {
       @Nonnull final AssertionsSummaryPatchBuilder patchBuilder)
       throws Exception {
     Objects.requireNonNull(patchBuilder, "patchBuilder must not be null");
-    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false, true);
   }
 
   /**
@@ -1280,7 +1280,7 @@ public class AssertionService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               assertionUrn, Constants.ASSERTION_RUN_EVENT_ASPECT_NAME, assertionRunEvent),
-          false);
+          false, true);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
