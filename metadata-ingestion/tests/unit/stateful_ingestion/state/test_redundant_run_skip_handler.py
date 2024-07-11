@@ -45,7 +45,7 @@ def stateful_source(mock_datahub_graph: DataHubGraph) -> Iterable[SnowflakeV2Sou
         ),
     )
 
-    with mock.patch("snowflake.connector.connect") as mock_connect:
+    with mock.patch("snowflake.connector.connect"):
         yield SnowflakeV2Source(ctx=ctx, config=config)
 
 
