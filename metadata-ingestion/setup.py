@@ -166,7 +166,6 @@ looker_common = {
     *sqlglot_lib,
     "GitPython>2",
     "python-liquid",
-    *sqlglot_lib,
 }
 
 bigquery_common = {
