@@ -620,6 +620,18 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
+    - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
+        - DELETE
+        - UPSERT
+        - UPDATE
+        - PATCH
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: '*'
   mcpSideEffects:
     - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
       packageScan:
