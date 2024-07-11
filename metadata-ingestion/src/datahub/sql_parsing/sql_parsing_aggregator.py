@@ -1207,19 +1207,19 @@ class SqlParsingAggregator(Closeable):
             self.report.num_queries_skipped_due_to_filters += 1
             return
 
-        query_subject_urns: List[UrnStr] = []
+        query_subject_urns = OrderedSet[UrnStr]()
         for upstream in query.upstreams:
-            query_subject_urns.append(upstream)
+            query_subject_urns.add(upstream)
             if self.generate_query_subject_fields:
                 for column in query.column_usage.get(upstream, []):
-                    query_subject_urns.append(
+                    query_subject_urns.add(
                         builder.make_schema_field_urn(upstream, column)
                     )
         if downstream_urn:
-            query_subject_urns.append(downstream_urn)
+            query_subject_urns.add(downstream_urn)
             if self.generate_query_subject_fields:
                 for column_lineage in query.column_lineage:
-                    query_subject_urns.append(
+                    query_subject_urns.add(
                         builder.make_schema_field_urn(
                             downstream_urn, column_lineage.downstream.column
                         )
