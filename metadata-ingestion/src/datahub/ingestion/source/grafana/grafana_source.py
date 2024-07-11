@@ -63,8 +63,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
     @classmethod
     def create(cls, config_dict, ctx):
         config = GrafanaSourceConfig.parse_obj(config_dict)
-        # TODO remove
-        print(config)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
