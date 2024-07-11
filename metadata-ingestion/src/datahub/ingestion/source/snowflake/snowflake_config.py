@@ -39,12 +39,12 @@ logger = logging.Logger(__name__)
 #
 # DBT incremental models create temporary tables ending with __dbt_tmp
 # Ref - https://discourse.getdbt.com/t/handling-bigquery-incremental-dbt-tmp-tables/7540
-DEFAULT_TABLES_DENY_LIST = [
+DEFAULT_TEMP_TABLES_PATTERNS = [
     r".*\.FIVETRAN_.*_STAGING\..*",  # fivetran
     r".*__DBT_TMP$",  # dbt
     rf".*\.SEGMENT_{UUID_REGEX}",  # segment
     rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
-    r".*\.(ge_tmp_|ge_temp_|gx_temp_)[0-9a-f]{8}",  # great expectations
+    r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
 ]
 
 
@@ -240,7 +240,7 @@ class SnowflakeV2Config(
 
     # This is required since access_history table does not capture whether the table was temporary table.
     temporary_tables_pattern: List[str] = Field(
-        default=DEFAULT_TABLES_DENY_LIST,
+        default=DEFAULT_TEMP_TABLES_PATTERNS,
         description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to "
         "match the entire table name in database.schema.table format. Defaults are to set in such a way "
         "to ignore the temporary staging tables created by known ETL tools.",

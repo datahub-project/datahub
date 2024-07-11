@@ -22,7 +22,7 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import (
-    DEFAULT_TABLES_DENY_LIST,
+    DEFAULT_TEMP_TABLES_PATTERNS,
     SnowflakeFilterConfig,
     SnowflakeIdentifierConfig,
 )
@@ -62,7 +62,7 @@ class SnowflakeQueriesExtractorConfig(SnowflakeIdentifierConfig, SnowflakeFilter
     deny_usernames: List[str] = []
 
     temporary_tables_pattern: List[str] = pydantic.Field(
-        default=DEFAULT_TABLES_DENY_LIST,
+        default=DEFAULT_TEMP_TABLES_PATTERNS,
         description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to "
         "match the entire table name in database.schema.table format. Defaults are to set in such a way "
         "to ignore the temporary staging tables created by known ETL tools.",
