@@ -34,7 +34,10 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
   private static final String TEST_CONNECTION_SOURCE_NAME = "MANUAL_TEST_CONNECTION";
   private static final String RECIPE_ARG_NAME = "recipe";
   private static final String VERSION_ARG_NAME = "version";
-  private static final String DEFAULT_EXECUTOR_ID = "default";
+  // We use an executorId that maps to no executor since these requests are to be handled by the
+  // mae-consumer
+  private static final String NONE_EXECUTOR_ID =
+      String.join(":", "NONE_EXECUTOR", UUID.randomUUID().toString());
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
@@ -71,7 +74,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
             final ExecutionRequestInput execInput = new ExecutionRequestInput();
             execInput.setTask(TEST_CONNECTION_TASK_NAME);
             execInput.setSource(new ExecutionRequestSource().setType(TEST_CONNECTION_SOURCE_NAME));
-            execInput.setExecutorId(DEFAULT_EXECUTOR_ID);
+            execInput.setExecutorId(NONE_EXECUTOR_ID);
             execInput.setRequestedAt(System.currentTimeMillis());
             execInput.setActorUrn(UrnUtils.getUrn(context.getActorUrn()));
 

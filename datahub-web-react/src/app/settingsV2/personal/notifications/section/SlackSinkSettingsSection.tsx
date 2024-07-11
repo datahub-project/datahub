@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { Typography, Switch, Input, Button, Form } from 'antd';
 import { useUserContext } from '@src/app/context/useUserContext';
+import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
+import { SLACK_CONNECTION_URN } from '@src/app/settingsV2/platform/slack/constants';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../entity/shared/constants';
 import { SlackNotificationSettings, SlackNotificationSettingsInput } from '../../../../../types.generated';
 import { getSlackSettingsChannel } from '../../../../shared/subscribe/drawer/utils';
@@ -108,7 +110,7 @@ export const SlackSinkSettingsSection = ({
         setInputValue(channelOrUserId);
     }, [channelOrUserId]);
 
-    const slackInputPlaceholder = isPersonal ? 'Slack Member ID' : 'Slack Channel ID';
+    const slackInputPlaceholder = isPersonal ? 'Slack Member ID' : 'Slack Channel';
 
     const isAdminAccess = me?.platformPrivileges?.manageGlobalSettings || false;
 
@@ -136,8 +138,8 @@ export const SlackSinkSettingsSection = ({
     const renderSinkDescription = () => {
         const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
         const supportedSinkDescription = `Receive Slack notifications for entities ${actorDescription} subscribed to at Slack ${
-            isPersonal ? 'member' : 'channel'
-        } ID: `;
+            isPersonal ? 'member ID' : 'channel'
+        }: `;
         const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to setup the Slack integration.`;
 
         let description = <>{supportedSinkDescription}</>;
@@ -175,30 +177,28 @@ export const SlackSinkSettingsSection = ({
                 </SinkDescription>
                 {sinkEnabled && (
                     <>
-                        <SinkButtonsContainer>
-                            {editing && (
-                                <>
-                                    <Form form={form}>
-                                        <StyledFormItem name="slackFormValue">
-                                            <StyledInput
-                                                placeholder={slackInputPlaceholder}
-                                                value={inputValue}
-                                                onChange={(e) => setInputValue(e.target.value)}
-                                            />
-                                        </StyledFormItem>
-                                    </Form>
-                                    <SaveButton
-                                        type="primary"
-                                        onClick={saveButtonOnClick}
-                                        disabled={!inputValue || inputValue.length < 2}
-                                    >
-                                        Save
-                                    </SaveButton>
-                                    <CancelButton onClick={cancelButtonOnClick}>Cancel</CancelButton>
-                                </>
-                            )}
-                        </SinkButtonsContainer>
                         {editing && (
+                            <SinkButtonsContainer>
+                                <Form form={form}>
+                                    <StyledFormItem name="slackFormValue">
+                                        <StyledInput
+                                            placeholder={slackInputPlaceholder}
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                        />
+                                    </StyledFormItem>
+                                </Form>
+                                <SaveButton
+                                    type="primary"
+                                    onClick={saveButtonOnClick}
+                                    disabled={!inputValue || inputValue.length < 2}
+                                >
+                                    Save
+                                </SaveButton>
+                                <CancelButton onClick={cancelButtonOnClick}>Cancel</CancelButton>
+                            </SinkButtonsContainer>
+                        )}
+                        {editing ? (
                             <HelperText>
                                 {isPersonal ? (
                                     <>
@@ -213,9 +213,17 @@ export const SlackSinkSettingsSection = ({
                                         </a>
                                     </>
                                 ) : (
-                                    <>Find a channel ID at the bottom of the &quot;About&quot; tab for a channel</>
+                                    <>If this is a private channel, ensure the Acryl Slack bot has been added to it.</>
                                 )}
                             </HelperText>
+                        ) : (
+                            <TestNotificationButton
+                                integration="slack"
+                                connectionUrn={SLACK_CONNECTION_URN}
+                                destinationSettings={
+                                    isPersonal ? { userHandle: inputValue || '' } : { channels: [inputValue || ''] }
+                                }
+                            />
                         )}
                     </>
                 )}

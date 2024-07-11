@@ -98,7 +98,7 @@ export const SlackIntegration = () => {
 
     const { data, loading, error, refetch } = useGetIntegrationSettingsQuery({ fetchPolicy: 'cache-first' });
     const [updateGlobalIntegrationSettings] = useUpdateGlobalIntegrationSettingsMutation();
-    const { data: connData } = useConnectionQuery({
+    const { data: connData, loading: connLoading } = useConnectionQuery({
         variables: {
             urn: SLACK_CONNECTION_URN,
         },
@@ -186,10 +186,7 @@ export const SlackIntegration = () => {
             });
     };
 
-    const isConnected =
-        (slackConnData?.appConfigToken && slackConnData?.appConfigRefreshToken) ||
-        slackConnData?.botToken ||
-        settings.botToken;
+    const isConnected = slackConnData?.botToken || settings.botToken;
 
     const getSlackButtonName = (): string => {
         let slackButtonName = isConnected ? 'Re-connect to Slack' : 'Connect to Slack';
@@ -203,7 +200,9 @@ export const SlackIntegration = () => {
         // disable slack button if there is no app & refresh token for only App config tab
         const disableSlackButton =
             selectTypeValue === APP_CONFIG_SELECT_ID &&
-            (!connection.appConfigToken || !connection.appConfigRefreshToken);
+            (!connection.appConfigToken || !connection.appConfigRefreshToken) &&
+            !slackConnData?.appConfigToken &&
+            !slackConnData?.botToken;
 
         return (
             <Button
@@ -233,7 +232,7 @@ export const SlackIntegration = () => {
                         <Link to="/settings/notifications">Platform Notifications Tab</Link> to try it out.
                     </GlobalNotificationsBanner>
                 ) : (
-                    <SlackIntegrationHint visible={!isConnected} />
+                    !connLoading && <SlackIntegrationHint visible={!isConnected} />
                 )}
                 <Content>
                     <FormColumn>
@@ -337,7 +336,7 @@ export const SlackIntegration = () => {
                         </Form>
                         {renderConnectionButton()}
                     </FormColumn>
-                    <InstructionColumn>
+                    <InstructionColumn style={{ display: 'none' }}>
                         <SlackInstructions />
                     </InstructionColumn>
                 </Content>

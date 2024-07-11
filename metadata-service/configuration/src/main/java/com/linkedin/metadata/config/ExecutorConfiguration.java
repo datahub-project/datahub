@@ -5,7 +5,7 @@ import lombok.Data;
 /** Configurations related to Acryl executors. */
 @Data
 public class ExecutorConfiguration {
-  /** The role ARN that we should assume for executor credentials credentials . */
+  /** The role ARN that we should assume for executor credentials . */
   public String executorRoleArn;
 
   /** The customer id we will use to filter customer SQS queues */

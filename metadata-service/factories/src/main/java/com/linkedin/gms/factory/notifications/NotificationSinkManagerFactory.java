@@ -102,6 +102,7 @@ public class NotificationSinkManagerFactory {
             notificationSink.init(
                 new NotificationSinkConfig(
                     configs,
+                    this.entityClient,
                     this.settingsProvider,
                     this.identityProvider,
                     entityNameProvider,

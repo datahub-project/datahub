@@ -599,6 +599,10 @@ monitorService:
   port: ${DATAHUB_EXECUTOR_PORT:9004}
   useSsl: ${DATAHUB_EXECUTOR_USE_SSL:false}
 
+connections:
+  testExecutionRequestHook:
+    enabled: ${CONNECTION_TEST_EXECUTION_REQUEST_HOOK_ENABLED:true} # Enables processing of DataHubConnection test execution requests
+
 subscriptions:
   ownerSubscriptionHook:
     enabled: ${OWNER_SUBSCRIPTION_HOOK_ENABLED:false}

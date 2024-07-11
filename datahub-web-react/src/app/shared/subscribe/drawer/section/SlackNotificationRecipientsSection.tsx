@@ -16,10 +16,12 @@ import styled from 'styled-components/macro';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { useForm } from 'antd/lib/form/Form';
 import { trim } from 'lodash';
+import { Link } from 'react-router-dom';
 import { InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { Link } from 'react-router-dom';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
+import { SLACK_CONNECTION_URN } from '@src/app/settings/platform/slack/constants';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
@@ -74,6 +76,7 @@ const DisabledText = styled(Typography.Text)`
 const MemberIdInstructionText = styled(Typography.Paragraph)`
     margin-left: ${LEFT_PADDING + 24}px;
     margin-top: 6px;
+    margin-bottom: 0px !important;
 `;
 
 const StyledFormItem = styled(Form.Item)`
@@ -110,6 +113,9 @@ const SettingsSlackChannel = styled(Typography.Text)`
 
 const StyledAlert = styled(Alert)`
     margin: 8px 0 0 ${LEFT_PADDING}px;
+`;
+const TestNotificationButtonWrapper = styled.div`
+    margin-left: ${LEFT_PADDING + 24}px;
 `;
 
 export default function SlackNotificationRecipientSection() {
@@ -270,12 +276,35 @@ export default function SlackNotificationRecipientSection() {
                                 </a>
                             </>
                         ) : (
-                            <Typography.Paragraph>
-                                Ensure the Slack bot has been added to this channel
-                            </Typography.Paragraph>
+                            <>Ensure the Slack bot has been added to this channel</>
                         )}
                     </MemberIdInstructionText>
                 </>
+            )}
+            {slackSinkSupported && (
+                <TestNotificationButtonWrapper>
+                    <TestNotificationButton
+                        integration="slack"
+                        connectionUrn={SLACK_CONNECTION_URN}
+                        hidden={!(isSubscriptionChannelSelected ? slack.subscription.channel : settingsSlackChannel)}
+                        destinationSettings={
+                            isPersonal
+                                ? {
+                                      userHandle:
+                                          (isSubscriptionChannelSelected
+                                              ? slack.subscription.channel
+                                              : settingsSlackChannel) || '',
+                                  }
+                                : {
+                                      channels: [
+                                          (isSubscriptionChannelSelected
+                                              ? slack.subscription.channel
+                                              : settingsSlackChannel) || '',
+                                      ],
+                                  }
+                        }
+                    />
+                </TestNotificationButtonWrapper>
             )}
         </NotificationSwitchContainer>
     );

@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.config.notification;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.kafka.hook.notification.NotificationGeneratorHook;
 import com.linkedin.metadata.kafka.hook.notification.change.EntityChangeNotificationGenerator;
+import com.linkedin.metadata.kafka.hook.notification.connection.ConnectionTestNotificationGenerator;
 import com.linkedin.metadata.kafka.hook.notification.incident.IncidentNotificationGenerator;
 import com.linkedin.metadata.kafka.hook.notification.ingestion.IngestionNotificationGenerator;
 import com.linkedin.metadata.kafka.hook.notification.proposal.ProposalNotificationGenerator;
@@ -18,7 +19,8 @@ import org.springframework.context.annotation.Import;
   IncidentNotificationGeneratorFactory.class,
   ProposalNotificationGeneratorFactory.class,
   EntityChangeNotificationGeneratorFactory.class,
-  IngestionNotificationGeneratorFactory.class
+  IngestionNotificationGeneratorFactory.class,
+  ConnectionTestNotificationGeneratorFactory.class
 })
 public class NotificationGeneratorHookFactory {
 
@@ -29,6 +31,8 @@ public class NotificationGeneratorHookFactory {
   @Autowired private IngestionNotificationGenerator _ingestionNotificationGenerator;
 
   @Autowired private EntityChangeNotificationGenerator _entityChangeNotificationGenerator;
+
+  @Autowired private ConnectionTestNotificationGenerator _connectionTestNotificationGenerator;
 
   @Value("${notifications.enabled:true}")
   private boolean isEnabled;
@@ -41,7 +45,8 @@ public class NotificationGeneratorHookFactory {
             _incidentNotificationGenerator,
             _proposalNotificationGenerator,
             _entityChangeNotificationGenerator,
-            _ingestionNotificationGenerator),
+            _ingestionNotificationGenerator,
+            _connectionTestNotificationGenerator),
         isEnabled);
   }
 }
