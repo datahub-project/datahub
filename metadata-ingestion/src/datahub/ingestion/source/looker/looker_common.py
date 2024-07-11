@@ -347,6 +347,7 @@ class ExploreUpstreamViewField:
         model_name: str,
         upstream_views_file_path: Dict[str, Optional[str]],
         config: LookerCommonConfig,
+        remove_variant: bool = False,
     ) -> Optional[ColumnRef]:
         assert self.field.name is not None
 
@@ -357,16 +358,13 @@ class ExploreUpstreamViewField:
 
         view_name: Optional[str] = (
             self.explore.name
-            if self.field.original_view is not None
+            if self.field.original_view is None
             else self.field.original_view
         )
 
         field_name = self.field.name.split(".")[1]
 
-        if (
-            self.field.field_group_variant is not None
-            and self.field.field_group_variant.lower() in field_name.lower()
-        ):
+        if remove_variant and self.field.field_group_variant is not None:
             # remove variant at the end. +1 for "_"
             field_name = field_name[
                 : -(len(self.field.field_group_variant.lower()) + 1)
@@ -413,7 +411,7 @@ class ExploreUpstreamViewField:
     ) -> Optional[ColumnRef]:
         assert self.field.name is not None
 
-        if self.field.dimension_group is None:  # It is not part of Dimensional Group
+        if self.field.dimension_group is None or self.field.field_group_variant is None:
             return self._form_field_name(
                 view_project_map,
                 explore_project_name,
@@ -421,15 +419,6 @@ class ExploreUpstreamViewField:
                 upstream_views_file_path,
                 config,
             )
-
-        if self.field.field_group_variant is None:
-            return self._form_field_name(
-                view_project_map,
-                explore_project_name,
-                model_name,
-                upstream_views_file_path,
-                config,
-            )  # Variant i.e. Month, Day, Year ... is not available
 
         if self.field.type is None or not self.field.type.startswith("date_"):
             return self._form_field_name(
@@ -456,6 +445,7 @@ class ExploreUpstreamViewField:
             model_name,
             upstream_views_file_path,
             config,
+            remove_variant=True,
         )
 
 
