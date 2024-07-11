@@ -843,7 +843,7 @@ def _sqlglot_lineage_inner(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    default_dialect: Optional[str] = None
+    default_dialect: Optional[str] = None,
 ) -> SqlParsingResult:
     
     if not default_dialect:
@@ -1009,7 +1009,7 @@ def sqlglot_lineage(
     schema_resolver: SchemaResolverInterface,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
-    default_dialect: Optional[str] = None
+    default_dialect: Optional[str] = None,
 ) -> SqlParsingResult:
     """Parse a SQL statement and generate lineage information.
 
@@ -1068,7 +1068,7 @@ def sqlglot_lineage(
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
-            default_dialect=default_dialect
+            default_dialect=default_dialect,
         )
     except Exception as e:
         return SqlParsingResult.make_from_error(e)
