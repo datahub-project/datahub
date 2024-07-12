@@ -246,7 +246,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._emit_generic(url, payload)
 
     def emit_mcp(
-        self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper], async_flag: bool = True
+        self,
+        mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+        async_flag: bool = True,
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposal"
         ensure_has_system_metadata(mcp)
@@ -258,7 +260,9 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._emit_generic(url, payload)
 
     def emit_mcps(
-        self, mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]], async_flag: bool = True
+        self,
+        mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        async_flag: bool = True,
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
         for mcp in mcps:
