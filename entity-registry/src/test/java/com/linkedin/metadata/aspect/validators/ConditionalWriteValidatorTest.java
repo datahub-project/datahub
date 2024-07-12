@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.validators;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
@@ -76,7 +77,6 @@ public class ConditionalWriteValidatorTest {
       final ChangeMCP testMCP;
       switch (changeType) {
         case RESTATE:
-        case DELETE:
         case CREATE_ENTITY:
         case CREATE:
           testMCP =
@@ -90,7 +90,7 @@ public class ConditionalWriteValidatorTest {
                           .getAspectSpec("status"))
                   .recordTemplate(new Status().setRemoved(false))
                   // Expected
-                  .headers(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "1"))
+                  .headers(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "-1"))
                   .build();
           break;
         default:
@@ -137,7 +137,63 @@ public class ConditionalWriteValidatorTest {
     for (ChangeType changeType : supportedChangeTypes) {
       final ChangeMCP testMCP;
       switch (changeType) {
+        case DELETE:
+          reset(mockRetrieverContext.getAspectRetriever());
+          when(mockRetrieverContext
+                  .getAspectRetriever()
+                  .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
+              .thenReturn(
+                  Map.of(
+                      testEntityUrn,
+                      Map.of(
+                          "status",
+                          TestSystemAspect.builder()
+                              .systemMetadata(new SystemMetadata().setVersion("1"))
+                              .build())));
+          testMCP =
+              TestMCP.builder()
+                  .changeType(changeType)
+                  .urn(testEntityUrn)
+                  .entitySpec(entityRegistry.getEntitySpec(testEntityUrn.getEntityType()))
+                  .aspectSpec(
+                      entityRegistry
+                          .getEntitySpec(testEntityUrn.getEntityType())
+                          .getAspectSpec("status"))
+                  .recordTemplate(new Status().setRemoved(false))
+                  // Expected (cannot delete non-existent -1)
+                  .headers(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "1"))
+                  .build();
+          break;
+        case CREATE:
+        case CREATE_ENTITY:
+          reset(mockRetrieverContext.getAspectRetriever());
+          testMCP =
+              TestMCP.builder()
+                  .changeType(changeType)
+                  .urn(testEntityUrn)
+                  .entitySpec(entityRegistry.getEntitySpec(testEntityUrn.getEntityType()))
+                  .aspectSpec(
+                      entityRegistry
+                          .getEntitySpec(testEntityUrn.getEntityType())
+                          .getAspectSpec("status"))
+                  .recordTemplate(new Status().setRemoved(false))
+                  // Expected
+                  .headers(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "-1"))
+                  .previousSystemAspect(
+                      TestSystemAspect.builder()
+                          .urn(testEntityUrn)
+                          .entitySpec(entityRegistry.getEntitySpec(testEntityUrn.getEntityType()))
+                          .aspectSpec(
+                              entityRegistry
+                                  .getEntitySpec(testEntityUrn.getEntityType())
+                                  .getAspectSpec("status"))
+                          // Missing previous system metadata, expect fallback to version
+                          .version(0)
+                          .build())
+                  .build();
+          break;
         default:
+          reset(mockRetrieverContext.getAspectRetriever());
           testMCP =
               TestMCP.builder()
                   .changeType(changeType)
@@ -169,7 +225,11 @@ public class ConditionalWriteValidatorTest {
           test.validatePreCommit(List.of(testMCP), mockRetrieverContext)
               .collect(Collectors.toSet());
 
-      assertEquals(Set.of(), exceptions, "Expected no exceptions for change type " + changeType);
+      assertEquals(
+          Set.of(),
+          exceptions,
+          String.format(
+              "Expected no exceptions for change type %s but found %s", changeType, exceptions));
     }
   }
 
@@ -179,6 +239,7 @@ public class ConditionalWriteValidatorTest {
     Urn testEntityUrn = UrnUtils.getUrn("urn:li:chart:(looker,baz1)");
 
     // Prepare mock lookup based on version
+    reset(mockRetrieverContext.getAspectRetriever());
     when(mockRetrieverContext
             .getAspectRetriever()
             .getLatestSystemAspects(eq(Map.of(testEntityUrn, Set.of("status")))))
@@ -208,7 +269,7 @@ public class ConditionalWriteValidatorTest {
                           .getAspectSpec("status"))
                   .recordTemplate(new Status().setRemoved(false))
                   // Expected is always 1
-                  .headers(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "1"))
+                  .headers(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "-1"))
                   .build();
           break;
         default:
@@ -270,7 +331,7 @@ public class ConditionalWriteValidatorTest {
                           .getAspectSpec("status"))
                   .recordTemplate(new Status().setRemoved(false))
                   // Expected is always 1
-                  .headers(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "1"))
+                  .headers(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "-1"))
                   .build();
           break;
         default:
@@ -306,8 +367,23 @@ public class ConditionalWriteValidatorTest {
     for (ChangeType changeType : supportedChangeTypes) {
       final ChangeMCP testMCP;
       switch (changeType) {
-        case RESTATE:
         case DELETE:
+          // allow lookup of previous value
+          when(mockRetrieverContext
+                  .getAspectRetriever()
+                  .getLatestSystemAspects(Map.of(testEntityUrn, Set.of("status"))))
+              .thenReturn(
+                  Map.of(
+                      testEntityUrn,
+                      Map.of(
+                          "status",
+                          TestSystemAspect.builder()
+                              .urn(testEntityUrn)
+                              .version(3)
+                              .recordTemplate(new Status().setRemoved(false))
+                              .build())));
+          // fall through
+        case RESTATE:
         case CREATE_ENTITY:
         case CREATE:
           testMCP =
@@ -362,17 +438,17 @@ public class ConditionalWriteValidatorTest {
           break;
         case CREATE:
         case CREATE_ENTITY:
-        case DELETE:
           assertEquals(exceptions.size(), 1, "Expected exception for change type " + changeType);
           assertEquals(
               exceptions.stream().findFirst().get().getMessage(),
-              "Expected version 2, actual version 1");
+              "Expected version 2, actual version -1");
           break;
         default:
           assertEquals(exceptions.size(), 1, "Expected exception for change type " + changeType);
           assertEquals(
               exceptions.stream().findFirst().get().getMessage(),
-              "Expected version 2, actual version 3");
+              "Expected version 2, actual version 3",
+              "for changeType:" + changeType);
           break;
       }
     }
@@ -427,7 +503,7 @@ public class ConditionalWriteValidatorTest {
           assertEquals(exceptions.size(), 1, "Expected exception for change type " + changeType);
           assertEquals(
               exceptions.stream().findFirst().get().getMessage(),
-              "Expected version 2, actual version 1");
+              "Expected version 2, actual version -1");
           break;
         default:
           assertEquals(exceptions.size(), 1, "Expected exception for change type " + changeType);
@@ -507,7 +583,7 @@ public class ConditionalWriteValidatorTest {
           assertEquals(exceptions.size(), 1, "Expected exception for change type " + changeType);
           assertEquals(
               exceptions.stream().findFirst().get().getMessage(),
-              "Expected version 2, actual version 1");
+              "Expected version 2, actual version -1");
           break;
         default:
           assertEquals(exceptions.size(), 1, "Expected exception for change type " + changeType);
@@ -586,7 +662,7 @@ public class ConditionalWriteValidatorTest {
           assertEquals(exceptions.size(), 1, "Expected exception for change type " + changeType);
           assertEquals(
               exceptions.stream().findFirst().get().getMessage(),
-              "Expected version 2, actual version 1");
+              "Expected version 2, actual version -1");
           break;
         default:
           assertEquals(exceptions.size(), 1, "Expected exception for change type " + changeType);
