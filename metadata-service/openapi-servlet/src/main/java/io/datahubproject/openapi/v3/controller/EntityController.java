@@ -44,6 +44,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -80,7 +81,7 @@ public class EntityController
       @RequestBody @Nonnull String jsonEntityList)
       throws URISyntaxException, JsonProcessingException {
 
-    Map<Urn, Map<String, Long>> requestMap = toEntityVersionRequest(jsonEntityList);
+    LinkedHashMap<Urn, Map<String, Long>> requestMap = toEntityVersionRequest(jsonEntityList);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
@@ -125,7 +126,7 @@ public class EntityController
   @Override
   protected List<GenericEntityV3> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
-      Map<Urn, Map<String, Long>> urnAspectVersions,
+      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
       boolean withSystemMetadata)
       throws URISyntaxException {
     if (urnAspectVersions.isEmpty()) {
@@ -133,7 +134,7 @@ public class EntityController
     } else {
       Map<Urn, List<EnvelopedAspect>> aspects =
           entityService.getEnvelopedVersionedAspects(
-              opContext, resolveAspectNames(urnAspectVersions), false);
+              opContext, resolveAspectNames(urnAspectVersions, 0L), false);
 
       return urnAspectVersions.keySet().stream()
           .filter(urn -> aspects.containsKey(urn) && !aspects.get(urn).isEmpty())
@@ -198,11 +199,11 @@ public class EntityController
         withSystemMetadata);
   }
 
-  private Map<Urn, Map<String, Long>> toEntityVersionRequest(@Nonnull String entityArrayList)
-      throws JsonProcessingException, InvalidUrnException {
+  private LinkedHashMap<Urn, Map<String, Long>> toEntityVersionRequest(
+      @Nonnull String entityArrayList) throws JsonProcessingException, InvalidUrnException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
 
-    Map<Urn, Map<String, Long>> items = new HashMap<>();
+    LinkedHashMap<Urn, Map<String, Long>> items = new LinkedHashMap<>();
     if (entities.isArray()) {
       Iterator<JsonNode> entityItr = entities.iterator();
       while (entityItr.hasNext()) {
