@@ -379,13 +379,19 @@ class Pipeline:
         for reporter in self.reporters:
             try:
                 reporter.on_completion(
-                    status="CANCELLED"
-                    if self.final_status == PipelineStatus.CANCELLED
-                    else "FAILURE"
-                    if self.has_failures()
-                    else "SUCCESS"
-                    if self.final_status == PipelineStatus.COMPLETED
-                    else "UNKNOWN",
+                    status=(
+                        "CANCELLED"
+                        if self.final_status == PipelineStatus.CANCELLED
+                        else (
+                            "FAILURE"
+                            if self.has_failures()
+                            else (
+                                "SUCCESS"
+                                if self.final_status == PipelineStatus.COMPLETED
+                                else "UNKNOWN"
+                            )
+                        )
+                    ),
                     report=self._get_structured_report(),
                     ctx=self.ctx,
                 )
@@ -425,7 +431,7 @@ class Pipeline:
             return True
         return False
 
-    def run(self) -> None:
+    def run(self) -> None:  # noqa: C901
         with contextlib.ExitStack() as stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
