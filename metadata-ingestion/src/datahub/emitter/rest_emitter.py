@@ -206,6 +206,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             UsageAggregation,
         ],
         callback: Optional[Callable[[Exception, str], None]] = None,
+        async_flag: bool = True,
     ) -> None:
         try:
             if isinstance(item, UsageAggregation):
@@ -213,7 +214,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             elif isinstance(
                 item, (MetadataChangeProposal, MetadataChangeProposalWrapper)
             ):
-                self.emit_mcp(item)
+                self.emit_mcp(item, async_flag=async_flag)
             else:
                 self.emit_mce(item)
         except Exception as e:
@@ -245,24 +246,27 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._emit_generic(url, payload)
 
     def emit_mcp(
-        self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+        self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper], async_flag: bool = True
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposal"
         ensure_has_system_metadata(mcp)
+        async_param_value = "true" if async_flag else "false"
+
         mcp_obj = pre_json_transform(mcp.to_obj())
-        payload = json.dumps({"proposal": mcp_obj})
+        payload = json.dumps({"proposal": mcp_obj, "async": async_param_value})
 
         self._emit_generic(url, payload)
 
     def emit_mcps(
-        self, mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]]
+        self, mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]], async_flag: bool = True
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
         for mcp in mcps:
             ensure_has_system_metadata(mcp)
+        async_param_value = "true" if async_flag else "false"
 
         mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
-        payload = json.dumps({"proposals": mcp_objs})
+        payload = json.dumps({"proposals": mcp_objs, "async": async_param_value})
 
         self._emit_generic(url, payload)
 
