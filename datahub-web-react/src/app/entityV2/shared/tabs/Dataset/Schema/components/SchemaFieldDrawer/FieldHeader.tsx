@@ -88,6 +88,7 @@ const StyleLink = styled(Link)`
     color: ${REDESIGN_COLORS.WHITE};
     &:hover {
         color: ${REDESIGN_COLORS.WHITE};
+        text-decoration: underline;
     }
 `;
 

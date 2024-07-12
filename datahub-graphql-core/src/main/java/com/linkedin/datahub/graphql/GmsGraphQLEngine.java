@@ -147,7 +147,9 @@ import com.linkedin.datahub.graphql.resolvers.businessattribute.UpdateBusinessAt
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.connection.CreateNotificationConnectionTestResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.DeleteConnectionResolver;
+import com.linkedin.datahub.graphql.resolvers.connection.GetNotificationConnectionTestResultResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpdateConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
@@ -3250,10 +3252,18 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "updateConnection",
                     new UpdateConnectionResolver(connectionService, secretService))
+                .dataFetcher(
+                    "createNotificationConnectionTest",
+                    new CreateNotificationConnectionTestResolver(entityClient))
                 .dataFetcher("deleteConnection", new DeleteConnectionResolver(connectionService)));
     builder.type(
         "Query",
-        typeWiring -> typeWiring.dataFetcher("connection", getResolver(this.connectionType)));
+        typeWiring ->
+            typeWiring
+                .dataFetcher("connection", getResolver(this.connectionType))
+                .dataFetcher(
+                    "getNotificationConnectionTestResult",
+                    new GetNotificationConnectionTestResultResolver(entityClient)));
     builder.type(
         "DataHubConnection",
         typeWiring ->

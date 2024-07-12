@@ -3,11 +3,7 @@ query getSchemaField($urn: String!) {
         urn
         type
         ... on SchemaFieldEntity {
-            fieldPath
-            parent {
-                urn
-                type
-            }
+            ...schemaFieldEntityFields
         }
     }
 }

@@ -19,6 +19,8 @@ export enum LineageAssetType {
 
 interface LineageAssetBase {
     name: string;
+    numUpstream?: number;
+    numDownstream?: number;
 }
 
 export interface ColumnAsset extends LineageAssetBase {

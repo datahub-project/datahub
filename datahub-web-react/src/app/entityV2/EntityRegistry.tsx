@@ -1,15 +1,7 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
-import { EntityLineageV2Fragment } from '../../graphql/lineage.generated';
-import {
-    Entity as EntityInterface,
-    EntityType,
-    Exact,
-    InputFields,
-    SchemaField,
-    SearchResult,
-} from '../../types.generated';
+import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
+import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
 import { GenericEntityProperties } from '../entity/shared/types';
 import { FetchedEntity } from '../lineage/types';
 import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '../lineageV2/types';
@@ -266,14 +258,15 @@ export default class EntityRegistry {
                 return lst;
             }, []);
         }
-        const entity = this.getGenericEntityProperties(type, data);
-        const fields = entity?.schemaMetadata?.fields || convertInputFieldsToSchemaFields(entity?.inputFields);
+        const fields = getSchemaFields(data, this.getGenericEntityProperties(type, data));
         if (fields) {
             return fields.map((field) => ({
                 name: translateFieldPath(field.fieldPath),
                 type: LineageAssetType.Column,
                 dataType: field.type,
                 nativeDataType: field.nativeDataType,
+                numUpstream: field.schemaFieldEntity?.lineageFeatures?.upstreamCount,
+                numDownstream: field.schemaFieldEntity?.lineageFeatures?.downstreamCount,
             }));
         }
         return undefined;
@@ -340,6 +333,17 @@ export default class EntityRegistry {
     }
 }
 
-function convertInputFieldsToSchemaFields(inputFields: Maybe<InputFields>): SchemaField[] | undefined {
-    return inputFields?.fields?.map((field) => field?.schemaField).filter((field): field is SchemaField => !!field);
+function getSchemaFields(
+    data: EntityLineageV2Fragment,
+    genericEntityProperties: GenericEntityProperties | null,
+): LineageSchemaFieldFragment[] | undefined {
+    if (data?.__typename === 'Dataset') {
+        return data?.schemaMetadata?.fields;
+    }
+    if (data?.__typename === 'Chart') {
+        return data?.inputFields?.fields
+            ?.map((field) => field?.schemaField)
+            .filter((field): field is LineageSchemaFieldFragment => !!field);
+    }
+    return genericEntityProperties?.schemaMetadata?.fields;
 }

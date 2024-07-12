@@ -116,6 +116,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                         <DatasetAssertionDescription
                             description={description}
                             assertionInfo={record.datasetAssertionInfo}
+                            lastEvaluation={record.lastEvaluation}
                         />
                     </ResultContainer>
                 );

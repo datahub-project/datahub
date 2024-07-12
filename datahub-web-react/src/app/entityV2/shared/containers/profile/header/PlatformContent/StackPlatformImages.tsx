@@ -29,9 +29,16 @@ interface Props {
 }
 
 const StackImages = ({ platforms }: Props) => {
+    const uniquePlatforms = platforms.reduce<DataPlatform[]>((acc, current) => {
+        if (!acc.find((platform) => platform.urn === current.urn)) {
+            acc.push(current);
+        }
+        return acc;
+    }, []);
+
     return (
         <Container>
-            {platforms.slice(0, 2).map((platform, index) => (
+            {uniquePlatforms.slice(0, 2).map((platform, index) => (
                 <>
                     {index === 1 ? (
                         <PlatformIcon platform={platform} size={28} styles={secondIconStyles} />

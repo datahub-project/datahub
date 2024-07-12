@@ -36,4 +36,5 @@ public class FeatureFlags {
   private boolean runAssertionsEnabled = false;
   private boolean broadcastNewIncidentUpdatesEnabled = false;
   private boolean separateSiblingsLineageByDefault = false;
+  private boolean showSeparateSiblings = false;
 }

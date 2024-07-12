@@ -1,4 +1,4 @@
-import { Button, Checkbox, Menu, Modal } from 'antd';
+import { Button, Checkbox, Form, Menu, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 
@@ -67,7 +67,8 @@ export const StyledButton = styled(Button)<{ $type?: string; $color?: string; $h
 
 export const StyledModal = styled(Modal)`
     font-family: Mulish;
-    max-width: 480px;
+    width: 580px !important;
+    max-width: 680px;
 
     &&& .ant-modal-content {
         background-color: #eeecfa;
@@ -111,4 +112,34 @@ export const ModalTitle = styled.span`
     font-size: 22px;
     font-weight: 700;
     color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+`;
+
+export const StyledFormItem = styled(Form.Item)`
+    margin-bottom: 8px;
+
+    .ant-input {
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 8px;
+        color: ${REDESIGN_COLORS.FOUNDATION_BLUE_5};
+
+        &:hover,
+        &:focus,
+        &:active {
+            border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        }
+
+        &:focus,
+        &:active {
+            color: ${REDESIGN_COLORS.TITLE_PURPLE};
+            box-shadow: 0px 0px 4px 0px rgba(83, 63, 209, 0.5);
+        }
+    }
+`;
+
+export const FormItemTitle = styled(Typography.Text)`
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: ${REDESIGN_COLORS.TEXT_HEADING};
 `;

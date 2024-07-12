@@ -867,6 +867,99 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
 }
 
+fragment schemaFieldEntityFields on SchemaFieldEntity {
+    urn
+    fieldPath
+    type
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
+    documentation {
+        documentations {
+            documentation
+            attribution {
+                time
+                actor {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+                source {
+                    urn
+                    type
+                }
+                sourceDetail {
+                    key
+                    value
+                }
+            }
+        }
+    }
+    parent {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+        }
+        ... on Dashboard {
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+        }
+        ... on Chart {
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+        }
+    }
+    notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
+        total
+        relationships {
+            type
+            entity {
+                ... on Post {
+                    urn
+                    type
+                    postType
+                    lastModified {
+                        time
+                        actor
+                    }
+                    content {
+                        contentType
+                        title
+                        description
+                        link
+                        media {
+                            type
+                            location
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fragment schemaFieldFields on SchemaField {
     fieldPath
     label
@@ -885,76 +978,7 @@ fragment schemaFieldFields on SchemaField {
         ...glossaryTerms
     }
     schemaFieldEntity {
-        urn
-        type
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        businessAttributes {
-            businessAttribute {
-                ...businessAttribute
-            }
-        }
-        documentation {
-            documentations {
-                documentation
-                attribution {
-                    time
-                    actor {
-                        urn
-                        type
-                        ...entityDisplayNameFields
-                    }
-                    source {
-                        urn
-                        type
-                    }
-                    sourceDetail {
-                        key
-                        value
-                    }
-                }
-            }
-        }
-        parent {
-            urn
-            type
-            ...entityDisplayNameFields
-            ... on Dataset {
-                platform {
-                    ...platformFields
-                }
-            }
-        }
-        notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
-            total
-            relationships {
-                type
-                entity {
-                    ... on Post {
-                        urn
-                        type
-                        postType
-                        lastModified {
-                            time
-                            actor
-                        }
-                        content {
-                            contentType
-                            title
-                            description
-                            link
-                            media {
-                                type
-                                location
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        ...schemaFieldEntityFields
     }
 }
 
@@ -1474,6 +1498,54 @@ fragment entityDisplayNameFields on Entity {
     }
 }
 
+fragment entityPlatformFields on Entity {
+    ... on Dataset {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Dashboard {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Chart {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataFlow {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Container {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLFeatureTable {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLModel {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLModelGroup {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataPlatformInstance {
+        platform {
+            ...platformFields
+        }
+    }
+}
+
 fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
     name
     source {
@@ -1720,6 +1792,9 @@ fragment shareResultFields on ShareResult {
     }
     implicitShareEntity {
         urn
+        type
+        ...entityDisplayNameFields
+        ...entityPlatformFields
     }
     status
     message

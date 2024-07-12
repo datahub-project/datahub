@@ -83,10 +83,10 @@ public class FormService extends BaseService {
       @Nonnull final Urn formUrn)
       throws Exception {
     verifyEntityExists(opContext, formUrn);
-    verifyEntitiesExist(opContext, entityUrns);
+    verifyEntitiesExist(opContext, entityUrns, false);
     final List<MetadataChangeProposal> changes =
         buildAssignFormChanges(opContext, entityUrns, formUrn);
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, true);
   }
 
   /** Batch remove a form from a given entity by urn. */
@@ -98,10 +98,10 @@ public class FormService extends BaseService {
     if (!entityClient.exists(opContext, formUrn)) {
       log.warn(String.format("Trying to remove a form with urn %s that does not exist.", formUrn));
     }
-    verifyEntitiesExist(opContext, entityUrns);
+    verifyEntitiesExist(opContext, entityUrns, false);
     final List<MetadataChangeProposal> changes =
         buildUnassignFormChanges(opContext, entityUrns, formUrn);
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, true);
   }
 
   /** Mark a specific form prompt as incomplete */
@@ -112,11 +112,11 @@ public class FormService extends BaseService {
       @Nonnull final String formPromptId)
       throws Exception {
     verifyEntityExists(opContext, formUrn);
-    verifyEntitiesExist(opContext, entityUrns);
+    verifyEntitiesExist(opContext, entityUrns, false);
     final FormInfo formInfo = getFormInfo(opContext, formUrn);
     final List<MetadataChangeProposal> changes =
         buildUnsetFormPromptChanges(opContext, entityUrns, formUrn, formPromptId, formInfo);
-    ingestChangeProposals(opContext, changes);
+    ingestChangeProposals(opContext, changes, true);
   }
 
   /** Create a dynamic form assignment for a particular form. */
@@ -1199,16 +1199,24 @@ public class FormService extends BaseService {
   }
 
   private void verifyEntitiesExist(
-      @Nonnull OperationContext opContext, @Nonnull final List<Urn> entityUrns) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<Urn> entityUrns,
+      boolean shouldThrow) {
     entityUrns.forEach(
         entityUrn -> {
           try {
             verifyEntityExists(opContext, entityUrn);
           } catch (Exception e) {
-            throw new RuntimeException(
+            log.error(
                 String.format(
-                    "Issue verifying whether entity exists when assigning form to it. Entity urn: %s",
+                    "Entity with urn %s does not exist - could not assign/unassign form",
                     entityUrn));
+            if (shouldThrow) {
+              throw new RuntimeException(
+                  String.format(
+                      "Issue verifying whether entity exists when assigning form to it. Entity urn: %s",
+                      entityUrn));
+            }
           }
         });
   }

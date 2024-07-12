@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import moment from 'moment-timezone';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
-import { Tooltip } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import { REDESIGN_COLORS } from '../../../../constants';
 import AcrylIcon from '../../../../../../../images/acryl-logo.svg?react';
 import ShareIcon from '../../../../../../../images/share-icon-custom.svg?react';
@@ -10,16 +9,16 @@ import { toLocalDateString, toRelativeTimeString } from '../../../../../../share
 import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
 import { ContentText, InstanceIcon, LabelText, RelativeTime } from './styledComponents';
 import { DataPlatform, Maybe } from '../../../../../../../types.generated';
-import { ACRYL_PLATFORM } from './utils';
+import { ACRYL_PLATFORM, getRelativeTimeColor } from './utils';
 
 const DetailsContainer = styled.div`
     display: flex;
     gap: 5px;
     flex-direction: column;
-    align-items: end;
     justify-content: center;
-    padding-right: 4px;
+    padding: 5px 8px;
     background-color: ${REDESIGN_COLORS.SECTION_BACKGROUND};
+    border-radius: 8px;
 `;
 
 const SyncIcon = styled.div`
@@ -33,12 +32,16 @@ const DetailRow = styled.div`
     gap: 6px;
     align-items: center;
     flex-wrap: wrap;
-    padding: 5px 2px;
 `;
 
 const StyledShareIcon = styled(ShareIcon)`
     height: 24px;
     width: 24px;
+`;
+
+const SyncedSharedText = styled(Typography.Text)`
+    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+    font-weight: 700;
 `;
 
 interface Props {
@@ -50,15 +53,15 @@ interface Props {
 }
 
 const SyncedOrShared = ({ labelText, time, platformName, platform, instanceName }: Props) => {
-    const isRecentlyUpdated = moment(time).isAfter(moment().subtract(1, 'week'));
-
     return (
         <DetailsContainer>
             <DetailRow>
                 <SyncIcon>{platformName === ACRYL_PLATFORM ? <StyledShareIcon /> : <SwapHorizOutlinedIcon />}</SyncIcon>
-                <LabelText>{labelText} </LabelText>
+                <SyncedSharedText>{labelText} </SyncedSharedText>
                 <Tooltip title={toLocalDateString(time)}>
-                    <RelativeTime isRecentlyUpdated={isRecentlyUpdated}>{toRelativeTimeString(time)}</RelativeTime>
+                    <RelativeTime relativeTimeColor={getRelativeTimeColor(time)}>
+                        {toRelativeTimeString(time)}
+                    </RelativeTime>
                 </Tooltip>
                 {!!platform && (
                     <>

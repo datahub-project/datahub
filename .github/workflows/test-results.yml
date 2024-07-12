@@ -13,6 +13,8 @@ jobs:
     permissions:
       contents: read
       actions: read
+      checks: write
+      issues: read
     if: github.event.workflow_run.conclusion != 'skipped'
 
     steps:

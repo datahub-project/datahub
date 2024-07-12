@@ -3,9 +3,8 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { Container } from '../../../../../../../types.generated';
+import { Container } from '@types';
 import { getSubTypeIcon, TYPE_ICON_CLASS_NAME } from '../../../../components/subtypes';
-import { SEARCH_COLORS } from '../../../../constants';
 
 const IconWrapper = styled.span`
     line-height: 0;
@@ -14,13 +13,7 @@ const IconWrapper = styled.span`
     }
 `;
 
-const DefaultIcon = styled(FolderOpenOutlined)`
-    color: ${SEARCH_COLORS.PLATFORM_TEXT};
-
-    &&& {
-        font-size: 16px;
-    }
-`;
+const DefaultIcon = styled(FolderOpenOutlined)``;
 
 interface Props {
     container: Maybe<Container | GenericEntityProperties>;

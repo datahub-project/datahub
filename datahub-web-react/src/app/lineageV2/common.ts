@@ -1,3 +1,4 @@
+import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
 import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
@@ -10,6 +11,10 @@ import { FetchedEntityV2 } from './types';
 
 export const TRANSITION_DURATION_MS = 200;
 export const LINEAGE_FILTER_PAGINATION = 4;
+
+export const HOVER_COLOR = LINEAGE_COLORS.BLUE_2;
+export const SELECT_COLOR = LINEAGE_COLORS.PURPLE_3;
+
 type Urn = string;
 
 /**
@@ -46,6 +51,11 @@ export interface LineageEntity extends NodeBase {
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
 export const LINEAGE_FILTER_ID_PREFIX = 'lf:';
+
+export function createLineageFilterNodeId(urn: Urn, direction: LineageDirection): string {
+    const dir = direction === LineageDirection.Upstream ? 'u:' : 'd:';
+    return `${LINEAGE_FILTER_ID_PREFIX}${dir}${urn}`;
+}
 
 export interface LineageFilter extends NodeBase {
     urn?: never;

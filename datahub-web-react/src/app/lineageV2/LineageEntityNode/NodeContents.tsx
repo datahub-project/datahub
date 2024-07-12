@@ -131,7 +131,7 @@ const MainTextWrapper = styled.div`
     flex-direction: column;
     flex-grow: 1;
     justify-content: center;
-    gap: 4px;
+    gap: 3px;
     height: 100%;
     min-width: 0;
 `;
@@ -139,12 +139,14 @@ const MainTextWrapper = styled.div`
 const Header = styled.div`
     display: flex;
     justify-content: space-between;
+    min-height: 0;
+    overflow: hidden;
     width: 100%;
 `;
 
 const TitleWrapper = styled.div`
     display: flex;
-    align-items: center;
+    align-items: start;
     gap: 4px;
     overflow: hidden;
 `;
@@ -160,7 +162,6 @@ const ExpandColumnsWrapper = styled.div`
     border-radius: 10px;
     color: ${LINEAGE_COLORS.BLUE_1};
     display: flex;
-    flex-grow: 1;
     font-size: 10px;
     justify-content: center;
     width: 100%;

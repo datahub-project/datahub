@@ -2,15 +2,13 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { REDESIGN_COLORS } from '../../../../constants';
 
-export const RelativeTime = styled.div<{ isRecentlyUpdated?: boolean }>`
+export const RelativeTime = styled.div<{ relativeTimeColor: string }>`
     display: flex;
     padding: 2px 8px;
     border-radius: 20px;
     border: 1px solid;
-    border-color: ${(props) =>
-        props.isRecentlyUpdated ? `${REDESIGN_COLORS.GREEN_NORMAL}` : `${REDESIGN_COLORS.RED_NORMAL}`};
-    color: ${(props) =>
-        props.isRecentlyUpdated ? `${REDESIGN_COLORS.GREEN_NORMAL}` : `${REDESIGN_COLORS.RED_NORMAL}`};
+    border-color: ${(props) => props.relativeTimeColor};
+    color: ${(props) => props.relativeTimeColor};
 `;
 
 export const ContentText = styled(Typography.Text)<{ color?: string }>`

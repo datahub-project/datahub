@@ -1,6 +1,7 @@
 import React from 'react';
 import oidcLogo from '../../../images/oidclogo.png';
 import slackLogo from '../../../images/slacklogo.png';
+import teamsLogo from '../../../images/teamslogo.png';
 import acrylLogo from '../../../images/acryl-dark-mark.svg';
 import snowflakeLogo from '../../../images/snowflakelogo.png';
 import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '../../../types.generated';
@@ -8,6 +9,7 @@ import { SlackIntegration } from './slack/SlackIntegration';
 import { OidcIntegration } from './sso/OidcIntegration';
 import AcrylInstances from './acryl/AcrylInstances';
 import { SnowflakeIntegration } from './snowflake/SnowflakeIntegration';
+import { TeamsIntegration } from './teams/TeamsIntegration';
 
 /**
  * SSO
@@ -34,6 +36,17 @@ const SLACK_INTEGRATION = {
 };
 
 /**
+ * Teams Integrations
+ */
+const TEAMS_INTEGRATION = {
+    id: 'microsoft-teams',
+    name: 'Microsoft Teams',
+    img: teamsLogo,
+    description: 'Notify Teams channels when important things happen',
+    content: <TeamsIntegration />,
+};
+
+/**
  * Acryl Instance Integrations
  */
 
@@ -56,7 +69,12 @@ const SNOWFLAKE_INTEGRATION = {
     content: <SnowflakeIntegration />,
 };
 
-export const SUPPORTED_INTEGRATIONS = [SLACK_INTEGRATION, ACRYL_INSTANCE_INTEGRATION, SNOWFLAKE_INTEGRATION];
+export const SUPPORTED_INTEGRATIONS = [
+    SLACK_INTEGRATION,
+    TEAMS_INTEGRATION,
+    ACRYL_INSTANCE_INTEGRATION,
+    SNOWFLAKE_INTEGRATION,
+];
 
 /**
  * Notifications
@@ -133,11 +151,18 @@ const PROPOSAL_NOTIFICATIONS = [
     },
 ];
 
-export const NOTIFICATION_GROUPS = [
+export const RECOMMENDED_PLATFORM_NOTIFICATIONS = [
     {
         title: 'Ingestion',
         notifications: INGESTION_NOTIFICATIONS,
     },
+    {
+        title: 'Proposals',
+        notifications: PROPOSAL_NOTIFICATIONS,
+    },
+];
+
+export const NON_RECOMMENDED_PLATFORM_NOTIFICATIONS = [
     {
         title: 'Changes',
         notifications: CHANGE_NOTIFICATIONS,
@@ -149,10 +174,6 @@ export const NOTIFICATION_GROUPS = [
     {
         title: 'Incidents',
         notifications: INCIDENT_NOTIFICATIONS,
-    },
-    {
-        title: 'Proposals',
-        notifications: PROPOSAL_NOTIFICATIONS,
     },
 ];
 

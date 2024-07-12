@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 // import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
-import { Divider, Form, Input, Typography, message } from 'antd';
+import { Divider, Form, Input, message } from 'antd';
 import { useHistory } from 'react-router';
 import { useApolloClient } from '@apollo/client';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
 import { DataHubConnection, DataHubConnectionDetailsType } from '../../../../types.generated';
 import { BackButton } from '../../../sharedV2/buttons/BackButton';
-import { StyledButton } from '../../../shared/share/v2/styledComponents';
+import { FormItemTitle, StyledButton, StyledFormItem } from '../../../shared/share/v2/styledComponents';
 import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
 import { ACRYL_PLATFORM_URN, getConnectionBlob, getTokenFromJson, getURLFromJson, showToken } from './utils';
 import { updateInstancesList } from './cacheUtils';
@@ -32,36 +32,6 @@ const FormItemContainer = styled.div`
     flex-direction: column;
     font-size: 14px;
     width: 50%;
-`;
-
-const FormItemTitle = styled(Typography.Text)`
-    margin-bottom: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
-`;
-
-const StyledFormItem = styled(Form.Item)`
-    margin-bottom: 8px;
-
-    .ant-input {
-        font-size: 14px;
-        font-weight: 500;
-        border-radius: 8px;
-        color: ${REDESIGN_COLORS.FOUNDATION_BLUE_5};
-
-        &:hover,
-        &:focus,
-        &:active {
-            border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        }
-
-        &:focus,
-        &:active {
-            color: ${REDESIGN_COLORS.TITLE_PURPLE};
-            box-shadow: 0px 0px 4px 0px rgba(83, 63, 209, 0.5);
-        }
-    }
 `;
 
 const FooterContainer = styled.div`

@@ -7,6 +7,12 @@ extend type Query {
   Returns null if a connection with the provided urn does not exist.
   """
   connection(urn: String!): DataHubConnection
+
+  """
+  Get an execution request relating to a notification connection test.
+  urn: The primary key associated with the execution request.
+  """
+  getNotificationConnectionTestResult(urn: String!): ExecutionRequestResult
 }
 
 extend type Mutation {
@@ -21,6 +27,14 @@ extend type Mutation {
   This requires the 'Manage Connections' platform privilege.
   """
   updateConnection(input: UpdateDataHubConnectionInput!): DataHubConnection!
+
+  """
+  Test a particular connection used to send notifications.
+  No platform privileges required - since anyone can subscribe to things,
+  they must be able to test the connection to make sure it works.
+  Returns the urn of the created execution request.
+  """
+  createNotificationConnectionTest(input: NotificationConnectionTestRequestInput!): String
 
   """
   Delete an existing connection
@@ -169,6 +183,21 @@ input UpdateDataHubConnectionInput {
   An optional name for this connection entity
   """
   name: String
+}
+
+"""
+Input required to test a DataHubConnection that corresponds to a notification.
+"""
+input NotificationConnectionTestRequestInput {
+  """
+  The urn of the Connection entity you want to test
+  """
+  urn: String!
+
+  """
+  Required to test if this is a slack connection
+  """
+  slack: SlackNotificationSettingsInput
 }
 
 """

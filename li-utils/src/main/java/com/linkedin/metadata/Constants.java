@@ -20,6 +20,7 @@ public class Constants {
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
   public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
+  public static final String SLACK_CONNECTION_ID = "urn:li:dataHubConnection:__system_slack-0";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
       STRUCTURED_PROPERTY_MAPPING_FIELD + ".";
@@ -340,6 +341,7 @@ public class Constants {
       "MANUAL_INGESTION_SOURCE";
   public static final String EXECUTION_REQUEST_SOURCE_SCHEDULED_INGESTION_SOURCE =
       "SCHEDULED_INGESTION_SOURCE";
+  public static final String DEFAULT_EXECUTOR_ID = "default";
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
@@ -419,6 +421,12 @@ public class Constants {
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
   public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
+  public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REPORT_TYPE =
+      "NOTIFICATION_CONNECTION_TEST_REPORT";
+  public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY =
+      "executionRequestUrn";
+  public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_TASK_NAME =
+      "NOTIFICATION_CONNECTION_TEST";
 
   // Actions Pipeline
   public static final String ACTIONS_PIPELINE_ENTITY_NAME = "dataHubAction";

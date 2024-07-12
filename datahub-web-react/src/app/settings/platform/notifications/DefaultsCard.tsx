@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import styled from 'styled-components';
 import { Typography, Card, Form, message } from 'antd';
+import { useConnectionQuery } from '@src/graphql/connection.generated';
 import { useUpdateGlobalIntegrationSettingsMutation } from '../../../../graphql/settings.generated';
 import { EmailDefaults } from './EmailDefaults';
 import { SlackDefaults } from './SlackDefaults';
@@ -9,6 +10,8 @@ import { GlobalSettings } from '../../../../types.generated';
 import { isSinkEnabled } from '../../utils';
 import { EMAIL_SINK, SLACK_SINK } from '../types';
 import { useAppConfig } from '../../../useAppConfig';
+import { SLACK_CONNECTION_URN } from '../slack/constants';
+import { decodeSlackConnection } from '../slack/utils';
 
 const CardContainer = styled(Card)`
     margin-bottom: 24px;
@@ -48,10 +51,30 @@ export const DefaultsCard = ({ globalSettings, refetch }: Props) => {
     const defaultEmailAddress = globalSettings?.integrationSettings?.emailSettings?.defaultEmail;
     const defaultSlackChannel = globalSettings?.integrationSettings?.slackSettings?.defaultChannelName;
 
-    const isSlackEnabled = !!isSinkEnabled(SLACK_SINK.id, globalSettings, config);
     const isEmailEnabled = !!isSinkEnabled(EMAIL_SINK.id, globalSettings, config);
 
     const [updateGlobalIntegrationSettings] = useUpdateGlobalIntegrationSettingsMutation();
+
+    const { data: slackConnectionData } = useConnectionQuery({
+        variables: {
+            urn: SLACK_CONNECTION_URN,
+        },
+    });
+    const existingConnJson = slackConnectionData?.connection?.details?.json;
+
+    const slackConnData = useMemo(() => {
+        let data;
+        try {
+            if (existingConnJson) {
+                data = decodeSlackConnection(existingConnJson.blob as string);
+            }
+        } catch (e) {
+            return data;
+        }
+        return data;
+    }, [existingConnJson]);
+
+    const isSlackEnabled = !!isSinkEnabled(SLACK_SINK.id, globalSettings, config) && !!slackConnData?.botToken;
 
     const onSaveSlackChannel = async (inputValue) => {
         try {
@@ -113,6 +136,7 @@ export const DefaultsCard = ({ globalSettings, refetch }: Props) => {
                     isSlackEnabled={isSlackEnabled}
                     channel={defaultSlackChannel || undefined}
                     onChange={onSaveSlackChannel}
+                    botToken={slackConnData?.botToken || undefined}
                 />
             </Form>
         </CardContainer>

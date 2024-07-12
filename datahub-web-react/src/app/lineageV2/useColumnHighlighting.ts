@@ -1,13 +1,18 @@
-import { useEffect, useMemo } from 'react';
+import { useContext, useEffect, useMemo } from 'react';
 import { Edge, MarkerType, useReactFlow } from 'reactflow';
-import { LineageDirection } from '../../types.generated';
-import { LINEAGE_COLORS } from '../entityV2/shared/constants';
+import { LineageDirection } from '@types';
 import {
     ColumnRef,
+    createLineageFilterNodeId,
     FineGrainedLineage,
+    FineGrainedLineageMap,
     FineGrainedOperationRef,
     HighlightedColumns,
+    HOVER_COLOR,
+    LineageNodesContext,
+    NodeContext,
     parseColumnRef,
+    SELECT_COLOR,
     setDefault,
     setDifference,
 } from './common';
@@ -15,16 +20,17 @@ import {
 export default function useColumnHighlighting(
     selectedColumn: ColumnRef | null,
     hoveredColumn: ColumnRef | null,
-    indirect: FineGrainedLineage,
+    fineGrainedLineage: FineGrainedLineage,
 ): {
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
 } {
     const { setEdges } = useReactFlow();
+    const { nodes, nodeVersion } = useContext(LineageNodesContext);
 
     const { cllHighlightedNodes, highlightedColumns, columnEdges } = useMemo(() => {
-        return processColumnHighlights(selectedColumn, hoveredColumn, indirect);
-    }, [selectedColumn, hoveredColumn, indirect]);
+        return processColumnHighlights(selectedColumn, hoveredColumn, fineGrainedLineage, nodes);
+    }, [selectedColumn, hoveredColumn, nodes, fineGrainedLineage]);
 
     useEffect(() => {
         // TODO: Figure out how to only add edges once columns are rendered?
@@ -39,7 +45,7 @@ export default function useColumnHighlighting(
                 ...addIds.map((id) => columnEdges.get(id) as Edge),
             ];
         });
-    }, [columnEdges, setEdges]);
+    }, [nodeVersion, columnEdges, setEdges]);
 
     return { cllHighlightedNodes, highlightedColumns };
 }
@@ -48,16 +54,18 @@ function processColumnHighlights(
     selectedColumn: ColumnRef | null,
     hoveredColumn: ColumnRef | null,
     fineGrainedLineage: FineGrainedLineage,
+    nodes: NodeContext['nodes'],
 ) {
     if (selectedColumn) {
-        return computeSingleColumnHighlights(selectedColumn, fineGrainedLineage, LINEAGE_COLORS.PURPLE_3);
+        return computeSingleColumnHighlights(selectedColumn, fineGrainedLineage, nodes, SELECT_COLOR);
     }
-    return computeSingleColumnHighlights(hoveredColumn, fineGrainedLineage, LINEAGE_COLORS.BLUE_2);
+    return computeSingleColumnHighlights(hoveredColumn, fineGrainedLineage, nodes, HOVER_COLOR);
 }
 
 function computeSingleColumnHighlights(
     column: ColumnRef | null,
     fineGrainedLineage: FineGrainedLineage,
+    nodes: NodeContext['nodes'],
     stroke: string,
 ): {
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
@@ -76,11 +84,11 @@ function computeSingleColumnHighlights(
     cllHighlightedNodes.set(urn, null);
     highlightedColumns.set(urn, new Set([field]));
 
-    const lineages = {
-        [LineageDirection.Downstream]: fineGrainedLineage.downstream,
-        [LineageDirection.Upstream]: fineGrainedLineage.upstream,
-    };
-    Object.entries(lineages).forEach(([direction, fgl]) => {
+    const lineages: Array<[LineageDirection, FineGrainedLineageMap]> = [
+        [LineageDirection.Downstream, fineGrainedLineage.downstream],
+        [LineageDirection.Upstream, fineGrainedLineage.upstream],
+    ];
+    lineages.forEach(([direction, fgl]) => {
         function addEdge(ref: ColumnRef, childRef: ColumnRef) {
             const fromRef = direction === LineageDirection.Downstream ? ref : childRef;
             const toRef = direction === LineageDirection.Downstream ? childRef : ref;
@@ -107,6 +115,11 @@ function computeSingleColumnHighlights(
             if (ref === undefined) {
                 break;
             }
+            const filterNodeEdge = addEdgeToLineageFilterNode(ref, direction, fgl, nodes);
+            if (filterNodeEdge) {
+                addEdge(ref, filterNodeEdge);
+            }
+
             fgl.get(ref)?.forEach((fineGrainedOperationRef, childRef) => {
                 const [childUrn, childField] = parseColumnRef(childRef);
                 if (!seen.has(childRef)) {
@@ -128,4 +141,20 @@ function computeSingleColumnHighlights(
     });
 
     return { cllHighlightedNodes, highlightedColumns, columnEdges };
+}
+
+function addEdgeToLineageFilterNode(
+    ref: ColumnRef,
+    direction: LineageDirection,
+    fgl: FineGrainedLineageMap,
+    nodes: NodeContext['nodes'],
+): ColumnRef | null {
+    const [urn, field] = parseColumnRef(ref);
+    const entity = nodes.get(urn)?.entity;
+    const lineageAsset = entity?.lineageAssets?.find((asset) => asset.name === field);
+    const cachedNumRelated =
+        direction === LineageDirection.Downstream ? lineageAsset?.numDownstream : lineageAsset?.numUpstream;
+
+    if ((cachedNumRelated || 0) <= (fgl.get(ref)?.size || 0)) return null;
+    return createLineageFilterNodeId(urn, direction);
 }

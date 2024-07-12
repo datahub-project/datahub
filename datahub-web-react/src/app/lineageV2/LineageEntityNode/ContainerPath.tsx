@@ -19,6 +19,7 @@ const ContainerPathWrapper = styled.div`
 const ContainerEntry = styled.div<{ numItems?: number; isLast: boolean }>`
     align-items: center;
     color: ${ANTD_GRAY[9]};
+    font-size: 10px;
     display: flex;
     flex-direction: row;
     max-width: ${({ numItems, isLast }) => (numItems && !isLast ? 100 / numItems : 100)}%;
@@ -26,7 +27,6 @@ const ContainerEntry = styled.div<{ numItems?: number; isLast: boolean }>`
 
 const ContainerText = styled(Typography.Text)`
     color: inherit;
-    font-size: 8px;
     margin-left: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
