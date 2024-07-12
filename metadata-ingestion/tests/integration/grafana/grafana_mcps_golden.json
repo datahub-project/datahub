@@ -12,11 +12,9 @@
                 "uid": "default",
                 "title": "Default Dashboard",
                 "uri": "db/default-dashboard",
-                "type": "dash-db",
-                "folderId": "",
-                "folderUid": "",
-                "folderTitle": ""
+                "type": "dash-db"
             },
+            "externalUrl": "http://localhost:3000/d/default/default-dashboard",
             "title": "Default Dashboard",
             "description": "",
             "charts": [],
@@ -30,8 +28,7 @@
                     "time": 0,
                     "actor": "urn:li:corpuser:unknown"
                 }
-            },
-            "dashboardUrl": "http://localhost:3000/d/default/default-dashboard"
+            }
         }
     },
     "systemMetadata": {
