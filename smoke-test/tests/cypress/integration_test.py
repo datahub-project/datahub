@@ -193,10 +193,19 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         "metadata_tests",
         "observability",
     }
+    cypress_saas_suite2_specs = {
+        "viewV2",
+        "task_runV2",
+        "siblingsV2",
+        "settingsV2",
+        "queryV2",
+    }
     rest_specs.difference_update(set(cypress_saas_suite1_specs))
+    rest_specs.difference_update(set(cypress_saas_suite2_specs))
     strategy_spec_map = {
         "cypress_suite1": cypress_suite1_specs,
         "cypress_saas_suite1": cypress_saas_suite1_specs,
+        "cypress_saas_suite2": cypress_saas_suite2_specs,
         "cypress_rest": rest_specs,
     }
     print(f"test strategy is {test_strategy}")
