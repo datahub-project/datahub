@@ -89,13 +89,13 @@ class GrafanaSource(StatefulIngestionSourceBase):
             return
         res_json = response.json()
         for item in res_json:
-            _uid = item["uid"]
-            _title = item["title"]
-            _url = item["url"]
-            full_url = f"{self.source_config.url}{_url}"
+            uid = item["uid"]
+            title = item["title"]
+            url_path = item["url"]
+            full_url = f"{self.source_config.url}{url_path}"
             dashboard_urn = builder.make_dashboard_urn(
                 platform=self.platform,
-                name=_uid,
+                name=uid,
                 platform_instance=self.source_config.platform_instance,
             )
 
@@ -105,20 +105,24 @@ class GrafanaSource(StatefulIngestionSourceBase):
                     aspects=[
                         DashboardInfoClass(
                             description="",
-                            title=_title,
+                            title=title,
                             charts=[],
                             lastModified=ChangeAuditStamps(),
-                            dashboardUrl=full_url,
+                            externalUrl=full_url,
                             customProperties={
-                                "displayName": _title,
-                                "id": str(item["id"]),
-                                "uid": _uid,
-                                "title": _title,
-                                "uri": item["uri"],
-                                "type": item["type"],
-                                "folderId": str(item.get("folderId", None)),
-                                "folderUid": item.get("folderUid", None),
-                                "folderTitle": str(item.get("folderTitle", None)),
+                                key: str(value)
+                                for key, value in {
+                                    "displayName": title,
+                                    "id": item["id"],
+                                    "uid": uid,
+                                    "title": title,
+                                    "uri": item["uri"],
+                                    "type": item["type"],
+                                    "folderId": item.get("folderId"),
+                                    "folderUid": item.get("folderUid"),
+                                    "folderTitle": item.get("folderTitle"),
+                                }.items()
+                                if value is not None
                             },
                         ),
                         StatusClass(removed=False),
