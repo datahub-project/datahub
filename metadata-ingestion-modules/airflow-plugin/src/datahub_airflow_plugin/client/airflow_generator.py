@@ -282,7 +282,7 @@ class AirflowGenerator:
             datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.flow_id}&_flt_3_task_id={task.task_id}"
 
         if capture_owner and dag.owner:
-            if config.capture_ownership_info and dag.owner:
+            if config and config.capture_ownership_info:
                 owners = [owner.strip() for owner in dag.owner.split(",")]
                 if config.capture_ownership_as_group:
                     data_job.group_owners.update(owners)
