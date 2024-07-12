@@ -273,7 +273,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             ensure_has_system_metadata(mcp)
 
         mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
-        payload_dict = {"proposals": mcp_objs}
+        payload_dict: dict = {"proposals": mcp_objs}
 
         if async_flag is not None:
             payload_dict["async"] = "true" if async_flag else "false"
