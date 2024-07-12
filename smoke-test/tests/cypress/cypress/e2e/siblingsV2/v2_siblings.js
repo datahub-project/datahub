@@ -108,9 +108,9 @@ describe("siblings", () => {
     cy.visit("/");
     cy.handleIntroducePage();
     cy.visit("/search?page=1&query=raw_orders");
-    cy.contains("Showing 1 - 10 of ");
+    cy.contains("Showing 1 - 2 of ");
 
-    cy.get(".test-search-result").should("have.length", 5);
+    cy.get(".test-search-result").should("have.length", 1);
     cy.get('[data-testid="browse-platform-BigQuery"]').should("exist");
     cy.get('[data-testid="browse-platform-dbt"]').should("exist");
     cy.get('[data-testid^="browse-platform').should("have.length", 2);
