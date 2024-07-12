@@ -140,6 +140,7 @@ public class AspectResourceTest {
 
   @Test
   public void testNoValidateAsync() throws URISyntaxException {
+    reset(producer, aspectDao);
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityType(DATASET_ENTITY_NAME);
     Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
@@ -158,5 +159,6 @@ public class AspectResourceTest {
     verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
     verifyNoMoreInteractions(producer);
     verifyNoMoreInteractions(aspectDao);
+    reset(producer, aspectDao);
   }
 }
