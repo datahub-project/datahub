@@ -119,7 +119,7 @@ curl --location --request POST 'localhost:8080/openapi/entities/v1/' \
 The second POST example will write the update ONLY if the entity doesn't exist. If the entity does exist the
 command will return an error instead of overwriting the entity.
 
-In this example we've added an additional URL parameter `createEntityIfNotExists=true`
+In this example we've added a URL parameter `createEntityIfNotExists=true`
 
 ```shell
 curl --location --request POST 'localhost:8080/openapi/entities/v1/?createEntityIfNotExists=true' \
@@ -582,3 +582,10 @@ public class Main {
   }
 }
 ```
+
+## OpenAPI v3 Features
+
+### Conditional Writes
+
+All the create/POST endpoints for aspects support `headers` in the POST body to support batch APIs. See the docs in the
+[MetadataChangeProposal](../../advanced/mcp-mcl.md) section for the use of these headers to support conditional writes semantics.

@@ -41,6 +41,7 @@ public class OpenAPIV3Generator {
   private static final String NAME_PATH = "path";
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
   private static final String NAME_ASYNC = "async";
+  private static final String NAME_VERSION = "version";
   private static final String NAME_SCROLL_ID = "scrollId";
   private static final String NAME_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String PROPERTY_VALUE = "value";
@@ -107,6 +108,9 @@ public class OpenAPIV3Generator {
                   entityName + ENTITY_RESPONSE_SUFFIX, buildEntitySchema(e, aspectNames, true));
               components.addSchemas(
                   "Scroll" + entityName + ENTITY_RESPONSE_SUFFIX, buildEntityScrollSchema(e));
+              components.addSchemas(
+                  "BatchGet" + entityName + ENTITY_REQUEST_SUFFIX,
+                  buildEntityBatchGetRequestSchema(e, aspectNames));
             });
     // Parameters
     entityRegistry.getEntitySpecs().values().stream()
@@ -127,6 +131,9 @@ public class OpenAPIV3Generator {
               paths.addPathItem(
                   String.format("/v3/entity/%s", e.getName().toLowerCase()),
                   buildListEntityPath(e));
+              paths.addPathItem(
+                  String.format("/v3/entity/%s/batchGet", e.getName().toLowerCase()),
+                  buildBatchGetEntityPath(e));
               paths.addPathItem(
                   String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
                   buildSingleEntityPath(e));
@@ -360,6 +367,62 @@ public class OpenAPIV3Generator {
     return result;
   }
 
+  private static PathItem buildBatchGetEntityPath(final EntitySpec entity) {
+    final String upperFirst = toUpperFirst(entity.getName());
+    final PathItem result = new PathItem();
+    // Post Operation
+    final Content requestBatch =
+        new Content()
+            .addMediaType(
+                "application/json",
+                new MediaType()
+                    .schema(
+                        new Schema()
+                            .type(TYPE_ARRAY)
+                            .items(
+                                new Schema()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/%s%s",
+                                            "BatchGet" + upperFirst, ENTITY_REQUEST_SUFFIX)))));
+    final ApiResponse apiBatchGetResponse =
+        new ApiResponse()
+            .description("Get a batch of " + entity.getName() + " entities.")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                new Schema()
+                                    .type(TYPE_ARRAY)
+                                    .items(
+                                        new Schema<>()
+                                            .$ref(
+                                                String.format(
+                                                    "#/components/schemas/%s%s",
+                                                    upperFirst, ENTITY_RESPONSE_SUFFIX))))));
+    result.setPost(
+        new Operation()
+            .summary("Batch Get " + upperFirst + " entities.")
+            .tags(List.of(entity.getName() + " Entity"))
+            .parameters(
+                List.of(
+                    new Parameter()
+                        .in(NAME_QUERY)
+                        .name("systemMetadata")
+                        .description("Include systemMetadata with response.")
+                        .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
+            .requestBody(
+                new RequestBody()
+                    .description("Batch Get " + entity.getName() + " entities.")
+                    .required(true)
+                    .content(requestBatch))
+            .responses(new ApiResponses().addApiResponse("200", apiBatchGetResponse)));
+
+    return result;
+  }
+
   private static void addExtraParameters(final Components components) {
     components.addParameters(
         "ScrollId" + MODEL_VERSION,
@@ -508,7 +571,30 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRefRequestSchema(final String aspectName) {
-    return new Schema<>().$ref(PATH_DEFINITIONS + aspectName);
+    final Schema result =
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .description(ASPECT_DESCRIPTION)
+            .required(List.of(PROPERTY_VALUE))
+            .addProperty(PROPERTY_VALUE, new Schema<>().$ref(PATH_DEFINITIONS + aspectName));
+    result.addProperty(
+        "systemMetadata",
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .allOf(List.of(new Schema().$ref(PATH_DEFINITIONS + "SystemMetadata")))
+            .description("System metadata for the aspect.")
+            .nullable(true));
+
+    Schema stringTypeSchema = new Schema<>();
+    stringTypeSchema.setType(TYPE_STRING);
+    result.addProperty(
+        "headers",
+        new Schema<>()
+            .type(TYPE_OBJECT)
+            .additionalProperties(stringTypeSchema)
+            .description("System headers for the operation.")
+            .nullable(true));
+    return result;
   }
 
   private static Schema buildEntitySchema(
@@ -554,6 +640,39 @@ public class OpenAPIV3Generator {
                             String.format(
                                 "#/components/schemas/%s%s",
                                 toUpperFirst(entity.getName()), ENTITY_RESPONSE_SUFFIX))));
+  }
+
+  private static Schema buildEntityBatchGetRequestSchema(
+      final EntitySpec entity, Set<String> aspectNames) {
+
+    final Schema stringTypeSchema = new Schema<>();
+    stringTypeSchema.setType(TYPE_STRING);
+    final Map<String, Schema> headers =
+        Map.of(
+            "headers",
+            new Schema<>()
+                .type(TYPE_OBJECT)
+                .additionalProperties(stringTypeSchema)
+                .description("System headers for the operation.")
+                .nullable(true));
+
+    final Map<String, Schema> properties =
+        entity.getAspectSpecMap().entrySet().stream()
+            .filter(a -> aspectNames.contains(a.getValue().getName()))
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey, a -> new Schema().type(TYPE_OBJECT).properties(headers)));
+    properties.put(
+        PROPERTY_URN,
+        new Schema<>().type(TYPE_STRING).description("Unique id for " + entity.getName()));
+
+    properties.put(entity.getKeyAspectName(), new Schema().type(TYPE_OBJECT).properties(headers));
+
+    return new Schema<>()
+        .type(TYPE_OBJECT)
+        .description(toUpperFirst(entity.getName()) + " object.")
+        .required(List.of(PROPERTY_URN))
+        .properties(properties);
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
@@ -616,6 +735,12 @@ public class OpenAPIV3Generator {
             .name(NAME_SYSTEM_METADATA)
             .description("Include systemMetadata with response.")
             .schema(new Schema().type(TYPE_BOOLEAN)._default(false));
+    final Parameter versionParameter =
+        new Parameter()
+            .in(NAME_QUERY)
+            .name(NAME_VERSION)
+            .description("Return a specific aspect version.")
+            .schema(new Schema().type(TYPE_INTEGER)._default(0).minimum(BigDecimal.ZERO));
     final ApiResponse successApiResponse =
         new ApiResponse()
             .description("Success")
@@ -634,7 +759,7 @@ public class OpenAPIV3Generator {
         new Operation()
             .summary(String.format("Get %s for %s.", aspect, entity.getName()))
             .tags(tags)
-            .parameters(List.of(getParameter))
+            .parameters(List.of(getParameter, versionParameter))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse));
     // Head Operation
     final ApiResponse successHeadResponse =
