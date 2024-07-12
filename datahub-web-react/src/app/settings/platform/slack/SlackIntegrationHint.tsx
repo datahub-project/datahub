@@ -17,17 +17,20 @@ const Header = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 12px;
 `;
 
 const Title = styled(Typography.Paragraph)`
     font-size: 16px;
     font-weight: bold;
+    margin-bottom: 0px !important;
 `;
 
-const Description = styled.div`
+const DescriptionContainer = styled.div`
     font-size: 14px;
     max-width: 90%;
+`;
+const Description = styled(Typography.Paragraph)`
+    margin-bottom: 0.5em !important;
 `;
 
 const StyledCloseOutlined = styled(CloseOutlined)`
@@ -57,12 +60,12 @@ export const SlackIntegrationHint = ({ visible }: Props) => {
                     <Button type="text" icon={<StyledCloseOutlined />} onClick={() => setIsVisible(false)} />
                 </Tooltip>
             </Header>
-            <Description>
+            <DescriptionContainer>
                 <div>
-                    <Typography.Paragraph>
-                        You&apos;ll need to generate a <b>Slack App Configuration Token</b> to connect - it&apos;s short
-                        and easy.
-                    </Typography.Paragraph>
+                    <Description>
+                        You&apos;ll need to generate a <b>Slack App Configuration Token</b>. Don&apos;t worry &ndash;
+                        it&apos;s quick and easy.
+                    </Description>
                     <div>
                         👉{' '}
                         <a
@@ -70,12 +73,12 @@ export const SlackIntegrationHint = ({ visible }: Props) => {
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            Click here to see the walkthrough
+                            Click here to learn how
                         </a>
                         .
                     </div>
                 </div>
-            </Description>
+            </DescriptionContainer>
         </Container>
     );
 };

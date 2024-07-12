@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.event.notification.NotificationRecipient;
+import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.identity.CorpUserSettings;
@@ -42,6 +43,20 @@ public abstract class NotificationRecipientBuilder {
   /** Builds a list of global recipients. */
   public abstract List<NotificationRecipient> buildGlobalRecipients(
       @Nonnull OperationContext opContext, @Nonnull final NotificationScenarioType type);
+
+  /** Builds an individual recipient object with a set of params */
+  @Nonnull
+  public NotificationRecipient buildRecipient(
+      @Nonnull NotificationRecipientType recipientType,
+      @Nonnull String recipientId,
+      @Nullable Urn actorUrn) {
+    NotificationRecipient recipient =
+        new NotificationRecipient().setType(recipientType).setId(recipientId);
+    if (actorUrn != null) {
+      recipient.setActor(actorUrn);
+    }
+    return recipient;
+  }
 
   /** Builds a list of recipients based on subscriber information. */
   public List<NotificationRecipient> buildSubscriberRecipients(

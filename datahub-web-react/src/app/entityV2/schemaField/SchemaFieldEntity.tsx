@@ -15,6 +15,7 @@ import { EntityType, SchemaFieldEntity as SchemaField, SearchResult } from '@typ
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 
 const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
@@ -36,9 +37,9 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     getPathName = () => 'schemaField';
 
-    getEntityName = () => 'Schema Field';
+    getEntityName = () => 'Column';
 
-    getCollectionName = () => 'Schema Fields';
+    getCollectionName = () => 'Columns';
 
     renderProfile = (urn: string) => (
         <EntityProfile
@@ -57,7 +58,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
         />
     );
 
-    getSidebarSections = () => [{ component: SidebarEntityHeader }];
+    getSidebarSections = () => [{ component: SidebarEntityHeader }, { component: SidebarNotesSection }];
 
     getGraphName = () => 'schemaField';
 

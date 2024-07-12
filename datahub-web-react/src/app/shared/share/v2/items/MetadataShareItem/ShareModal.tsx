@@ -35,10 +35,8 @@ const StyledShareIcon = styled(ShareIcon)`
 `;
 
 const StyledContainer = styled.div`
-    margin-bottom: 16px;
-    > div:nth-child(n + 2) {
-        margin-top: 1.25rem;
-    }
+    display: flex;
+    flex-direction: column;
 `;
 
 const StyledSelect = styled(Select)`
@@ -82,7 +80,21 @@ const ButtonContainer = styled.div`
     margin-top: -8px;
 
     .ant-btn {
-        font-size: 16px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+`;
+
+const ActionButtons = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: end;
+    gap: 16px;
+    margin-top: -8px;
+
+    .ant-btn {
+        font-size: 14px;
         font-weight: 500;
     }
 `;
@@ -210,29 +222,29 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
     }, [searchAcrossEntities, lastShareResults]);
 
     // Handle the mutation
-    const handleShare = () => {
-        if (selectedInstancesToShare) {
+    const handleShare = (instances, isResync) => {
+        if (instances) {
             message.loading('Sharing asset...');
             shareEntityMutation({
                 variables: {
                     input: {
                         entityUrn: urn,
-                        connectionUrns: selectedInstancesToShare,
-                        lineageDirection: shouldShareLineage ? ShareLineageDirection.Both : undefined,
+                        connectionUrns: instances,
+                        lineageDirection: !isResync && shouldShareLineage ? ShareLineageDirection.Both : undefined,
                     },
                 },
             })
                 .then(({ data, errors }) => {
                     message.destroy();
                     const shareResult = data?.shareEntity.share.lastShareResults.filter((result) =>
-                        selectedInstancesToShare.includes(result.destination?.urn || ''),
+                        instances.includes(result.destination?.urn || ''),
                     )[0];
                     if (!errors && !(shareResult?.status === ShareResultState.Failure)) {
                         analytics.event({
                             type: EventType.SharedEntityEvent,
                             entityType: EntityType.DatahubConnection,
                             entityUrn: urn,
-                            connectionUrns: selectedInstancesToShare,
+                            connectionUrns: instances,
                         });
                         if (shareResult?.status === ShareResultState.Success) {
                             message.success({
@@ -341,7 +353,12 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
 
     const isLoading = loading && searchLoading;
     const filteredResults = lastShareResults?.filter(
-        (result) => !!result.lastSuccess?.time || result.status === ShareResultState.Running,
+        (result) =>
+            (!!result.lastSuccess?.time || result.status === ShareResultState.Running) && !result.implicitShareEntity,
+    );
+    const implicitShares = lastShareResults?.filter(
+        (result) =>
+            (!!result.lastSuccess?.time || result.status === ShareResultState.Running) && !!result.implicitShareEntity,
     );
 
     return (
@@ -363,14 +380,34 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                             lastShareResults={filteredResults}
                             selectedInstancesToUnshare={selectedInstancesToUnshare}
                             setSelectedInstancesToUnshare={setSelectedInstancesToUnshare}
+                            isImplicitList={false}
                         />
                         {selectedInstancesToUnshare.length > 0 && (
-                            <ButtonContainer>
+                            <ActionButtons>
                                 <StyledButton $color={REDESIGN_COLORS.RED_ERROR} onClick={handleUnshare}>
                                     Unshare
                                 </StyledButton>
-                            </ButtonContainer>
+                                <StyledButton
+                                    $color={REDESIGN_COLORS.TITLE_PURPLE}
+                                    $type="filled"
+                                    onClick={() => handleShare(selectedInstancesToUnshare, true)}
+                                >
+                                    Resync
+                                </StyledButton>
+                            </ActionButtons>
                         )}
+                    </StyledContainer>
+                </>
+            )}
+            {implicitShares && implicitShares.length > 0 && (
+                <>
+                    <StyledContainer>
+                        <SharedEntityInfo
+                            lastShareResults={implicitShares}
+                            selectedInstancesToUnshare={selectedInstancesToUnshare}
+                            setSelectedInstancesToUnshare={setSelectedInstancesToUnshare}
+                            isImplicitList
+                        />
                     </StyledContainer>
                 </>
             )}
@@ -424,7 +461,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                         $type="filled"
                         $color={REDESIGN_COLORS.TITLE_PURPLE}
                         $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
-                        onClick={handleShare}
+                        onClick={() => handleShare(selectedInstancesToShare, false)}
                     >
                         Share
                     </StyledButton>

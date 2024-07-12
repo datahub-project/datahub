@@ -1,0 +1,4 @@
+export const TEST_NOTIFICATION_RESULT_STATUS = {
+    ERROR: 'ERROR',
+    SUCCESS: 'SUCCESS',
+};

@@ -1,10 +1,12 @@
 import React from 'react';
-import moment from 'moment-timezone';
-import InfoIcon from '@mui/icons-material/Info';
-import { useEntityContext } from '@src/app/entity/shared/EntityContext';
-import styled from 'styled-components';
 import { Tooltip } from 'antd';
 import { ExclamationCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
+import InfoIcon from '@mui/icons-material/Info';
+import SwapVertOutlinedIcon from '@mui/icons-material/SwapVertOutlined';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { Link } from 'react-router-dom';
+import { useEntityContext } from '../../../../../../entity/shared/EntityContext';
 import AcrylIcon from '../../../../../../../images/acryl-logo.svg?react';
 import { toLocalDateString, toRelativeTimeString } from '../../../../../../shared/time/timeUtils';
 import { ShareResult } from '../../../../../../../types.generated';
@@ -13,7 +15,8 @@ import { REDESIGN_COLORS } from '../../../../constants';
 import ShareIcon from '../../../../../../../images/share-icon-custom.svg?react';
 import SharedLineageIcon from './SharedLineageIcon';
 import useShareResultsPolling from './useShareResultsPolling';
-import { getShareResultStatus } from './utils';
+import { getRelativeTimeColor, getShareResultStatus } from './utils';
+import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
 
 const StyledShareIcon = styled(ShareIcon)`
     height: 18px;
@@ -58,6 +61,10 @@ const Content = styled.div`
     display: flex;
     gap: 6px;
     align-items: center;
+
+    svg {
+        color: ${REDESIGN_COLORS.DARK_GREY};
+    }
 `;
 
 const Icon = styled.div`
@@ -85,6 +92,7 @@ type Props = {
 };
 
 const SharingList = ({ resultsList }: Props) => {
+    const entityRegistry = useEntityRegistryV2();
     useShareResultsPolling();
     const { entityData } = useEntityContext();
 
@@ -96,7 +104,6 @@ const SharingList = ({ resultsList }: Props) => {
                 const hasSharedLineage =
                     result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
                 const lastSuccessTime = result.lastSuccess?.time || 0;
-                const isRecentlyUpdated = moment(lastSuccessTime).isAfter(moment().subtract(1, 'week'));
                 const unshareResult = entityData?.share?.lastUnshareResults?.find(
                     (r) =>
                         r.destination?.urn === result.destination?.urn &&
@@ -109,19 +116,38 @@ const SharingList = ({ resultsList }: Props) => {
                 const { isInProgress: isUnsharing, failed: failedToUnshare } = isShareMoreRecent
                     ? { isInProgress: false, failed: false }
                     : getShareResultStatus(unshareResult);
+                const platform = (result as any)?.implicitShareEntity?.platform;
+                const implicitShareEntity = result?.implicitShareEntity;
+                const linkedEntityName = implicitShareEntity
+                    ? entityRegistry.getDisplayName(implicitShareEntity?.type, implicitShareEntity)
+                    : '';
+                const linkedEntityUrl = implicitShareEntity
+                    ? entityRegistry.getEntityUrl(implicitShareEntity.type, implicitShareEntity.urn)
+                    : null;
 
                 return (
                     <DetailsContainer key={name}>
                         <DetailRow>
                             <Content>
-                                <StyledShareIcon />
-                                <LabelText>To: </LabelText>
+                                {!result.implicitShareEntity ? <StyledShareIcon /> : <SwapVertOutlinedIcon />}
+                                {!!result.implicitShareEntity && (
+                                    <>
+                                        <LabelText>From:</LabelText>
+                                        <PlatformIcon platform={platform} size={14} />
+                                        <ContentText>
+                                            {' '}
+                                            <Link to={linkedEntityUrl}>{linkedEntityName}</Link>
+                                        </ContentText>
+                                        <LabelText>to </LabelText>
+                                    </>
+                                )}
+                                {!result.implicitShareEntity && <LabelText>To: </LabelText>}
                                 <InstanceIcon>
                                     <AcrylIcon />
                                 </InstanceIcon>
                                 <ContentText color={hasDestination ? undefined : REDESIGN_COLORS.RED_NORMAL}>
                                     {name}
-                                    {hasSharedLineage && (
+                                    {hasSharedLineage && !result.implicitShareEntity && (
                                         <LineageIconWrapper>
                                             <SharedLineageIcon result={result} size={14} />
                                         </LineageIconWrapper>
@@ -138,17 +164,22 @@ const SharingList = ({ resultsList }: Props) => {
                                     )}
                                 </ContentText>
                             </Content>
-                            <Icon>
-                                <Tooltip title="This represents the last time an entity was shared." placement="left">
-                                    <InfoIcon />
-                                </Tooltip>
-                            </Icon>
+                            {!result.implicitShareEntity && (
+                                <Icon>
+                                    <Tooltip
+                                        title="This represents the last time an entity was shared."
+                                        placement="left"
+                                    >
+                                        <InfoIcon />
+                                    </Tooltip>
+                                </Icon>
+                            )}
                         </DetailRow>
                         {!!lastSuccessTime && (
                             <UpdatedRow>
                                 <LabelText>Date Updated: </LabelText>
                                 <ContentText>{toLocalDateString(lastSuccessTime)}</ContentText>
-                                <RelativeTime isRecentlyUpdated={isRecentlyUpdated}>
+                                <RelativeTime relativeTimeColor={getRelativeTimeColor(lastSuccessTime)}>
                                     {toRelativeTimeString(lastSuccessTime)}
                                 </RelativeTime>
                             </UpdatedRow>

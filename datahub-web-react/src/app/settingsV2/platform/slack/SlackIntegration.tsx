@@ -85,7 +85,7 @@ const InfoIcon = styled(InfoCircleFilled)`
 const GlobalNotificationsBanner = styled.div`
     background-color: ${green[0]};
     border-radius: 8px;
-    border: 1px solid ${green[2]};
+    border: 1px solid ${green[6]};
     padding: 8px 16px;
     margin: 18px 0 25px;
     font-size: 14px;
@@ -98,7 +98,7 @@ export const SlackIntegration = () => {
 
     const { data, loading, error, refetch } = useGetIntegrationSettingsQuery({ fetchPolicy: 'cache-first' });
     const [updateGlobalIntegrationSettings] = useUpdateGlobalIntegrationSettingsMutation();
-    const { data: connData } = useConnectionQuery({
+    const { data: connData, loading: connLoading } = useConnectionQuery({
         variables: {
             urn: SLACK_CONNECTION_URN,
         },
@@ -186,10 +186,7 @@ export const SlackIntegration = () => {
             });
     };
 
-    const isConnected =
-        (slackConnData?.appConfigToken && slackConnData?.appConfigRefreshToken) ||
-        slackConnData?.botToken ||
-        settings.botToken;
+    const isConnected = slackConnData?.botToken || settings.botToken;
 
     const getSlackButtonName = (): string => {
         let slackButtonName = isConnected ? 'Re-connect to Slack' : 'Connect to Slack';
@@ -203,7 +200,9 @@ export const SlackIntegration = () => {
         // disable slack button if there is no app & refresh token for only App config tab
         const disableSlackButton =
             selectTypeValue === APP_CONFIG_SELECT_ID &&
-            (!connection.appConfigToken || !connection.appConfigRefreshToken);
+            (!connection.appConfigToken || !connection.appConfigRefreshToken) &&
+            !slackConnData?.appConfigToken &&
+            !slackConnData?.botToken;
 
         return (
             <Button
@@ -226,14 +225,14 @@ export const SlackIntegration = () => {
                 <Typography.Title level={3}>Slack</Typography.Title>
                 <Typography.Text type="secondary">Configure an integration with Slack</Typography.Text>
                 <Divider />
-                {!isConnected ? (
+                {isConnected ? (
                     <GlobalNotificationsBanner>
                         <InfoIcon />
                         The Slack integration is ready! Now switch to the{' '}
                         <Link to="/settings/notifications">Platform Notifications Tab</Link> to try it out.
                     </GlobalNotificationsBanner>
                 ) : (
-                    <SlackIntegrationHint visible={!!isConnected} />
+                    !connLoading && <SlackIntegrationHint visible={!isConnected} />
                 )}
                 <Content>
                     <FormColumn>
@@ -337,7 +336,7 @@ export const SlackIntegration = () => {
                         </Form>
                         {renderConnectionButton()}
                     </FormColumn>
-                    <InstructionColumn>
+                    <InstructionColumn style={{ display: 'none' }}>
                         <SlackInstructions />
                     </InstructionColumn>
                 </Content>

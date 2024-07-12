@@ -16,11 +16,15 @@ const NotificationRecipientTitle = styled(Typography.Text)`
     font-weight: 700;
 `;
 
-export default function NotificationRecipientSection() {
+interface Props {
+    isPersonal: boolean;
+}
+
+export default function NotificationRecipientSection({ isPersonal }: Props) {
     return (
         <NotificationRecipientContainer>
             <NotificationRecipientTitle>Send notifications via</NotificationRecipientTitle>
-            <EmailNotificationRecipientSection />
+            <EmailNotificationRecipientSection isPersonal={isPersonal} />
             <SlackNotificationRecipientSection />
         </NotificationRecipientContainer>
     );

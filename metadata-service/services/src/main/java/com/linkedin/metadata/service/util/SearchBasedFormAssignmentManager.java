@@ -26,8 +26,6 @@ public class SearchBasedFormAssignmentManager {
           Constants.DATA_FLOW_ENTITY_NAME,
           Constants.CHART_ENTITY_NAME,
           Constants.DASHBOARD_ENTITY_NAME,
-          Constants.CORP_USER_ENTITY_NAME,
-          Constants.CORP_GROUP_ENTITY_NAME,
           Constants.DOMAIN_ENTITY_NAME,
           Constants.CONTAINER_ENTITY_NAME,
           Constants.GLOSSARY_TERM_ENTITY_NAME,
@@ -37,8 +35,11 @@ public class SearchBasedFormAssignmentManager {
           Constants.ML_FEATURE_TABLE_ENTITY_NAME,
           Constants.ML_FEATURE_ENTITY_NAME,
           Constants.ML_PRIMARY_KEY_ENTITY_NAME,
+          Constants.SCHEMA_FIELD_ENTITY_NAME,
           Constants.DATA_PRODUCT_ENTITY_NAME,
-          Constants.SCHEMA_FIELD_ENTITY_NAME);
+          // Saas Only
+          Constants.CORP_USER_ENTITY_NAME,
+          Constants.CORP_GROUP_ENTITY_NAME);
 
   public static void apply(
       OperationContext opContext,

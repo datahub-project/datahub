@@ -304,9 +304,17 @@ public class BaseService {
   protected void ingestChangeProposals(
       @Nonnull OperationContext opContext, @Nonnull List<MetadataChangeProposal> changes)
       throws Exception {
+    ingestChangeProposals(opContext, changes, false);
+  }
+
+  protected void ingestChangeProposals(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MetadataChangeProposal> changes,
+      final boolean async)
+      throws Exception {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(opContext, change);
+      this.entityClient.ingestProposal(opContext, change, async);
     }
   }
 }

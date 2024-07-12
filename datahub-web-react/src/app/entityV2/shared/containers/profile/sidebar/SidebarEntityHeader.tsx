@@ -51,14 +51,18 @@ const SidebarEntityHeader = () => {
     // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
     const hasParentContainers = entityData?.parentContainers && entityData?.parentContainers.count > 0;
 
+    const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
+    const platforms =
+        entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;
+
     if (loading) {
         return <EntityTitleLoadingSection />;
     }
     return (
         <TitleContainer scrollButtonSize={18} scrollButtonOffset={15}>
             <PlatformHeaderIcons
-                platform={entityData?.platform as DataPlatform}
-                platforms={entityData?.siblingPlatforms as DataPlatform[]}
+                platform={platform as DataPlatform}
+                platforms={platforms as DataPlatform[]}
                 size={24}
             />
             <EntityDetailsContainer>
@@ -87,6 +91,7 @@ const SidebarEntityHeader = () => {
                             entityType={entityType}
                             browsePaths={entityData?.browsePathV2}
                             type={displayedEntityType}
+                            parentEntity={entityData?.parent}
                         />
                     )}
                 </div>

@@ -1,4 +1,5 @@
 import moment from 'moment';
+import { REDESIGN_COLORS } from '../../../../constants';
 import { CorpUser, ShareResult, ShareResultState } from '../../../../../../../types.generated';
 
 /**
@@ -124,4 +125,15 @@ export function getShareResultStatus(result?: ShareResult) {
     const isInProgress = isRunning && isAttemptedRecently;
     const failed = isRunning && !isAttemptedRecently;
     return { isInProgress, failed };
+}
+
+export function getRelativeTimeColor(time: number) {
+    const relativeTime = moment(time);
+    if (relativeTime.isAfter(moment().subtract(1, 'week'))) {
+        return `${REDESIGN_COLORS.GREEN_NORMAL}`;
+    }
+    if (relativeTime.isAfter(moment().subtract(1, 'month'))) {
+        return `${REDESIGN_COLORS.WARNING_YELLOW}`;
+    }
+    return `${REDESIGN_COLORS.WARNING_RED}`;
 }

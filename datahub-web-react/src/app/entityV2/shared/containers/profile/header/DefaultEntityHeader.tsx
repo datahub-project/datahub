@@ -1,7 +1,14 @@
 import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Container, DisplayProperties, Domain, EntityType, Post } from '../../../../../../types.generated';
+import {
+    Container,
+    DataPlatform,
+    DisplayProperties,
+    Domain,
+    EntityType,
+    Post,
+} from '../../../../../../types.generated';
 import { EntitySubHeaderSection, GenericEntityProperties } from '../../../../../entity/shared/types';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
@@ -137,6 +144,10 @@ export const DefaultEntityHeader = ({
     // Determine if entity has parent containers for rendering SearchBrowsePath or StaticSearchBrowsePath
     const hasParentContainers = entityData?.parentContainers && entityData.parentContainers.count > 0;
 
+    const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
+    const platforms =
+        entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;
+
     return (
         <>
             <Row>
@@ -153,8 +164,8 @@ export const DefaultEntityHeader = ({
                         <>
                             <TitleWrapper>
                                 <PlatformHeaderIcons
-                                    platform={entityData?.platform ?? undefined}
-                                    platforms={entityData?.siblingPlatforms ?? undefined}
+                                    platform={platform as DataPlatform}
+                                    platforms={platforms as DataPlatform[]}
                                 />
                                 {(isIconEditable || isColorEditable) && (
                                     <div
@@ -216,6 +227,7 @@ export const DefaultEntityHeader = ({
                                                 entityType={entityType}
                                                 browsePaths={entityData?.browsePathV2 || undefined}
                                                 type={displayedEntityType}
+                                                parentEntity={entityData?.parent}
                                             />
                                         )}
                                     </HeaderRow>

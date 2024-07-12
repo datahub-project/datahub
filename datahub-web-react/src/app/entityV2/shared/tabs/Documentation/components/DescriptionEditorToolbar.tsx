@@ -8,17 +8,20 @@ const StyledTabToolbar = styled(TabToolbar)`
     justify-content: flex-end !important;
 `;
 
-const ProposeButton = styled(Button)`
+const SaveButton = styled(Button)`
     background-color: ${REDESIGN_COLORS.DARK_PURPLE};
     color: ${ANTD_GRAY[1]};
     box-shadow: none;
     border-color: ${REDESIGN_COLORS.DARK_PURPLE};
     line-height: 0;
+
     &:hover,
     &:focus {
-        background-color: ${ANTD_GRAY[1]};
-        color: ${REDESIGN_COLORS.DARK_PURPLE};
+        transition: 0.15s;
+        opacity: 0.9;
         border-color: ${REDESIGN_COLORS.DARK_PURPLE};
+        background-color: ${REDESIGN_COLORS.DARK_PURPLE};
+        color: ${ANTD_GRAY[1]};
     }
 `;
 
@@ -28,6 +31,7 @@ const StyledButton = styled(Button)`
     color: ${REDESIGN_COLORS.DARK_PURPLE};
     border-color: ${REDESIGN_COLORS.DARK_PURPLE};
     line-height: 0;
+
     &:hover,
     &:focus {
         background-color: ${REDESIGN_COLORS.DARK_PURPLE};
@@ -56,14 +60,14 @@ export const DescriptionEditorToolbar = ({
             <StyledButton data-testid="description-editor-cancel-button" onClick={onCancel}>
                 Cancel
             </StyledButton>
-            <StyledButton data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
-                Save
-            </StyledButton>
             {showPropose && (
-                <ProposeButton data-testid="propose-description" onClick={onPropose} disabled={disableSave}>
+                <StyledButton data-testid="propose-description" onClick={onPropose} disabled={disableSave}>
                     Propose
-                </ProposeButton>
+                </StyledButton>
             )}
+            <SaveButton data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
+                Save
+            </SaveButton>
         </StyledTabToolbar>
     );
 };
