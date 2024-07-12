@@ -2,6 +2,7 @@ import merge from 'deepmerge';
 import { keyBy, unionBy, values } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
+import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 import {
     Dataset,
     Entity,
@@ -419,8 +420,9 @@ export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';
 
 // used to determine whether sibling entities should be shown merged or not
 export function useIsSeparateSiblingsMode() {
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
 
-    return params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
+    return showSeparateSiblings || params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography, Image } from 'antd';
+import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container, Entity } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
@@ -100,6 +101,10 @@ function PlatformContentView(props: Props) {
     const directParentContainer = parentContainers && parentContainers[0];
     const remainingParentContainers = parentContainers && parentContainers.slice(1, parentContainers.length);
 
+    const shouldShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const showSiblingPlatformLogos = !shouldShowSeparateSiblings && !!platformLogoUrls;
+    const showSiblingPlatformNames = !shouldShowSeparateSiblings && !!platformNames;
+
     return (
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
@@ -110,10 +115,10 @@ function PlatformContentView(props: Props) {
             {platformName && (
                 <LogoIcon>
                     {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
-                    {!!platformLogoUrl && !platformLogoUrls && (
+                    {!!platformLogoUrl && !showSiblingPlatformLogos && (
                         <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
                     )}
-                    {!!platformLogoUrls &&
+                    {showSiblingPlatformLogos &&
                         [...new Set(platformLogoUrls)].slice(0, 2).map((platformLogoUrlsEntry) => (
                             <>
                                 <PreviewImage preview={false} src={platformLogoUrlsEntry || ''} alt={platformName} />
@@ -122,7 +127,7 @@ function PlatformContentView(props: Props) {
                 </LogoIcon>
             )}
             <PlatformText>
-                {platformNames ? [...new Set(platformNames)].join(' & ') : platformName}
+                {showSiblingPlatformNames ? [...new Set(platformNames)].join(' & ') : platformName}
                 {(directParentContainer || instanceId) && <StyledRightOutlined data-testid="right-arrow" />}
             </PlatformText>
             {instanceId && (
