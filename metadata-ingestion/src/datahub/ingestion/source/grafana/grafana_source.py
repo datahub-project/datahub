@@ -5,6 +5,7 @@ from pydantic import Field, SecretStr
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -24,10 +25,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    DashboardSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import DashboardInfoClass
 
 
@@ -50,8 +47,8 @@ class GrafanaReport(StaleEntityRemovalSourceReport):
 @support_status(SupportStatus.TESTING)
 class GrafanaSource(StatefulIngestionSourceBase):
     """
-    This is experimental source for Grafana. Not a lot of testing done yet.
-    It currently only ingests dashboards and nothing else. (not even charts)
+    This is an experimental source for Grafana.
+    Currently only ingests dashboards (no charts)
     """
 
     def __init__(self, config: GrafanaSourceConfig, ctx: PipelineContext):
@@ -102,30 +99,29 @@ class GrafanaSource(StatefulIngestionSourceBase):
                     name=_uid,
                     platform_instance=self.source_config.platform_instance,
                 )
-                dash_snapshot = DashboardSnapshot(
-                    urn=dashboard_urn,
-                    aspects=[
-                        DashboardInfoClass(
-                            description="",
-                            title=_title,
-                            charts=[],
-                            lastModified=ChangeAuditStamps(),
-                            dashboardUrl=full_url,
-                            customProperties={
-                                "displayName": _title,
-                                "id": str(item["id"]),
-                                "uid": _uid,
-                                "title": _title,
-                                "uri": item["uri"],
-                                "type": item["type"],
-                                "folderId": str(item.get("folderId", None)),
-                                "folderUid": item.get("folderUid", None),
-                                "folderTitle": str(item.get("folderTitle", None)),
-                            },
-                        )
-                    ],
-                )
-                yield MetadataWorkUnit(
-                    id=dashboard_urn,
-                    mce=MetadataChangeEvent(proposedSnapshot=dash_snapshot),
-                )
+                yield from [
+                    mcp.as_workunit()
+                    for mcp in MetadataChangeProposalWrapper.construct_many(
+                        entityUrn=dashboard_urn,
+                        aspects=[
+                            DashboardInfoClass(
+                                description="",
+                                title=_title,
+                                charts=[],
+                                lastModified=ChangeAuditStamps(),
+                                dashboardUrl=full_url,
+                                customProperties={
+                                    "displayName": _title,
+                                    "id": str(item["id"]),
+                                    "uid": _uid,
+                                    "title": _title,
+                                    "uri": item["uri"],
+                                    "type": item["type"],
+                                    "folderId": str(item.get("folderId", None)),
+                                    "folderUid": item.get("folderUid", None),
+                                    "folderTitle": str(item.get("folderTitle", None)),
+                                },
+                            )
+                        ],
+                    )
+                ]
