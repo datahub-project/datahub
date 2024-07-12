@@ -419,7 +419,7 @@ public class SlackNotificationSink implements NotificationSink {
       MetadataChangeProposal mcp =
           AspectUtils.buildMetadataChangeProposal(
               requestUrn, Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME, result);
-      this.entityClient.ingestProposal(opContext, mcp, false);
+      this.entityClient.ingestProposal(opContext, mcp, false, true);
     } catch (Exception e) {
       log.warn(
           String.format(

@@ -868,6 +868,7 @@ public class SlackNotificationSinkTest {
                                         .setSerializedValue(
                                             JSON.serialize(List.of(Collections.emptyMap()))))))
                     .setChangeType(ChangeType.UPSERT)),
+            any(Boolean.class),
             any(Boolean.class));
   }
 

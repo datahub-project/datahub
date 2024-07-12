@@ -98,7 +98,8 @@ public class CreateNotificationConnectionTestResolver
                     EXECUTION_REQUEST_ENTITY_NAME,
                     EXECUTION_REQUEST_INPUT_ASPECT_NAME,
                     execInput);
-            return entityClient.ingestProposal(context.getOperationContext(), proposal, false);
+            return entityClient.ingestProposal(
+                context.getOperationContext(), proposal, false, true);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(
