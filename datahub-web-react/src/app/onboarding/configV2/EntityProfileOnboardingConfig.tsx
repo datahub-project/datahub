@@ -152,15 +152,15 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
     },
     {
         id: ENTITY_PROFILE_V2_VALIDATION_ID,
-        selector: `[id^='rc-tabs'][id$='Validation']`,
-        title: 'Validation ✔️ ',
+        selector: `[id^='rc-tabs'][id$='Quality']`,
+        title: 'Quality ✔️ ',
         content: (
             <Typography.Paragraph>
                 <p>
-                    View <strong>Validation</strong> information on this tab.
+                    View <strong>Quality</strong> information on this tab.
                 </p>
                 <p>
-                    Validation information include <strong>data contracts</strong>, data quality test results, and
+                    Quality information include <strong>data contracts</strong>, data quality test results, and
                     governance test results.
                 </p>
             </Typography.Paragraph>

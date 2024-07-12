@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useHistory, useLocation, useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
 import LineageExplorer from '../lineage/LineageExplorer';
@@ -67,6 +67,8 @@ export const EntityPage = ({ entityType }: Props) => {
         fetchPolicy: 'cache-first',
     });
     const privileges = data?.getGrantedPrivileges?.privileges || [];
+    const location = useLocation();
+    const history = useHistory();
 
     useEffect(() => {
         analytics.event({
@@ -75,6 +77,38 @@ export const EntityPage = ({ entityType }: Props) => {
             entityUrn: urn,
         });
     }, [entityType, urn]);
+
+    const getRedirectUrl = () => {
+        /**
+         *
+         * new Routes as per new design
+         * We
+         *  */
+
+        const newRoutes = {
+            '/Validation/Assertions': '/Quality/List',
+            '/Validation/Tests': '/Governance/Tests',
+            '/Validation/Data%20Contract': '/Quality/Data%20Contract',
+            '/Validation': '/Quality',
+        };
+
+        let newPathname = location.pathname;
+
+        for (let path in newRoutes) {
+            if (newPathname.indexOf(path) != -1) {
+                newPathname = newPathname.replace(path, newRoutes[path]);
+                break;
+            }
+        }
+
+        return `${newPathname}${window.location.search}`;
+    };
+
+    useEffect(() => {
+        if (location.pathname.indexOf('/Validation') !== -1) {
+            history.replace(getRedirectUrl());
+        }
+    }, [location]);
 
     const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
     const showNewPage = ALLOWED_ENTITY_TYPES.includes(entityType);

@@ -168,7 +168,7 @@ export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, font
 export const getHealthRedirectPath = (type: HealthStatusType) => {
     switch (type) {
         case HealthStatusType.Assertions: {
-            return 'Validation/Assertions';
+            return 'Quality/Assertions';
         }
         case HealthStatusType.Incidents: {
             return 'Incidents';

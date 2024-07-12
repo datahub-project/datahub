@@ -137,7 +137,7 @@ export function DetailsColumn({
                                 to={`${entityRegistry.getEntityUrl(
                                     EntityType.Dataset,
                                     entityData.urn,
-                                )}/Validation/Data Contract`}
+                                )}/Quality/Data Contract`}
                                 style={{ color: REDESIGN_COLORS.BLUE }}
                             >
                                 view
@@ -149,7 +149,7 @@ export function DetailsColumn({
                         to={`${entityRegistry.getEntityUrl(
                             EntityType.Dataset,
                             entityData.urn,
-                        )}/Validation/Data Contract`}
+                        )}/Quality/Data Contract`}
                     >
                         <DataContractLogo />
                     </Link>

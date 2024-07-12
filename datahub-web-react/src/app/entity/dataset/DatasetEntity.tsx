@@ -1,12 +1,13 @@
 import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
+import { Redirect } from 'react-router';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { useAppConfig } from '../../useAppConfig';
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { GenericEntityProperties } from '../shared/types';
+import { EntitySidebarSection, GenericEntityProperties } from '../shared/types';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
@@ -37,6 +38,7 @@ import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessMana
 import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 import { getDatasetLastUpdatedMs } from '../../entityV2/shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { FetchedEntity } from '@src/app/lineage/types';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -170,6 +172,17 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Validation',
+                    display: {
+                           visible: (_, _1) => false,
+                        enabled: (_, _2) => false,
+                    },
+                    component: (props) => {
+                        console.log('props>>>>', props);
+                        return <Redirect to={`\tasks`} />;
+                    },
+                },
+                {
+                    name: 'Quality',
                     component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                 },
                 {

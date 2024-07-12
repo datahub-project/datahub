@@ -31,7 +31,7 @@ export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement }: Pr
     return (
         <>
             {(unhealthy || healthy) && (
-                <Link to={`${baseUrl}/Validation`}>
+                <Link to={`${baseUrl}/Quality`}>
                     <Container>
                         <EntityHealthPopover
                             health={health.filter((h) => h.message)}
