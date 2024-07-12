@@ -285,9 +285,9 @@ class AirflowGenerator:
             if config and config.capture_ownership_info:
                 owners = [owner.strip() for owner in dag.owner.split(",")]
                 if config.capture_ownership_as_group:
-                    data_job.group_owners.update(owners)
+                    datajob.group_owners.update(owners)
                 else:
-                    data_job.owners.update(owners)
+                    datajob.owners.update(owners)
 
         if capture_tags and dag.tags:
             datajob.tags.update(dag.tags)
