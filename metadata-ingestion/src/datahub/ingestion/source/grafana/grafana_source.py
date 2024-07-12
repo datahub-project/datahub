@@ -25,7 +25,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
-from datahub.metadata.schema_classes import DashboardInfoClass
+from datahub.metadata.schema_classes import DashboardInfoClass, StatusClass
 
 
 class GrafanaSourceConfig(StatefulIngestionConfigBase, PlatformInstanceConfigMixin):
@@ -92,36 +92,37 @@ class GrafanaSource(StatefulIngestionSourceBase):
             _title = item["title"]
             _url = item["url"]
             full_url = f"{self.source_config.url}{_url}"
-            _folder_id = item.get("folderId", None)
-            if _folder_id is not None:
-                dashboard_urn = builder.make_dashboard_urn(
-                    platform=self.platform,
-                    name=_uid,
-                    platform_instance=self.source_config.platform_instance,
+            dashboard_urn = builder.make_dashboard_urn(
+                platform=self.platform,
+                name=_uid,
+                platform_instance=self.source_config.platform_instance,
+            )
+            for mcp in MetadataChangeProposalWrapper.construct_many(
+                entityUrn=dashboard_urn,
+                aspects=[
+                    DashboardInfoClass(
+                        description="",
+                        title=_title,
+                        charts=[],
+                        lastModified=ChangeAuditStamps(),
+                        dashboardUrl=full_url,
+                        customProperties={
+                            "displayName": _title,
+                            "id": str(item["id"]),
+                            "uid": _uid,
+                            "title": _title,
+                            "uri": item["uri"],
+                            "type": item["type"],
+                            "folderId": str(item.get("folderId", None)),
+                            "folderUid": item.get("folderUid", None),
+                            "folderTitle": str(item.get("folderTitle", None)),
+                        },
+                    ),
+                    StatusClass(removed=False),
+                ],
+            ):
+                breakpoint()
+                yield MetadataWorkUnit(
+                    id=dashboard_urn,
+                    mcp=mcp,
                 )
-                yield from [
-                    mcp.as_workunit()
-                    for mcp in MetadataChangeProposalWrapper.construct_many(
-                        entityUrn=dashboard_urn,
-                        aspects=[
-                            DashboardInfoClass(
-                                description="",
-                                title=_title,
-                                charts=[],
-                                lastModified=ChangeAuditStamps(),
-                                dashboardUrl=full_url,
-                                customProperties={
-                                    "displayName": _title,
-                                    "id": str(item["id"]),
-                                    "uid": _uid,
-                                    "title": _title,
-                                    "uri": item["uri"],
-                                    "type": item["type"],
-                                    "folderId": str(item.get("folderId", None)),
-                                    "folderUid": item.get("folderUid", None),
-                                    "folderTitle": str(item.get("folderTitle", None)),
-                                },
-                            )
-                        ],
-                    )
-                ]
