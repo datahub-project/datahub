@@ -206,7 +206,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             UsageAggregation,
         ],
         callback: Optional[Callable[[Exception, str], None]] = None,
-        async_flag: bool = True,
+        async_flag: Optional[bool] = None,
     ) -> None:
         try:
             if isinstance(item, UsageAggregation):
@@ -248,29 +248,37 @@ class DataHubRestEmitter(Closeable, Emitter):
     def emit_mcp(
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
-        async_flag: bool = True,
+        async_flag: Optional[bool] = None,
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposal"
         ensure_has_system_metadata(mcp)
-        async_param_value = "true" if async_flag else "false"
 
         mcp_obj = pre_json_transform(mcp.to_obj())
-        payload = json.dumps({"proposal": mcp_obj, "async": async_param_value})
+        payload_dict = {"proposal": mcp_obj}
+
+        if async_flag is not None:
+            payload_dict["async"] = "true" if async_flag else "false"
+
+        payload = json.dumps(payload_dict)
 
         self._emit_generic(url, payload)
 
     def emit_mcps(
         self,
         mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
-        async_flag: bool = True,
+        async_flag: Optional[bool] = None,
     ) -> None:
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
         for mcp in mcps:
             ensure_has_system_metadata(mcp)
-        async_param_value = "true" if async_flag else "false"
 
         mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
-        payload = json.dumps({"proposals": mcp_objs, "async": async_param_value})
+        payload_dict = {"proposals": mcp_objs}
+
+        if async_flag is not None:
+            payload_dict["async"] = "true" if async_flag else "false"
+
+        payload = json.dumps(payload_dict)
 
         self._emit_generic(url, payload)
 
