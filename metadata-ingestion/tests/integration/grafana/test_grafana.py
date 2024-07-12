@@ -58,46 +58,6 @@ class GrafanaClient:
             return None
 
 
-# class GrafanaClient:
-#     def __init__(self, url, admin_user, admin_password):
-#         self.url = url
-#         self.auth = (admin_user, admin_password)
-
-#     def get_service_account_api_keys(self, service_account_name):
-#         headers = {
-#             "Content-Type": "application/json",
-#         }
-#         try:
-#             # Retrieve the service account list
-#             response = requests.get(
-#                 f"{self.url}/api/serviceaccounts", headers=headers, auth=self.auth
-#             )
-#             response.raise_for_status()
-#             service_accounts = response.json()
-
-#             # Find the service account by name
-#             service_account = next(
-#                 sa for sa in service_accounts if sa["name"] == service_account_name
-#             )
-#             service_account_id = service_account["id"]
-
-#             # Retrieve API keys for the service account
-#             response = requests.get(
-#                 f"{self.url}/api/serviceaccounts/{service_account_id}/tokens",
-#                 headers=headers,
-#                 auth=self.auth,
-#             )
-#             response.raise_for_status()
-#             api_keys = response.json()
-
-#             # Find the API key by name
-#             api_key = next(key for key in api_keys if key["name"] == "example-api-key")
-#             return api_key["key"]
-#         except requests.exceptions.RequestException as e:
-#             logging.error(f"Error fetching service account API keys: {e}")
-#             return None
-
-
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/grafana"
@@ -198,11 +158,6 @@ def test_grafana_ingest(
     else:
         pytest.fail("Grafana did not start in time")
 
-    with open("api_key.txt", "w") as f:
-        f.write(test_api_key)
-        logger.info(f"API key is {test_api_key}")
-
-    breakpoint()
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run grafana ingestion run.
