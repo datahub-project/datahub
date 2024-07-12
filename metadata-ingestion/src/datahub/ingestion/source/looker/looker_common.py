@@ -347,26 +347,20 @@ class ExploreUpstreamViewField:
         model_name: str,
         upstream_views_file_path: Dict[str, Optional[str]],
         config: LookerCommonConfig,
+        remove_variant: bool = False,
     ) -> Optional[ColumnRef]:
         assert self.field.name is not None
 
         if len(self.field.name.split(".")) != 2:
             return None  # Inconsistent info received
 
-        assert self.explore.name
-
-        view_name: Optional[str] = (
-            self.explore.name
-            if self.field.original_view is not None
-            else self.field.original_view
-        )
+        view_name: Optional[str] = self.explore.name
+        if self.field.original_view is not None:
+            view_name = self.field.original_view
 
         field_name = self.field.name.split(".")[1]
 
-        if (
-            self.field.field_group_variant is not None
-            and self.field.field_group_variant.lower() in field_name.lower()
-        ):
+        if remove_variant and self.field.field_group_variant is not None:
             # remove variant at the end. +1 for "_"
             field_name = field_name[
                 : -(len(self.field.field_group_variant.lower()) + 1)
@@ -381,7 +375,7 @@ class ExploreUpstreamViewField:
 
         file_path: Optional[str] = (
             upstream_views_file_path.get(view_name)
-            if upstream_views_file_path.get(view_name) is not None
+            if upstream_views_file_path.get(view_name)
             else ViewFieldValue.NOT_AVAILABLE.value
         )
 
@@ -413,7 +407,7 @@ class ExploreUpstreamViewField:
     ) -> Optional[ColumnRef]:
         assert self.field.name is not None
 
-        if self.field.dimension_group is None:  # It is not part of Dimensional Group
+        if self.field.dimension_group is None or self.field.field_group_variant is None:
             return self._form_field_name(
                 view_project_map,
                 explore_project_name,
@@ -421,15 +415,6 @@ class ExploreUpstreamViewField:
                 upstream_views_file_path,
                 config,
             )
-
-        if self.field.field_group_variant is None:
-            return self._form_field_name(
-                view_project_map,
-                explore_project_name,
-                model_name,
-                upstream_views_file_path,
-                config,
-            )  # Variant i.e. Month, Day, Year ... is not available
 
         if self.field.type is None or not self.field.type.startswith("date_"):
             return self._form_field_name(
@@ -456,6 +441,7 @@ class ExploreUpstreamViewField:
             model_name,
             upstream_views_file_path,
             config,
+            remove_variant=True,
         )
 
 
@@ -999,12 +985,15 @@ class LookerExplore:
 
             view_fields: List[ViewField] = []
             field_name_vs_raw_explore_field: Dict = {}
+
             if explore.fields is not None:
+
                 if explore.fields.dimensions is not None:
                     for dim_field in explore.fields.dimensions:
                         if dim_field.name is None:
                             continue
                         else:
+
                             field_name_vs_raw_explore_field[dim_field.name] = dim_field
 
                             view_fields.append(
@@ -1045,6 +1034,7 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
+
                             field_name_vs_raw_explore_field[
                                 measure_field.name
                             ] = measure_field
