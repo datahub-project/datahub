@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 from pytest import fixture
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -72,11 +73,10 @@ def test_snowflake_missing_role_access_causes_pipeline_failure(
             "250001 (08001): Failed to connect to DB: abc12345.ap-south-1.snowflakecomputing.com:443. Role 'TEST_ROLE' specified in the connect string is not granted to this user. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC"
         )
 
-        pipeline = Pipeline(snowflake_pipeline_config)
-        pipeline.run()
-        assert "permission-error" in [
-            failure.message for failure in pipeline.source.get_report().failures
-        ]
+        with pytest.raises(PipelineInitError, match="Permissions error"):
+            pipeline = Pipeline(snowflake_pipeline_config)
+            pipeline.run()
+            pipeline.raise_from_status()
 
 
 @freeze_time(FROZEN_TIME)
@@ -227,7 +227,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
                 snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
                     start_time_millis=1654473600000,
                     end_time_millis=1654586220000,
-                    include_view_lineage=False,
+                    include_view_lineage=True,
                     include_column_lineage=True,
                 )
             ],

@@ -14,7 +14,7 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeCloudProvider,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
-    DEFAULT_TABLES_DENY_LIST,
+    DEFAULT_TEMP_TABLES_PATTERNS,
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import (
@@ -24,7 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowsightUrlBuilder
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from tests.test_helpers import test_connection_helpers
 
@@ -445,7 +445,9 @@ def test_aws_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id("aws_ca_central_1")
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
+        "aws_ca_central_1"
+    )
 
     assert cloud == SnowflakeCloudProvider.AWS
     assert cloud_region_id == "ca-central-1"
@@ -453,7 +455,9 @@ def test_aws_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id("aws_us_east_1_gov")
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
+        "aws_us_east_1_gov"
+    )
 
     assert cloud == SnowflakeCloudProvider.AWS
     assert cloud_region_id == "us-east-1"
@@ -463,7 +467,9 @@ def test_google_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id("gcp_europe_west2")
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
+        "gcp_europe_west2"
+    )
 
     assert cloud == SnowflakeCloudProvider.GCP
     assert cloud_region_id == "europe-west2"
@@ -473,7 +479,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id(
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
         "azure_switzerlandnorth"
     )
 
@@ -483,7 +489,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
     (
         cloud,
         cloud_region_id,
-    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id(
+    ) = SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
         "azure_centralindia"
     )
 
@@ -493,7 +499,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
 
 def test_unknown_cloud_region_from_snowflake_region_id():
     with pytest.raises(Exception, match="Unknown snowflake region"):
-        SnowflakeV2Source.get_cloud_region_from_snowflake_region_id(
+        SnowsightUrlBuilder.get_cloud_region_from_snowflake_region_id(
             "somecloud_someregion"
         )
 
@@ -529,8 +535,10 @@ def test_snowflake_query_create_deny_regex_sql():
     )
 
     assert (
-        create_deny_regex_sql_filter(DEFAULT_TABLES_DENY_LIST, ["upstream_table_name"])
-        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        create_deny_regex_sql_filter(
+            DEFAULT_TEMP_TABLES_PATTERNS, ["upstream_table_name"]
+        )
+        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}','i')"
     )
 
 
@@ -588,26 +596,15 @@ def test_email_filter_query_generation_with_case_insensitive_filter():
 
 
 def test_create_snowsight_base_url_us_west():
-    (
-        cloud,
-        cloud_region_id,
-    ) = SnowflakeCommonMixin.get_cloud_region_from_snowflake_region_id("aws_us_west_2")
-
-    result = SnowflakeCommonMixin.create_snowsight_base_url(
-        "account_locator", cloud_region_id, cloud, False
-    )
+    result = SnowsightUrlBuilder(
+        "account_locator", "aws_us_west_2", privatelink=False
+    ).snowsight_base_url
     assert result == "https://app.snowflake.com/us-west-2/account_locator/"
 
 
 def test_create_snowsight_base_url_ap_northeast_1():
-    (
-        cloud,
-        cloud_region_id,
-    ) = SnowflakeCommonMixin.get_cloud_region_from_snowflake_region_id(
-        "aws_ap_northeast_1"
-    )
+    result = SnowsightUrlBuilder(
+        "account_locator", "aws_ap_northeast_1", privatelink=False
+    ).snowsight_base_url
 
-    result = SnowflakeCommonMixin.create_snowsight_base_url(
-        "account_locator", cloud_region_id, cloud, False
-    )
     assert result == "https://app.snowflake.com/ap-northeast-1.aws/account_locator/"
