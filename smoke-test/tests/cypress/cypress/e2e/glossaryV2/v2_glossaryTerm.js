@@ -88,9 +88,9 @@ describe("glossaryTerm", () => {
     elementVisibility();
     cy.clickOptionWithSpecificClass(".anticon-filter", 0);
     cy.waitTextVisible("Filter");
-    cy.get(
-      'input.ant-checkbox-input[data-testid^="facet-tags-urn:li:tag:"]',
-    ).first().click();
+    cy.get('input.ant-checkbox-input[data-testid^="facet-tags-urn:li:tag:"]')
+      .first()
+      .click();
     cy.mouseHoverOnFirstElement(".ant-tag");
     invokeTextFromElement(".ant-tooltip-inner").then((assetText) => {
       cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
