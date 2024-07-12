@@ -147,18 +147,17 @@ class SnowflakeV2Source(
                 platform=self.platform,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
-                graph=(
+                graph=self.ctx.graph,
+                eager_graph_load=(
                     # If we're ingestion schema metadata for tables/views, then we will populate
                     # schemas into the resolver as we go. We only need to do a bulk fetch
                     # if we're not ingesting schema metadata as part of ingestion.
-                    self.ctx.graph
-                    if not (
+                    (
                         self.config.include_technical_schema
                         and self.config.include_tables
                         and self.config.include_views
                     )
                     and not self.config.lazy_schema_resolver
-                    else None
                 ),
                 generate_usage_statistics=False,
                 generate_operations=False,

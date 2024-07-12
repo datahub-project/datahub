@@ -20,6 +20,7 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
@@ -111,6 +112,7 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
         connection: SnowflakeConnection,
         config: SnowflakeQueriesExtractorConfig,
         structured_report: SourceReport,
+        graph: Optional[DataHubGraph],
     ):
         self.connection = connection
 
@@ -122,7 +124,8 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            # graph=self.ctx.graph,
+            graph=graph,
+            eager_graph_load=False,
             generate_lineage=self.config.include_lineage,
             generate_queries=self.config.include_queries,
             generate_usage_statistics=self.config.include_usage_statistics,
@@ -371,14 +374,13 @@ class SnowflakeQueriesSource(Source):
         self.config = config
         self.report = SnowflakeQueriesSourceReport()
 
-        self.platform = "snowflake"
-
         self.connection = self.config.connection.get_connection()
 
         self.queries_extractor = SnowflakeQueriesExtractor(
             connection=self.connection,
             config=self.config,
             structured_report=self.report,
+            graph=self.ctx.graph,
         )
         self.report.queries_extractor = self.queries_extractor.report
 

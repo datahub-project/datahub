@@ -206,7 +206,7 @@ class SnowflakeV2Config(
     )
 
     lazy_schema_resolver: bool = Field(
-        default=False,
+        default=True,
         description="If enabled, uses lazy schema resolver to resolve schemas for tables and views. "
         "This is useful if you have a large number of schemas and want to avoid bulk fetching the schema for each table/view.",
     )
