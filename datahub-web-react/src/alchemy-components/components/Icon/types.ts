@@ -1,3 +1,5 @@
+import { HTMLAttributes } from 'react';
+
 import type { FontSizeOptions, FontColorOptions, RotationOptions } from '@components/theme/config';
 import { AVAILABLE_ICONS } from './constants';
 
@@ -12,7 +14,7 @@ function createEnum<T extends string>(values: T[]): { [K in T]: K } {
 const names = createEnum(AVAILABLE_ICONS);
 export type IconNames = keyof typeof names;
 
-export interface IconProps {
+export interface IconProps extends HTMLAttributes<HTMLElement> {
     icon: IconNames;
     variant?: 'filled' | 'outline';
     size?: FontSizeOptions;
