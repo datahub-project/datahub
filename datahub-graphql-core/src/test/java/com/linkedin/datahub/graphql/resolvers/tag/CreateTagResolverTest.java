@@ -30,7 +30,7 @@ public class CreateTagResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(
             mockClient.ingestProposal(
-                any(), Mockito.any(MetadataChangeProposal.class), anyBoolean(), true))
+                any(), Mockito.any(MetadataChangeProposal.class), anyBoolean(), eq(true)))
         .thenReturn(String.format("urn:li:tag:%s", TEST_INPUT.getId()));
     CreateTagResolver resolver = new CreateTagResolver(mockClient, mockService);
 

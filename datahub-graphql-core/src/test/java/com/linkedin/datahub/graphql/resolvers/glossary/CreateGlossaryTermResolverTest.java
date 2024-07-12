@@ -90,7 +90,7 @@ public class CreateGlossaryTermResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), Mockito.eq(true));
   }
 
   @Test
@@ -105,7 +105,7 @@ public class CreateGlossaryTermResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), Mockito.eq(true));
   }
 
   @Test
@@ -120,7 +120,7 @@ public class CreateGlossaryTermResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), Mockito.eq(true));
   }
 
   @Test
@@ -171,7 +171,7 @@ public class CreateGlossaryTermResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), Mockito.eq(true));
   }
 
   private EntityClient initMockClient() throws Exception {
