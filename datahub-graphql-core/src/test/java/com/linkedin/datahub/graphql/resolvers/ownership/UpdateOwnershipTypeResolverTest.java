@@ -1,8 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ownership;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
@@ -101,7 +100,7 @@ public class UpdateOwnershipTypeResolverTest {
 
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   private static OwnershipTypeService initOwnershipTypeService() {

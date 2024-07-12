@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
@@ -122,7 +121,7 @@ public class UpdateQueryResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test

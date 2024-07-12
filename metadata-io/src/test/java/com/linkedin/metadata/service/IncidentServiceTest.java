@@ -1,7 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -117,7 +117,7 @@ public class IncidentServiceTest {
             any(OperationContext.class),
             Mockito.eq(mockIncidentSummaryMcp()),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -155,7 +155,7 @@ public class IncidentServiceTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -199,7 +199,7 @@ public class IncidentServiceTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -229,7 +229,7 @@ public class IncidentServiceTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -306,7 +306,7 @@ public class IncidentServiceTest {
             any(OperationContext.class),
             Mockito.eq(mockIncidentSummaryMcp()),
             Mockito.eq(false),
-            true))
+            eq(true)))
         .thenReturn(TEST_DATASET_URN.toString());
 
     return mockClient;

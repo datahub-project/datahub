@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.incident;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.INCIDENT_INFO_ASPECT_NAME;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -43,7 +43,7 @@ public class UpdateIncidentResolverTest {
                 any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
                 Mockito.anyBoolean(),
-                true))
+                eq(true)))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
     IncidentInfo existingInfo = new IncidentInfo();
@@ -134,7 +134,7 @@ public class UpdateIncidentResolverTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -145,7 +145,7 @@ public class UpdateIncidentResolverTest {
                 any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
                 Mockito.anyBoolean(),
-                true))
+                eq(true)))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
     IncidentInfo existingInfo = new IncidentInfo();
@@ -221,7 +221,7 @@ public class UpdateIncidentResolverTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -232,7 +232,7 @@ public class UpdateIncidentResolverTest {
                 any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
                 Mockito.anyBoolean(),
-                true))
+                eq(true)))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
     IncidentInfo existingInfo = new IncidentInfo();

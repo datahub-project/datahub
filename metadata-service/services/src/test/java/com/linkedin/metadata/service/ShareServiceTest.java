@@ -1,6 +1,6 @@
 package com.linkedin.metadata.service;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -71,7 +71,7 @@ public class ShareServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -113,7 +113,7 @@ public class ShareServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -154,7 +154,7 @@ public class ShareServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -195,7 +195,7 @@ public class ShareServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   private static EntityResponse createShareAspectResponse(Long time, Urn connectionUrn)

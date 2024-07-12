@@ -77,7 +77,7 @@ public class UnsetDomainResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -132,7 +132,7 @@ public class UnsetDomainResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DOMAINS_ASPECT_NAME, newDomains);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -172,7 +172,7 @@ public class UnsetDomainResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -190,7 +190,7 @@ public class UnsetDomainResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -198,7 +198,7 @@ public class UnsetDomainResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
     UnsetDomainResolver resolver =
         new UnsetDomainResolver(mockClient, Mockito.mock(EntityService.class));
 

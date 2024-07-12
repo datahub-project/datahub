@@ -1,8 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
@@ -65,7 +64,8 @@ public class CreateIngestionExecutionRequestResolverTest {
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false), true);
+        .ingestProposal(
+            any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -85,7 +85,7 @@ public class CreateIngestionExecutionRequestResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -94,7 +94,7 @@ public class CreateIngestionExecutionRequestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion("default");
     CreateIngestionExecutionRequestResolver resolver =

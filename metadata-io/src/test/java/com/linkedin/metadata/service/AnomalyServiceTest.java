@@ -1,7 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -117,7 +117,7 @@ public class AnomalyServiceTest {
             any(OperationContext.class),
             Mockito.eq(mockAnomalySummaryMcp()),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -153,7 +153,7 @@ public class AnomalyServiceTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -191,7 +191,7 @@ public class AnomalyServiceTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -223,7 +223,7 @@ public class AnomalyServiceTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -305,7 +305,7 @@ public class AnomalyServiceTest {
                 any(OperationContext.class),
                 Mockito.eq(mockAnomalySummaryMcp()),
                 Mockito.eq(false),
-                true))
+                eq(true)))
         .thenReturn(TEST_DATASET_URN.toString());
 
     return mockClient;

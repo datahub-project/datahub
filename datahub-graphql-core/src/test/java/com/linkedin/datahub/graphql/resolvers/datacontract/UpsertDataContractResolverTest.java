@@ -287,7 +287,8 @@ public class UpsertDataContractResolverTest {
     GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), true);
+        .ingestProposal(
+            any(OperationContext.class), Mockito.any(), Mockito.eq(false), Mockito.eq(true));
     UpsertDataContractResolver resolver =
         new UpsertDataContractResolver(mockClient, mockGraphClient);
 

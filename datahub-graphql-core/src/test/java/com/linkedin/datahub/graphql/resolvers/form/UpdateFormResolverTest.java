@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.form;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.UrnUtils;
@@ -43,7 +43,7 @@ public class UpdateFormResolverTest {
 
     // Validate that we called ingest
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -61,7 +61,7 @@ public class UpdateFormResolverTest {
 
     // Validate that we did NOT call ingest
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -79,7 +79,7 @@ public class UpdateFormResolverTest {
 
     // Validate that ingest was called, but that caused a failure
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
   }
 
   private EntityClient initMockEntityClient(boolean shouldSucceed) throws Exception {

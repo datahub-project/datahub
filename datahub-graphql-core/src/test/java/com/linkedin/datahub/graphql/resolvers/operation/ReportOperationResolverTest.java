@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.operation;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.Operation;
@@ -58,7 +58,7 @@ public class ReportOperationResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(expectedProposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(expectedProposal), Mockito.eq(false), eq(true));
   }
 
   @Test

@@ -3,8 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.getMockDenyContext;
 import static com.linkedin.metadata.Constants.SECRET_VALUE_ASPECT_NAME;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
 import com.linkedin.common.AuditStamp;
@@ -77,7 +76,8 @@ public class UpdateSecretResolverTest {
 
     // Invoke the resolver
     resolver.get(mockEnv).join();
-    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), any(), anyBoolean(), true);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(any(), any(), anyBoolean(), eq(true));
   }
 
   @Test(
@@ -91,6 +91,7 @@ public class UpdateSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     resolver.get(mockEnv).join();
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean(), true);
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(any(), any(), anyBoolean(), eq(true));
   }
 }

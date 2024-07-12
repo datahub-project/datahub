@@ -1,7 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Actor;
@@ -80,7 +80,7 @@ public class QueryServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
 
     // Case 2: Null fields provided
     urn =
@@ -99,7 +99,7 @@ public class QueryServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -158,7 +158,7 @@ public class QueryServiceTest {
             any(OperationContext.class),
             any(MetadataChangeProposal.class),
             Mockito.eq(false),
-            true);
+            eq(true));
 
     final QueryService service =
         new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
@@ -608,7 +608,7 @@ public class QueryServiceTest {
                 any(OperationContext.class),
                 any(MetadataChangeProposal.class),
                 Mockito.eq(false),
-                true))
+                eq(true)))
         .thenReturn(TEST_QUERY_URN.toString());
     return mockClient;
   }
@@ -632,7 +632,7 @@ public class QueryServiceTest {
                 any(OperationContext.class),
                 any(MetadataChangeProposal.class),
                 Mockito.eq(false),
-                true))
+                eq(true)))
         .thenReturn(queryUrn.toString());
 
     final QueryProperties existingProperties =
@@ -674,7 +674,7 @@ public class QueryServiceTest {
                 any(OperationContext.class),
                 any(MetadataChangeProposal.class),
                 Mockito.eq(false),
-                true))
+                eq(true)))
         .thenReturn(queryUrn.toString());
 
     Mockito.when(

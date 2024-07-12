@@ -70,7 +70,7 @@ public class SetTagColorResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), TAG_PROPERTIES_ASPECT_NAME, newTagProperties);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -105,7 +105,7 @@ public class SetTagColorResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -150,7 +150,7 @@ public class SetTagColorResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -169,7 +169,7 @@ public class SetTagColorResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -177,7 +177,7 @@ public class SetTagColorResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
     SetTagColorResolver resolver =
         new SetTagColorResolver(mockClient, Mockito.mock(EntityService.class));
 

@@ -211,7 +211,7 @@ public class GroupServiceTest {
         mock(OperationContext.class),
         Urn.createFromString(EXTERNAL_GROUP_URN_STRING),
         USER_URN_LIST);
-    verify(_entityClient, never()).ingestProposal(any(), any(), anyBoolean(), true);
+    verify(_entityClient, never()).ingestProposal(any(), any(), anyBoolean(), eq(true));
   }
 
   @Test

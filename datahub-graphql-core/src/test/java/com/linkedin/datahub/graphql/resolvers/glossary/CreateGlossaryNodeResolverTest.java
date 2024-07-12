@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -72,7 +72,7 @@ public class CreateGlossaryNodeResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -87,7 +87,7 @@ public class CreateGlossaryNodeResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -102,6 +102,6 @@ public class CreateGlossaryNodeResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), eq(true));
   }
 }

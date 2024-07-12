@@ -253,7 +253,7 @@ public class AssertionActionsHookTest {
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -326,7 +326,7 @@ public class AssertionActionsHookTest {
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -426,7 +426,7 @@ public class AssertionActionsHookTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -496,7 +496,7 @@ public class AssertionActionsHookTest {
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -588,7 +588,7 @@ public class AssertionActionsHookTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -657,7 +657,7 @@ public class AssertionActionsHookTest {
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -764,7 +764,7 @@ public class AssertionActionsHookTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -850,7 +850,7 @@ public class AssertionActionsHookTest {
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -937,7 +937,7 @@ public class AssertionActionsHookTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test
@@ -1020,7 +1020,7 @@ public class AssertionActionsHookTest {
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
             Mockito.anyBoolean(),
-            true);
+            eq(true));
   }
 
   @Test

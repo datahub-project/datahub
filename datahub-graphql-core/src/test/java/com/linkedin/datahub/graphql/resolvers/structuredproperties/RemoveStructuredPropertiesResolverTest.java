@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -52,7 +52,7 @@ public class RemoveStructuredPropertiesResolverTest {
 
     // Validate that we called ingest
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -71,7 +71,7 @@ public class RemoveStructuredPropertiesResolverTest {
 
     // Validate that we did NOT call ingest
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -93,7 +93,7 @@ public class RemoveStructuredPropertiesResolverTest {
 
     // Validate that we did NOT call ingest
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), true);
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
   }
 
   private EntityClient initMockEntityClient() throws Exception {

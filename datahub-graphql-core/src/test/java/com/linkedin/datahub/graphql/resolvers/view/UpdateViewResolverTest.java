@@ -1,8 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -233,7 +232,8 @@ public class UpdateViewResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean(), true);
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(any(), any(), anyBoolean(), eq(true));
   }
 
   private static ViewService initViewService(DataHubViewType viewType) {

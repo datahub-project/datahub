@@ -2,8 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.tag;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.datahub.graphql.QueryContext;
@@ -54,7 +53,7 @@ public class CreateTagResolverTest {
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.eq(proposal), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -72,7 +71,7 @@ public class CreateTagResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -82,7 +81,7 @@ public class CreateTagResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RuntimeException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.any(), Mockito.eq(false), eq(true));
     CreateTagResolver resolver = new CreateTagResolver(mockClient, mockService);
 
     // Execute resolver

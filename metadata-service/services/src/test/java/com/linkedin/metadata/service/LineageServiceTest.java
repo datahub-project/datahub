@@ -156,7 +156,7 @@ public class LineageServiceTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(updatedDataset1UpstreamLineage));
     proposal1.setChangeType(ChangeType.UPSERT);
     Mockito.verify(_mockClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), eq(proposal1), eq(false), true);
+        .ingestProposal(any(OperationContext.class), eq(proposal1), eq(false), eq(true));
   }
 
   @Test
@@ -234,7 +234,7 @@ public class LineageServiceTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(updatedChartInfo));
     proposal.setChangeType(ChangeType.UPSERT);
     Mockito.verify(_mockClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false), true);
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false), eq(true));
   }
 
   @Test
@@ -322,7 +322,7 @@ public class LineageServiceTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(updatedDashboardInfo));
     proposal.setChangeType(ChangeType.UPSERT);
     Mockito.verify(_mockClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false), true);
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false), eq(true));
   }
 
   @Test
@@ -439,7 +439,7 @@ public class LineageServiceTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(updatedDataJobInputOutput));
     proposal.setChangeType(ChangeType.UPSERT);
     Mockito.verify(_mockClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false), true);
+        .ingestProposal(any(OperationContext.class), eq(proposal), eq(false), eq(true));
   }
 
   @Test

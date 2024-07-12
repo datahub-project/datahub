@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.settings;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -138,7 +138,7 @@ public class UpdateGlobalSettingsResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), true);
+            any(OperationContext.class), Mockito.eq(expectedProposal), Mockito.eq(false), eq(true));
   }
 
   @Test

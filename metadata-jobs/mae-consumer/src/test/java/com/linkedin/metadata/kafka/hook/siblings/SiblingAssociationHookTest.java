@@ -122,7 +122,7 @@ public class SiblingAssociationHookTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true), eq(true));
 
     final Siblings sourceSiblingsAspect =
         new Siblings()
@@ -143,7 +143,7 @@ public class SiblingAssociationHookTest {
     proposal2.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal2), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal2), eq(true), eq(true));
   }
 
   @Test
@@ -208,7 +208,7 @@ public class SiblingAssociationHookTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true), eq(true));
   }
 
   @Test
@@ -252,7 +252,7 @@ public class SiblingAssociationHookTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true), eq(true));
 
     final Siblings sourceSiblingsAspect =
         new Siblings()
@@ -273,7 +273,7 @@ public class SiblingAssociationHookTest {
     proposal2.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal2), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal2), eq(true), eq(true));
   }
 
   @Test
@@ -326,7 +326,7 @@ public class SiblingAssociationHookTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal), eq(true), eq(true));
 
     final Siblings sourceSiblingsAspect =
         new Siblings()
@@ -347,7 +347,7 @@ public class SiblingAssociationHookTest {
     proposal2.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal2), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.eq(proposal2), eq(true), eq(true));
   }
 
   @Test
@@ -376,7 +376,7 @@ public class SiblingAssociationHookTest {
     _siblingAssociationHook.invoke(event);
 
     Mockito.verify(_mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true), eq(true));
   }
 
   @Test
@@ -405,7 +405,7 @@ public class SiblingAssociationHookTest {
     _siblingAssociationHook.invoke(event);
 
     Mockito.verify(_mockEntityClient, Mockito.times(2))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true), eq(true));
   }
 
   @Test
@@ -434,7 +434,7 @@ public class SiblingAssociationHookTest {
     _siblingAssociationHook.invoke(event);
 
     Mockito.verify(_mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true), true);
+        .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true), eq(true));
   }
 
   private MetadataChangeLog createEvent(

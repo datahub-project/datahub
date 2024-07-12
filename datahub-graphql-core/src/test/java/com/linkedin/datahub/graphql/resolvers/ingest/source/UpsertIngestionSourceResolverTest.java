@@ -2,8 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.datahub.graphql.QueryContext;
@@ -69,7 +68,7 @@ public class UpsertIngestionSourceResolverTest {
                 MutationUtils.buildMetadataChangeProposalWithUrn(
                     TEST_INGESTION_SOURCE_URN, INGESTION_INFO_ASPECT_NAME, info)),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -85,7 +84,8 @@ public class UpsertIngestionSourceResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean(), true);
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(any(), any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -94,7 +94,7 @@ public class UpsertIngestionSourceResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), any(), Mockito.eq(false), true);
+        .ingestProposal(any(), any(), Mockito.eq(false), eq(true));
     UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver

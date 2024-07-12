@@ -1,8 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
@@ -69,7 +68,7 @@ public class CreateSecretResolverTest {
                         .setAspect(GenericRecordUtils.serializeAspect(value))
                         .setEntityKeyAspect(GenericRecordUtils.serializeAspect(key)))),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -86,7 +85,7 @@ public class CreateSecretResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -95,7 +94,7 @@ public class CreateSecretResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
     UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver

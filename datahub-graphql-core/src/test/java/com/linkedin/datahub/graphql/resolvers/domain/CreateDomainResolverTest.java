@@ -100,7 +100,7 @@ public class CreateDomainResolverTest {
             any(),
             Mockito.argThat(new CreateDomainProposalMatcher(proposal)),
             Mockito.eq(false),
-            true);
+            Mockito.eq(true));
   }
 
   @Test
@@ -146,7 +146,7 @@ public class CreateDomainResolverTest {
             any(),
             Mockito.argThat(new CreateDomainProposalMatcher(proposal)),
             Mockito.eq(false),
-            true);
+            Mockito.eq(true));
   }
 
   @Test
@@ -235,7 +235,7 @@ public class CreateDomainResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), Mockito.eq(true));
   }
 
   @Test
@@ -245,7 +245,7 @@ public class CreateDomainResolverTest {
     EntityService mockService = getMockEntityService();
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), Mockito.eq(false), true);
+        .ingestProposal(any(), Mockito.any(), Mockito.eq(false), Mockito.eq(true));
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver

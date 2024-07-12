@@ -84,7 +84,7 @@ public class UpdateDeprecationResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DEPRECATION_ASPECT_NAME, newDeprecation);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), eq(proposal), eq(false), true);
+        .ingestProposal(any(), eq(proposal), eq(false), Mockito.eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -146,7 +146,7 @@ public class UpdateDeprecationResolverTest {
             UrnUtils.getUrn(TEST_ENTITY_URN), DEPRECATION_ASPECT_NAME, newDeprecation);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), eq(proposal), eq(false), true);
+        .ingestProposal(any(), eq(proposal), eq(false), eq(true));
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -186,7 +186,7 @@ public class UpdateDeprecationResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -204,7 +204,7 @@ public class UpdateDeprecationResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
   }
 
   @Test
@@ -213,7 +213,7 @@ public class UpdateDeprecationResolverTest {
     EntityService mockService = Mockito.mock(EntityService.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), true);
+        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
     UpdateDeprecationResolver resolver = new UpdateDeprecationResolver(mockClient, mockService);
 
     // Execute resolver

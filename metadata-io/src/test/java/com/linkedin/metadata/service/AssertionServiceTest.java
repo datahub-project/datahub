@@ -251,7 +251,7 @@ public class AssertionServiceTest {
             any(OperationContext.class),
             Mockito.eq(mockAssertionSummaryMcp()),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -1224,7 +1224,7 @@ public class AssertionServiceTest {
               return null;
             })
         .when(mockedEntityClient)
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), true);
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), eq(true));
 
     assertionService.addAssertionRunEvent(
         opContext,
@@ -1234,7 +1234,7 @@ public class AssertionServiceTest {
         new AssertionResult().setType(AssertionResultType.SUCCESS));
 
     Mockito.verify(mockedEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), true);
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -1276,7 +1276,7 @@ public class AssertionServiceTest {
               return null;
             })
         .when(mockedEntityClient)
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), true);
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), eq(true));
 
     assertionService.addAssertionRunEvent(
         opContext,
@@ -1293,7 +1293,7 @@ public class AssertionServiceTest {
                     .setProperties(errorProps)));
 
     Mockito.verify(mockedEntityClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), true);
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), eq(true));
   }
 
   @Test
@@ -1389,7 +1389,7 @@ public class AssertionServiceTest {
             any(OperationContext.class),
             Mockito.eq(mockAssertionSummaryMcp()),
             Mockito.eq(false),
-            true);
+            eq(true));
   }
 
   @Test
@@ -1786,7 +1786,7 @@ public class AssertionServiceTest {
                 any(OperationContext.class),
                 Mockito.eq(mockAssertionSummaryMcp()),
                 Mockito.eq(false),
-                true))
+                eq(true)))
         .thenReturn(TEST_DATASET_URN.toString());
 
     return mockClient;
