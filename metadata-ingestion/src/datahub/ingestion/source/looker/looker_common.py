@@ -375,8 +375,7 @@ class ExploreUpstreamViewField:
 
         file_path: Optional[str] = (
             upstream_views_file_path.get(view_name)
-            if upstream_views_file_path.get(view_name) is not None
-            and upstream_views_file_path.get(view_name) != ""
+            if upstream_views_file_path.get(view_name)
             else ViewFieldValue.NOT_AVAILABLE.value
         )
 
