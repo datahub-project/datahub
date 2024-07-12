@@ -14,6 +14,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -97,32 +98,30 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 name=_uid,
                 platform_instance=self.source_config.platform_instance,
             )
-            for mcp in MetadataChangeProposalWrapper.construct_many(
-                entityUrn=dashboard_urn,
-                aspects=[
-                    DashboardInfoClass(
-                        description="",
-                        title=_title,
-                        charts=[],
-                        lastModified=ChangeAuditStamps(),
-                        dashboardUrl=full_url,
-                        customProperties={
-                            "displayName": _title,
-                            "id": str(item["id"]),
-                            "uid": _uid,
-                            "title": _title,
-                            "uri": item["uri"],
-                            "type": item["type"],
-                            "folderId": str(item.get("folderId", None)),
-                            "folderUid": item.get("folderUid", None),
-                            "folderTitle": str(item.get("folderTitle", None)),
-                        },
-                    ),
-                    StatusClass(removed=False),
-                ],
-            ):
-                breakpoint()
-                yield MetadataWorkUnit(
-                    id=dashboard_urn,
-                    mcp=mcp,
+
+            yield from auto_workunit(
+                MetadataChangeProposalWrapper.construct_many(
+                    entityUrn=dashboard_urn,
+                    aspects=[
+                        DashboardInfoClass(
+                            description="",
+                            title=_title,
+                            charts=[],
+                            lastModified=ChangeAuditStamps(),
+                            dashboardUrl=full_url,
+                            customProperties={
+                                "displayName": _title,
+                                "id": str(item["id"]),
+                                "uid": _uid,
+                                "title": _title,
+                                "uri": item["uri"],
+                                "type": item["type"],
+                                "folderId": str(item.get("folderId", None)),
+                                "folderUid": item.get("folderUid", None),
+                                "folderTitle": str(item.get("folderTitle", None)),
+                            },
+                        ),
+                        StatusClass(removed=False),
+                    ],
                 )
+            )
