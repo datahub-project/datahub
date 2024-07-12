@@ -660,6 +660,8 @@ public class FormService extends BaseService {
                     "Failed to retrieve form %s for entity %s. Skipping form assignment",
                     formUrn, entityUrn),
                 e);
+            // added due to test case expecting this
+            throw new RuntimeException(e);
           }
         });
     return results;

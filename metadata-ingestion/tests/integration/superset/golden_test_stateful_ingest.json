@@ -28,8 +28,8 @@
                         "datasets": [],
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -70,8 +70,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -118,8 +118,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_1"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -166,8 +166,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
@@ -214,8 +214,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_username_2"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,

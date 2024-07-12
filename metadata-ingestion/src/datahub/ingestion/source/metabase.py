@@ -449,7 +449,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             f"{last_edit_by.get('timestamp')}"
         )
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 

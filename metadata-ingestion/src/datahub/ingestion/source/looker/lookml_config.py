@@ -121,7 +121,7 @@ class LookMLSourceConfig(
         AllowDenyPattern.allow_all(),
         description="List of regex patterns for LookML views to include in the extraction.",
     )
-    parse_table_names_from_sql: bool = Field(False, description="See note below.")
+    parse_table_names_from_sql: bool = Field(True, description="See note below.")
     sql_parser: str = Field(
         "datahub.utilities.sql_parser.DefaultSQLParser", description="See note below."
     )

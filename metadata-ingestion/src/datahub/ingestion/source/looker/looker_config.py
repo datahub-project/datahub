@@ -256,7 +256,7 @@ class LookerDashboardSourceConfig(
         "ingest dashboards in the Shared folder space.",
     )
     max_threads: int = Field(
-        os.cpu_count() or 40,
+        default_factory=lambda: os.cpu_count() or 40,
         description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
     )
     external_base_url: Optional[str] = Field(

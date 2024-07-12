@@ -15,8 +15,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1639417592792,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1639417592792,
@@ -82,8 +82,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1636614000000,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1636614000000,
@@ -140,8 +140,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1685628119636,
-                                "actor": "urn:li:corpuser:john.doe@example.com"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1685628119636,
