@@ -25,6 +25,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
@@ -42,6 +43,10 @@ from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
+from datahub.ingestion.source.snowflake.snowflake_queries import (
+    SnowflakeQueriesExtractor,
+    SnowflakeQueriesExtractorConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
@@ -72,6 +77,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
+    QUERIES_EXTRACTION,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -452,8 +458,6 @@ class SnowflakeV2Source(
 
         databases = schema_extractor.databases
 
-        self.connection.close()
-
         # TODO: The checkpoint state for stale entity detection can be committed here.
 
         if self.config.shares:
@@ -483,22 +487,62 @@ class SnowflakeV2Source(
 
         discovered_datasets = discovered_tables + discovered_views
 
-        if self.config.include_table_lineage and self.lineage_extractor:
-            self.report.set_ingestion_stage("*", LINEAGE_EXTRACTION)
-            yield from self.lineage_extractor.get_workunits(
-                discovered_tables=discovered_tables,
-                discovered_views=discovered_views,
+        if self.config.use_queries_v2:
+            self.report.set_ingestion_stage("*", "View Parsing")
+            assert self.aggregator is not None
+            yield from auto_workunit(self.aggregator.gen_metadata())
+
+            self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
+
+            schema_resolver = self.aggregator._schema_resolver
+
+            queries_extractor = SnowflakeQueriesExtractor(
+                connection=self.connection,
+                config=SnowflakeQueriesExtractorConfig(
+                    # TODO: Refactor this a bit so it's not as redundant.
+                    database_pattern=self.config.database_pattern,
+                    schema_pattern=self.config.schema_pattern,
+                    table_pattern=self.config.table_pattern,
+                    view_pattern=self.config.view_pattern,
+                    match_fully_qualified_names=self.config.match_fully_qualified_names,
+                    convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                    window=self.config,
+                    temporary_tables_pattern=self.config.temporary_tables_pattern,
+                    include_lineage=self.config.include_table_lineage,
+                    include_usage_statistics=self.config.include_usage_stats,
+                    include_operations=self.config.include_operational_stats,
+                ),
+                structured_report=self.report,
+                schema_resolver=schema_resolver,
             )
 
-        if (
-            self.config.include_usage_stats or self.config.include_operational_stats
-        ) and self.usage_extractor:
-            yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
+            # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
+            # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
+            # it should be pretty straightforward to refactor this and only initialize the aggregator once.
+            self.report.queries_extractor = queries_extractor.report
+            yield from queries_extractor.get_workunits_internal()
+
+        else:
+            if self.config.include_table_lineage and self.lineage_extractor:
+                self.report.set_ingestion_stage("*", LINEAGE_EXTRACTION)
+                yield from self.lineage_extractor.get_workunits(
+                    discovered_tables=discovered_tables,
+                    discovered_views=discovered_views,
+                )
+
+            if (
+                self.config.include_usage_stats or self.config.include_operational_stats
+            ) and self.usage_extractor:
+                yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(
                 self.config, self.report, self.connection
             ).get_assertion_workunits(discovered_datasets)
+
+        self.connection.close()
 
     def report_warehouse_failure(self) -> None:
         if self.config.warehouse is not None:

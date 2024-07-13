@@ -131,6 +131,7 @@ class SnowflakeIdentifierConfig(
     # Changing default value here.
     convert_urns_to_lowercase: bool = Field(
         default=True,
+        description="Whether to convert dataset urns to lowercase.",
     )
 
 
@@ -203,6 +204,11 @@ class SnowflakeV2Config(
     include_view_column_lineage: bool = Field(
         default=True,
         description="Populates view->view and table->view column lineage using DataHub's sql parser.",
+    )
+
+    use_queries_v2: bool = Field(
+        default=False,
+        description="If enabled, uses the new queries extractor to extract queries from snowflake.",
     )
 
     lazy_schema_resolver: bool = Field(

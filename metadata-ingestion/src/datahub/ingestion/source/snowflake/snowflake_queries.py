@@ -38,6 +38,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
     PreparsedQuery,
@@ -77,12 +78,6 @@ class SnowflakeQueriesExtractorConfig(SnowflakeIdentifierConfig, SnowflakeFilter
         hidden_from_docs=True,
     )
 
-    convert_urns_to_lowercase: bool = pydantic.Field(
-        # Override the default.
-        default=True,
-        description="Whether to convert dataset urns to lowercase.",
-    )
-
     include_lineage: bool = True
     include_queries: bool = True
     include_usage_statistics: bool = True
@@ -112,7 +107,8 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
         connection: SnowflakeConnection,
         config: SnowflakeQueriesExtractorConfig,
         structured_report: SourceReport,
-        graph: Optional[DataHubGraph],
+        graph: Optional[DataHubGraph] = None,
+        schema_resolver: Optional[SchemaResolver] = None,
     ):
         self.connection = connection
 
@@ -124,6 +120,7 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            schema_resolver=schema_resolver,
             graph=graph,
             eager_graph_load=False,
             generate_lineage=self.config.include_lineage,
