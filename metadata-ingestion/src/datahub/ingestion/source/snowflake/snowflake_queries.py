@@ -1,3 +1,4 @@
+import dataclasses
 import functools
 import json
 import logging
@@ -52,6 +53,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
 )
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -91,13 +93,14 @@ class SnowflakeQueriesSourceConfig(SnowflakeQueriesExtractorConfig):
 
 @dataclass
 class SnowflakeQueriesExtractorReport(Report):
-    window: Optional[BaseTimeWindowConfig] = None
-
+    audit_log_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
 
 @dataclass
 class SnowflakeQueriesSourceReport(SourceReport):
+    window: Optional[BaseTimeWindowConfig] = None
     queries_extractor: Optional[SnowflakeQueriesExtractorReport] = None
 
 
@@ -175,8 +178,6 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.window = self.config.window
-
         # TODO: Add some logic to check if the cached audit log is stale or not.
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
@@ -193,11 +194,13 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             queries = FileBackedList(shared_connection)
 
             logger.info("Fetching audit log")
-            for entry in self.fetch_audit_log():
-                queries.append(entry)
+            with self.report.audit_log_fetch_timer:
+                for entry in self.fetch_audit_log():
+                    queries.append(entry)
 
-        for query in queries:
-            self.aggregator.add(query)
+        with self.report.audit_log_load_timer:
+            for query in queries:
+                self.aggregator.add(query)
 
         yield from auto_workunit(self.aggregator.gen_metadata())
 
@@ -387,6 +390,8 @@ class SnowflakeQueriesSource(Source):
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self.report.window = self.config.window
+
         # TODO: Disable auto status processor?
         return self.queries_extractor.get_workunits_internal()
 
