@@ -48,7 +48,7 @@ describe("create and manage volume assertion", () => {
       "If not specified, a name will be generated from the assertion settings.",
     );
     cy.get("button").contains("Save").click();
-    cy.waitTextVisible("Created new Assertion Monitor!");
+    cy.waitTextVisible("Created!");
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Volume");
     cy.waitTextVisible("No Evaluations");

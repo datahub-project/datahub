@@ -108,9 +108,9 @@ describe("glossaryTerm", () => {
     elementVisibility();
     applyAdvancedSearchFilter("Tag", "Cypress");
     elementVisibility();
-    enterKeyInSearchBox("Baz Chart 1");
+    enterKeyInSearchBox("Baz Dashboard");
     elementVisibility();
-    cy.contains("Baz Chart 1").should("exist");
+    cy.contains("Baz Dashboard").should("exist");
     deleteGlossary("Deleted Glossary Term!");
   });
 });

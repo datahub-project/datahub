@@ -31,7 +31,7 @@ describe("create and manage freshness assertion", () => {
     cy.get("#create-assertion-btn-main").click();
     cy.waitTextVisible("New Assertion Monitor");
     cy.clickOptionWithText("Freshness");
-    cy.waitTextVisible("Check for table changes");
+    cy.waitTextVisible("Pass if this table");
     cy.waitTextVisible("If this assertion fails...");
     cy.waitTextVisible("If this assertion passes...");
     cy.get("button").contains("Next").click();
@@ -39,7 +39,7 @@ describe("create and manage freshness assertion", () => {
       "If not specified, a name will be generated from the assertion settings.",
     );
     cy.get("button").contains("Save").click();
-    cy.waitTextVisible("Created new Assertion Monitor!");
+    cy.waitTextVisible("Created!");
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Freshness");
     cy.waitTextVisible("No Evaluations");
