@@ -45,6 +45,8 @@ from datahub.utilities.type_annotations import get_class_from_annotation
 
 logger = logging.getLogger(__name__)
 
+_MAX_CONTEXT_STRING_LENGTH = 300
+
 
 class SourceCapability(Enum):
     PLATFORM_INSTANCE = "Platform Instance"
@@ -111,6 +113,9 @@ class StructuredLogs(Report):
 
         log_key = f"{title}-{message}"
         entries = self._entries[level]
+
+        if context and len(context) > _MAX_CONTEXT_STRING_LENGTH:
+            context = f"{context[:_MAX_CONTEXT_STRING_LENGTH]} ..."
 
         log_content = f"{message} => {context}" if context else message
         if exc:
