@@ -1,11 +1,27 @@
 import React, { useEffect, useRef } from 'react';
-import { Alert, Checkbox, Form, Input, InputRef, Radio, RadioChangeEvent, Space, Switch, Typography } from 'antd';
+import {
+    Alert,
+    Checkbox,
+    Form,
+    Input,
+    InputRef,
+    Radio,
+    RadioChangeEvent,
+    Space,
+    Switch,
+    Tooltip,
+    Typography,
+} from 'antd';
 import styled from 'styled-components/macro';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { useForm } from 'antd/lib/form/Form';
-import { useUserContext } from '@src/app/context/useUserContext';
+import { trim } from 'lodash';
 import { Link } from 'react-router-dom';
+import { InfoCircleOutlined, MoreOutlined } from '@ant-design/icons';
+import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
+import { SLACK_CONNECTION_URN } from '@src/app/settings/platform/slack/constants';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
@@ -57,6 +73,12 @@ const DisabledText = styled(Typography.Text)`
     margin-top: 8px;
 `;
 
+const MemberIdInstructionText = styled(Typography.Paragraph)`
+    margin-left: ${LEFT_PADDING + 24}px;
+    margin-top: 6px;
+    margin-bottom: 0px !important;
+`;
+
 const StyledFormItem = styled(Form.Item)`
     margin-bottom: 0px;
 `;
@@ -92,6 +114,9 @@ const SettingsSlackChannel = styled(Typography.Text)`
 const StyledAlert = styled(Alert)`
     margin: 8px 0 0 ${LEFT_PADDING}px;
 `;
+const TestNotificationButtonWrapper = styled.div`
+    margin-left: ${LEFT_PADDING + 24}px;
+`;
 
 export default function SlackNotificationRecipientSection() {
     const { config } = useAppConfig();
@@ -115,7 +140,8 @@ export default function SlackNotificationRecipientSection() {
         isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
     );
     const slackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
-    const slackInputPlaceholder = isPersonal ? 'Alternate Slack Member ID' : 'Alternate Slack Channel ID';
+
+    const slackInputPlaceholder = isPersonal ? 'Alternate Slack Member ID' : '#my-team-channel';
 
     useEffect(() => {
         form.setFieldsValue({ slackFormValue: slack.subscription.channel });
@@ -134,7 +160,12 @@ export default function SlackNotificationRecipientSection() {
     };
 
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
-        actions.setSlackSubscriptionChannel(value);
+        let channelName = value;
+        if (!isPersonal) {
+            // trim # from string and add only one # in front
+            channelName = '#'.concat(trim(value, '#'));
+        }
+        actions.setSlackSubscriptionChannel(channelName);
     };
 
     const onChangeSaveAsDefaultCheckbox = ({ target: { checked } }: CheckboxChangeEvent) => {
@@ -218,13 +249,62 @@ export default function SlackNotificationRecipientSection() {
             )}
             {renderSlackSink()}
             {isSubscriptionChannelSelected && slackSinkSupported && (
-                <StyledCheckbox
-                    disabled={!slack.enabled || !slackSinkSupported}
-                    checked={slack.subscription.saveAsDefault}
-                    onChange={onChangeSaveAsDefaultCheckbox}
-                >
-                    <SaveAsDefaultText>Save as default</SaveAsDefaultText>
-                </StyledCheckbox>
+                <>
+                    <StyledCheckbox
+                        disabled={!slack.enabled || !slackSinkSupported}
+                        checked={slack.subscription.saveAsDefault}
+                        onChange={onChangeSaveAsDefaultCheckbox}
+                    >
+                        <SaveAsDefaultText>
+                            Save as default{' '}
+                            <Tooltip title="You can manage defaults under the 'Settings' page > 'My Notifications' tab">
+                                <InfoCircleOutlined />
+                            </Tooltip>
+                        </SaveAsDefaultText>
+                    </StyledCheckbox>
+                    <MemberIdInstructionText>
+                        {isPersonal ? (
+                            <>
+                                Find a member ID from the <MoreOutlined /> menu in your Slack profile.
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    href="https://datahubproject.io/docs/managed-datahub/saas-slack-setup/#how-to-find-user-id-in-slack"
+                                >
+                                    {' '}
+                                    See instructions.
+                                </a>
+                            </>
+                        ) : (
+                            <>Ensure the Slack bot has been added to this channel</>
+                        )}
+                    </MemberIdInstructionText>
+                </>
+            )}
+            {slackSinkSupported && (
+                <TestNotificationButtonWrapper>
+                    <TestNotificationButton
+                        integration="slack"
+                        connectionUrn={SLACK_CONNECTION_URN}
+                        hidden={!(isSubscriptionChannelSelected ? slack.subscription.channel : settingsSlackChannel)}
+                        destinationSettings={
+                            isPersonal
+                                ? {
+                                      userHandle:
+                                          (isSubscriptionChannelSelected
+                                              ? slack.subscription.channel
+                                              : settingsSlackChannel) || '',
+                                  }
+                                : {
+                                      channels: [
+                                          (isSubscriptionChannelSelected
+                                              ? slack.subscription.channel
+                                              : settingsSlackChannel) || '',
+                                      ],
+                                  }
+                        }
+                    />
+                </TestNotificationButtonWrapper>
             )}
         </NotificationSwitchContainer>
     );

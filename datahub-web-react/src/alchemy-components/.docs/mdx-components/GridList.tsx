@@ -12,9 +12,21 @@ const styles = {
 };
 
 interface Props {
+    isVertical?: boolean;
+    width?: number | string;
     children: ReactNode;
 }
 
-export const GridList = ({ children }: Props) => {
-    return <div style={styles}>{children}</div>;
+export const GridList = ({ isVertical = false, width = '100%', children }: Props) => {
+    return (
+        <div
+            style={{
+                ...styles,
+                width,
+                flexDirection: isVertical ? 'column' : 'row',
+            }}
+        >
+            {children}
+        </div>
+    );
 };

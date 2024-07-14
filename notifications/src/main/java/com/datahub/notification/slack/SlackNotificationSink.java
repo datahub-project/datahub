@@ -25,13 +25,20 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.connection.DataHubConnectionDetails;
 import com.linkedin.connection.DataHubConnectionDetailsType;
 import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
+import com.linkedin.execution.ExecutionRequestResult;
+import com.linkedin.execution.StructuredExecutionReport;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.connection.ConnectionService;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.service.util.AssertionUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.slack.api.Slack;
 import com.slack.api.SlackConfig;
@@ -42,6 +49,7 @@ import com.slack.api.methods.request.users.UsersLookupByEmailRequest;
 import com.slack.api.methods.response.chat.ChatPostMessageResponse;
 import com.slack.api.methods.response.users.UsersLookupByEmailResponse;
 import com.slack.api.model.User;
+import io.datahubproject.integrations.invoker.JSON;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -75,8 +83,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SlackNotificationSink implements NotificationSink {
   private static final String DEPRECATION_MODIFIER_TYPE = "deprecation";
-  static final Urn SLACK_CONNECTION_URN =
-      UrnUtils.getUrn("urn:li:dataHubConnection:__system_slack-0");
+  static final Urn SLACK_CONNECTION_URN = UrnUtils.getUrn(Constants.SLACK_CONNECTION_ID);
 
   /** A list of notification templates supported by this sink. */
   private static final List<NotificationTemplateType> ALL_SUPPORTED_TEMPLATES =
@@ -118,6 +125,7 @@ public class SlackNotificationSink implements NotificationSink {
 
   private final Map<String, User> emailToSlackUser = new HashMap<>();
   private Slack slack;
+  private EntityClient entityClient;
   private SettingsProvider settingsProvider;
   private IdentityProvider identityProvider;
   private EntityNameProvider entityNameProvider;
@@ -175,6 +183,7 @@ public class SlackNotificationSink implements NotificationSink {
       slackConfig.setProxyUrl((String) cfg.getStaticConfig().get(PROXY_URL_CONFIG_NAME));
     }
     this.slack = Slack.getInstance(slackConfig);
+    this.entityClient = cfg.getEntityClient();
     this.settingsProvider = cfg.getSettingsProvider();
     this.identityProvider = cfg.getIdentityProvider();
     this.entityNameProvider = cfg.getEntityNameProvider();
@@ -267,60 +276,71 @@ public class SlackNotificationSink implements NotificationSink {
 
   private void sendNotifications(
       @Nonnull OperationContext opContext, final NotificationRequest notificationRequest) {
+    // 1. Extract template type
     final NotificationTemplateType templateType =
         NotificationTemplateType.valueOf(notificationRequest.getMessage().getTemplate().toString());
+
+    // 2. Send notifications
+    final Set<ChatPostMessageResponse> responses;
     switch (templateType) {
       case CUSTOM:
-        sendCustomNotification(opContext, notificationRequest);
+        responses = sendCustomNotification(opContext, notificationRequest);
         break;
       case BROADCAST_NEW_INCIDENT:
-        sendBroadcastNotification(
-            opContext,
-            notificationRequest.getRecipients(),
-            buildNewIncidentMessage(opContext, notificationRequest),
-            RetryMode.ENABLED);
+        responses =
+            sendBroadcastNotification(
+                opContext,
+                notificationRequest.getRecipients(),
+                buildNewIncidentMessage(opContext, notificationRequest),
+                RetryMode.ENABLED);
         break;
       case BROADCAST_INCIDENT_STATUS_CHANGE:
-        sendBroadcastNotification(
-            opContext,
-            notificationRequest.getRecipients(),
-            buildIncidentStatusChangeMessage(opContext, notificationRequest),
-            RetryMode.ENABLED);
+        responses =
+            sendBroadcastNotification(
+                opContext,
+                notificationRequest.getRecipients(),
+                buildIncidentStatusChangeMessage(opContext, notificationRequest),
+                RetryMode.ENABLED);
         break;
       case BROADCAST_NEW_PROPOSAL:
-        sendBroadcastNotification(
-            opContext,
-            notificationRequest.getRecipients(),
-            buildNewProposalMessage(opContext, notificationRequest),
-            RetryMode.DISABLED);
+        responses =
+            sendBroadcastNotification(
+                opContext,
+                notificationRequest.getRecipients(),
+                buildNewProposalMessage(opContext, notificationRequest),
+                RetryMode.DISABLED);
         break;
       case BROADCAST_PROPOSAL_STATUS_CHANGE:
-        sendBroadcastNotification(
-            opContext,
-            notificationRequest.getRecipients(),
-            buildProposalStatusChangeMessage(opContext, notificationRequest),
-            RetryMode.DISABLED);
+        responses =
+            sendBroadcastNotification(
+                opContext,
+                notificationRequest.getRecipients(),
+                buildProposalStatusChangeMessage(opContext, notificationRequest),
+                RetryMode.DISABLED);
         break;
       case BROADCAST_ENTITY_CHANGE:
-        sendBroadcastNotification(
-            opContext,
-            notificationRequest.getRecipients(),
-            buildEntityChangeMessage(opContext, notificationRequest),
-            RetryMode.DISABLED);
+        responses =
+            sendBroadcastNotification(
+                opContext,
+                notificationRequest.getRecipients(),
+                buildEntityChangeMessage(opContext, notificationRequest),
+                RetryMode.DISABLED);
         break;
       case BROADCAST_INGESTION_RUN_CHANGE:
-        sendBroadcastNotification(
-            opContext,
-            notificationRequest.getRecipients(),
-            buildIngestionRunChangeMessage(notificationRequest),
-            RetryMode.DISABLED);
+        responses =
+            sendBroadcastNotification(
+                opContext,
+                notificationRequest.getRecipients(),
+                buildIngestionRunChangeMessage(notificationRequest),
+                RetryMode.DISABLED);
         break;
       case BROADCAST_ASSERTION_STATUS_CHANGE:
-        sendBroadcastNotification(
-            opContext,
-            notificationRequest.getRecipients(),
-            buildAssertionStatusChangeMessage(notificationRequest),
-            RetryMode.ENABLED);
+        responses =
+            sendBroadcastNotification(
+                opContext,
+                notificationRequest.getRecipients(),
+                buildAssertionStatusChangeMessage(notificationRequest),
+                RetryMode.ENABLED);
         break;
       default:
         throw new UnsupportedOperationException(
@@ -328,14 +348,92 @@ public class SlackNotificationSink implements NotificationSink {
                 "Unsupported template type %s providing to %s",
                 templateType, this.getClass().getCanonicalName()));
     }
+
+    // 3. Execute post notification actions
+    // NOTE: we are moving all sinks to python, so slack_sink.py will need to replicate this
+    // behavior
+    // TODO: modify slack_sink.py to replicate this behavior
+    executePostNotificationActions(opContext, notificationRequest, responses);
   }
 
-  private void sendCustomNotification(
+  private void executePostNotificationActions(
+      OperationContext opContext,
+      NotificationRequest request,
+      Set<ChatPostMessageResponse> responses) {
+    // 1. Check parameters for flags that may justify post-notification actions
+    StringMap parameters = request.getMessage().getParameters();
+    if (parameters == null) {
+      return;
+    }
+
+    // 2. Emit ExecutionRequestResult aspects if this was triggered via a connection test request
+    final String executionRequestUrnString =
+        parameters.get(Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY);
+    if (executionRequestUrnString != null) {
+      executePostNotificationActionEmitExecutionResult(
+          opContext, responses, executionRequestUrnString);
+    }
+  }
+
+  private void executePostNotificationActionEmitExecutionResult(
+      final OperationContext opContext,
+      final Set<ChatPostMessageResponse> responses,
+      final String executionRequestUrnString) {
+    try {
+      // 1. Extract request urn
+      final Urn requestUrn = UrnUtils.getUrn(executionRequestUrnString);
+
+      // 2. Initialize the result aspect
+      final ExecutionRequestResult result = new ExecutionRequestResult();
+
+      // 3. Set the status
+      final boolean anyError = responses.stream().anyMatch(o -> !o.isOk());
+      result.setStatus(anyError ? "ERROR" : "SUCCESS");
+
+      // 4. Build the reports for each slack response
+      final List<Map<String, String>> responseReports =
+          responses.stream()
+              .map(
+                  response -> {
+                    Map<String, String> structuredReport = new HashMap<>();
+                    structuredReport.put("error", response.getError());
+                    structuredReport.put("warning", response.getWarning());
+                    structuredReport.put("timestamp", response.getTs());
+                    if (response.getMessage() != null) {
+                      structuredReport.put(
+                          "message",
+                          response.getMessage() != null ? response.getMessage().toString() : null);
+                    }
+                    return structuredReport;
+                  })
+              .collect(Collectors.toList());
+
+      // 5. Transform response reports into an overall StructuredExecutionReport
+      final StructuredExecutionReport executionReport = new StructuredExecutionReport();
+      executionReport.setType(Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REPORT_TYPE);
+      executionReport.setContentType("application/json");
+      executionReport.setSerializedValue(JSON.serialize(responseReports));
+      result.setStructuredReport(executionReport);
+
+      // 6. emit MCP with the final execution result aspect
+      MetadataChangeProposal mcp =
+          AspectUtils.buildMetadataChangeProposal(
+              requestUrn, Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME, result);
+      this.entityClient.ingestProposal(opContext, mcp, false);
+    } catch (Exception e) {
+      log.warn(
+          String.format(
+              "Encountered an exception while attempting to emit aspect for executionRequestResult, with requestUrn %s",
+              executionRequestUrnString));
+    }
+  }
+
+  private Set<ChatPostMessageResponse> sendCustomNotification(
       @Nonnull OperationContext opContext, final NotificationRequest request) {
     final String title = request.getMessage().getParameters().get("title");
     final String body = request.getMessage().getParameters().get("body");
-    final String messageText = String.format("*%s*\n\n%s", title, body);
-    sendNotificationToRecipients(
+    final String messageText = String.format("*%s*\n%s", title, body);
+    return sendNotificationToRecipients(
         opContext, request.getRecipients(), messageText, RetryMode.DISABLED);
   }
 
@@ -751,18 +849,33 @@ public class SlackNotificationSink implements NotificationSink {
         resultsLink);
   }
 
-  private void sendNotificationToRecipients(
+  private Set<ChatPostMessageResponse> sendNotificationToRecipients(
       @Nonnull OperationContext opContext,
       final List<NotificationRecipient> recipients,
       final String text,
       RetryMode retryMode) {
     // Send each recipient a message.
+    Set<ChatPostMessageResponse> responses = new HashSet<>();
     for (NotificationRecipient recipient : recipients) {
-      sendNotificationToRecipient(opContext, recipient, text, retryMode);
+      ChatPostMessageResponse response =
+          sendNotificationToRecipient(opContext, recipient, text, retryMode);
+      if (response != null) {
+        responses.add(response);
+      } else {
+        log.warn(
+            String.format(
+                "Notification for recipient with id %s did not result in a response. Post notification actions like emitting result MCPs will be skipped for this recipient.",
+                recipient.getId()));
+      }
     }
+    return responses;
   }
 
-  private void sendNotificationToRecipient(
+  /**
+   * Used by {@link #sendNotificationToRecipients(OperationContext, List, String, RetryMode)}. Call
+   * that method directly instead of this.
+   */
+  private ChatPostMessageResponse sendNotificationToRecipient(
       @Nonnull OperationContext opContext,
       final NotificationRecipient recipient,
       final String text,
@@ -772,24 +885,25 @@ public class SlackNotificationSink implements NotificationSink {
       log.debug(
           "Skipping send notification to recipient. Unsupported recipient type {}",
           recipient.getType());
-      return;
+      return null;
     }
 
     // Try to sink message to each user.
     try {
       if (NotificationRecipientType.USER.equals(recipient.getType())) {
-        sendNotificationToUser(opContext, UrnUtils.getUrn(recipient.getId()), text, retryMode);
+        return sendNotificationToUser(
+            opContext, UrnUtils.getUrn(recipient.getId()), text, retryMode);
       } else if (NotificationRecipientType.SLACK_DM.equals(recipient.getType())) {
         if (!recipient.hasId() || recipient.getId() == null) {
           throw new UnsupportedOperationException(
               String.format("Tried to send a DM to user without ID set", recipient.getType()));
         }
-        sendMessage(recipient.getId(), text, retryMode);
+        return sendMessage(recipient.getId(), text, retryMode);
       } else if (NotificationRecipientType.SLACK_CHANNEL.equals(recipient.getType())) {
         // We only support "SLACK_CHANNEL" as a custom type.
         String channel = getRecipientChannelOrDefault(opContext, recipient.getId(GetMode.NULL));
         if (channel != null) {
-          sendMessage(channel, text, retryMode);
+          return sendMessage(channel, text, retryMode);
         } else {
           log.warn(
               String.format(
@@ -805,9 +919,10 @@ public class SlackNotificationSink implements NotificationSink {
     } catch (Exception e) {
       log.error("Caught exception while attempting to send custom slack notification", e);
     }
+    return null;
   }
 
-  private void sendNotificationToUser(
+  private ChatPostMessageResponse sendNotificationToUser(
       @Nonnull OperationContext opContext,
       final Urn userUrn,
       final String text,
@@ -818,7 +933,7 @@ public class SlackNotificationSink implements NotificationSink {
     if (user != null && user.getEmail() != null) {
       User slackUser = getSlackUserFromEmail(user.getEmail());
       if (slackUser != null) {
-        sendMessage(slackUser.getId(), text, retryMode);
+        return sendMessage(slackUser.getId(), text, retryMode);
       }
     } else {
       log.warn(
@@ -826,9 +941,10 @@ public class SlackNotificationSink implements NotificationSink {
               "Failed to send notification to user with urn %s. Failed to find user with valid email in DataHub.",
               userUrn));
     }
+    return null;
   }
 
-  private void sendBroadcastNotification(
+  private Set<ChatPostMessageResponse> sendBroadcastNotification(
       @Nonnull OperationContext opContext,
       final List<NotificationRecipient> recipients,
       final String text,
@@ -837,16 +953,17 @@ public class SlackNotificationSink implements NotificationSink {
     // sending to the default configured channel.
     if (recipients.size() > 0) {
       // Send to each recipient in the list as normal.
-      sendNotificationToRecipients(opContext, recipients, text, retryMode);
+      return sendNotificationToRecipients(opContext, recipients, text, retryMode);
     } else {
       // Broadcast to the default configured channel.
       NotificationRecipient defaultChannelRecipient =
           new NotificationRecipient().setType(NotificationRecipientType.SLACK_CHANNEL);
-      sendNotificationToRecipient(opContext, defaultChannelRecipient, text, retryMode);
+      return sendNotificationToRecipients(
+          opContext, List.of(defaultChannelRecipient), text, retryMode);
     }
   }
 
-  private void sendMessage(
+  private ChatPostMessageResponse sendMessage(
       @Nonnull final String channel, @Nonnull final String text, RetryMode retryMode)
       throws Exception {
     final ChatPostMessageRequest msgRequest =
@@ -868,6 +985,7 @@ public class SlackNotificationSink implements NotificationSink {
                 channel, response.getError()));
       }
     }
+    return response;
   }
 
   @Nullable

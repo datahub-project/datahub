@@ -34,7 +34,7 @@ from datahub_integrations.notifications.sinks.slack.template_utils import (
 )
 from datahub_integrations.notifications.sinks.slack.types import SlackMessageDetails
 from datahub_integrations.notifications.sinks.utils import retry_with_backoff
-from datahub_integrations.slack.config import SLACK_PROXY, slack_config
+from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
 
 
 class RetryMode(Enum):
@@ -50,6 +50,7 @@ class SlackNotificationSink(NotificationSink):
     last_credentials_refresh: Optional[datetime] = None
     base_url: str
     slack_client: WebClient
+    slack_connection_config: Optional[SlackConnection] = None
     identity_provider: IdentityProvider
     graph: DataHubGraph
 
@@ -62,11 +63,20 @@ class SlackNotificationSink(NotificationSink):
         self.graph = graph
         self.identity_provider = IdentityProvider(graph)
 
+    def _check_is_slack_config_valid(self, config: Optional[SlackConnection]) -> bool:
+        return config is not None and config.bot_token is not None
+
     def send(
         self, request: NotificationRequestClass, context: NotificationContext
     ) -> None:
         # Maybe reload slack creds if they are stale.
         self._maybe_reload_web_client()
+
+        if not self._check_is_slack_config_valid(self.slack_connection_config):
+            logger.warning(
+                "Slack config is invalid. Skipping sending notification request."
+            )
+            return
 
         template_type: str = str(request.message.template)
 
@@ -222,10 +232,13 @@ class SlackNotificationSink(NotificationSink):
         # Assuming slack_config has a reload method to refresh its data
         config = slack_config.reload()
 
-        if config is None or config.bot_token is None:
+        if not self._check_is_slack_config_valid(config):
             raise Exception(
                 "Failed to retrieve slack connection details! No valid configuration for slack was found."
             )
+
+        # Mount config
+        self.slack_connection_config = config
 
         # Reinitialize the WebClient with possibly updated proxy and token
         self.slack_client = WebClient(proxy=SLACK_PROXY, token=config.bot_token)

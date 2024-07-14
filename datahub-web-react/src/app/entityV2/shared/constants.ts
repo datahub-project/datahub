@@ -75,6 +75,7 @@ export const REDESIGN_COLORS = {
     YELLOW_200: '#fcf1d3',
     YELLOW_600: '#f4c449',
     YELLOW_700: '#cfa73e',
+    WARNING_YELLOW: '#866C28',
 };
 
 export const SEARCH_COLORS = {

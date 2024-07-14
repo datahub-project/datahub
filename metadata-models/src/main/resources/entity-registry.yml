@@ -547,6 +547,7 @@ entities:
       - schemaFieldProfile
       - documentation
       - lineageFeatures
+      - status
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal

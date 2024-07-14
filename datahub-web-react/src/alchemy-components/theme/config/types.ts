@@ -16,7 +16,7 @@ export interface Color {
     900: string;
     1000: string;
 }
-export type ColorOptions = 'white' | 'black' | 'violet' | 'green' | 'red' | 'blue' | 'gray';
+export type ColorOptions = 'white' | 'black' | 'violet' | 'green' | 'red' | 'blue' | 'gray' | 'yellow';
 export type MiscColorOptions = 'transparent' | 'current' | 'inherit';
 export type ColorShadeOptions = 'light' | 'default' | 'dark';
 

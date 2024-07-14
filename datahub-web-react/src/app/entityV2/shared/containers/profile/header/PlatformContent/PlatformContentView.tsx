@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography, Image } from 'antd';
+import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container, Entity } from '../../../../../../../types.generated';
 import ContainerLink from './ContainerLink';
@@ -93,16 +94,20 @@ function PlatformContentView(props: Props) {
     const directParentContainer = parentContainers && parentContainers[0];
     const remainingParentContainers = parentContainers && parentContainers.slice(1, parentContainers.length);
 
+    const shouldShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const showSiblingPlatformLogos = !shouldShowSeparateSiblings && !!platformLogoUrls;
+    const showSiblingPlatformNames = !shouldShowSeparateSiblings && !!platformNames;
+
     return (
         <PlatformContentWrapper>
             {platformName && (
                 <>
                     <LogoIcon>
                         {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
-                        {!!platformLogoUrl && !platformLogoUrls && (
+                        {!!platformLogoUrl && !showSiblingPlatformLogos && (
                             <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
                         )}
-                        {!!platformLogoUrls &&
+                        {!!showSiblingPlatformLogos &&
                             platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
                                 <>
                                     <PreviewImage
@@ -114,7 +119,7 @@ function PlatformContentView(props: Props) {
                             ))}
                     </LogoIcon>
                     <PlatformText>
-                        <span>{platformNames ? platformNames.join(' & ') : platformName}</span>
+                        <span>{showSiblingPlatformNames ? platformNames.join(' & ') : platformName}</span>
                     </PlatformText>
                     <PlatformDivider data-testid="platform-divider" />
                 </>

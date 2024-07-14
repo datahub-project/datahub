@@ -162,7 +162,8 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_GMS_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -230,7 +231,8 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -298,7 +300,8 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -366,7 +369,8 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_UPGRADE_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -436,7 +440,8 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_FRONTEND_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -494,7 +499,8 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -515,7 +521,8 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -536,7 +543,8 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -561,7 +569,8 @@ jobs:
           target: base
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -600,7 +609,8 @@ jobs:
           target: slim-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.slim_tag }}
+          image_tag: ${{ needs.setup.outputs.slim_tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           flavor: slim
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
@@ -643,7 +653,8 @@ jobs:
           target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.full_tag }}
+          image_tag: ${{ needs.setup.outputs.full_tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           flavor: full
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
@@ -702,7 +713,8 @@ jobs:
             DOCKER_VERSION=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
             APP_ENV=slim
-          tags: ${{ needs.setup.outputs.slim_tag }}
+          image_tag: ${{ needs.setup.outputs.slim_tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           flavor: slim
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
@@ -794,7 +806,8 @@ jobs:
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
             DOCKER_VERSION=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -851,11 +864,11 @@ jobs:
       - id: set-matrix
         run: |
           if [ '${{ needs.setup.outputs.frontend_only }}' == 'true' ]; then
-             echo 'matrix=["cypress_suite1","cypress_rest"]' >> $GITHUB_OUTPUT
+             echo 'matrix=["cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2"]' >> $GITHUB_OUTPUT
           elif [ '${{ needs.setup.outputs.ingestion_only }}' == 'true' ]; then
              echo 'matrix=["no_cypress_suite0","no_cypress_suite1"]' >> $GITHUB_OUTPUT
           elif [ '${{ needs.setup.outputs.backend_change }}' == 'true' ]; then
-             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest"]' >> $GITHUB_OUTPUT
+             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2"]' >> $GITHUB_OUTPUT
           else
              echo 'matrix=[]' >> $GITHUB_OUTPUT
           fi
@@ -1104,7 +1117,7 @@ jobs:
         datahub_ingestion_slim_build,
       ]
     steps:
-      - uses: aws-actions/configure-aws-credentials@v1
+      - uses: aws-actions/configure-aws-credentials@v4
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'acryldata' && needs.setup.outputs.repository_name == 'datahub-fork' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
@@ -1157,7 +1170,8 @@ jobs:
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_IMAGE }}
             DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -1233,7 +1247,8 @@ jobs:
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_IMAGE }}
             DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          short_sha: ${{ needs.setup.outputs.short_sha }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}

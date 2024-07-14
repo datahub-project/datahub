@@ -4,6 +4,7 @@
 
 import { FontSizeOptions, ColorOptions, MiscColorOptions, RotationOptions, DEFAULT_VALUE } from './config';
 import { foundations } from './foundations';
+import { semanticTokens } from './semantic-tokens';
 
 const { colors, typography, transform } = foundations;
 /*
@@ -38,4 +39,24 @@ export const getFontSize = (size?: FontSizeOptions) => {
 export const getRotationTransform = (rotate?: RotationOptions) => {
     if (!rotate) return '';
     return transform.rotate[rotate || '0'];
+};
+
+/**
+ * Get the status color depending on the flags that are true
+ * @param {string} [error] - Error definition, if any.
+ * @param {boolean} [isSuccess] - Boolean flag indicating success.
+ * @param {string} [warning] - Warning definition, if any.
+ * @returns {string} - The status color based on the provided flags.
+ */
+export const getStatusColors = (isSuccess?: boolean, warning?: string, isInvalid?: boolean): string => {
+    if (isInvalid) {
+        return colors.red[600];
+    }
+    if (isSuccess) {
+        return colors.green[600];
+    }
+    if (warning) {
+        return colors.yellow[600];
+    }
+    return semanticTokens.colors['border-color'];
 };

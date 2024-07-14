@@ -486,6 +486,7 @@ featureFlags:
   emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
   broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true} # Enables stateful updating of active incidents in 3rd party destinations.
   separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false} # Whether siblings lineage should be separate from each other or not
+  showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -598,6 +599,10 @@ monitorService:
   host: ${DATAHUB_EXECUTOR_HOST:localhost}
   port: ${DATAHUB_EXECUTOR_PORT:9004}
   useSsl: ${DATAHUB_EXECUTOR_USE_SSL:false}
+
+connections:
+  testExecutionRequestHook:
+    enabled: ${CONNECTION_TEST_EXECUTION_REQUEST_HOOK_ENABLED:true} # Enables processing of DataHubConnection test execution requests
 
 subscriptions:
   ownerSubscriptionHook:

@@ -288,7 +288,7 @@ const SubscriptionDrawerContent = ({
                     {ENABLE_UPSTREAM_NOTIFICATIONS && (
                         <UpstreamSection entityUrn={entityUrn} entityType={entityType} upstreamCount={upstreamCount} />
                     )}
-                    <NotificationRecipientSection />
+                    <NotificationRecipientSection isPersonal={isPersonal} />
                 </>
             )}
         </SubscribeDrawer>
