@@ -5,6 +5,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid, set_aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -28,15 +29,15 @@ class PatchEntityAspect:
         "RECORD_SCHEMA",
     ]
     aspect: Union[ChartInfoClass, DashboardInfoClass]
-    patch_builder: DashboardPatchBuilder
+    patch_builder: MetadataPatchProposal
     attributes: List[str]
 
     def __init__(
         self,
         # The PatchEntityAspect can patch any Aspect, however to silent the lint Union is added for DashboardInfoClass
         # We can use it with any Aspect
-        aspect: Union[DashboardInfoClass],
-        patch_builder: DashboardPatchBuilder,
+        aspect: Union[DashboardInfoClass, ChartInfoClass],
+        patch_builder: MetadataPatchProposal,
     ):
         self.aspect = aspect
         self.patch_builder = patch_builder
@@ -100,28 +101,31 @@ def convert_upstream_lineage_to_patch(
     return MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
 
 
+def create_mw_for_patch_aspect(
+    patch_entity_aspect: PatchEntityAspect,
+) -> Optional[MetadataWorkUnit]:
+
+    mcp: Optional[MetadataChangeProposalClass] = patch_entity_aspect.patch()
+
+    if mcp:
+        return MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+        )
+
+    return None
+
+
 def convert_chart_info_to_patch(
     urn: str, aspect: ChartInfoClass, system_metadata: Optional[SystemMetadataClass]
 ) -> Optional[MetadataWorkUnit]:
     patch_builder = ChartPatchBuilder(urn, system_metadata)
 
-    if aspect.customProperties:
-        for key in aspect.customProperties:
-            patch_builder.add_custom_property(
-                key, str(aspect.customProperties.get(key))
-            )
+    patch_entity_aspect: PatchEntityAspect = PatchEntityAspect(
+        aspect=aspect,
+        patch_builder=patch_builder,
+    )
 
-    if aspect.inputEdges:
-        for inputEdge in aspect.inputEdges:
-            patch_builder.add_input_edge(inputEdge)
-
-    values = patch_builder.build()
-    if values:
-        mcp = next(iter(values))
-        return MetadataWorkUnit(
-            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
-        )
-    return None
+    return create_mw_for_patch_aspect(patch_entity_aspect=patch_entity_aspect)
 
 
 def convert_dashboard_info_to_patch(
@@ -134,14 +138,7 @@ def convert_dashboard_info_to_patch(
         patch_builder=patch_builder,
     )
 
-    mcp: Optional[MetadataChangeProposalClass] = patch_entity_aspect.patch()
-
-    if mcp:
-        return MetadataWorkUnit(
-            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
-        )
-
-    return None
+    return create_mw_for_patch_aspect(patch_entity_aspect=patch_entity_aspect)
 
 
 def get_fine_grained_lineage_key(fine_upstream: FineGrainedLineageClass) -> str:
