@@ -71,6 +71,16 @@ class MetadataPatchProposal:
         # TODO: Validate that aspectName is a valid aspect for this entityType
         self.patches[aspect_name].append(_Patch(op, path, value))
 
+    def add_patch(
+        self, aspect_name: str, op: str, path: Union[str, Sequence[str]], value: Any
+    ) -> None:
+        return self._add_patch(
+            aspect_name=aspect_name,
+            op=op,
+            path=path,
+            value=value,
+        )
+
     def build(self) -> Iterable[MetadataChangeProposalClass]:
         return [
             MetadataChangeProposalClass(

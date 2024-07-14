@@ -1197,8 +1197,7 @@ class Mapper:
     ) -> Iterable[MetadataWorkUnit]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
-        logger.debug(f"Converting dashboard={report.name} to datahub dashboard")
-
+        logger.debug(f"Converting report={report.name} to datahub dashboard")
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(report.users)
         # Convert pages to charts. A report has single dataset and same dataset used in pages to create visualization
@@ -1215,9 +1214,7 @@ class Mapper:
         mcps.extend(chart_mcps)
         mcps.extend(report_mcps)
 
-        # Convert MCP to work_units
-        work_units = map(self._to_work_unit, mcps)
-        return work_units
+        return map(self._to_work_unit, mcps)
 
 
 @platform_name("PowerBI")
