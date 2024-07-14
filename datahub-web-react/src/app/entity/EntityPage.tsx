@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useHistory, useLocation, useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
 import { useEntityRegistry } from '../useEntityRegistry';
 import analytics, { EventType } from '../analytics';
-import { decodeUrn } from './shared/utils';
+import { decodeUrn, getRedirectUrl } from './shared/utils';
 import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
 import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
 import { ErrorSection } from '../shared/error/ErrorSection';
@@ -41,6 +41,8 @@ export const EntityPage = ({ entityType }: Props) => {
         fetchPolicy: 'cache-first',
     });
     const privileges = data?.getGrantedPrivileges?.privileges || [];
+    const location = useLocation();
+    const history = useHistory();
 
     useEffect(() => {
         analytics.event({
@@ -49,6 +51,18 @@ export const EntityPage = ({ entityType }: Props) => {
             entityUrn: urn,
         });
     }, [entityType, urn]);
+
+    useEffect(() => {
+        if (location.pathname.indexOf('/Validation') !== -1) {
+            const newRoutes = {
+                '/Validation/Assertions': '/Quality/List',
+                '/Validation/Tests': '/Governance/Tests',
+                '/Validation/Data%20Contract': '/Quality/Data%20Contract',
+                '/Validation': '/Quality',
+            };
+            history.replace(getRedirectUrl(newRoutes));
+        }
+    }, [location]);
 
     const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
     const showNewPage =

@@ -231,3 +231,26 @@ export function extractTypeFromUrn(urn: string): EntityType {
 
     return '' as EntityType;
 }
+
+/**
+ *
+ * as per the new route object
+ * We are redirecting older routes to new one
+ * e.g. 
+ * {
+         '/Validation/Assertions': '/Quality/List',
+    }
+ *  */
+
+export const getRedirectUrl = (newRoutes: Object) => {
+    let newPathname = window.location.pathname;
+
+    for (let path in newRoutes) {
+        if (newPathname.indexOf(path) != -1) {
+            newPathname = newPathname.replace(path, newRoutes[path]);
+            break;
+        }
+    }
+
+    return `${newPathname}${window.location.search}`;
+};

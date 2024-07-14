@@ -26,7 +26,6 @@ const TabButton = styled(Button)<{ selected: boolean }>`
 
 enum TabPaths {
     ASSERTIONS = 'List',
-    TESTS = 'Tests',
     DATA_CONTRACT = 'Data Contract',
 }
 
@@ -75,17 +74,6 @@ export const AcrylValidationsTab = () => {
             disabled: false, // Always keep the assertions tab clickable in saas.
             content: <AcrylAssertions />,
         },
-        // {
-        //     title: (
-        //         <>
-        //             <FileDoneOutlined />
-        //             <TabTitle>Tests ({totalTests})</TabTitle>
-        //         </>
-        //     ),
-        //     path: TabPaths.TESTS,
-        //     disabled: totalTests === 0,
-        //     content: <AcrylTestResults urn={urn} />,
-        // },
     ];
 
     if (appConfig.config.featureFlags?.dataContractsEnabled) {

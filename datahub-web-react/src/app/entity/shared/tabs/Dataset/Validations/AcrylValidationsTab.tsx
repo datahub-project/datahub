@@ -27,8 +27,7 @@ const TabButton = styled(Button)<{ selected: boolean }>`
 `;
 
 enum TabPaths {
-    ASSERTIONS = 'Assertions',
-    TESTS = 'Tests',
+    ASSERTIONS = 'List',
     DATA_CONTRACT = 'Data Contract',
 }
 

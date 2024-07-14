@@ -8,7 +8,7 @@ import { useLineageV2 } from '../lineageV2/useLineageV2';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
 import analytics, { EventType } from '../analytics';
-import { decodeUrn } from './shared/utils';
+import { decodeUrn, getRedirectUrl } from './shared/utils';
 import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
 import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
 import { ErrorSection } from '../shared/error/ErrorSection';
@@ -78,35 +78,15 @@ export const EntityPage = ({ entityType }: Props) => {
         });
     }, [entityType, urn]);
 
-    const getRedirectUrl = () => {
-        /**
-         *
-         * new Routes as per new design
-         * We
-         *  */
-
-        const newRoutes = {
-            '/Validation/Assertions': '/Quality/List',
-            '/Validation/Tests': '/Governance/Tests',
-            '/Validation/Data%20Contract': '/Quality/Data%20Contract',
-            '/Validation': '/Quality',
-        };
-
-        let newPathname = location.pathname;
-
-        for (let path in newRoutes) {
-            if (newPathname.indexOf(path) != -1) {
-                newPathname = newPathname.replace(path, newRoutes[path]);
-                break;
-            }
-        }
-
-        return `${newPathname}${window.location.search}`;
-    };
-
     useEffect(() => {
         if (location.pathname.indexOf('/Validation') !== -1) {
-            history.replace(getRedirectUrl());
+            const newRoutes = {
+                '/Validation/Assertions': '/Quality/List',
+                '/Validation/Tests': '/Governance/Tests',
+                '/Validation/Data%20Contract': '/Quality/Data%20Contract',
+                '/Validation': '/Quality',
+            };
+            history.replace(getRedirectUrl(newRoutes));
         }
     }, [location]);
 

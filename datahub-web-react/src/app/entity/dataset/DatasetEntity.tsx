@@ -7,7 +7,7 @@ import { useAppConfig } from '../../useAppConfig';
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { EntitySidebarSection, GenericEntityProperties } from '../shared/types';
+import { GenericEntityProperties } from '../shared/types';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
@@ -38,7 +38,6 @@ import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessMana
 import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 import { getDatasetLastUpdatedMs } from '../../entityV2/shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-import { FetchedEntity } from '@src/app/lineage/types';
 import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 
 const SUBTYPES = {
