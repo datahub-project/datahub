@@ -60,6 +60,7 @@ import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import { Redirect } from 'react-router';
+import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -74,24 +75,6 @@ const headerDropdownItems = new Set([
     EntityMenuItems.ANNOUNCE,
 ]);
 
-const getRedirectUrl = () => {
-    const newRoutes = {
-        '/Validation/Assertions': '/Quality/List',
-        '/Validation/Tests': '/Governance/Tests',
-        '/Validation/Data%20Contract': '/Quality/Data%20Contract',
-        '/Validation': '/Quality',
-    };
-    let newPathname = window.location.pathname;
-    for (let path in newRoutes) {
-        if (newPathname.indexOf(path) != -1) {
-            newPathname = newPathname.replace(path, newRoutes[path]);
-            break;
-        }
-    }
-    console.log('newPathname>>>', newPathname);
-
-    return `${newPathname}${window.location.search}`;
-};
 /**
  * Definition of the DataHub Dataset entity.
  */
@@ -217,21 +200,14 @@ export class DatasetEntity implements Entity<Dataset> {
                             (dataset?.dataset?.operations?.length || 0) > 0,
                     },
                 },
-                // {
-                //     name: 'Validation',
-                //     display: {
-                //         visible: (_, _1) => true,
-                //         enabled: (_, _2) => false,
-                //     },
-                //     component: () => {
-                //         const redirectUrl = getRedirectUrl();
-                //         return <Redirect to={redirectUrl} />;
-                //     },
-                // },
                 {
                     name: 'Quality',
                     component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                     icon: CheckCircleOutlined,
+                },
+                {
+                    name: 'Governance',
+                    component: GovernanceTab,
                 },
                 {
                     name: 'Runs', // TODO: Rename this to DatasetRunsTab.

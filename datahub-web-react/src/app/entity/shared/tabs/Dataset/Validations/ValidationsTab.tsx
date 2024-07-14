@@ -4,7 +4,7 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { AuditOutlined, FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
-import { TestResults } from './TestResults';
+import { TestResults } from '../Governance/TestResults';
 import { Assertions } from './Assertions';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';

@@ -39,6 +39,7 @@ import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPath
 import { getDatasetLastUpdatedMs } from '../../entityV2/shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { FetchedEntity } from '@src/app/lineage/types';
+import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -171,19 +172,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Validation',
-                    display: {
-                           visible: (_, _1) => false,
-                        enabled: (_, _2) => false,
-                    },
-                    component: (props) => {
-                        console.log('props>>>>', props);
-                        return <Redirect to={`\tasks`} />;
-                    },
-                },
-                {
                     name: 'Quality',
                     component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
+                },
+                {
+                    name: 'Governance',
+                    component: GovernanceTab,
                 },
                 {
                     name: 'Runs', // TODO: Rename this to DatasetRunsTab.
