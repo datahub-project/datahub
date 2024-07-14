@@ -5,9 +5,9 @@ from datetime import datetime
 from typing import Any, Callable, Collection, Iterable, List, Optional, Set, Tuple, Type
 
 from pydantic import BaseModel, validator
-from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.datetimes import parse_absolute_time
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.constants import (
@@ -15,14 +15,13 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeEdition,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeConnectionMixin,
-    SnowflakePermissionError,
-    SnowflakeQueryMixin,
-)
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
@@ -30,6 +29,7 @@ from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamCla
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ColumnLineageInfo,
     ColumnRef,
+    KnownLineageMapping,
     KnownQueryLineageInfo,
     SqlParsingAggregator,
     UrnStr,
@@ -101,9 +101,7 @@ class SnowflakeColumnId:
     object_domain: Optional[str] = None
 
 
-class SnowflakeLineageExtractor(
-    SnowflakeQueryMixin, SnowflakeConnectionMixin, SnowflakeCommonMixin
-):
+class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     """
     Extracts Lineage from Snowflake.
     Following lineage edges are considered.
@@ -120,6 +118,7 @@ class SnowflakeLineageExtractor(
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
+        connection: SnowflakeConnection,
         dataset_urn_builder: Callable[[str], str],
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler],
         sql_aggregator: SqlParsingAggregator,
@@ -128,7 +127,7 @@ class SnowflakeLineageExtractor(
         self.report = report
         self.logger = logger
         self.dataset_urn_builder = dataset_urn_builder
-        self.connection: Optional[SnowflakeConnection] = None
+        self.connection = connection
         self.sql_aggregator = sql_aggregator
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
@@ -163,10 +162,6 @@ class SnowflakeLineageExtractor(
         discovered_views: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
-            return
-
-        self.connection = self.create_connection()
-        if self.connection is None:
             return
 
         # s3 dataset -> snowflake table
@@ -264,13 +259,20 @@ class SnowflakeLineageExtractor(
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
 
-            self._populate_external_lineage_from_copy_history(discovered_tables)
+            for (
+                known_lineage_mapping
+            ) in self._populate_external_lineage_from_copy_history(discovered_tables):
+                self.sql_aggregator.add(known_lineage_mapping)
             logger.info(
                 "Done populating external lineage from copy history. "
                 f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
             )
 
-            self._populate_external_lineage_from_show_query(discovered_tables)
+            for (
+                known_lineage_mapping
+            ) in self._populate_external_lineage_from_show_query(discovered_tables):
+                self.sql_aggregator.add(known_lineage_mapping)
+
             logger.info(
                 "Done populating external lineage from show external tables. "
                 f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
@@ -282,10 +284,10 @@ class SnowflakeLineageExtractor(
     # NOTE: Snowflake does not log this information to the access_history table.
     def _populate_external_lineage_from_show_query(
         self, discovered_tables: List[str]
-    ) -> None:
+    ) -> Iterable[KnownLineageMapping]:
         external_tables_query: str = SnowflakeQuery.show_external_tables()
         try:
-            for db_row in self.query(external_tables_query):
+            for db_row in self.connection.query(external_tables_query):
                 key = self.get_dataset_identifier(
                     db_row["name"], db_row["schema_name"], db_row["database_name"]
                 )
@@ -293,11 +295,11 @@ class SnowflakeLineageExtractor(
                 if key not in discovered_tables:
                     continue
                 if db_row["location"].startswith("s3://"):
-                    self.sql_aggregator.add_known_lineage_mapping(
-                        downstream_urn=self.dataset_urn_builder(key),
+                    yield KnownLineageMapping(
                         upstream_urn=make_s3_urn_for_lineage(
                             db_row["location"], self.config.env
                         ),
+                        downstream_urn=self.dataset_urn_builder(key),
                     )
                     self.report.num_external_table_edges_scanned += 1
 
@@ -316,7 +318,7 @@ class SnowflakeLineageExtractor(
     # NOTE: Snowflake does not log this information to the access_history table.
     def _populate_external_lineage_from_copy_history(
         self, discovered_tables: List[str]
-    ) -> None:
+    ) -> Iterable[KnownLineageMapping]:
         query: str = SnowflakeQuery.copy_lineage_history(
             start_time_millis=int(self.start_time.timestamp() * 1000),
             end_time_millis=int(self.end_time.timestamp() * 1000),
@@ -324,8 +326,12 @@ class SnowflakeLineageExtractor(
         )
 
         try:
-            for db_row in self.query(query):
-                self._process_external_lineage_result_row(db_row, discovered_tables)
+            for db_row in self.connection.query(query):
+                known_lineage_mapping = self._process_external_lineage_result_row(
+                    db_row, discovered_tables
+                )
+                if known_lineage_mapping:
+                    yield known_lineage_mapping
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get external lineage. Please grant imported privileges on SNOWFLAKE database. "
@@ -340,35 +346,40 @@ class SnowflakeLineageExtractor(
 
     def _process_external_lineage_result_row(
         self, db_row: dict, discovered_tables: List[str]
-    ) -> None:
+    ) -> Optional[KnownLineageMapping]:
         # key is the down-stream table name
         key: str = self.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
         if key not in discovered_tables:
-            return
+            return None
 
         if db_row["UPSTREAM_LOCATIONS"] is not None:
             external_locations = json.loads(db_row["UPSTREAM_LOCATIONS"])
 
             for loc in external_locations:
                 if loc.startswith("s3://"):
-                    self.sql_aggregator.add_known_lineage_mapping(
-                        downstream_urn=self.dataset_urn_builder(key),
-                        upstream_urn=make_s3_urn_for_lineage(loc, self.config.env),
-                    )
                     self.report.num_external_table_edges_scanned += 1
+                    return KnownLineageMapping(
+                        upstream_urn=make_s3_urn_for_lineage(loc, self.config.env),
+                        downstream_urn=self.dataset_urn_builder(key),
+                    )
+
+        return None
 
     def _fetch_upstream_lineages_for_tables(self) -> Iterable[UpstreamLineageEdge]:
         query: str = SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=int(self.start_time.timestamp() * 1000),
             end_time_millis=int(self.end_time.timestamp() * 1000),
             upstreams_deny_pattern=self.config.temporary_tables_pattern,
-            include_view_lineage=self.config.include_view_lineage,
+            # The self.config.include_view_lineage setting is about fetching upstreams of views.
+            # We always generate lineage pointing at views from tables, even if self.config.include_view_lineage is False.
+            # TODO: Remove this `include_view_lineage` flag, since it's effectively dead code.
+            include_view_lineage=True,
             include_column_lineage=self.config.include_column_lineage,
         )
         try:
-            for db_row in self.query(query):
+            for db_row in self.connection.query(query):
                 edge = self._process_upstream_lineage_row(db_row)
                 if edge:
                     yield edge
@@ -409,10 +420,12 @@ class SnowflakeLineageExtractor(
                     upstream_name = self.get_dataset_identifier_from_qualified_name(
                         upstream_table.upstream_object_name
                     )
-                    if upstream_name and self._is_dataset_pattern_allowed(
-                        upstream_name,
-                        upstream_table.upstream_object_domain,
-                        is_upstream=True,
+                    if upstream_name and (
+                        not self.config.validate_upstreams_against_patterns
+                        or self.is_dataset_pattern_allowed(
+                            upstream_name,
+                            upstream_table.upstream_object_domain,
+                        )
                     ):
                         upstreams.append(self.dataset_urn_builder(upstream_name))
                 except Exception as e:
@@ -493,10 +506,12 @@ class SnowflakeLineageExtractor(
             if (
                 upstream_col.object_name
                 and upstream_col.column_name
-                and self._is_dataset_pattern_allowed(
-                    upstream_col.object_name,
-                    upstream_col.object_domain,
-                    is_upstream=True,
+                and (
+                    not self.config.validate_upstreams_against_patterns
+                    or self.is_dataset_pattern_allowed(
+                        upstream_col.object_name,
+                        upstream_col.object_domain,
+                    )
                 )
             ):
                 upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
@@ -547,3 +562,6 @@ class SnowflakeLineageExtractor(
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
+
+    def close(self) -> None:
+        pass
