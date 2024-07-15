@@ -206,7 +206,6 @@ export default function FormByQuestion({ closeModal }: Props) {
                     onChangePage={onChangePage}
                     numResultsPerPage={numResultsPerPage}
                     setNumResultsPerPage={setNumResultsPerPage}
-                    showSearchSelectBar={false}
                     setIsSelectMode={setIsSelectMode}
                     selectedEntities={selectedEntities}
                     setSelectedEntities={setSelectedEntities}

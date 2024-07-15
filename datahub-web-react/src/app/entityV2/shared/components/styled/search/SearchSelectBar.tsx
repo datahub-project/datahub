@@ -1,6 +1,7 @@
 import { Button, Checkbox, Modal, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchSelectActions } from './SearchSelectActions';
 
@@ -51,6 +52,7 @@ export const SearchSelectBar = ({
     onCancel,
     refetch,
 }: Props) => {
+    const { isInFormContext } = useEntityFormContext();
     const selectedEntityCount = selectedEntities.length;
     const onClickCancel = () => {
         if (selectedEntityCount > 0) {
@@ -81,14 +83,16 @@ export const SearchSelectBar = ({
                     {selectedEntityCount} selected
                 </Typography.Text>
             </CheckboxContainer>
-            <ActionsContainer>
-                {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
-                {showCancel && (
-                    <CancelButton onClick={onClickCancel} type="link">
-                        Close
-                    </CancelButton>
-                )}
-            </ActionsContainer>
+            {!isInFormContext && (
+                <ActionsContainer>
+                    {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
+                    {showCancel && (
+                        <CancelButton onClick={onClickCancel} type="link">
+                            Close
+                        </CancelButton>
+                    )}
+                </ActionsContainer>
+            )}
         </>
     );
 };

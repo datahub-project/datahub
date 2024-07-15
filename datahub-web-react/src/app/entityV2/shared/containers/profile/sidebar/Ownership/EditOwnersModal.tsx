@@ -2,13 +2,7 @@ import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components/macro';
 
-import {
-    CorpUser,
-    Entity,
-    EntityType,
-    OwnerEntityType,
-    OwnershipTypeEntity,
-} from '../../../../../../../types.generated';
+import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import {
@@ -20,6 +14,7 @@ import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 import { handleBatchError } from '../../../../utils';
 import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
+import OwnershipTypesSelect from './OwnershipTypesSelect';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -391,24 +386,11 @@ export const EditOwnersModal = ({
                         <Form.Item name="type">
                             {loading && <Select />}
                             {!loading && (
-                                <Select value={selectedOwnerType} onChange={onSelectOwnerType}>
-                                    {ownershipTypes.map((ownershipType: OwnershipTypeEntity | undefined) => {
-                                        const ownershipTypeUrn = ownershipType?.urn || '';
-                                        const ownershipTypeName = ownershipType?.info?.name || ownershipType?.urn || '';
-                                        const ownershipTypeDescription = ownershipType?.info?.description || '';
-                                        return (
-                                            <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
-                                                <Typography.Text>{ownershipTypeName}</Typography.Text>
-                                                <Typography.Paragraph
-                                                    style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}
-                                                    type="secondary"
-                                                >
-                                                    {ownershipTypeDescription}
-                                                </Typography.Paragraph>
-                                            </Select.Option>
-                                        );
-                                    })}
-                                </Select>
+                                <OwnershipTypesSelect
+                                    selectedOwnerTypeUrn={selectedOwnerType}
+                                    ownershipTypes={ownershipTypes}
+                                    onSelectOwnerType={onSelectOwnerType}
+                                />
                             )}
                         </Form.Item>
                     </Form.Item>

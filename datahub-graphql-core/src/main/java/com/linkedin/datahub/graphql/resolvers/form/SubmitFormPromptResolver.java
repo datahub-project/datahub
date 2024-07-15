@@ -19,6 +19,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -92,6 +93,24 @@ public class SubmitFormPromptResolver implements DataFetcher<CompletableFuture<B
                   formUrn,
                   promptId,
                   uniqueFieldPaths);
+            } else if (input.getType().equals(FormPromptType.OWNERSHIP)) {
+              if (input.getOwnershipParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide ownership params for prompt type OWNERSHIP");
+              }
+              final List<Urn> owners =
+                  input.getOwnershipParams().getOwners().stream()
+                      .map(UrnUtils::getUrn)
+                      .collect(Collectors.toList());
+              final Urn ownershipTypeUrn =
+                  UrnUtils.getUrn(input.getOwnershipParams().getOwnershipTypeUrn());
+              return _formService.submitOwnershipPromptResponse(
+                  context.getOperationContext(),
+                  entityUrn,
+                  owners,
+                  ownershipTypeUrn,
+                  formUrn,
+                  promptId);
             }
             return false;
           } catch (Exception e) {

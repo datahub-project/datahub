@@ -1661,6 +1661,39 @@ fragment autoRenderAspectFields on RawAspect {
     }
 }
 
+fragment formFields on Form {
+    urn
+    type
+    info {
+        name
+        description
+        type
+        prompts {
+            id
+            formUrn
+            title
+            description
+            type
+            required
+            structuredPropertyParams {
+                structuredProperty {
+                    ...structuredPropertyFields
+                }
+            }
+            ownershipParams {
+                cardinality
+            }
+        }
+        actors {
+            owners
+            isAssignedToMe
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+}
+
 fragment formAssociationFields on FormAssociation {
     associatedUrn
     incompletePrompts {
@@ -1670,33 +1703,7 @@ fragment formAssociationFields on FormAssociation {
         ...formPromptAssociationFields
     }
     form {
-        urn
-        type
-        info {
-            name
-            description
-            type
-            prompts {
-                id
-                formUrn
-                title
-                description
-                type
-                required
-                structuredPropertyParams {
-                    structuredProperty {
-                        ...structuredPropertyFields
-                    }
-                }
-            }
-            actors {
-                owners
-                isAssignedToMe
-            }
-        }
-        ownership {
-            ...ownershipFields
-        }
+        ...formFields
     }
 }
 
@@ -1710,6 +1717,16 @@ fragment formPromptAssociationFields on FormPromptAssociation {
             ...entityDisplayNameFields
         }
     }
+    response {
+        ownershipResponse {
+            owners {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+            ownershipTypeUrn
+        }
+    }
     fieldAssociations {
         completedFieldPrompts {
             fieldPath
@@ -1719,6 +1736,16 @@ fragment formPromptAssociationFields on FormPromptAssociation {
                     urn
                     type
                     ...entityDisplayNameFields
+                }
+            }
+            response {
+                ownershipResponse {
+                    owners {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                    ownershipTypeUrn
                 }
             }
         }
