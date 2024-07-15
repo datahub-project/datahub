@@ -47,8 +47,12 @@ record MetadataChangeProposal {
   aspect: optional GenericAspect
 
   /**
-   * A string->string map of custom properties that one might want to attach to an event
+   * System properties that one might want to attach to an event
    **/
   systemMetadata: optional SystemMetadata
 
+  /**
+  * Headers - intended to mimic http headers
+  */
+  headers: optional map[string, string]
 }
