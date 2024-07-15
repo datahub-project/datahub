@@ -1,6 +1,4 @@
-import concurrent.futures
 import logging
-import queue
 import re
 from collections import defaultdict
 from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union, cast
@@ -98,6 +96,7 @@ from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger: logging.Logger = logging.getLogger(__name__)
 # Handle table snapshots
@@ -350,9 +349,9 @@ class BigQuerySchemaGenerator:
         db_snapshots: Dict[str, List[BigqueryTableSnapshot]] = {}
         project_id = bigquery_project.id
 
-        q: "queue.Queue[MetadataWorkUnit]" = queue.Queue(maxsize=100)
-
-        def _process_schema_worker(bigquery_dataset: BigqueryDataset) -> None:
+        def _process_schema_worker(
+            bigquery_dataset: BigqueryDataset,
+        ) -> Iterable[MetadataWorkUnit]:
             if not is_schema_allowed(
                 self.config.dataset_pattern,
                 bigquery_dataset.name,
@@ -366,7 +365,7 @@ class BigQuerySchemaGenerator:
                 for wu in self._process_schema(
                     project_id, bigquery_dataset, db_tables, db_views, db_snapshots
                 ):
-                    q.put(wu)
+                    yield wu
             except Exception as e:
                 if self.config.is_profiling_enabled():
                     action_mesage = "Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
@@ -380,33 +379,12 @@ class BigQuerySchemaGenerator:
                     exc=e,
                 )
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.config.max_threads_dataset_parallelism
-        ) as executor:
-            futures = []
-            for bq_dataset in bigquery_project.datasets:
-                f = executor.submit(_process_schema_worker, bq_dataset)
-                futures.append(f)
-
-            # Read from the queue and yield the work units until all futures are done.
-            while True:
-                if not q.empty():
-                    while not q.empty():
-                        yield q.get_nowait()
-                else:
-                    try:
-                        yield q.get(timeout=0.2)
-                    except queue.Empty:
-                        pass
-
-                # Filter out the done futures.
-                futures = [f for f in futures if not f.done()]
-                if not futures:
-                    break
-
-        # Yield the remaining work units. This theoretically should not happen, but adding it just in case.
-        while not q.empty():
-            yield q.get_nowait()
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=_process_schema_worker,
+            args_list=[(bq_dataset,) for bq_dataset in bigquery_project.datasets],
+            max_workers=self.config.max_threads_dataset_parallelism,
+        ):
+            yield wu
 
     def _process_schema(
         self,
