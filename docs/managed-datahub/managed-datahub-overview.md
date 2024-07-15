@@ -58,7 +58,7 @@ know.
 | Data Incident management | ❌ | ✅ |
 | Quick-actions within Slack for Incident alerts | ❌ | ✅ |
 | Birds eye view data health dashboard | ❌ | ✅ |
-| Pipeline circuit-breaking via on-demand quality evaluation APIs. | ❌ | ✅ |
+| Pipeline circuit-breaking via on-demand quality evaluation APIs | ❌ | ✅ |
 | In-VPC execution of data quality checks | ❌ | ✅ |
 
 
