@@ -7,9 +7,26 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 ## Install the DataHub Slack App into your Slack workspace
 
 The following steps should be performed by a Slack Workspace Admin. 
-- Navigate to  https://api.slack.com/apps/
-- Click Create New App
-- Use “From an app manifest” option
+1. Navigate to https://api.slack.com/reference/manifests#config-tokens
+2. Under **Managing configuration tokens**, select **'Generate Token'**
+[screenshot here]
+3. Select your workspace, then hit **'Generate'**
+[screenshot here]
+4. Now you will see two tokens available for you to copy, an *Access Token* and a *Refresh Token*
+[screenshot here]
+5. Navigate back to your DataHub [Slack Integration setup page](https://longtailcompanions.acryl.io/settings/integrations/slack), and paste the tokens into their respective boxes, and click **'Connect'**.
+[screenshot here]
+6. You will be automatically re-directed to slack to confirm DataHub Slack App's permissions and complete the installation process:
+[screenshot here]
+7. Congrats 🎉 Slack is setup! Now try it out by going to the **Platform Notifications** page
+[screenshot here]
+8. Enter your channel in, and click **'Send a test notification'**
+
+TODO: now proceed to Subscriptoins and notifications to see how you can subscribe to different things on dh
+
+<!-- NOTE: we are hiding this method for now. If a need arises, we can uncomment below docs.
+# Bot Token Method (Not recommended)
+
 - Select your workspace
 - Paste this Manifest in YAML. Suggest changing name and `display_name` to be `DataHub App YOUR_TEAM_NAME` but not required. This name will show up in your slack workspace
 ```yml
@@ -80,25 +97,33 @@ To customize the channel where notifications are send, click the button to the r
 <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel.png"/>
 
 If provided, a custom channel will be used to route notifications of the given type. If not provided, the default channel will be used. 
-That's it! You should begin to receive notifications on Slack. Note that it may take up to 1 minute for notification settings to take effect after saving. 
+That's it! You should begin to receive notifications on Slack. Note that it may take up to 1 minute for notification settings to take effect after saving.  -->
 
 ## Sending Notifications
 
 For now we support sending notifications to
-- Slack Channel ID (e.g. `C029A3M079U`)
 - Slack Channel Name (e.g. `#troubleshoot`)
+- Slack Channel ID (e.g. `C029A3M079U`)
 - Specific Users (aka Direct Messages or DMs) via user ID 
 
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
 ## How to find Team ID and Channel ID in Slack
+***Note** we recommend just using the slack channel name for simplicity (eg. `#troubleshoot`)*
 
-- Go to the Slack channel for which you want to get channel ID
-- Check the URL e.g. for the troubleshoot channel in OSS DataHub slack
+**Via Slack App:**
+1. Go to the Slack channel for which you want to get channel ID
+2. Click the channel name at the top
+[screenshot here]
+3. At the bottom of the modal that pops up, you will see the Channel ID as well as a button to copy it
+[screenshot here]
 
+**Via Web:**
+1. Go to the Slack channel for which you want to get channel ID
+2. Check the URL e.g. for the troubleshoot channel in OSS DataHub slack
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel_url.png)
 
-- Notice `TUMKD5EGJ/C029A3M079U` in the URL
+3. Notice `TUMKD5EGJ/C029A3M079U` in the URL
   - Team ID = `TUMKD5EGJ` from above
   - Channel ID = `C029A3M079U` from above
 
