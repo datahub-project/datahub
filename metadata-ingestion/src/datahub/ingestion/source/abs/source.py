@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+
 import smart_open.compression as so_compression
 from more_itertools import peekable
 from pyspark.sql.types import (
