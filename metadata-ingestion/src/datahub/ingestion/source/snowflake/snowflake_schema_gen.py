@@ -171,9 +171,9 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             config, self.data_dictionary, self.report
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
-        self.snowsight_url_builder: Optional[
-            SnowsightUrlBuilder
-        ] = snowsight_url_builder
+        self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
+            snowsight_url_builder
+        )
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
@@ -228,9 +228,9 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             )
             return None
         else:
-            ischema_databases: List[
-                SnowflakeDatabase
-            ] = self.get_databases_from_ischema(databases)
+            ischema_databases: List[SnowflakeDatabase] = (
+                self.get_databases_from_ischema(databases)
+            )
 
             if len(ischema_databases) == 0:
                 self.report_error(
@@ -753,7 +753,11 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             view_properties_aspect = ViewProperties(
                 materialized=table.materialized,
                 viewLanguage="SQL",
-                viewLogic=table.view_definition,
+                viewLogic=(
+                    table.view_definition
+                    if self.config.include_view_definitions
+                    else None
+                ),
             )
 
             yield MetadataChangeProposalWrapper(
@@ -1017,9 +1021,7 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
     def get_views_for_schema(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
-        views = self.data_dictionary.get_views_for_database(
-            db_name, self.config.include_view_definitions
-        )
+        views = self.data_dictionary.get_views_for_database(db_name)
 
         # Some schema may not have any table
         return views.get(schema_name, [])

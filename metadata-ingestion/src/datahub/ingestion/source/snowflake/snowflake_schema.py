@@ -132,9 +132,9 @@ class _SnowflakeTagCache:
         )
 
         # self._table_tags[<database_name>][<schema_name>][<table_name>] = list of tags applied to table
-        self._table_tags: Dict[
-            str, Dict[str, Dict[str, List[SnowflakeTag]]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        self._table_tags: Dict[str, Dict[str, Dict[str, List[SnowflakeTag]]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        )
 
         # self._column_tags[<database_name>][<schema_name>][<table_name>][<column_name>] = list of tags applied to column
         self._column_tags: Dict[
@@ -320,9 +320,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return tables
 
     @serialized_lru_cache(maxsize=1)
-    def get_views_for_database(
-        self, db_name: str, include_view_definitions: bool
-    ) -> Dict[str, List[SnowflakeView]]:
+    def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
         page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
@@ -355,9 +353,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         created=view["created_on"],
                         # last_altered=table["last_altered"],
                         comment=view["comment"],
-                        view_definition=(
-                            view["text"] if include_view_definitions else None
-                        ),
+                        view_definition=view["text"],
                         last_altered=view["created_on"],
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"
