@@ -56,9 +56,9 @@ know.
 | Continuously monitor dataset health and schema | ❌ | ✅ |
 | Evaluate data quality checks on-demand (API and UI) | ❌ | ✅ |
 | Setup alerts and get data observability notifications | ❌ | ✅ |
-| Track and Manage Data Incidents from detection to resolution | ❌ | ✅ |
+| Track and Manage Data Incidents | ❌ | ✅ |
 | Act on Incident alerts directly from within Slack | ❌ | ✅ |
-| See the bigger picture through the Data Health Dashboard | ❌ | ✅ |
+| See a high-level summary of your Data Health | ❌ | ✅ |
 | Run data quality checks in your VPC | ❌ | ✅ |
 
 
