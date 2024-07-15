@@ -5,6 +5,7 @@ import { Button, Divider, Form, Input, message, Typography, Alert, Radio, Image 
 import { InfoCircleFilled } from '@ant-design/icons';
 import { green } from '@ant-design/colors';
 import { Link } from 'react-router-dom';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { useConnectionQuery, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
 import {
     useGetIntegrationSettingsQuery,
@@ -92,6 +93,9 @@ const GlobalNotificationsBanner = styled.div`
 `;
 
 export const SlackIntegration = () => {
+    const appConfig = useAppConfig();
+
+    const isBotTokensTabVisible = appConfig.config.featureFlags?.slackBotTokensConfigEnabled;
     const [settings, setSettings] = useState<SlackIntegrationSettings>(DEFAULT_SETTINGS);
     const [connection, setConnection] = useState<SlackConnection>(DEFAULT_CONNECTION);
     const [selectTypeValue, setSelectTypeValue] = useState<string>(APP_CONFIG_SELECT_ID);
@@ -112,11 +116,11 @@ export const SlackIntegration = () => {
         if (slackConnData && connection === DEFAULT_CONNECTION) {
             setConnection(slackConnData);
             // render bot token tab if there bot token and no app token
-            if (!slackConnData.appConfigToken && slackConnData.botToken) {
+            if (!slackConnData.appConfigToken && slackConnData.botToken && isBotTokensTabVisible) {
                 setSelectTypeValue(BOT_TOKEN_SELECT_ID);
             }
         }
-    }, [slackConnData, connection]);
+    }, [slackConnData, connection, isBotTokensTabVisible]);
 
     useEffect(() => {
         if (data?.globalSettings?.integrationSettings?.slackSettings) {
@@ -235,23 +239,29 @@ export const SlackIntegration = () => {
                 <Content>
                     <FormColumn>
                         <Form layout="vertical">
-                            <Form.Item label={<Typography.Text strong>Token Type</Typography.Text>}>
-                                <Typography.Text type="secondary">
-                                    Select a token type to use to configure the integration with Slack.
-                                </Typography.Text>
-                                <SettingValueContainer>
-                                    <Radio.Group
-                                        options={SLACK_CONNECTION_OPTIONS}
-                                        onChange={(e) => setSelectTypeValue(e.target.value)}
-                                        value={selectTypeValue}
-                                        optionType="button"
-                                        buttonStyle="solid"
-                                    />
-                                </SettingValueContainer>
-                            </Form.Item>
+                            {isBotTokensTabVisible ? (
+                                <Form.Item label={<Typography.Text strong>Token Type</Typography.Text>}>
+                                    <Typography.Text type="secondary">
+                                        Select a token type to use to configure the integration with Slack.
+                                    </Typography.Text>
+                                    <SettingValueContainer>
+                                        <Radio.Group
+                                            options={SLACK_CONNECTION_OPTIONS}
+                                            onChange={(e) => setSelectTypeValue(e.target.value)}
+                                            value={selectTypeValue}
+                                            optionType="button"
+                                            buttonStyle="solid"
+                                        />
+                                    </SettingValueContainer>
+                                </Form.Item>
+                            ) : null}
                             {selectTypeValue === BOT_TOKEN_SELECT_ID && (
                                 <>
-                                    <Form.Item required label={<Typography.Text strong>Bot Token</Typography.Text>}>
+                                    <Form.Item
+                                        requiredMark="optional"
+                                        required
+                                        label={<Typography.Text strong>Bot Token</Typography.Text>}
+                                    >
                                         <Typography.Text type="secondary">
                                             Enter a Slack bot token for your workspace.
                                         </Typography.Text>
@@ -288,6 +298,7 @@ export const SlackIntegration = () => {
                             {selectTypeValue === APP_CONFIG_SELECT_ID && (
                                 <>
                                     <Form.Item
+                                        requiredMark="optional"
                                         required
                                         label={<Typography.Text strong>App Configuration Token</Typography.Text>}
                                     >
@@ -308,6 +319,7 @@ export const SlackIntegration = () => {
                                         </SettingValueContainer>
                                     </Form.Item>
                                     <Form.Item
+                                        requiredMark="optional"
                                         required
                                         label={
                                             <Typography.Text strong>App Configuration Refresh Token</Typography.Text>
