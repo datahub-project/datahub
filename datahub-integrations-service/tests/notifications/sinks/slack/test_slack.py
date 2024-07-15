@@ -16,6 +16,7 @@ from datahub_integrations.notifications.sinks.slack.slack_sink import (
     SlackNotificationSink,
 )
 from datahub_integrations.notifications.sinks.slack.types import SlackMessageDetails
+from datahub_integrations.slack.config import SlackConnection
 
 
 @pytest.fixture
@@ -34,6 +35,7 @@ def sink() -> SlackNotificationSink:
     sink.base_url = "testbaseurl"
     sink.last_credentials_refresh = None
     sink.slack_client = Mock(spec=WebClient)
+    sink.slack_connection_config = SlackConnection(bot_token="token")
     return sink
 
 
@@ -132,7 +134,6 @@ def test_send_updated_incident_notification(sink: SlackNotificationSink) -> None
             sink, "_send_change_notification"
         ) as mock_send_change_notification,
     ):
-
         # Call send method with a specific template
         sink.send(
             NotificationRequestClass(
@@ -160,23 +161,35 @@ def test_send_updated_incident_notification(sink: SlackNotificationSink) -> None
 def test_send_unsupported_template_type(
     sink: SlackNotificationSink,
 ) -> None:
-    # Test for unsupported template type
-    mock_request = NotificationRequestClass(
-        message=NotificationMessageClass(
-            template=NotificationTemplateTypeClass.BROADCAST_INGESTION_RUN_CHANGE,
-            parameters={
-                "incidentTitle": "title",
-                "incidentMessage": "message",
-                "entityName": "name",
-                "entityPath": "/path",
-            },
-        ),
-        recipients=[NotificationRecipientClass(type="SLACK_DM")],
-    )
-    mock_context = Mock()
 
-    # Just no message is sent.
-    sink.send(mock_request, mock_context)
+    with (
+        patch.object(sink, "_maybe_reload_web_client") as mock_reload_web_client,
+        patch.object(
+            sink, "_send_change_notification"
+        ) as mock_send_change_notification,
+    ):
+        # Test for unsupported template type
+        mock_request = NotificationRequestClass(
+            message=NotificationMessageClass(
+                template=NotificationTemplateTypeClass.BROADCAST_INGESTION_RUN_CHANGE,
+                parameters={
+                    "incidentTitle": "title",
+                    "incidentMessage": "message",
+                    "entityName": "name",
+                    "entityPath": "/path",
+                },
+            ),
+            recipients=[NotificationRecipientClass(type="SLACK_DM")],
+        )
+        mock_context = Mock()
+
+        sink.send(mock_request, mock_context)
+
+        # Assert mock_reload_web_client method was called with correct arguments
+        mock_reload_web_client.assert_called_once()
+
+        # Nothing is sent
+        mock_send_change_notification.assert_not_called()
 
 
 def test_send_when_slack_config_not_available(sink: SlackNotificationSink) -> None:
@@ -202,6 +215,38 @@ def test_send_when_slack_config_not_available(sink: SlackNotificationSink) -> No
 
         with pytest.raises(Exception):
             sink.send(mock_request, mock_context)
+
+
+def test_send_when_slack_config_not_available_no_raise(
+    sink: SlackNotificationSink,
+) -> None:
+    # Test behavior when Slack config is not available and reload doesn't throw exception
+    with (
+        patch.object(sink, "_maybe_reload_web_client") as mock_reload_web_client,
+        patch.object(
+            sink, "_send_change_notification"
+        ) as mock_send_change_notification,
+    ):
+        sink.slack_connection_config = None
+        mock_request = NotificationRequestClass(
+            message=NotificationMessageClass(
+                template=NotificationTemplateTypeClass.BROADCAST_NEW_INCIDENT,
+                parameters={
+                    "incidentTitle": "title",
+                    "incidentMessage": "message",
+                    "entityName": "name",
+                    "entityPath": "/path",
+                },
+            ),
+            recipients=[NotificationRecipientClass(type="SLACK_DM")],
+        )
+        mock_context = Mock()
+
+        sink.send(mock_request, mock_context)
+
+        mock_reload_web_client.assert_called_once()
+
+        mock_send_change_notification.assert_not_called()
 
 
 # Test get saved message details - channel id match
