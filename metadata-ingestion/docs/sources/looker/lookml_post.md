@@ -1,7 +1,7 @@
 #### Configuration Notes
 
 1.  The sql parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`.
-2.  If view contains liquid template then we can set liquid variable as key value pair in `liquid_variable` config parameter where key act as variable-name and value as variable's value
+2.  If a view contains a liquid template (e.g. `{{ user_attributes['whatever'] }}`), then you will need to specify the values of those variables in the `liquid_variable` config
 
 ### Multi-Project LookML (Advanced)
 
