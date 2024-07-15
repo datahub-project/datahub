@@ -3,7 +3,9 @@ from typing import List, Optional
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
-from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    DEFAULT_TEMP_TABLES_PATTERNS,
+)
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
 SHOW_VIEWS_MAX_PAGE_SIZE = 10000
@@ -28,13 +30,15 @@ def create_deny_regex_sql_filter(
 
 
 class SnowflakeQuery:
-    ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = (
-        "("
-        f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.VIEW.capitalize()}',"
-        f"'{SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize()}'"
-        ")"
+    ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
+        SnowflakeObjectDomain.TABLE.capitalize(),
+        SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
+        SnowflakeObjectDomain.VIEW.capitalize(),
+        SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
+    }
+
+    ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
+        ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
     )
     ACCESS_HISTORY_TABLE_DOMAINS_FILTER = (
         "("
@@ -356,7 +360,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         end_time_millis: int,
         include_view_lineage: bool = True,
         include_column_lineage: bool = True,
-        upstreams_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
+        upstreams_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
         if include_column_lineage:
             return SnowflakeQuery.table_upstreams_with_column_lineage(
@@ -407,7 +411,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def copy_lineage_history(
         start_time_millis: int,
         end_time_millis: int,
-        downstreams_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
+        downstreams_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
         temp_table_filter = create_deny_regex_sql_filter(
             downstreams_deny_pattern,
@@ -450,7 +454,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         include_top_n_queries: bool,
         email_domain: Optional[str],
         email_filter: AllowDenyPattern,
-        table_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
+        table_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0
@@ -667,6 +671,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             upstreams_deny_pattern,
             ["upstream_table_name", "upstream_column_table_name"],
         )
+        _MAX_UPSTREAMS_PER_DOWNSTREAM = 20
+        _MAX_UPSTREAM_COLUMNS_PER_DOWNSTREAM = 400
+        _MAX_QUERIES_PER_DOWNSTREAM = 30
 
         return f"""
         WITH column_lineage_history AS (
@@ -682,12 +689,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (
-                    SELECT * from snowflake.account_usage.access_history
-                    WHERE
-                        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-                        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                ) t,
+                snowflake.account_usage.access_history t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w,
                 lateral flatten(input => w.value : "columns", outer => true) wcols,
@@ -783,30 +785,32 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                     AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
             ) query_history
             on qid.query_id = query_history.query_id
+            WHERE qid.query_id is not null
+              AND query_history.query_text is not null
         )
         SELECT
             h.downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
             ANY_VALUE(h.downstream_table_domain) AS "DOWNSTREAM_TABLE_DOMAIN",
-            ARRAY_UNIQUE_AGG(
+            ARRAY_SLICE(ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
                     'upstream_object_name', h.upstream_table_name,
                     'upstream_object_domain', h.upstream_table_domain,
                     'query_id', h.query_id
                 )
-            ) AS "UPSTREAM_TABLES",
-            ARRAY_UNIQUE_AGG(
+            ), 0, {_MAX_UPSTREAMS_PER_DOWNSTREAM}) AS "UPSTREAM_TABLES",
+            ARRAY_SLICE(ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
-                'column_name', column_upstreams.downstream_column_name,
-                'upstreams', column_upstreams.upstreams
+                    'column_name', column_upstreams.downstream_column_name,
+                    'upstreams', column_upstreams.upstreams
                 )
-            ) AS "UPSTREAM_COLUMNS",
-            ARRAY_UNIQUE_AGG(
+            ), 0, {_MAX_UPSTREAM_COLUMNS_PER_DOWNSTREAM}) AS "UPSTREAM_COLUMNS",
+            ARRAY_SLICE(ARRAY_UNIQUE_AGG(
                 OBJECT_CONSTRUCT(
                     'query_id', q.query_id,
                     'query_text', q.query_text,
                     'start_time', q.start_time
                 )
-            ) as "QUERIES"
+            ), 0, {_MAX_QUERIES_PER_DOWNSTREAM}) as "QUERIES"
             FROM
                 table_upstream_jobs_unique h
             LEFT JOIN column_upstreams column_upstreams
@@ -847,12 +851,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                (
-                    SELECT * from snowflake.account_usage.access_history
-                    WHERE
-                        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-                        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                ) t,
+                snowflake.account_usage.access_history t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w
             WHERE

@@ -280,11 +280,11 @@ public class DatahubJob {
                     for (Urn downstream :
                         Objects.requireNonNull(fineGrainedLineage.getDownstreams())) {
                       upstreamLineagePatchBuilder.addFineGrainedUpstreamField(
-                          downstream,
+                          upstream,
                           fineGrainedLineage.getConfidenceScore(),
                           StringUtils.defaultIfEmpty(
                               fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
-                          upstream,
+                          downstream,
                           null);
                     }
                   }

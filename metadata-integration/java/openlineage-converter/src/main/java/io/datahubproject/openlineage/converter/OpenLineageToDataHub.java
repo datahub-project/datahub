@@ -4,6 +4,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
+import com.linkedin.common.FabricType;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -57,6 +58,8 @@ import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
 import io.datahubproject.openlineage.dataset.HdfsPlatform;
+import io.datahubproject.openlineage.dataset.PathSpec;
+import io.datahubproject.openlineage.utils.DatahubUtils;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientUtils;
 import java.io.IOException;
@@ -151,6 +154,11 @@ public class OpenLineageToDataHub {
   private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
       String namespace, String datasetName, DatahubOpenlineageConfig mappingConfig) {
     String platform;
+    if (mappingConfig.isLowerCaseDatasetUrns()) {
+      namespace = namespace.toLowerCase();
+      datasetName = datasetName.toLowerCase();
+    }
+
     if (namespace.contains(SCHEME_SEPARATOR)) {
       try {
         URI datasetUri;
@@ -183,12 +191,45 @@ public class OpenLineageToDataHub {
       platform = namespace;
     }
 
-    if (mappingConfig.getCommonDatasetPlatformInstance() != null) {
-      datasetName = mappingConfig.getCommonDatasetPlatformInstance() + "." + datasetName;
-    }
+    String platformInstance = getPlatformInstance(mappingConfig, platform);
+    FabricType env = getEnv(mappingConfig, platform);
+    return Optional.of(DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env));
+  }
 
-    return Optional.of(
-        new DatasetUrn(new DataPlatformUrn(platform), datasetName, mappingConfig.getFabricType()));
+  private static FabricType getEnv(DatahubOpenlineageConfig mappingConfig, String platform) {
+    FabricType fabricType = mappingConfig.getFabricType();
+    if (mappingConfig.getPathSpecs() != null
+        && mappingConfig.getPathSpecs().containsKey(platform)) {
+      List<PathSpec> path_specs = mappingConfig.getPathSpecs().get(platform);
+      for (PathSpec pathSpec : path_specs) {
+        if (pathSpec.getEnv().isPresent()) {
+          try {
+            fabricType = FabricType.valueOf(pathSpec.getEnv().get());
+            return fabricType;
+          } catch (IllegalArgumentException e) {
+            log.warn("Invalid environment value: {}", pathSpec.getEnv());
+          }
+        }
+      }
+    }
+    return fabricType;
+  }
+
+  private static String getPlatformInstance(
+      DatahubOpenlineageConfig mappingConfig, String platform) {
+    // Use the platform instance from the path spec if it is present otherwise use the one from the
+    // commonDatasetPlatformInstance
+    String platformInstance = mappingConfig.getCommonDatasetPlatformInstance();
+    if (mappingConfig.getPathSpecs() != null
+        && mappingConfig.getPathSpecs().containsKey(platform)) {
+      List<PathSpec> path_specs = mappingConfig.getPathSpecs().get(platform);
+      for (PathSpec pathSpec : path_specs) {
+        if (pathSpec.getPlatformInstance().isPresent()) {
+          return pathSpec.getPlatformInstance().get();
+        }
+      }
+    }
+    return platformInstance;
   }
 
   public static GlobalTags generateTags(List<String> tags) {
