@@ -111,6 +111,7 @@ class BigQueryTestConnection:
                     dataset_name=result[0].name,
                     tables={},
                     with_data_read_permission=config.have_table_data_read_permission,
+                    report=BigQueryV2Report(),
                 )
                 if len(list(tables)) == 0:
                     return CapabilityReport(

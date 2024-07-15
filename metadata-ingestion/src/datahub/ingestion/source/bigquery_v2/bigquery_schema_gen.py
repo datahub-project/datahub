@@ -2,7 +2,6 @@ import concurrent.futures
 import logging
 import queue
 import re
-import traceback
 from collections import defaultdict
 from typing import Callable, Dict, Iterable, List, Optional, Set, Type, Union, cast
 
@@ -286,30 +285,45 @@ class BigQueryProjectSchemaGenerator:
                 self.bigquery_data_dictionary.get_datasets_for_project_id(project_id)
             )
         except Exception as e:
-            error_message = f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
-            if self.config.is_profiling_enabled():
-                error_message = f"Unable to get datasets for project {project_id}, skipping. Does your service account has bigquery.datasets.get permission? The error was: {e}"
-            logger.error(error_message)
-            self.report.report_failure(
-                "metadata-extraction",
-                f"{project_id} - {error_message}",
+
+            if (
+                self.config.project_id or self.config.project_ids
+            ) and "not enabled BigQuery." in str(e):
+                action_mesage = (
+                    "The project has not enabled BigQuery API. "
+                    "Did you mistype project id in recipe ?"
+                )
+            else:
+                action_mesage = (
+                    "Does your service account have `bigquery.datasets.get` permission ? "
+                    "Assign predefined role `roles/bigquery.metadataViewer` to your service account."
+                )
+
+            self.report.failure(
+                title="Unable to get datasets for project",
+                message=action_mesage,
+                context=project_id,
+                exc=e,
             )
             return None
 
         if len(bigquery_project.datasets) == 0:
-            more_info = (
-                "Either there are no datasets in this project or missing bigquery.datasets.get permission. "
+            action_message = (
+                "Either there are no datasets in this project or missing `bigquery.datasets.get` permission. "
                 "You can assign predefined roles/bigquery.metadataViewer role to your service account."
             )
             if self.config.exclude_empty_projects:
                 self.report.report_dropped(project_id)
-                warning_message = f"Excluded project '{project_id}' since no were datasets found. {more_info}"
+                logger.info(
+                    f"Excluded project '{project_id}' since no datasets were found. {action_message}"
+                )
             else:
                 yield from self.gen_project_id_containers(project_id)
-                warning_message = (
-                    f"No datasets found in project '{project_id}'. {more_info}"
+                self.report.warning(
+                    title="No datasets found in project",
+                    message=action_message,
+                    context=project_id,
                 )
-            logger.warning(warning_message)
             return
 
         yield from self.gen_project_id_containers(project_id)
@@ -355,15 +369,16 @@ class BigQueryProjectSchemaGenerator:
                 ):
                     q.put(wu)
             except Exception as e:
-                error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission? The error was: {e}"
                 if self.config.is_profiling_enabled():
-                    error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission? The error was: {e}"
-                trace = traceback.format_exc()
-                logger.error(trace)
-                logger.error(error_message, exc_info=e)
-                self.report.report_failure(
-                    "metadata-extraction",
-                    f"{project_id}.{bigquery_dataset.name} - {error_message} - {trace}",
+                    action_mesage = "Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
+                else:
+                    action_mesage = "Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
+
+                self.report.failure(
+                    title="Unable to get tables for dataset",
+                    message=action_mesage,
+                    context=f"{project_id}.{bigquery_dataset.name}",
+                    exc=e,
                 )
 
         with concurrent.futures.ThreadPoolExecutor(
@@ -607,7 +622,7 @@ class BigQueryProjectSchemaGenerator:
         view.column_count = len(columns)
         if not view.column_count:
             logger.warning(
-                f"View doesn't have any column or unable to get columns for table: {table_identifier}"
+                f"View doesn't have any column or unable to get columns for view: {table_identifier}"
             )
 
         yield from self.gen_view_dataset_workunits(
@@ -640,7 +655,7 @@ class BigQueryProjectSchemaGenerator:
         snapshot.column_count = len(columns)
         if not snapshot.column_count:
             logger.warning(
-                f"Snapshot doesn't have any column or unable to get columns for table: {table_identifier}"
+                f"Snapshot doesn't have any column or unable to get columns for snapshot: {table_identifier}"
             )
 
         if self.store_table_refs:
@@ -1006,6 +1021,7 @@ class BigQueryProjectSchemaGenerator:
                         dataset_name,
                         items_to_get,
                         with_data_read_permission=self.config.have_table_data_read_permission,
+                        report=self.report,
                     )
                     items_to_get.clear()
 
@@ -1015,6 +1031,7 @@ class BigQueryProjectSchemaGenerator:
                     dataset_name,
                     items_to_get,
                     with_data_read_permission=self.config.have_table_data_read_permission,
+                    report=self.report,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(

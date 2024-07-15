@@ -97,7 +97,6 @@ class BigQueryV2Report(
     num_usage_parsed_log_entries: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
-    usage_error_count: Dict[str, int] = field(default_factory=int_top_k_dict)
 
     num_usage_resources_dropped: int = 0
     num_usage_operations_dropped: int = 0

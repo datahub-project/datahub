@@ -237,7 +237,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_schema_metadata:
             for project in projects:
-
                 yield from self.bq_schema_extractor.get_project_workunits(project)
 
         if self.config.include_usage_statistics:
@@ -268,15 +267,25 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return list(self._query_project_list())
 
     def _query_project_list(self) -> Iterable[BigqueryProject]:
-        projects = self.bigquery_data_dictionary.get_projects()
-        if not projects:  # Report failure on exception and if empty list is returned
-            self.report.report_failure(
-                "metadata-extraction",
-                "Get projects didn't return any project. "
-                "Maybe resourcemanager.projects.get permission is missing for the service account. "
+        try:
+            projects = self.bigquery_data_dictionary.get_projects()
+
+            if (
+                not projects
+            ):  # Report failure on exception and if empty list is returned
+                self.report.failure(
+                    title="Get projects didn't return any project. ",
+                    message="Maybe resourcemanager.projects.get permission is missing for the service account. "
+                    "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+                )
+        except Exception as e:
+            self.report.failure(
+                title="Failed to get BigQuery Projects",
+                message="Maybe resourcemanager.projects.get permission is missing for the service account. "
                 "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+                exc=e,
             )
-            return
+            projects = []
 
         for project in projects:
             if self.config.project_id_pattern.allowed(project.id):
