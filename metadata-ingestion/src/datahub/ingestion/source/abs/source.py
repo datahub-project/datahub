@@ -573,7 +573,7 @@ class ABSSource(StatefulIngestionSourceBase):
                         dir_to_process = dir_to_process.rstrip("\\")
                         for obj in container_client.list_blobs(
                             name_starts_with=f"{dir_to_process}",
-                            results_per_page=PAGE_SIZE,
+                            results_per_page=PAGE_SIZE
                         ):
                             abs_path = self.create_abs_path(obj.name)
                             logger.debug(f"Sampling file: {abs_path}")

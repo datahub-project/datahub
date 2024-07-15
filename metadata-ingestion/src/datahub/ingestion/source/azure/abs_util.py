@@ -256,7 +256,7 @@ def list_folders(
 
     this_dict = {}
     for blob in blob_list:
-        blob_name = blob.name[: blob.name.rfind("/") + 1]
+        blob_name = blob.name[:blob.name.rfind("/") + 1]
         folder_structure_arr = blob_name.split("/")
 
         folder_name = ""
