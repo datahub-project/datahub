@@ -171,9 +171,9 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             config, self.data_dictionary, self.report
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
-        self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
-            snowsight_url_builder
-        )
+        self.snowsight_url_builder: Optional[
+            SnowsightUrlBuilder
+        ] = snowsight_url_builder
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
@@ -228,9 +228,9 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             )
             return None
         else:
-            ischema_databases: List[SnowflakeDatabase] = (
-                self.get_databases_from_ischema(databases)
-            )
+            ischema_databases: List[
+                SnowflakeDatabase
+            ] = self.get_databases_from_ischema(databases)
 
             if len(ischema_databases) == 0:
                 self.report_error(

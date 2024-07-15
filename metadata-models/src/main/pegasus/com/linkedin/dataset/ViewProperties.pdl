@@ -23,7 +23,7 @@ record ViewProperties {
   /**
    * The view logic
    */
-  viewLogic: string
+  viewLogic: optional string
 
   /**
    * The formatted view logic. This is particularly used for SQL sources, where the SQL
