@@ -1,4 +1,5 @@
 import concurrent.futures
+import contextlib
 import queue
 from typing import Any, Callable, Generator, Iterable, Tuple, TypeVar
 
@@ -38,10 +39,8 @@ class ThreadedIteratorExecutor:
                     while not out_q.empty():
                         yield out_q.get_nowait()
                 else:
-                    try:
+                    with contextlib.suppress(queue.Empty):
                         yield out_q.get(timeout=0.2)
-                    except queue.Empty:
-                        pass
 
                 # Filter out the done futures.
                 futures = [f for f in futures if not f.done()]

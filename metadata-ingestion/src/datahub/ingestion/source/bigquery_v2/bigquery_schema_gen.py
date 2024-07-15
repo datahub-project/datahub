@@ -893,10 +893,10 @@ class BigQuerySchemaGenerator:
                         if (
                             re.sub(
                                 r"\[.*?\]\.",
-                                "",
-                                field.fieldPath.lower(),
-                                0,
-                                re.MULTILINE,
+                                repl="",
+                                string=field.fieldPath.lower(),
+                                count=0,
+                                flags=re.MULTILINE,
                             )
                             == col.field_path.lower()
                         ):
@@ -990,7 +990,7 @@ class BigQuerySchemaGenerator:
             )
 
             items_to_get: Dict[str, TableListItem] = {}
-            for table_item in table_items.keys():
+            for table_item in table_items:
                 items_to_get[table_item] = table_items[table_item]
                 if len(items_to_get) % max_batch_size == 0:
                     yield from self.bigquery_data_dictionary.get_tables_for_dataset(
