@@ -183,6 +183,9 @@ A writer can provide a header with the expected `version` when initiating the re
 match the actual `version` stored in the database, the write will fail. This prevents overwriting an aspect that has
 been modified by another process.
 
+Note: If the aspect doesn't exist yet, then the `version` is `-1`. A writer can use this `version` to only create
+an aspect if it doesn't. Also see _Change Types: [`CREATE`, `CREATE_ENTITY`]_ section below.
+
 #### If-Modified-Since / If-Unmodified-Since
 
 A writer may also specify time-based conditions using http header semantics. Similar to version based conditional writes
@@ -194,3 +197,12 @@ A writer can specify that the aspect must NOT have been modified after a specifi
 
 `If-Modified-Since`
 A writer can specify that the aspect must have been modified after a specific time, following [If-Modified-Since](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Modified-Since) http headers.
+
+#### Change Types: [`CREATE`, `CREATE_ENTITY`]
+
+Another form of conditional writes which considers the existence of an aspect or entity uses the following Change Types.
+
+`CREATE` - Create the aspect if it doesn't already exist.
+
+`CREATE_ENTITY` - Create the aspect if no aspects exist for the entity.
+

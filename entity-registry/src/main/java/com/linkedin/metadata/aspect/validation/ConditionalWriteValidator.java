@@ -42,7 +42,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Accessors(chain = true)
 public class ConditionalWriteValidator extends AspectPayloadValidator {
-  public static final String DEFAULT_ASPECT_VERSION = "1";
+  public static final String UNVERSIONED_ASPECT_VERSION = "-1";
   public static final long DEFAULT_LAST_MODIFIED_TIME = Long.MIN_VALUE;
   public static final String HTTP_HEADER_IF_VERSION_MATCH = "If-Version-Match";
   public static final Set<ChangeType> CREATE_CHANGE_TYPES =
@@ -130,7 +130,7 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
     switch (item.getChangeType()) {
       case CREATE:
       case CREATE_ENTITY:
-        actualAspectVersion = DEFAULT_ASPECT_VERSION;
+        actualAspectVersion = UNVERSIONED_ASPECT_VERSION;
         break;
       default:
         actualAspectVersion =
@@ -143,7 +143,7 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
                         return String.valueOf(Math.max(1, prevSystemAspect.getVersion()));
                       }
                     })
-                .orElse(DEFAULT_ASPECT_VERSION);
+                .orElse(UNVERSIONED_ASPECT_VERSION);
         break;
     }
 

@@ -45,6 +45,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -187,12 +188,12 @@ public class EntityController
   @Override
   protected List<GenericEntityV2> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
-      Map<Urn, Map<String, Long>> urnAspectVersions,
+      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
       boolean withSystemMetadata)
       throws URISyntaxException {
     Map<Urn, List<EnvelopedAspect>> aspects =
         entityService.getEnvelopedVersionedAspects(
-            opContext, resolveAspectNames(urnAspectVersions), true);
+            opContext, resolveAspectNames(urnAspectVersions, 0L), true);
 
     return urnAspectVersions.keySet().stream()
         .map(

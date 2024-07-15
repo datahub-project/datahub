@@ -59,7 +59,6 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -118,7 +117,8 @@ public abstract class GenericEntitiesController<
       Set<String> aspectNames,
       boolean withSystemMetadata)
       throws URISyntaxException {
-    Map<Urn, Map<String, Long>> versionMap =
+
+    LinkedHashMap<Urn, Map<String, Long>> versionMap =
         resolveAspectNames(
             urns.stream()
                 .map(
@@ -128,13 +128,21 @@ public abstract class GenericEntitiesController<
                             aspectNames.stream()
                                 .map(aspectName -> Map.entry(aspectName, 0L))
                                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (a, b) -> {
+                          throw new IllegalStateException("Duplicate key");
+                        },
+                        LinkedHashMap::new)),
+            0L);
     return buildEntityVersionedAspectList(opContext, versionMap, withSystemMetadata);
   }
 
   protected abstract List<E> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
-      Map<Urn, Map<String, Long>> urnAspectVersions,
+      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
       boolean withSystemMetadata)
       throws URISyntaxException;
 
@@ -335,7 +343,9 @@ public abstract class GenericEntitiesController<
     } else {
       resultList =
           buildEntityVersionedAspectList(
-              opContext, Map.of(urn, Map.of(aspectName, version)), withSystemMetadata);
+              opContext,
+              new LinkedHashMap<>(Map.of(urn, Map.of(aspectName, version))),
+              withSystemMetadata);
     }
 
     return resultList.stream()
@@ -642,47 +652,54 @@ public abstract class GenericEntitiesController<
    * @return updated map
    * @param <T> map values
    */
-  protected <T> Map<Urn, Map<String, T>> resolveAspectNames(
-      Map<Urn, Map<String, T>> requestedAspectNames) {
+  protected <T> LinkedHashMap<Urn, Map<String, T>> resolveAspectNames(
+      LinkedHashMap<Urn, Map<String, T>> requestedAspectNames, @Nonnull T defaultValue) {
     return requestedAspectNames.entrySet().stream()
         .map(
             entry -> {
               final Urn urn = entry.getKey();
-              final Set<String> requestedNames;
-              if (entry.getValue().isEmpty()) {
-                requestedNames =
+              if (entry.getValue().isEmpty() || entry.getValue().containsKey("")) {
+                // All aspects specified
+                Set<String> allNames =
                     entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpecs().stream()
                         .map(AspectSpec::getName)
                         .collect(Collectors.toSet());
+                return Map.entry(
+                    urn,
+                    allNames.stream()
+                        .map(
+                            aspectName ->
+                                Map.entry(
+                                    aspectName, entry.getValue().getOrDefault("", defaultValue)))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
               } else {
-                // add key aspect
-                requestedNames =
-                    Stream.concat(
-                            entry.getValue().keySet().stream(),
-                            Stream.of(
-                                entityRegistry
-                                    .getEntitySpec(urn.getEntityType())
-                                    .getKeyAspectName()))
-                        .collect(Collectors.toSet());
+                final Map<String, String> normalizedNames =
+                    entry.getValue().keySet().stream()
+                        .map(
+                            requestAspectName ->
+                                Map.entry(
+                                    requestAspectName,
+                                    lookupAspectSpec(urn, requestAspectName).getName()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                return Map.entry(
+                    urn,
+                    entry.getValue().entrySet().stream()
+                        .filter(reqEntry -> normalizedNames.containsKey(reqEntry.getKey()))
+                        .map(
+                            reqEntry ->
+                                Map.entry(
+                                    normalizedNames.get(reqEntry.getKey()), reqEntry.getValue()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
               }
-              final Map<String, String> normalizedNames =
-                  requestedNames.stream()
-                      .map(
-                          requestAspectName ->
-                              Map.entry(
-                                  requestAspectName,
-                                  lookupAspectSpec(urn, requestAspectName).getName()))
-                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-              return Map.entry(
-                  urn,
-                  entry.getValue().entrySet().stream()
-                      .map(
-                          reqEntry ->
-                              Map.entry(
-                                  normalizedNames.get(reqEntry.getKey()), reqEntry.getValue()))
-                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
             })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (a, b) -> {
+                  throw new IllegalStateException("Duplicate key");
+                },
+                LinkedHashMap::new));
   }
 
   protected Map<String, Pair<RecordTemplate, SystemMetadata>> toAspectMap(
