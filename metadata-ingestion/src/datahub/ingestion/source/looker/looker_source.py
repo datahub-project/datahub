@@ -625,41 +625,33 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if include_current_folder:
             yield BrowsePathEntryClass(id=urn, urn=urn)
 
-    def _add_platform_instance_aspect(
+    def _create_platform_instance_aspect(
         self,
-        urn: str,
-        proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
-    ) -> None:
-        if self.source_config.include_looker_element_in_platform_instance:
+    ) -> DataPlatformInstance:
 
-            assert self.source_config.platform_name
-            assert self.source_config.platform_instance
+        assert self.source_config.platform_name
+        assert self.source_config.platform_instance
 
-            proposals.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=urn,
-                    aspect=DataPlatformInstance(
-                        platform=builder.make_data_platform_urn(
-                            self.source_config.platform_name
-                        ),
-                        instance=builder.make_dataplatform_instance_urn(
-                            platform=self.source_config.platform_name,
-                            instance=self.source_config.platform_instance,
-                        ),
-                    ),
-                ),
-            )
+        return DataPlatformInstance(
+            platform=builder.make_data_platform_urn(self.source_config.platform_name),
+            instance=builder.make_dataplatform_instance_urn(
+                platform=self.source_config.platform_name,
+                instance=self.source_config.platform_instance,
+            ),
+        )
 
     def _make_chart_urn(self, element_id: str) -> str:
-        urn_params: dict = {
-            "name": element_id,
-            "platform": self.source_config.platform_name,
-        }
 
-        if self.source_config.include_looker_element_in_platform_instance:
-            urn_params["platform_instance"] = self.source_config.platform_instance
+        platform_instance: Optional[str] = None
 
-        return builder.make_chart_urn(**urn_params)
+        if self.source_config.include_platform_instance_in_urns:
+            platform_instance = self.source_config.platform_instance
+
+        return builder.make_chart_urn(
+            name=element_id,
+            platform=self.source_config.platform_name,
+            platform_instance=platform_instance,
+        )
 
     def _make_chart_metadata_events(
         self,
@@ -749,7 +741,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             ),
         ]
 
-        self._add_platform_instance_aspect(urn=chart_urn, proposals=proposals)
+        if self.source_config.include_platform_instance_in_urns:
+            proposals.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=self._create_platform_instance_aspect(),
+                ),
+            )
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
@@ -856,7 +854,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 )
             )
 
-        self._add_platform_instance_aspect(urn=dashboard_urn, proposals=proposals)
+        if self.source_config.include_platform_instance_in_urns:
+            proposals.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=self._create_platform_instance_aspect(),
+                )
+            )
 
         return proposals
 
@@ -866,7 +870,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             "platform": self.source_config.platform_name,
         }
 
-        if self.source_config.include_looker_element_in_platform_instance:
+        if self.source_config.include_platform_instance_in_urns:
             urn_params["platform_instance"] = self.source_config.platform_instance
 
         return builder.make_dashboard_urn(**urn_params)

@@ -293,7 +293,7 @@ class LookerDashboardSourceConfig(
         True,
         description="When enabled, only explores that are used by a Dashboard/Look will be ingested.",
     )
-    include_looker_element_in_platform_instance: bool = Field(
+    include_platform_instance_in_urns: bool = Field(
         False,
         description="When enabled, platform instance will be added in dashboard and chart urn.",
     )
