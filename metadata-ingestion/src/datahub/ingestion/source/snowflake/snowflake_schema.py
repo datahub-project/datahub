@@ -329,7 +329,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
         return tables
 
     @serialized_lru_cache(maxsize=1)
-    def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
+    def get_views_for_database(
+        self, db_name: str, include_view_definitions: bool
+    ) -> Dict[str, List[SnowflakeView]]:
         page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
@@ -362,7 +364,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SupportsAsObj):
                         created=view["created_on"],
                         # last_altered=table["last_altered"],
                         comment=view["comment"],
-                        view_definition=view["text"],
+                        view_definition=(
+                            view["text"] if include_view_definitions else None
+                        ),
                         last_altered=view["created_on"],
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"

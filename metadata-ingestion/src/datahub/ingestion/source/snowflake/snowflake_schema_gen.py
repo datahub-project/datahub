@@ -1009,7 +1009,9 @@ class SnowflakeSchemaGenerator(
     def get_views_for_schema(
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
-        views = self.data_dictionary.get_views_for_database(db_name)
+        views = self.data_dictionary.get_views_for_database(
+            db_name, self.config.include_view_definitions
+        )
 
         # Some schema may not have any table
         return views.get(schema_name, [])
