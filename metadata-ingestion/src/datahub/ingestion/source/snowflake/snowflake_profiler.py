@@ -164,7 +164,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         schema_name = self.database_default_schema.get(db_name)
 
         def get_db_connection():
-            conn = self.config.get_connection()
+            conn = self.config.get_native_connection()
             conn.cursor().execute(SnowflakeQuery.use_database(db_name))
 
             # As mentioned here - https://docs.snowflake.com/en/sql-reference/sql/use-database#usage-notes

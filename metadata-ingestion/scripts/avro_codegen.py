@@ -580,7 +580,7 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
     init_coercion = ""
     init_validation = ""
     for field in fields:
-        init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{field_name(field)} cannot be empty")\n'
+        init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{class_name} {field_name(field)} cannot be empty")\n'
 
         # Generalized mechanism for validating embedded urns.
         field_urn_type_class = None
@@ -600,7 +600,8 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
             )
         else:
             init_validation += (
-                f"assert not UrnEncoder.contains_reserved_char({field_name(field)})\n"
+                f"if UrnEncoder.contains_reserved_char({field_name(field)}):\n"
+                f"    raise InvalidUrnError(f'{class_name} {field_name(field)} contains reserved characters')\n"
             )
 
         if field_name(field) == "env":

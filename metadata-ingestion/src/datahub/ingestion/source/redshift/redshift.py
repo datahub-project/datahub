@@ -800,11 +800,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             lastModified=(
                 TimeStamp(time=int(table.last_altered.timestamp() * 1000))
                 if table.last_altered
-                else (
-                    TimeStamp(time=int(table.created.timestamp() * 1000))
-                    if table.created
-                    else None
-                )
+                else None
             ),
             description=table.comment,
             qualifiedName=str(datahub_dataset_name),

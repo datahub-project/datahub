@@ -70,12 +70,16 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 @Slf4j
+@Accessors(chain = true)
 public class EntityApiDelegateImpl<I, O, S> {
   private final OperationContext systemOperationContext;
   private final EntityRegistry _entityRegistry;
@@ -86,7 +90,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final Class<I> _reqClazz;
   private final Class<O> _respClazz;
   private final Class<S> _scrollRespClazz;
-  private final HttpServletRequest request;
+  @Setter @Getter private HttpServletRequest request;
 
   private static final String BUSINESS_ATTRIBUTE_ERROR_MESSAGE =
       "business attribute is disabled, enable it using featureflag : BUSINESS_ATTRIBUTE_ENTITY_ENABLED";
