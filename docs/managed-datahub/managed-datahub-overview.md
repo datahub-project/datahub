@@ -54,12 +54,12 @@ know.
 | Create data contracts | ✅ | ✅ |
 | Build and enforce continuous data SLAs | ❌ | ✅ |
 | Continuously monitor dataset health and schema | ❌ | ✅ |
-| Create alerts and get data observability notifications | ❌ | ✅ |
-| Data Incident management | ❌ | ✅ |
-| Quick-actions within Slack for Incident alerts | ❌ | ✅ |
-| Birds eye view data health dashboard | ❌ | ✅ |
-| Pipeline circuit-breaking via on-demand quality evaluation APIs | ❌ | ✅ |
-| In-VPC execution of data quality checks | ❌ | ✅ |
+| Evaluate data quality checks on-demand (API and UI) | ❌ | ✅ |
+| Setup alerts and get data observability notifications | ❌ | ✅ |
+| Track and Manage Data Incidents from detection to resolution | ❌ | ✅ |
+| Act on Incident alerts directly from within Slack | ❌ | ✅ |
+| See the bigger picture through the Data Health Dashboard | ❌ | ✅ |
+| Run data quality checks in your VPC | ❌ | ✅ |
 
 
 ## Enterprise Grade
