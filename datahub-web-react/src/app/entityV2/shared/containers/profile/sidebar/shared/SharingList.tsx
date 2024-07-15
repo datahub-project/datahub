@@ -1,5 +1,4 @@
 import React from 'react';
-import moment from 'moment-timezone';
 import { Tooltip } from 'antd';
 import { ExclamationCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
@@ -16,7 +15,7 @@ import { REDESIGN_COLORS } from '../../../../constants';
 import ShareIcon from '../../../../../../../images/share-icon-custom.svg?react';
 import SharedLineageIcon from './SharedLineageIcon';
 import useShareResultsPolling from './useShareResultsPolling';
-import { getShareResultStatus } from './utils';
+import { getRelativeTimeColor, getShareResultStatus } from './utils';
 import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
 
 const StyledShareIcon = styled(ShareIcon)`
@@ -105,7 +104,6 @@ const SharingList = ({ resultsList }: Props) => {
                 const hasSharedLineage =
                     result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
                 const lastSuccessTime = result.lastSuccess?.time || 0;
-                const isRecentlyUpdated = moment(lastSuccessTime).isAfter(moment().subtract(1, 'week'));
                 const unshareResult = entityData?.share?.lastUnshareResults?.find(
                     (r) =>
                         r.destination?.urn === result.destination?.urn &&
@@ -181,7 +179,7 @@ const SharingList = ({ resultsList }: Props) => {
                             <UpdatedRow>
                                 <LabelText>Date Updated: </LabelText>
                                 <ContentText>{toLocalDateString(lastSuccessTime)}</ContentText>
-                                <RelativeTime isRecentlyUpdated={isRecentlyUpdated}>
+                                <RelativeTime relativeTimeColor={getRelativeTimeColor(lastSuccessTime)}>
                                     {toRelativeTimeString(lastSuccessTime)}
                                 </RelativeTime>
                             </UpdatedRow>

@@ -12,7 +12,7 @@ export SHORT_SHA=$(get_short_sha)
 echo "SHORT_SHA: $SHORT_SHA"
 
 function get_tag {
-    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${MAIN_BRANCH_TAG},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g'),${SHORT_SHA}
+    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${MAIN_BRANCH_TAG},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
 }
 
 function get_tag_slim {

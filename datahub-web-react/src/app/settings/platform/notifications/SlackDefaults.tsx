@@ -3,8 +3,10 @@ import styled from 'styled-components';
 import { Typography, Form, Input, Button, Space, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useUserContext } from '@src/app/context/useUserContext';
+import { SLACK_CONNECTION_URN } from '../slack/constants';
 
 const InputDiv = styled.div`
     width: 360px;
@@ -53,7 +55,8 @@ interface Props {
 }
 
 export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botToken }: Props) => {
-    const [editing, setEditing] = useState<boolean>(isSlackEnabled);
+    const hasChannel = !!channel;
+    const [editing, setEditing] = useState<boolean>(isSlackEnabled && !hasChannel);
     const [inputValue, setInputValue] = useState<string | undefined>(channel);
     const [isChannelUpdated, setIsChannelUpdated] = useState<boolean>(false);
     const me = useUserContext();
@@ -61,8 +64,8 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
     const unsupportedSinkDescription = `In order to enable, ask your DataHub admin to setup the Slack integration.`;
 
     useEffect(() => {
-        setEditing(isSlackEnabled);
-    }, [channel, isSlackEnabled]);
+        setEditing(isSlackEnabled && !hasChannel);
+    }, [hasChannel, isSlackEnabled]);
 
     useEffect(() => {
         setInputValue(channel);
@@ -136,6 +139,14 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
                     </Space>
                 )}
             </InputDiv>
+            <TestNotificationButton
+                hidden={!isSlackEnabled || editing}
+                integration="slack"
+                connectionUrn={SLACK_CONNECTION_URN}
+                destinationSettings={{
+                    channels: [inputValue ?? ''],
+                }}
+            />
             {!botToken &&
                 (isAdminAccess ? (
                     <MessageDiv>

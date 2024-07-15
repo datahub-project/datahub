@@ -28,6 +28,7 @@ import { RecommendedFilters } from './recommendation/RecommendedFilters';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { PreviewType } from '../entity/Entity';
 import { useSearchContext } from '../search/context/SearchContext';
+import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -220,7 +221,11 @@ export const SearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-    const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const combinedSiblingSearchResults = combineSiblingsInSearchResults(
+        showSeparateSiblings,
+        searchResponse?.searchResults,
+    );
     // For vertical sidebar
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
     const { isFullViewCard, setIsFullViewCard } = useSearchContext();

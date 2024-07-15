@@ -5,7 +5,12 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
 import { useProposeUpdateDescriptionMutation } from '../../../../../../../../graphql/proposals.generated';
-import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
+import {
+    EditableSchemaFieldInfo,
+    EntityType,
+    SchemaField,
+    SubResourceType,
+} from '../../../../../../../../types.generated';
 import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
 import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
@@ -55,6 +60,12 @@ const DescriptionWrapper = styled.div`
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
+}
+
+const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
+
+export function getShouldShowProposeButton(entityType: EntityType) {
+    return PROPOSAL_ENTITY_TYPES.includes(entityType);
 }
 
 export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
@@ -112,6 +123,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
         editableFieldInfo,
         defaultDescription: description,
     });
+    const shouldShowProposeButton = getShouldShowProposeButton(entityType);
 
     return (
         <>
@@ -162,6 +174,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                             .catch(onFailMutation);
                         setIsModalVisible(false);
                     }}
+                    showPropose={shouldShowProposeButton}
                     onPropose={(updatedDescription) => {
                         message.loading({ content: 'Updating...' });
                         proposeUpdateDescription(generateMutationVariables(updatedDescription))

@@ -5,6 +5,7 @@ import React from 'react';
 import styled from 'styled-components';
 import ImageWithColoredBackground, { Icon } from './ImageWIthColoredBackground';
 import { ANTD_GRAY } from '../entityV2/shared/constants';
+import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
 const LogoIcon = styled.span`
     display: flex;
@@ -45,6 +46,9 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
         backgroundSize = 32,
     } = props;
 
+    const shouldShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const showSiblingPlatformLogos = !shouldShowSeparateSiblings && !!platformLogoUrls;
+
     const renderLogoIcon = () => {
         if (icon) {
             // Render only the provided icon
@@ -56,8 +60,8 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
             <>
                 {platformName && (
                     <LogoIcon>
-                        {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
-                        {!!platformLogoUrl && !platformLogoUrls && (
+                        {!platformLogoUrl && !showSiblingPlatformLogos && entityLogoComponent}
+                        {!!platformLogoUrl && !showSiblingPlatformLogos && (
                             <ImageWithColoredBackground
                                 src={platformLogoUrl}
                                 alt={platformName || ''}
@@ -66,7 +70,7 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                                 imgSize={imgSize}
                             />
                         )}
-                        {!!platformLogoUrls &&
+                        {!!showSiblingPlatformLogos &&
                             [...new Set(platformLogoUrls)]
                                 .slice(0, 2)
                                 .map((url, idx) => (
