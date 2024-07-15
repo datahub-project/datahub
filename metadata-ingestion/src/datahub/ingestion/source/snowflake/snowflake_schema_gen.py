@@ -756,7 +756,7 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
                 viewLogic=(
                     table.view_definition
                     if self.config.include_view_definitions
-                    else None
+                    else ""
                 ),
             )
 
