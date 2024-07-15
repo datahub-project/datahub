@@ -163,9 +163,9 @@ looker_common = {
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.4",
-    "sql-metadata==2.2.2",
-    *sqllineage_lib,
+    *sqlglot_lib,
     "GitPython>2",
+    "python-liquid",
 }
 
 bigquery_common = {
@@ -410,6 +410,7 @@ plugins: Dict[str, Set[str]] = {
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-summary": snowflake_common | usage_common | sqlglot_lib,
+    "snowflake-queries": snowflake_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
@@ -512,7 +513,7 @@ base_dev_requirements = {
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
-    "mypy==1.0.0",
+    "mypy==1.10.1",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
@@ -662,6 +663,7 @@ entry_points = {
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
+        "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
