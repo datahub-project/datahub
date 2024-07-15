@@ -51,4 +51,8 @@ record MetadataChangeProposal {
    **/
   systemMetadata: optional SystemMetadata
 
+  /**
+  * Headers - intended to mimic http headers
+  */
+  headers: optional map[string, string]
 }

@@ -126,7 +126,7 @@ public abstract class GenericEntitiesController<
       boolean withSystemMetadata);
 
   protected abstract AspectsBatch toMCPBatch(
-      @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
+      @Nonnull OperationContext opContext, String entityArrayList, Actor actor, boolean validate)
       throws JsonProcessingException, InvalidUrnException;
 
   @Tag(name = "Generic Entities", description = "API for interacting with generic entities.")
@@ -391,7 +391,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
+    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor(), validate);
     Set<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -655,13 +655,14 @@ public abstract class GenericEntitiesController<
    *
    * @return
    */
+  @Nullable
   protected static AspectSpec lookupAspectSpec(EntitySpec entitySpec, String aspectName) {
     return entitySpec.getAspectSpec(aspectName) != null
         ? entitySpec.getAspectSpec(aspectName)
         : entitySpec.getAspectSpecs().stream()
             .filter(aspec -> aspec.getName().toLowerCase().equals(aspectName))
             .findFirst()
-            .get();
+            .orElse(null);
   }
 
   protected static Urn validatedUrn(String urn) throws InvalidUrnException {

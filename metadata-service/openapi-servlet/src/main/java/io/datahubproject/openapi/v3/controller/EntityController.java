@@ -15,11 +15,13 @@ import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -151,7 +153,7 @@ public class EntityController
 
   @Override
   protected AspectsBatch toMCPBatch(
-      @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
+      @Nonnull OperationContext opContext, String entityArrayList, Actor actor, boolean validate)
       throws JsonProcessingException, InvalidUrnException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
 
@@ -200,6 +202,20 @@ public class EntityController
                             aspectSpec));
 
             items.add(builder.build(opContext.getRetrieverContext().get().getAspectRetriever()));
+          } else if (!validate) {
+            ProposedItem.ProposedItemBuilder builder =
+                ProposedItem.builder()
+                    .urn(entityUrn)
+                    .aspectSpec(null)
+                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
+                    .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+                    .recordTemplate(GenericRecordUtils.serializeAspect(aspect.getValue()))
+                    .entitySpec(
+                        opContext
+                            .getAspectRetriever()
+                            .getEntityRegistry()
+                            .getEntitySpec(entityUrn.getEntityType()));
+            items.add(builder.build());
           }
         }
       }

@@ -116,15 +116,18 @@ public class AspectsBatchImpl implements AspectsBatch {
           mcps.stream()
               .map(
                   mcp -> {
+                    if (!validate) {
+                      return ProposedItem.ProposedItemBuilder.build(
+                          mcp, auditStamp, retrieverContext.getAspectRetriever());
+                    }
                     if (mcp.getChangeType().equals(ChangeType.PATCH)) {
                       return PatchItemImpl.PatchItemImplBuilder.build(
                           mcp,
                           auditStamp,
-                          retrieverContext.getAspectRetriever().getEntityRegistry(),
-                          validate);
+                          retrieverContext.getAspectRetriever().getEntityRegistry());
                     } else {
                       return ChangeItemImpl.ChangeItemImplBuilder.build(
-                          mcp, auditStamp, retrieverContext.getAspectRetriever(), validate);
+                          mcp, auditStamp, retrieverContext.getAspectRetriever());
                     }
                   })
               .collect(Collectors.toList()));
