@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
 import com.linkedin.datahub.graphql.generated.RelationshipsInput;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetcher;
@@ -29,8 +30,16 @@ public class EntityRelationshipsResultResolver
 
   private final GraphClient _graphClient;
 
+  private final EntityService _entityService;
+
   public EntityRelationshipsResultResolver(final GraphClient graphClient) {
+    this(graphClient, null);
+  }
+
+  public EntityRelationshipsResultResolver(
+      final GraphClient graphClient, final EntityService entityService) {
     _graphClient = graphClient;
+    _entityService = entityService;
   }
 
   @Override
@@ -47,13 +56,16 @@ public class EntityRelationshipsResultResolver
     final Integer count = input.getCount(); // Optional!
     final RelationshipDirection resolvedDirection =
         RelationshipDirection.valueOf(relationshipDirection.toString());
+    final boolean includeSoftDelete = input.getIncludeSoftDelete();
+
     return GraphQLConcurrencyUtils.supplyAsync(
         () ->
             mapEntityRelationships(
                 context,
                 fetchEntityRelationships(
                     urn, relationshipTypes, resolvedDirection, start, count, context.getActorUrn()),
-                resolvedDirection),
+                resolvedDirection,
+                includeSoftDelete),
         this.getClass().getSimpleName(),
         "get");
   }
@@ -72,11 +84,19 @@ public class EntityRelationshipsResultResolver
   private EntityRelationshipsResult mapEntityRelationships(
       @Nullable final QueryContext context,
       final EntityRelationships entityRelationships,
-      final RelationshipDirection relationshipDirection) {
+      final RelationshipDirection relationshipDirection,
+      final boolean includeSoftDelete) {
     final EntityRelationshipsResult result = new EntityRelationshipsResult();
 
     List<EntityRelationship> viewable =
         entityRelationships.getRelationships().stream()
+            .filter(
+                rel ->
+                    context == null
+                        || _entityService == null
+                        || includeSoftDelete
+                        || _entityService.exists(
+                            context.getOperationContext(), rel.getEntity(), false))
             .filter(
                 rel -> context == null || canView(context.getOperationContext(), rel.getEntity()))
             .collect(Collectors.toList());
