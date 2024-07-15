@@ -1022,15 +1022,18 @@ class TableauSiteSource:
                     else:
                         other_errors.append(error)
 
-                self.report.warning(
-                    message=f"Received error fetching Query Connection {connection_type}",
-                    context=f"Errors: {other_errors}",
-                )
+                if other_errors:
+                    self.report.warning(
+                        message=f"Received error fetching Query Connection {connection_type}",
+                        context=f"Errors: {other_errors}",
+                    )
 
                 if permission_mode_errors:
                     self.report.warning(
                         title="Derived Permission Error",
-                        message="Please check derived permissions as shared at https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error",
+                        message="Turn on your derived permissions. See for details "
+                        "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the"
+                        "-permissionsmodeswitched-error",
                         context=f"{permission_mode_errors}",
                     )
 
