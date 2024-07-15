@@ -33,7 +33,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
-    BigQueryProjectSchemaGenerator,
+    BigQuerySchemaGenerator,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
@@ -891,7 +891,7 @@ def test_get_views_for_dataset(
 
 
 @patch.object(
-    BigQueryProjectSchemaGenerator, "gen_dataset_workunits", lambda *args, **kwargs: []
+    BigQuerySchemaGenerator, "gen_dataset_workunits", lambda *args, **kwargs: []
 )
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_gen_view_dataset_workunits(

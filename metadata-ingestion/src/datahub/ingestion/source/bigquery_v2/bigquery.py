@@ -32,7 +32,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQuerySchemaApi,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
-    BigQueryProjectSchemaGenerator,
+    BigQuerySchemaGenerator,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_test_connection import (
     BigQueryTestConnection,
@@ -171,7 +171,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config, self.report, self.profiling_state_handler
         )
 
-        self.bq_schema_extractor = BigQueryProjectSchemaGenerator(
+        self.bq_schema_extractor = BigQuerySchemaGenerator(
             self.config,
             self.report,
             self.bigquery_data_dictionary,

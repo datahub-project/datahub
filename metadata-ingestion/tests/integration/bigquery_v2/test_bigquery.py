@@ -19,7 +19,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
-    BigQueryProjectSchemaGenerator,
+    BigQuerySchemaGenerator,
 )
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
@@ -41,7 +41,7 @@ def random_email():
 
 @freeze_time(FROZEN_TIME)
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
-@patch.object(BigQueryProjectSchemaGenerator, "get_core_table_details")
+@patch.object(BigQuerySchemaGenerator, "get_core_table_details")
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
 @patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
 @patch.object(BigQueryDataReader, "get_sample_data_for_table")

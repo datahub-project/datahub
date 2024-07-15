@@ -32,7 +32,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
-    SCHEMA_PARALLELISM,
     BigqueryColumn,
     BigqueryDataset,
     BigqueryProject,
@@ -107,7 +106,7 @@ SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 CLUSTERING_COLUMN_TAG = "CLUSTERING_COLUMN"
 
 
-class BigQueryProjectSchemaGenerator:
+class BigQuerySchemaGenerator:
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
     # Note: We use the hive schema parser to parse nested BigQuery types. We also have
     # some extra type mappings in that file.
@@ -382,7 +381,7 @@ class BigQueryProjectSchemaGenerator:
                 )
 
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=SCHEMA_PARALLELISM
+            max_workers=self.config.max_threads_dataset_parallelism
         ) as executor:
             futures = []
             for bq_dataset in bigquery_project.datasets:

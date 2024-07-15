@@ -24,6 +24,8 @@ from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredent
 
 logger = logging.getLogger(__name__)
 
+SCHEMA_PARALLELISM = int(os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20))
+
 
 class BigQueryUsageConfig(BaseUsageConfig):
     _query_log_delay_removed = pydantic_removed_field("query_log_delay")
@@ -311,6 +313,12 @@ class BigQueryV2Config(
         default=100,
         description="The number of tables to process in a batch when resolving schema from DataHub.",
         hidden_from_schema=True,
+    )
+
+    max_threads_dataset_parallelism: int = Field(
+        default=SCHEMA_PARALLELISM,
+        description="Number of worker threads to use to parallelize BigQuery Dataset Metadata Extraction."
+        " Set to 1 to disable.",
     )
 
     @root_validator(skip_on_failure=True)

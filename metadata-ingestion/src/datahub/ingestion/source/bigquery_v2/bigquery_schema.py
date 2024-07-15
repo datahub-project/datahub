@@ -1,5 +1,4 @@
 import logging
-import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -29,7 +28,6 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
-SCHEMA_PARALLELISM = int(os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20))
 
 
 @dataclass
