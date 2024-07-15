@@ -63,7 +63,12 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
     getGraphName = () => 'schemaField';
 
     renderPreview = (previewType: PreviewType, data: SchemaField) => (
-        <Preview previewType={previewType} datasetUrn={data.parent.urn} name={data.fieldPath} />
+        <Preview
+            previewType={previewType}
+            datasetUrn={data.parent.urn}
+            name={downgradeV2FieldPath(data.fieldPath) || data.urn}
+            parent={data?.parent as GenericEntityProperties}
+        />
     );
 
     renderSearch = (result: SearchResult) => this.renderPreview(PreviewType.SEARCH, result.entity as SchemaField);

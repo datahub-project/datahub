@@ -1,5 +1,7 @@
 import React from 'react';
 import { PicCenterOutlined } from '@ant-design/icons';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
 import { EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -11,12 +13,14 @@ export const Preview = ({
     description,
     owners,
     previewType,
+    parent,
 }: {
     datasetUrn: string;
     name: string;
     description?: string | null;
     owners?: Array<Owner> | null;
     previewType: PreviewType;
+    parent?: GenericEntityProperties;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -27,6 +31,8 @@ export const Preview = ({
     return (
         <DefaultPreviewCard
             entityType={EntityType.SchemaField}
+            platform={parent?.platform?.properties?.displayName || capitalizeFirstLetterOnly(parent?.platform?.name)}
+            logoUrl={parent?.platform?.properties?.logoUrl || ''}
             previewType={previewType}
             url={url}
             name={name ?? ''}
