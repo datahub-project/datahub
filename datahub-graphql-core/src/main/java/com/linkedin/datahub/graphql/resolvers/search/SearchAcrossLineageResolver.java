@@ -111,7 +111,8 @@ public class SearchAcrossLineageResolver
     @Nullable
     Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
-    Long endTimeMillis = getEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
+    Long endTimeMillis =
+        SearchUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
 
     final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
     if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
@@ -197,19 +198,5 @@ public class SearchAcrossLineageResolver
         },
         this.getClass().getSimpleName(),
         "get");
-  }
-
-  /**
-   * Simply resolves the end time filter for the search across lineage query. If the start time is
-   * provided, but end time is not provided, we will default to the current time.
-   */
-  private Long getEndTimeMillis(@Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
-    if (endTimeMillis != null) {
-      return endTimeMillis;
-    }
-    if (startTimeMillis != null) {
-      return System.currentTimeMillis();
-    }
-    return null;
   }
 }
