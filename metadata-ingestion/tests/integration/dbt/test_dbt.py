@@ -216,6 +216,12 @@ class DbtTestConfig:
             run_results_files=["sample_dbt_run_results_2.json"],
             source_config_modifiers={},
         ),
+        DbtTestConfig(
+            "dbt-reformat_compiled_code_disabled",
+            "dbt_test_with_reformat_compiled_code_disabled.json",
+            "dbt_test_with_reformat_compiled_code_disabled_golden.json",
+            source_config_modifiers={"reformat_compiled_code": False},
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )

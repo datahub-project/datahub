@@ -365,6 +365,11 @@ class DBTCommonConfig(
         description="When enabled, includes the compiled code in the emitted metadata.",
     )
 
+    reformat_compiled_code: bool = Field(
+        default=True,
+        description="When enabled, compiled code will be reformatted before being included in the emitted metadata. Otherwise, the value is taken straight from the manifest.",
+    )
+
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
         if target_platform.lower() == DBT_PLATFORM:
@@ -1530,9 +1535,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         compiled_code = None
         if self.config.include_compiled_code and node.compiled_code:
-            compiled_code = try_format_query(
-                node.compiled_code, platform=self.config.target_platform
-            )
+            if self.config.reformat_compiled_code:
+                compiled_code = try_format_query(
+                    node.compiled_code, platform=self.config.target_platform
+                )
+            else:
+                compiled_code = node.compiled_code.strip("\n")
 
         materialized = node.materialization in {"table", "incremental", "snapshot"}
         view_properties = ViewPropertiesClass(
