@@ -22,7 +22,7 @@ The following steps should be performed by a Slack Workspace Admin.
 [screenshot here]
 8. Enter your channel in, and click **'Send a test notification'**
 
-TODO: now proceed to Subscriptoins and notifications to see how you can subscribe to different things on dh
+Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to individual entities.
 
 <!-- NOTE: we are hiding this method for now. If a need arises, we can uncomment below docs.
 # Bot Token Method (Not recommended)
@@ -129,10 +129,14 @@ By default, the Slack app will be able to send notifications to public channels.
 
 ## How to find User ID in Slack
 
-- Go to user DM
-- Click on their profile picture
-- Click on View Full Profile
-- Click on “More”
-- Click on “Copy member ID”
+**Your User ID**
+1. Click your profile picture, then select **'Profile'**
+[screenshot here]
+2. Now hit the **'...'** and select **'Copy member ID'**
+[screenshot here]
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_user_id.png)
+**Someone else's User ID**
+1. Click their profile picture in the slack message
+[screenshot here]
+2. Now hit the **'...'** and select **'Copy member ID'**
+[screenshot here]
