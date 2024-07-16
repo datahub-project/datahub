@@ -30,9 +30,13 @@ record FormPrompt {
      */
     STRUCTURED_PROPERTY
     /**
-     * This prompt is meant to apply a structured property to a schema fields entity
+     * This prompt is meant to apply a structured property to a schema field entity
      */
     FIELDS_STRUCTURED_PROPERTY
+    /**
+     * This prompt is meant to apply ownership to an entity
+     */
+    OWNERSHIP
   }
 
   /**
@@ -44,6 +48,17 @@ record FormPrompt {
      * The structured property that is required on this entity
      */
     urn: Urn
+  }
+
+  /**
+   * An optional set of information specific to ownership prompts.
+   * This should be filled out if the prompt is type OWNERSHIP.
+   */
+  ownershipParams: optional record OwnershipParams {
+    /**
+     * Whether one or multiple owners are accepted as a response.
+     */
+    cardinality: PromptCardinality
   }
 
   /**

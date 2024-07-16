@@ -22,6 +22,8 @@ describe("entity subscription test", () => {
           // Modify the response body directly
           res.body.data.appConfig.featureFlags.subscriptionsEnabled = isOn;
           res.body.data.appConfig.featureFlags.emailNotificationsEnabled = isOn;
+          res.body.data.appConfig.featureFlags.slackBotTokensConfigEnabled =
+            isOn;
           res.body.data.appConfig.featureFlags.themeV2Enabled = true;
           res.body.data.appConfig.featureFlags.themeV2Default = true;
         });

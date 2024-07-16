@@ -12,6 +12,7 @@ import { useSubmitFormPromptMutation } from '../../../../../graphql/form.generat
 import { useEntityContext, useMutationUrn } from '../../EntityContext';
 import analytics, { EventType, DocRequestView } from '../../../../analytics';
 import useColumnSelector from './useColumnSelector';
+import OwnershipPrompt from './OwnershipPrompt/OwnershipPrompt';
 
 export const PromptWrapper = styled.div`
     background-color: white;
@@ -103,6 +104,14 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn }: P
                     field={field}
                     optimisticCompletedTimestamp={optimisticCompletedTimestamp}
                     columnSelectorProps={columnSelectorProps}
+                />
+            )}
+            {prompt.type === FormPromptType.Ownership && (
+                <OwnershipPrompt
+                    promptNumber={promptNumber}
+                    prompt={prompt}
+                    submitResponse={handleSubmitResponse}
+                    optimisticCompletedTimestamp={optimisticCompletedTimestamp}
                 />
             )}
         </PromptWrapper>

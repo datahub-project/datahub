@@ -184,6 +184,15 @@ export function getNumEntityPromptsRemaining(entityPrompts: FormPrompt[], entity
 }
 
 // Get prompts from both complete and incomplete forms
+export function getPromptAssociation(entityData: GenericEntityProperties | null, promptId: string) {
+    let prompts = entityData?.forms?.incompleteForms?.flatMap((form) => form.completedPrompts) || [];
+    prompts = prompts.concat(entityData?.forms?.incompleteForms?.flatMap((form) => form.incompletePrompts) || []);
+    prompts = prompts.concat(entityData?.forms?.completedForms?.flatMap((form) => form.completedPrompts) || []);
+    prompts = prompts.concat(entityData?.forms?.completedForms?.flatMap((form) => form.incompletePrompts) || []);
+    return prompts.find((p) => p?.id === promptId);
+}
+
+// Get prompts from both complete and incomplete forms
 export function getAllPrompts(entityData: GenericEntityProperties | null) {
     let prompts = entityData?.forms?.incompleteForms?.flatMap((form) => form.form.info.prompts) || [];
     prompts = prompts.concat(entityData?.forms?.completedForms?.flatMap((form) => form.form.info.prompts) || []);

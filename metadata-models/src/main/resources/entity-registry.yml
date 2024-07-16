@@ -547,6 +547,7 @@ entities:
       - schemaFieldProfile
       - documentation
       - lineageFeatures
+      - status
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -802,6 +803,21 @@ plugins:
           aspectName: propertyDefinition
         - entityName: structuredProperty
           aspectName: structuredPropertyKey
+    - className: 'com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect'
+      packageScan:
+        - 'com.linkedin.metadata.schemafields.sideeffects'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
+        - UPSERT
+        - RESTATE
+        - DELETE
+      supportedEntityAspectNames:
+        - entityName: dataset
+          aspectName: status
+        - entityName: dataset
+          aspectName: schemaMetadata
   mutationHooks:
     - className: 'com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete'
       packageScan:

@@ -12,6 +12,7 @@ import VerificationCTA from './VerificationCTA';
 import { FORM_ANSWER_IN_BULK_ID } from '../../../../onboarding/config/FormOnboardingConfig';
 import { pluralize } from '../../../../shared/textUtil';
 import analytics, { EventType, DocRequestView } from '../../../../analytics';
+import OwnershipPrompt from '../prompts/OwnershipPrompt/OwnershipPrompt';
 
 const FormPromptsWrapper = styled(BulkNavigationWrapper)`
     justify-content: space-between;
@@ -96,6 +97,14 @@ export default function PromptNavigation() {
         <FormPromptsWrapper id={FORM_ANSWER_IN_BULK_ID}>
             {prompt?.type === FormPromptType.StructuredProperty && (
                 <StructuredPropertyPrompt
+                    key={promptIndex}
+                    promptNumber={promptIndex + 1}
+                    prompt={prompt}
+                    submitResponse={submitResponse}
+                />
+            )}
+            {prompt?.type === FormPromptType.Ownership && (
+                <OwnershipPrompt
                     key={promptIndex}
                     promptNumber={promptIndex + 1}
                     prompt={prompt}

@@ -41,9 +41,8 @@ slack_bot_scopes = [
     "mpim:history",
     "mpim:read",
     "metadata.message:read",
-    # TODO: Should we add channels:join?
-    # If we add that, then we can set the app to automatically join all public channels.
-    # However, that would send a message to the channel when the app joins, which is not ideal.
+    # Allows the bot to join a public channel when someone configures notifications to be sent to one
+    "channels:join",
     # Required to unfurl links.
     "links:read",
     "links:write",

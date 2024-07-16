@@ -103,6 +103,11 @@ type FormPromptAssociation {
     Optional information about the field-level prompt associations.
     """
     fieldAssociations: FormPromptFieldAssociations
+
+    """
+    Optional record of what was actually submitted when a user responds to a form prompt.
+    """
+    response: FormPromptResponse
 }
 
 """
@@ -120,6 +125,52 @@ type FormPromptFieldAssociations {
     incompleteFieldPrompts: [FieldFormPromptAssociation!]
 }
 
+
+"""
+Record of what was actually submitted when a user responds to a form prompt.
+"""
+type FormPromptResponse {
+    """
+    Response for a structured property type prompt
+    """
+    structuredPropertyResponse: StructuredPropertyPromptResponse
+
+    """
+    Response for an ownership type prompt
+    """
+    ownershipResponse: OwnershipPromptResponse
+}
+
+"""
+Response for a structured property type prompt
+"""
+type StructuredPropertyPromptResponse {
+    """
+    Which property was applied from this prompt response
+    """
+    propertyUrn: String!
+
+    """
+    Which values for the given property were applied from this prompt response
+    """
+    values: [PropertyValue!]!
+}
+
+"""
+Response for an ownership type prompt
+"""
+type OwnershipPromptResponse {
+    """
+    The owners associated with this prompt response
+    """
+    owners: [Entity!]!
+
+    """
+    The type of ownership applied from this prompt response
+    """
+    ownershipTypeUrn: String!
+}
+
 """
 An association for field-level form prompts
 """
@@ -133,6 +184,11 @@ type FieldFormPromptAssociation {
     When and by whom this form field-level prompt has last been modified
     """
     lastModified: ResolvedAuditStamp!
+
+    """
+    Optional record of what was actually submitted when a user responds to a form prompt for this field.
+    """
+    response: FormPromptResponse
 }
 
 """
@@ -248,6 +304,11 @@ type FormPrompt {
     The params for this prompt if type is STRUCTURED_PROPERTY
     """
     structuredPropertyParams: StructuredPropertyParams
+
+    """
+    The params for this prompt if type is OWNERSHIP
+    """
+    ownershipParams: OwnershipParams
 }
 
 """
@@ -262,6 +323,10 @@ enum FormPromptType {
     A schema field-level structured property form prompt type.
     """
     FIELDS_STRUCTURED_PROPERTY
+    """
+    This prompt is meant to apply ownership to an entity
+    """
+    OWNERSHIP
 }
 
 """
@@ -272,6 +337,30 @@ type StructuredPropertyParams {
     The structured property required for the prompt on this entity
     """
     structuredProperty: StructuredPropertyEntity!
+}
+
+"""
+Params for an ownership type prompt
+"""
+type OwnershipParams {
+    """
+    The structured property required for the prompt on this entity
+    """
+    cardinality: PromptCardinality!
+}
+
+"""
+The cardinality of the prompt.
+"""
+enum PromptCardinality {
+    """
+    The prompt accepts a singular value as a response
+    """
+    SINGLE
+    """
+    The prompt accepts multiple values as a response
+    """
+    MULTIPLE
 }
 
 """
@@ -310,6 +399,11 @@ input SubmitFormPromptInput {
     The structured property required for the prompt on this entity
     """
     structuredPropertyParams: StructuredPropertyInputParams
+
+    """
+    Input params for an ownership type prompt
+    """
+    ownershipParams: OwnershipInputParams
 }
 
 
@@ -341,6 +435,21 @@ input StructuredPropertyInputParams {
     The list of values you want to apply on this structured property to an entity
     """
     values: [PropertyValueInput!]!
+}
+
+"""
+Input params for an ownership type prompt
+"""
+input OwnershipInputParams {
+    """
+    The list of owner urns you are applying to the asset
+    """
+    owners: [String!]!
+
+    """
+    The ownership type urn being applied to these owners
+    """
+    ownershipTypeUrn: String!
 }
 
 """

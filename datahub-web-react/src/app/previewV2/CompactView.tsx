@@ -108,6 +108,7 @@ interface Props {
     parentContainers?: ParentContainersResult | null;
     contentRef: React.RefObject<HTMLDivElement>;
     browsePaths?: BrowsePathV2 | undefined;
+    parentEntity?: GenericEntityProperties | null;
 }
 
 export const CompactView = ({
@@ -140,6 +141,7 @@ export const CompactView = ({
     parentContainers,
     contentRef,
     browsePaths,
+    parentEntity,
 }: Props) => {
     return (
         <>
@@ -195,6 +197,7 @@ export const CompactView = ({
                                 entityType={entityType}
                                 browsePaths={browsePaths}
                                 type={finalType}
+                                parentEntity={parentEntity}
                                 isCompactView
                             />
                         )}
