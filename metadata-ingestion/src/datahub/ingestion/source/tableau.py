@@ -1015,7 +1015,7 @@ class TableauSiteSource:
                 for error in errors:
                     if (
                         error.get("extensions")
-                        and errors["extensions"].get("code")
+                        and error["extensions"].get("code")
                         == "PERMISSIONS_MODE_SWITCHED"
                     ):
                         permission_mode_errors.append(error)
