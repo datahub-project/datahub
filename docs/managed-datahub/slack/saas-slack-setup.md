@@ -8,7 +8,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 
 ### Video Walkthrough
-<div style="position: relative; padding-bottom: 64.67065868263472%; height: 0;"><iframe src="https://www.loom.com/embed/af6fcfd435cf4993b79a0c8e13aecaaa?sid=93f2a66b-1362-4809-996b-5abb399f82dd" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
+<div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/af6fcfd435cf4993b79a0c8e13aecaaa?sid=93f2a66b-1362-4809-996b-5abb399f82dd" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
 ### Step-by-step guide
 The following steps should be performed by a Slack Workspace Admin. 
