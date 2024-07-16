@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import logging
 from abc import ABCMeta, abstractmethod
@@ -10,6 +11,7 @@ from typing import (
     Dict,
     Generic,
     Iterable,
+    Iterator,
     List,
     Optional,
     Sequence,
@@ -288,6 +290,24 @@ class SourceReport(Report):
         self._structured_logs.report_log(
             StructuredLogLevel.INFO, message, title, context, exc, log=log
         )
+
+    @contextlib.contextmanager
+    def report_exc(
+        self,
+        message: LiteralString,
+        title: Optional[LiteralString] = None,
+        context: Optional[str] = None,
+        level: StructuredLogLevel = StructuredLogLevel.ERROR,
+    ) -> Iterator[None]:
+        # Convenience method that helps avoid boilerplate try/except blocks.
+        # TODO: I'm not super happy with the naming here - it's not obvious that this
+        # suppresses the exception in addition to reporting it.
+        try:
+            yield
+        except Exception as exc:
+            self._structured_logs.report_log(
+                level, message=message, title=title, context=context, exc=exc
+            )
 
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()

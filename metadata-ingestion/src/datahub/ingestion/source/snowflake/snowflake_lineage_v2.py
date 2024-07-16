@@ -333,7 +333,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         try:
             for db_row in self.connection.query(query):
                 known_lineage_mapping = self._process_external_lineage_result_row(
-                    db_row, discovered_tables
+                    db_row, discovered_tables, identifiers=self.identifiers
                 )
                 if known_lineage_mapping:
                     self.report.num_external_table_edges_scanned += 1

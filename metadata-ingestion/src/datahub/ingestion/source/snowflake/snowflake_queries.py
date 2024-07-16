@@ -205,6 +205,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
 
             shared_connection = ConnectionWrapper(audit_log_file)
             queries = FileBackedList(shared_connection)
+            entry: Union[KnownLineageMapping, PreparsedQuery]
 
             with self.report.copy_history_fetch_timer:
                 for entry in self.fetch_copy_history():
@@ -232,7 +233,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
             downstreams_deny_pattern=self.config.temporary_tables_pattern,
         )
 
-        try:
+        with self.structured_reporter.report_exc(
+            "Error fetching copy history from Snowflake"
+        ):
             logger.info("Fetching copy history from Snowflake")
             resp = self.connection.query(query)
 
@@ -254,11 +257,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                 else:
                     if result:
                         yield result
-        except Exception as e:
-            self.structured_reporter.failure(
-                "Error fetching copy history from Snowflake",
-                exc=e,
-            )
 
     def fetch_query_log(
         self,
@@ -270,24 +268,27 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
             deny_usernames=self.config.deny_usernames,
         )
 
-        logger.info("Fetching query log from Snowflake")
-        resp = self.connection.query(query_log_query)
+        with self.structured_reporter.report_exc(
+            "Error fetching query log from Snowflake"
+        ):
+            logger.info("Fetching query log from Snowflake")
+            resp = self.connection.query(query_log_query)
 
-        for i, row in enumerate(resp):
-            if i % 1000 == 0:
-                logger.info(f"Processed {i} query log rows")
+            for i, row in enumerate(resp):
+                if i % 1000 == 0:
+                    logger.info(f"Processed {i} query log rows")
 
-            assert isinstance(row, dict)
-            try:
-                entry = self._parse_audit_log_row(row)
-            except Exception as e:
-                self.structured_reporter.warning(
-                    "Error parsing query log row",
-                    context=f"{row}",
-                    exc=e,
-                )
-            else:
-                yield entry
+                assert isinstance(row, dict)
+                try:
+                    entry = self._parse_audit_log_row(row)
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        "Error parsing query log row",
+                        context=f"{row}",
+                        exc=e,
+                    )
+                else:
+                    yield entry
 
     def _parse_audit_log_row(self, row: Dict[str, Any]) -> PreparsedQuery:
         json_fields = {
