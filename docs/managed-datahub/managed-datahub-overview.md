@@ -52,7 +52,7 @@ know.
 | ---------------------------------------------- | ------- | ------------- |
 | Surface data quality results | ✅ | ✅ |
 | Create data contracts | ✅ | ✅ |
-| Track and Manage Data Incidents | ✅ | ✅ |
+| Raise and Resolve Data Incidents | ✅ | ✅ |
 | Monitor Freshness SLAs | ❌ | ✅ |
 | Monitor Table Schemas | ❌ | ✅ |
 | Monitor Table Volume | ❌ | ✅ |
