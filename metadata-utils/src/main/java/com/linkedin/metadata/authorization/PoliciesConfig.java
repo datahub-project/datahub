@@ -971,6 +971,38 @@ public class PoliciesConfig {
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
                       .build())
+              .put(
+                  // regular entity level permissions + MANAGE_ACCESS_TOKENS
+                  Constants.ACCESS_TOKEN_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(
+                              MANAGE_ACCESS_TOKENS, CREATE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              MANAGE_ACCESS_TOKENS,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              GET_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(MANAGE_ACCESS_TOKENS, EDIT_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(MANAGE_ACCESS_TOKENS, DELETE_ENTITY_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              MANAGE_ACCESS_TOKENS,
+                              EXISTS_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              SEARCH_PRIVILEGE))
+                      .build())
               .build();
 
   /**
