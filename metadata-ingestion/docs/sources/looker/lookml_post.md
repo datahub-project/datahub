@@ -1,7 +1,12 @@
 #### Configuration Notes
 
-1.  The sql parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`.
-2.  If a view contains a liquid template (e.g. `{{ user_attributes['whatever'] }}`), then you will need to specify the values of those variables in the `liquid_variable` config
+1.  If a view contains a liquid template (e.g. `sql_table_name: {{ user_attributes['db']}}.kafka_streaming.events, with db=ANALYTICS_PROD`), then you will need to specify the values of those variables in the `liquid_variable` config as shown below 
+    ```
+      liquid_variable:
+        user_attributes:
+          db: ANALYTICS_PROD
+
+    ```
 
 ### Multi-Project LookML (Advanced)
 
