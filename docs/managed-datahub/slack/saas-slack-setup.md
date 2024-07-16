@@ -9,18 +9,33 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 The following steps should be performed by a Slack Workspace Admin. 
 1. Navigate to https://api.slack.com/reference/manifests#config-tokens
 2. Under **Managing configuration tokens**, select **'Generate Token'**
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_1.png"/>
+</p>
 3. Select your workspace, then hit **'Generate'**
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_2.png"/>
+</p>
 4. Now you will see two tokens available for you to copy, an *Access Token* and a *Refresh Token*
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_3.png"/>
+</p>
 5. Navigate back to your DataHub [Slack Integration setup page](https://longtailcompanions.acryl.io/settings/integrations/slack), and paste the tokens into their respective boxes, and click **'Connect'**.
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_4.png"/>
+</p>
 6. You will be automatically re-directed to slack to confirm DataHub Slack App's permissions and complete the installation process:
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_5.png"/>
+</p>
 7. Congrats 🎉 Slack is setup! Now try it out by going to the **Platform Notifications** page
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_6.png"/>
+</p>
 8. Enter your channel in, and click **'Send a test notification'**
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_7.png"/>
+</p>
 
 Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-app) to see how you can use DataHub's powerful capabilities directly within slack.
 
@@ -114,9 +129,13 @@ By default, the Slack app will be able to send notifications to public channels.
 **Via Slack App:**
 1. Go to the Slack channel for which you want to get channel ID
 2. Click the channel name at the top
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/channel_id_1.png"/>
+</p>
 3. At the bottom of the modal that pops up, you will see the Channel ID as well as a button to copy it
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/channel_id_2.png"/>
+</p>
 
 **Via Web:**
 1. Go to the Slack channel for which you want to get channel ID
@@ -131,12 +150,20 @@ By default, the Slack app will be able to send notifications to public channels.
 
 **Your User ID**
 1. Click your profile picture, then select **'Profile'**
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/member_id_1.png"/>
+</p>
 2. Now hit the **'...'** and select **'Copy member ID'**
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/member_id_2.png"/>
+</p>
 
 **Someone else's User ID**
 1. Click their profile picture in the slack message
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/member_id_3.png"/>
+</p>
 2. Now hit the **'...'** and select **'Copy member ID'**
-[screenshot here]
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/member_id_4.png"/>
+</p>
