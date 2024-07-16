@@ -213,7 +213,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 yield from self._process_database(snowflake_db)
 
         except SnowflakePermissionError as e:
-            self.report_error(GENERIC_PERMISSION_ERROR_KEY, str(e))
+            self.structured_reporter.failure(
+                GENERIC_PERMISSION_ERROR_KEY,
+                exc=e,
+            )
             return
 
     def get_databases(self) -> Optional[List[SnowflakeDatabase]]:
@@ -222,10 +225,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             # whose information_schema can be queried to start with.
             databases = self.data_dictionary.show_databases()
         except Exception as e:
-            logger.debug(f"Failed to list databases due to error {e}", exc_info=e)
-            self.report_error(
-                "list-databases",
-                f"Failed to list databases due to error {e}",
+            self.structured_reporter.failure(
+                "Failed to list databases",
+                exc=e,
             )
             return None
         else:
@@ -234,7 +236,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             ] = self.get_databases_from_ischema(databases)
 
             if len(ischema_databases) == 0:
-                self.report_error(
+                self.structured_reporter.failure(
                     GENERIC_PERMISSION_ERROR_KEY,
                     "No databases found. Please check permissions.",
                 )
@@ -277,7 +279,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 # This may happen if REFERENCE_USAGE permissions are set
                 # We can not run show queries on database in such case.
                 # This need not be a failure case.
-                self.report_warning(
+                self.structured_reporter.warning(
                     "Insufficient privileges to operate on database, skipping. Please grant USAGE permissions on database to extract its metadata.",
                     db_name,
                 )
@@ -286,9 +288,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     f"Failed to use database {db_name} due to error {e}",
                     exc_info=e,
                 )
-                self.report_warning(
-                    "Failed to get schemas for database",
-                    db_name,
+                self.structured_reporter.warning(
+                    "Failed to get schemas for database", db_name, exc=e
                 )
             return
 
@@ -377,17 +378,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
                 raise SnowflakePermissionError(error_msg) from e.__cause__
             else:
-                logger.debug(
-                    f"Failed to get schemas for database {db_name} due to error {e}",
-                    exc_info=e,
-                )
-                self.report_warning(
+                self.structured_reporter.warning(
                     "Failed to get schemas for database",
                     db_name,
+                    exc=e,
                 )
 
         if not schemas:
-            self.report_warning(
+            self.structured_reporter.warning(
                 "No schemas found in database. If schemas exist, please grant USAGE permissions on them.",
                 db_name,
             )
@@ -493,13 +491,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
                 raise SnowflakePermissionError(error_msg) from e.__cause__
             else:
-                logger.debug(
-                    f"Failed to get views for schema {db_name}.{schema_name} due to error {e}",
-                    exc_info=e,
-                )
-                self.report_warning(
+                self.structured_reporter.warning(
                     "Failed to get views for schema",
                     f"{db_name}.{schema_name}",
+                    exc=e,
                 )
                 return []
 
@@ -527,13 +522,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 error_msg = f"Failed to get tables for schema {db_name}.{schema_name}. Please check permissions."
                 raise SnowflakePermissionError(error_msg) from e.__cause__
             else:
-                logger.debug(
-                    f"Failed to get tables for schema {db_name}.{schema_name} due to error {e}",
-                    exc_info=e,
-                )
-                self.report_warning(
+                self.structured_reporter.warning(
                     "Failed to get tables for schema",
                     f"{db_name}.{schema_name}",
+                    exc=e,
                 )
                 return []
 
@@ -566,11 +558,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     table.name, schema_name, db_name
                 )
         except Exception as e:
-            logger.debug(
-                f"Failed to get columns for table {table_identifier} due to error {e}",
-                exc_info=e,
+            self.structured_reporter.warning(
+                "Failed to get columns for table", table_identifier, exc=e
             )
-            self.report_warning("Failed to get columns for table", table_identifier)
 
         if self.config.extract_tags != TagOption.skip:
             table.tags = self.tag_extractor.get_tags_on_object(
@@ -603,11 +593,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 table.name, schema_name, db_name
             )
         except Exception as e:
-            logger.debug(
-                f"Failed to get foreign key for table {table_identifier} due to error {e}",
-                exc_info=e,
+            self.structured_reporter.warning(
+                "Failed to get foreign keys for table", table_identifier, exc=e
             )
-            self.report_warning("Failed to get foreign key for table", table_identifier)
 
     def fetch_pk_for_table(
         self,
@@ -621,11 +609,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 table.name, schema_name, db_name
             )
         except Exception as e:
-            logger.debug(
-                f"Failed to get primary key for table {table_identifier} due to error {e}",
-                exc_info=e,
+            self.structured_reporter.warning(
+                "Failed to get primary key for table", table_identifier, exc=e
             )
-            self.report_warning("Failed to get primary key for table", table_identifier)
 
     def _process_view(
         self,
@@ -647,11 +633,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     view.name, schema_name, db_name
                 )
         except Exception as e:
-            logger.debug(
-                f"Failed to get columns for view {view_name} due to error {e}",
-                exc_info=e,
+            self.structured_reporter.warning(
+                "Failed to get columns for view", view_name, exc=e
             )
-            self.report_warning("Failed to get columns for view", view_name)
 
         if self.config.extract_tags != TagOption.skip:
             view.tags = self.tag_extractor.get_tags_on_object(

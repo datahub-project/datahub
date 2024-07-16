@@ -343,7 +343,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 self.warn_if_stateful_else_error(LINEAGE_PERMISSION_ERROR, error_msg)
             else:
                 logger.debug(e, exc_info=e)
-                self.report_warning(
+                self.structured_reporter.warning(
                     "external_lineage",
                     f"Populating table external lineage from Snowflake failed due to error {e}.",
                 )
@@ -393,10 +393,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 error_msg = "Failed to get table/view to table lineage. Please grant imported privileges on SNOWFLAKE database. "
                 self.warn_if_stateful_else_error(LINEAGE_PERMISSION_ERROR, error_msg)
             else:
-                logger.debug(e, exc_info=e)
-                self.report_warning(
-                    "table-upstream-lineage",
-                    f"Extracting lineage from Snowflake failed due to error {e}.",
+                self.structured_reporter.warning(
+                    "Failed to extract table/view -> table lineage from Snowflake",
+                    exc=e,
                 )
             self.report_status(TABLE_LINEAGE, False)
 
@@ -407,9 +406,10 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             return UpstreamLineageEdge.parse_obj(db_row)
         except Exception as e:
             self.report.num_upstream_lineage_edge_parsing_failed += 1
-            self.report_warning(
-                f"Parsing lineage edge failed due to error {e}",
-                db_row.get("DOWNSTREAM_TABLE_NAME") or "",
+            self.structured_reporter.warning(
+                "Failed to parse lineage edge",
+                context=db_row.get("DOWNSTREAM_TABLE_NAME") or None,
+                exc=e,
             )
             return None
 

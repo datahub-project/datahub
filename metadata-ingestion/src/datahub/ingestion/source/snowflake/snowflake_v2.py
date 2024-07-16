@@ -489,7 +489,7 @@ class SnowflakeV2Source(
         ]
 
         if len(discovered_tables) == 0 and len(discovered_views) == 0:
-            self.report_error(
+            self.structured_reporter.failure(
                 GENERIC_PERMISSION_ERROR_KEY,
                 "No tables/views found. Please check permissions.",
             )
@@ -549,14 +549,14 @@ class SnowflakeV2Source(
 
     def report_warehouse_failure(self) -> None:
         if self.config.warehouse is not None:
-            self.report_error(
+            self.structured_reporter.failure(
                 GENERIC_PERMISSION_ERROR_KEY,
                 f"Current role does not have permissions to use warehouse {self.config.warehouse}. Please update permissions.",
             )
         else:
-            self.report_error(
-                "no-active-warehouse",
-                "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe.",
+            self.structured_reporter.failure(
+                "Could not use a Snowflake warehouse",
+                "No default warehouse set for user. Either set a default warehouse for the user or configure a warehouse in the recipe.",
             )
 
     def get_report(self) -> SourceReport:
@@ -587,19 +587,28 @@ class SnowflakeV2Source(
             for db_row in connection.query(SnowflakeQuery.current_version()):
                 self.report.saas_version = db_row["CURRENT_VERSION()"]
         except Exception as e:
-            self.report_error("version", f"Error: {e}")
+            self.structured_reporter.failure(
+                "Could not determine the current Snowflake version",
+                exc=e,
+            )
         try:
             logger.info("Checking current role")
             for db_row in connection.query(SnowflakeQuery.current_role()):
                 self.report.role = db_row["CURRENT_ROLE()"]
         except Exception as e:
-            self.report_error("version", f"Error: {e}")
+            self.structured_reporter.failure(
+                "Could not determine the current Snowflake role",
+                exc=e,
+            )
         try:
             logger.info("Checking current warehouse")
             for db_row in connection.query(SnowflakeQuery.current_warehouse()):
                 self.report.default_warehouse = db_row["CURRENT_WAREHOUSE()"]
         except Exception as e:
-            self.report_error("current_warehouse", f"Error: {e}")
+            self.structured_reporter.failure(
+                "Could not determine the current Snowflake warehouse",
+                exc=e,
+            )
 
         try:
             logger.info("Checking current edition")

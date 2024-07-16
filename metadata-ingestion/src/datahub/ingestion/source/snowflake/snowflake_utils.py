@@ -24,13 +24,6 @@ class SnowflakeStructuredReportMixin(abc.ABC):
     def structured_reporter(self) -> SourceReport:
         ...
 
-    # TODO: Eventually I want to deprecate these methods and use the structured_reporter directly.
-    def report_warning(self, key: str, reason: str) -> None:
-        self.structured_reporter.warning(key, reason)
-
-    def report_error(self, key: str, reason: str) -> None:
-        self.structured_reporter.failure(key, reason)
-
 
 class SnowsightUrlBuilder:
     CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX: ClassVar = [
@@ -290,11 +283,12 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint
     # for failures that do not affect the checkpoint
+    # TODO: Add additional parameters to match the signature of the .warning and .failure methods
     def warn_if_stateful_else_error(self, key: str, reason: str) -> None:
         if (
             self.config.stateful_ingestion is not None
             and self.config.stateful_ingestion.enabled
         ):
-            self.report_warning(key, reason)
+            self.structured_reporter.warning(key, reason)
         else:
-            self.report_error(key, reason)
+            self.structured_reporter.failure(key, reason)
