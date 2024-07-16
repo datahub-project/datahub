@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -88,17 +90,25 @@ public class EntityRelationshipsResultResolver
       final boolean includeSoftDelete) {
     final EntityRelationshipsResult result = new EntityRelationshipsResult();
 
+    Set<Urn> allRelatedUrns =
+        entityRelationships.getRelationships().stream()
+            .map(EntityRelationship::getEntity)
+            .collect(Collectors.toSet());
+
+    final Set<Urn> relevantUrns;
+    if (context != null && _entityService != null && !includeSoftDelete) {
+      relevantUrns = _entityService.exists(context.getOperationContext(), allRelatedUrns, false);
+    } else {
+      relevantUrns = allRelatedUrns;
+    }
+
     List<EntityRelationship> viewable =
         entityRelationships.getRelationships().stream()
             .filter(
                 rel ->
-                    context == null
-                        || _entityService == null
-                        || includeSoftDelete
-                        || _entityService.exists(
-                            context.getOperationContext(), rel.getEntity(), false))
-            .filter(
-                rel -> context == null || canView(context.getOperationContext(), rel.getEntity()))
+                    relevantUrns.contains(rel.getEntity())
+                        && (context == null
+                            || canView(context.getOperationContext(), rel.getEntity())))
             .collect(Collectors.toList());
 
     result.setStart(entityRelationships.getStart());
