@@ -138,5 +138,44 @@ def test_schema_evolution_field_dropped(field_path_style: FieldPathStyle):
         assert_schema_field_soft_deleted(graph, urn, removed_field_name)
 
 
+def test_soft_deleted_entity():
+    """
+    Test that we if there is a soft deleted dataset, its schema fields are
+    initialized with soft deleted status
+    1. Create a schema with 2 fields
+    """
+
+    now = int(time.time())
+
+    urn = make_dataset_urn("bigquery", f"my_dataset.my_table.{now}")
+    print(urn)
+    with get_default_graph() as graph:
+        schema_with_2_fields = _create_schema_with_fields(urn, 2)
+        field_names = [field.fieldPath for field in schema_with_2_fields.fields]
+        graph.emit(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=schema_with_2_fields,
+            )
+        )
+
+        for field_name in field_names:
+            print("Checking field: ", field_name)
+            assert_schema_field_exists(graph, urn, field_name)
+
+        # Soft delete the dataset
+        graph.emit(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=models.StatusClass(removed=True),
+            )
+        )
+
+        # Check that the fields are soft deleted
+        for field_name in field_names:
+            assert_schema_field_soft_deleted(graph, urn, field_name)
+
+
 if __name__ == "__main__":
     test_schema_evolution_field_dropped()
+    test_soft_deleted_entity()
