@@ -211,11 +211,6 @@ module.exports = {
         "docs/managed-datahub/welcome-acryl",
         {
           type: "doc",
-          id: "docs/managed-datahub/slack/saas-slack-setup",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
           id: "docs/managed-datahub/approval-workflows",
           className: "saasOnly",
         },
