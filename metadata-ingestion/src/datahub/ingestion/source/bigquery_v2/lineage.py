@@ -1,6 +1,7 @@
 import collections
 import itertools
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import (
@@ -47,6 +48,7 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
     bigquery_audit_metadata_query_template_lineage,
 )
+from datahub.ingestion.source.gcs import gcs_utils
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
@@ -962,3 +964,77 @@ class BigqueryLineageExtractor:
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
+
+    def gen_lineage_workunits_with_gcs(
+        self,
+        gcs_parser_schema_resolver: SchemaResolver,
+        dataset_urn: str,
+        source_uris: List[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        urns = gcs_parser_schema_resolver.get_urns()
+        if not urns:
+            return
+
+        upstreams_list = []
+        for source_uri in source_uris:
+            # Check that storage_location have the gs:// prefix.
+            # Right now we are only supporting GCS lineage
+            if not gcs_utils.is_gcs_uri(source_uri):
+                continue
+            regex = self.pattern_to_regex_for_gcs(
+                gcs_utils.strip_gcs_prefix(source_uri)
+            )
+            matching_urns = {
+                urn for urn in urns if regex.match(self.extract_path(urn) or "")
+            }
+
+            if not matching_urns:
+                continue
+
+            upstreams_list.extend(
+                [
+                    UpstreamClass(
+                        dataset=source_dataset_urn, type=DatasetLineageTypeClass.VIEW
+                    )
+                    for source_dataset_urn in matching_urns
+                ]
+            )
+
+        if not upstreams_list:
+            return
+
+        upstream_lineage = UpstreamLineageClass(upstreams=upstreams_list)
+        yield from self.gen_lineage(dataset_urn, upstream_lineage)
+
+    def extract_path(self, urn: str) -> Optional[str]:
+        parts = urn.split(",")
+        if len(parts) > 1:
+            return parts[1]
+        return None
+
+    def pattern_to_regex_for_gcs(self, pattern: str) -> re.Pattern:
+        """
+        supported pattern to get source_dataset_urns for gcs
+        gs://my-bucket/foo/tests/bar.avro # single file table
+        gs://my-bucket/foo/tests/*.* # mulitple file level tables
+        gs://my-bucket/foo/tests/{table}/*.avro #table without partition
+        gs://my-bucket/foo/tests/{table}/*/*.avro #table where partitions are not specified
+        gs://my-bucket/foo/tests/{table}/*.* # table where no partitions as well as data type specified
+        gs://my-bucket/{dept}/tests/{table}/*.avro # specifying keywords to be used in display name
+        gs://my-bucket/{dept}/tests/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.avro # specify partition key and value format
+        gs://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.avro # specify partition value only format
+        gs://my-bucket/{dept}/tests/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # for all extensions
+        gs://my-bucket/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # table is present at 2 levels down in bucket
+        gs://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # table is present at 3 levels down in bucket
+        """
+        pattern = re.escape(pattern)
+        pattern = re.sub(
+            r"\\\{[^}]+\\\}", "[^/]+", pattern
+        )  # Replace anything inside {} with [^/]+
+        pattern = pattern.replace(
+            r"\*", "[^/]*"
+        )  # Replace * with [^/]* to match filenames
+        pattern = pattern.replace(
+            r"\.\*", r"\.[^/]+"
+        )  # Adjust to match file extensions
+        return re.compile(f"^{pattern}$")
