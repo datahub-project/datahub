@@ -84,6 +84,13 @@ public interface AspectsBatch {
     }
   }
 
+  default Stream<MCPItem> applyProposalMutationHooks(
+      Collection<MCPItem> proposedItems, @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks().stream()
+        .flatMap(
+            mutationHook -> mutationHook.applyProposalMutation(proposedItems, retrieverContext));
+  }
+
   default <T extends BatchItem> ValidationExceptionCollection validateProposed(
       Collection<T> mcpItems) {
     return validateProposed(mcpItems, getRetrieverContext());
