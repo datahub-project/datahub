@@ -28,7 +28,7 @@ The following steps should be performed by a Slack Workspace Admin.
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_5.png"/>
 </p>
-7. Congrats 🎉 Slack is setup! Now try it out by going to the **Platform Notifications** page
+7. Congrats 🎉 Slack is set up! Now try it out by going to the **Platform Notifications** page
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_6.png"/>
 </p>
