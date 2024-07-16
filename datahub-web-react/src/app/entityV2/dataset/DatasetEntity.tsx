@@ -210,8 +210,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     icon: () => (
                         <span
                             style={{
-                                fontSize: 14,
                                 marginRight: 6,
+                                verticalAlign: '-0.2em',
                             }}
                         >
                             <GovernMenuIcon width={16} height={16} fill="currentColor" />
