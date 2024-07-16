@@ -24,7 +24,7 @@ The following steps should be performed by a Slack Workspace Admin.
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_4.png"/>
 </p>
-6. You will be automatically re-directed to slack to confirm DataHub Slack App's permissions and complete the installation process:
+6. You will be automatically re-directed to Slack to confirm DataHub Slack App's permissions and complete the installation process:
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_5.png"/>
 </p>
@@ -37,7 +37,7 @@ The following steps should be performed by a Slack Workspace Admin.
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_7.png"/>
 </p>
 
-Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-app) to see how you can use DataHub's powerful capabilities directly within slack.
+Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-app) to see how you can use DataHub's powerful capabilities directly within Slack.
 
 <!-- NOTE: we are hiding this method for now. If a need arises, we can uncomment below docs.
 # Bot Token Method (Not recommended)
@@ -124,7 +124,7 @@ For now we support sending notifications to
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
 ## How to find Team ID and Channel ID in Slack
-***Note** we recommend just using the slack channel name for simplicity (eg. `#troubleshoot`)*
+***Note** we recommend just using the Slack channel name for simplicity (eg. `#troubleshoot`)*
 
 **Via Slack App:**
 1. Go to the Slack channel for which you want to get channel ID
@@ -139,7 +139,7 @@ By default, the Slack app will be able to send notifications to public channels.
 
 **Via Web:**
 1. Go to the Slack channel for which you want to get channel ID
-2. Check the URL e.g. for the troubleshoot channel in OSS DataHub slack
+2. Check the URL e.g. for the troubleshoot channel in OSS DataHub Slack
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel_url.png)
 
 3. Notice `TUMKD5EGJ/C029A3M079U` in the URL
@@ -159,7 +159,7 @@ By default, the Slack app will be able to send notifications to public channels.
 </p>
 
 **Someone else's User ID**
-1. Click their profile picture in the slack message
+1. Click their profile picture in the Slack message
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/member_id_3.png"/>
 </p>
