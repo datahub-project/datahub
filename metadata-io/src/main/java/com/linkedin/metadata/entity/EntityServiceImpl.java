@@ -10,6 +10,7 @@ import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.utils.metrics.ExceptionUtils.collectMetrics;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
@@ -408,23 +409,102 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> urns,
       @Nonnull Set<String> aspectNames,
-      boolean alwaysIncludeKeyAspect)
-      throws URISyntaxException {
+      boolean alwaysIncludeKeyAspect) {
 
-    final Set<EntityAspectIdentifier> dbKeys =
+    return getEnvelopedVersionedAspects(
+        opContext,
         urns.stream()
             .map(
                 urn ->
-                    aspectNames.stream()
-                        .map(
-                            aspectName ->
-                                new EntityAspectIdentifier(
-                                    urn.toString(), aspectName, ASPECT_LATEST_VERSION))
-                        .collect(Collectors.toList()))
-            .flatMap(List::stream)
+                    Map.entry(
+                        urn,
+                        aspectNames.stream()
+                            .map(aspectName -> Map.entry(aspectName, 0L))
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
+        alwaysIncludeKeyAspect);
+  }
+
+  @Override
+  public Map<Urn, List<EnvelopedAspect>> getEnvelopedVersionedAspects(
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<Urn, Map<String, Long>> urnAspectVersions,
+      boolean alwaysIncludeKeyAspect) {
+
+    // we will always need to fetch latest aspects in case the requested version is version 0 being
+    // requested with version != 0
+    Map<Urn, Map<String, Set<Long>>> withLatest =
+        urnAspectVersions.entrySet().stream()
+            .map(
+                entry ->
+                    Map.entry(
+                        entry.getKey(),
+                        entry.getValue().entrySet().stream()
+                            .map(
+                                aspectEntry ->
+                                    Map.entry(
+                                        aspectEntry.getKey(),
+                                        Stream.of(0L, aspectEntry.getValue())
+                                            .collect(Collectors.toSet())))
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    Map<Urn, List<EnvelopedAspect>> latestResult =
+        getEnvelopedVersionedAspectsInternal(opContext, withLatest, alwaysIncludeKeyAspect);
+
+    return latestResult.entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                a ->
+                    a.getValue().stream()
+                        .filter(
+                            v ->
+                                matchVersion(v, urnAspectVersions.get(a.getKey()).get(v.getName())))
+                        .collect(Collectors.toList())));
+  }
+
+  private static boolean matchVersion(
+      @Nonnull EnvelopedAspect envelopedAspect, @Nullable Long expectedVersion) {
+    if (expectedVersion == null) {
+      return true;
+    }
+    if (Objects.equals(envelopedAspect.getVersion(GetMode.NULL), expectedVersion)) {
+      return true;
+    }
+    if (envelopedAspect.hasSystemMetadata()
+        && envelopedAspect.getSystemMetadata().hasVersion()
+        && envelopedAspect.getSystemMetadata().getVersion() != null) {
+      return Objects.equals(
+          Long.parseLong(envelopedAspect.getSystemMetadata().getVersion()), expectedVersion);
+    }
+
+    return false;
+  }
+
+  private Map<Urn, List<EnvelopedAspect>> getEnvelopedVersionedAspectsInternal(
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<Urn, Map<String, Set<Long>>> urnAspectVersions,
+      boolean alwaysIncludeKeyAspect) {
+    final Set<EntityAspectIdentifier> dbKeys =
+        urnAspectVersions.entrySet().stream()
+            .flatMap(
+                entry -> {
+                  Urn urn = entry.getKey();
+                  return entry.getValue().entrySet().stream()
+                      .flatMap(
+                          aspectNameVersion ->
+                              aspectNameVersion.getValue().stream()
+                                  .map(
+                                      version ->
+                                          new EntityAspectIdentifier(
+                                              urn.toString(),
+                                              aspectNameVersion.getKey(),
+                                              version)));
+                })
             .collect(Collectors.toSet());
 
-    return getCorrespondingAspects(opContext, dbKeys, urns, alwaysIncludeKeyAspect);
+    return getCorrespondingAspects(opContext, dbKeys, alwaysIncludeKeyAspect);
   }
 
   /**
@@ -481,21 +561,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .flatMap(List::stream)
             .collect(Collectors.toSet()));
 
-    return getCorrespondingAspects(
-        opContext,
-        dbKeys,
-        versionedUrns.stream()
-            .map(versionedUrn -> versionedUrn.getUrn().toString())
-            .map(UrnUtils::getUrn)
-            .collect(Collectors.toSet()),
-        alwaysIncludeKeyAspect);
+    return getCorrespondingAspects(opContext, dbKeys, alwaysIncludeKeyAspect);
   }
 
   private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(
       @Nonnull OperationContext opContext,
       Set<EntityAspectIdentifier> dbKeys,
-      Set<Urn> urns,
       boolean alwaysIncludeKeyAspect) {
+
+    Set<Urn> urns =
+        dbKeys.stream().map(dbKey -> UrnUtils.getUrn(dbKey.getUrn())).collect(Collectors.toSet());
 
     final Map<EntityAspectIdentifier, EnvelopedAspect> envelopedAspectMap =
         getEnvelopedAspects(opContext, dbKeys);
@@ -779,9 +854,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   EntityUtils.toSystemAspects(
                       opContext.getRetrieverContext().get(),
                       aspectDao.getLatestAspects(urnAspects));
-              // read #2
+              // read #2 (potentially)
               final Map<String, Map<String, Long>> nextVersions =
-                  aspectDao.getNextVersions(urnAspects);
+                  EntityUtils.calculateNextVersions(aspectDao, latestAspects, urnAspects);
 
               // 1. Convert patches to full upserts
               // 2. Run any entity/aspect level hooks
@@ -796,10 +871,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     EntityUtils.toSystemAspects(
                         opContext.getRetrieverContext().get(),
                         aspectDao.getLatestAspects(updatedItems.getFirst()));
-                Map<String, Map<String, Long>> newNextVersions =
-                    aspectDao.getNextVersions(updatedItems.getFirst());
                 // merge
                 updatedLatestAspects = AspectsBatch.merge(latestAspects, newLatestAspects);
+
+                Map<String, Map<String, Long>> newNextVersions =
+                    EntityUtils.calculateNextVersions(
+                        aspectDao, updatedLatestAspects, updatedItems.getFirst());
+                // merge
                 updatedNextVersions = AspectsBatch.merge(nextVersions, newNextVersions);
               } else {
                 updatedLatestAspects = latestAspects;
@@ -836,16 +914,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           })
                       .collect(Collectors.toList());
 
+              // No changes, return
+              if (changeMCPs.isEmpty()) {
+                return Collections.<UpdateAspectResult>emptyList();
+              }
+
               // do final pre-commit checks with previous aspect value
               ValidationExceptionCollection exceptions =
                   AspectsBatch.validatePreCommit(changeMCPs, opContext.getRetrieverContext().get());
               if (!exceptions.isEmpty()) {
-                throw new ValidationException(exceptions.toString());
-              }
-
-              // No changes, return
-              if (changeMCPs.isEmpty()) {
-                return Collections.<UpdateAspectResult>emptyList();
+                throw new ValidationException(collectMetrics(exceptions).toString());
               }
 
               // Database Upsert results
@@ -2133,7 +2211,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     ValidationExceptionCollection exceptions =
         AspectsBatch.validateProposed(List.of(deleteItem), opContext.getRetrieverContext().get());
     if (!exceptions.isEmpty()) {
-      throw new ValidationException(exceptions.toString());
+      throw new ValidationException(collectMetrics(exceptions).toString());
     }
 
     final RollbackResult result =
@@ -2207,7 +2285,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           .collect(Collectors.toList()),
                       opContext.getRetrieverContext().get());
               if (!preCommitExceptions.isEmpty()) {
-                throw new ValidationException(preCommitExceptions.toString());
+                throw new ValidationException(collectMetrics(preCommitExceptions).toString());
               }
 
               // 5. Apply deletes and fix up latest row
