@@ -45,9 +45,6 @@ class SnowflakeCommonProtocol(Protocol):
     def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
         ...
 
-    def snowflake_identifier(self, identifier: str) -> str:
-        ...
-
     def report_warning(self, key: str, reason: str) -> None:
         ...
 
@@ -277,23 +274,16 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     def get_quoted_identifier_for_schema(db_name, schema_name):
         return f'"{db_name}"."{schema_name}"'
 
-    def gen_dataset_urn(self: SnowflakeCommonProtocol, dataset_identifier: str) -> str:
-        # TODO: Remove this method.
-        identifiers = SnowflakeIdentifierBuilder(self.config)
-        return identifiers.gen_dataset_urn(dataset_identifier)
-
-    def snowflake_identifier(self: SnowflakeCommonProtocol, identifier: str) -> str:
-        # TODO: Remove this method.
-        identifiers = SnowflakeIdentifierBuilder(self.config)
-        return identifiers.snowflake_identifier(identifier)
-
     def get_dataset_identifier_from_qualified_name(
         self: SnowflakeCommonProtocol, qualified_name: str
     ) -> str:
         filter = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
         )
-        return self.snowflake_identifier(filter.cleanup_qualified_name(qualified_name))
+        identifiers = SnowflakeIdentifierBuilder(self.config)
+        return identifiers.snowflake_identifier(
+            filter.cleanup_qualified_name(qualified_name)
+        )
 
     @staticmethod
     def get_quoted_identifier_for_table(db_name, schema_name, table_name):
@@ -309,13 +299,14 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
         user_email: Optional[str],
         email_as_user_identifier: bool,
     ) -> str:
+        identifiers = SnowflakeIdentifierBuilder(self.config)
         if user_email:
-            return self.snowflake_identifier(
+            return identifiers.snowflake_identifier(
                 user_email
                 if email_as_user_identifier is True
                 else user_email.split("@")[0]
             )
-        return self.snowflake_identifier(user_name)
+        return identifiers.snowflake_identifier(user_name)
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint
     # for failures that do not affect the checkpoint
