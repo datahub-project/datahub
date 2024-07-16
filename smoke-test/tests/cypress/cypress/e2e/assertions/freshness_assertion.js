@@ -36,7 +36,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("If this assertion passes...");
     cy.get("button").contains("Next").click();
     cy.waitTextVisible(
-      "If not specified, a name will be generated from the assertion settings."
+      "If not specified, a name will be generated from the assertion settings.",
     );
     cy.get("button").contains("Save").click();
     cy.waitTextVisible("Created new Assertion Monitor!");
@@ -44,7 +44,7 @@ describe("create and manage freshness assertion", () => {
     cy.clickOptionWithText("Freshness");
     cy.waitTextVisible("No Evaluations");
     cy.waitTextVisible(
-      "Dataset is updated at 0 minutes past the hour, every 6 hours"
+      "Dataset is updated at 0 minutes past the hour, every 6 hours",
     );
     cy.clickOptionWithText("No Evaluations");
     cy.waitTextVisible("Evaluations");
@@ -55,7 +55,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Freshness");
     cy.waitTextVisible(
-      "Dataset is updated at 0 minutes past the hour, every 6 hours "
+      "Dataset is updated at 0 minutes past the hour, every 6 hours ",
     );
     cy.get('[data-icon="more"]').eq(1).click();
     cy.get('[role="menuitem"]').contains("Stop").click();
@@ -69,7 +69,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Freshness");
     cy.waitTextVisible(
-      "Dataset is updated at 0 minutes past the hour, every 6 hours "
+      "Dataset is updated at 0 minutes past the hour, every 6 hours ",
     );
     cy.get("button").contains("TURN ON").click();
     cy.waitTextVisible("Start Assertion Monitoring");
@@ -84,7 +84,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Freshness");
     cy.waitTextVisible(
-      "Dataset is updated at 0 minutes past the hour, every 6 hours "
+      "Dataset is updated at 0 minutes past the hour, every 6 hours ",
     );
     cy.get('[data-icon="more"]').eq(1).click();
     cy.get('[role="menuitem"]').contains("Manage").click();
@@ -98,7 +98,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Freshness");
     cy.waitTextVisible(
-      "Dataset is updated at 0 minutes past the hour, every 6 hours "
+      "Dataset is updated at 0 minutes past the hour, every 6 hours ",
     );
     cy.get('[data-icon="more"]').eq(1).click();
     cy.get('[role="menuitem"]').contains("Manage").click();
@@ -113,7 +113,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Freshness");
     cy.waitTextVisible(
-      "Dataset is updated at 0 minutes past the hour, every 6 hours "
+      "Dataset is updated at 0 minutes past the hour, every 6 hours ",
     );
     cy.get('[data-icon="more"]').eq(1).click();
     cy.get('[role="menuitem"]').contains("Delete").click();
