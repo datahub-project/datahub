@@ -753,7 +753,11 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             view_properties_aspect = ViewProperties(
                 materialized=table.materialized,
                 viewLanguage="SQL",
-                viewLogic=table.view_definition,
+                viewLogic=(
+                    table.view_definition
+                    if self.config.include_view_definitions
+                    else ""
+                ),
             )
 
             yield MetadataChangeProposalWrapper(
