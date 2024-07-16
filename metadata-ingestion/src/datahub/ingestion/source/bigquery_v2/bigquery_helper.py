@@ -10,19 +10,25 @@ def unquote_and_decode_unicode_escape_seq(
     """
     If string starts and ends with a quote, unquote it and decode Unicode escape sequences
     """
+    unicode_seq_pattern = re.compile(r"\\(u|U)[0-9a-fA-F]{4}")
     trailing_quote = trailing_quote if trailing_quote else leading_quote
 
     if string.startswith(leading_quote) and string.endswith(trailing_quote):
         string = string[1:-1]
 
     # Decode Unicode escape sequences. This avoid issues with encoding
-    while string.find("\\u") >= 0:
-        index = string.find("\\u")  # The first occurrence of the substring
-        unicode_seq = string[index : (index + 6)]  # The Unicode escape sequence
+    # This process does not handle unicode from "\U00010000" to "\U0010FFFF"
+    while unicode_seq_pattern.search(string):
+        # Get the first Unicode escape sequence
+        unicode_seq = unicode_seq_pattern.search(string).group(0)
         # Replace the Unicode escape sequence with the decoded character
-        string = string.replace(
-            unicode_seq, unicode_seq.encode("utf-8").decode("unicode-escape")
-        )
+        try:
+            string = string.replace(
+                unicode_seq, unicode_seq.encode("utf-8").decode("unicode-escape")
+            )
+        except UnicodeDecodeError:
+            # Skip decoding if is not possible to decode the Unicode escape sequence
+            continue
     return string
 
 
