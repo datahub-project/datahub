@@ -241,6 +241,8 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     def identifiers(self) -> SnowflakeIdentifierBuilder:
         return SnowflakeIdentifierBuilder(self.config)
 
+    # TODO: These methods should be moved to SnowflakeIdentifierBuilder.
+
     @staticmethod
     def get_quoted_identifier_for_database(db_name):
         return f'"{db_name}"'
@@ -253,8 +255,7 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
         filter = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
         )
-        identifiers = SnowflakeIdentifierBuilder(self.config)
-        return identifiers.snowflake_identifier(
+        return self.identifiers.snowflake_identifier(
             filter.cleanup_qualified_name(qualified_name)
         )
 
@@ -272,14 +273,13 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
         user_email: Optional[str],
         email_as_user_identifier: bool,
     ) -> str:
-        identifiers = SnowflakeIdentifierBuilder(self.config)
         if user_email:
-            return identifiers.snowflake_identifier(
+            return self.identifiers.snowflake_identifier(
                 user_email
                 if email_as_user_identifier is True
                 else user_email.split("@")[0]
             )
-        return identifiers.snowflake_identifier(user_name)
+        return self.identifiers.snowflake_identifier(user_name)
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint
     # for failures that do not affect the checkpoint
