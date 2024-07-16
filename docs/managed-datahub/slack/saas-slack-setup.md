@@ -22,7 +22,7 @@ The following steps should be performed by a Slack Workspace Admin.
 [screenshot here]
 8. Enter your channel in, and click **'Send a test notification'**
 
-Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to individual entities.
+Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-app) to see how you can use DataHub's powerful capabilities directly within slack.
 
 <!-- NOTE: we are hiding this method for now. If a need arises, we can uncomment below docs.
 # Bot Token Method (Not recommended)
