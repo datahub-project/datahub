@@ -24,7 +24,9 @@ from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredent
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_PARALLELISM = int(os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20))
+DEFAULT_BQ_SCHEMA_PARALLELISM = int(
+    os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20)
+)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
@@ -316,7 +318,7 @@ class BigQueryV2Config(
     )
 
     max_threads_dataset_parallelism: int = Field(
-        default=SCHEMA_PARALLELISM,
+        default=DEFAULT_BQ_SCHEMA_PARALLELISM,
         description="Number of worker threads to use to parallelize BigQuery Dataset Metadata Extraction."
         " Set to 1 to disable.",
     )
