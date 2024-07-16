@@ -9,16 +9,15 @@ describe("dataset assertion results test", () => {
     cy.goToDataset(urn, datasetName);
     cy.clickOptionWithText("Validation");
     cy.waitTextVisible("All assertions are passing");
-    //Click on single assertion to open it up
-    cy.clickOptionWithText("External");
-    cy.waitTextVisible("Passed");
+    // Assertion categories be expanded by default
+    cy.waitTextVisible("Other");
+    cy.ensureElementPresent(".assertion-result-dot");
     //View the results graph
-    cy.clickOptionWithText("Passed");
-    cy.waitTextVisible("Evaluations");
+    cy.clickOptionWithSpecificClass(".assertion-result-dot", 0);
+    cy.waitTextVisible("Activity");
     cy.waitTextVisible("Last evaluated on");
     //Delete an assertion
-    cy.get("[aria-label='more']").eq(1).click();
-    cy.clickOptionWithText("Delete");
+    cy.get('[aria-label="delete"]').eq(1).click();
     cy.waitTextVisible("Confirm Assertion Removal");
     cy.clickOptionWithText("Yes");
     cy.waitTextVisible("Removed assertion.");

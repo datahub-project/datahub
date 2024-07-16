@@ -143,7 +143,7 @@ export const SlackIntegration = () => {
         })
             .then(() => {
                 analytics.event({ type: EventType.SlackIntegrationSuccessEvent, configType: selectTypeValue });
-                message.success({ content: 'Updated Slack Settings!', duration: 2 });
+                message.success({ content: 'Updated Slack Settings!', duration: 4 });
                 refetch?.();
                 // If we are doing app-token path, redirect.
                 if (selectTypeValue === APP_CONFIG_SELECT_ID) {
