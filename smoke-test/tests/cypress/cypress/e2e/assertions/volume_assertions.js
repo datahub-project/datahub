@@ -30,7 +30,7 @@ describe("create and manage volume assertion", () => {
     setAssertionMonitorsFlag(true);
     cy.loginWithCredentials();
     cy.goToDataset(datasetUrn, datasetName);
-    cy.openEntityTab("Validation");
+    cy.openEntityTab("Quality");
     cy.waitTextVisible("No assertions have run");
     enableButtonWithId("#create-assertion-btn-main");
     cy.get("#create-assertion-btn-main").click();
@@ -45,7 +45,7 @@ describe("create and manage volume assertion", () => {
     cy.waitTextVisible("If this assertion passes...");
     cy.get("button").contains("Next").click();
     cy.waitTextVisible(
-      "If not specified, a name will be generated from the assertion settings.",
+      "If not specified, a name will be generated from the assertion settings."
     );
     cy.get("button").contains("Save").click();
     cy.waitTextVisible("Created new Assertion Monitor!");
@@ -58,7 +58,7 @@ describe("create and manage volume assertion", () => {
     cy.waitTextVisible("Runs at 0 minutes past the hour, every 6 hours.");
     //stop the monitor, verify that assertion stopped successfully
     cy.goToDataset(datasetUrn, datasetName);
-    cy.openEntityTab("Validation");
+    cy.openEntityTab("Quality");
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Volume");
     cy.get('[data-icon="more"]').eq(1).click();
@@ -69,7 +69,7 @@ describe("create and manage volume assertion", () => {
     cy.get("button").contains("TURN ON").should("be.visible");
     //restart the monitor, verify that assertion restarted successfully
     cy.goToDataset(datasetUrn, datasetName);
-    cy.openEntityTab("Validation");
+    cy.openEntityTab("Quality");
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Volume");
     cy.get("button").contains("TURN ON").click();
@@ -81,7 +81,7 @@ describe("create and manage volume assertion", () => {
     cy.ensureTextNotPresent("TURN ON");
     //manage the assertion and save result
     cy.goToDataset(datasetUrn, datasetName);
-    cy.openEntityTab("Validation");
+    cy.openEntityTab("Quality");
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Volume");
     cy.get('[data-icon="more"]').eq(1).click();
@@ -92,7 +92,7 @@ describe("create and manage volume assertion", () => {
     cy.waitTextVisible("Updated Assertion!");
     //refresh the page, verify that the updates are reflected correctly in manage assertion modal
     cy.goToDataset(datasetUrn, datasetName);
-    cy.openEntityTab("Validation");
+    cy.openEntityTab("Quality");
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Volume");
     cy.get('[data-icon="more"]').eq(1).click();
@@ -104,7 +104,7 @@ describe("create and manage volume assertion", () => {
     cy.get("button").contains("Cancel").click();
     //remove assertion
     cy.goToDataset(datasetUrn, datasetName);
-    cy.openEntityTab("Validation");
+    cy.openEntityTab("Quality");
     cy.waitTextVisible("Assertions (1)");
     cy.clickOptionWithText("Volume");
     cy.get('[data-icon="more"]').eq(1).click();

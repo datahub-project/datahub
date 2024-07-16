@@ -92,9 +92,9 @@ function healthUrlSuffix({ type }: Health) {
         case HealthStatusType.Incidents:
             return '/Incidents';
         case HealthStatusType.Assertions:
-            return '/Quality/Assertions';
+            return '/Quality/List';
         case HealthStatusType.Tests:
-            return '/Quality/Tests';
+            return '/Governance/Tests';
         default:
             return null;
     }

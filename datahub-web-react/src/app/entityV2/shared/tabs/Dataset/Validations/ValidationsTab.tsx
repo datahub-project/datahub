@@ -4,11 +4,11 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { TestResults } from './TestResults';
 import { Assertions } from './Assertions';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
+import { TestResults } from '../Governance/TestResults';
 
 const TabTitle = styled.span`
     margin-left: 4px;
