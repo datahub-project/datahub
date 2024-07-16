@@ -1,0 +1,16 @@
+namespace com.linkedin.common
+
+/**
+ * Response for an ownership type prompt
+ */
+record OwnershipPromptResponse {
+    /**
+     * The owners applied to an asset from this prompt response
+     */
+    owners: array[Urn]
+
+    /**
+     * The type of ownership applied from this prompt response
+     */
+    ownershipTypeUrn: Urn
+}

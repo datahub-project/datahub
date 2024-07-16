@@ -64,7 +64,8 @@ public class OwnerServiceTest {
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            OwnershipType.NONE);
+            OwnershipType.NONE,
+            null);
 
     OwnerArray expected =
         new OwnerArray(
@@ -105,7 +106,8 @@ public class OwnerServiceTest {
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            OwnershipType.NONE);
+            OwnershipType.NONE,
+            null);
 
     OwnerArray expectedOwners =
         new OwnerArray(

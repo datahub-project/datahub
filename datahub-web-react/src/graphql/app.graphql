@@ -96,6 +96,7 @@ query appConfig {
             metadataShareEnabled
             documentationFormsEnabled
             emailNotificationsEnabled
+            slackBotTokensConfigEnabled
             showSeparateSiblings
         }
         chromeExtensionConfig {

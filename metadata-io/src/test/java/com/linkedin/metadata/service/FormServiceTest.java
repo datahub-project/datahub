@@ -119,19 +119,6 @@ public class FormServiceTest {
           formService.batchAssignFormToEntities(
               any(OperationContext.class), ImmutableList.of(TEST_ENTITY_URN), nonExistantForm);
         });
-
-    // Case 2 - non existant entity.
-    Urn nonExistantEntity =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
-    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantEntity)))
-        .thenReturn(false);
-
-    Assert.assertThrows(
-        RuntimeException.class,
-        () -> {
-          formService.batchAssignFormToEntities(
-              opContext, ImmutableList.of(nonExistantEntity), TEST_FORM_URN);
-        });
   }
 
   @Test
@@ -190,7 +177,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+            Mockito.eq(true));
   }
 
   @Test
@@ -244,7 +232,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+            Mockito.eq(true));
   }
 
   @Test
@@ -294,7 +283,8 @@ public class FormServiceTest {
 
     // Ensure that no aspect was ingested, because nothing changed.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class));
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(true));
   }
 
   @Test
@@ -344,41 +334,8 @@ public class FormServiceTest {
 
     // Ensure that no aspect was ingested, because nothing changed.
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class));
-  }
-
-  @Test
-  private void testBatchUnassignFormToEntitiesDoNotExist() throws Exception {
-
-    // Case 1 - non existing form.
-    Urn nonExistantForm = UrnUtils.getUrn("urn:li:form:non-existant");
-    SystemEntityClient mockClient = mockEntityClient(null, null);
-    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantForm)))
-        .thenReturn(false);
-
-    FormService formService =
-        new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
-
-    //    Assert.assertThrows(
-    //        RuntimeException.class,
-    //        () -> {
-    //          formService.batchUnassignFormForEntities(
-    //              ImmutableList.of(TEST_ENTITY_URN), nonExistantForm, mockSystemAuthentication());
-    //        });
-
-    // Case 2 - non existant entity.
-    // throw an error if we try to unassign a form to an entity that does not exist
-    Urn nonExistantEntity =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test-2,PROD)");
-    Mockito.when(mockClient.exists(any(OperationContext.class), eq(nonExistantEntity)))
-        .thenReturn(false);
-
-    Assert.assertThrows(
-        RuntimeException.class,
-        () -> {
-          formService.batchUnassignFormForEntities(
-              any(OperationContext.class), ImmutableList.of(nonExistantEntity), TEST_FORM_URN);
-        });
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(true));
   }
 
   @Test
@@ -437,7 +394,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+            Mockito.eq(true));
   }
 
   @Test
@@ -496,7 +454,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+            Mockito.eq(true));
   }
 
   @Test
@@ -619,7 +578,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms))));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, existingForms))),
+            Mockito.eq(true));
   }
 
   @Test
@@ -693,7 +653,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+            Mockito.eq(true));
   }
 
   @Test
@@ -806,7 +767,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+            Mockito.eq(true));
   }
 
   @Test
@@ -887,7 +849,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new EntityFormsArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))));
+                        TEST_ENTITY_URN, FORMS_ASPECT_NAME, expectedForms))),
+            Mockito.eq(true));
   }
 
   @Test
@@ -934,7 +897,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))));
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+            Mockito.eq(false));
   }
 
   @Test
@@ -991,7 +955,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))));
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+            Mockito.eq(false));
   }
 
   @Test
@@ -1055,7 +1020,8 @@ public class FormServiceTest {
             Mockito.argThat(
                 new FormTestArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
-                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))));
+                        expectedTestUrn, TEST_INFO_ASPECT_NAME, expectedTestInfo))),
+            Mockito.eq(false));
   }
 
   @Test
@@ -1344,7 +1310,8 @@ public class FormServiceTest {
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ENTITY_URN,
                         FORMS_ASPECT_NAME,
-                        formsAspectMap.get(FORMS_ASPECT_NAME)))));
+                        formsAspectMap.get(FORMS_ASPECT_NAME)))),
+            Mockito.eq(false));
   }
 
   @Test

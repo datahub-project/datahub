@@ -16,6 +16,8 @@ import com.linkedin.datahub.graphql.generated.FormInfo;
 import com.linkedin.datahub.graphql.generated.FormPrompt;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.FormType;
+import com.linkedin.datahub.graphql.generated.OwnershipParams;
+import com.linkedin.datahub.graphql.generated.PromptCardinality;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParams;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -99,6 +101,13 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
       structuredProp.setType(EntityType.STRUCTURED_PROPERTY);
       params.setStructuredProperty(structuredProp);
       formPrompt.setStructuredPropertyParams(params);
+    }
+    if (gmsFormPrompt.getOwnershipParams() != null) {
+      final OwnershipParams ownershipParams = new OwnershipParams();
+      ownershipParams.setCardinality(
+          PromptCardinality.valueOf(
+              gmsFormPrompt.getOwnershipParams().getCardinality().toString()));
+      formPrompt.setOwnershipParams(ownershipParams);
     }
 
     return formPrompt;

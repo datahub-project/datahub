@@ -210,6 +210,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
             .setShowBrowseV2(_featureFlags.isShowBrowseV2())
             .setSubscriptionsEnabled(_featureFlags.isSubscriptionsEnabled())
+            .setSlackBotTokensConfigEnabled(_featureFlags.isSlackBotTokensConfigEnabled())
             .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
             .setDatasetHealthDashboardEnabled(_featureFlags.isDatasetHealthDashboardEnabled())
             .setErModelRelationshipFeatureEnabled(

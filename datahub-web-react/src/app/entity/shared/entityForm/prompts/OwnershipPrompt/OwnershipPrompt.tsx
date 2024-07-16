@@ -1,17 +1,25 @@
 import { Button } from 'antd';
-import React from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { FormPrompt, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
-import useStructuredPropertyPrompt from './useStructuredPropertyPrompt';
+import OwnershipTypesSelect from '@src/app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
+import { useListOwnershipTypesQuery } from '@src/graphql/ownership.generated';
+import {
+    EntityType,
+    FormPrompt,
+    PromptCardinality,
+    SchemaField,
+    SubmitFormPromptInput,
+} from '../../../../../../types.generated';
 import CompletedPromptAuditStamp from '../CompletedPromptAuditStamp';
 import { applyOpacity } from '../../../../../shared/styleUtils';
 import { useEntityFormContext } from '../../EntityFormContext';
 import BulkSubmissionButton from '../BulkSubmissionButton';
 import usePromptCompletionInfo from '../usePromptCompletionInfo';
-import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { Editor } from '../../../tabs/Documentation/components/editor/Editor';
 import { ColumnSelectorProps } from '../types';
 import ColumnSelector from '../ColumnSelector';
+import useOwnershipPrompt from './useOwnershipPrompt';
+import UrnInput from '../StructuredPropertyPrompt/UrnInput/UrnInput';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
@@ -49,6 +57,20 @@ export const PromptSubTitle = styled.div`
 const InputSection = styled.div`
     margin-top: 8px;
     display: flex;
+    gap: 8px;
+    .ant-select-selector {
+        min-height: 40px;
+    }
+    .ant-select-single {
+        width: 40%;
+        max-width: 300px;
+        max-height: 40px;
+        .ant-select-selector {
+            padding-top: 3px;
+            height: 100%;
+            font-size: 14px;
+        }
+    }
 `;
 
 const StyledButton = styled(Button)`
@@ -73,7 +95,7 @@ interface Props {
     columnSelectorProps?: ColumnSelectorProps;
 }
 
-export default function StructuredPropertyPrompt({
+export default function OwnershipPrompt({
     promptNumber,
     prompt,
     submitResponse,
@@ -81,14 +103,29 @@ export default function StructuredPropertyPrompt({
     optimisticCompletedTimestamp,
     columnSelectorProps,
 }: Props) {
+    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
+        variables: {
+            input: {},
+        },
+        fetchPolicy: 'cache-first',
+    });
+    const ownershipTypes = useMemo(() => {
+        return ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
+    }, [ownershipTypesData]);
+
     const {
         hasEdited,
         selectedValues,
-        selectSingleValue,
-        toggleSelectedValue,
-        submitStructuredPropertyResponse,
+        selectedOwnerTypeUrn,
+        initialEntities,
+        updateSelectedOwnerTypeUrn,
+        submitOwnershipResponse,
         updateSelectedValues,
-    } = useStructuredPropertyPrompt({ prompt, submitResponse, field });
+    } = useOwnershipPrompt({
+        prompt,
+        submitResponse,
+        field,
+    });
 
     const {
         prompt: { displayBulkPromptStyles },
@@ -101,10 +138,6 @@ export default function StructuredPropertyPrompt({
         optimisticCompletedTimestamp,
     });
 
-    const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
-    if (!structuredProperty) return null;
-
-    const { displayName, description } = structuredProperty.definition;
     const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0;
     const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0;
 
@@ -114,28 +147,33 @@ export default function StructuredPropertyPrompt({
                 <PromptInputWrapper>
                     <PromptTitle displayBulkStyles={displayBulkPromptStyles}>
                         {promptNumber !== undefined && <>{promptNumber}. </>}
-                        {displayName}
+                        {prompt.title}
                         {prompt.required && (
                             <RequiredText displayBulkStyles={displayBulkPromptStyles}>required</RequiredText>
                         )}
                     </PromptTitle>
-                    {description && (
+                    {prompt.description && (
                         <PromptSubTitle>
-                            <Editor content={description} readOnly editorStyle="padding: 0;" />
+                            <Editor content={prompt.description} readOnly editorStyle="padding: 0;" />
                         </PromptSubTitle>
                     )}
                     <InputSection>
-                        <StructuredPropertyInput
-                            structuredProperty={structuredProperty}
+                        <UrnInput
+                            initialEntities={initialEntities}
+                            allowedEntityTypes={[EntityType.CorpUser, EntityType.CorpGroup]}
+                            isMultiple={prompt.ownershipParams?.cardinality === PromptCardinality.Multiple}
                             selectedValues={selectedValues}
-                            selectSingleValue={selectSingleValue}
-                            toggleSelectedValue={toggleSelectedValue}
                             updateSelectedValues={updateSelectedValues}
+                        />
+                        <OwnershipTypesSelect
+                            selectedOwnerTypeUrn={selectedOwnerTypeUrn}
+                            ownershipTypes={ownershipTypes}
+                            onSelectOwnerType={updateSelectedOwnerTypeUrn}
                         />
                         {displayBulkPromptStyles && (
                             <BulkSubmissionButton
                                 isDisabled={!selectedValues.length || !selectedEntities.length}
-                                submitResponse={submitStructuredPropertyResponse}
+                                submitResponse={submitOwnershipResponse}
                             />
                         )}
                     </InputSection>
@@ -148,7 +186,7 @@ export default function StructuredPropertyPrompt({
                 )}
             </PromptWrapper>
             {(showSaveButton || showConfirmButton) && (
-                <StyledButton type="primary" onClick={submitStructuredPropertyResponse}>
+                <StyledButton type="primary" onClick={submitOwnershipResponse}>
                     {showSaveButton ? 'Save' : 'Confirm'}
                 </StyledButton>
             )}
