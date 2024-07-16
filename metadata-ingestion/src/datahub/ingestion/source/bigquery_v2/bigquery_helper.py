@@ -28,7 +28,7 @@ def unquote_and_decode_unicode_escape_seq(
             )
         except UnicodeDecodeError:
             # Skip decoding if is not possible to decode the Unicode escape sequence
-            continue
+            break  # avoid infinite loop
     return string
 
 
