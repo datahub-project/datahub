@@ -629,8 +629,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self,
     ) -> DataPlatformInstance:
 
-        assert self.source_config.platform_name
-        assert self.source_config.platform_instance
+        assert (
+            self.source_config.platform_name
+        ), "Platform name is not set in the configuration."
+        assert (
+            self.source_config.platform_instance
+        ), "Platform instance is not set in the configuration."
 
         return DataPlatformInstance(
             platform=builder.make_data_platform_urn(self.source_config.platform_name),
@@ -865,15 +869,16 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return proposals
 
     def make_dashboard_urn(self, looker_dashboard):
-        urn_params: dict = {
-            "name": looker_dashboard.get_urn_dashboard_id(),
-            "platform": self.source_config.platform_name,
-        }
+        platform_instance: Optional[str] = None
 
         if self.source_config.include_platform_instance_in_urns:
-            urn_params["platform_instance"] = self.source_config.platform_instance
+            platform_instance = self.source_config.platform_instance
 
-        return builder.make_dashboard_urn(**urn_params)
+        return builder.make_dashboard_urn(
+            name=looker_dashboard.get_urn_dashboard_id(),
+            platform=self.source_config.platform_name,
+            platform_instance=platform_instance,
+        )
 
     def _make_explore_metadata_events(
         self,
