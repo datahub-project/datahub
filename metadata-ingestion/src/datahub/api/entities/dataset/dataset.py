@@ -162,6 +162,7 @@ class Dataset(BaseModel):
     structured_properties: Optional[
         Dict[str, Union[str, float, List[Union[str, float]]]]
     ] = None
+    external_url: Optional[str] = None
 
     @property
     def platform_urn(self) -> str:
@@ -236,6 +237,7 @@ class Dataset(BaseModel):
                 description=self.description,
                 name=self.name,
                 customProperties=self.properties,
+                externalUrl=self.external_url,
             ),
         )
         yield mcp

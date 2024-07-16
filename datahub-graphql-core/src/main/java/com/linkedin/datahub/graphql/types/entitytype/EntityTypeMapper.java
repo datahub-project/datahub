@@ -48,6 +48,7 @@ public class EntityTypeMapper {
           .put(EntityType.BUSINESS_ATTRIBUTE, Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)
           .put(EntityType.QUERY, Constants.QUERY_ENTITY_NAME)
           .put(EntityType.POST, Constants.POST_ENTITY_NAME)
+          .put(EntityType.FORM, Constants.FORM_ENTITY_NAME)
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =
