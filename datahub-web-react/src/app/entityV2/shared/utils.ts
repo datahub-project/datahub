@@ -291,6 +291,7 @@ export const getRedirectUrl = (newRoutes: any) => {
         return newPathname;
     }
 
+    // eslint-disable-next-line no-restricted-syntax
     for (const path of Object.keys(newRoutes)) {
         if (newPathname.indexOf(path) !== -1) {
             newPathname = newPathname.replace(path, newRoutes[path]);
