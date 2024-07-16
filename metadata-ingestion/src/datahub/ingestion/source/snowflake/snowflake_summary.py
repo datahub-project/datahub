@@ -9,13 +9,19 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeFilterConfig
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeFilterConfig,
+    SnowflakeIdentifierConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDatabase
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
 )
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.utilities.lossy_collections import LossyList
@@ -69,7 +75,9 @@ class SnowflakeSummarySource(Source):
             config=self.config,  # type: ignore
             report=self.report,  # type: ignore
             connection=self.connection,
-            dataset_urn_builder=lambda x: "",
+            identifiers=SnowflakeIdentifierBuilder(
+                identifier_config=SnowflakeIdentifierConfig()
+            ),
             domain_registry=None,
             profiler=None,
             aggregator=None,

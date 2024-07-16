@@ -61,6 +61,8 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
+    SnowflakeFilter,
+    SnowflakeIdentifierBuilder,
     SnowsightUrlBuilder,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
@@ -135,6 +137,11 @@ class SnowflakeV2Source(
         self.report: SnowflakeV2Report = SnowflakeV2Report()
         self.logger = logger
 
+        self.filters = SnowflakeFilter(
+            filter_config=self.config, structured_reporter=self.report
+        )
+        self.identifiers = SnowflakeIdentifierBuilder(identifier_config=self.config)
+
         self.connection = self.config.get_connection()
 
         self.domain_registry: Optional[DomainRegistry] = None
@@ -150,7 +157,7 @@ class SnowflakeV2Source(
 
         if self.config.include_table_lineage:
             self.aggregator = SqlParsingAggregator(
-                platform=self.platform,
+                platform=self.identifiers.platform,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
                 graph=self.ctx.graph,
@@ -185,7 +192,8 @@ class SnowflakeV2Source(
                 config,
                 self.report,
                 connection=self.connection,
-                dataset_urn_builder=self.gen_dataset_urn,
+                filters=self.filters,
+                identifiers=self.identifiers,
                 redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                 sql_aggregator=self.aggregator,
             )
@@ -206,7 +214,8 @@ class SnowflakeV2Source(
                 config,
                 self.report,
                 connection=self.connection,
-                dataset_urn_builder=self.gen_dataset_urn,
+                filter=self.filters,
+                identifiers=self.identifiers,
                 redundant_run_skip_handler=redundant_usage_run_skip_handler,
             )
 
@@ -450,7 +459,8 @@ class SnowflakeV2Source(
             profiler=self.profiler,
             aggregator=self.aggregator,
             snowsight_url_builder=snowsight_url_builder,
-            dataset_urn_builder=self.gen_dataset_urn,
+            filters=self.filters,
+            identifiers=self.identifiers,
         )
 
         self.report.set_ingestion_stage("*", METADATA_EXTRACTION)
@@ -462,17 +472,17 @@ class SnowflakeV2Source(
 
         if self.config.shares:
             yield from SnowflakeSharesHandler(
-                self.config, self.report, self.gen_dataset_urn
+                self.config, self.report
             ).get_shares_workunits(databases)
 
         discovered_tables: List[str] = [
-            self.get_dataset_identifier(table_name, schema.name, db.name)
+            self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.tables
         ]
         discovered_views: List[str] = [
-            self.get_dataset_identifier(table_name, schema.name, db.name)
+            self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.views
@@ -499,15 +509,6 @@ class SnowflakeV2Source(
             queries_extractor = SnowflakeQueriesExtractor(
                 connection=self.connection,
                 config=SnowflakeQueriesExtractorConfig(
-                    # TODO: Refactor this a bit so it's not as redundant.
-                    database_pattern=self.config.database_pattern,
-                    schema_pattern=self.config.schema_pattern,
-                    table_pattern=self.config.table_pattern,
-                    view_pattern=self.config.view_pattern,
-                    match_fully_qualified_names=self.config.match_fully_qualified_names,
-                    convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
-                    env=self.config.env,
-                    platform_instance=self.config.platform_instance,
                     window=self.config,
                     temporary_tables_pattern=self.config.temporary_tables_pattern,
                     include_lineage=self.config.include_table_lineage,
@@ -515,6 +516,8 @@ class SnowflakeV2Source(
                     include_operations=self.config.include_operational_stats,
                 ),
                 structured_report=self.report,
+                filters=self.filters,
+                identifiers=self.identifiers,
                 schema_resolver=schema_resolver,
             )
 
@@ -539,7 +542,7 @@ class SnowflakeV2Source(
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(
-                self.config, self.report, self.connection
+                self.config, self.report, self.connection, self.identifiers
             ).get_assertion_workunits(discovered_datasets)
 
         self.connection.close()

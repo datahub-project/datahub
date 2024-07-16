@@ -1,4 +1,5 @@
 import abc
+from functools import cached_property
 from typing import ClassVar, Literal, Optional, Tuple
 
 from typing_extensions import Protocol
@@ -40,14 +41,6 @@ class SnowflakeCommonProtocol(Protocol):
 
     config: SnowflakeV2Config
     report: SnowflakeV2Report
-
-    def get_dataset_identifier(
-        self, table_name: str, schema_name: str, db_name: str
-    ) -> str:
-        ...
-
-    def cleanup_qualified_name(self, qualified_name: str) -> str:
-        ...
 
     def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
         ...
@@ -140,11 +133,14 @@ class SnowsightUrlBuilder:
         return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
 
 
-class SnowflakeFilterMixin(SnowflakeStructuredReportMixin):
-    @property
-    @abc.abstractmethod
-    def filter_config(self) -> SnowflakeFilterConfig:
-        ...
+class SnowflakeFilter:
+    def __init__(
+        self, filter_config: SnowflakeFilterConfig, structured_reporter: SourceReport
+    ) -> None:
+        self.filter_config = filter_config
+        self.structured_reporter = structured_reporter
+
+    # TODO: Refactor remaining filtering logic into this class.
 
     @staticmethod
     def _combine_identifier_parts(
@@ -224,20 +220,18 @@ class SnowflakeFilterMixin(SnowflakeStructuredReportMixin):
                 context=f"{qualified_name} has {len(name_parts)} parts",
             )
             return qualified_name.replace('"', "")
-        return SnowflakeFilterMixin._combine_identifier_parts(
+        return SnowflakeFilter._combine_identifier_parts(
             table_name=name_parts[2].strip('"'),
             schema_name=name_parts[1].strip('"'),
             db_name=name_parts[0].strip('"'),
         )
 
 
-class SnowflakeIdentifierMixin(abc.ABC):
+class SnowflakeIdentifierBuilder:
     platform = "snowflake"
 
-    @property
-    @abc.abstractmethod
-    def identifier_config(self) -> SnowflakeIdentifierConfig:
-        ...
+    def __init__(self, identifier_config: SnowflakeIdentifierConfig) -> None:
+        self.identifier_config = identifier_config
 
     def snowflake_identifier(self, identifier: str) -> str:
         # to be in in sync with older connector, convert name to lowercase
@@ -249,7 +243,7 @@ class SnowflakeIdentifierMixin(abc.ABC):
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
         return self.snowflake_identifier(
-            SnowflakeCommonMixin._combine_identifier_parts(
+            SnowflakeFilter._combine_identifier_parts(
                 table_name=table_name, schema_name=schema_name, db_name=db_name
             )
         )
@@ -264,18 +258,16 @@ class SnowflakeIdentifierMixin(abc.ABC):
 
 
 # TODO: We're most of the way there on fully removing SnowflakeCommonProtocol.
-class SnowflakeCommonMixin(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
+class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
+    platform = "snowflake"
+
     @property
     def structured_reporter(self: SnowflakeCommonProtocol) -> SourceReport:
         return self.report
 
-    @property
-    def filter_config(self: SnowflakeCommonProtocol) -> SnowflakeFilterConfig:
-        return self.config
-
-    @property
-    def identifier_config(self: SnowflakeCommonProtocol) -> SnowflakeIdentifierConfig:
-        return self.config
+    @cached_property
+    def identifiers(self: SnowflakeCommonProtocol) -> SnowflakeIdentifierBuilder:
+        return SnowflakeIdentifierBuilder(self.config)
 
     @staticmethod
     def get_quoted_identifier_for_database(db_name):
@@ -285,8 +277,23 @@ class SnowflakeCommonMixin(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
     def get_quoted_identifier_for_schema(db_name, schema_name):
         return f'"{db_name}"."{schema_name}"'
 
-    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
-        return self.snowflake_identifier(self.cleanup_qualified_name(qualified_name))
+    def gen_dataset_urn(self: SnowflakeCommonProtocol, dataset_identifier: str) -> str:
+        # TODO: Remove this method.
+        identifiers = SnowflakeIdentifierBuilder(self.config)
+        return identifiers.gen_dataset_urn(dataset_identifier)
+
+    def snowflake_identifier(self: SnowflakeCommonProtocol, identifier: str) -> str:
+        # TODO: Remove this method.
+        identifiers = SnowflakeIdentifierBuilder(self.config)
+        return identifiers.snowflake_identifier(identifier)
+
+    def get_dataset_identifier_from_qualified_name(
+        self: SnowflakeCommonProtocol, qualified_name: str
+    ) -> str:
+        filter = SnowflakeFilter(
+            filter_config=self.config, structured_reporter=self.report
+        )
+        return self.snowflake_identifier(filter.cleanup_qualified_name(qualified_name))
 
     @staticmethod
     def get_quoted_identifier_for_table(db_name, schema_name, table_name):

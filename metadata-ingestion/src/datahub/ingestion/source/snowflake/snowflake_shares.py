@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Iterable, List
+from typing import Iterable, List
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -26,12 +26,10 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
-        dataset_urn_builder: Callable[[str], str],
     ) -> None:
         self.config = config
         self.report = report
         self.logger = logger
-        self.dataset_urn_builder = dataset_urn_builder
 
     def get_shares_workunits(
         self, databases: List[SnowflakeDatabase]
@@ -114,15 +112,15 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
     ) -> Iterable[MetadataWorkUnit]:
         if not sibling_databases:
             return
-        dataset_identifier = self.get_dataset_identifier(
+        dataset_identifier = self.identifiers.get_dataset_identifier(
             table_name, schema_name, database_name
         )
-        urn = self.dataset_urn_builder(dataset_identifier)
+        urn = self.identifiers.gen_dataset_urn(dataset_identifier)
 
         sibling_urns = [
             make_dataset_urn_with_platform_instance(
-                self.platform,
-                self.get_dataset_identifier(
+                self.identifiers.platform,
+                self.identifiers.get_dataset_identifier(
                     table_name, schema_name, sibling_db.database
                 ),
                 sibling_db.platform_instance,
@@ -142,14 +140,14 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         table_name: str,
         primary_sibling_db: DatabaseId,
     ) -> MetadataWorkUnit:
-        dataset_identifier = self.get_dataset_identifier(
+        dataset_identifier = self.identifiers.get_dataset_identifier(
             table_name, schema_name, database_name
         )
-        urn = self.dataset_urn_builder(dataset_identifier)
+        urn = self.identifiers.gen_dataset_urn(dataset_identifier)
 
         upstream_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            self.get_dataset_identifier(
+            self.identifiers.platform,
+            self.identifiers.get_dataset_identifier(
                 table_name, schema_name, primary_sibling_db.database
             ),
             primary_sibling_db.platform_instance,

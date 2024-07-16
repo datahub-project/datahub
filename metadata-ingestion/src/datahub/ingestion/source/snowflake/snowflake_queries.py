@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import pydantic
 from typing_extensions import Self
 
+from datahub.configuration.common import ConfigModel
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -34,8 +35,9 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeFilterMixin,
-    SnowflakeIdentifierMixin,
+    SnowflakeFilter,
+    SnowflakeIdentifierBuilder,
+    SnowflakeStructuredReportMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn
@@ -58,7 +60,7 @@ from datahub.utilities.perf_timer import PerfTimer
 logger = logging.getLogger(__name__)
 
 
-class SnowflakeQueriesExtractorConfig(SnowflakeIdentifierConfig, SnowflakeFilterConfig):
+class SnowflakeQueriesExtractorConfig(ConfigModel):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
@@ -87,7 +89,9 @@ class SnowflakeQueriesExtractorConfig(SnowflakeIdentifierConfig, SnowflakeFilter
     include_operations: bool = True
 
 
-class SnowflakeQueriesSourceConfig(SnowflakeQueriesExtractorConfig):
+class SnowflakeQueriesSourceConfig(
+    SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
+):
     connection: SnowflakeConnectionConfig
 
 
@@ -104,12 +108,14 @@ class SnowflakeQueriesSourceReport(SourceReport):
     queries_extractor: Optional[SnowflakeQueriesExtractorReport] = None
 
 
-class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
+class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
     def __init__(
         self,
         connection: SnowflakeConnection,
         config: SnowflakeQueriesExtractorConfig,
         structured_report: SourceReport,
+        filters: SnowflakeFilter,
+        identifiers: SnowflakeIdentifierBuilder,
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
     ):
@@ -117,12 +123,15 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
 
         self.config = config
         self.report = SnowflakeQueriesExtractorReport()
+        self.filters = filters
+        self.identifiers = identifiers
+
         self._structured_report = structured_report
 
         self.aggregator = SqlParsingAggregator(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
+            platform=self.identifiers.platform,
+            platform_instance=self.identifiers.identifier_config.platform_instance,
+            env=self.identifiers.identifier_config.env,
             schema_resolver=schema_resolver,
             graph=graph,
             eager_graph_load=False,
@@ -147,14 +156,6 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
     def structured_reporter(self) -> SourceReport:
         return self._structured_report
 
-    @property
-    def filter_config(self) -> SnowflakeFilterConfig:
-        return self.config
-
-    @property
-    def identifier_config(self) -> SnowflakeIdentifierConfig:
-        return self.config
-
     @functools.cached_property
     def local_temp_path(self) -> pathlib.Path:
         if self.config.local_temp_path:
@@ -173,7 +174,9 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
         )
 
     def is_allowed_table(self, name: str) -> bool:
-        return self.is_dataset_pattern_allowed(name, SnowflakeObjectDomain.TABLE)
+        return self.filters.is_dataset_pattern_allowed(
+            name, SnowflakeObjectDomain.TABLE
+        )
 
     def get_workunits_internal(
         self,
@@ -261,7 +264,9 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
 
     def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
         # Copied from SnowflakeCommonMixin.
-        return self.snowflake_identifier(self.cleanup_qualified_name(qualified_name))
+        return self.identifiers.snowflake_identifier(
+            self.filters.cleanup_qualified_name(qualified_name)
+        )
 
     def _parse_audit_log_row(self, row: Dict[str, Any]) -> PreparsedQuery:
         json_fields = {
@@ -283,13 +288,15 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
         column_usage = {}
 
         for obj in direct_objects_accessed:
-            dataset = self.gen_dataset_urn(
+            dataset = self.identifiers.gen_dataset_urn(
                 self.get_dataset_identifier_from_qualified_name(obj["objectName"])
             )
 
             columns = set()
             for modified_column in obj["columns"]:
-                columns.add(self.snowflake_identifier(modified_column["columnName"]))
+                columns.add(
+                    self.identifiers.snowflake_identifier(modified_column["columnName"])
+                )
 
             upstreams.append(dataset)
             column_usage[dataset] = columns
@@ -304,7 +311,7 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
                     context=f"{row}",
                 )
 
-            downstream = self.gen_dataset_urn(
+            downstream = self.identifiers.gen_dataset_urn(
                 self.get_dataset_identifier_from_qualified_name(obj["objectName"])
             )
             column_lineage = []
@@ -313,18 +320,18 @@ class SnowflakeQueriesExtractor(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
                     ColumnLineageInfo(
                         downstream=DownstreamColumnRef(
                             dataset=downstream,
-                            column=self.snowflake_identifier(
+                            column=self.identifiers.snowflake_identifier(
                                 modified_column["columnName"]
                             ),
                         ),
                         upstreams=[
                             ColumnRef(
-                                table=self.gen_dataset_urn(
+                                table=self.identifiers.gen_dataset_urn(
                                     self.get_dataset_identifier_from_qualified_name(
                                         upstream["objectName"]
                                     )
                                 ),
-                                column=self.snowflake_identifier(
+                                column=self.identifiers.snowflake_identifier(
                                     upstream["columnName"]
                                 ),
                             )
@@ -374,12 +381,22 @@ class SnowflakeQueriesSource(Source):
         self.config = config
         self.report = SnowflakeQueriesSourceReport()
 
+        self.filters = SnowflakeFilter(
+            filter_config=self.config,
+            structured_reporter=self.report,
+        )
+        self.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=self.config,
+        )
+
         self.connection = self.config.connection.get_connection()
 
         self.queries_extractor = SnowflakeQueriesExtractor(
             connection=self.connection,
             config=self.config,
             structured_report=self.report,
+            filters=self.filters,
+            identifiers=self.identifiers,
             graph=self.ctx.graph,
         )
         self.report.queries_extractor = self.queries_extractor.report

@@ -86,7 +86,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         )
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
-        return self.get_dataset_identifier(table_name, schema_name, db_name)
+        return self.identifiers.get_dataset_identifier(table_name, schema_name, db_name)
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
