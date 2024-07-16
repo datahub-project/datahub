@@ -146,10 +146,7 @@ export function DetailsColumn({
                     }
                 >
                     <Link
-                        to={`${entityRegistry.getEntityUrl(
-                            EntityType.Dataset,
-                            entityData.urn,
-                        )}/Quality/Data Contract`}
+                        to={`${entityRegistry.getEntityUrl(EntityType.Dataset, entityData.urn)}/Quality/Data Contract`}
                     >
                         <DataContractLogo />
                     </Link>

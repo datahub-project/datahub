@@ -2,9 +2,8 @@ import React, { useEffect } from 'react';
 import { Button } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { AuditOutlined, FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
+import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { AcrylTestResults } from './AcrylTestResults';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
@@ -37,15 +36,12 @@ const DEFAULT_TAB = TabPaths.ASSERTIONS;
 export const AcrylValidationsTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
-    const { urn, entityData } = useEntityData();
+    const { urn } = useEntityData();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const appConfig = useAppConfig();
 
     const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
 
-    const passingTests = (entityData as any)?.testResults?.passing || [];
-    const failingTests = (entityData as any)?.testResults?.failing || [];
-    const totalTests = failingTests.length + passingTests.length;
     const combinedData = isHideSiblingMode ? assertionsData : combineEntityDataWithSiblings(assertionsData);
     const totalAssertions = combinedData?.dataset?.assertions?.assertions?.length || 0;
 

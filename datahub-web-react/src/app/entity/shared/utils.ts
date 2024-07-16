@@ -242,11 +242,11 @@ export function extractTypeFromUrn(urn: string): EntityType {
     }
  *  */
 
-export const getRedirectUrl = (newRoutes: Object) => {
+export const getRedirectUrl = (newRoutes: any) => {
     let newPathname = window.location.pathname;
 
-    for (let path in newRoutes) {
-        if (newPathname.indexOf(path) != -1) {
+    for (const path in newRoutes) {
+        if (newPathname.indexOf(path) !== -1) {
             newPathname = newPathname.replace(path, newRoutes[path]);
             break;
         }

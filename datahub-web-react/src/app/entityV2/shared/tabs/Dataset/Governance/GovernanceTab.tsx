@@ -3,15 +3,12 @@ import { Button } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { FileDoneOutlined } from '@ant-design/icons';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { ANTD_GRAY } from '../../../constants';
-import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
-import { useAppConfig } from '../../../../../useAppConfig';
 import { AcrylTestResults } from './AcrylTestResults';
 import { useGetValidationsTab } from '../Validations/useGetValidationsTab';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
-import { combineEntityDataWithSiblings } from '@src/app/entity/shared/siblingUtils';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -27,7 +24,6 @@ enum TabPaths {
 }
 
 const DEFAULT_TAB = TabPaths.TESTS;
-useIsSeparateSiblingsMode;
 
 export const GovernanceTab = () => {
     const history = useHistory();

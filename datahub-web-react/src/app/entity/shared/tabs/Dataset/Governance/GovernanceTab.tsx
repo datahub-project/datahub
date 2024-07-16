@@ -6,13 +6,7 @@ import { FileDoneOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { ANTD_GRAY } from '../../../constants';
-import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
-import { useAppConfig } from '../../../../../useAppConfig';
-import {
-    SEPARATE_SIBLINGS_URL_PARAM,
-    combineEntityDataWithSiblings,
-    useIsSeparateSiblingsMode,
-} from '../../../siblingUtils';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { AcrylTestResults } from './AcrylTestResults';
 import { useGetValidationsTab } from '../Validations/useGetValidationsTab';
 
@@ -31,20 +25,16 @@ enum TabPaths {
 
 const DEFAULT_TAB = TabPaths.TESTS;
 
-
 export const GovernanceTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
     const { urn, entityData } = useEntityData();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const appConfig = useAppConfig();
 
-    const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
     const passingTests = (entityData as any)?.testResults?.passing || [];
     const failingTests = (entityData as any)?.testResults?.failing || [];
     const totalTests = failingTests.length + passingTests.length;
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
-    const combinedData = isHideSiblingMode ? assertionsData : combineEntityDataWithSiblings(assertionsData);
 
     // If no tab was selected, select a default tab.
     useEffect(() => {

@@ -59,8 +59,8 @@ import { SidebarTitleActionType, getDataProduct, isOutputPort, getDatasetLastUpd
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
-import { Redirect } from 'react-router';
 import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
+import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -207,6 +207,16 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Governance',
+                    icon: () => (
+                        <span
+                            style={{
+                                fontSize: 14,
+                                marginRight: 6,
+                            }}
+                        >
+                            <GovernMenuIcon width={16} height={16} fill="currentColor" />
+                        </span>
+                    ),
                     component: GovernanceTab,
                 },
                 {

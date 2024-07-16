@@ -62,6 +62,7 @@ export const EntityPage = ({ entityType }: Props) => {
             };
             history.replace(getRedirectUrl(newRoutes));
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location]);
 
     const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
