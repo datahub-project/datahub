@@ -97,6 +97,7 @@ class StructuredLogs(Report):
         context: Optional[str] = None,
         exc: Optional[BaseException] = None,
         log: bool = False,
+        stacklevel: int = 1,
     ) -> None:
         """
         Report a user-facing warning for the ingestion run.
@@ -109,7 +110,8 @@ class StructuredLogs(Report):
             exc: The exception associated with the event. We'll show the stack trace when in debug mode.
         """
 
-        stacklevel = 2
+        # One for this method, and one for the containing report_* call.
+        stacklevel = stacklevel + 2
 
         log_key = f"{title}-{message}"
         entries = self._entries[level]
@@ -118,6 +120,8 @@ class StructuredLogs(Report):
             context = f"{context[:_MAX_CONTEXT_STRING_LENGTH]} ..."
 
         log_content = f"{message} => {context}" if context else message
+        if title:
+            log_content = f"{title}: {log_content}"
         if exc:
             log_content += f"{log_content}: {exc}"
 
@@ -255,9 +259,10 @@ class SourceReport(Report):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=False
+            StructuredLogLevel.ERROR, message, title, context, exc, log=log
         )
 
     def failure(
@@ -266,9 +271,10 @@ class SourceReport(Report):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=True
+            StructuredLogLevel.ERROR, message, title, context, exc, log=log
         )
 
     def info(
@@ -277,9 +283,10 @@ class SourceReport(Report):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.INFO, message, title, context, exc, log=True
+            StructuredLogLevel.INFO, message, title, context, exc, log=log
         )
 
     def __post_init__(self) -> None:

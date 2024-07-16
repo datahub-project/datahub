@@ -167,21 +167,28 @@ class SnowflakeFilterMixin(SnowflakeStructuredReportMixin):
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
         ):
             return False
-        if len(dataset_params) != 3:
-            self.report_warning(
-                "invalid-dataset-pattern",
-                f"Found {dataset_params} of type {dataset_type}",
-            )
-            # NOTE: this case returned `True` earlier when extracting lineage
-            return False
 
-        if not self.filter_config.database_pattern.allowed(
-            dataset_params[0].strip('"')
-        ) or not is_schema_allowed(
-            self.filter_config.schema_pattern,
-            dataset_params[1].strip('"'),
-            dataset_params[0].strip('"'),
-            self.filter_config.match_fully_qualified_names,
+        if len(dataset_params) != 3:
+            self.structured_reporter.info(
+                title="Unexpected dataset pattern",
+                message=f"Found a {dataset_type} with an unexpected number of parts. Database and schema filtering will not work as expected, but table filtering will still work.",
+                context=dataset_name,
+            )
+            # We fall-through here so table/view filtering still works.
+
+        if (
+            len(dataset_params) >= 1
+            and not self.filter_config.database_pattern.allowed(
+                dataset_params[0].strip('"')
+            )
+        ) or (
+            len(dataset_params) >= 2
+            and not is_schema_allowed(
+                self.filter_config.schema_pattern,
+                dataset_params[1].strip('"'),
+                dataset_params[0].strip('"'),
+                self.filter_config.match_fully_qualified_names,
+            )
         ):
             return False
 
@@ -210,7 +217,7 @@ class SnowflakeFilterMixin(SnowflakeStructuredReportMixin):
     def cleanup_qualified_name(self, qualified_name: str) -> str:
         name_parts = qualified_name.split(".")
         if len(name_parts) != 3:
-            self.structured_reporter.report_warning(
+            self.structured_reporter.info(
                 title="Unexpected dataset pattern",
                 message="We failed to parse a Snowflake qualified name into its constituent parts. "
                 "DB/schema/table filtering may not work as expected on these entities.",

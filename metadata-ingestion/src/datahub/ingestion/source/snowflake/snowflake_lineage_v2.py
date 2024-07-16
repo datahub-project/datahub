@@ -306,9 +306,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 self.report.num_external_table_edges_scanned += 1
         except Exception as e:
             logger.debug(e, exc_info=e)
-            self.report_warning(
-                "external_lineage",
-                f"Populating external table lineage from Snowflake failed due to error {e}.",
+            self.structured_reporter.warning(
+                "Error populating external table lineage from Snowflake",
+                exc=e,
             )
             self.report_status(EXTERNAL_LINEAGE, False)
 
