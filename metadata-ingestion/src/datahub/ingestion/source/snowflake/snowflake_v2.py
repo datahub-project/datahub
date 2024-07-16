@@ -277,10 +277,12 @@ class SnowflakeV2Source(
         capabilities: List[SourceCapability] = [c.capability for c in SnowflakeV2Source.get_capabilities() if c.capability not in (SourceCapability.PLATFORM_INSTANCE, SourceCapability.DOMAINS, SourceCapability.DELETION_DETECTION)]  # type: ignore
 
         cur = conn.query("select current_role()")
-        current_role = [row[0] for row in cur][0]
+        current_role = [row["CURRENT_ROLE()"] for row in cur][0]
 
         cur = conn.query("select current_secondary_roles()")
-        secondary_roles_str = json.loads([row[0] for row in cur][0])["roles"]
+        secondary_roles_str = json.loads(
+            [row["CURRENT_SECONDARY_ROLES()"] for row in cur][0]
+        )["roles"]
         secondary_roles = (
             [] if secondary_roles_str == "" else secondary_roles_str.split(",")
         )
@@ -299,7 +301,9 @@ class SnowflakeV2Source(
             cur = conn.query(f'show grants to role "{role}"')
             for row in cur:
                 privilege = SnowflakePrivilege(
-                    privilege=row[1], object_type=row[2], object_name=row[3]
+                    privilege=row["privilege"],
+                    object_type=row["granted_on"],
+                    object_name=row["name"],
                 )
                 privileges.append(privilege)
 
@@ -362,7 +366,7 @@ class SnowflakeV2Source(
                     roles.append(privilege.object_name)
 
         cur = conn.query("select current_warehouse()")
-        current_warehouse = [row[0] for row in cur][0]
+        current_warehouse = [row["CURRENT_WAREHOUSE()"] for row in cur][0]
 
         default_failure_messages = {
             SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them",
