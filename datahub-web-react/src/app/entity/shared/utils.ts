@@ -243,9 +243,12 @@ export function extractTypeFromUrn(urn: string): EntityType {
  *  */
 
 export const getRedirectUrl = (newRoutes: any) => {
-    let newPathname = window.location.pathname;
+    let newPathname = `${window.location.pathname}${window.location.search}`;
+    if (!newRoutes) {
+        return newPathname;
+    }
 
-    for (const path in newRoutes) {
+    for (const path of Object.keys(newRoutes)) {
         if (newPathname.indexOf(path) !== -1) {
             newPathname = newPathname.replace(path, newRoutes[path]);
             break;
