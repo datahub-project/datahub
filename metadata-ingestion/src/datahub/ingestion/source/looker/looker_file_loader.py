@@ -63,7 +63,7 @@ class LookerViewFileLoader:
             with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
-            self.reporter.report_failure("Failed to read lkml file", path, exc=e)
+            self.reporter.failure("Failed to read lkml file", path, exc=e)
             self.viewfile_cache[path] = None
             return None
         try:
@@ -89,7 +89,7 @@ class LookerViewFileLoader:
             self.viewfile_cache[path] = looker_viewfile
             return looker_viewfile
         except Exception as e:
-            self.reporter.report_failure("Failed to parse lkml file", path, exc=e)
+            self.reporter.failure("Failed to parse lkml file", path, exc=e)
             self.viewfile_cache[path] = None
             return None
 
