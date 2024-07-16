@@ -52,14 +52,16 @@ know.
 | ---------------------------------------------- | ------- | ------------- |
 | Surface data quality results | ✅ | ✅ |
 | Create data contracts | ✅ | ✅ |
-| Build and enforce continuous data SLAs | ❌ | ✅ |
-| Continuously monitor dataset health and schema | ❌ | ✅ |
-| Evaluate data quality checks on-demand (API and UI) | ❌ | ✅ |
-| Setup alerts and get data observability notifications | ❌ | ✅ |
-| Track and Manage Data Incidents | ❌ | ✅ |
-| Act on Incident alerts directly from within Slack | ❌ | ✅ |
-| See a high-level summary of your Data Health | ❌ | ✅ |
-| Run data quality checks in your VPC | ❌ | ✅ |
+| Track and Manage Data Incidents | ✅ | ✅ |
+| Monitor Freshness SLAs | ❌ | ✅ |
+| Monitor Table Schemas | ❌ | ✅ |
+| Monitor Table Volume | ❌ | ✅ |
+| Validate Table Columns | ❌ | ✅ |
+| Receive Notifications via Email & Slack | ❌ | ✅ |
+| Manage Data Incidents via Slack | ❌ | ✅ |
+| View Data Health Dashboard | ❌ | ✅ |
+| Evaluate data quality checks on-demand (API + UI) | ❌ | ✅ |
+| Evaluate data quality checks in your VPC | ❌ | ✅ |
 
 
 ## Enterprise Grade
