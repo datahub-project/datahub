@@ -1,7 +1,5 @@
-import concurrent.futures
 import itertools
 import logging
-import queue
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.pattern_utils import is_schema_allowed
@@ -101,6 +99,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -318,41 +317,22 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
         snowflake_db: SnowflakeDatabase,
         db_tables: Dict[str, List[SnowflakeTable]],
     ) -> Iterable[MetadataWorkUnit]:
-        q: "queue.Queue[MetadataWorkUnit]" = queue.Queue(maxsize=100)
-
-        def _process_schema_worker(snowflake_schema: SnowflakeSchema) -> None:
+        def _process_schema_worker(
+            snowflake_schema: SnowflakeSchema,
+        ) -> Iterable[MetadataWorkUnit]:
             for wu in self._process_schema(
                 snowflake_schema, snowflake_db.name, db_tables
             ):
-                q.put(wu)
+                yield wu
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=SCHEMA_PARALLELISM
-        ) as executor:
-            futures = []
-            for snowflake_schema in snowflake_db.schemas:
-                f = executor.submit(_process_schema_worker, snowflake_schema)
-                futures.append(f)
-
-            # Read from the queue and yield the work units until all futures are done.
-            while True:
-                if not q.empty():
-                    while not q.empty():
-                        yield q.get_nowait()
-                else:
-                    try:
-                        yield q.get(timeout=0.2)
-                    except queue.Empty:
-                        pass
-
-                # Filter out the done futures.
-                futures = [f for f in futures if not f.done()]
-                if not futures:
-                    break
-
-        # Yield the remaining work units. This theoretically should not happen, but adding it just in case.
-        while not q.empty():
-            yield q.get_nowait()
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=_process_schema_worker,
+            args_list=[
+                (snowflake_schema,) for snowflake_schema in snowflake_db.schemas
+            ],
+            max_workers=SCHEMA_PARALLELISM,
+        ):
+            yield wu
 
     def fetch_schemas_for_database(
         self, snowflake_db: SnowflakeDatabase, db_name: str
@@ -753,7 +733,11 @@ class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
             view_properties_aspect = ViewProperties(
                 materialized=table.materialized,
                 viewLanguage="SQL",
-                viewLogic=table.view_definition,
+                viewLogic=(
+                    table.view_definition
+                    if self.config.include_view_definitions
+                    else ""
+                ),
             )
 
             yield MetadataChangeProposalWrapper(
