@@ -156,7 +156,7 @@ def create_properties(
     prefix: str,
     custom_properties: Dict[str, str],
     resource_name: str,
-    json_properties: list[str],
+    json_properties: List[str],
 ) -> None:
     for item in data.items():
         key = item[0]
