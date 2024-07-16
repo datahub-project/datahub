@@ -95,18 +95,18 @@ public class EntityRelationshipsResultResolver
             .map(EntityRelationship::getEntity)
             .collect(Collectors.toSet());
 
-    final Set<Urn> relevantUrns;
+    final Set<Urn> existentUrns;
     if (context != null && _entityService != null && !includeSoftDelete) {
-      relevantUrns = _entityService.exists(context.getOperationContext(), allRelatedUrns, false);
+      existentUrns = _entityService.exists(context.getOperationContext(), allRelatedUrns, false);
     } else {
-      relevantUrns = allRelatedUrns;
+      existentUrns = null;
     }
 
     List<EntityRelationship> viewable =
         entityRelationships.getRelationships().stream()
             .filter(
                 rel ->
-                    relevantUrns.contains(rel.getEntity())
+                    (existentUrns == null || existentUrns.contains(rel.getEntity()))
                         && (context == null
                             || canView(context.getOperationContext(), rel.getEntity())))
             .collect(Collectors.toList());
