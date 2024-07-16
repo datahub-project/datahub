@@ -230,3 +230,11 @@ def test_unquote_and_decode_unicode_escape_seq():
     expected_output = "Hello \\utest"
     result = unquote_and_decode_unicode_escape_seq(input_string)
     assert result == expected_output
+
+    # Test with special characters
+    input_string = (
+        '"Hello \\u003cWorld\\u003e \\u003cçãâÁÁà|{}()[].,/;\\+=--_*&%$#@!?\\u003e"'
+    )
+    expected_output = "Hello <World> <çãâÁÁà|{}()[].,/;\\+=--_*&%$#@!?>"
+    result = unquote_and_decode_unicode_escape_seq(input_string)
+    assert result == expected_output
