@@ -63,10 +63,8 @@ class LookerViewFileLoader:
             with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
-            logger.debug(f"An error occurred while reading path {path}", exc_info=True)
-            self.reporter.report_failure(
-                path, f"failed to load view file {path} from disk: {e}"
-            )
+            self.reporter.report_failure("Failed to read lkml file", path, exc=e)
+            self.viewfile_cache[path] = None
             return None
         try:
             logger.debug(f"Loading viewfile {path}")
@@ -91,8 +89,8 @@ class LookerViewFileLoader:
             self.viewfile_cache[path] = looker_viewfile
             return looker_viewfile
         except Exception as e:
-            logger.debug(f"An error occurred while parsing path {path}", exc_info=True)
-            self.reporter.report_failure(path, f"failed to load view file {path}: {e}")
+            self.reporter.report_failure("Failed to parse lkml file", path, exc=e)
+            self.viewfile_cache[path] = None
             return None
 
     def load_viewfile(
