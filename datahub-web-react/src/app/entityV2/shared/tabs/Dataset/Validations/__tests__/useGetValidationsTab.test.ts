@@ -2,7 +2,7 @@ import { useGetValidationsTab } from '../useGetValidationsTab';
 
 describe('useGetValidationsTab', () => {
     it('should correctly extract valid tab', () => {
-        const pathname = '/dataset/urn:li:abc/Quality/Assertions';
+        const pathname = '/dataset/urn:li:abc/Quality/List';
         const tabNames = ['Assertions'];
         const res = useGetValidationsTab(pathname, tabNames);
         expect(res.selectedTab).toEqual('Assertions');
@@ -23,7 +23,7 @@ describe('useGetValidationsTab', () => {
         expect(res.basePath).toEqual('/dataset/urn:li:abc/Governance');
     });
     it('should handle trailing slashes', () => {
-        let pathname = '/dataset/urn:li:abc/Quality/Assertions/';
+        let pathname = '/dataset/urn:li:abc/Quality/List/';
         let tabNames = ['Assertions'];
         let res = useGetValidationsTab(pathname, tabNames);
         expect(res.selectedTab).toEqual('Assertions');

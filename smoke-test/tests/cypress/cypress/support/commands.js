@@ -27,8 +27,8 @@ Cypress.Commands.add("login", () => {
     method: "POST",
     url: "/logIn",
     body: {
-      username: Cypress.env("ADMIN_USERNAME"),
-      password: Cypress.env("ADMIN_PASSWORD"),
+      username: "admin",
+      password: "mypass",
     },
     retryOnStatusCodeFailure: true,
   });
@@ -40,8 +40,8 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     cy.get("input[data-testid=username]").type(username);
     cy.get("input[data-testid=password]").type(password);
   } else {
-    cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
-    cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
+    cy.get("input[data-testid=username]").type("admin");
+    cy.get("input[data-testid=password]").type("mypass");
   }
   cy.contains("Sign In").click();
   cy.get(".ant-avatar-circle").should("be.visible");
@@ -53,8 +53,8 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     cy.get("input[data-testid=username]").type(username);
     cy.get("input[data-testid=password]").type(password);
   } else {
-    cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
-    cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
+    cy.get("input[data-testid=username]").type("admin");
+    cy.get("input[data-testid=password]").type("mypass");
   }
   cy.contains("Sign In").click();
   cy.get(".ant-avatar-circle").should("be.visible");
@@ -166,17 +166,17 @@ Cypress.Commands.add(
   "goToEntityLineageGraph",
   (entity_type, urn, start_time_millis, end_time_millis) => {
     cy.visit(
-      `/${entity_type}/${urn}?is_lineage_mode=true&start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`,
+      `/${entity_type}/${urn}?is_lineage_mode=true&start_time_millis=${start_time_millis}&end_time_millis=${end_time_millis}`
     );
-  },
+  }
 );
 
 Cypress.Commands.add("lineageTabClickOnUpstream", () => {
   cy.get(
-    '[data-testid="lineage-tab-direction-select-option-downstream"] > b',
+    '[data-testid="lineage-tab-direction-select-option-downstream"] > b'
   ).click();
   cy.get(
-    '[data-testid="lineage-tab-direction-select-option-upstream"] > b',
+    '[data-testid="lineage-tab-direction-select-option-upstream"] > b'
   ).click();
 });
 
@@ -255,7 +255,7 @@ Cypress.Commands.add(
     cy.get(`[data-testid="${dataTestId}"]`).click();
     cy.wait(3000);
     cy.contains(value).should("be.visible");
-  },
+  }
 );
 
 Cypress.Commands.add("ensureTextNotPresent", (text) => {
@@ -282,7 +282,7 @@ Cypress.Commands.add("waitTextVisible", (text) => {
 Cypress.Commands.add("openMultiSelect", (data_id) => {
   const selector = `${selectorWithtestId(data_id)}`;
   cy.get(
-    `.ant-select${selector} > .ant-select-selector > .ant-select-selection-search`,
+    `.ant-select${selector} > .ant-select-selector > .ant-select-selection-search`
   ).click();
 });
 
@@ -357,7 +357,7 @@ Cypress.Commands.add(
     cy.clickOptionWithText("Add Terms");
     cy.selectOptionInTagTermModal(term);
     cy.contains(term);
-  },
+  }
 );
 
 Cypress.Commands.add(
@@ -367,11 +367,11 @@ Cypress.Commands.add(
     cy.clickOptionWithText("event_name");
     cy.contains("Business Attribute");
     cy.get('[data-testid="schema-field-event_name-businessAttribute"]').within(
-      () => cy.contains("Add Attribute").click(),
+      () => cy.contains("Add Attribute").click()
     );
     cy.selectOptionInAttributeModal(businessAttribute);
     cy.contains(businessAttribute);
-  },
+  }
 );
 
 Cypress.Commands.add("selectOptionInTagTermModal", (text) => {
@@ -395,10 +395,10 @@ Cypress.Commands.add(
   (urn, dataset_name, domain_urn) => {
     cy.goToDataset(urn, dataset_name);
     cy.get(
-      `.sidebar-domain-section [href="/domain/${domain_urn}"] .anticon-close`,
+      `.sidebar-domain-section [href="/domain/${domain_urn}"] .anticon-close`
     ).click();
     cy.clickOptionWithText("Yes");
-  },
+  }
 );
 
 Cypress.Commands.add("openEntityTab", (tab) => {
@@ -416,11 +416,11 @@ Cypress.Commands.add("highlighElement", (selector) => {
 });
 
 Cypress.Commands.add("mouseover", (selector) =>
-  cy.get(selector).trigger("mouseover", { force: true }),
+  cy.get(selector).trigger("mouseover", { force: true })
 );
 
 Cypress.Commands.add("mouseHoverOnFirstElement", (selector) =>
-  cy.get(selector).first().trigger("mouseover", { force: true }),
+  cy.get(selector).first().trigger("mouseover", { force: true })
 );
 
 Cypress.Commands.add("createUser", (name, password, email) => {
@@ -497,7 +497,7 @@ Cypress.Commands.add(
     const randomStr = randomStrGenerator();
     const combinedStr = `${input} | ${randomStr}{enter}`;
     cy.get(subject.selector).type(combinedStr);
-  },
+  }
 );
 
 Cypress.Commands.add(
@@ -505,11 +505,11 @@ Cypress.Commands.add(
   (searchTerm, datasetName) => {
     cy.visit("/");
     cy.get("input[data-testid=search-input]").typeSearchDisableCache(
-      searchTerm,
+      searchTerm
     );
     cy.contains(datasetName);
     cy.contains(searchTerm);
-  },
+  }
 );
 
 Cypress.Commands.add(
@@ -517,10 +517,10 @@ Cypress.Commands.add(
   (searchTerm, datasetName) => {
     cy.visit("/");
     cy.get("input[data-testid=search-input]").typeSearchDisableCache(
-      searchTerm,
+      searchTerm
     );
     cy.contains(datasetName).should("not.exist");
-  },
+  }
 );
 
 Cypress.Commands.add("doInInbox", (action) => {

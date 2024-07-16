@@ -31,9 +31,7 @@ enum TabPaths {
 
 const DEFAULT_TAB = TabPaths.TESTS;
 
-/**
- * Acryl-specific component used for rendering the Entity Validations Tab.
- */
+
 export const GovernanceTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
