@@ -1,6 +1,7 @@
 query getUser($urn: String!, $groupsCount: Int!) {
     corpUser(urn: $urn) {
         urn
+        type
         username
         isNativeUser
         exists
