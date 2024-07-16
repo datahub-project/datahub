@@ -56,7 +56,8 @@ know.
 | Monitor Freshness SLAs | ❌ | ✅ |
 | Monitor Table Schemas | ❌ | ✅ |
 | Monitor Table Volume | ❌ | ✅ |
-| Validate Table Columns | ❌ | ✅ |
+| Monitor Table Column Integrity | ❌ | ✅ |
+| Monitor Table with Custom SQL | ❌ | ✅ |
 | Receive Notifications via Email & Slack | ❌ | ✅ |
 | Manage Data Incidents via Slack | ❌ | ✅ |
 | View Data Health Dashboard | ❌ | ✅ |
