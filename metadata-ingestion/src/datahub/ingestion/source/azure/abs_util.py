@@ -157,7 +157,7 @@ def create_properties(
     custom_properties: Dict[str, str],
     resource_name: str,
     json_properties: list[str],
-) -> List[str]:
+) -> None:
     for item in data.items():
         key = item[0]
         transformed_key = f"{prefix}_{key}"
@@ -256,7 +256,7 @@ def list_folders(
 
     this_dict = {}
     for blob in blob_list:
-        blob_name = blob.name[:blob.name.rfind("/") + 1]
+        blob_name = blob.name[: blob.name.rfind("/") + 1]
         folder_structure_arr = blob_name.split("/")
 
         folder_name = ""
