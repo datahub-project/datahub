@@ -9,5 +9,7 @@ The DataHub Slack App brings several of DataHub's key capabilities directly into
 <img width="697" src="https://github.com/user-attachments/assets/4339a792-b94b-4259-8603-ecddc191a1df">
 
 
-*Coming soon.*
-This document will cover the full-range capabilities available within the Slack app and how you can use them to make data discovery easier and more accessible to you, right where you work.
+## Coming soon
+In the coming weeks this document will cover the full-range capabilities available within the Slack app.
+
+*Make data discovery easier and more accessible to you, right where you work.*
