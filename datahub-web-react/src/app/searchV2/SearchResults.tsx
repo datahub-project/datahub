@@ -178,7 +178,6 @@ interface Props {
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
     isSelectMode: boolean;
-    showSearchSelectBar?: boolean;
     selectedEntities: EntityAndType[];
     suggestions: SearchSuggestion[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
@@ -205,7 +204,6 @@ export const SearchResults = ({
     numResultsPerPage,
     setNumResultsPerPage,
     isSelectMode,
-    showSearchSelectBar = true,
     selectedEntities,
     suggestions,
     setIsSelectMode,
@@ -322,7 +320,7 @@ export const SearchResults = ({
                                                 selectedFilters={selectedFilters}
                                                 onChangeFilters={onChangeFilters}
                                             />
-                                            {isSelectMode && showSearchSelectBar && (
+                                            {isSelectMode && (
                                                 <StyledTabToolbar>
                                                     <SearchSelectBar
                                                         isSelectAll={

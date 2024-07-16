@@ -15,6 +15,7 @@ type Props = {
     resetShouldRefetch?: () => void;
     onLineageClick?: () => void;
     isLineageTab?: boolean;
+    setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export const ImpactAnalysis = ({
@@ -28,6 +29,7 @@ export const ImpactAnalysis = ({
     resetShouldRefetch,
     onLineageClick,
     isLineageTab,
+    setIsLoading,
 }: Props) => {
     const finalStartTimeMillis = startTimeMillis || undefined;
     const finalEndTimeMillis = endTimeMillis || undefined;
@@ -40,6 +42,7 @@ export const ImpactAnalysis = ({
                 endTimeMillis: finalEndTimeMillis,
                 skipCache,
                 setSkipCache,
+                setIsLoading,
             })}
             useGetDownloadSearchResults={generateUseDownloadScrollAcrossLineageSearchResultsHook({
                 urn,

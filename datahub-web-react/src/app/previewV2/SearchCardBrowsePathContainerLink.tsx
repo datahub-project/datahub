@@ -33,6 +33,7 @@ const StyledLink = styled(Link)`
     overflow: hidden;
     text-overflow: ellipsis;
     display: flex;
+    line-height: 10px;
     color: ${REDESIGN_COLORS.LINK_GREY};
     :hover {
         color: ${REDESIGN_COLORS.TITLE_PURPLE};

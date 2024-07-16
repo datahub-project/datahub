@@ -228,14 +228,18 @@ public class FormTestBuilder {
     // criteria outlined
     // by a specific prompt (question) within the form. If the prompt condition is NOT met, then the
     // entity will be considered
-    // failing. Conversely, if the prompt requirement is met, then then entity will be considered
+    // failing. Conversely, if the prompt requirement is met, then the entity will be considered
     // passing.
     ObjectNode rulesNode = definitionNode.putObject("rules");
 
     switch (prompt.getType()) {
       case STRUCTURED_PROPERTY:
-        ArrayNode andArray = rulesNode.putArray("and");
-        andArray.addAll(buildStructuredPropertiesTestConditions(prompt));
+        ArrayNode structuredPropsAndArray = rulesNode.putArray("and");
+        structuredPropsAndArray.addAll(buildStructuredPropertiesTestConditions(prompt));
+        break;
+      case OWNERSHIP:
+        ArrayNode ownershipAndArray = rulesNode.putArray("and");
+        ownershipAndArray.addAll(buildOwnershipTestConditions(prompt));
         break;
       default:
         throw new IllegalArgumentException(
@@ -269,6 +273,13 @@ public class FormTestBuilder {
     propertyNode.put(
         "property",
         "structuredProperties." + prompt.getStructuredPropertyParams().getUrn().toString());
+    propertyNode.put("operator", "exists");
+    return ImmutableList.of(propertyNode);
+  }
+
+  private static List<JsonNode> buildOwnershipTestConditions(@Nonnull final FormPrompt prompt) {
+    ObjectNode propertyNode = OBJECT_MAPPER.createObjectNode();
+    propertyNode.put("property", "ownership.owners.owner");
     propertyNode.put("operator", "exists");
     return ImmutableList.of(propertyNode);
   }

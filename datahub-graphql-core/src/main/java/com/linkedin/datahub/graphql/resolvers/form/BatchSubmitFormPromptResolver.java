@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFuture<Boolean>> {
@@ -91,6 +92,24 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
                   formUrn,
                   promptId,
                   uniqueFieldPaths);
+            } else if (promptInput.getType().equals(FormPromptType.OWNERSHIP)) {
+              if (promptInput.getOwnershipParams() == null) {
+                throw new IllegalArgumentException(
+                    "Failed to provide ownership params for prompt type OWNERSHIP");
+              }
+              final List<Urn> owners =
+                  promptInput.getOwnershipParams().getOwners().stream()
+                      .map(UrnUtils::getUrn)
+                      .collect(Collectors.toList());
+              final Urn ownershipTypeUrn =
+                  UrnUtils.getUrn(promptInput.getOwnershipParams().getOwnershipTypeUrn());
+              return _formService.batchSubmitOwnershipPromptResponse(
+                  context.getOperationContext(),
+                  entityUrns,
+                  owners,
+                  ownershipTypeUrn,
+                  formUrn,
+                  promptId);
             }
             return false;
           } catch (Exception e) {

@@ -7,6 +7,7 @@ import { Maybe, Policy, PolicyState, PolicyType } from '../../../types.generated
 import { useAppConfig } from '../../useAppConfig';
 import { convertLegacyResourceFilter, getFieldValues, mapResourceTypeToDisplayName } from './policyUtils';
 import AvatarsGroup from '../AvatarsGroup';
+import { SpacedAvatarGroup } from '../../shared/avatar/SpaceAvatarGroup';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -25,6 +26,10 @@ const PolicyContainer = styled.div`
     padding-right: 20px;
     > div {
         margin-bottom: 32px;
+    }
+
+    ${SpacedAvatarGroup} {
+        flex-wrap: wrap;
     }
 `;
 

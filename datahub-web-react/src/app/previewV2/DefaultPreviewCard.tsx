@@ -320,6 +320,7 @@ export default function DefaultPreviewCard({
                                 entityType={entityType}
                                 browsePaths={browsePaths}
                                 type={finalType}
+                                parentEntity={previewData?.parent}
                             />
                         )}
                     </RowContainer>
@@ -355,6 +356,7 @@ export default function DefaultPreviewCard({
                     parentContainers={parentContainers}
                     contentRef={contentRef}
                     browsePaths={browsePaths}
+                    parentEntity={previewData?.parent}
                 />
             )}
             <DefaultPreviewCardFooter

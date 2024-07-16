@@ -58,7 +58,12 @@ public class AddOwnersAction extends ValuesAction {
       @Nonnull final OwnershipType ownershipType) {
     if (!urns.isEmpty()) {
       this.ownerService.batchAddOwners(
-          opContext, ownerUrns, getResourceReferences(urns), ownershipType, METADATA_TESTS_SOURCE);
+          opContext,
+          ownerUrns,
+          getResourceReferences(urns),
+          ownershipType,
+          null,
+          METADATA_TESTS_SOURCE);
     }
   }
 }
