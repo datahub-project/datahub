@@ -80,6 +80,7 @@ export const DEFAULT_APP_CONFIG = {
         emailNotificationsEnabled: false,
         slackBotTokensConfigEnabled: false,
         showSeparateSiblings: false,
+        formCreationEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,
