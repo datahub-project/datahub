@@ -11,6 +11,28 @@ from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
+from more_itertools import peekable
+from pyspark.sql.types import (
+    ArrayType,
+    BinaryType,
+    BooleanType,
+    ByteType,
+    DateType,
+    DecimalType,
+    DoubleType,
+    FloatType,
+    IntegerType,
+    LongType,
+    MapType,
+    NullType,
+    ShortType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+from smart_open import open as smart_open
+
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -47,7 +69,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanTypeClass,
     BytesTypeClass,
@@ -72,27 +93,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.perf_timer import PerfTimer
-from more_itertools import peekable
-from pyspark.sql.types import (
-    ArrayType,
-    BinaryType,
-    BooleanType,
-    ByteType,
-    DateType,
-    DecimalType,
-    DoubleType,
-    FloatType,
-    IntegerType,
-    LongType,
-    MapType,
-    NullType,
-    ShortType,
-    StringType,
-    StructField,
-    StructType,
-    TimestampType,
-)
-from smart_open import open as smart_open
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -573,7 +573,7 @@ class ABSSource(StatefulIngestionSourceBase):
                         dir_to_process = dir_to_process.rstrip("\\")
                         for obj in container_client.list_blobs(
                             name_starts_with=f"{dir_to_process}",
-                            results_per_page=PAGE_SIZE
+                            results_per_page=PAGE_SIZE,
                         ):
                             abs_path = self.create_abs_path(obj.name)
                             logger.debug(f"Sampling file: {abs_path}")

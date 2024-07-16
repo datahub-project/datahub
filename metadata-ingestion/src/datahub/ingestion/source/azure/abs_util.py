@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from typing import Iterable, Optional, Dict, List
+from typing import Dict, Iterable, List, Optional
 
 from azure.storage.blob import BlobProperties
 
@@ -156,7 +156,7 @@ def create_properties(
     prefix: str,
     custom_properties: Dict[str, str],
     resource_name: str,
-    json_properties: [str],
+    json_properties: list[str],
 ) -> None:
     for item in data.items():
         key = item[0]
@@ -256,7 +256,7 @@ def list_folders(
 
     this_dict = {}
     for blob in blob_list:
-        blob_name = blob.name[:blob.name.rfind("/") + 1]
+        blob_name = blob.name[: blob.name.rfind("/") + 1]
         folder_structure_arr = blob_name.split("/")
 
         folder_name = ""
