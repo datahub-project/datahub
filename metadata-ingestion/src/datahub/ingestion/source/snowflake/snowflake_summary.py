@@ -1,5 +1,4 @@
 import dataclasses
-import logging
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional
 
@@ -65,7 +64,6 @@ class SnowflakeSummarySource(Source):
         super().__init__(ctx)
         self.config: SnowflakeSummaryConfig = config
         self.report: SnowflakeSummaryReport = SnowflakeSummaryReport()
-        self.logger = logging.getLogger(__name__)
 
         self.connection = self.config.get_connection()
 

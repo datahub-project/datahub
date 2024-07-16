@@ -27,7 +27,6 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         self.config = config
         self.data_dictionary = data_dictionary
         self.report = report
-        self.logger = logger
 
         self.tag_cache: Dict[str, _SnowflakeTagCache] = {}
 

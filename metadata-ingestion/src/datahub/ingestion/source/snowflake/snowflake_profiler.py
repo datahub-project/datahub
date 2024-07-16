@@ -37,7 +37,6 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         super().__init__(config, report, self.platform, state_handler)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
-        self.logger = logger
         self.database_default_schema: Dict[str, str] = dict()
 
     def get_workunits(

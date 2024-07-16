@@ -29,7 +29,6 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
     ) -> None:
         self.config = config
         self.report = report
-        self.logger = logger
 
     def get_shares_workunits(
         self, databases: List[SnowflakeDatabase]

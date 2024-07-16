@@ -135,7 +135,6 @@ class SnowflakeV2Source(
         super().__init__(config, ctx)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
-        self.logger = logger
 
         self.filters = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
@@ -144,13 +143,13 @@ class SnowflakeV2Source(
             identifier_config=self.config, structured_reporter=self.report
         )
 
-        self.connection = self.config.get_connection()
-
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
+
+        self.connection = self.config.get_connection()
 
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
