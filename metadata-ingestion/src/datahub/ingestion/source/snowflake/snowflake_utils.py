@@ -2,8 +2,6 @@ import abc
 from functools import cached_property
 from typing import ClassVar, Literal, Optional, Tuple
 
-from typing_extensions import Protocol
-
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.source import SourceReport
@@ -32,24 +30,6 @@ class SnowflakeStructuredReportMixin(abc.ABC):
 
     def report_error(self, key: str, reason: str) -> None:
         self.structured_reporter.failure(key, reason)
-
-
-# Required only for mypy, since we are using mixin classes, and not inheritance.
-# Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
-class SnowflakeCommonProtocol(Protocol):
-    platform: str = "snowflake"
-
-    config: SnowflakeV2Config
-    report: SnowflakeV2Report
-
-    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
-        ...
-
-    def report_warning(self, key: str, reason: str) -> None:
-        ...
-
-    def report_error(self, key: str, reason: str) -> None:
-        ...
 
 
 class SnowsightUrlBuilder:
@@ -254,16 +234,18 @@ class SnowflakeIdentifierBuilder:
         )
 
 
-# TODO: We're most of the way there on fully removing SnowflakeCommonProtocol.
 class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     platform = "snowflake"
 
+    config: SnowflakeV2Config
+    report: SnowflakeV2Report
+
     @property
-    def structured_reporter(self: SnowflakeCommonProtocol) -> SourceReport:
+    def structured_reporter(self) -> SourceReport:
         return self.report
 
     @cached_property
-    def identifiers(self: SnowflakeCommonProtocol) -> SnowflakeIdentifierBuilder:
+    def identifiers(self) -> SnowflakeIdentifierBuilder:
         return SnowflakeIdentifierBuilder(self.config)
 
     @staticmethod
@@ -274,9 +256,7 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     def get_quoted_identifier_for_schema(db_name, schema_name):
         return f'"{db_name}"."{schema_name}"'
 
-    def get_dataset_identifier_from_qualified_name(
-        self: SnowflakeCommonProtocol, qualified_name: str
-    ) -> str:
+    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
         filter = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
         )
@@ -294,7 +274,7 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     # Users without email were skipped from both user entries as well as aggregates.
     # However email is not mandatory field in snowflake user, user_name is always present.
     def get_user_identifier(
-        self: SnowflakeCommonProtocol,
+        self,
         user_name: str,
         user_email: Optional[str],
         email_as_user_identifier: bool,
@@ -310,9 +290,7 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint
     # for failures that do not affect the checkpoint
-    def warn_if_stateful_else_error(
-        self: SnowflakeCommonProtocol, key: str, reason: str
-    ) -> None:
+    def warn_if_stateful_else_error(self, key: str, reason: str) -> None:
         if (
             self.config.stateful_ingestion is not None
             and self.config.stateful_ingestion.enabled
