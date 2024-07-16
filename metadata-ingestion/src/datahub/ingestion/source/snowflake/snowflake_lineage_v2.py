@@ -336,38 +336,44 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                     db_row, discovered_tables
                 )
                 if known_lineage_mapping:
+                    self.report.num_external_table_edges_scanned += 1
                     yield known_lineage_mapping
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get external lineage. Please grant imported privileges on SNOWFLAKE database. "
                 self.warn_if_stateful_else_error(LINEAGE_PERMISSION_ERROR, error_msg)
             else:
-                logger.debug(e, exc_info=e)
                 self.structured_reporter.warning(
-                    "external_lineage",
-                    f"Populating table external lineage from Snowflake failed due to error {e}.",
+                    "Error fetching external lineage from Snowflake",
+                    exc=e,
                 )
             self.report_status(EXTERNAL_LINEAGE, False)
 
+    @classmethod
     def _process_external_lineage_result_row(
-        self, db_row: dict, discovered_tables: List[str]
+        cls,
+        db_row: dict,
+        discovered_tables: Optional[List[str]],
+        identifiers: SnowflakeIdentifierBuilder,
     ) -> Optional[KnownLineageMapping]:
         # key is the down-stream table name
-        key: str = self.identifiers.get_dataset_identifier_from_qualified_name(
+        key: str = identifiers.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
-        if key not in discovered_tables:
+        if discovered_tables is not None and key not in discovered_tables:
             return None
 
         if db_row["UPSTREAM_LOCATIONS"] is not None:
             external_locations = json.loads(db_row["UPSTREAM_LOCATIONS"])
 
+            loc: str
             for loc in external_locations:
                 if loc.startswith("s3://"):
-                    self.report.num_external_table_edges_scanned += 1
                     return KnownLineageMapping(
-                        upstream_urn=make_s3_urn_for_lineage(loc, self.config.env),
-                        downstream_urn=self.identifiers.gen_dataset_urn(key),
+                        upstream_urn=make_s3_urn_for_lineage(
+                            loc, identifiers.identifier_config.env
+                        ),
+                        downstream_urn=identifiers.gen_dataset_urn(key),
                     )
 
         return None

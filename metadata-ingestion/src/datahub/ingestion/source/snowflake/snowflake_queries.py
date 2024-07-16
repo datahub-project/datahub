@@ -33,6 +33,9 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnection,
     SnowflakeConnectionConfig,
 )
+from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
+    SnowflakeLineageExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
@@ -97,7 +100,9 @@ class SnowflakeQueriesSourceConfig(
 
 @dataclass
 class SnowflakeQueriesExtractorReport(Report):
-    audit_log_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    copy_history_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    query_log_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
@@ -118,6 +123,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         identifiers: SnowflakeIdentifierBuilder,
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
+        discovered_tables: Optional[List[str]] = None,
     ):
         self.connection = connection
 
@@ -125,6 +131,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         self.report = SnowflakeQueriesExtractorReport()
         self.filters = filters
         self.identifiers = identifiers
+        self.discovered_tables = discovered_tables
 
         self._structured_report = structured_report
 
@@ -174,6 +181,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         )
 
     def is_allowed_table(self, name: str) -> bool:
+        if self.discovered_tables and name not in self.discovered_tables:
+            return False
+
         return self.filters.is_dataset_pattern_allowed(
             name, SnowflakeObjectDomain.TABLE
         )
@@ -196,9 +206,15 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
             shared_connection = ConnectionWrapper(audit_log_file)
             queries = FileBackedList(shared_connection)
 
-            logger.info("Fetching audit log")
-            with self.report.audit_log_fetch_timer:
-                for entry in self.fetch_audit_log():
+            with self.report.copy_history_fetch_timer:
+                for entry in self.fetch_copy_history():
+                    queries.append(entry)
+
+            # TODO: Add "show external tables" lineage to the main schema extractor.
+            # Because it's not a time-based thing, it doesn't really make sense in the snowflake-queries extractor.
+
+            with self.report.query_log_fetch_timer:
+                for entry in self.fetch_query_log():
                     queries.append(entry)
 
         with self.report.audit_log_load_timer:
@@ -207,55 +223,66 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
 
         yield from auto_workunit(self.aggregator.gen_metadata())
 
-    def fetch_audit_log(
-        self,
-    ) -> Iterable[Union[KnownLineageMapping, PreparsedQuery]]:
-        """
-        # TODO: we need to fetch this info from somewhere
-        discovered_tables = []
+    def fetch_copy_history(self) -> Iterable[KnownLineageMapping]:
+        # Derived from _populate_external_lineage_from_copy_history.
 
-        snowflake_lineage_v2 = SnowflakeLineageExtractor(
-            config=self.config,  # type: ignore
-            report=self.report,  # type: ignore
-            dataset_urn_builder=self.gen_dataset_urn,
-            redundant_run_skip_handler=None,
-            sql_aggregator=self.aggregator,  # TODO this should be unused
+        query: str = SnowflakeQuery.copy_lineage_history(
+            start_time_millis=int(self.config.window.start_time.timestamp() * 1000),
+            end_time_millis=int(self.config.window.end_time.timestamp() * 1000),
+            downstreams_deny_pattern=self.config.temporary_tables_pattern,
         )
 
-        for (
-            known_lineage_mapping
-        ) in snowflake_lineage_v2._populate_external_lineage_from_copy_history(
-            discovered_tables=discovered_tables
-        ):
-            interim_results.append(known_lineage_mapping)
+        try:
+            logger.info("Fetching copy history from Snowflake")
+            resp = self.connection.query(query)
 
-        for (
-            known_lineage_mapping
-        ) in snowflake_lineage_v2._populate_external_lineage_from_show_query(
-            discovered_tables=discovered_tables
-        ):
-            interim_results.append(known_lineage_mapping)
-        """
+            for row in resp:
+                try:
+                    result = (
+                        SnowflakeLineageExtractor._process_external_lineage_result_row(
+                            row,
+                            discovered_tables=self.discovered_tables,
+                            identifiers=self.identifiers,
+                        )
+                    )
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        "Error parsing copy history row",
+                        context=f"{row}",
+                        exc=e,
+                    )
+                else:
+                    if result:
+                        yield result
+        except Exception as e:
+            self.structured_reporter.failure(
+                "Error fetching copy history from Snowflake",
+                exc=e,
+            )
 
-        audit_log_query = _build_enriched_audit_log_query(
+    def fetch_query_log(
+        self,
+    ) -> Iterable[PreparsedQuery]:
+        query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
             deny_usernames=self.config.deny_usernames,
         )
 
-        resp = self.connection.query(audit_log_query)
+        logger.info("Fetching query log from Snowflake")
+        resp = self.connection.query(query_log_query)
 
         for i, row in enumerate(resp):
             if i % 1000 == 0:
-                logger.info(f"Processed {i} audit log rows")
+                logger.info(f"Processed {i} query log rows")
 
             assert isinstance(row, dict)
             try:
                 entry = self._parse_audit_log_row(row)
             except Exception as e:
                 self.structured_reporter.warning(
-                    "Error parsing audit log row",
+                    "Error parsing query log row",
                     context=f"{row}",
                     exc=e,
                 )
@@ -340,10 +367,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                     )
                 )
 
-        # TODO: Support filtering the table names.
-        # if objects_modified:
-        #     breakpoint()
-
         # TODO implement email address mapping
         user = CorpUserUrn(res["user_name"])
 
@@ -419,7 +442,7 @@ class SnowflakeQueriesSource(Source):
 _MAX_TABLES_PER_QUERY = 20
 
 
-def _build_enriched_audit_log_query(
+def _build_enriched_query_log_query(
     start_time: datetime,
     end_time: datetime,
     bucket_duration: BucketDuration,
