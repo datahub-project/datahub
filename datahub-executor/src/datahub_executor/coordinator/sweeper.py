@@ -7,7 +7,7 @@ from datahub_executor.config import DATAHUB_EXECUTOR_SWEEPER_ABORT_THRESHOLD
 logger = logging.getLogger(__name__)
 
 
-class DatahubExecutorSweeper:
+class SweeperJob:
     """Class for cleaning up stale and duplicate execution requests."""
 
     def __init__(self) -> None:
@@ -33,6 +33,11 @@ class DatahubExecutorSweeper:
                     logger.info(
                         f"Sweeper: ingestion {ingestion.execution_request_id} is stale for {time_diff} seconds, going to abort."
                     )
+
+                    # Mark the job as ABORTED + submit KILL signal. This is necessary, because it is possible that
+                    # the worker is still alive, and keeps processing the job but it's not visible to the coordinator,
+                    # because of e.g. an interim network issue or kafka topic lag. Cancellation request ensures that
+                    # job either no longer exists or get killed as soon as we mark the job as ABORTED.
 
                     self.graph.abort_execution_request(
                         ingestion.execution_request_id,

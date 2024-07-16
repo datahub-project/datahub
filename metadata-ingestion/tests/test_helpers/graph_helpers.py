@@ -111,6 +111,7 @@ class MockDataHubGraph(DataHubGraph):
             UsageAggregationClass,
         ],
         callback: Union[Callable[[Exception, str], None], None] = None,
+        async_flag: Optional[bool] = None,
     ) -> None:
         self.emitted.append(item)  # type: ignore
 
@@ -120,7 +121,7 @@ class MockDataHubGraph(DataHubGraph):
     def emit_mcp(
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
-        async_flag: Optiona[bool] = None,
+        async_flag: Optional[bool] = None,
     ) -> None:
         self.emitted.append(mcp)
 

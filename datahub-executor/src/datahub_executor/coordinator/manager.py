@@ -8,7 +8,7 @@ from datahub_executor.common.client.fetcher.base import Fetcher
 from datahub_executor.common.types import ExecutionRequestSchedule
 from datahub_executor.config import DATAHUB_EXECUTOR_SWEEPER_INTERVAL
 from datahub_executor.coordinator.scheduler import ExecutionRequestScheduler
-from datahub_executor.coordinator.sweeper import DatahubExecutorSweeper
+from datahub_executor.coordinator.sweeper import SweeperJob
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class ExecutionRequestManager:
         self.bg_scheduler = BackgroundScheduler()
 
         # Create and schedule sweeper
-        self.sweeper = DatahubExecutorSweeper()
+        self.sweeper = SweeperJob()
         self.bg_scheduler.add_job(
             self.sweeper.run,
             args=[],
