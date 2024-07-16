@@ -2,8 +2,8 @@ package io.datahubproject.openapi.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.openapi.v2.models.BatchGetUrnRequest;
-import io.datahubproject.openapi.v2.models.BatchGetUrnResponse;
+import io.datahubproject.openapi.v2.models.BatchGetUrnRequestV2;
+import io.datahubproject.openapi.v2.models.BatchGetUrnResponseV2;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,15 +40,16 @@ public class OpenApiClient {
     this.systemOperationContext = systemOperationContext;
   }
 
-  public BatchGetUrnResponse getBatchUrnsSystemAuth(String entityName, BatchGetUrnRequest request) {
+  public BatchGetUrnResponseV2 getBatchUrnsSystemAuth(
+      String entityName, BatchGetUrnRequestV2 request) {
     return getBatchUrns(
         entityName,
         request,
         systemOperationContext.getSystemAuthentication().get().getCredentials());
   }
 
-  public BatchGetUrnResponse getBatchUrns(
-      String entityName, BatchGetUrnRequest request, String authCredentials) {
+  public BatchGetUrnResponseV2 getBatchUrns(
+      String entityName, BatchGetUrnRequestV2 request, String authCredentials) {
     String url =
         (useSsl ? "https://" : "http://") + gmsHost + ":" + gmsPort + OPENAPI_PATH + entityName;
     HttpPost httpPost = new HttpPost(url);
@@ -65,8 +66,8 @@ public class OpenApiClient {
     }
   }
 
-  private static BatchGetUrnResponse mapResponse(ClassicHttpResponse response) {
-    BatchGetUrnResponse serializedResponse;
+  private static BatchGetUrnResponseV2 mapResponse(ClassicHttpResponse response) {
+    BatchGetUrnResponseV2 serializedResponse;
     try {
       ByteArrayOutputStream result = new ByteArrayOutputStream();
       InputStream contentStream = response.getEntity().getContent();
@@ -78,7 +79,7 @@ public class OpenApiClient {
       }
       serializedResponse =
           OBJECT_MAPPER.readValue(
-              result.toString(StandardCharsets.UTF_8), BatchGetUrnResponse.class);
+              result.toString(StandardCharsets.UTF_8), BatchGetUrnResponseV2.class);
     } catch (IOException e) {
       log.error("Wasn't able to convert response into expected type.", e);
       throw new RuntimeException(e);

@@ -61,10 +61,25 @@ get_databases_response = {
                 }
             ],
             "CatalogId": "123412341234",
+            "LocationUri": "s3://test-bucket/test-prefix",
+            "Parameters": {"param1": "value1", "param2": "value2"},
         },
         {
             "Name": "test-database",
             "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "CreateTableDefaultPermissions": [
+                {
+                    "Principal": {
+                        "DataLakePrincipalIdentifier": "IAM_ALLOWED_PRINCIPALS"
+                    },
+                    "Permissions": ["ALL"],
+                }
+            ],
+            "CatalogId": "123412341234",
+        },
+        {
+            "Name": "empty-database",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 13),
             "CreateTableDefaultPermissions": [
                 {
                     "Principal": {

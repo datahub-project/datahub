@@ -87,11 +87,10 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
     long startTime = System.currentTimeMillis();
-    initializeContextFactoryIfNotInitialized();
 
     log.info("Application start called");
     this.appContext = getSparkAppContext(applicationStart);
-
+    initializeContextFactoryIfNotInitialized();
     listener.onApplicationStart(applicationStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.info("onApplicationStart completed successfully in {} ms", elapsedTime);
@@ -155,7 +154,8 @@ public class DatahubSparkListener extends SparkListener {
     return Optional.empty();
   }
 
-  private synchronized void loadDatahubConfig(SparkAppContext appContext, Properties properties) {
+  private synchronized SparkLineageConf loadDatahubConfig(
+      SparkAppContext appContext, Properties properties) {
     long startTime = System.currentTimeMillis();
     datahubConf = parseSparkConfig();
     SparkEnv sparkEnv = SparkEnv$.MODULE$.get();
@@ -169,14 +169,15 @@ public class DatahubSparkListener extends SparkListener {
       Optional<Map<String, String>> databricksTags = getDatabricksTags(datahubConf);
       this.appContext.setDatabricksTags(databricksTags.orElse(null));
     }
+
     log.info("Datahub configuration: {}", datahubConf.root().render());
     Optional<DatahubEmitterConfig> restEmitter = initializeEmitter(datahubConf);
     SparkLineageConf sparkLineageConf =
         SparkLineageConf.toSparkLineageConf(datahubConf, appContext, restEmitter.orElse(null));
 
-    emitter.setConfig(sparkLineageConf);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("loadDatahubConfig completed successfully in {} ms", elapsedTime);
+    return sparkLineageConf;
   }
 
   public void onApplicationEnd(SparkListenerApplicationEnd applicationEnd) {
@@ -220,7 +221,6 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Job start called");
-    loadDatahubConfig(this.appContext, jobStart.properties());
     listener.onJobStart(jobStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("onJobStart completed successfully in {} ms", elapsedTime);
@@ -287,13 +287,7 @@ public class DatahubSparkListener extends SparkListener {
     } else {
       disabledFacets = "";
     }
-    meterRegistry
-        .config()
-        .commonTags(
-            Tags.of(
-                Tag.of("openlineage.spark.integration.version", Versions.getVersion()),
-                Tag.of("openlineage.spark.version", sparkVersion),
-                Tag.of("openlineage.spark.disabled.facets", disabledFacets)));
+
     ((CompositeMeterRegistry) meterRegistry)
         .getRegistries()
         .forEach(
@@ -333,10 +327,12 @@ public class DatahubSparkListener extends SparkListener {
       return;
     }
     try {
+      SparkLineageConf datahubConfig = loadDatahubConfig(appContext, null);
       SparkOpenLineageConfig config = ArgumentParser.parse(sparkConf);
       // Needs to be done before initializing OpenLineageClient
       initializeMetrics(config);
       emitter = new DatahubEventEmitter(config, appName);
+      emitter.setConfig(datahubConfig);
       contextFactory = new ContextFactory(emitter, meterRegistry, config);
       circuitBreaker = new CircuitBreakerFactory(config.getCircuitBreaker()).build();
       OpenLineageSparkListener.init(contextFactory);

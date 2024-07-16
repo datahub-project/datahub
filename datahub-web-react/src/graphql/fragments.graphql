@@ -991,9 +991,7 @@ fragment domainEntitiesFields on Domain {
     entities(input: { start: 0, count: 0 }) {
         total
     }
-    dataProducts: entities(
-        input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }
-    ) {
+    dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }) {
         total
     }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
@@ -1383,7 +1381,6 @@ fragment entityHealth on Health {
     causes
 }
 
-
 fragment formsFields on Forms {
     completedForms {
         ...formAssociationFields
@@ -1419,9 +1416,9 @@ fragment businessAttribute on BusinessAttributeAssociation {
     businessAttribute {
         urn
         type
-            ownership {
-                ...ownershipFields
-            }
+        ownership {
+            ...ownershipFields
+        }
         properties {
             name
             description

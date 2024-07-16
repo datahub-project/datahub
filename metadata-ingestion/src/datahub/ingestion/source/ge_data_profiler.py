@@ -1180,6 +1180,7 @@ class DatahubGEProfiler:
             if custom_sql is not None:
                 ge_config["query"] = custom_sql
 
+        batch = None
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
@@ -1215,11 +1216,25 @@ class DatahubGEProfiler:
             except Exception as e:
                 if not self.config.catch_exceptions:
                     raise e
-                logger.exception(f"Encountered exception while profiling {pretty_name}")
-                self.report.report_warning(pretty_name, f"Profiling exception {e}")
+
+                error_message = str(e).lower()
+                if "permission denied" in error_message:
+                    self.report.warning(
+                        title="Unauthorized to extract data profile statistics",
+                        message="We were denied access while attempting to generate profiling statistics for some assets. Please ensure the provided user has permission to query these tables and views.",
+                        context=f"Asset: {pretty_name}",
+                        exc=e,
+                    )
+                else:
+                    self.report.warning(
+                        title="Failed to extract statistics for some assets",
+                        message="Caught unexpected exception while attempting to extract profiling statistics for some assets.",
+                        context=f"Asset: {pretty_name}",
+                        exc=e,
+                    )
                 return None
             finally:
-                if self.base_engine.engine.name == TRINO:
+                if batch is not None and self.base_engine.engine.name == TRINO:
                     self._drop_trino_temp_table(batch)
 
     def _get_ge_dataset(

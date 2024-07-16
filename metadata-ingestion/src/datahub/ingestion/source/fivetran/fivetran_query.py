@@ -1,4 +1,7 @@
 class FivetranLogQuery:
+    # Note: All queries are written in Snowflake SQL.
+    # They will be transpiled to the target database's SQL dialect at runtime.
+
     def __init__(self) -> None:
         # Select query db clause
         self.db_clause: str = ""
@@ -10,35 +13,38 @@ class FivetranLogQuery:
         return f"use database {db_name}"
 
     def get_connectors_query(self) -> str:
-        return f"""
-        SELECT connector_id,
-        connecting_user_id,
-        connector_type_id,
-        connector_name,
-        paused,
-        sync_frequency,
-        destination_id
-        FROM {self.db_clause}connector
-        WHERE _fivetran_deleted = FALSE"""
+        return f"""\
+SELECT
+  connector_id,
+  connecting_user_id,
+  connector_type_id,
+  connector_name,
+  paused,
+  sync_frequency,
+  destination_id
+FROM {self.db_clause}connector
+WHERE
+  _fivetran_deleted = FALSE\
+"""
 
-    def get_user_query(self, user_id: str) -> str:
+    def get_users_query(self) -> str:
         return f"""
         SELECT id as user_id,
         given_name,
         family_name,
         email
-        FROM {self.db_clause}user
-        WHERE id = '{user_id}'"""
+        FROM {self.db_clause}user"""
 
     def get_sync_logs_query(self) -> str:
-        return f"""
+        return """
         SELECT connector_id,
         sync_id,
         message_event,
         message_data,
         time_stamp
-        FROM {self.db_clause}log
-        WHERE message_event in ('sync_start', 'sync_end')"""
+        FROM {db_clause}log
+        WHERE message_event in ('sync_start', 'sync_end')
+        and time_stamp > CURRENT_TIMESTAMP - INTERVAL '{syncs_interval} days'"""
 
     def get_table_lineage_query(self) -> str:
         return f"""

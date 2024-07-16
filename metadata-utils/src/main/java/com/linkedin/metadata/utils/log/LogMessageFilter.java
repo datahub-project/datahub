@@ -1,6 +1,8 @@
 package com.linkedin.metadata.utils.log;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.IThrowableProxy;
+import ch.qos.logback.classic.spi.ThrowableProxyUtil;
 import ch.qos.logback.core.filter.AbstractMatcherFilter;
 import ch.qos.logback.core.spi.FilterReply;
 import java.util.ArrayList;
@@ -21,7 +23,21 @@ public class LogMessageFilter extends AbstractMatcherFilter<ILoggingEvent> {
       return FilterReply.NEUTRAL;
     }
 
-    if (this.excluded.stream().anyMatch(message -> event.getFormattedMessage().contains(message))) {
+    final String formattedMessage = event.getFormattedMessage();
+    final IThrowableProxy throwableProxy = event.getThrowableProxy();
+
+    String throwableString;
+    if (throwableProxy != null) {
+      throwableString = ThrowableProxyUtil.asString(throwableProxy);
+    } else {
+      throwableString = null;
+    }
+
+    if (this.excluded.stream()
+        .anyMatch(
+            message ->
+                formattedMessage.contains(message)
+                    || (throwableString != null && throwableString.contains(message)))) {
       return FilterReply.DENY;
     }
     return FilterReply.ACCEPT;
