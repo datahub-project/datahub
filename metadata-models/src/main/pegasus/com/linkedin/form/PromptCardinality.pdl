@@ -1,0 +1,16 @@
+namespace com.linkedin.form
+
+/**
+ * The cardinality of the prompt.
+ */
+enum PromptCardinality {
+  /**
+   * The prompt accepts a singular value as a response
+   */
+  SINGLE
+  
+  /**
+   * The prompt accepts multiple values as a response
+   */
+  MULTIPLE
+}

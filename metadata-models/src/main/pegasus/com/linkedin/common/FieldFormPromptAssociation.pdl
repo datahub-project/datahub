@@ -14,4 +14,10 @@ record FieldFormPromptAssociation {
      * The last time this prompt was touched for the field on the entity (set, unset)
      */
     lastModified: AuditStamp
+
+    /**
+     * Optional record of what was actually submitted when a user responds to a field-level form prompt.
+     * This should be populated going forward.
+     */
+    response: optional FormPromptResponse
 }

@@ -6,7 +6,7 @@ import StringInput from './StringInput';
 import RichTextInput from './RichTextInput';
 import DateInput from './DateInput';
 import NumberInput from './NumberInput';
-import UrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
+import StructuredPropertyUrnInput from './StructuredPropertyUrnInput';
 
 interface Props {
     structuredProperty: StructuredPropertyEntity;
@@ -63,7 +63,7 @@ export default function StructuredPropertyInput({
                 <NumberInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />
             )}
             {!allowedValues && valueType.info.type === StdDataType.Urn && (
-                <UrnInput
+                <StructuredPropertyUrnInput
                     structuredProperty={structuredProperty}
                     selectedValues={selectedValues}
                     updateSelectedValues={updateSelectedValues}

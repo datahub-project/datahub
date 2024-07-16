@@ -1,10 +1,9 @@
 import { Tag } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Entity, PropertyCardinality, StructuredPropertyEntity } from '../../../../../../../types.generated';
+import { Entity, EntityType } from '../../../../../../../types.generated';
 import { useGetSearchResultsForMultipleLazyQuery } from '../../../../../../../graphql/search.generated';
 import { useEntityData } from '../../../../EntityContext';
-import { getInitialEntitiesForUrnPrompt } from '../utils';
 import SelectedEntity from './SelectedEntity';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import usePrevious from '../../../../../../shared/usePrevious';
@@ -24,18 +23,22 @@ const StyleTag = styled(Tag)`
 `;
 
 interface Props {
-    structuredProperty: StructuredPropertyEntity;
     selectedValues: any[];
     updateSelectedValues: (values: any[]) => void;
+    initialEntities: Entity[];
+    allowedEntityTypes?: EntityType[];
+    isMultiple: boolean;
 }
 
-export default function useUrnInput({ structuredProperty, selectedValues, updateSelectedValues }: Props) {
+export default function useUrnInput({
+    initialEntities,
+    selectedValues,
+    updateSelectedValues,
+    allowedEntityTypes,
+    isMultiple,
+}: Props) {
     const entityRegistry = useEntityRegistry();
     const { entityData } = useEntityData();
-    const initialEntities = useMemo(
-        () => getInitialEntitiesForUrnPrompt(structuredProperty.urn, entityData, selectedValues),
-        [structuredProperty.urn, entityData, selectedValues],
-    );
 
     // we store the selected entity objects here to render display name, platform, etc.
     // selectedValues contains a list of urns that we store for the structured property values
@@ -43,13 +46,9 @@ export default function useUrnInput({ structuredProperty, selectedValues, update
     const [searchAcrossEntities, { data: searchData, loading }] = useGetSearchResultsForMultipleLazyQuery();
     const searchResults =
         searchData?.searchAcrossEntities?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const allowedEntityTypes = structuredProperty.definition.typeQualifier?.allowedTypes?.map(
-        (allowedType) => allowedType.info.type,
-    );
     const entityTypeNames: string[] | undefined = allowedEntityTypes?.map(
         (entityType) => entityRegistry.getEntityName(entityType) || '',
     );
-    const isMultiple = structuredProperty.definition.cardinality === PropertyCardinality.Multiple;
 
     const previousEntityUrn = usePrevious(entityData?.urn);
     useEffect(() => {

@@ -28,6 +28,7 @@ from datahub.metadata.schema_classes import (
     FormPromptClass,
     OwnerClass,
     OwnershipClass,
+    OwnershipParamsClass,
     OwnershipTypeClass,
     StructuredPropertyParamsClass,
 )
@@ -37,9 +38,23 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class PromptCardinality(Enum):
+    SINGLE = "SINGLE"
+    MULTIPLE = "MULTIPLE"
+
+    @classmethod
+    def has_value(cls, value):
+        return value in cls._value2member_map_
+
+
+class OwnershipParams(ConfigModel):
+    cardinality: str
+
+
 class PromptType(Enum):
     STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
     FIELDS_STRUCTURED_PROPERTY = "FIELDS_STRUCTURED_PROPERTY"
+    OWNERSHIP = "OWNERSHIP"
 
     @classmethod
     def has_value(cls, value):
@@ -54,6 +69,7 @@ class Prompt(ConfigModel):
     structured_property_id: Optional[str] = None
     structured_property_urn: Optional[str] = None
     required: Optional[bool] = None
+    ownership_params: Optional[OwnershipParams] = None
 
     @validator("structured_property_urn", pre=True, always=True)
     def structured_property_urn_must_be_present(cls, v, values):
@@ -164,6 +180,10 @@ class Forms(ConfigModel):
                     logger.warning(
                         f"Prompt id not provided. Setting prompt id to {prompt.id}"
                     )
+                if not PromptType.has_value(prompt.type):
+                    raise Exception(
+                        f"Prompt type {prompt.type} is not a valid type. Please try again with a valid Prompt type."
+                    )
                 if prompt.structured_property_urn:
                     structured_property_urn = prompt.structured_property_urn
                     if emitter.exists(structured_property_urn):
@@ -183,6 +203,17 @@ class Forms(ConfigModel):
                     raise Exception(
                         f"Prompt type is {prompt.type} but no structured properties exist. Unable to create form."
                     )
+                if prompt.type == PromptType.OWNERSHIP.value:
+                    if not prompt.ownership_params:
+                        raise Exception(
+                            f"Prompt type is {prompt.type} and no ownership params were provided."
+                        )
+                    elif not PromptCardinality.has_value(
+                        prompt.ownership_params.cardinality
+                    ):
+                        raise Exception(
+                            f"Prompt cardinality {prompt.ownership_params.cardinality} is not valid. Please try again with a valid Prompt cardinality."
+                        )
                 if (
                     prompt.type == PromptType.FIELDS_STRUCTURED_PROPERTY.value
                     and prompt.required
@@ -201,6 +232,11 @@ class Forms(ConfigModel):
                             urn=prompt.structured_property_urn
                         )
                         if prompt.structured_property_urn
+                        else None,
+                        ownershipParams=OwnershipParamsClass(
+                            cardinality=prompt.ownership_params.cardinality
+                        )
+                        if prompt.ownership_params
                         else None,
                         required=prompt.required,
                     )
@@ -341,6 +377,11 @@ class Forms(ConfigModel):
                     type=prompt_raw.type,
                     structured_property_urn=prompt_raw.structuredPropertyParams.urn
                     if prompt_raw.structuredPropertyParams
+                    else None,
+                    ownership_params=OwnershipParams(
+                        cardinality=prompt_raw.ownershipParams.cardinality
+                    )
+                    if prompt_raw.ownershipParams
                     else None,
                 )
             )

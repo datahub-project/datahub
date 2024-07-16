@@ -9,6 +9,7 @@ import {
     CaretDownOutlined,
     ReloadOutlined,
     SubnodeOutlined,
+    LoadingOutlined,
 } from '@ant-design/icons';
 import { Button, Select, Tooltip, Typography } from 'antd';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
@@ -81,6 +82,7 @@ export function LineageColumnView({ defaultDirection }: Props) {
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
     const [shouldRefetch, setShouldRefetch] = useState(false);
     const [skipCache, setSkipCache] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const entityName = (entityData && entityRegistry.getDisplayName(entityType, entityData)) || '-';
 
@@ -167,9 +169,9 @@ export function LineageColumnView({ defaultDirection }: Props) {
                         />
                     )}
                     <LineageTabTimeSelector />
-                    <Tooltip title="Click to refresh data">
-                        <RefreshCacheButton type="text" onClick={() => setSkipCache(true)}>
-                            <ReloadOutlined />
+                    <Tooltip title={isLoading ? 'Refreshing data' : 'Click to refresh data'}>
+                        <RefreshCacheButton type="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
+                            {isLoading ? <LoadingOutlined /> : <ReloadOutlined />}
                             <Typography.Text>
                                 <b>Refresh</b>
                             </Typography.Text>
@@ -187,6 +189,7 @@ export function LineageColumnView({ defaultDirection }: Props) {
                     setSkipCache={setSkipCache}
                     shouldRefetch={shouldRefetch}
                     resetShouldRefetch={resetShouldRefetch}
+                    setIsLoading={setIsLoading}
                 />
             </LineageTabContext.Provider>
         </>

@@ -59,6 +59,7 @@ public class EntityTypeMapper {
           .put(EntityType.BUSINESS_ATTRIBUTE, Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)
           .put(EntityType.QUERY, Constants.QUERY_ENTITY_NAME)
           .put(EntityType.POST, Constants.POST_ENTITY_NAME)
+          .put(EntityType.FORM, Constants.FORM_ENTITY_NAME)
           .putAll(ACRYL_ENTITY_TYPE_TO_NAME) // SaaS only
           .build();
 

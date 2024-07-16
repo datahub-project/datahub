@@ -2,7 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { StructuredPropertyEntity } from '../../../../../../../types.generated';
+import { Entity, EntityType } from '../../../../../../../types.generated';
 import useUrnInput from './useUrnInput';
 import SelectedEntity from './SelectedEntity';
 
@@ -28,12 +28,20 @@ const LoadingWrapper = styled.div`
 `;
 
 interface Props {
-    structuredProperty: StructuredPropertyEntity;
     selectedValues: any[];
-    updateSelectedValues: (values: string[] | number[]) => void;
+    updateSelectedValues: (values: any[]) => void;
+    initialEntities: Entity[];
+    allowedEntityTypes?: EntityType[];
+    isMultiple: boolean;
 }
 
-export default function UrnInput({ structuredProperty, selectedValues, updateSelectedValues }: Props) {
+export default function UrnInput({
+    initialEntities,
+    allowedEntityTypes,
+    isMultiple,
+    selectedValues,
+    updateSelectedValues,
+}: Props) {
     const {
         onSelectValue,
         onDeselectValue,
@@ -43,7 +51,7 @@ export default function UrnInput({ structuredProperty, selectedValues, updateSel
         searchResults,
         loading,
         entityTypeNames,
-    } = useUrnInput({ structuredProperty, selectedValues, updateSelectedValues });
+    } = useUrnInput({ initialEntities, allowedEntityTypes, isMultiple, selectedValues, updateSelectedValues });
 
     const placeholder = `Search for ${entityTypeNames ? entityTypeNames.map((name) => ` ${name}`) : 'entities'}...`;
 

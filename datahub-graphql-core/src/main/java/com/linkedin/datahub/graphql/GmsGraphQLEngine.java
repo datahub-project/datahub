@@ -101,6 +101,7 @@ import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.MetadataAttribution;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.OwnershipPromptResponse;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
@@ -2766,6 +2767,14 @@ public class GmsGraphQLEngine {
                               .collect(Collectors.toList());
                         }))
                 .dataFetcher("isAssignedToMe", new IsFormAssignedToMeResolver(groupService)));
+    builder.type(
+        "OwnershipPromptResponse",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "owners",
+                new BatchGetEntitiesResolver(
+                    entityTypes,
+                    (env) -> ((OwnershipPromptResponse) env.getSource()).getOwners())));
   }
 
   private void configureDataProductResolvers(final RuntimeWiring.Builder builder) {

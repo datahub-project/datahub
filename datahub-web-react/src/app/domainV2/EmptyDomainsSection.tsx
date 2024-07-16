@@ -7,7 +7,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 const EmptyDomainContainer = styled.div`
     display: flex;
     justify-content: center;
-    align-items: center;
+    overflow-y: auto;
 `;
 
 const StyledEmpty = styled(Empty)`
@@ -23,7 +23,7 @@ const StyledEmpty = styled(Empty)`
             background: #d6d6d6;
         }
     }
-    padding: 60px 40px;
+    padding: 20px;
     .ant-empty-image {
         display: none;
     }

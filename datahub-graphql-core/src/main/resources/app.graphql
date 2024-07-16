@@ -1137,6 +1137,11 @@ type FeatureFlagsConfig {
   emailNotificationsEnabled: Boolean!
 
   """
+  Enables the ability to configure slack bot tokens via the integrations settings UI
+  """
+  slackBotTokensConfigEnabled: Boolean!
+
+  """
   If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   """
   showSeparateSiblings: Boolean!

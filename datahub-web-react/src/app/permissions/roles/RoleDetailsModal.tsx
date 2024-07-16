@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { CorpUser, DataHubPolicy, DataHubRole } from '../../../types.generated';
 import AvatarsGroup from '../AvatarsGroup';
+import { SpacedAvatarGroup } from '../../shared/avatar/SpaceAvatarGroup';
 
 type Props = {
     role: DataHubRole;
@@ -16,6 +17,10 @@ const PolicyContainer = styled.div`
     padding-right: 20px;
     > div {
         margin-bottom: 32px;
+    }
+
+    ${SpacedAvatarGroup} {
+        flex-wrap: wrap;
     }
 `;
 

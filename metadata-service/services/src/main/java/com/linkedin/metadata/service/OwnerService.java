@@ -52,10 +52,12 @@ public class OwnerService extends BaseService {
       @Nonnull List<Urn> ownerUrns,
       @Nonnull List<ResourceReference> resources,
       @Nonnull OwnershipType ownershipType,
+      @Nullable Urn ownershipTypeUrn,
       @Nullable String appSource) {
     log.debug("Batch adding Owners to entities. owners: {}, resources: {}", resources, ownerUrns);
     try {
-      addOwnersToResources(opContext, ownerUrns, resources, ownershipType, appSource);
+      addOwnersToResources(
+          opContext, ownerUrns, resources, ownershipType, ownershipTypeUrn, appSource);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -97,10 +99,11 @@ public class OwnerService extends BaseService {
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
       OwnershipType ownershipType,
+      Urn ownershipTypeUrn,
       @Nullable String appSource)
       throws Exception {
     final List<MetadataChangeProposal> changes =
-        buildAddOwnersProposals(opContext, ownerUrns, resources, ownershipType);
+        buildAddOwnersProposals(opContext, ownerUrns, resources, ownershipType, ownershipTypeUrn);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
@@ -126,7 +129,8 @@ public class OwnerService extends BaseService {
       @Nonnull OperationContext opContext,
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
-      OwnershipType ownershipType) {
+      OwnershipType ownershipType,
+      Urn ownershipTypeUrn) {
 
     final Map<Urn, Ownership> ownershipAspects =
         getOwnershipAspects(
@@ -150,7 +154,7 @@ public class OwnerService extends BaseService {
                 .setActor(
                     UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
       }
-      addOwnersIfNotExists(owners, ownerUrns, ownershipType);
+      addOwnersIfNotExists(owners, ownerUrns, ownershipType, ownershipTypeUrn);
       proposals.add(
           buildMetadataChangeProposal(resource.getUrn(), Constants.OWNERSHIP_ASPECT_NAME, owners));
     }
@@ -184,7 +188,7 @@ public class OwnerService extends BaseService {
   }
 
   private void addOwnersIfNotExists(
-      Ownership owners, List<Urn> ownerUrns, OwnershipType ownershipType) {
+      Ownership owners, List<Urn> ownerUrns, OwnershipType ownershipType, Urn ownershipTypeUrn) {
     if (!owners.hasOwners()) {
       owners.setOwners(new OwnerArray());
     }
@@ -210,6 +214,9 @@ public class OwnerService extends BaseService {
       newOwner.setOwner(ownerUrn);
       newOwner.setTypeUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.name()));
       newOwner.setType(ownershipType);
+      if (ownershipTypeUrn != null) {
+        newOwner.setTypeUrn(ownershipTypeUrn);
+      }
       ownerAssociationArray.add(newOwner);
     }
   }
