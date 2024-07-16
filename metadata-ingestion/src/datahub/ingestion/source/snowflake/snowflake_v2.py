@@ -140,7 +140,9 @@ class SnowflakeV2Source(
         self.filters = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
         )
-        self.identifiers = SnowflakeIdentifierBuilder(identifier_config=self.config)
+        self.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=self.config, structured_reporter=self.report
+        )
 
         self.connection = self.config.get_connection()
 

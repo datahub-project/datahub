@@ -76,7 +76,8 @@ class SnowflakeSummarySource(Source):
             report=self.report,  # type: ignore
             connection=self.connection,
             identifiers=SnowflakeIdentifierBuilder(
-                identifier_config=SnowflakeIdentifierConfig()
+                identifier_config=SnowflakeIdentifierConfig(),
+                structured_reporter=self.report,
             ),
             domain_registry=None,
             profiler=None,

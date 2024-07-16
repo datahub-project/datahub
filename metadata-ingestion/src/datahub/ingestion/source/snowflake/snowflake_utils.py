@@ -112,12 +112,6 @@ class SnowflakeFilter:
 
     # TODO: Refactor remaining filtering logic into this class.
 
-    @staticmethod
-    def _combine_identifier_parts(
-        table_name: str, schema_name: str, db_name: str
-    ) -> str:
-        return f"{db_name}.{schema_name}.{table_name}"
-
     def is_dataset_pattern_allowed(
         self,
         dataset_name: Optional[str],
@@ -161,7 +155,7 @@ class SnowflakeFilter:
         if dataset_type.lower() in {
             SnowflakeObjectDomain.TABLE
         } and not self.filter_config.table_pattern.allowed(
-            self.cleanup_qualified_name(dataset_name)
+            _cleanup_qualified_name(dataset_name, self.structured_reporter)
         ):
             return False
 
@@ -169,39 +163,53 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
         } and not self.filter_config.view_pattern.allowed(
-            self.cleanup_qualified_name(dataset_name)
+            _cleanup_qualified_name(dataset_name, self.structured_reporter)
         ):
             return False
 
         return True
 
-    # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
-    # For example "test-database"."test-schema".test_table
-    # whereas we generate urns without quotes even for quoted identifiers for backward compatibility
-    # and also unavailability of utility function to identify whether current table/schema/database
-    # name should be quoted in above method get_dataset_identifier
-    def cleanup_qualified_name(self, qualified_name: str) -> str:
-        name_parts = qualified_name.split(".")
-        if len(name_parts) != 3:
-            self.structured_reporter.info(
-                title="Unexpected dataset pattern",
-                message="We failed to parse a Snowflake qualified name into its constituent parts. "
-                "DB/schema/table filtering may not work as expected on these entities.",
-                context=f"{qualified_name} has {len(name_parts)} parts",
-            )
-            return qualified_name.replace('"', "")
-        return SnowflakeFilter._combine_identifier_parts(
-            table_name=name_parts[2].strip('"'),
-            schema_name=name_parts[1].strip('"'),
-            db_name=name_parts[0].strip('"'),
+
+def _combine_identifier_parts(
+    *, table_name: str, schema_name: str, db_name: str
+) -> str:
+    return f"{db_name}.{schema_name}.{table_name}"
+
+
+# Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
+# For example "test-database"."test-schema".test_table
+# whereas we generate urns without quotes even for quoted identifiers for backward compatibility
+# and also unavailability of utility function to identify whether current table/schema/database
+# name should be quoted in above method get_dataset_identifier
+def _cleanup_qualified_name(
+    qualified_name: str, structured_reporter: SourceReport
+) -> str:
+    name_parts = qualified_name.split(".")
+    if len(name_parts) != 3:
+        structured_reporter.info(
+            title="Unexpected dataset pattern",
+            message="We failed to parse a Snowflake qualified name into its constituent parts. "
+            "DB/schema/table filtering may not work as expected on these entities.",
+            context=f"{qualified_name} has {len(name_parts)} parts",
         )
+        return qualified_name.replace('"', "")
+    return _combine_identifier_parts(
+        db_name=name_parts[0].strip('"'),
+        schema_name=name_parts[1].strip('"'),
+        table_name=name_parts[2].strip('"'),
+    )
 
 
 class SnowflakeIdentifierBuilder:
     platform = "snowflake"
 
-    def __init__(self, identifier_config: SnowflakeIdentifierConfig) -> None:
+    def __init__(
+        self,
+        identifier_config: SnowflakeIdentifierConfig,
+        structured_reporter: SourceReport,
+    ) -> None:
         self.identifier_config = identifier_config
+        self.structured_reporter = structured_reporter
 
     def snowflake_identifier(self, identifier: str) -> str:
         # to be in in sync with older connector, convert name to lowercase
@@ -213,7 +221,7 @@ class SnowflakeIdentifierBuilder:
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
         return self.snowflake_identifier(
-            SnowflakeFilter._combine_identifier_parts(
+            _combine_identifier_parts(
                 table_name=table_name, schema_name=schema_name, db_name=db_name
             )
         )
@@ -225,6 +233,23 @@ class SnowflakeIdentifierBuilder:
             platform_instance=self.identifier_config.platform_instance,
             env=self.identifier_config.env,
         )
+
+    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
+        return self.snowflake_identifier(
+            _cleanup_qualified_name(qualified_name, self.structured_reporter)
+        )
+
+    @staticmethod
+    def get_quoted_identifier_for_database(db_name):
+        return f'"{db_name}"'
+
+    @staticmethod
+    def get_quoted_identifier_for_schema(db_name, schema_name):
+        return f'"{db_name}"."{schema_name}"'
+
+    @staticmethod
+    def get_quoted_identifier_for_table(db_name, schema_name, table_name):
+        return f'"{db_name}"."{schema_name}"."{table_name}"'
 
 
 class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
@@ -239,29 +264,7 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
 
     @cached_property
     def identifiers(self) -> SnowflakeIdentifierBuilder:
-        return SnowflakeIdentifierBuilder(self.config)
-
-    # TODO: These methods should be moved to SnowflakeIdentifierBuilder.
-
-    @staticmethod
-    def get_quoted_identifier_for_database(db_name):
-        return f'"{db_name}"'
-
-    @staticmethod
-    def get_quoted_identifier_for_schema(db_name, schema_name):
-        return f'"{db_name}"."{schema_name}"'
-
-    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
-        filter = SnowflakeFilter(
-            filter_config=self.config, structured_reporter=self.report
-        )
-        return self.identifiers.snowflake_identifier(
-            filter.cleanup_qualified_name(qualified_name)
-        )
-
-    @staticmethod
-    def get_quoted_identifier_for_table(db_name, schema_name, table_name):
-        return f'"{db_name}"."{schema_name}"."{table_name}"'
+        return SnowflakeIdentifierBuilder(self.config, self.report)
 
     # Note - decide how to construct user urns.
     # Historically urns were created using part before @ from user's email.

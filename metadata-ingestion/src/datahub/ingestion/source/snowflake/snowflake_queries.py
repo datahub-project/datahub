@@ -262,12 +262,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
             else:
                 yield entry
 
-    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
-        # Copied from SnowflakeCommonMixin.
-        return self.identifiers.snowflake_identifier(
-            self.filters.cleanup_qualified_name(qualified_name)
-        )
-
     def _parse_audit_log_row(self, row: Dict[str, Any]) -> PreparsedQuery:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
@@ -289,7 +283,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
 
         for obj in direct_objects_accessed:
             dataset = self.identifiers.gen_dataset_urn(
-                self.get_dataset_identifier_from_qualified_name(obj["objectName"])
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    obj["objectName"]
+                )
             )
 
             columns = set()
@@ -312,7 +308,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                 )
 
             downstream = self.identifiers.gen_dataset_urn(
-                self.get_dataset_identifier_from_qualified_name(obj["objectName"])
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    obj["objectName"]
+                )
             )
             column_lineage = []
             for modified_column in obj["columns"]:
@@ -327,7 +325,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                         upstreams=[
                             ColumnRef(
                                 table=self.identifiers.gen_dataset_urn(
-                                    self.get_dataset_identifier_from_qualified_name(
+                                    self.identifiers.get_dataset_identifier_from_qualified_name(
                                         upstream["objectName"]
                                     )
                                 ),
@@ -387,6 +385,7 @@ class SnowflakeQueriesSource(Source):
         )
         self.identifiers = SnowflakeIdentifierBuilder(
             identifier_config=self.config,
+            structured_reporter=self.report,
         )
 
         self.connection = self.config.connection.get_connection()

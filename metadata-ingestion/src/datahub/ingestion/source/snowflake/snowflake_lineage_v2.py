@@ -215,7 +215,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         results: Iterable[UpstreamLineageEdge],
     ) -> None:
         for db_row in results:
-            dataset_name = self.get_dataset_identifier_from_qualified_name(
+            dataset_name = self.identifiers.get_dataset_identifier_from_qualified_name(
                 db_row.DOWNSTREAM_TABLE_NAME
             )
             if dataset_name not in discovered_assets or not db_row.QUERIES:
@@ -353,7 +353,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         self, db_row: dict, discovered_tables: List[str]
     ) -> Optional[KnownLineageMapping]:
         # key is the down-stream table name
-        key: str = self.get_dataset_identifier_from_qualified_name(
+        key: str = self.identifiers.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
         if key not in discovered_tables:
@@ -422,8 +422,10 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         for upstream_table in upstream_tables:
             if upstream_table and upstream_table.query_id == query_id:
                 try:
-                    upstream_name = self.get_dataset_identifier_from_qualified_name(
-                        upstream_table.upstream_object_name
+                    upstream_name = (
+                        self.identifiers.get_dataset_identifier_from_qualified_name(
+                            upstream_table.upstream_object_name
+                        )
                     )
                     if upstream_name and (
                         not self.config.validate_upstreams_against_patterns
@@ -521,8 +523,10 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                     )
                 )
             ):
-                upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
-                    upstream_col.object_name
+                upstream_dataset_name = (
+                    self.identifiers.get_dataset_identifier_from_qualified_name(
+                        upstream_col.object_name
+                    )
                 )
                 column_upstreams.append(
                     ColumnRef(

@@ -247,7 +247,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         continue
 
                     dataset_identifier = (
-                        self.get_dataset_identifier_from_qualified_name(
+                        self.identifiers.get_dataset_identifier_from_qualified_name(
                             row["OBJECT_NAME"]
                         )
                     )
@@ -462,8 +462,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             for obj in event.objects_modified:
                 resource = obj.objectName
 
-                dataset_identifier = self.get_dataset_identifier_from_qualified_name(
-                    resource
+                dataset_identifier = (
+                    self.identifiers.get_dataset_identifier_from_qualified_name(
+                        resource
+                    )
                 )
 
                 if dataset_identifier not in discovered_datasets:
