@@ -7,7 +7,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 DataHub's Subscriptions and Notifications feature gives you real-time change alerts on data assets of your choice.
 With this feature, you can set up subscriptions to specific changes for an Entity – and DataHub will notify you when those changes happen. Currently, DataHub supports notifications on Slack and Email, with support for Microsoft Teams forthcoming.
 
-Email will work out of box. For installing the DataHub Slack App see:
+Email will work out of box. For installing the DataHub Slack App, see:
 👉 [Configure Slack for Notifications](slack/saas-slack-setup.md)
 
 <p align="center">

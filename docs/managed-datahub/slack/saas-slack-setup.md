@@ -129,7 +129,7 @@ For now we support sending notifications to
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
 ## How to find Team ID and Channel ID in Slack
-***Note** we recommend just using the Slack channel name for simplicity (eg. `#troubleshoot`)*
+***Note** we recommend just using the Slack channel name for simplicity (e.g. `#troubleshoot`)*
 
 **Via Slack App:**
 1. Go to the Slack channel for which you want to get channel ID
