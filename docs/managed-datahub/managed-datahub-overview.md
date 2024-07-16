@@ -51,10 +51,17 @@ know.
 | Feature | DataHub | Acryl DataHub |
 | ---------------------------------------------- | ------- | ------------- |
 | Surface data quality results | ✅ | ✅ |
-| Build and enforce continuous data SLAs | ❌ | ✅ |
-| Continuous monitoring of dataset health | ❌ | ✅ |
-| Data observability alerts and notifications | ❌ | ✅ |
-| Data Incident management | ❌ | ✅ |
+| Create data contracts | ✅ | ✅ |
+| Raise and Resolve Data Incidents | ✅ | ✅ |
+| Monitor Freshness SLAs | ❌ | ✅ |
+| Monitor Table Schemas | ❌ | ✅ |
+| Monitor Table Volume | ❌ | ✅ |
+| Validate Table Columns | ❌ | ✅ |
+| Receive Notifications via Email & Slack | ❌ | ✅ |
+| Manage Data Incidents via Slack | ❌ | ✅ |
+| View Data Health Dashboard | ❌ | ✅ |
+| Evaluate data quality checks on-demand (API + UI) | ❌ | ✅ |
+| Evaluate data quality checks in your VPC | ❌ | ✅ |
 
 
 ## Enterprise Grade
