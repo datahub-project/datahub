@@ -1133,7 +1133,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # For sources, we generate CLL as a 1:1 mapping.
                 # We don't support CLL for tests (assertions) or seeds.
                 pass
-            elif node.compiled_code:
+            elif node.compiled_code and (
+                self.config.include_column_lineage or not added_to_schema_resolver
+            ):
                 # Add CTE stops based on the upstreams list.
                 cte_mapping = {
                     cte_name: upstream_node.get_fake_ephemeral_table_name()
