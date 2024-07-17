@@ -699,14 +699,16 @@ class GlueSource(StatefulIngestionSourceBase):
         else:
             paginator_response = paginator.paginate(DatabaseName=database_name)
 
-        yield from paginator_response.search("TableList")
-        # for table in paginator_response.search("TableList"):
-        # if resource links are detected, re-use database name from the outermost catalog
-        # otherwise, you will use external names instead of new aliased ones when creating full table names
-        # Note: we use an explicit source_config check but it is useless actually (filtering has been done)
-        # if not self.source_config.ignore_resource_links and "TargetDatabase" in database:
-        #   table["DatabaseName"] = database["Name"]
-        #   yield table
+        for table in paginator_response.search("TableList"):
+            # if resource links are detected, re-use database names from the current catalog
+            # otherwise, external names are used instead of aliased ones when creating full table names later
+            # Note: use an explicit source_config check but it is useless actually (filtering has been done)
+            if (
+                not self.source_config.ignore_resource_links
+                and "TargetDatabase" in database
+            ):
+                table["DatabaseName"] = database["Name"]
+            yield table
 
     def get_all_databases_and_tables(
         self,
