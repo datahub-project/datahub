@@ -82,6 +82,7 @@ public class Constants {
   public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
   public static final String POST_ENTITY_NAME = "post";
   public static final String SCHEMA_FIELD_ENTITY_NAME = "schemaField";
+  public static final String SCHEMA_FIELD_KEY_ASPECT = "schemaFieldKey";
   public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
