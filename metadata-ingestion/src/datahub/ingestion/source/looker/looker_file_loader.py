@@ -31,7 +31,7 @@ class LookerViewFileLoader:
         reporter: LookMLSourceReport,
         liquid_variable: Dict[Any, Any],
     ) -> None:
-        self.viewfile_cache: Dict[str, LookerViewFile] = {}
+        self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
