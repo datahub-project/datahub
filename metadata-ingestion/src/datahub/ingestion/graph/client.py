@@ -1241,6 +1241,7 @@ class DataHubGraph(DatahubRestEmitter):
         env: str = DEFAULT_ENV,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
+        default_dialect: Optional[str] = None,
     ) -> "SqlParsingResult":
         from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
@@ -1254,6 +1255,7 @@ class DataHubGraph(DatahubRestEmitter):
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            default_dialect=default_dialect,
         )
 
     def create_tag(self, tag_name: str) -> str:
@@ -1277,6 +1279,20 @@ class DataHubGraph(DatahubRestEmitter):
 
         # return urn
         return res["createTag"]
+
+    def remove_tag(self, tag_urn: str, resource_urn: str) -> bool:
+        graph_query = f"""
+            mutation removeTag {{
+                removeTag(
+                input: {{
+                    tagUrn: "{tag_urn}",
+                    resourceUrn: "{resource_urn}"
+                    }})
+            }}
+        """
+
+        res = self.execute_graphql(query=graph_query)
+        return res["removeTag"]
 
     def _assertion_result_shared(self) -> str:
         fragment: str = """

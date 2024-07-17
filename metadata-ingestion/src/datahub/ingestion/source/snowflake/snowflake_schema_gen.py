@@ -1,10 +1,6 @@
-import concurrent.futures
 import itertools
 import logging
-import queue
-from typing import Dict, Iterable, List, Optional, Union
-
-from snowflake.connector import SnowflakeConnection
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
@@ -14,6 +10,7 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
@@ -29,8 +26,14 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeFilterConfig,
+    SnowflakeIdentifierConfig,
     SnowflakeV2Config,
     TagOption,
+)
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
 )
 from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
@@ -49,11 +52,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
 from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeCommonProtocol,
-    SnowflakeConnectionMixin,
-    SnowflakePermissionError,
-    SnowflakeQueryMixin,
+    SnowflakeFilterMixin,
+    SnowflakeIdentifierMixin,
+    SnowsightUrlBuilder,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -98,6 +99,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -140,29 +142,26 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 }
 
 
-class SnowflakeSchemaGenerator(
-    SnowflakeQueryMixin,
-    SnowflakeConnectionMixin,
-    SnowflakeCommonMixin,
-    SnowflakeCommonProtocol,
-):
+class SnowflakeSchemaGenerator(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
     def __init__(
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
         connection: SnowflakeConnection,
+        dataset_urn_builder: Callable[[str], str],
         domain_registry: Optional[DomainRegistry],
         profiler: Optional[SnowflakeProfiler],
         aggregator: Optional[SqlParsingAggregator],
-        snowsight_base_url: Optional[str],
+        snowsight_url_builder: Optional[SnowsightUrlBuilder],
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
         self.connection: SnowflakeConnection = connection
-        self.logger = logger
+        self.dataset_urn_builder = dataset_urn_builder
 
-        self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary()
-        self.data_dictionary.set_connection(self.connection)
+        self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary(
+            connection=self.connection
+        )
         self.report.data_dictionary_cache = self.data_dictionary
 
         self.domain_registry: Optional[DomainRegistry] = domain_registry
@@ -171,7 +170,9 @@ class SnowflakeSchemaGenerator(
             config, self.data_dictionary, self.report
         )
         self.profiler: Optional[SnowflakeProfiler] = profiler
-        self.snowsight_base_url: Optional[str] = snowsight_base_url
+        self.snowsight_url_builder: Optional[
+            SnowsightUrlBuilder
+        ] = snowsight_url_builder
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
@@ -180,11 +181,23 @@ class SnowflakeSchemaGenerator(
     def get_connection(self) -> SnowflakeConnection:
         return self.connection
 
+    @property
+    def structured_reporter(self) -> SourceReport:
+        return self.report
+
+    @property
+    def filter_config(self) -> SnowflakeFilterConfig:
+        return self.config
+
+    @property
+    def identifier_config(self) -> SnowflakeIdentifierConfig:
+        return self.config
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.databases = []
         for database in self.get_databases() or []:
             self.report.report_entity_scanned(database.name, "database")
-            if not self.config.database_pattern.allowed(database.name):
+            if not self.filter_config.database_pattern.allowed(database.name):
                 self.report.report_dropped(f"{database.name}.*")
             else:
                 self.databases.append(database)
@@ -304,41 +317,22 @@ class SnowflakeSchemaGenerator(
         snowflake_db: SnowflakeDatabase,
         db_tables: Dict[str, List[SnowflakeTable]],
     ) -> Iterable[MetadataWorkUnit]:
-        q: "queue.Queue[MetadataWorkUnit]" = queue.Queue(maxsize=100)
-
-        def _process_schema_worker(snowflake_schema: SnowflakeSchema) -> None:
+        def _process_schema_worker(
+            snowflake_schema: SnowflakeSchema,
+        ) -> Iterable[MetadataWorkUnit]:
             for wu in self._process_schema(
                 snowflake_schema, snowflake_db.name, db_tables
             ):
-                q.put(wu)
+                yield wu
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=SCHEMA_PARALLELISM
-        ) as executor:
-            futures = []
-            for snowflake_schema in snowflake_db.schemas:
-                f = executor.submit(_process_schema_worker, snowflake_schema)
-                futures.append(f)
-
-            # Read from the queue and yield the work units until all futures are done.
-            while True:
-                if not q.empty():
-                    while not q.empty():
-                        yield q.get_nowait()
-                else:
-                    try:
-                        yield q.get(timeout=0.2)
-                    except queue.Empty:
-                        pass
-
-                # Filter out the done futures.
-                futures = [f for f in futures if not f.done()]
-                if not futures:
-                    break
-
-        # Yield the remaining work units. This theoretically should not happen, but adding it just in case.
-        while not q.empty():
-            yield q.get_nowait()
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=_process_schema_worker,
+            args_list=[
+                (snowflake_schema,) for snowflake_schema in snowflake_db.schemas
+            ],
+            max_workers=SCHEMA_PARALLELISM,
+        ):
+            yield wu
 
     def fetch_schemas_for_database(
         self, snowflake_db: SnowflakeDatabase, db_name: str
@@ -348,10 +342,10 @@ class SnowflakeSchemaGenerator(
             for schema in self.data_dictionary.get_schemas_for_database(db_name):
                 self.report.report_entity_scanned(schema.name, "schema")
                 if not is_schema_allowed(
-                    self.config.schema_pattern,
+                    self.filter_config.schema_pattern,
                     schema.name,
                     db_name,
-                    self.config.match_fully_qualified_names,
+                    self.filter_config.match_fully_qualified_names,
                 ):
                     self.report.report_dropped(f"{db_name}.{schema.name}.*")
                 else:
@@ -432,7 +426,7 @@ class SnowflakeSchemaGenerator(
                     )
                     if view.view_definition:
                         self.aggregator.add_view_definition(
-                            view_urn=self.gen_dataset_urn(view_identifier),
+                            view_urn=self.dataset_urn_builder(view_identifier),
                             view_definition=view.view_definition,
                             default_db=db_name,
                             default_schema=schema_name,
@@ -462,7 +456,7 @@ class SnowflakeSchemaGenerator(
 
                 self.report.report_entity_scanned(view_name, "view")
 
-                if not self.config.view_pattern.allowed(view_name):
+                if not self.filter_config.view_pattern.allowed(view_name):
                     self.report.report_dropped(view_name)
                 else:
                     views.append(view)
@@ -495,7 +489,7 @@ class SnowflakeSchemaGenerator(
                     table.name, schema_name, db_name
                 )
                 self.report.report_entity_scanned(table_identifier)
-                if not self.config.table_pattern.allowed(table_identifier):
+                if not self.filter_config.table_pattern.allowed(table_identifier):
                     self.report.report_dropped(table_identifier)
                 else:
                     tables.append(table)
@@ -664,7 +658,7 @@ class SnowflakeSchemaGenerator(
                 yield from self._process_tag(tag)
 
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-        dataset_urn = self.gen_dataset_urn(dataset_name)
+        dataset_urn = self.dataset_urn_builder(dataset_name)
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
@@ -739,7 +733,11 @@ class SnowflakeSchemaGenerator(
             view_properties_aspect = ViewProperties(
                 materialized=table.materialized,
                 viewLanguage="SQL",
-                viewLogic=table.view_definition,
+                viewLogic=(
+                    table.view_definition
+                    if self.config.include_view_definitions
+                    else ""
+                ),
             )
 
             yield MetadataChangeProposalWrapper(
@@ -762,17 +760,13 @@ class SnowflakeSchemaGenerator(
             lastModified=(
                 TimeStamp(time=int(table.last_altered.timestamp() * 1000))
                 if table.last_altered is not None
-                else (
-                    TimeStamp(time=int(table.created.timestamp() * 1000))
-                    if table.created is not None
-                    else None
-                )
+                else None
             ),
             description=table.comment,
             qualifiedName=f"{db_name}.{schema_name}.{table.name}",
             customProperties={},
             externalUrl=(
-                self.get_external_url_for_table(
+                self.snowsight_url_builder.get_external_url_for_table(
                     table.name,
                     schema_name,
                     db_name,
@@ -782,7 +776,7 @@ class SnowflakeSchemaGenerator(
                         else SnowflakeObjectDomain.VIEW
                     ),
                 )
-                if self.config.include_external_url
+                if self.snowsight_url_builder
                 else None
             ),
         )
@@ -806,7 +800,7 @@ class SnowflakeSchemaGenerator(
         db_name: str,
     ) -> SchemaMetadata:
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-        dataset_urn = self.gen_dataset_urn(dataset_name)
+        dataset_urn = self.dataset_urn_builder(dataset_name)
 
         foreign_keys: Optional[List[ForeignKeyConstraint]] = None
         if isinstance(table, SnowflakeTable) and len(table.foreign_keys) > 0:
@@ -911,8 +905,8 @@ class SnowflakeSchemaGenerator(
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             external_url=(
-                self.get_external_url_for_database(database.name)
-                if self.config.include_external_url
+                self.snowsight_url_builder.get_external_url_for_database(database.name)
+                if self.snowsight_url_builder
                 else None
             ),
             description=database.comment,
@@ -967,8 +961,10 @@ class SnowflakeSchemaGenerator(
             domain_registry=self.domain_registry,
             description=schema.comment,
             external_url=(
-                self.get_external_url_for_schema(schema.name, db_name)
-                if self.config.include_external_url
+                self.snowsight_url_builder.get_external_url_for_schema(
+                    schema.name, db_name
+                )
+                if self.snowsight_url_builder
                 else None
             ),
             created=(
@@ -979,11 +975,7 @@ class SnowflakeSchemaGenerator(
             last_modified=(
                 int(schema.last_altered.timestamp() * 1000)
                 if schema.last_altered is not None
-                else (
-                    int(schema.created.timestamp() * 1000)
-                    if schema.created is not None
-                    else None
-                )
+                else None
             ),
             tags=(
                 [self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
@@ -1048,23 +1040,3 @@ class SnowflakeSchemaGenerator(
 
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name, [])
-
-    # domain is either "view" or "table"
-    def get_external_url_for_table(
-        self, table_name: str, schema_name: str, db_name: str, domain: str
-    ) -> Optional[str]:
-        if self.snowsight_base_url is not None:
-            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
-        return None
-
-    def get_external_url_for_schema(
-        self, schema_name: str, db_name: str
-    ) -> Optional[str]:
-        if self.snowsight_base_url is not None:
-            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
-        return None
-
-    def get_external_url_for_database(self, db_name: str) -> Optional[str]:
-        if self.snowsight_base_url is not None:
-            return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
-        return None

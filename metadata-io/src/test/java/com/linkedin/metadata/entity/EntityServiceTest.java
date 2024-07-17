@@ -520,7 +520,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     String aspectName1 = AspectGenerationUtils.getAspectName(writeAspect1);
     pairToIngest.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1);
     _entityServiceImpl.ingestAspects(
         opContext, entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
@@ -586,10 +586,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     String aspectName1 = AspectGenerationUtils.getAspectName(upstreamLineage);
     pairToIngest.add(getAspectRecordPair(upstreamLineage, UpstreamLineage.class));
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
-
     _entityServiceImpl.ingestAspects(
-        opContext, entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+        opContext,
+        entityUrn,
+        pairToIngest,
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
 
     final MetadataChangeLog initialChangeLog = new MetadataChangeLog();
     initialChangeLog.setEntityType(entityUrn.getEntityType());
@@ -601,7 +603,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     GenericAspect aspect = GenericRecordUtils.serializeAspect(pairToIngest.get(0).getSecond());
 
     initialChangeLog.setAspect(aspect);
-    initialChangeLog.setSystemMetadata(metadata1);
+    initialChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
     initialChangeLog.setEntityKeyAspect(
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(
@@ -615,9 +617,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setAspectName(aspectName1);
     restateChangeLog.setCreated(TEST_AUDIT_STAMP);
     restateChangeLog.setAspect(aspect);
-    restateChangeLog.setSystemMetadata(metadata1);
+    restateChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
     restateChangeLog.setPreviousAspectValue(aspect);
-    restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
+    restateChangeLog.setPreviousSystemMetadata(
+        simulatePullFromDB(AspectGenerationUtils.createSystemMetadata(1), SystemMetadata.class));
     restateChangeLog.setEntityKeyAspect(
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(
@@ -638,7 +641,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     clearInvocations(_mockProducer);
 
     _entityServiceImpl.ingestAspects(
-        opContext, entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+        opContext,
+        entityUrn,
+        pairToIngest,
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
 
     verify(_mockProducer, times(1))
         .produceMetadataChangeLog(
@@ -658,7 +665,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     final UpstreamLineage upstreamLineage = AspectGenerationUtils.createUpstreamLineage();
     String aspectName1 = AspectGenerationUtils.getAspectName(upstreamLineage);
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1);
     MetadataChangeProposal mcp1 = new MetadataChangeProposal();
     mcp1.setEntityType(entityUrn.getEntityType());
     GenericAspect genericAspect = GenericRecordUtils.serializeAspect(upstreamLineage);
@@ -687,7 +694,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setAspectName(aspectName1);
     restateChangeLog.setCreated(TEST_AUDIT_STAMP);
     restateChangeLog.setAspect(genericAspect);
-    restateChangeLog.setSystemMetadata(metadata1);
+    restateChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
     restateChangeLog.setPreviousAspectValue(genericAspect);
     restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
 
@@ -1177,8 +1184,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
     String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
-    SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
+    SystemMetadata metadata1 =
+        AspectGenerationUtils.createSystemMetadata(1625792689, "run-123", "run-123", "1");
+    SystemMetadata metadata2 =
+        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-456", "2");
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1287,8 +1296,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
     String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
-    SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
+    SystemMetadata metadata1 =
+        AspectGenerationUtils.createSystemMetadata(1625792689, "run-123", "run-123", "1");
+    SystemMetadata metadata2 =
+        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-456", "2");
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1384,7 +1395,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
     SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
     SystemMetadata metadata3 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-123", "run-456");
+        AspectGenerationUtils.createSystemMetadata(1635792689, "run-123", "run-456", "1");
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1488,8 +1499,6 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   public void testRetention() throws AssertionError {
     Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test1");
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
-
     String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
 
     // Ingest CorpUserInfo Aspect
@@ -1509,42 +1518,42 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1)
-                .systemMetadata(metadata1)
+                .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1a)
-                .systemMetadata(metadata1)
+                .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1b)
-                .systemMetadata(metadata1)
+                .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2)
-                .systemMetadata(metadata1)
+                .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2a)
-                .systemMetadata(metadata1)
+                .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2b)
-                .systemMetadata(metadata1)
+                .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
@@ -1585,14 +1594,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1c)
-                .systemMetadata(metadata1)
+                .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(opContext.getAspectRetrieverOpt().get()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2c)
-                .systemMetadata(metadata1)
+                .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
                 .build(opContext.getAspectRetrieverOpt().get()));
     _entityServiceImpl.ingestAspects(
@@ -1634,32 +1643,60 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   public void testIngestAspectIfNotPresent() throws AssertionError {
     Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test1");
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
-
     String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
 
     // Ingest CorpUserInfo Aspect
     CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
     _entityServiceImpl.ingestAspectIfNotPresent(
-        opContext, entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+        opContext,
+        entityUrn,
+        aspectName,
+        writeAspect1,
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
     CorpUserInfo writeAspect1a = AspectGenerationUtils.createCorpUserInfo("email_a@test.com");
     _entityServiceImpl.ingestAspectIfNotPresent(
-        opContext, entityUrn, aspectName, writeAspect1a, TEST_AUDIT_STAMP, metadata1);
+        opContext,
+        entityUrn,
+        aspectName,
+        writeAspect1a,
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
     CorpUserInfo writeAspect1b = AspectGenerationUtils.createCorpUserInfo("email_b@test.com");
     _entityServiceImpl.ingestAspectIfNotPresent(
-        opContext, entityUrn, aspectName, writeAspect1b, TEST_AUDIT_STAMP, metadata1);
+        opContext,
+        entityUrn,
+        aspectName,
+        writeAspect1b,
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
 
     String aspectName2 = AspectGenerationUtils.getAspectName(new Status());
     // Ingest Status Aspect
     Status writeAspect2 = new Status().setRemoved(true);
     _entityServiceImpl.ingestAspectIfNotPresent(
-        opContext, entityUrn, aspectName2, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+        opContext,
+        entityUrn,
+        aspectName2,
+        writeAspect2,
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
     Status writeAspect2a = new Status().setRemoved(false);
     _entityServiceImpl.ingestAspectIfNotPresent(
-        opContext, entityUrn, aspectName2, writeAspect2a, TEST_AUDIT_STAMP, metadata1);
+        opContext,
+        entityUrn,
+        aspectName2,
+        writeAspect2a,
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
     Status writeAspect2b = new Status().setRemoved(true);
     _entityServiceImpl.ingestAspectIfNotPresent(
-        opContext, entityUrn, aspectName2, writeAspect2b, TEST_AUDIT_STAMP, metadata1);
+        opContext,
+        entityUrn,
+        aspectName2,
+        writeAspect2b,
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
 
     assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0), writeAspect1);
     assertEquals(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName2, 0), writeAspect2);

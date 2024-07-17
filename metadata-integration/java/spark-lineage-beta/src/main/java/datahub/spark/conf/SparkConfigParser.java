@@ -42,6 +42,8 @@ public class SparkConfigParser {
   public static final String DATAHUB_FLOW_NAME = "flow_name";
   public static final String DATASET_ENV_KEY = "metadata.dataset.env";
   public static final String DATASET_HIVE_PLATFORM_ALIAS = "metadata.dataset.hivePlatformAlias";
+  public static final String DATASET_LOWERCASE_URNS = "metadata.dataset.lowerCaseUrns";
+
   public static final String DATASET_MATERIALIZE_KEY = "metadata.dataset.materialize";
   public static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
   public static final String DATASET_INCLUDE_SCHEMA_METADATA =
@@ -152,6 +154,7 @@ public class SparkConfigParser {
     builder.hivePlatformAlias(SparkConfigParser.getHivePlatformAlias(sparkConfig));
     builder.usePatch(SparkConfigParser.isPatchEnabled(sparkConfig));
     builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
+    builder.lowerCaseDatasetUrns(SparkConfigParser.isLowerCaseDatasetUrns(sparkConfig));
     try {
       String parentJob = SparkConfigParser.getParentJobKey(sparkConfig);
       if (parentJob != null) {
@@ -246,15 +249,18 @@ public class SparkConfigParser {
           pathSpecBuilder.alias(pathSpecKey);
           pathSpecBuilder.platform(key);
           if (datahubConfig.hasPath(aliasKey + ".env")) {
-            pathSpecBuilder.env(datahubConfig.getString(aliasKey + ".env"));
+            pathSpecBuilder.env(Optional.ofNullable(datahubConfig.getString(aliasKey + ".env")));
           }
-          if (datahubConfig.hasPath(aliasKey + ".platformInstance")) {
+          if (datahubConfig.hasPath(aliasKey + "." + PLATFORM_INSTANCE_KEY)) {
             pathSpecBuilder.platformInstance(
-                Optional.ofNullable(datahubConfig.getString(aliasKey + ".platformInstance")));
+                Optional.ofNullable(
+                    datahubConfig.getString(aliasKey + "." + PLATFORM_INSTANCE_KEY)));
           }
-          pathSpecBuilder.pathSpecList(
-              Arrays.asList(datahubConfig.getString(aliasKey + "." + pathSpecKey).split(",")));
-
+          if (datahubConfig.hasPath(aliasKey + "." + PATH_SPEC_LIST_KEY)) {
+            pathSpecBuilder.pathSpecList(
+                Arrays.asList(
+                    datahubConfig.getString(aliasKey + "." + PATH_SPEC_LIST_KEY).split(",")));
+          }
           platformSpecs.add(pathSpecBuilder.build());
         }
         pathSpecMap.put(key, platformSpecs);
@@ -264,8 +270,8 @@ public class SparkConfigParser {
   }
 
   public static String getPlatformInstance(Config pathSpecConfig) {
-    return pathSpecConfig.hasPath(PLATFORM_INSTANCE_KEY)
-        ? pathSpecConfig.getString(PLATFORM_INSTANCE_KEY)
+    return pathSpecConfig.hasPath(PIPELINE_PLATFORM_INSTANCE_KEY)
+        ? pathSpecConfig.getString(PIPELINE_PLATFORM_INSTANCE_KEY)
         : null;
   }
 
@@ -340,5 +346,10 @@ public class SparkConfigParser {
 
     return datahubConfig.hasPath(STAGE_METADATA_COALESCING)
         && datahubConfig.getBoolean(STAGE_METADATA_COALESCING);
+  }
+
+  public static boolean isLowerCaseDatasetUrns(Config datahubConfig) {
+    return datahubConfig.hasPath(DATASET_LOWERCASE_URNS)
+        && datahubConfig.getBoolean(DATASET_LOWERCASE_URNS);
   }
 }
