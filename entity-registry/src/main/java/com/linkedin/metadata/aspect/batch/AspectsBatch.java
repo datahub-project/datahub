@@ -84,6 +84,13 @@ public interface AspectsBatch {
     }
   }
 
+  default Stream<MCPItem> applyProposalMutationHooks(
+      Collection<MCPItem> proposedItems, @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks().stream()
+        .flatMap(
+            mutationHook -> mutationHook.applyProposalMutation(proposedItems, retrieverContext));
+  }
+
   default <T extends BatchItem> ValidationExceptionCollection validateProposed(
       Collection<T> mcpItems) {
     return validateProposed(mcpItems, getRetrieverContext());
@@ -127,6 +134,16 @@ public interface AspectsBatch {
       Collection<ChangeMCP> items, @Nonnull RetrieverContext retrieverContext) {
     return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
         .flatMap(mcpSideEffect -> mcpSideEffect.apply(items, retrieverContext));
+  }
+
+  default Stream<MCPItem> applyPostMCPSideEffects(Collection<MCLItem> items) {
+    return applyPostMCPSideEffects(items, getRetrieverContext());
+  }
+
+  static Stream<MCPItem> applyPostMCPSideEffects(
+      Collection<MCLItem> items, @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
+        .flatMap(mcpSideEffect -> mcpSideEffect.postApply(items, retrieverContext));
   }
 
   default Stream<MCLItem> applyMCLSideEffects(Collection<MCLItem> items) {

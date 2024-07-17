@@ -26,12 +26,14 @@ describe("auto-complete", () => {
     cy.login();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("SampleCypressHiveDataset");
-    cy.get('[data-testid^="auto-complete-option"]').first().click();
+    cy.get('[data-testid^="auto-complete-option"]')
+      .contains("SampleCypressHiveDataset")
+      .click();
+    cy.get(".ant-table-row").should("be.visible");
     cy.url().should(
       "include",
       "dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
     );
-    cy.wait(2000);
   });
 
   it("should filter auto-complete results when clicking on a quick filter", () => {

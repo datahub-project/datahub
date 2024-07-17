@@ -63,7 +63,9 @@ describe('LineageEdges', () => {
 
         expect(queryByTestId('empty-lineage')).not.toBeInTheDocument();
         expect(entityItems).toHaveLength(1);
-        expect(getByText(dataset4WithLineage.downstream.relationships[0]!.entity!.properties!.name!)).toBeInTheDocument();
+        expect(
+            getByText(dataset4WithLineage.downstream.relationships[0]!.entity!.properties!.name!),
+        ).toBeInTheDocument();
     });
 
     it('should remove entities from the displayed list if the urn is in entitiesToRemove', async () => {

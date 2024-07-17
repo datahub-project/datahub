@@ -67,7 +67,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/actions/setup-gradle@v3
       - uses: actions/setup-python@v4
         if: ${{ needs.setup.outputs.ingestion_change == 'true' }}
         with:

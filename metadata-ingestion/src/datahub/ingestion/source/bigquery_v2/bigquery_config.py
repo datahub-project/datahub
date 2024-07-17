@@ -3,7 +3,7 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
-from google.cloud import bigquery
+from google.cloud import bigquery, datacatalog_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
@@ -23,6 +23,10 @@ from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_BQ_SCHEMA_PARALLELISM = int(
+    os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20)
+)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
@@ -69,6 +73,9 @@ class BigQueryConnectionConfig(ConfigModel):
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
         return bigquery.Client(self.project_on_behalf, **client_options)
+
+    def get_policy_tag_manager_client(self) -> datacatalog_v1.PolicyTagManagerClient:
+        return datacatalog_v1.PolicyTagManagerClient()
 
     def make_gcp_logging_client(
         self, project_id: Optional[str] = None
@@ -124,6 +131,11 @@ class BigQueryV2Config(
         description="Capture BigQuery table labels as DataHub tag",
     )
 
+    capture_view_label_as_tag: Union[bool, AllowDenyPattern] = Field(
+        default=False,
+        description="Capture BigQuery view labels as DataHub tag",
+    )
+
     capture_dataset_label_as_tag: Union[bool, AllowDenyPattern] = Field(
         default=False,
         description="Capture BigQuery dataset labels as DataHub tag",
@@ -167,14 +179,23 @@ class BigQueryV2Config(
 
     number_of_datasets_process_in_batch: int = Field(
         hidden_from_docs=True,
-        default=500,
+        default=10000,
         description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care.",
     )
 
     number_of_datasets_process_in_batch_if_profiling_enabled: int = Field(
-        default=200,
+        default=1000,
         description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
+
+    use_tables_list_query_v2: bool = Field(
+        default=False,
+        description="List tables using an improved query that extracts partitions and last modified timestamps more accurately. Requires the ability to read table data. Automatically enabled when profiling is enabled.",
+    )
+
+    @property
+    def have_table_data_read_permission(self) -> bool:
+        return self.use_tables_list_query_v2 or self.is_profiling_enabled()
 
     column_limit: int = Field(
         default=300,
@@ -224,6 +245,16 @@ class BigQueryV2Config(
     enable_legacy_sharded_table_support: bool = Field(
         default=True,
         description="Use the legacy sharded table urn suffix added.",
+    )
+
+    extract_policy_tags_from_catalog: bool = Field(
+        default=False,
+        description=(
+            "This flag enables the extraction of policy tags from the Google Data Catalog API. "
+            "When enabled, the extractor will fetch policy tags associated with BigQuery table columns. "
+            "For more information about policy tags and column-level security, refer to the documentation: "
+            "https://cloud.google.com/bigquery/docs/column-level-security-intro"
+        ),
     )
 
     scheme: str = "bigquery"
@@ -284,6 +315,12 @@ class BigQueryV2Config(
         default=100,
         description="The number of tables to process in a batch when resolving schema from DataHub.",
         hidden_from_schema=True,
+    )
+
+    max_threads_dataset_parallelism: int = Field(
+        default=DEFAULT_BQ_SCHEMA_PARALLELISM,
+        description="Number of worker threads to use to parallelize BigQuery Dataset Metadata Extraction."
+        " Set to 1 to disable.",
     )
 
     @root_validator(skip_on_failure=True)

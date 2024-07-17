@@ -1,59 +1,52 @@
-import logging
-from typing import Any, Optional
+import abc
+from typing import ClassVar, Literal, Optional, Tuple
 
-from snowflake.connector import SnowflakeConnection
-from snowflake.connector.cursor import DictCursor
 from typing_extensions import Protocol
 
-from datahub.configuration.common import MetaError
 from datahub.configuration.pattern_utils import is_schema_allowed
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
-    GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
     SnowflakeCloudProvider,
     SnowflakeObjectDomain,
 )
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeFilterConfig,
+    SnowflakeIdentifierConfig,
+    SnowflakeV2Config,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 
-logger: logging.Logger = logging.getLogger(__name__)
 
+class SnowflakeStructuredReportMixin(abc.ABC):
+    @property
+    @abc.abstractmethod
+    def structured_reporter(self) -> SourceReport:
+        ...
 
-class SnowflakePermissionError(MetaError):
-    """A permission error has happened"""
+    # TODO: Eventually I want to deprecate these methods and use the structured_reporter directly.
+    def report_warning(self, key: str, reason: str) -> None:
+        self.structured_reporter.warning(key, reason)
+
+    def report_error(self, key: str, reason: str) -> None:
+        self.structured_reporter.failure(key, reason)
 
 
 # Required only for mypy, since we are using mixin classes, and not inheritance.
 # Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
-class SnowflakeLoggingProtocol(Protocol):
-    logger: logging.Logger
+class SnowflakeCommonProtocol(Protocol):
+    platform: str = "snowflake"
 
-
-class SnowflakeQueryProtocol(SnowflakeLoggingProtocol, Protocol):
-    def get_connection(self) -> SnowflakeConnection:
-        ...
-
-
-class SnowflakeQueryMixin:
-    def query(self: SnowflakeQueryProtocol, query: str) -> Any:
-        try:
-            self.logger.debug(f"Query : {query}")
-            resp = self.get_connection().cursor(DictCursor).execute(query)
-            return resp
-
-        except Exception as e:
-            if is_permission_error(e):
-                raise SnowflakePermissionError(e) from e
-            raise
-
-
-class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
     config: SnowflakeV2Config
     report: SnowflakeV2Report
 
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
+        ...
+
+    def cleanup_qualified_name(self, qualified_name: str) -> str:
         ...
 
     def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
@@ -69,10 +62,8 @@ class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
         ...
 
 
-class SnowflakeCommonMixin:
-    platform = "snowflake"
-
-    CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX = [
+class SnowsightUrlBuilder:
+    CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX: ClassVar = [
         "us-west-2",
         "us-east-1",
         "eu-west-1",
@@ -81,13 +72,21 @@ class SnowflakeCommonMixin:
         "ap-southeast-2",
     ]
 
+    snowsight_base_url: str
+
+    def __init__(self, account_locator: str, region: str, privatelink: bool = False):
+        cloud, cloud_region_id = self.get_cloud_region_from_snowflake_region_id(region)
+        self.snowsight_base_url = self.create_snowsight_base_url(
+            account_locator, cloud_region_id, cloud, privatelink
+        )
+
     @staticmethod
     def create_snowsight_base_url(
         account_locator: str,
         cloud_region_id: str,
         cloud: str,
         privatelink: bool = False,
-    ) -> Optional[str]:
+    ) -> str:
         if cloud:
             url_cloud_provider_suffix = f".{cloud}"
 
@@ -96,7 +95,7 @@ class SnowflakeCommonMixin:
             # https://docs.snowflake.com/en/user-guide/admin-account-identifier#non-vps-account-locator-formats-by-cloud-platform-and-region
             if (
                 cloud_region_id
-                in SnowflakeCommonMixin.CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX
+                in SnowsightUrlBuilder.CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX
             ):
                 url_cloud_provider_suffix = ""
             else:
@@ -108,7 +107,10 @@ class SnowflakeCommonMixin:
         return url
 
     @staticmethod
-    def get_cloud_region_from_snowflake_region_id(region):
+    def get_cloud_region_from_snowflake_region_id(
+        region: str,
+    ) -> Tuple[str, str]:
+        cloud: str
         if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
             cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
         elif region.startswith(("aws_", "gcp_", "azure_")):
@@ -119,14 +121,42 @@ class SnowflakeCommonMixin:
             raise Exception(f"Unknown snowflake region {region}")
         return cloud, cloud_region_id
 
-    def _is_dataset_pattern_allowed(
-        self: SnowflakeCommonProtocol,
+    # domain is either "view" or "table"
+    def get_external_url_for_table(
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
+        domain: Literal[SnowflakeObjectDomain.TABLE, SnowflakeObjectDomain.VIEW],
+    ) -> Optional[str]:
+        return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+
+    def get_external_url_for_schema(
+        self, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
+
+    def get_external_url_for_database(self, db_name: str) -> Optional[str]:
+        return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
+
+
+class SnowflakeFilterMixin(SnowflakeStructuredReportMixin):
+    @property
+    @abc.abstractmethod
+    def filter_config(self) -> SnowflakeFilterConfig:
+        ...
+
+    @staticmethod
+    def _combine_identifier_parts(
+        table_name: str, schema_name: str, db_name: str
+    ) -> str:
+        return f"{db_name}.{schema_name}.{table_name}"
+
+    def is_dataset_pattern_allowed(
+        self,
         dataset_name: Optional[str],
         dataset_type: Optional[str],
-        is_upstream: bool = False,
     ) -> bool:
-        if is_upstream and not self.config.validate_upstreams_against_patterns:
-            return True
         if not dataset_type or not dataset_name:
             return True
         dataset_params = dataset_name.split(".")
@@ -145,38 +175,100 @@ class SnowflakeCommonMixin:
             # NOTE: this case returned `True` earlier when extracting lineage
             return False
 
-        if not self.config.database_pattern.allowed(
+        if not self.filter_config.database_pattern.allowed(
             dataset_params[0].strip('"')
         ) or not is_schema_allowed(
-            self.config.schema_pattern,
+            self.filter_config.schema_pattern,
             dataset_params[1].strip('"'),
             dataset_params[0].strip('"'),
-            self.config.match_fully_qualified_names,
+            self.filter_config.match_fully_qualified_names,
         ):
             return False
 
         if dataset_type.lower() in {
             SnowflakeObjectDomain.TABLE
-        } and not self.config.table_pattern.allowed(
-            self.get_dataset_identifier_from_qualified_name(dataset_name)
+        } and not self.filter_config.table_pattern.allowed(
+            self.cleanup_qualified_name(dataset_name)
         ):
             return False
 
         if dataset_type.lower() in {
-            "view",
-            "materialized_view",
-        } and not self.config.view_pattern.allowed(
-            self.get_dataset_identifier_from_qualified_name(dataset_name)
+            SnowflakeObjectDomain.VIEW,
+            SnowflakeObjectDomain.MATERIALIZED_VIEW,
+        } and not self.filter_config.view_pattern.allowed(
+            self.cleanup_qualified_name(dataset_name)
         ):
             return False
 
         return True
 
-    def snowflake_identifier(self: SnowflakeCommonProtocol, identifier: str) -> str:
+    # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
+    # For example "test-database"."test-schema".test_table
+    # whereas we generate urns without quotes even for quoted identifiers for backward compatibility
+    # and also unavailability of utility function to identify whether current table/schema/database
+    # name should be quoted in above method get_dataset_identifier
+    def cleanup_qualified_name(self, qualified_name: str) -> str:
+        name_parts = qualified_name.split(".")
+        if len(name_parts) != 3:
+            self.structured_reporter.report_warning(
+                title="Unexpected dataset pattern",
+                message="We failed to parse a Snowflake qualified name into its constituent parts. "
+                "DB/schema/table filtering may not work as expected on these entities.",
+                context=f"{qualified_name} has {len(name_parts)} parts",
+            )
+            return qualified_name.replace('"', "")
+        return SnowflakeFilterMixin._combine_identifier_parts(
+            table_name=name_parts[2].strip('"'),
+            schema_name=name_parts[1].strip('"'),
+            db_name=name_parts[0].strip('"'),
+        )
+
+
+class SnowflakeIdentifierMixin(abc.ABC):
+    platform = "snowflake"
+
+    @property
+    @abc.abstractmethod
+    def identifier_config(self) -> SnowflakeIdentifierConfig:
+        ...
+
+    def snowflake_identifier(self, identifier: str) -> str:
         # to be in in sync with older connector, convert name to lowercase
-        if self.config.convert_urns_to_lowercase:
+        if self.identifier_config.convert_urns_to_lowercase:
             return identifier.lower()
         return identifier
+
+    def get_dataset_identifier(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> str:
+        return self.snowflake_identifier(
+            SnowflakeCommonMixin._combine_identifier_parts(
+                table_name=table_name, schema_name=schema_name, db_name=db_name
+            )
+        )
+
+    def gen_dataset_urn(self, dataset_identifier: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_identifier,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
+
+# TODO: We're most of the way there on fully removing SnowflakeCommonProtocol.
+class SnowflakeCommonMixin(SnowflakeFilterMixin, SnowflakeIdentifierMixin):
+    @property
+    def structured_reporter(self: SnowflakeCommonProtocol) -> SourceReport:
+        return self.report
+
+    @property
+    def filter_config(self: SnowflakeCommonProtocol) -> SnowflakeFilterConfig:
+        return self.config
+
+    @property
+    def identifier_config(self: SnowflakeCommonProtocol) -> SnowflakeIdentifierConfig:
+        return self.config
 
     @staticmethod
     def get_quoted_identifier_for_database(db_name):
@@ -186,33 +278,12 @@ class SnowflakeCommonMixin:
     def get_quoted_identifier_for_schema(db_name, schema_name):
         return f'"{db_name}"."{schema_name}"'
 
+    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
+        return self.snowflake_identifier(self.cleanup_qualified_name(qualified_name))
+
     @staticmethod
     def get_quoted_identifier_for_table(db_name, schema_name, table_name):
         return f'"{db_name}"."{schema_name}"."{table_name}"'
-
-    def get_dataset_identifier(
-        self: SnowflakeCommonProtocol, table_name: str, schema_name: str, db_name: str
-    ) -> str:
-        return self.snowflake_identifier(f"{db_name}.{schema_name}.{table_name}")
-
-    # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
-    # For example "test-database"."test-schema".test_table
-    # whereas we generate urns without quotes even for quoted identifiers for backward compatibility
-    # and also unavailability of utility function to identify whether current table/schema/database
-    # name should be quoted in above method get_dataset_identifier
-    def get_dataset_identifier_from_qualified_name(
-        self: SnowflakeCommonProtocol, qualified_name: str
-    ) -> str:
-        name_parts = qualified_name.split(".")
-        if len(name_parts) != 3:
-            self.report.report_warning(
-                "invalid-dataset-pattern",
-                f"Found non-parseable {name_parts} for {qualified_name}",
-            )
-            return self.snowflake_identifier(qualified_name.replace('"', ""))
-        return self.get_dataset_identifier(
-            name_parts[2].strip('"'), name_parts[1].strip('"'), name_parts[0].strip('"')
-        )
 
     # Note - decide how to construct user urns.
     # Historically urns were created using part before @ from user's email.
@@ -244,70 +315,3 @@ class SnowflakeCommonMixin:
             self.report_warning(key, reason)
         else:
             self.report_error(key, reason)
-
-    def report_warning(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        self.logger.warning(f"{key} => {reason}")
-
-    def report_error(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        self.logger.error(f"{key} => {reason}")
-
-
-class SnowflakeConnectionProtocol(SnowflakeLoggingProtocol, Protocol):
-    connection: Optional[SnowflakeConnection]
-    config: SnowflakeV2Config
-    report: SnowflakeV2Report
-
-    def create_connection(self) -> Optional[SnowflakeConnection]:
-        ...
-
-    def report_error(self, key: str, reason: str) -> None:
-        ...
-
-
-class SnowflakeConnectionMixin:
-    def get_connection(self: SnowflakeConnectionProtocol) -> SnowflakeConnection:
-        if self.connection is None:
-            # Ideally this is never called here
-            self.logger.info("Did you forget to initialize connection for module?")
-            self.connection = self.create_connection()
-
-        # Connection is already present by the time its used for query
-        # Every module initializes the connection or fails and returns
-        assert self.connection is not None
-        return self.connection
-
-    # If connection succeeds, return connection, else return None and report failure
-    def create_connection(
-        self: SnowflakeConnectionProtocol,
-    ) -> Optional[SnowflakeConnection]:
-        try:
-            conn = self.config.get_connection()
-        except Exception as e:
-            logger.debug(e, exc_info=e)
-            if "not granted to this user" in str(e):
-                self.report_error(
-                    GENERIC_PERMISSION_ERROR_KEY,
-                    f"Failed to connect with snowflake due to error {e}",
-                )
-            else:
-                logger.debug(e, exc_info=e)
-                self.report_error(
-                    "snowflake-connection",
-                    f"Failed to connect to snowflake instance due to error {e}.",
-                )
-            return None
-        else:
-            return conn
-
-    def close(self: SnowflakeConnectionProtocol) -> None:
-        if self.connection is not None and not self.connection.is_closed():
-            self.connection.close()
-
-
-def is_permission_error(e: Exception) -> bool:
-    msg = str(e)
-    # 002003 (02000): SQL compilation error: Database/SCHEMA 'XXXX' does not exist or not authorized.
-    # Insufficient privileges to operate on database 'XXXX'
-    return "Insufficient privileges" in msg or "not authorized" in msg

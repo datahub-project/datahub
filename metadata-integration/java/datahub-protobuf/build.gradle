@@ -29,7 +29,7 @@ dependencies {
     implementation externalDependency.jgrapht
     implementation externalDependency.gson
     implementation externalDependency.commonsCli
-    implementation externalDependency.httpAsyncClient
+    implementation externalDependency.httpClient
     implementation externalDependency.slf4jApi
     implementation externalDependency.jacksonCore
     compileOnly externalDependency.lombok
@@ -88,7 +88,6 @@ shadowJar {
                 it.name
             }
   dependencies {
-
     exclude(dependency {
             exclude_modules.contains(it.name)
         })
@@ -115,6 +114,7 @@ shadowJar {
     relocate 'org.jgrapht', 'datahub.shaded.org.jgrapht'
     relocate 'org.jheaps', 'datahub.shaded.org.jheaps'
     relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
+    relocate 'org.apache.hc', 'datahub.shaded.org.apache.hc'
  
   finalizedBy checkShadowJar
 }

@@ -7,7 +7,10 @@ import { GenericEntityProperties } from '../shared/types';
 import { ERModelRelationshipPreviewCard } from './preview/ERModelRelationshipPreviewCard';
 import ermodelrelationshipIcon from '../../../images/ermodelrelationshipIcon.svg';
 import { ERModelRelationshipTab } from '../shared/tabs/ERModelRelationship/ERModelRelationshipTab';
-import { useGetErModelRelationshipQuery,  useUpdateErModelRelationshipMutation } from '../../../graphql/ermodelrelationship.generated';
+import {
+    useGetErModelRelationshipQuery,
+    useUpdateErModelRelationshipMutation,
+} from '../../../graphql/ermodelrelationship.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -108,7 +111,9 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
                 <ERModelRelationshipPreviewCard
                     urn={data.urn}
                     name={
-                        <span className="ermodelrelationName">{data.properties?.name || data.editableProperties?.name || ''}</span>
+                        <span className="ermodelrelationName">
+                            {data.properties?.name || data.editableProperties?.name || ''}
+                        </span>
                     }
                     description={data?.editableProperties?.description || ''}
                     owners={data.ownership?.owners}
