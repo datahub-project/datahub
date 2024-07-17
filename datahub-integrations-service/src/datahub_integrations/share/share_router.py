@@ -47,19 +47,37 @@ def execute_share(
     )
 
     share_agent = get_or_create_share_agent(share_connection_urn=share_connection_urn)
-    # generate a guid for the share request
 
+    if not lineage_direction:
+        # If lineage direction is not provided, we need to determine the lineage direction from the share aspect.
+        # This only applies to re-shares. If this is a new share, nothing is impacted.
+        lineage_direction = share_agent.get_lineage_direction_from_share_aspect(
+            entity_urn
+        )
+        if lineage_direction:
+            logger.debug(
+                f"Lineage direction set to {lineage_direction} from the share aspect as it was not provided explicitly."
+            )
+        else:
+            logger.debug(
+                "Lineage direction is set to non (only the current asset will be shared) as lineage direction was not provided, not determined from the share aspect, or no share aspect exists."
+            )
+    # generate a guid for the share request
     share_request_id = str(uuid.uuid4())
     share_agent.emit_share_result(
-        entity_urn,
-        entity_urn,
-        sharer_urn,
-        ShareResultStateClass.RUNNING,
-        ShareConfigClass(
-            enableUpstreamLineage=lineage_direction
-            in [LineageDirection.UPSTREAM, LineageDirection.BOTH],
-            enableDownstreamLineage=lineage_direction
-            in [LineageDirection.DOWNSTREAM, LineageDirection.BOTH],
+        root_entity_urn=entity_urn,
+        shared_urn=entity_urn,
+        sharer_urn=sharer_urn,
+        status=ShareResultStateClass.RUNNING,
+        share_config=(
+            ShareConfigClass(
+                enableUpstreamLineage=lineage_direction
+                in [LineageDirection.UPSTREAM, LineageDirection.BOTH],
+                enableDownstreamLineage=lineage_direction
+                in [LineageDirection.DOWNSTREAM, LineageDirection.BOTH],
+            )
+            if lineage_direction
+            else None
         ),
         share_request_id=share_request_id,
     )
