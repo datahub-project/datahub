@@ -267,8 +267,8 @@ def test_platform_config():
 @pytest.mark.parametrize(
     "ignore_resource_links, all_databases_and_tables_result",
     [
-        (True, ({}, [])),
-        (False, ({"test-database": resource_link_database}, target_database_tables)),
+        (True, ([], [])),
+        (False, ([resource_link_database], target_database_tables)),
     ],
 )
 def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_result):
