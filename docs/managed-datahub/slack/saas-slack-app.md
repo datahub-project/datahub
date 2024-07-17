@@ -21,7 +21,7 @@ You can trigger a search by simplying typing `/acryl my favorite table`.
     <img width="70%" alt="Example of an in-Slack Acryl search command being performed." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_app_search_1.png" />
 </p>
 
-Right within Slack you'll be presented with results matching your query, and a handful of quick-actions for your convenience.
+Right within Slack, you'll be presented with results matching your query, and a handful of quick-actions for your convenience.
 <p align="center">
     <img width="70%" alt="Example of search results being displayed within Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_app_search_2.png" />
 </p>
