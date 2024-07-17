@@ -185,8 +185,6 @@ class _SnowflakeTagCache:
 
 class SnowflakeDataDictionary(SupportsAsObj):
     def __init__(self, connection: SnowflakeConnection) -> None:
-        self.logger = logger
-
         self.connection = connection
 
     def as_obj(self) -> Dict[str, Dict[str, int]]:
@@ -514,7 +512,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             else:
                 # This should never happen.
-                self.logger.error(f"Encountered an unexpected domain: {domain}")
+                logger.error(f"Encountered an unexpected domain: {domain}")
                 continue
 
         return tags
