@@ -32,6 +32,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTableSnapshot,
     BigqueryView,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
+    BigQuerySchemaGenerator,
+)
 from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
     LineageEdgeColumnMapping,
@@ -231,8 +234,9 @@ def test_get_dataplatform_instance_aspect_returns_project_id(get_bq_client_mock)
 
     config = BigQueryV2Config.parse_obj({"include_data_platform_instance": True})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
 
-    data_platform_instance = source.get_dataplatform_instance_aspect(
+    data_platform_instance = schema_gen.get_dataplatform_instance_aspect(
         "urn:li:test", project_id
     )
     metadata = data_platform_instance.metadata
@@ -246,8 +250,9 @@ def test_get_dataplatform_instance_aspect_returns_project_id(get_bq_client_mock)
 def test_get_dataplatform_instance_default_no_instance(get_bq_client_mock):
     config = BigQueryV2Config.parse_obj({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
 
-    data_platform_instance = source.get_dataplatform_instance_aspect(
+    data_platform_instance = schema_gen.get_dataplatform_instance_aspect(
         "urn:li:test", "project_id"
     )
     metadata = data_platform_instance.metadata
@@ -395,8 +400,9 @@ def test_gen_table_dataset_workunits(get_bq_client_mock, bigquery_table):
     source: BigqueryV2Source = BigqueryV2Source(
         config=config, ctx=PipelineContext(run_id="test")
     )
+    schema_gen = source.bq_schema_extractor
 
-    gen = source.gen_table_dataset_workunits(
+    gen = schema_gen.gen_table_dataset_workunits(
         bigquery_table, [], project_id, dataset_name
     )
     mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
@@ -710,9 +716,10 @@ def test_table_processing_logic(get_bq_client_mock, data_dictionary_mock):
     data_dictionary_mock.get_tables_for_dataset.return_value = None
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
 
     _ = list(
-        source.get_tables_for_dataset(
+        schema_gen.get_tables_for_dataset(
             project_id="test-project", dataset_name="test-dataset"
         )
     )
@@ -784,9 +791,10 @@ def test_table_processing_logic_date_named_tables(
     data_dictionary_mock.get_tables_for_dataset.return_value = None
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
 
     _ = list(
-        source.get_tables_for_dataset(
+        schema_gen.get_tables_for_dataset(
             project_id="test-project", dataset_name="test-dataset"
         )
     )
@@ -882,7 +890,9 @@ def test_get_views_for_dataset(
     assert list(views) == [bigquery_view_1, bigquery_view_2]
 
 
-@patch.object(BigqueryV2Source, "gen_dataset_workunits", lambda *args, **kwargs: [])
+@patch.object(
+    BigQuerySchemaGenerator, "gen_dataset_workunits", lambda *args, **kwargs: []
+)
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_gen_view_dataset_workunits(
     get_bq_client_mock, bigquery_view_1, bigquery_view_2
@@ -897,8 +907,9 @@ def test_gen_view_dataset_workunits(
     source: BigqueryV2Source = BigqueryV2Source(
         config=config, ctx=PipelineContext(run_id="test")
     )
+    schema_gen = source.bq_schema_extractor
 
-    gen = source.gen_view_dataset_workunits(
+    gen = schema_gen.gen_view_dataset_workunits(
         bigquery_view_1, [], project_id, dataset_name
     )
     mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
@@ -908,7 +919,7 @@ def test_gen_view_dataset_workunits(
         viewLogic=bigquery_view_1.view_definition,
     )
 
-    gen = source.gen_view_dataset_workunits(
+    gen = schema_gen.gen_view_dataset_workunits(
         bigquery_view_2, [], project_id, dataset_name
     )
     mcp = cast(MetadataChangeProposalClass, next(iter(gen)).metadata)
@@ -990,8 +1001,9 @@ def test_gen_snapshot_dataset_workunits(get_bq_client_mock, bigquery_snapshot):
     source: BigqueryV2Source = BigqueryV2Source(
         config=config, ctx=PipelineContext(run_id="test")
     )
+    schema_gen = source.bq_schema_extractor
 
-    gen = source.gen_snapshot_dataset_workunits(
+    gen = schema_gen.gen_snapshot_dataset_workunits(
         bigquery_snapshot, [], project_id, dataset_name
     )
     mcp = cast(MetadataChangeProposalWrapper, list(gen)[2].metadata)

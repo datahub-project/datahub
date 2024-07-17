@@ -181,6 +181,11 @@ class SnowflakeV2Config(
         description="If enabled, populates the snowflake usage statistics. Requires appropriate grants given to the role.",
     )
 
+    include_view_definitions: bool = Field(
+        default=True,
+        description="If enabled, populates the ingested views' definitions.",
+    )
+
     include_technical_schema: bool = Field(
         default=True,
         description="If enabled, populates the snowflake technical schema and descriptions.",
