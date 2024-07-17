@@ -231,7 +231,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1713211020"
+                            "transient_lastddltime": "1721219513"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -259,7 +259,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "property_id",
+                                "fieldPath": "[version=2.0].[type=int].property_id",
                                 "nullable": true,
                                 "description": "id of property",
                                 "type": {
@@ -267,9 +267,10 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service",
@@ -471,7 +472,7 @@
                             "numrows": "3",
                             "rawdatasize": "94",
                             "totalsize": "97",
-                            "transient_lastddltime": "1713211025"
+                            "transient_lastddltime": "1721219526"
                         },
                         "name": "classification_test",
                         "tags": []
@@ -498,108 +499,69 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "id",
+                                "fieldPath": "[version=2.0].[type=string].id",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "name",
+                                "fieldPath": "[version=2.0].[type=string].name",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "string",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Full_Name"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1632398400000,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "email",
+                                "fieldPath": "[version=2.0].[type=string].email",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "string",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Email_Address"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1632398400000,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "gender",
+                                "fieldPath": "[version=2.0].[type=string].gender",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "string",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Gender"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1632398400000,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "age",
+                                "fieldPath": "[version=2.0].[type=int].age",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "int",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Age"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1632398400000,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -753,7 +715,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1713211023"
+                            "transient_lastddltime": "1721219521"
                         },
                         "name": "map_test",
                         "tags": []
@@ -780,16 +742,17 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "keyvalue",
+                                "fieldPath": "[version=2.0].[type=string].keyvalue",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=string].recordid",
@@ -959,7 +922,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1713211023"
+                            "transient_lastddltime": "1721219520"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -986,16 +949,17 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "property_id",
+                                "fieldPath": "[version=2.0].[type=int].property_id",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
@@ -1209,7 +1173,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1713211015"
+                            "transient_lastddltime": "1721219483"
                         },
                         "name": "pokes",
                         "tags": []
@@ -1236,40 +1200,43 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "foo",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "bar",
+                                "fieldPath": "[version=2.0].[type=string].bar",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "baz",
+                                "fieldPath": "[version=2.0].[type=string].baz",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -1423,7 +1390,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1713211017"
+                            "transient_lastddltime": "1721219490"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1450,16 +1417,17 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "property_id",
+                                "fieldPath": "[version=2.0].[type=int].property_id",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
@@ -1653,7 +1621,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1713211023"
+                            "transient_lastddltime": "1721219519"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1680,16 +1648,17 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "property_id",
+                                "fieldPath": "[version=2.0].[type=int].property_id",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
@@ -1886,7 +1855,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1713211017"
+                            "transient_lastddltime": "1721219490"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -1913,28 +1882,30 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "foo",
+                                "fieldPath": "[version=2.0].[type=int].foo",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "bar",
+                                "fieldPath": "[version=2.0].[type=string].bar",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR()",
+                                "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
                         ]
                     }
@@ -2088,7 +2059,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1713211023"
+                            "transient_lastddltime": "1721219521"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2369,7 +2340,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1713211023",
+                            "transient_lastddltime": "1721219520",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                             "is_view": "True"
                         },
@@ -2398,16 +2369,17 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "property_id",
+                                "fieldPath": "[version=2.0].[type=int].property_id",
                                 "nullable": true,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service",
@@ -2768,70 +2740,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Age",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Age"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Email_Address",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Email_Address"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Full_Name",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Full_Name"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Gender",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Gender"
         }
     },
     "systemMetadata": {

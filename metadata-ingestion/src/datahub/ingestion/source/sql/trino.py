@@ -22,7 +22,10 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_tag_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -57,6 +60,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     RecordTypeClass,
     SchemaField,
 )
+from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 register_custom_type(datatype.ROW, RecordTypeClass)
 register_custom_type(datatype.MAP, MapTypeClass)
@@ -391,12 +396,36 @@ class TrinoSource(SQLAlchemySource):
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
-        fields = super().get_schema_fields_for_column(
-            dataset_name, column, pk_constraints
+
+        gtc: Optional[GlobalTagsClass] = None
+        if tags:
+            tags_str = [make_tag_urn(t) for t in tags]
+            tags_tac = [TagAssociationClass(t) for t in tags_str]
+            gtc = GlobalTagsClass(tags_tac)
+        is_part_of_key = False
+        if (
+            pk_constraints is not None
+            and isinstance(pk_constraints, dict)  # some dialects (hive) return list
+            and column["name"] in pk_constraints.get("constrained_columns", [])
+        ):
+            is_part_of_key = True
+
+        fields = get_schema_fields_for_hive_column(
+            hive_column_name=column["name"],
+            hive_column_type=_parse_datatype(
+                column.get("full_type", column["type"])
+            ).get("type"),
+            description=column.get("comment", None),
+            default_nullable=column.get("nullable", False),
+            is_part_of_key=is_part_of_key,
         )
 
+        assert len(fields) == 1
+        if gtc:
+            field = fields[0]
+            field.globalTags = gtc
+
         if isinstance(column["type"], (datatype.ROW, sqltypes.ARRAY, datatype.MAP)):
-            assert len(fields) == 1
             field = fields[0]
             # Get avro schema for subfields along with parent complex field
             avro_schema = self.get_avro_schema_from_data_type(
