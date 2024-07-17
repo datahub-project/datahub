@@ -51,7 +51,7 @@ public class LineageFlagsInputMapper
         ResolverUtils.getLineageEndTimeMillis(
             lineageFlags.getStartTimeMillis(), lineageFlags.getEndTimeMillis());
     if (endTimeMillis != null) {
-      result.setEndTimeMillis(lineageFlags.getEndTimeMillis());
+      result.setEndTimeMillis(endTimeMillis);
     }
     if (lineageFlags.getEntitiesExploredPerHopLimit() != null) {
       result.setEntitiesExploredPerHopLimit(lineageFlags.getEntitiesExploredPerHopLimit());
