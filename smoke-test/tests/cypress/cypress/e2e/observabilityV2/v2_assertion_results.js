@@ -13,11 +13,10 @@ describe("dataset assertion results test", () => {
     cy.goToDataset(urn, datasetName);
     cy.clickOptionWithText("Validation");
     cy.waitTextVisible("All assertions are passing");
+    cy.waitTextVisible("Other");
     //Click on single assertion to open it up
-    cy.clickOptionWithSpecificClass(".ant-table-expanded-row", 0);
-    cy.waitTextVisible("Passing");
-    //View the results graph
-    cy.clickOptionWithText("Passing");
+    cy.clickOptionWithSpecificClass(".assertion-result-dot", 0);
+    cy.waitTextVisible("Activity");
     cy.waitTextVisible("Last evaluated");
     cy.waitTextVisible("Last evaluated on");
   });

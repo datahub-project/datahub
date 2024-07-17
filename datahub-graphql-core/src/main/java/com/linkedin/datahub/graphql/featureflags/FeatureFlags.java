@@ -38,4 +38,5 @@ public class FeatureFlags {
   private boolean broadcastNewIncidentUpdatesEnabled = false;
   private boolean separateSiblingsLineageByDefault = false;
   private boolean showSeparateSiblings = false;
+  private boolean formCreationEnabled = false;
 }
