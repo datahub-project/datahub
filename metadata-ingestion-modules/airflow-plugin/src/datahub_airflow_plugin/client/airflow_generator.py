@@ -128,6 +128,10 @@ class AirflowGenerator:
         return upstream_tasks
 
     @staticmethod
+    def _extract_owners(dag: "DAG") -> list[str]:
+        return [owner.strip() for owner in dag.owner.split(",")]
+
+    @staticmethod
     def generate_dataflow(
         config: DatahubLineageConfig,
         dag: "DAG",
@@ -175,7 +179,7 @@ class AirflowGenerator:
         data_flow.url = f"{base_url}/tree?dag_id={dag.dag_id}"
 
         if config.capture_ownership_info and dag.owner:
-            owners = [owner.strip() for owner in dag.owner.split(",")]
+            owners = AirflowGenerator._extract_owners(dag)
             if config.capture_ownership_as_group:
                 data_flow.group_owners.update(owners)
             else:
@@ -283,7 +287,7 @@ class AirflowGenerator:
 
         if capture_owner and dag.owner:
             if config and config.capture_ownership_info:
-                owners = [owner.strip() for owner in dag.owner.split(",")]
+                owners = AirflowGenerator._extract_owners(dag)
                 if config.capture_ownership_as_group:
                     datajob.group_owners.update(owners)
                 else:
