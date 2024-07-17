@@ -12,8 +12,8 @@ The DataHub Slack App brings several of DataHub's key capabilities directly into
 
 *Our goal with the Slack app is to make data discovery easier and more accessible for you.*
 
-## Slack Command Capabilities
-The command based capabilities on the Slack App revolve around search.
+## Slack App Commands
+The command-based capabilities on the Slack App revolve around search.
 
 ### Querying for Assets
 You can trigger a search by simplying typing `/acryl my favorite table`.
