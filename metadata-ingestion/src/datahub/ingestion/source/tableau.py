@@ -2279,7 +2279,7 @@ class TableauSiteSource:
 
             yield from self.emit_table(database_table, tableau_columns)
 
-        # Emmitting tables that were purely parsed from SQL queries
+        # Emitting tables that were purely parsed from SQL queries
         for database_table in self.database_tables.values():
             # Only tables purely parsed from SQL queries don't have ID
             if database_table.id:
@@ -2302,10 +2302,11 @@ class TableauSiteSource:
         tableau_columns: Optional[List[Dict[str, Any]]],
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(
-            f"Emiting external table {database_table} tableau_columns {tableau_columns}"
+            f"Emitting external table {database_table} tableau_columns {tableau_columns}"
         )
+        dataset_urn = DatasetUrn.from_string(database_table.urn)
         dataset_snapshot = DatasetSnapshot(
-            urn=database_table.urn,
+            urn=str(dataset_urn),
             aspects=[],
         )
         if database_table.paths:
@@ -2325,6 +2326,13 @@ class TableauSiteSource:
         )
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
+
+        if not dataset_snapshot.aspects:
+            # This should only happen with ingest_tables_external enabled.
+            logger.warning(
+                f"Urn {database_table.urn} has no real aspects, adding a key aspect to ensure materialization"
+            )
+            dataset_snapshot.aspects.append(dataset_urn.to_key_aspect())
 
         yield self.get_metadata_change_event(dataset_snapshot)
 
