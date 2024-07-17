@@ -276,8 +276,12 @@ class SqlParsingAggregator(Closeable):
         self.generate_usage_statistics = generate_usage_statistics
         self.generate_query_usage_statistics = generate_query_usage_statistics
         self.generate_operations = generate_operations
-        if self.generate_queries and not self.generate_lineage:
-            raise ValueError("Queries will only be generated if lineage is enabled")
+        if self.generate_queries and not (
+            self.generate_lineage or self.generate_query_usage_statistics
+        ):
+            logger.warning(
+                "Queries will not be generated, as neither lineage nor query usage statistics are enabled"
+            )
 
         self.usage_config = usage_config
         if (

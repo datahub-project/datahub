@@ -156,7 +156,7 @@ class SnowflakeV2Source(
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
         self.aggregator: Optional[SqlParsingAggregator] = None
 
-        if self.config.include_table_lineage:
+        if self.config.use_queries_v2 or self.config.include_table_lineage:
             self.aggregator = SqlParsingAggregator(
                 platform=self.identifiers.platform,
                 platform_instance=self.config.platform_instance,
@@ -179,6 +179,8 @@ class SnowflakeV2Source(
             )
             self.report.sql_aggregator = self.aggregator.report
 
+        if self.config.include_table_lineage:
+            assert self.aggregator is not None
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None

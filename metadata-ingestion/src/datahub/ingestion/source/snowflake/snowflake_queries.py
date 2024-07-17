@@ -368,8 +368,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                     )
                 )
 
-        # TODO implement email address mapping
-        user = CorpUserUrn(res["user_name"])
+        # TODO: Fetch email addresses from Snowflake to map user -> email
+        # TODO: Support email_domain fallback for generating user urns.
+        user = CorpUserUrn(self.identifiers.snowflake_identifier(res["user_name"]))
 
         timestamp: datetime = res["query_start_time"]
         timestamp = timestamp.astimezone(timezone.utc)
@@ -380,14 +381,18 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         )
 
         entry = PreparsedQuery(
-            query_id=res["query_fingerprint"],
+            # Despite having Snowflake's fingerprints available, our own fingerprinting logic does a better
+            # job at eliminating redundant / repetitive queries. As such, we don't include the fingerprint
+            # here so that the aggregator auto-generates one.
+            # query_id=res["query_fingerprint"],
+            query_id=None,
             query_text=res["query_text"],
             upstreams=upstreams,
             downstream=downstream,
             column_lineage=column_lineage,
             column_usage=column_usage,
             inferred_schema=None,
-            confidence_score=1,
+            confidence_score=1.0,
             query_count=res["query_count"],
             user=user,
             timestamp=timestamp,
