@@ -12,7 +12,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ### Step-by-step guide
 The following steps should be performed by a Slack Workspace Admin. 
-1. Navigate to https://api.slack.com/reference/manifests#config-tokens
+1. Navigate to [https://api.slack.com/reference/manifests#config-tokens](https://api.slack.com/reference/manifests#config-tokens)
 2. Under **Managing configuration tokens**, select **'Generate Token'**
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_1.png"/>
@@ -121,7 +121,7 @@ That's it! You should begin to receive notifications on Slack. Note that it may 
 
 ## Sending Notifications
 
-For now we support sending notifications to
+For now, we support sending notifications to
 - Slack Channel Name (e.g. `#troubleshoot`)
 - Slack Channel ID (e.g. `C029A3M079U`)
 - Specific Users (aka Direct Messages or DMs) via user ID 
@@ -129,10 +129,12 @@ For now we support sending notifications to
 By default, the Slack app will be able to send notifications to public channels. If you want to send notifications to private channels or DMs, you will need to invite the Slack app to those channels.
 
 ## How to find Team ID and Channel ID in Slack
-***Note** we recommend just using the Slack channel name for simplicity (e.g. `#troubleshoot`)*
+:::note
+We recommend just using the Slack channel name for simplicity (e.g. `#troubleshoot`)*
+:::
 
 **Via Slack App:**
-1. Go to the Slack channel for which you want to get channel ID
+1. Go to the Slack channel for which you want to get a channel ID
 2. Click the channel name at the top
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/channel_id_1.png"/>
@@ -143,7 +145,7 @@ By default, the Slack app will be able to send notifications to public channels.
 </p>
 
 **Via Web:**
-1. Go to the Slack channel for which you want to get channel ID
+1. Go to the Slack channel for which you want to get a channel ID
 2. Check the URL e.g. for the troubleshoot channel in OSS DataHub Slack
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/integrations/slack/slack_channel_url.png)
 
