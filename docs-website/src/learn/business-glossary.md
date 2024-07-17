@@ -94,7 +94,7 @@ Some companies use manual methods to track data terminology and manage access re
 Acryl DataHub offers comprehensive features designed to support the authoring of a unified business glossary for your organization:
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/glossary-terms/business-glossary-center.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/glossary-terms/business-glossary-center.png"/>
   <br />
   <i style={{color:"grey"}}>Business Glossary Center</i>
 </p>
@@ -103,7 +103,7 @@ Acryl DataHub offers comprehensive features designed to support the authoring of
 
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/glossary-terms/approval-workflow.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/glossary-terms/approval-workflow.png"/>
  <br />
   <i style={{color:"grey"}}>Approval Flows</i>
 </p>

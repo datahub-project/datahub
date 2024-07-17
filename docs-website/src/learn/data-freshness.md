@@ -25,7 +25,7 @@ Data freshness refers to the timeliness and completeness of data used to build t
 To make things concrete, let’s imagine you run an e-commerce business selling t-shirts. When a user clicks the final “purchase” button to finalize a purchase, this interaction is recorded, eventually winding up in a consolidated “click_events” table on your data warehouse. Data freshness in this case could be measured by comparing when the actual click was performed against when the record of the click landed in the data warehouse. In reality, freshness can be measured against any reference point - e.g. event time, ingestion time, or something else - in relation to when a target table, model, or other data product is updated with new data. 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-freshness/freshness-concept.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/freshness-concept.png"/>
  <br />
   <i style={{color:"grey"}}>Data Freshness</i>
 </p>
@@ -85,7 +85,7 @@ DataHub offers comprehensive features designed to tackle data freshness challeng
 
 **[End-To-End Data Lineage](https://datahubproject.io/docs/generated/lineage/lineage-feature-guide) and [Impact Analysis](https://datahubproject.io/docs/act-on-metadata/impact-analysis):** Easily track the flow of data through your organization to identify, debug, and resolve delays quickly.
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-freshness/lineage.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/lineage.png"/>
  <br />
   <i style={{color:"grey"}}>Data Lineage</i>
 </p>
@@ -94,14 +94,14 @@ DataHub offers comprehensive features designed to tackle data freshness challeng
 **Freshness Monitoring & Alerting:** Automatically detect and alert when data freshness issues occur, to ensure timely updates by proactively monitoring key datasets for updates. Check out [Assertions](https://datahubproject.io/docs/managed-datahub/observe/assertions) and [Freshness Assertions](https://datahubproject.io/docs/managed-datahub/observe/freshness-assertions), Available in **Acryl Managed DataHub Only.**
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-freshness/freshness-assertions.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/freshness-assertions.png"/>
  <br />
   <i style={{color:"grey"}}>Freshness Assertions Results</i>
 </p>
 
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-freshness/smart-assertions.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/smart-assertions.png"/>
  <br />
   <i style={{color:"grey"}}>Smart assertions checks for changes on a cadence based on the Table history, by default using the Audit Log.</i>
 </p>
@@ -110,7 +110,7 @@ DataHub offers comprehensive features designed to tackle data freshness challeng
 **[Incident Management](https://datahubproject.io/docs/incidents/incidents)** : Centralize data incident management and begin to effectively triage, prioritize, communicate and resolve data freshness issues to all relevant stakeholders. Check out [subscription & notification](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) features as well.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-freshness/incidents.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/incidents.png"/>
 </p>
 
 

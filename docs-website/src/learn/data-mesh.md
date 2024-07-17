@@ -25,7 +25,7 @@ Data Mesh is a decentralized data architecture that shifts the responsibility of
 If you’re familiar with [Service-Oriented Architectures](https://en.wikipedia.org/wiki/Service-oriented_architecture), i.e. micro-services, this might sound familiar. Data Mesh is a somewhat analogous concept, but applied to data!
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-mesh/data-mesh-principles.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/data-mesh-principles.png"/>
  <br />
   <i style={{color:"grey"}}>4 Principles of Data Mesh</i>
 </p>
@@ -39,7 +39,7 @@ If you’re familiar with [Service-Oriented Architectures](https://en.wikipedia.
 | Federated Governance | Consistent standards that are enforced by process and technology around interoperability, compliance, and quality. This makes it easy for data consumers to interact with data products across domains in familiar way and ensures quality is maintained uniformly.  |
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-mesh/data-mesh-arc.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/data-mesh-arc.png"/>
  <br />
   <i style={{color:"grey"}}>Logical architecture of data mesh approach, Image Credit: <a href="https://dddeurope.academy/data-mesh-zhamak-dheghani/">Zhamak Dehghani</a></i>
 </p>
@@ -98,7 +98,7 @@ Acryl DataHub offers a comprehensive set of features designed to support the imp
     
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-mesh/data-contract.png"/> 
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/data-contract.png"/> 
   <br />
   <i style={{color:"grey"}}>Data Contracts in Acryl DataHub UI</i>
 </p>
@@ -109,7 +109,7 @@ Acryl DataHub offers a comprehensive set of features designed to support the imp
 
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-mesh/assertion-results.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/assertion-results.png"/>
  <br />
   <i style={{color:"grey"}}>Assertion Results</i>
 </p>
@@ -119,7 +119,7 @@ Acryl DataHub offers a comprehensive set of features designed to support the imp
 - **[Metadata Tests](https://datahubproject.io/docs/tests/metadata-tests)**: Monitor and enforce a central set of standards or policies across all of your data assets, e.g. to ensure data documentation, data ownership, and data classification.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-mesh/test-results.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/test-results.png"/>
  <br />
   <i style={{color:"grey"}}>Metadata Test Results</i>
 </p>

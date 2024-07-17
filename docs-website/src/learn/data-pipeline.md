@@ -24,7 +24,7 @@ A data pipeline is a series of processes that move data from one system to anoth
 
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-pipeline/pipeline-lineage.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-pipeline/pipeline-lineage.png"/>
  <br />
   <i style={{color:"grey"}}>Data Pipeline Example</i>
 </p>
@@ -64,7 +64,7 @@ Some companies resort to manual debugging or use communication tools like Slack 
 Acryl DataHub offers comprehensive features designed to optimize data pipelines:
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-pipeline/lineage-tracking.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-pipeline/lineage-tracking.png"/>
  <br />
   <i style={{color:"grey"}}>Pipeline Catalog</i>
 </p>
@@ -72,7 +72,7 @@ Acryl DataHub offers comprehensive features designed to optimize data pipelines:
 - **Pipeline Cataloging:** Quickly browse all of the data pipelines running inside your organization, and track critical human context like pipeline ownership / accountability, purpose / documentation, and compliance labels in one place.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/add-blog-imgs/imgs/blogs/data-pipeline/pipeline-cataloging.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-pipeline/pipeline-cataloging.png"/>
  <br />
   <i style={{color:"grey"}}>Lineage Tracking</i>
 </p>
