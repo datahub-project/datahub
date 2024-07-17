@@ -37,8 +37,8 @@ const getButtonColorStyles = (variant, color) => {
     // Specific color override for gray
     if (color === 'gray') {
         base.textColor = getColor('gray', 500);
-        base.bgColor = getColor('gray', 50);
-        base.borderColor = getColor('gray', 50);
+        base.bgColor = getColor('gray', 100);
+        base.borderColor = getColor('gray', 100);
 
         base.hoverBgColor = getColor('gray', 100);
         base.activeBgColor = getColor('gray', 200);
@@ -52,7 +52,7 @@ const getButtonColorStyles = (variant, color) => {
             borderColor: color500,
             textColor: color500,
 
-            hoverBgColor: isViolet ? getColor(color, 50) : getColor(color, 100),
+            hoverBgColor: isViolet ? getColor(color, 100) : getColor(color, 100),
             activeBgColor: isViolet ? getColor(color, 100) : getColor(color, 200),
 
             disabledBgColor: 'transparent',
