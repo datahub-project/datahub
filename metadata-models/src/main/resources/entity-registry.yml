@@ -789,7 +789,7 @@ plugins:
     - className: 'com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect'
       packageScan:
         - 'com.linkedin.metadata.schemafields.sideeffects'
-      enabled: true
+      enabled: false
       supportedOperations:
         - CREATE
         - CREATE_ENTITY
