@@ -503,7 +503,7 @@ class EntityAspectName:
 class AspectPluginConfig(PermissiveConfigModel):
     className: str
     enabled: bool
-    supportedEntityAspectNames: List[EntityAspectName]
+    supportedEntityAspectNames: List[EntityAspectName] = []
     packageScan: Optional[List[str]] = None
     supportedOperations: Optional[List[str]] = None
 
