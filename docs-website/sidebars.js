@@ -801,72 +801,6 @@ module.exports = {
     "docs/managed-datahub/managed-datahub-overview",
     "docs/managed-datahub/welcome-acryl",
     {
-      type: "doc",
-      id: "docs/managed-datahub/saas-slack-setup",
-      className: "saasOnly",
-    },
-    {
-      type: "doc",
-      id: "docs/managed-datahub/approval-workflows",
-      className: "saasOnly",
-    },
-    {
-      "Metadata Ingestion With Acryl": [
-        "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
-      ],
-    },
-    {
-      "DataHub API": [
-        {
-          type: "doc",
-          id: "docs/managed-datahub/datahub-api/entity-events-api",
-          className: "saasOnly",
-        },
-        {
-          "GraphQL API": [
-            "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-          ],
-        },
-      ],
-    },
-    {
-      Integrations: [
-        {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/aws-privatelink",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/oidc-sso-integration",
-          className: "saasOnly",
-        },
-      ],
-    },
-    {
-      "Operator Guide": [
-        {
-          type: "doc",
-          id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
-          className: "saasOnly",
-        },
-      ],
-    },
-    {
-      type: "doc",
-      id: "docs/managed-datahub/chrome-extension",
-    },
-    {
-      type: "doc",
-      id: "docs/managed-datahub/subscription-and-notification",
-      className: "saasOnly",
-    },
-    {
       "Managed DataHub Release History": [
         "docs/managed-datahub/release-notes/v_0_3_2",
         "docs/managed-datahub/release-notes/v_0_3_1",
@@ -1047,6 +981,83 @@ module.exports = {
           label: "Tags",
           type: "doc",
           id: "docs/tags",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Cloud Features",
+      link: {
+        type: "generated-index",
+        title: "Feature Guides",
+        description: "Learn about the features of DataHub.",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/saas-slack-setup",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/approval-workflows",
+          className: "saasOnly",
+        },
+        {
+          "Metadata Ingestion With Acryl": [
+            "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
+          ],
+        },
+        {
+          "DataHub API": [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/datahub-api/entity-events-api",
+              className: "saasOnly",
+            },
+            {
+              "GraphQL API": [
+                "docs/managed-datahub/datahub-api/graphql-api/getting-started",
+              ],
+            },
+          ],
+        },
+        {
+          Integrations: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/aws-privatelink",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/oidc-sso-integration",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          "Operator Guide": [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/chrome-extension",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
         },
       ],
     },
