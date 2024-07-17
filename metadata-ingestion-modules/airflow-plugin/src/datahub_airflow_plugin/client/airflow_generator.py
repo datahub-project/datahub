@@ -128,7 +128,7 @@ class AirflowGenerator:
         return upstream_tasks
 
     @staticmethod
-    def _extract_owners(dag: "DAG") -> list[str]:
+    def _extract_owners(dag: "DAG") -> List[str]:
         return [owner.strip() for owner in dag.owner.split(",")]
 
     @staticmethod
