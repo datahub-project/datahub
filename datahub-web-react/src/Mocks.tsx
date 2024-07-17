@@ -1254,6 +1254,7 @@ export const glossaryNode5 = {
 
 export const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',
+    type: EntityType.Tag,
     name: 'abc-sample-tag',
     description: 'sample tag description',
     ownership: {

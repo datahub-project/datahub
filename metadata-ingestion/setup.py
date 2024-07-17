@@ -258,6 +258,13 @@ s3_base = {
     *path_spec_common,
 }
 
+abs_base = {
+    "azure-core==1.29.4",
+    "azure-identity>=1.14.0",
+    "azure-storage-blob>=12.19.0",
+    "azure-storage-file-datalake>=12.14.0",
+}
+
 data_lake_profiling = {
     "pydeequ~=1.1.0",
     "pyspark~=3.3.0",
@@ -265,6 +272,7 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
+    *abs_base,
     # Version 0.18.0 broken on ARM Macs: https://github.com/delta-io/delta-rs/issues/2577
     "deltalake>=0.6.3, != 0.6.4, < 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
@@ -345,6 +353,7 @@ plugins: Dict[str, Set[str]] = {
         "flask-openid>=1.3.0",
         "dask[dataframe]<2024.7.0",
     },
+    "grafana": {"requests"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -406,6 +415,7 @@ plugins: Dict[str, Set[str]] = {
     | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
+    "abs": {*abs_base},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
@@ -635,6 +645,7 @@ entry_points = {
         "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
+        "grafana = datahub.ingestion.source.grafana.grafana_source:GrafanaSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
@@ -684,6 +695,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
+        "abs = datahub.ingestion.source.abs.source:ABSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
