@@ -28,7 +28,7 @@ public class RequestContext implements ContextInterface {
   @Nonnull private final String requestID;
 
   /** Used for ingestion, marks whether the aspect being ingested is going to be validated */
-  private final boolean validated;
+  private boolean validated;
 
   @Override
   public Optional<Integer> getCacheKeyComponent() {

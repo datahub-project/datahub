@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -169,11 +170,14 @@ public class EntityController
           } else if (!validate) {
             ProposedItem.ProposedItemBuilder builder =
                 ProposedItem.builder()
-                    .urn(entityUrn)
-                    .aspectSpec(null)
+                    .metadataChangeProposal(
+                        new MetadataChangeProposal()
+                            .setEntityUrn(entityUrn)
+                            .setAspectName(aspect.getKey())
+                            .setEntityType(entityUrn.getEntityType())
+                            .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
+                            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
                     .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-                    .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
-                    .recordTemplate(GenericRecordUtils.serializeAspect(aspect.getValue()))
                     .entitySpec(
                         opContext
                             .getAspectRetriever()

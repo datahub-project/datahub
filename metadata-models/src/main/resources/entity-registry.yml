@@ -831,6 +831,12 @@ plugins:
           aspectName: 'schemaMetadata'
         - entityName: '*'
           aspectName: 'editableSchemaMetadata'
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
     # Acryl Only
     # Calculates md5 hash on test definitions on read/write
     - className: 'com.linkedin.metadata.test.hooks.MetadataTestHash'
