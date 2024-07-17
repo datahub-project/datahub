@@ -1241,6 +1241,7 @@ class DataHubGraph(DatahubRestEmitter):
         env: str = DEFAULT_ENV,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
+        default_dialect: Optional[str] = None,
     ) -> "SqlParsingResult":
         from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
@@ -1254,6 +1255,7 @@ class DataHubGraph(DatahubRestEmitter):
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
+            default_dialect=default_dialect,
         )
 
     def create_tag(self, tag_name: str) -> str:

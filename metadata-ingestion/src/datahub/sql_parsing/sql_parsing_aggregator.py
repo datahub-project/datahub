@@ -660,10 +660,10 @@ class SqlParsingAggregator(Closeable):
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
             return  # we can't do anything with this query
-        elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
-            self.report.num_observed_queries_column_timeout += 1
         elif parsed.debug_info.column_error:
             self.report.num_observed_queries_column_failed += 1
+            if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
+                self.report.num_observed_queries_column_timeout += 1
 
         query_fingerprint = parsed.query_fingerprint
 
