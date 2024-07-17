@@ -358,7 +358,7 @@ def test_get_projects_list_failure(
     caplog.clear()
     with caplog.at_level(logging.ERROR):
         projects = source._get_projects()
-        assert len(caplog.records) == 1
+        assert len(caplog.records) == 2
         assert error_str in caplog.records[0].msg
     assert len(source.report.failures) == 1
     assert projects == []

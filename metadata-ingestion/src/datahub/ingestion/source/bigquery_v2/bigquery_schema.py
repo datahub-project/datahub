@@ -193,7 +193,7 @@ class BigQuerySchemaApi:
                         for p in projects_iterator
                     ]
                     projects.extend(_projects)
-                    self.report.num_list_projects = len(projects)
+                    self.report.num_listed_projects = len(projects)
                     page_token = projects_iterator.next_page_token
                     if not page_token:
                         break
