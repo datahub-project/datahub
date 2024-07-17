@@ -326,19 +326,4 @@ public class SearchUtils {
     result.setFacets(new ArrayList<>());
     return result;
   }
-
-  /**
-   * Simply resolves the end time filter for the search across lineage query. If the start time is
-   * provided, but end time is not provided, we will default to the current time.
-   */
-  public static Long getLineageEndTimeMillis(
-      @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
-    if (endTimeMillis != null) {
-      return endTimeMillis;
-    }
-    if (startTimeMillis != null) {
-      return System.currentTimeMillis();
-    }
-    return null;
-  }
 }
