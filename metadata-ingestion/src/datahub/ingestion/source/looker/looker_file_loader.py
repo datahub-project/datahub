@@ -37,9 +37,6 @@ class LookerViewFileLoader:
         self.reporter = reporter
         self.liquid_variable = liquid_variable
 
-    def is_view_seen(self, path: str) -> bool:
-        return path in self.viewfile_cache
-
     def _load_viewfile(
         self, project_name: str, path: str, reporter: LookMLSourceReport
     ) -> Optional[LookerViewFile]:
@@ -56,7 +53,7 @@ class LookerViewFileLoader:
             )
             return None
 
-        if self.is_view_seen(str(path)):
+        if path in self.viewfile_cache:
             return self.viewfile_cache[path]
 
         try:
