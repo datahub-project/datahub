@@ -11,6 +11,7 @@ from wcmatch import pathlib
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.azure.abs_util import is_abs_uri
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 # hide annoying debug errors from py4j
@@ -107,7 +108,7 @@ class PathSpec(ConfigModel):
         # glob_include = self.glob_include.rsplit("/", 1)[0]
         glob_include = self.glob_include
 
-        for i in range(slash_to_remove_from_glob):
+        for _ in range(slash_to_remove_from_glob):
             glob_include = glob_include.rsplit("/", 1)[0]
 
         logger.debug(f"Checking dir to inclusion: {path}")
@@ -169,7 +170,8 @@ class PathSpec(ConfigModel):
     def turn_off_sampling_for_non_s3(cls, v, values):
         is_s3 = is_s3_uri(values.get("include") or "")
         is_gcs = is_gcs_uri(values.get("include") or "")
-        if not is_s3 and not is_gcs:
+        is_abs = is_abs_uri(values.get("include") or "")
+        if not is_s3 and not is_gcs and not is_abs:
             # Sampling only makes sense on s3 and gcs currently
             v = False
         return v
@@ -212,6 +214,10 @@ class PathSpec(ConfigModel):
     @cached_property
     def is_gcs(self):
         return is_gcs_uri(self.include)
+
+    @cached_property
+    def is_abs(self):
+        return is_abs_uri(self.include)
 
     @cached_property
     def compiled_include(self):
