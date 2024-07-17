@@ -56,7 +56,8 @@ know.
 | Monitor Freshness SLAs | ❌ | ✅ |
 | Monitor Table Schemas | ❌ | ✅ |
 | Monitor Table Volume | ❌ | ✅ |
-| Validate Table Columns | ❌ | ✅ |
+| Monitor Table Column Integrity | ❌ | ✅ |
+| Monitor Table with Custom SQL | ❌ | ✅ |
 | Receive Notifications via Email & Slack | ❌ | ✅ |
 | Manage Data Incidents via Slack | ❌ | ✅ |
 | View Data Health Dashboard | ❌ | ✅ |
@@ -115,7 +116,7 @@ Fill out
 
 ## Additional Integrations
 
-- [Slack Integration](docs/managed-datahub/saas-slack-setup.md)
+- [Slack Integration](docs/managed-datahub/slack/saas-slack-setup.md)
 - [Remote Ingestion Executor](docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md)
 - [AWS Privatelink](docs/managed-datahub/integrations/aws-privatelink.md)
 - [AWS Eventbridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
