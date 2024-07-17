@@ -484,9 +484,11 @@ featureFlags:
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:false} # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:false} # Enables the documentation forms feature and shows/hides everything for it in the UI
   emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
+  slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:false} # Enables the ability to configure slack bot tokens via the integrations settings UI
   broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true} # Enables stateful updating of active incidents in 3rd party destinations.
   separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false} # Whether siblings lineage should be separate from each other or not
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  formCreationEnabled: ${FORM_CREATION_ENABLED:false} # Enables the form creation workflow feature on the documentation page
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

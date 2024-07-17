@@ -20,6 +20,7 @@ type Props = {
     showFilterBar?: boolean;
     setSkipCache?: (skipCache: boolean) => void;
     resetShouldRefetch?: () => void;
+    setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export const ImpactAnalysis = ({
@@ -36,6 +37,7 @@ export const ImpactAnalysis = ({
     showFilterBar = true,
     setSkipCache,
     resetShouldRefetch,
+    setIsLoading,
 }: Props) => {
     const finalStartTimeMillis = startTimeMillis || undefined;
     const finalEndTimeMillis = endTimeMillis || undefined;
@@ -51,6 +53,7 @@ export const ImpactAnalysis = ({
                 endTimeMillis: finalEndTimeMillis,
                 skipCache,
                 setSkipCache,
+                setIsLoading,
             })}
             useGetDownloadSearchResults={generateUseDownloadScrollAcrossLineageSearchResultsHook({
                 urn,

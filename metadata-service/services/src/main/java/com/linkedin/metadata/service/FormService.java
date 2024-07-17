@@ -29,6 +29,7 @@ import com.linkedin.metadata.authorization.OwnershipUtils;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.FormKey;
 import com.linkedin.metadata.query.filter.*;
+import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.util.FormTestBuilder;
@@ -69,11 +70,15 @@ public class FormService extends BaseService {
   private static final int FORMS_BATCH_SIZE = 1000;
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
 
+  private final OwnerService _ownerService;
+
   public FormService(
       @Nonnull final SystemEntityClient systemEntityClient,
       @Nonnull final OpenApiClient openApiClient,
       @Nonnull ObjectMapper objectMapper) {
     super(systemEntityClient, openApiClient, objectMapper);
+    _ownerService = new OwnerService(systemEntityClient, openApiClient, objectMapper);
+    ;
   }
 
   /** Batch associated a form to a given set of entities by urn. */
@@ -269,6 +274,29 @@ public class FormService extends BaseService {
     return true;
   }
 
+  /** Submit a response for an ownership type prompt. */
+  public Boolean batchSubmitOwnershipPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityUrns,
+      @Nonnull final List<Urn> owners,
+      @Nonnull Urn ownershipTypeUrn,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId)
+      throws Exception {
+    entityUrns.forEach(
+        urnStr -> {
+          Urn urn = UrnUtils.getUrn(urnStr);
+          try {
+            submitOwnershipPromptResponse(
+                opContext, urn, owners, ownershipTypeUrn, formUrn, formPromptId);
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to batch submit structured property prompt", e);
+          }
+        });
+
+    return true;
+  }
+
   /** Submit a response for a structured property type prompt. */
   public Boolean submitStructuredPropertyPromptResponse(
       @Nonnull OperationContext opContext,
@@ -283,7 +311,43 @@ public class FormService extends BaseService {
     ingestStructuredProperties(opContext, entityUrn, structuredPropertyUrn, values);
 
     // Then, let's apply the change to the entity's form status.
-    ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId);
+    FormPromptResponse promptResponse = new FormPromptResponse();
+    StructuredPropertyPromptResponse propertyResponse = new StructuredPropertyPromptResponse();
+    propertyResponse.setPropertyUrn(structuredPropertyUrn);
+    propertyResponse.setValues(values);
+    promptResponse.setStructuredPropertyResponse(propertyResponse);
+    ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, promptResponse);
+
+    return true;
+  }
+
+  /** Submit a response for a structured property type prompt. */
+  public Boolean submitOwnershipPromptResponse(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final List<Urn> owners,
+      @Nonnull Urn ownershipTypeUrn,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId)
+      throws Exception {
+
+    // First, let's apply the action and add the owners
+    ResourceReference resourceRef = new ResourceReference(entityUrn, null, null);
+    _ownerService.batchAddOwners(
+        opContext,
+        owners,
+        ImmutableList.of(resourceRef),
+        OwnershipType.NONE,
+        ownershipTypeUrn,
+        UI_SOURCE);
+
+    // Then, let's apply the change to the entity's form status.
+    FormPromptResponse promptResponse = new FormPromptResponse();
+    OwnershipPromptResponse ownershipResponse = new OwnershipPromptResponse();
+    ownershipResponse.setOwners(new UrnArray(owners));
+    ownershipResponse.setOwnershipTypeUrn(ownershipTypeUrn);
+    promptResponse.setOwnershipResponse(ownershipResponse);
+    ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, promptResponse);
 
     return true;
   }
@@ -362,7 +426,7 @@ public class FormService extends BaseService {
     // field prompt is complete if all fields in entity's schema metadata are marked complete
     if (isFieldPromptComplete(opContext, entityUrn, formPromptAssociation)) {
       // if this is complete, the prompt as a whole should be marked as complete
-      ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, forms);
+      ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, forms, null);
     } else {
       // regardless, ingest forms to save state of this aspect
       ingestForms(opContext, entityUrn, forms);
@@ -373,10 +437,11 @@ public class FormService extends BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
-      @Nonnull final String formPromptId)
+      @Nonnull final String formPromptId,
+      @Nullable final FormPromptResponse promptResponse)
       throws Exception {
     final Forms forms = getEntityForms(opContext, entityUrn);
-    ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, forms);
+    ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId, forms, promptResponse);
   }
 
   private void ingestCompletedFormResponse(
@@ -384,7 +449,8 @@ public class FormService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
       @Nonnull final String formPromptId,
-      @Nonnull final Forms forms)
+      @Nonnull final Forms forms,
+      @Nullable final FormPromptResponse promptResponse)
       throws Exception {
     // Next, get all the information we need to update the forms for the entity.
     final FormInfo formInfo = getFormInfo(opContext, formUrn);
@@ -396,7 +462,8 @@ public class FormService extends BaseService {
     }
 
     // First, mark the prompt as completed in forms aspect.
-    updatePromptToComplete(opContext, formAssociation, entityUrn, formUrn, formPromptId);
+    updatePromptToComplete(
+        opContext, formAssociation, entityUrn, formUrn, formPromptId, promptResponse);
 
     // Then, update the completed forms fields based on which prompts remain incomplete.
     updateFormCompletion(forms, formAssociation, formInfo);
@@ -580,9 +647,13 @@ public class FormService extends BaseService {
       @Nonnull final FormAssociation formAssociation,
       @Nonnull final Urn entityUrn,
       @Nonnull final Urn formUrn,
-      @Nonnull final String formPromptId) {
+      @Nonnull final String formPromptId,
+      @Nullable final FormPromptResponse promptResponse) {
     final FormPromptAssociation formPromptAssociation =
         getOrDefaultFormPromptAssociation(opContext, formAssociation, formPromptId);
+    if (promptResponse != null) {
+      formPromptAssociation.setResponse(promptResponse);
+    }
 
     // add this prompt association to list of completed prompts, removing its previous association
     // if it was already in there

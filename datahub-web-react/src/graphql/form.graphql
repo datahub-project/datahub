@@ -65,33 +65,3 @@ query getFormsForActor($input: GetFormsForActorInput) {
         }
     }
 }
-
-fragment formFields on Form {
-    urn
-    type
-    info {
-        name
-        description
-        type
-        prompts {
-            id
-            formUrn
-            title
-            description
-            type
-            required
-            structuredPropertyParams {
-                structuredProperty {
-                    ...structuredPropertyFields
-                }
-            }
-        }
-        actors {
-            owners
-            isAssignedToMe
-        }
-    }
-    ownership {
-        ...ownershipFields
-    }
-}

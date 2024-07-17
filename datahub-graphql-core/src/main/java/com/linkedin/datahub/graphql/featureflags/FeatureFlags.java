@@ -17,6 +17,7 @@ public class FeatureFlags {
   private boolean platformBrowseV2 = false;
   private boolean lineageGraphV2 = false;
   private boolean subscriptionsEnabled = false;
+  private boolean slackBotTokensConfigEnabled = false;
   private boolean datasetHealthDashboardEnabled = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
@@ -37,4 +38,5 @@ public class FeatureFlags {
   private boolean broadcastNewIncidentUpdatesEnabled = false;
   private boolean separateSiblingsLineageByDefault = false;
   private boolean showSeparateSiblings = false;
+  private boolean formCreationEnabled = false;
 }

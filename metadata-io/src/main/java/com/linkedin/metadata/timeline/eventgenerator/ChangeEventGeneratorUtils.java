@@ -28,7 +28,7 @@ public class ChangeEventGeneratorUtils {
 
   public static Urn getSchemaFieldUrn(@Nonnull Urn datasetUrn, @Nonnull SchemaField schemaField) {
     return UrnUtils.getUrn(
-        String.format("urn:li:schemaField:(%s,%s)", datasetUrn, getFieldPathV1(schemaField)));
+        String.format("urn:li:schemaField:(%s,%s)", datasetUrn, schemaField.getFieldPath()));
   }
 
   public static String getFieldPathV1(@Nonnull SchemaField field) {

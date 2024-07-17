@@ -78,7 +78,9 @@ export const DEFAULT_APP_CONFIG = {
         metadataShareEnabled: false,
         documentationFormsEnabled: false,
         emailNotificationsEnabled: false,
+        slackBotTokensConfigEnabled: false,
         showSeparateSiblings: false,
+        formCreationEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

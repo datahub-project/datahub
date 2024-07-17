@@ -209,7 +209,6 @@ export default function BulkVerify({ closeFormModal }: Props) {
                         onChangePage={onChangePage}
                         numResultsPerPage={numResultsPerPage}
                         setNumResultsPerPage={setNumResultsPerPage}
-                        showSearchSelectBar={false}
                         setIsSelectMode={setIsSelectMode}
                         selectedEntities={selectedEntities}
                         setSelectedEntities={setSelectedEntities}
