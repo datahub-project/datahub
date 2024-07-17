@@ -17,6 +17,7 @@ import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { useUserContext } from '../../../../../context/useUserContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import EntityHeaderLoadingSection from './EntityHeaderLoadingSection';
+import { useIsEditableDatasetNameEnabled } from '../../../../../useAppConfig';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -96,8 +97,9 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
     const entityName = entityData?.name;
     const subType = capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) || undefined;
 
+    const isEditableDatasetNameEnabled = useIsEditableDatasetNameEnabled();
     const canEditName =
-        isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+        isEditableDatasetNameEnabled && isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
     const entityRegistry = useEntityRegistry();
 
     return (
@@ -108,7 +110,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                         <>
                             <PlatformContent />
                             <TitleWrapper>
-                                <EntityName isNameEditable={canEditName} />
+                                <EntityName isNameEditable={canEditName || false} />
                                 {entityData?.deprecation?.deprecated && (
                                     <DeprecationPill
                                         urn={urn}

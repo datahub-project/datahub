@@ -497,6 +497,11 @@ type FeatureFlagsConfig {
   Whether data contracts should be enabled
   """
   dataContractsEnabled: Boolean!
+
+  """
+  Whether dataset names are editable
+  """
+  editableDatasetNameEnabled: Boolean!
 }
 
 """
