@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useHistory, useLocation, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
 import LineageExplorer from '../lineage/LineageExplorer';
@@ -8,7 +8,7 @@ import { useLineageV2 } from '../lineageV2/useLineageV2';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
 import analytics, { EventType } from '../analytics';
-import { decodeUrn, getRedirectUrl } from './shared/utils';
+import { decodeUrn } from './shared/utils';
 import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
 import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
 import { ErrorSection } from '../shared/error/ErrorSection';
@@ -67,8 +67,6 @@ export const EntityPage = ({ entityType }: Props) => {
         fetchPolicy: 'cache-first',
     });
     const privileges = data?.getGrantedPrivileges?.privileges || [];
-    const location = useLocation();
-    const history = useHistory();
 
     useEffect(() => {
         analytics.event({
@@ -77,19 +75,6 @@ export const EntityPage = ({ entityType }: Props) => {
             entityUrn: urn,
         });
     }, [entityType, urn]);
-
-    useEffect(() => {
-        if (location.pathname.indexOf('/Validation') !== -1) {
-            const newRoutes = {
-                '/Validation/Assertions': '/Quality/List',
-                '/Validation/Tests': '/Governance/Tests',
-                '/Validation/Data%20Contract': '/Quality/Data%20Contract',
-                '/Validation': '/Quality',
-            };
-            history.replace(getRedirectUrl(newRoutes));
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location]);
 
     const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
     const showNewPage = ALLOWED_ENTITY_TYPES.includes(entityType);
