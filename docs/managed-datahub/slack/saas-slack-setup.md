@@ -130,7 +130,7 @@ By default, the Slack app will be able to send notifications to public channels.
 
 ## How to find Team ID and Channel ID in Slack
 :::note
-We recommend just using the Slack channel name for simplicity (e.g. `#troubleshoot`)*
+We recommend just using the Slack channel name for simplicity (e.g. `#troubleshoot`).
 :::
 
 **Via Slack App:**

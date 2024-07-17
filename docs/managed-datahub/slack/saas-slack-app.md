@@ -1,11 +1,11 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Slack App
+# Slack App Features
 
 <FeatureAvailability saasOnly />
 
 ## Overview
-The DataHub Slack App brings several of DataHub's key capabilities directly into your slack experience. These include:
+The DataHub Slack App brings several of DataHub's key capabilities directly into your Slack experience. These include:
 1. Searching for Data Assets
 2. Subscribing to notifications for Data Assets
 3. Managing Data Incidents
