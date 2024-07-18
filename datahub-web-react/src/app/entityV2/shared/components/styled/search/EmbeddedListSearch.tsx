@@ -175,12 +175,12 @@ export const EmbeddedListSearch = ({
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [defaultViewUrn, setDefaultViewUrn] = useState<string | undefined>();
-    const [selectedViewUrn, setSelectedUrn] = useState<string | undefined>();
+    const [selectedViewUrn, setSelectedViewUrn] = useState<string | undefined>();
 
     useEffect(() => {
-        setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
+        setSelectedViewUrn(userContext.localState?.selectedViewUrn || undefined);
         setDefaultViewUrn(userContext.localState?.selectedViewUrn || undefined);
-    }, [userContext.localState?.selectedViewUrn, setSelectedUrn, setDefaultViewUrn]);
+    }, [userContext.localState?.selectedViewUrn]);
 
     // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
     // download the correct results given the current context.
@@ -236,7 +236,7 @@ export const EmbeddedListSearch = ({
         },
         skip: !defaultViewUrn,
     });
-    const view = viewData?.entity;
+    const view = (viewData?.entity?.__typename === 'DataHubView' && viewData?.entity) || undefined;
 
     useEffect(() => {
         if (shouldRefetch && resetShouldRefetch) {
@@ -381,7 +381,7 @@ export const EmbeddedListSearch = ({
                 setSelectedEntities={setSelectedEntities}
                 entityAction={entityAction}
                 selectedViewUrn={selectedViewUrn || ''}
-                setSelectedUrn={setSelectedUrn}
+                setSelectedViewUrn={setSelectedViewUrn}
                 applyView={applyView}
                 defaultViewUrn={defaultViewUrn}
                 allSearchCount={allSearchCount}
