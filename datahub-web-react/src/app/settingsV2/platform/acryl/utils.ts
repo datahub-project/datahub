@@ -1,22 +1,10 @@
 export const ACRYL_PLATFORM_URN = 'urn:li:dataPlatform:acryl';
 
-// we need our connection server urls to end with /gms, so add it for them if not already there
-const formatConnectionServer = (url: string) => {
-    if (url.endsWith('/gms') || url.endsWith('/gms/')) {
-        return url;
-    }
-    if (url.endsWith('/')) {
-        return `${url}gms`;
-    }
-    return `${url}/gms`;
-};
-
 // format the connection json object before submitting to the backend
 export const getConnectionBlob = (url: string, token: string): string => {
-    const formattedUrl = formatConnectionServer(url);
     const jsonObject = {
         connection: {
-            server: formattedUrl,
+            server: url,
             token,
         },
     };
