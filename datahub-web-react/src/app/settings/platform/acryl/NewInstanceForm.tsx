@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-// import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import { Button, Divider, Form, Input, Typography, message } from 'antd';
 import { useApolloClient } from '@apollo/client';
+import {
+    ACRYL_PLATFORM_URN,
+    getConnectionBlob,
+    getTokenFromJson,
+    getURLFromJson,
+    showToken,
+} from '@src/app/settingsV2/platform/acryl/utils';
 import { HeaderContainer, HeaderSubtext, HeaderTitle, LeftContainer } from './styledComponents';
 import { DataHubConnection, DataHubConnectionDetailsType } from '../../../../types.generated';
 import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '../../../../graphql/connection.generated';
-import { ACRYL_PLATFORM_URN, getConnectionBlob, getTokenFromJson, getURLFromJson, showToken } from './utils';
 import { updateInstancesList } from './cacheUtils';
 
 const Container = styled.div`
