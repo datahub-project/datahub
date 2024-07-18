@@ -74,6 +74,8 @@ public class SearchFieldConfig {
           SearchableAnnotation.FieldType.DATETIME,
           SearchableAnnotation.FieldType.OBJECT,
           SearchableAnnotation.FieldType.MAP_ARRAY);
+  private static final Set<SearchableAnnotation.FieldType> NUMERIC_TYPES =
+      Set.of(SearchableAnnotation.FieldType.DOUBLE);
   // NOT true for `urn`
   public static final Set<SearchableAnnotation.FieldType> TYPES_WITH_URN_TEXT =
       Set.of(SearchableAnnotation.FieldType.URN, SearchableAnnotation.FieldType.URN_PARTIAL);
@@ -271,6 +273,8 @@ public class SearchFieldConfig {
       return KEYWORD_ANALYZER;
     } else if (TYPES_WITH_URN_TEXT.contains(fieldType)) {
       return URN_SEARCH_ANALYZER;
+    } else if (NUMERIC_TYPES.contains(fieldType)) {
+      return KEYWORD_ANALYZER;
     } else {
       throw new IllegalStateException(
           String.format("Unknown analyzer for fieldName: %s, fieldType: %s", fieldName, fieldType));

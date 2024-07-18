@@ -1,15 +1,15 @@
 import { aliasQuery, hasOperationName } from "../utils";
+
 const urn =
   "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
 const datasetName = "SampleCypressHdfsDataset";
-const testName = "Cypress Tag Test";
+const number = Math.floor(Math.random() * 100000);
+const testName = "Cypress Tag Test " + number;
 const testDescription = "Cyprress test description";
 
 describe("create, edit and remove metadata test", () => {
   beforeEach(() => {
-    cy.on("uncaught:exception", (err, runnable) => {
-      return false;
-    });
+    cy.on("uncaught:exception", (err, runnable) => false);
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");
     });
@@ -29,7 +29,7 @@ describe("create, edit and remove metadata test", () => {
   };
 
   it("create new test at governance > tests, edit a test to make if fail, remove test", () => {
-    //create new test at governance > tests, test conditions and save the test
+    // create new test at governance > tests, test conditions and save the test
     setTestsConfigFlag(true);
     cy.loginWithCredentials();
     cy.wait(3000);
@@ -38,7 +38,7 @@ describe("create, edit and remove metadata test", () => {
     cy.get('[aria-label="Ingestion"]').should("be.visible");
     cy.clickOptionWithText("New Test");
     cy.waitTextVisible("New Metadata Test");
-    //select data assets
+    // select data assets
     cy.contains("Datasets, Dashboards, Charts...").prev().click();
     cy.get(".rc-virtual-list").find("div").contains("Datasets").click();
     cy.get("body").click();
@@ -50,7 +50,7 @@ describe("create, edit and remove metadata test", () => {
     cy.clickOptionWithText("Equals");
     cy.get('[role="dialog"] [type="search"]').eq(3).type(urn);
     cy.clickOptionWithText("Next");
-    //define conditions
+    // define conditions
     cy.waitTextVisible("Define your test conditions");
     cy.clickOptionWithText("+ Add");
     cy.clickOptionWithText("Property");
@@ -64,20 +64,22 @@ describe("create, edit and remove metadata test", () => {
       .type("Cypress")
       .wait(500);
     cy.get(".rc-virtual-list").find("div").contains("Cypress").click();
-    //test conditions
+    // test conditions
     cy.clickOptionWithText("Test Conditions");
     cy.get('[role="dialog"] [data-testid="search-input"]').type("hdfs");
     cy.waitTextVisible(datasetName);
     cy.clickOptionWithText("Run Test");
     cy.waitTextVisible("Passed");
-    cy.get('[role="dialog"] [data-testid="search-input"]').clear().type("hive");
-    cy.get('[href*="/dataset').should("be.visible");
-    cy.contains("SampleCypressHiveDataset").scrollIntoView();
-    cy.waitTextVisible("SampleCypressHiveDataset");
+    cy.get('[role="dialog"] [data-testid="search-input"]')
+      .clear()
+      .type("SampleCypressHiveDataset");
+    cy.get('[href*="/dataset')
+      .should("be.visible")
+      .contains("SampleCypressHiveDataset");
     cy.contains("Run Test").click();
     cy.waitTextVisible("Not selected");
     cy.clickOptionWithText("Close");
-    //finish up
+    // finish up
     cy.clickOptionWithText("Next");
     cy.get('[placeholder="A name for your test"]').type(testName);
     cy.get('[placeholder="The description for your test"]').type(
@@ -89,7 +91,7 @@ describe("create, edit and remove metadata test", () => {
     cy.waitTextVisible(testDescription);
     cy.reload();
     cy.waitTextVisible("No results found");
-    //edit the test to make it fail, verify the result, save test
+    // edit the test to make it fail, verify the result, save test
     cy.visit("/tests");
     cy.contains(testName).click();
     cy.waitTextVisible("Edit Metadata Test");
@@ -98,21 +100,21 @@ describe("create, edit and remove metadata test", () => {
     cy.get(".rc-virtual-list").find("div").contains("Cypress").click();
     cy.get(".rc-virtual-list").find("div").contains("TagToPropose").click();
     cy.clickOptionWithText("Edit Metadata Test");
-    //test conditions, verify that test fails
+    // test conditions, verify that test fails
     cy.clickOptionWithText("Test Conditions");
     cy.get('[role="dialog"] [data-testid="search-input"]').type("hdfs");
     cy.waitTextVisible(datasetName);
     cy.clickOptionWithText("Run Test");
     cy.waitTextVisible("Failed");
     cy.clickOptionWithText("Close");
-    //save edited test
+    // save edited test
     cy.clickOptionWithText("Next");
     cy.clickOptionWithText("Save");
     cy.waitTextVisible("Successfully updated Test!");
     cy.waitTextVisible(testName);
     cy.reload();
     cy.waitTextVisible("No results found");
-    //delete a test
+    // delete a test
     cy.visit("/tests");
     cy.get('[data-testid="test-more-button-0"]').click();
     cy.clickOptionWithText("Delete");

@@ -166,6 +166,8 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
         return "failed";
       case Constants.EXECUTION_REQUEST_STATUS_SUCCESS:
         return "completed successfully";
+      case Constants.EXECUTION_REQUEST_STATUS_ABORTED:
+        return "aborted";
       default:
         throw new IllegalArgumentException(
             String.format(

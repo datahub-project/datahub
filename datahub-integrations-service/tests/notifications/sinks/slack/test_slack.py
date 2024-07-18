@@ -33,7 +33,7 @@ def sink() -> SlackNotificationSink:
 
     sink.graph = Mock(spec=DataHubGraph)
     sink.base_url = "testbaseurl"
-    sink.last_credentials_refresh = None
+    sink.last_credentials_refresh_attempt = None
     sink.slack_client = Mock(spec=WebClient)
     sink.slack_connection_config = SlackConnection(bot_token="token")
     return sink
