@@ -1,7 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
-from datahub.emitter.mce_builder import make_data_flow_urn, make_data_job_urn
+from datahub.emitter.mce_builder import (
+    make_data_flow_urn,
+    make_data_job_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataJobInfoClass,
@@ -11,18 +15,61 @@ from datahub.metadata.schema_classes import (
 
 @dataclass
 class ProcedureDependency:
+    flow_id: str
+    env: str
+    server: Optional[str]
     db: str
     schema: str
     name: str
     type: str
-    env: str
-    server: Optional[str]
+    incoming: int
+    outgoing: int
     source: str = "mssql"
 
 
 @dataclass
 class ProcedureLineageStream:
-    dependencies: List[ProcedureDependency]
+    dependencies: List[ProcedureDependency] = field(default_factory=list)
+
+    @property
+    def as_input_datasets(self) -> List[str]:
+        return [
+            make_dataset_urn_with_platform_instance(
+                platform=dep.source,
+                name=".".join([dep.db, dep.schema, dep.name]),
+                platform_instance=dep.server,
+                env=dep.env,
+            )
+            for dep in self.dependencies
+            if dep.type in ("U ", "V ") and dep.incoming
+        ]
+
+    @property
+    def as_output_datasets(self) -> List[str]:
+        return [
+            make_dataset_urn_with_platform_instance(
+                platform=dep.source,
+                name=".".join([dep.db, dep.schema, dep.name]),
+                platform_instance=dep.server,
+                env=dep.env,
+            )
+            for dep in self.dependencies
+            if dep.type in ("U ", "V ") and dep.outgoing
+        ]
+
+    @property
+    def as_input_datajobs(self) -> List[str]:
+        return [
+            make_data_job_urn(
+                orchestrator=dep.source,
+                flow_id=dep.flow_id,
+                job_id=dep.name,
+                cluster=dep.env,
+                platform_instance=dep.server,
+            )
+            for dep in self.dependencies
+            if dep.type in ("P ",) and dep.incoming
+        ]
 
     @property
     def as_property(self) -> Dict[str, str]:
@@ -65,6 +112,7 @@ class MSSQLProceduresContainer:
     env: str
     source: str = "mssql"
     type: str = "JOB"
+    schema: str = ""
 
     @property
     def formatted_name(self) -> str:

@@ -92,3 +92,26 @@ GO
 EXEC dbo.sp_add_jobserver
     @job_name = N'Weekly Demo Data Backup'
 GO
+
+CREATE DATABASE LINEAGEDB;
+GO
+USE LINEAGEDB;
+GO
+CREATE SCHEMA schema_with_lineage;
+GO
+CREATE TABLE schema_with_lineage.source_table (ID int, original_source nvarchar(max));
+GO
+CREATE TABLE schema_with_lineage.source_table_2 (ID int, original_source nvarchar(max));
+GO
+CREATE VIEW schema_with_lineage.destination_view AS SELECT * FROM schema_with_lineage.source_table;
+GO
+CREATE VIEW schema_with_lineage.destination_view_2 (ID int, destination_source nvarchar(max));
+GO
+CREATE PROCEDURE schema_with_lineage.procedure_with_lineage
+AS
+BEGIN
+    INSERT INTO destination_view_2 (ID, destination_source)
+    SELECT ID, original_source
+    FROM schema_with_lineage.source_table_2
+END;
+GO
