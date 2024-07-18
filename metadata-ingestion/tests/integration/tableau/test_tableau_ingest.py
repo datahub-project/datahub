@@ -2,7 +2,7 @@ import json
 import logging
 import pathlib
 import sys
-from typing import Any, Dict, cast
+from typing import Any, Dict, List, cast
 from unittest import mock
 
 import pytest
@@ -232,6 +232,41 @@ def side_effect_site_get_by_id(id, *arg, **kwargs):
             return site
 
 
+def mock_sdk_client(
+    side_effect_query_metadata_response: List[dict],
+    datasources_side_effect: List[dict],
+    sign_out_side_effect: List[dict],
+) -> mock.MagicMock:
+
+    mock_client = mock.Mock()
+    mocked_metadata = mock.Mock()
+    mocked_metadata.query.side_effect = side_effect_query_metadata_response
+    mock_client.metadata = mocked_metadata
+
+    mock_client.auth = mock.Mock()
+    mock_client.site_id = "190a6a5c-63ed-4de1-8045-site1"
+    mock_client.views = mock.Mock()
+    mock_client.projects = mock.Mock()
+    mock_client.sites = mock.Mock()
+
+    mock_client.projects.get.side_effect = side_effect_project_data
+    mock_client.sites.get.side_effect = side_effect_site_data
+    mock_client.sites.get_by_id.side_effect = side_effect_site_get_by_id
+
+    mock_client.datasources = mock.Mock()
+    mock_client.datasources.get.side_effect = datasources_side_effect
+    mock_client.datasources.get_by_id.side_effect = side_effect_datasource_get_by_id
+
+    mock_client.workbooks = mock.Mock()
+    mock_client.workbooks.get.side_effect = side_effect_workbook_data
+
+    mock_client.views.get.side_effect = side_effect_usage_stat
+    mock_client.auth.sign_in.return_value = None
+    mock_client.auth.sign_out.side_effect = sign_out_side_effect
+
+    return mock_client
+
+
 def tableau_ingest_common(
     pytestconfig,
     tmp_path,
@@ -251,30 +286,11 @@ def tableau_ingest_common(
         mock_checkpoint.return_value = mock_datahub_graph
 
         with mock.patch("datahub.ingestion.source.tableau.Server") as mock_sdk:
-            mock_client = mock.Mock()
-            mocked_metadata = mock.Mock()
-            mocked_metadata.query.side_effect = side_effect_query_metadata_response
-            mock_client.metadata = mocked_metadata
-            mock_client.auth = mock.Mock()
-            mock_client.site_id = "190a6a5c-63ed-4de1-8045-site1"
-            mock_client.views = mock.Mock()
-            mock_client.projects = mock.Mock()
-            mock_client.sites = mock.Mock()
-
-            mock_client.projects.get.side_effect = side_effect_project_data
-            mock_client.sites.get.side_effect = side_effect_site_data
-            mock_client.sites.get_by_id.side_effect = side_effect_site_get_by_id
-            mock_client.datasources = mock.Mock()
-            mock_client.datasources.get.side_effect = datasources_side_effect
-            mock_client.datasources.get_by_id.side_effect = (
-                side_effect_datasource_get_by_id
+            mock_sdk.return_value = mock_sdk_client(
+                side_effect_query_metadata_response=side_effect_query_metadata_response,
+                datasources_side_effect=datasources_side_effect,
+                sign_out_side_effect=sign_out_side_effect,
             )
-            mock_client.workbooks = mock.Mock()
-            mock_client.workbooks.get.side_effect = side_effect_workbook_data
-            mock_client.views.get.side_effect = side_effect_usage_stat
-            mock_client.auth.sign_in.return_value = None
-            mock_client.auth.sign_out.side_effect = sign_out_side_effect
-            mock_sdk.return_value = mock_client
             mock_sdk._auth_token = "ABC"
 
             pipeline = Pipeline.create(
@@ -1106,3 +1122,51 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
         pipeline_config=new_config,
         pipeline_name="test_tableau_site_name_pattern_ingest",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
+
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        with mock.patch("datahub.ingestion.source.tableau.Server") as mock_sdk:
+            mock_sdk.return_value = mock_sdk_client(
+                side_effect_query_metadata_response=[
+                    read_response(pytestconfig, "permission_mode_switched_error.json")
+                ],
+                sign_out_side_effect=[{}],
+                datasources_side_effect=[{}],
+            )
+
+            reporter = TableauSourceReport()
+            tableau_source = TableauSiteSource(
+                platform="tableau",
+                config=mock.MagicMock(),
+                ctx=mock.MagicMock(),
+                site=mock.MagicMock(),
+                server=mock_sdk.return_value,
+                report=reporter,
+            )
+
+            tableau_source.get_connection_object_page(
+                query=mock.MagicMock(),
+                connection_type=mock.MagicMock(),
+                query_filter=mock.MagicMock(),
+                retries_remaining=1,
+            )
+
+            warnings = list(reporter.warnings)
+
+            assert len(warnings) == 1
+
+            assert warnings[0].title == "Derived Permission Error"
+
+            assert warnings[0].message == (
+                "Turn on your derived permissions. See for details "
+                "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error"
+            )
