@@ -165,7 +165,7 @@ class BigQuerySchemaApi:
 
         page_token = None
         projects: List[BigqueryProject] = []
-        with self.report.list_projects:
+        with self.report.list_projects_timer:
             while True:
                 try:
                     self.report.num_list_projects_api_requests += 1
@@ -205,7 +205,7 @@ class BigQuerySchemaApi:
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
-        with self.report.list_datasets:
+        with self.report.list_datasets_timer:
             self.report.num_list_datasets_api_requests += 1
             datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
             return [

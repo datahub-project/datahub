@@ -83,6 +83,9 @@ class LoggedQuery:
     default_schema: Optional[str]
 
 
+ObservedQuery = LoggedQuery
+
+
 @dataclasses.dataclass
 class ViewDefinition:
     view_definition: str
@@ -469,7 +472,10 @@ class SqlParsingAggregator(Closeable):
         return self._is_allowed_table(self._name_from_urn(urn))
 
     def add(
-        self, item: Union[KnownQueryLineageInfo, KnownLineageMapping, PreparsedQuery]
+        self,
+        item: Union[
+            KnownQueryLineageInfo, KnownLineageMapping, PreparsedQuery, ObservedQuery
+        ],
     ) -> None:
         if isinstance(item, KnownQueryLineageInfo):
             self.add_known_query_lineage(item)
@@ -477,6 +483,14 @@ class SqlParsingAggregator(Closeable):
             self.add_known_lineage_mapping(item.upstream_urn, item.downstream_urn)
         elif isinstance(item, PreparsedQuery):
             self.add_preparsed_query(item)
+        elif isinstance(item, ObservedQuery):
+            self.add_observed_query(
+                query=item.query,
+                default_db=item.default_db,
+                default_schema=item.default_schema,
+                session_id=item.session_id,
+                query_timestamp=item.timestamp,
+            )
         else:
             raise ValueError(f"Cannot add unknown item type: {type(item)}")
 
