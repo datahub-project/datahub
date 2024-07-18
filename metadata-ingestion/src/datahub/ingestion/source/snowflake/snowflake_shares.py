@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Iterable, List
+from typing import Iterable, List
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -26,12 +26,9 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
-        dataset_urn_builder: Callable[[str], str],
     ) -> None:
         self.config = config
         self.report = report
-        self.logger = logger
-        self.dataset_urn_builder = dataset_urn_builder
 
     def get_shares_workunits(
         self, databases: List[SnowflakeDatabase]
@@ -94,9 +91,10 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         missing_dbs = [db for db in inbounds + outbounds if db not in db_names]
 
         if missing_dbs and self.config.platform_instance:
-            self.report_warning(
-                "snowflake-shares",
-                f"Databases {missing_dbs} were not ingested. Siblings/Lineage will not be set for these.",
+            self.report.warning(
+                title="Extra Snowflake share configurations",
+                message="Some databases referenced by the share configs were not ingested. Siblings/lineage will not be set for these.",
+                context=f"{missing_dbs}",
             )
         elif missing_dbs:
             logger.debug(
@@ -113,15 +111,15 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
     ) -> Iterable[MetadataWorkUnit]:
         if not sibling_databases:
             return
-        dataset_identifier = self.get_dataset_identifier(
+        dataset_identifier = self.identifiers.get_dataset_identifier(
             table_name, schema_name, database_name
         )
-        urn = self.dataset_urn_builder(dataset_identifier)
+        urn = self.identifiers.gen_dataset_urn(dataset_identifier)
 
         sibling_urns = [
             make_dataset_urn_with_platform_instance(
-                self.platform,
-                self.get_dataset_identifier(
+                self.identifiers.platform,
+                self.identifiers.get_dataset_identifier(
                     table_name, schema_name, sibling_db.database
                 ),
                 sibling_db.platform_instance,
@@ -141,14 +139,14 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         table_name: str,
         primary_sibling_db: DatabaseId,
     ) -> MetadataWorkUnit:
-        dataset_identifier = self.get_dataset_identifier(
+        dataset_identifier = self.identifiers.get_dataset_identifier(
             table_name, schema_name, database_name
         )
-        urn = self.dataset_urn_builder(dataset_identifier)
+        urn = self.identifiers.gen_dataset_urn(dataset_identifier)
 
         upstream_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            self.get_dataset_identifier(
+            self.identifiers.platform,
+            self.identifiers.get_dataset_identifier(
                 table_name, schema_name, primary_sibling_db.database
             ),
             primary_sibling_db.platform_instance,
