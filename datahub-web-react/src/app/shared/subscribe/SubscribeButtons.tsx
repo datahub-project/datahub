@@ -154,7 +154,7 @@ export default function SubscribeButtons() {
                                     />
                                 ) : (
                                     <>
-                                        You cannot subscribe to this group of assets. <br />
+                                        You cannot subscribe to a group of assets. <br />
                                         <br />
                                         Please subscribe to the assets that this group is <b>Composed Of</b> by
                                         navigating to them in the sidebar below.

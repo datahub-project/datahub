@@ -33,6 +33,7 @@ import {
     GetDatasetAssertionsWithMonitorsQuery,
     MonitorDetailsFragment,
 } from '../../../../../../graphql/monitor.generated';
+import { GenericEntityProperties } from '../../../types';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
@@ -468,4 +469,16 @@ export const useConnectionWithRunAssertionCapabilitiesForEntityExists = (entityU
     // and design docs:  https://www.notion.so/acryldata/Remote-Executor-V2-Design-593d41280c4a4e34805def00b3f47a65?pvs=4#fe2a4481fbe74f379eb35cd10546b3b8
     const maybeExecutorId = ingestionSourceData?.ingestionSourceForEntity?.config?.executorId;
     return !maybeExecutorId || maybeExecutorId.toLowerCase().startsWith('default');
+};
+
+/**
+ * Attempts to extract the sibling entity associated with a given urn.
+ */
+export const getSiblingWithUrn = (entityData: GenericEntityProperties, urn: string) => {
+    if (entityData.urn === urn) {
+        return entityData;
+    }
+    return entityData?.siblingsSearch?.searchResults
+        ?.map((result) => result.entity)
+        .find((entity) => entity?.urn === urn);
 };

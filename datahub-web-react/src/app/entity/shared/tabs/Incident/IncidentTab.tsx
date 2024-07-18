@@ -7,10 +7,10 @@ import TabToolbar from '../../components/styled/TabToolbar';
 import { useEntityData } from '../../EntityContext';
 import IncidentListItem from './components/IncidentListItem';
 import { INCIDENT_DISPLAY_STATES, PAGE_SIZE, getIncidentsStatusSummary } from './incidentUtils';
-import { EntityType, Incident, IncidentState } from '../../../../../types.generated';
+import { Incident, IncidentState } from '../../../../../types.generated';
 import { IncidentSummary } from './components/IncidentSummary';
 import { AddIncidentModal } from './components/AddIncidentModal';
-import { combineEntityDataWithSiblings } from '../../siblingUtils';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
 import { IncidentsLoadingSection } from './components/IncidentsLoadingSection';
 import { ANTD_GRAY } from '../../constants';
 
@@ -45,10 +45,11 @@ const IncidentStateSelect = styled(Select)`
 `;
 
 export const IncidentTab = () => {
-    const { urn, entityType } = useEntityData();
+    const { urn } = useEntityData();
     const incidentStates = INCIDENT_DISPLAY_STATES;
     const [selectedIncidentState, setSelectedIncidentState] = useState<IncidentState | undefined>(IncidentState.Active);
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
+    const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
 
     // Fetch filtered incidents.
     const { loading, data, refetch } = useGetEntityIncidentsQuery({
@@ -61,7 +62,7 @@ export const IncidentTab = () => {
     });
 
     const hasData = (data?.entity as any)?.incidents;
-    const combinedData = (entityType === EntityType.Dataset && combineEntityDataWithSiblings(data)) || data;
+    const combinedData = isSeparateSiblingsMode ? data : combineEntityDataWithSiblings(data);
     const allIncidents =
         (combinedData && (combinedData as any).entity?.incidents?.incidents?.map((incident) => incident as Incident)) ||
         [];
