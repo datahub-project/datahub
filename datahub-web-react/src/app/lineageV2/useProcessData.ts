@@ -127,7 +127,7 @@ function applyFilters(
         return [];
     }
 
-    const childrenToFilter = getChildrenToFilter(node, direction, context);
+    const { allChildren, childrenToFilter } = getChildrenToFilter(node, direction, context);
     let filteredChildren = orderedNodes.filter((n) => childrenToFilter?.has(n.urn));
 
     filters?.facetFilters?.forEach((values, facet) => {
@@ -150,6 +150,7 @@ function applyFilters(
 
     const limit = filters?.limit || filteredChildren.length;
     const shownNodes = filteredChildren.slice(Math.max(0, filteredChildren.length - limit));
+    const allShownNodes = [...getTransformationalNodes(node, shownNodes, direction, context), ...shownNodes];
     const result: LineageNode[] = [];
     if (childrenToFilter.size > LINEAGE_FILTER_PAGINATION && (!node?.direction || node.direction === direction)) {
         const filterNode: LineageFilter = {
@@ -163,13 +164,14 @@ function applyFilters(
                 [LineageDirection.Upstream]: false,
                 [LineageDirection.Downstream]: false,
             },
-            contents: Array.from(childrenToFilter),
-            shown: new Set(shownNodes.map((n) => n.urn)),
+            allChildren,
+            contents: filteredChildren.map((n) => n.urn),
+            shown: new Set(allShownNodes.map((n) => n.urn)),
         };
         result.push(filterNode);
     }
     if (node) {
-        result.push(...getTransformationalNodes(node, shownNodes, direction, context), ...shownNodes);
+        result.push(...allShownNodes);
     }
 
     return result;
@@ -187,7 +189,7 @@ function getChildrenToFilter(
     parent: LineageEntity,
     direction: LineageDirection,
     context: Pick<NodeContext, 'adjacencyList' | 'nodes'>,
-): Set<string> {
+): { allChildren: Set<string>; childrenToFilter: Set<string> } {
     const { adjacencyList, nodes } = context;
     const seen = new Set<string>();
     const childrenToFilter = new Set<string>();
@@ -198,18 +200,19 @@ function getChildrenToFilter(
         if (!children?.size && !isQuery(node)) childrenToFilter.add(node.urn);
         children?.forEach((childUrn) => {
             const child = nodes.get(childUrn);
-            if (!child || seen.has(childUrn)) return;
+            if (!child || seen.has(childUrn) || child.isSoftDeleted) return;
 
             if (isTransformational(child)) {
                 queue.push(child);
                 seen.add(childUrn);
             } else {
                 childrenToFilter.add(childUrn);
+                seen.add(childUrn);
             }
         });
     }
 
-    return childrenToFilter;
+    return { allChildren: seen, childrenToFilter };
 }
 
 /**

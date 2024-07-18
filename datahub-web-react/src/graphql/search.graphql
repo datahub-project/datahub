@@ -1177,6 +1177,17 @@ query searchAcrossLineageStructure($input: SearchAcrossLineageInput!) {
     }
 }
 
+query aggregateAcrossLineage($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        facets {
+            ...facetFields
+        }
+    }
+}
+
 query getEntityMentionNode($urn: String!) {
     entity(urn: $urn) {
         urn

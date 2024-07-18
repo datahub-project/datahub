@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 import { PlatformFieldsFragment } from '../../../graphql/fragments.generated';
-import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
-import { AggregationMetadata } from '../../../types.generated';
+import { useAggregateAcrossLineageQuery } from '../../../graphql/search.generated';
+import { AggregationMetadata, EntityType, LineageDirection } from '../../../types.generated';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
 
 export type PlatformAggregate = readonly [string, number, PlatformFieldsFragment];
@@ -10,40 +12,49 @@ export type SubtypeAggregate = readonly [string, number];
 interface Return {
     platforms: PlatformAggregate[];
     subtypes: SubtypeAggregate[];
+    total?: number;
 }
 
-export default function useFetchFilterNodeContents(urns: string[]): Return {
-    const [inputUrns, setInputUrns] = useState(Array.from(urns));
+export default function useFetchFilterNodeContents(parent: string, direction: LineageDirection): Return {
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
-    useEffect(() => {
-        if (JSON.stringify(urns) !== JSON.stringify(inputUrns)) {
-            setInputUrns(Array.from(urns));
-        }
-    }, [urns, inputUrns]);
-
-    const { data } = useAggregateAcrossEntitiesQuery({
+    const { data } = useAggregateAcrossLineageQuery({
         fetchPolicy: 'cache-first',
         variables: {
             input: {
+                urn: parent,
                 query: '*',
-                facets: [ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME],
+                direction,
                 orFilters: [
                     {
                         and: [
                             {
-                                field: 'urn',
-                                values: inputUrns,
+                                field: DEGREE_FILTER_NAME,
+                                values: ['1'],
                             },
                         ],
                     },
                 ],
+                lineageFlags: {
+                    startTimeMillis,
+                    endTimeMillis,
+                    ignoreAsHops: [
+                        {
+                            entityType: EntityType.Dataset,
+                            platforms: [DBT_URN],
+                        },
+                        { entityType: EntityType.DataJob },
+                    ],
+                },
+                searchFlags: {
+                    skipCache: true, // TODO: Figure how to get around not needing this
+                },
             },
         },
     });
 
     const platformAgg =
-        data?.aggregateAcrossEntities?.facets?.find((facet) => facet.field === PLATFORM_FILTER_NAME)?.aggregations ||
-        [];
+        data?.searchAcrossLineage?.facets?.find((facet) => facet.field === PLATFORM_FILTER_NAME)?.aggregations || [];
     const platforms = platformAgg
         .filter((agg): agg is AggregationMetadata & { entity: PlatformFieldsFragment } => {
             return agg?.entity?.__typename === 'DataPlatform';
@@ -52,8 +63,8 @@ export default function useFetchFilterNodeContents(urns: string[]): Return {
     platforms.sort(sortByCount);
 
     const subtypeAgg =
-        data?.aggregateAcrossEntities?.facets?.find((facet) => facet.field === ENTITY_SUB_TYPE_FILTER_NAME)
-            ?.aggregations || [];
+        data?.searchAcrossLineage?.facets?.find((facet) => facet.field === ENTITY_SUB_TYPE_FILTER_NAME)?.aggregations ||
+        [];
     const subtypesMap = new Map(subtypeAgg.map((agg) => [agg.value, agg.count]));
     Array.from(subtypesMap).forEach(([filterValue, count]) => {
         if (filterValue.includes(FILTER_DELIMITER)) {
@@ -65,7 +76,7 @@ export default function useFetchFilterNodeContents(urns: string[]): Return {
     const subtypes = Array.from(subtypesMap).filter(([, count]) => count > 0);
     subtypes.sort(sortByCount);
 
-    return { platforms, subtypes };
+    return { total: data?.searchAcrossLineage?.total, platforms, subtypes };
 }
 
 function sortByCount(a: readonly [string, number, any?], b: readonly [string, number, any?]) {

@@ -39,7 +39,7 @@ interface Props {
 }
 
 export function ShowMoreButton({ id, data }: Props) {
-    const { direction, contents, shown, parent } = data;
+    const { direction, contents } = data;
     const urn = id.slice(LINEAGE_FILTER_ID_PREFIX.length + 2); // +2 for the direction section
 
     const { nodes, setDisplayVersion } = useContext(LineageNodesContext);
@@ -47,15 +47,14 @@ export function ShowMoreButton({ id, data }: Props) {
     function showMore() {
         const filters = nodes.get(urn)?.filters?.[direction];
         if (filters?.limit && filters.limit < contents.length) {
-            const increment = Math.min(contents.length - shown.size, LINEAGE_FILTER_PAGINATION);
+            // To zoom in on newly added nodes on click, uncomment below and pass into setDisplayVersion
             // Should match useProcessData.applyFilters logic
-            const newNodes = [
-                id,
-                parent,
-                ...contents.slice(contents.length - filters.limit - increment, contents.length - filters.limit),
-            ];
-            filters.limit += increment;
-            setDisplayVersion(([v]) => [v + 1, newNodes]);
+            // const newNodes = [
+            //     id,
+            //     ...contents.slice(contents.length - filters.limit - increment, contents.length - filters.limit),
+            // ];
+            filters.limit += LINEAGE_FILTER_PAGINATION;
+            setDisplayVersion(([v, n]) => [v + 1, n]);
         }
     }
 

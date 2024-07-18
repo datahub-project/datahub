@@ -137,7 +137,9 @@ export default function useSearchAcrossLineage(
             pruneDuplicateEdges(urn, direction, smallContext, entityRegistry);
             setProcessed(true);
             if (addedNode) setNodeVersion((version) => version + 1);
-            else setDisplayVersion(([version, n]) => [version + 1, n]);
+
+            const nodesToZoom = urn === rootUrn ? [] : [urn, ...(adjacencyList[direction].get(urn) || [])];
+            setDisplayVersion(([version]) => [version + 1, nodesToZoom]);
         }
     }, [
         urn,

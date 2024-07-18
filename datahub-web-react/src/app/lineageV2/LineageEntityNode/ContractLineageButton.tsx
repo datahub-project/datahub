@@ -19,7 +19,7 @@ export function ContractLineageButton({ urn, direction }: Props) {
         const node = nodes.get(urn);
         if (node) {
             node.isExpanded = { ...node.isExpanded, [direction]: false };
-            setDisplayVersion(([version]) => [version + 1, []]);
+            setDisplayVersion(([version, n]) => [version + 1, n]);
             analytics.event({
                 type: EventType.ContractLineageEvent,
                 direction,

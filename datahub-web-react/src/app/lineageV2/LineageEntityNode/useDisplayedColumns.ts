@@ -4,7 +4,7 @@ import { createColumnRef, FineGrainedLineage, LineageDisplayContext } from '../c
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { ColumnAsset, FetchedEntityV2, LineageAssetType } from '../types';
 
-export const LINEAGE_NODE_WIDTH = 200;
+export const LINEAGE_NODE_WIDTH = 220;
 export const LINEAGE_NODE_HEIGHT = 70;
 
 type FieldPath = string;
