@@ -103,7 +103,7 @@ public class EntityController
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getEntityBatch", entityName, true),
+            RequestContext.builder().buildOpenapi("getEntityBatch", entityName),
             authorizationChain,
             authentication,
             true);

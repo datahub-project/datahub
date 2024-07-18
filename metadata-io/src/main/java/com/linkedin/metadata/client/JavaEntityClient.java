@@ -754,8 +754,7 @@ public class JavaEntityClient implements EntityClient {
   public String ingestProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      final boolean async,
-      boolean validate)
+      final boolean async)
       throws RemoteInvocationException {
     String actorUrnStr =
         opContext.getSessionAuthentication().getActor() != null

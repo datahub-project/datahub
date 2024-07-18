@@ -76,7 +76,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli("getEntityV2", urn.getEntityType(), true), _authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli("getEntityV2", urn.getEntityType()), _authorizer, auth, true);
 
       return RestliUtil.toTask(
         () -> {
@@ -120,8 +120,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entities " + urnStrs);
     }
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli("getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList()),
-              true), _authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli("getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
 
       if (urns.size() <= 0) {
       return Task.value(Collections.emptyMap());

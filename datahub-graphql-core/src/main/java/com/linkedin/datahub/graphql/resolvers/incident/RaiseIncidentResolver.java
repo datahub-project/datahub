@@ -71,8 +71,7 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
                     INCIDENT_ENTITY_NAME,
                     INCIDENT_INFO_ASPECT_NAME,
                     mapIncidentInfo(input, context));
-            return _entityClient.ingestProposal(
-                context.getOperationContext(), proposal, false, true);
+            return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
           } catch (Exception e) {
             log.error("Failed to create incident. {}", e.getMessage());
             throw new RuntimeException("Failed to incident", e);

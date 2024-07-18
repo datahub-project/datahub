@@ -81,8 +81,7 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
               String ingestResult;
               try {
                 ingestResult =
-                    _entityClient.ingestProposal(
-                        context.getOperationContext(), proposal, false, true);
+                    _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
               } catch (Exception e) {
                 throw new RuntimeException(
                     String.format("Failed to create test with urn %s", input), e);

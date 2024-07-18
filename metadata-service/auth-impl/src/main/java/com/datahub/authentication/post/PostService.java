@@ -138,7 +138,7 @@ public class PostService {
 
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(postUrn, POST_INFO_ASPECT_NAME, existingPost);
-    _entityClient.ingestProposal(opContext, proposal, false, true);
+    _entityClient.ingestProposal(opContext, proposal, false);
 
     return true;
   }

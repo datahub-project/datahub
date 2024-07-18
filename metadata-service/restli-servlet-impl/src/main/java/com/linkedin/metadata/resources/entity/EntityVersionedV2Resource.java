@@ -85,7 +85,7 @@ public class EntityVersionedV2Resource
     }
       final OperationContext opContext = OperationContext.asSession(
               systemOperationContext, RequestContext.builder().buildRestli("authorizerChain", urns.stream()
-                      .map(Urn::getEntityType).collect(Collectors.toList()), true), _authorizer, auth, true);
+                      .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
 
       log.debug("BATCH GET VERSIONED V2 {}", versionedUrnStrs);
     if (versionedUrnStrs.size() <= 0) {

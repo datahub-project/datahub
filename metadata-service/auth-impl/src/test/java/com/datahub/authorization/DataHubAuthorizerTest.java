@@ -50,6 +50,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import io.datahubproject.metadata.context.EnvironmentContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -318,7 +319,8 @@ public class DataHubAuthorizerTest {
             mock(EntityRegistry.class),
             mock(ServicesRegistryContext.class),
             mock(IndexConvention.class),
-            mock(RetrieverContext.class));
+            mock(RetrieverContext.class),
+            mock(EnvironmentContext.class));
 
     _dataHubAuthorizer =
         new DataHubAuthorizer(

@@ -101,7 +101,7 @@ public class BatchUpdateStepStatesResolver
               stepStateKey,
               DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME,
               stepStateProperties);
-      _entityClient.ingestProposal(opContext, proposal, false, true);
+      _entityClient.ingestProposal(opContext, proposal, false);
       return true;
     } catch (Exception e) {
       log.error("Could not update step state for id {}", id, e);

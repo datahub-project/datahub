@@ -134,14 +134,14 @@ public class AspectsBatchImpl implements AspectsBatch {
         List<MetadataChangeProposal> mcps,
         AuditStamp auditStamp,
         RetrieverContext retrieverContext,
-        boolean validate) {
+        boolean alternateMCPValidation) {
 
       retrieverContext(retrieverContext);
       items(
           mcps.stream()
               .map(
                   mcp -> {
-                    if (!validate) {
+                    if (alternateMCPValidation) {
                       EntitySpec entitySpec =
                           retrieverContext
                               .getAspectRetriever()

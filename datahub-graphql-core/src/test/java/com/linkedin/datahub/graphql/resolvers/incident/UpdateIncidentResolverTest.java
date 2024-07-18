@@ -42,8 +42,7 @@ public class UpdateIncidentResolverTest {
             mockClient.ingestProposal(
                 any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
-                Mockito.anyBoolean(),
-                eq(true)))
+                Mockito.anyBoolean()))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
     IncidentInfo existingInfo = new IncidentInfo();
@@ -133,8 +132,7 @@ public class UpdateIncidentResolverTest {
                 new IncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -144,8 +142,7 @@ public class UpdateIncidentResolverTest {
             mockClient.ingestProposal(
                 any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
-                Mockito.anyBoolean(),
-                eq(true)))
+                Mockito.anyBoolean()))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
     IncidentInfo existingInfo = new IncidentInfo();
@@ -220,8 +217,7 @@ public class UpdateIncidentResolverTest {
                 new IncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -231,8 +227,7 @@ public class UpdateIncidentResolverTest {
             mockClient.ingestProposal(
                 any(OperationContext.class),
                 Mockito.any(MetadataChangeProposal.class),
-                Mockito.anyBoolean(),
-                eq(true)))
+                Mockito.anyBoolean()))
         .thenReturn(TEST_INCIDENT_URN.toString());
 
     IncidentInfo existingInfo = new IncidentInfo();

@@ -18,6 +18,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import io.datahubproject.metadata.context.EnvironmentContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -88,7 +89,8 @@ public class MCLSpringCommonTestConfiguration {
         entityRegistry,
         mock(ServicesRegistryContext.class),
         indexConvention,
-        mock(RetrieverContext.class));
+        mock(RetrieverContext.class),
+        mock(EnvironmentContext.class));
   }
 
   @MockBean SpringStandardPluginConfiguration springStandardPluginConfiguration;

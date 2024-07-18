@@ -84,8 +84,7 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
             }
 
             try {
-              return _entityClient.ingestProposal(
-                  context.getOperationContext(), proposal, false, true);
+              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format(

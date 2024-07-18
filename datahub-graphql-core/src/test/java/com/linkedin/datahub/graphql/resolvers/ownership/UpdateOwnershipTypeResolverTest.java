@@ -99,8 +99,7 @@ public class UpdateOwnershipTypeResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   private static OwnershipTypeService initOwnershipTypeService() {

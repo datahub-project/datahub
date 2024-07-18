@@ -87,8 +87,7 @@ public class CancelIngestionExecutionRequestResolver
                       UrnUtils.getUrn(input.getExecutionRequestUrn()),
                       EXECUTION_REQUEST_SIGNAL_ASPECT_NAME,
                       execSignal);
-              return _entityClient.ingestProposal(
-                  context.getOperationContext(), proposal, false, true);
+              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to submit cancel signal %s", input), e);

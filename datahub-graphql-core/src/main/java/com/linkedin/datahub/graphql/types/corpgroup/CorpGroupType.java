@@ -175,7 +175,7 @@ public class CorpGroupType
               UrnUtils.getUrn(urn),
               CORP_GROUP_EDITABLE_INFO_ASPECT_NAME,
               mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo));
-      _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
+      _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
       return load(urn, context).getData();
     }

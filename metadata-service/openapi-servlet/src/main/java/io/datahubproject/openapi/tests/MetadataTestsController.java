@@ -89,7 +89,7 @@ public class MetadataTestsController {
     }
     OperationContext opContext =
         systemOperationContext.asSession(
-            RequestContext.builder().buildOpenapi("explainTest", Collections.emptyList(), true),
+            RequestContext.builder().buildOpenapi("explainTest", Collections.emptyList()),
             authorizerChain,
             authentication);
     TestDefinition testDefinition = testEngine.getParser().deserialize(DUMMY_TEST_URN, testJson);

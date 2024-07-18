@@ -252,8 +252,7 @@ public class AssertionActionsHookTest {
         .ingestProposal(
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -325,8 +324,7 @@ public class AssertionActionsHookTest {
         .ingestProposal(
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -425,8 +423,7 @@ public class AssertionActionsHookTest {
                 new AssertionActionsHookIncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -495,8 +492,7 @@ public class AssertionActionsHookTest {
         .ingestProposal(
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -587,8 +583,7 @@ public class AssertionActionsHookTest {
                 new AssertionActionsHookAnomalyInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -656,8 +651,7 @@ public class AssertionActionsHookTest {
         .ingestProposal(
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -763,8 +757,7 @@ public class AssertionActionsHookTest {
                 new AssertionActionsHookIncidentInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -849,8 +842,7 @@ public class AssertionActionsHookTest {
         .ingestProposal(
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -936,8 +928,7 @@ public class AssertionActionsHookTest {
                 new AssertionActionsHookAnomalyInfoMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test
@@ -1019,8 +1010,7 @@ public class AssertionActionsHookTest {
         .ingestProposal(
             any(OperationContext.class),
             Mockito.any(MetadataChangeProposal.class),
-            Mockito.anyBoolean(),
-            eq(true));
+            Mockito.anyBoolean());
   }
 
   @Test

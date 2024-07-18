@@ -93,7 +93,7 @@ public class BatchIngestionRunResource
                   HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entity");
       }
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli("rollback", List.of(), true), authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli("rollback", List.of()), authorizer, auth, true);
 
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
@@ -169,7 +169,7 @@ public class BatchIngestionRunResource
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
             }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli("describe", List.of(), true), authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli("describe", List.of()), authorizer, auth, true);
 
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(

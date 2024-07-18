@@ -73,7 +73,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
             final MetadataChangeProposal proposal =
                 MutationUtils.buildMetadataChangeProposalWithUrn(
                     entityUrn, DEPRECATION_ASPECT_NAME, deprecation);
-            _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
+            _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             return true;
           } catch (Exception e) {
             log.error(

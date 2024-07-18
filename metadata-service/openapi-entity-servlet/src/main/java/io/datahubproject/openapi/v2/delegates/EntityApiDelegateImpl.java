@@ -177,7 +177,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
-              RequestContext.builder().buildOpenapi("head", entityUrn.getEntityType(), true),
+              RequestContext.builder().buildOpenapi("head", entityUrn.getEntityType()),
               _authorizationChain,
               auth,
               true);
@@ -238,7 +238,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
-              RequestContext.builder().buildOpenapi("headAspect", entityUrn.getEntityType(), true),
+              RequestContext.builder().buildOpenapi("headAspect", entityUrn.getEntityType()),
               _authorizationChain,
               auth,
               true);
@@ -259,7 +259,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("deleteAspect", entityUrn.getEntityType(), true),
+            RequestContext.builder().buildOpenapi("deleteAspect", entityUrn.getEntityType()),
             _authorizationChain,
             auth,
             true);
@@ -606,7 +606,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("scroll", entitySpec.getName(), true),
+            RequestContext.builder().buildOpenapi("scroll", entitySpec.getName()),
             _authorizationChain,
             authentication,
             true);

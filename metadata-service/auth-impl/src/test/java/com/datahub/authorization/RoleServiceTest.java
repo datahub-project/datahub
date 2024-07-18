@@ -44,8 +44,7 @@ public class RoleServiceTest {
 
     _roleService.batchAssignRoleToActors(
         opContext, ImmutableList.of(FIRST_ACTOR_URN_STRING), roleUrn);
-    verify(_entityClient, never())
-        .ingestProposal(any(OperationContext.class), any(), eq(false), eq(true));
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
@@ -56,8 +55,7 @@ public class RoleServiceTest {
 
     _roleService.batchAssignRoleToActors(
         opContext, ImmutableList.of(FIRST_ACTOR_URN_STRING, SECOND_ACTOR_URN_STRING), roleUrn);
-    verify(_entityClient, times(1))
-        .ingestProposal(any(OperationContext.class), any(), eq(false), eq(true));
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
@@ -71,8 +69,7 @@ public class RoleServiceTest {
 
     _roleService.batchAssignRoleToActors(
         opContext, ImmutableList.of(FIRST_ACTOR_URN_STRING, SECOND_ACTOR_URN_STRING), roleUrn);
-    verify(_entityClient, times(2))
-        .ingestProposal(any(OperationContext.class), any(), eq(false), eq(true));
+    verify(_entityClient, times(2)).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
@@ -82,7 +79,6 @@ public class RoleServiceTest {
         .thenReturn(true);
 
     _roleService.batchAssignRoleToActors(opContext, ImmutableList.of(FIRST_ACTOR_URN_STRING), null);
-    verify(_entityClient, times(1))
-        .ingestProposal(any(OperationContext.class), any(), eq(false), eq(true));
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 }

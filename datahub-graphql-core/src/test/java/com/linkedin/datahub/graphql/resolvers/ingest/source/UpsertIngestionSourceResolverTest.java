@@ -67,8 +67,7 @@ public class UpsertIngestionSourceResolverTest {
             Mockito.eq(
                 MutationUtils.buildMetadataChangeProposalWithUrn(
                     TEST_INGESTION_SOURCE_URN, INGESTION_INFO_ASPECT_NAME, info)),
-            Mockito.eq(false),
-            eq(true));
+            Mockito.eq(false));
   }
 
   @Test
@@ -84,8 +83,7 @@ public class UpsertIngestionSourceResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), any(), anyBoolean(), eq(true));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), any(), anyBoolean());
   }
 
   @Test
@@ -94,7 +92,7 @@ public class UpsertIngestionSourceResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), any(), Mockito.eq(false), eq(true));
+        .ingestProposal(any(), any(), Mockito.eq(false));
     UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver

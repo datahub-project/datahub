@@ -70,7 +70,7 @@ public class RemoveStructuredPropertiesResolver
             final MetadataChangeProposal structuredPropertiesProposal = patchBuilder.build();
 
             _entityClient.ingestProposal(
-                context.getOperationContext(), structuredPropertiesProposal, false, true);
+                context.getOperationContext(), structuredPropertiesProposal, false);
 
             EntityResponse response =
                 _entityClient.getV2(

@@ -11,6 +11,7 @@ import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
+import io.datahubproject.metadata.context.EnvironmentContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -42,7 +43,8 @@ public class SystemOperationContextFactory {
       @Nonnull final GraphRetriever graphRetriever,
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
-          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final ConfigurationProvider configurationProvider) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -64,6 +66,10 @@ public class SystemOperationContextFactory {
                 .aspectRetriever(entityServiceAspectRetriever)
                 .graphRetriever(graphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
+                .build(),
+            EnvironmentContext.builder()
+                .alternateValidation(
+                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
                 .build());
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
@@ -90,7 +96,8 @@ public class SystemOperationContextFactory {
       @Nonnull final GraphRetriever graphRetriever,
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
-          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final ConfigurationProvider configurationProvider) {
 
     EntityClientAspectRetriever entityServiceAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
@@ -109,6 +116,10 @@ public class SystemOperationContextFactory {
                 .aspectRetriever(entityServiceAspectRetriever)
                 .graphRetriever(graphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
+                .build(),
+            EnvironmentContext.builder()
+                .alternateValidation(
+                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
                 .build());
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);

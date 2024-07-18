@@ -67,8 +67,7 @@ public class CreateSecretResolverTest {
                         .setAspectName(Constants.SECRET_VALUE_ASPECT_NAME)
                         .setAspect(GenericRecordUtils.serializeAspect(value))
                         .setEntityKeyAspect(GenericRecordUtils.serializeAspect(key)))),
-            Mockito.eq(false),
-            eq(true));
+            Mockito.eq(false));
   }
 
   @Test
@@ -84,8 +83,7 @@ public class CreateSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -94,7 +92,7 @@ public class CreateSecretResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
+        .ingestProposal(any(), Mockito.any(), anyBoolean());
     UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver

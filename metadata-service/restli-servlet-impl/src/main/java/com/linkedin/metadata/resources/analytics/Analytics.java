@@ -78,8 +78,7 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + entityName);
             }
             final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_TIMESERIES_STATS, entityName,
-                    true), authorizer, auth, true);
+                    systemOperationContext, RequestContext.builder().buildRestli(ACTION_GET_TIMESERIES_STATS, entityName), authorizer, auth, true);
 
             log.info("Attempting to query timeseries stats");
           GetTimeseriesAggregatedStatsResponse resp = new GetTimeseriesAggregatedStatsResponse();

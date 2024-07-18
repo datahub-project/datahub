@@ -70,7 +70,7 @@ public class UpdateTestResolverTest {
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), proposalCaptor.capture(), Mockito.eq(false), eq(true));
+        .ingestProposal(any(), proposalCaptor.capture(), Mockito.eq(false));
     MetadataChangeProposal resultProposal = proposalCaptor.getValue();
     assertEquals(resultProposal.getEntityType(), Constants.TEST_ENTITY_NAME);
     assertEquals(resultProposal.getAspectName(), Constants.TEST_INFO_ASPECT_NAME);
@@ -99,7 +99,7 @@ public class UpdateTestResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false), eq(true));
+        .ingestProposal(any(OperationContext.class), Mockito.any(), Mockito.eq(false));
   }
 
   @Test
@@ -112,7 +112,7 @@ public class UpdateTestResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), Mockito.eq(false), eq(true));
+        .ingestProposal(any(), Mockito.any(), Mockito.eq(false));
   }
 
   @Test
@@ -120,7 +120,7 @@ public class UpdateTestResolverTest {
     // Execute resolver
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), Mockito.eq(false), eq(true));
+        .ingestProposal(any(), Mockito.any(), Mockito.eq(false));
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

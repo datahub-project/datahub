@@ -85,7 +85,7 @@ public class AspectResourceTest {
     AuthenticationContext.setAuthentication(mockAuthentication);
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
-    aspectResource.ingestProposal(mcp, "true", true);
+    aspectResource.ingestProposal(mcp, "true");
     verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
     verifyNoMoreInteractions(producer);
     verifyNoMoreInteractions(aspectDao);
@@ -132,7 +132,7 @@ public class AspectResourceTest {
                     .auditStamp(new AuditStamp())
                     .request(req)
                     .build())));
-    aspectResource.ingestProposal(mcp, "false", true);
+    aspectResource.ingestProposal(mcp, "false");
     verify(producer, times(5))
         .produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(producer);
@@ -140,6 +140,8 @@ public class AspectResourceTest {
 
   @Test
   public void testNoValidateAsync() throws URISyntaxException {
+    OperationContext noValidateOpContext = TestOperationContexts.systemContextNoValidate();
+    aspectResource.setSystemOperationContext(noValidateOpContext);
     reset(producer, aspectDao);
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityType(DATASET_ENTITY_NAME);
@@ -155,10 +157,11 @@ public class AspectResourceTest {
     AuthenticationContext.setAuthentication(mockAuthentication);
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
-    aspectResource.ingestProposal(mcp, "true", false);
+    aspectResource.ingestProposal(mcp, "true");
     verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
     verifyNoMoreInteractions(producer);
     verifyNoMoreInteractions(aspectDao);
     reset(producer, aspectDao);
+    aspectResource.setSystemOperationContext(opContext);
   }
 }

@@ -159,7 +159,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getEntities", entityName, true),
+            RequestContext.builder().buildOpenapi("getEntities", entityName),
             authorizationChain,
             authentication,
             true);
@@ -217,7 +217,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getEntity", entityName, true),
+            RequestContext.builder().buildOpenapi("getEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -254,7 +254,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("headEntity", entityName, true),
+            RequestContext.builder().buildOpenapi("headEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -287,7 +287,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("getAspect", entityName, true),
+            RequestContext.builder().buildOpenapi("getAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -327,7 +327,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("headAspect", entityName, true),
+            RequestContext.builder().buildOpenapi("headAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -355,7 +355,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("deleteEntity", entityName, true),
+            RequestContext.builder().buildOpenapi("deleteEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -386,7 +386,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("createEntity", entityName, validate),
+            RequestContext.builder().buildOpenapi("createEntity", entityName),
             authorizationChain,
             authentication,
             true);
@@ -420,7 +420,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("deleteAspect", entityName, true),
+            RequestContext.builder().buildOpenapi("deleteAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -457,7 +457,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("createAspect", entityName, true),
+            RequestContext.builder().buildOpenapi("createAspect", entityName),
             authorizationChain,
             authentication,
             true);
@@ -518,7 +518,7 @@ public abstract class GenericEntitiesController<
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi("patchAspect", entityName, true),
+            RequestContext.builder().buildOpenapi("patchAspect", entityName),
             authorizationChain,
             authentication,
             true);

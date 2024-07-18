@@ -115,7 +115,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           }
           final OperationContext opContext = OperationContext.asSession(
                   systemOperationContext, RequestContext.builder().buildRestli(ACTION_BATCH_INGEST, urns.stream()
-                          .map(Urn::getEntityType).collect(Collectors.toList()), true), _authorizer, auth, true);
+                          .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
 
           for (UsageAggregation agg : buckets) {
             this.ingest(opContext, agg);
@@ -153,8 +153,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
           }
           final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(ACTION_QUERY, resourceUrn.getEntityType(),
-                  true), _authorizer, auth, true);
+                  systemOperationContext, RequestContext.builder().buildRestli(ACTION_QUERY, resourceUrn.getEntityType()), _authorizer, auth, true);
 
           return UsageServiceUtil.query(opContext, _timeseriesAspectService, resource, duration, startTime, endTime, maxBuckets);
         },
@@ -181,8 +180,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     }
 
     final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(ACTION_QUERY_RANGE, resourceUrn.getEntityType(),
-            true), _authorizer, auth, true);
+            systemOperationContext, RequestContext.builder().buildRestli(ACTION_QUERY_RANGE, resourceUrn.getEntityType()), _authorizer, auth, true);
 
     return RestliUtil.toTask(
             () -> UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range), MetricRegistry.name(this.getClass(), "queryRange"));

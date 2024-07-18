@@ -201,7 +201,7 @@ public interface AspectsBatch {
       @Nonnull Map<String, Map<String, T>> a, @Nonnull Map<String, Map<String, T>> b) {
     Map<String, Map<String, T>> mergedMap = new HashMap<>();
     for (Map.Entry<String, Map<String, T>> entry :
-            Stream.concat(a.entrySet().stream(), b.entrySet().stream()).collect(Collectors.toList())) {
+        Stream.concat(a.entrySet().stream(), b.entrySet().stream()).collect(Collectors.toList())) {
       mergedMap.computeIfAbsent(entry.getKey(), k -> new HashMap<>()).putAll(entry.getValue());
     }
     return mergedMap;

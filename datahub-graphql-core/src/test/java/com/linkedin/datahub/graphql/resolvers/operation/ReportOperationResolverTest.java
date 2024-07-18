@@ -58,7 +58,7 @@ public class ReportOperationResolverTest {
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), Mockito.eq(expectedProposal), Mockito.eq(false), eq(true));
+        .ingestProposal(any(), Mockito.eq(expectedProposal), Mockito.eq(false));
   }
 
   @Test

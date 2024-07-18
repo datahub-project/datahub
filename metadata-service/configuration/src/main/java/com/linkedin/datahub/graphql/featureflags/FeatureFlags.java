@@ -39,4 +39,5 @@ public class FeatureFlags {
   private boolean separateSiblingsLineageByDefault = false;
   private boolean showSeparateSiblings = false;
   private boolean formCreationEnabled = false;
+  private boolean alternateMCPValidation = false;
 }

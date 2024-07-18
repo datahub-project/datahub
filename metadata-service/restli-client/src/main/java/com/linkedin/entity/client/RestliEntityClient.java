@@ -1077,15 +1077,13 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   public String ingestProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      final boolean async,
-      boolean validate)
+      final boolean async)
       throws RemoteInvocationException {
     final AspectsDoIngestProposalRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS
             .actionIngestProposal()
             .proposalParam(metadataChangeProposal)
-            .asyncParam(String.valueOf(async))
-            .validateParam(validate);
+            .asyncParam(String.valueOf(async));
     return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
   }
 

@@ -96,8 +96,7 @@ public class DataProductService {
               opContext,
               AspectUtils.buildMetadataChangeProposal(
                   entityUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, properties),
-              false,
-              true));
+              false));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create DataProduct", e);
     }
@@ -146,8 +145,7 @@ public class DataProductService {
               opContext,
               AspectUtils.buildMetadataChangeProposal(
                   urn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, properties),
-              false,
-              true));
+              false));
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", urn), e);
     }
@@ -262,8 +260,7 @@ public class DataProductService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               dataProductUrn, Constants.DOMAINS_ASPECT_NAME, domains),
-          false,
-          true);
+          false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to set domain for DataProduct with urn %s", dataProductUrn), e);
@@ -364,8 +361,7 @@ public class DataProductService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties),
-          false,
-          true);
+          false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update assets for %s", dataProductUrn), e);
@@ -436,8 +432,7 @@ public class DataProductService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties),
-          false,
-          true);
+          false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to unset data product for %s", resourceUrn), e);

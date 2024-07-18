@@ -46,37 +46,30 @@ public class RequestContext implements ContextInterface {
       return build();
     }
 
-    public RequestContext buildRestli(
-        String action, @Nullable String entityName, boolean validate) {
-      return buildRestli(action, entityName == null ? null : List.of(entityName), validate);
+    public RequestContext buildRestli(String action, @Nullable String entityName) {
+      return buildRestli(action, entityName == null ? null : List.of(entityName));
     }
 
-    public RequestContext buildRestli(
-        @Nonnull String action, @Nullable String[] entityNames, boolean validate) {
+    public RequestContext buildRestli(@Nonnull String action, @Nullable String[] entityNames) {
       return buildRestli(
           action,
-          entityNames == null ? null : Arrays.stream(entityNames).collect(Collectors.toList()),
-          validate);
+          entityNames == null ? null : Arrays.stream(entityNames).collect(Collectors.toList()));
     }
 
-    public RequestContext buildRestli(
-        String action, @Nullable Collection<String> entityNames, boolean validate) {
+    public RequestContext buildRestli(String action, @Nullable Collection<String> entityNames) {
       requestAPI(RequestAPI.RESTLI);
       requestID(buildRequestId(action, entityNames));
-      validated(validate);
       return build();
     }
 
-    public RequestContext buildOpenapi(
-        @Nonnull String action, @Nullable String entityName, boolean validate) {
-      return buildOpenapi(action, entityName == null ? null : List.of(entityName), validate);
+    public RequestContext buildOpenapi(@Nonnull String action, @Nullable String entityName) {
+      return buildOpenapi(action, entityName == null ? null : List.of(entityName));
     }
 
     public RequestContext buildOpenapi(
-        @Nonnull String action, @Nullable Collection<String> entityNames, boolean validate) {
+        @Nonnull String action, @Nullable Collection<String> entityNames) {
       requestAPI(RequestAPI.OPENAPI);
       requestID(buildRequestId(action, entityNames));
-      validated(validate);
       return build();
     }
 

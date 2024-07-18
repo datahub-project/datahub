@@ -114,10 +114,7 @@ public class IncidentServiceTest {
         mock(OperationContext.class), TEST_DATASET_URN, mockIncidentSummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class),
-            Mockito.eq(mockIncidentSummaryMcp()),
-            Mockito.eq(false),
-            eq(true));
+            any(OperationContext.class), Mockito.eq(mockIncidentSummaryMcp()), Mockito.eq(false));
   }
 
   @Test
@@ -154,8 +151,7 @@ public class IncidentServiceTest {
                 new IncidentInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.eq(false),
-            eq(true));
+            Mockito.eq(false));
   }
 
   @Test
@@ -198,8 +194,7 @@ public class IncidentServiceTest {
                 new IncidentInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.eq(false),
-            eq(true));
+            Mockito.eq(false));
   }
 
   @Test
@@ -228,8 +223,7 @@ public class IncidentServiceTest {
                 new IncidentInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_INCIDENT_URN, INCIDENT_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.eq(false),
-            eq(true));
+            Mockito.eq(false));
   }
 
   @Test
@@ -303,10 +297,7 @@ public class IncidentServiceTest {
 
     // Init for update summary
     when(mockClient.ingestProposal(
-            any(OperationContext.class),
-            Mockito.eq(mockIncidentSummaryMcp()),
-            Mockito.eq(false),
-            eq(true)))
+            any(OperationContext.class), Mockito.eq(mockIncidentSummaryMcp()), Mockito.eq(false)))
         .thenReturn(TEST_DATASET_URN.toString());
 
     return mockClient;

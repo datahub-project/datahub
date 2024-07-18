@@ -114,10 +114,7 @@ public class AnomalyServiceTest {
         mock(OperationContext.class), TEST_DATASET_URN, mockAnomalySummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
-            any(OperationContext.class),
-            Mockito.eq(mockAnomalySummaryMcp()),
-            Mockito.eq(false),
-            eq(true));
+            any(OperationContext.class), Mockito.eq(mockAnomalySummaryMcp()), Mockito.eq(false));
   }
 
   @Test
@@ -152,8 +149,7 @@ public class AnomalyServiceTest {
                 new AnomalyInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.eq(false),
-            eq(true));
+            Mockito.eq(false));
   }
 
   @Test
@@ -190,8 +186,7 @@ public class AnomalyServiceTest {
                 new AnomalyInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.eq(false),
-            eq(true));
+            Mockito.eq(false));
   }
 
   @Test
@@ -222,8 +217,7 @@ public class AnomalyServiceTest {
                 new AnomalyInfoArgumentMatcher(
                     AspectUtils.buildMetadataChangeProposal(
                         TEST_ANOMALY_URN, ANOMALY_INFO_ASPECT_NAME, expectedInfo))),
-            Mockito.eq(false),
-            eq(true));
+            Mockito.eq(false));
   }
 
   @Test
@@ -304,8 +298,7 @@ public class AnomalyServiceTest {
             mockClient.ingestProposal(
                 any(OperationContext.class),
                 Mockito.eq(mockAnomalySummaryMcp()),
-                Mockito.eq(false),
-                eq(true)))
+                Mockito.eq(false)))
         .thenReturn(TEST_DATASET_URN.toString());
 
     return mockClient;

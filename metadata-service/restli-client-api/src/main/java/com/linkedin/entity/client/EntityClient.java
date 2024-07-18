@@ -517,14 +517,13 @@ public interface EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal)
       throws RemoteInvocationException {
-    return ingestProposal(opContext, metadataChangeProposal, false, true);
+    return ingestProposal(opContext, metadataChangeProposal, false);
   }
 
   String ingestProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal,
-      final boolean async,
-      boolean validate)
+      final boolean async)
       throws RemoteInvocationException;
 
   @Deprecated
@@ -538,7 +537,7 @@ public interface EntityClient {
       @Nonnull MetadataChangeProposal metadataChangeProposal,
       final boolean async) {
     try {
-      return ingestProposal(opContext, metadataChangeProposal, async, true);
+      return ingestProposal(opContext, metadataChangeProposal, async);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(e);
     }

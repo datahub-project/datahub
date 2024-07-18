@@ -83,8 +83,7 @@ public class UpdateDeprecationResolverTest {
         MutationUtils.buildMetadataChangeProposalWithUrn(
             UrnUtils.getUrn(TEST_ENTITY_URN), DEPRECATION_ASPECT_NAME, newDeprecation);
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), eq(proposal), eq(false), Mockito.eq(true));
+    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), eq(proposal), eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -145,8 +144,7 @@ public class UpdateDeprecationResolverTest {
         MutationUtils.buildMetadataChangeProposalWithUrn(
             UrnUtils.getUrn(TEST_ENTITY_URN), DEPRECATION_ASPECT_NAME, newDeprecation);
 
-    Mockito.verify(mockClient, Mockito.times(1))
-        .ingestProposal(any(), eq(proposal), eq(false), eq(true));
+    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), eq(proposal), eq(false));
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
@@ -185,8 +183,7 @@ public class UpdateDeprecationResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -203,8 +200,7 @@ public class UpdateDeprecationResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0))
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
   }
 
   @Test
@@ -213,7 +209,7 @@ public class UpdateDeprecationResolverTest {
     EntityService mockService = Mockito.mock(EntityService.class);
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
-        .ingestProposal(any(), Mockito.any(), anyBoolean(), eq(true));
+        .ingestProposal(any(), Mockito.any(), anyBoolean());
     UpdateDeprecationResolver resolver = new UpdateDeprecationResolver(mockClient, mockService);
 
     // Execute resolver

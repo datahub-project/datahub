@@ -313,7 +313,7 @@ public class BaseService {
       throws Exception {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(opContext, change, async, true);
+      this.entityClient.ingestProposal(opContext, change, async);
     }
   }
 }

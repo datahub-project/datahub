@@ -70,8 +70,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
           () -> {
             try {
               String urn =
-                  _entityClient.ingestProposal(
-                      context.getOperationContext(), proposal, false, true);
+                  _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
               if (context.getAuthorizer() instanceof AuthorizerChain) {
                 ((AuthorizerChain) context.getAuthorizer())
                     .getDefaultAuthorizer()

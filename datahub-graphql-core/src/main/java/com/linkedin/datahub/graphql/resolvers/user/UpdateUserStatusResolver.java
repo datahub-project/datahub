@@ -52,8 +52,7 @@ public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<S
               final MetadataChangeProposal proposal =
                   buildMetadataChangeProposalWithUrn(
                       UrnUtils.getUrn(userUrn), CORP_USER_STATUS_ASPECT_NAME, statusAspect);
-              return _entityClient.ingestProposal(
-                  context.getOperationContext(), proposal, false, true);
+              return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
             } catch (Exception e) {
               throw new RuntimeException(
                   String.format("Failed to update user status for urn", userUrn), e);

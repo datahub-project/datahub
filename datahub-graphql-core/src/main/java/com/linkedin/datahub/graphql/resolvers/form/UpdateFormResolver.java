@@ -83,7 +83,7 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
               }
             }
             _entityClient.ingestProposal(
-                context.getOperationContext(), patchBuilder.build(), false, true);
+                context.getOperationContext(), patchBuilder.build(), false);
 
             EntityResponse response =
                 _entityClient.getV2(

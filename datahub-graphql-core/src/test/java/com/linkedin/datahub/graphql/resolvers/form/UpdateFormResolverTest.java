@@ -43,7 +43,7 @@ public class UpdateFormResolverTest {
 
     // Validate that we called ingest
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
@@ -61,7 +61,7 @@ public class UpdateFormResolverTest {
 
     // Validate that we did NOT call ingest
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
@@ -79,7 +79,7 @@ public class UpdateFormResolverTest {
 
     // Validate that ingest was called, but that caused a failure
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false), eq(true));
+        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   private EntityClient initMockEntityClient(boolean shouldSucceed) throws Exception {

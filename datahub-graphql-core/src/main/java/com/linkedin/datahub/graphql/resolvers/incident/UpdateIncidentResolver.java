@@ -70,7 +70,7 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
                 final MetadataChangeProposal proposal =
                     buildMetadataChangeProposalWithUrn(
                         incidentUrn, INCIDENT_INFO_ASPECT_NAME, info);
-                _entityClient.ingestProposal(context.getOperationContext(), proposal, false, true);
+                _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
                 return true;
               } catch (Exception e) {
                 throw new RuntimeException("Failed to update incident status!", e);

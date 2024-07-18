@@ -25,7 +25,8 @@ public class OperationContextTest {
             mock(EntityRegistry.class),
             mock(ServicesRegistryContext.class),
             null,
-            mock(RetrieverContext.class));
+            mock(RetrieverContext.class),
+            mock(EnvironmentContext.class));
 
     OperationContext opContext =
         systemOpContext.asSession(RequestContext.TEST, Authorizer.EMPTY, userAuth);

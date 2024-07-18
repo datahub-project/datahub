@@ -113,6 +113,7 @@ public class ESAccessControlUtilTest {
           null,
           null,
           null,
+          null,
           null);
 
   private static final String VIEW_PRIVILEGE = "VIEW_ENTITY_PAGE";

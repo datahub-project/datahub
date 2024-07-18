@@ -1,6 +1,5 @@
 package com.datahub.notification.slack;
 
-import static com.datahub.notification.slack.SlackNotificationSink.*;
 import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -868,7 +867,6 @@ public class SlackNotificationSinkTest {
                                         .setSerializedValue(
                                             JSON.serialize(List.of(Collections.emptyMap()))))))
                     .setChangeType(ChangeType.UPSERT)),
-            any(Boolean.class),
             any(Boolean.class));
   }
 
