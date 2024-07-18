@@ -251,7 +251,9 @@ class SqlParsingAggregator(Closeable):
         platform: str,
         platform_instance: Optional[str] = None,
         env: str = builder.DEFAULT_ENV,
+        schema_resolver: Optional[SchemaResolver] = None,
         graph: Optional[DataHubGraph] = None,
+        eager_graph_load: bool = True,
         generate_lineage: bool = True,
         generate_queries: bool = True,
         generate_query_subject_fields: bool = True,
@@ -274,8 +276,12 @@ class SqlParsingAggregator(Closeable):
         self.generate_usage_statistics = generate_usage_statistics
         self.generate_query_usage_statistics = generate_query_usage_statistics
         self.generate_operations = generate_operations
-        if self.generate_queries and not self.generate_lineage:
-            raise ValueError("Queries will only be generated if lineage is enabled")
+        if self.generate_queries and not (
+            self.generate_lineage or self.generate_query_usage_statistics
+        ):
+            logger.warning(
+                "Queries will not be generated, as neither lineage nor query usage statistics are enabled"
+            )
 
         self.usage_config = usage_config
         if (
@@ -297,17 +303,29 @@ class SqlParsingAggregator(Closeable):
 
         # Set up the schema resolver.
         self._schema_resolver: SchemaResolver
-        if graph is None:
+        if schema_resolver is not None:
+            # If explicitly provided, use it.
+            assert self.platform.platform_name == schema_resolver.platform
+            assert self.platform_instance == schema_resolver.platform_instance
+            assert self.env == schema_resolver.env
+            self._schema_resolver = schema_resolver
+        elif graph is not None and eager_graph_load and self._need_schemas:
+            # Bulk load schemas using the graph client.
+            self._schema_resolver = graph.initialize_schema_resolver_from_datahub(
+                platform=self.platform.urn(),
+                platform_instance=self.platform_instance,
+                env=self.env,
+            )
+        else:
+            # Otherwise, use a lazy-loading schema resolver.
             self._schema_resolver = self._exit_stack.enter_context(
                 SchemaResolver(
                     platform=self.platform.platform_name,
                     platform_instance=self.platform_instance,
                     env=self.env,
+                    graph=graph,
                 )
             )
-        else:
-            self._schema_resolver = None  # type: ignore
-            self._initialize_schema_resolver_from_graph(graph)
 
         # Initialize internal data structures.
         # This leans pretty heavily on the our query fingerprinting capabilities.
@@ -373,6 +391,8 @@ class SqlParsingAggregator(Closeable):
 
         # Usage aggregator. This will only be initialized if usage statistics are enabled.
         # TODO: Replace with FileBackedDict.
+        # TODO: The BaseUsageConfig class is much too broad for our purposes, and has a number of
+        # configs that won't be respected here. Using it is misleading.
         self._usage_aggregator: Optional[UsageAggregator[UrnStr]] = None
         if self.generate_usage_statistics:
             assert self.usage_config is not None
@@ -392,7 +412,13 @@ class SqlParsingAggregator(Closeable):
 
     @property
     def _need_schemas(self) -> bool:
-        return self.generate_lineage or self.generate_usage_statistics
+        # Unless the aggregator is totally disabled, we will need schema information.
+        return (
+            self.generate_lineage
+            or self.generate_usage_statistics
+            or self.generate_queries
+            or self.generate_operations
+        )
 
     def register_schema(
         self, urn: Union[str, DatasetUrn], schema: models.SchemaMetadataClass
@@ -413,35 +439,6 @@ class SqlParsingAggregator(Closeable):
                 self.register_schema(wu.get_urn(), schema_metadata)
 
             yield wu
-
-    def _initialize_schema_resolver_from_graph(self, graph: DataHubGraph) -> None:
-        # requires a graph instance
-        # if no schemas are currently registered in the schema resolver
-        # and we need the schema resolver (e.g. lineage or usage is enabled)
-        # then use the graph instance to fetch all schemas for the
-        # platform/instance/env combo
-        if not self._need_schemas:
-            return
-
-        if (
-            self._schema_resolver is not None
-            and self._schema_resolver.schema_count() > 0
-        ):
-            # TODO: Have a mechanism to override this, e.g. when table ingestion is enabled but view ingestion is not.
-            logger.info(
-                "Not fetching any schemas from the graph, since "
-                f"there are {self._schema_resolver.schema_count()} schemas already registered."
-            )
-            return
-
-        # TODO: The initialize_schema_resolver_from_datahub method should take in a SchemaResolver
-        # that it can populate or add to, rather than creating a new one and dropping any schemas
-        # that were already loaded into the existing one.
-        self._schema_resolver = graph.initialize_schema_resolver_from_datahub(
-            platform=self.platform.urn(),
-            platform_instance=self.platform_instance,
-            env=self.env,
-        )
 
     def _maybe_format_query(self, query: str) -> str:
         if self.format_queries:
@@ -660,10 +657,10 @@ class SqlParsingAggregator(Closeable):
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
             return  # we can't do anything with this query
-        elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
-            self.report.num_observed_queries_column_timeout += 1
         elif parsed.debug_info.column_error:
             self.report.num_observed_queries_column_failed += 1
+            if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
+                self.report.num_observed_queries_column_timeout += 1
 
         query_fingerprint = parsed.query_fingerprint
 

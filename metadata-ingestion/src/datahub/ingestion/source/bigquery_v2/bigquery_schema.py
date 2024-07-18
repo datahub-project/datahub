@@ -155,7 +155,7 @@ class BigQuerySchemaApi:
         resp = self.bq_client.query(query)
         return resp.result()
 
-    def get_projects(self) -> List[BigqueryProject]:
+    def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
                 f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
@@ -163,26 +163,44 @@ class BigQuerySchemaApi:
             self.report.num_list_projects_retry_request += 1
             return True
 
+        page_token = None
+        projects: List[BigqueryProject] = []
         with self.report.list_projects:
-            self.report.num_list_projects_api_requests += 1
-            # Bigquery API has limit in calling project.list request i.e. 2 request per second.
-            # https://cloud.google.com/bigquery/quotas#api_request_quotas
-            # Whenever this limit reached an exception occur with msg
-            # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
-            # Hence, added the api request retry of 15 min.
-            # We already tried adding rate_limit externally, proving max_result and page_size
-            # to restrict the request calls inside list_project but issue still occured.
-            projects_iterator = self.bq_client.list_projects(
-                retry=retry.Retry(
-                    predicate=_should_retry, initial=10, maximum=180, timeout=900
-                )
-            )
-            projects: List[BigqueryProject] = [
-                BigqueryProject(id=p.project_id, name=p.friendly_name)
-                for p in projects_iterator
-            ]
-            self.report.num_listed_projects = len(projects)
-            return projects
+            while True:
+                try:
+                    self.report.num_list_projects_api_requests += 1
+                    # Bigquery API has limit in calling project.list request i.e. 2 request per second.
+                    # https://cloud.google.com/bigquery/quotas#api_request_quotas
+                    # Whenever this limit reached an exception occur with msg
+                    # 'Quota exceeded: Your user exceeded quota for concurrent project.lists requests.'
+                    # Hence, added the api request retry of 15 min.
+                    # We already tried adding rate_limit externally, proving max_result and page_size
+                    # to restrict the request calls inside list_project but issue still occured.
+                    projects_iterator = self.bq_client.list_projects(
+                        max_results=max_results_per_page,
+                        page_token=page_token,
+                        timeout=900,
+                        retry=retry.Retry(
+                            predicate=_should_retry,
+                            initial=10,
+                            maximum=180,
+                            multiplier=4,
+                            timeout=900,
+                        ),
+                    )
+                    _projects: List[BigqueryProject] = [
+                        BigqueryProject(id=p.project_id, name=p.friendly_name)
+                        for p in projects_iterator
+                    ]
+                    projects.extend(_projects)
+                    self.report.num_listed_projects = len(projects)
+                    page_token = projects_iterator.next_page_token
+                    if not page_token:
+                        break
+                except Exception as e:
+                    logger.error(f"Error getting projects. {e}", exc_info=True)
+                    return []
+        return projects
 
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None

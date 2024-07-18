@@ -278,24 +278,35 @@ def test_get_projects_with_single_project_id(get_bq_client_mock):
 def test_get_projects_by_list(get_bq_client_mock):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
-    client_mock.list_projects.return_value = [
-        SimpleNamespace(
-            project_id="test-1",
-            friendly_name="one",
-        ),
-        SimpleNamespace(
-            project_id="test-2",
-            friendly_name="two",
-        ),
-    ]
+
+    first_page = MagicMock()
+    first_page.__iter__.return_value = iter(
+        [
+            SimpleNamespace(project_id="test-1", friendly_name="one"),
+            SimpleNamespace(project_id="test-2", friendly_name="two"),
+        ]
+    )
+    first_page.next_page_token = "token1"
+
+    second_page = MagicMock()
+    second_page.__iter__.return_value = iter(
+        [
+            SimpleNamespace(project_id="test-3", friendly_name="three"),
+            SimpleNamespace(project_id="test-4", friendly_name="four"),
+        ]
+    )
+    second_page.next_page_token = None
+    client_mock.list_projects.side_effect = [first_page, second_page]
 
     config = BigQueryV2Config.parse_obj({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
     assert source._get_projects() == [
         BigqueryProject("test-1", "one"),
         BigqueryProject("test-2", "two"),
+        BigqueryProject("test-3", "three"),
+        BigqueryProject("test-4", "four"),
     ]
-    assert client_mock.list_projects.call_count == 1
+    assert client_mock.list_projects.call_count == 2
 
 
 @patch.object(BigQuerySchemaApi, "get_projects")
@@ -347,7 +358,7 @@ def test_get_projects_list_failure(
     caplog.clear()
     with caplog.at_level(logging.ERROR):
         projects = source._get_projects()
-        assert len(caplog.records) == 1
+        assert len(caplog.records) == 2
         assert error_str in caplog.records[0].msg
     assert len(source.report.failures) == 1
     assert projects == []
