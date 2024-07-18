@@ -112,16 +112,13 @@ class DataFlow:
         return [tags]
 
     def _get_env(self) -> Optional[str]:
-        env = None
-        if self.env is None:
-            if self.cluster not in ALL_ENV_TYPES:
-                logger.warning(
-                    f"cluster {self.cluster} is not a valid environment type so Environment filter won't work."
-                )
-            else:
-                env = self.cluster
+        if self.cluster not in ALL_ENV_TYPES:
+            logger.warning(
+                f"cluster {self.cluster} is not a valid environment type so Environment filter won't work."
+            )
+            env = None
         else:
-            env = self.env
+            env = self.cluster
         return env
 
     def generate_mce(self) -> MetadataChangeEventClass:
