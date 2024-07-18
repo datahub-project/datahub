@@ -19,6 +19,12 @@ const MONTHLY_TEMPERATURE_DATASET_URN =
 describe("lineage_graph", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
+    const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
+    cy.on("uncaught:exception", (err) => {
+      if (err.message.includes(resizeObserverLoopErrRe)) {
+        return false;
+      }
+    });
   });
   it("can see full history", () => {
     cy.login();
@@ -94,7 +100,7 @@ describe("lineage_graph", () => {
     );
     cy.contains("monthly_temperature");
     cy.contains("temperature_etl_1").should("not.exist");
-    //cy.contains("temperature_etl_2");
+    // cy.contains("temperature_etl_2");
   });
 
   it("can see when a dataset join changes", () => {

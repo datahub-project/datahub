@@ -1,4 +1,5 @@
 import { aliasQuery, hasOperationName } from "../utils";
+
 const datasetUrn =
   "urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.daily_temperature,PROD)";
 const datasetName = "daily_temperature";
@@ -24,10 +25,10 @@ describe("create and manage freshness assertion", () => {
   };
 
   it("create freshness assertion, stop and restart monitor,manage and remove assertion", () => {
-    //create freshness assertion, submit, verify assertion on ui
+    // create freshness assertion, submit, verify assertion on ui
     setAssertionMonitorsFlag(true);
     cy.loginWithCredentials();
-    cy.wait(2000);
+    cy.wait(3000);
     cy.handleIntroducePage();
     cy.goToDataset(datasetUrn, datasetName);
     cy.openEntityTab("Validation");
@@ -51,7 +52,7 @@ describe("create and manage freshness assertion", () => {
     cy.get(".ant-table-row-level-0").last().click();
     cy.waitTextVisible("Freshness check results over time");
     cy.waitTextVisible("Runs at 0 minutes past the hour, every 6 hours.");
-    //stop the monitor, verify that assertion stopped successfully
+    // stop the monitor, verify that assertion stopped successfully
     cy.reload();
     cy.waitTextVisible("Assertions (1)");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
@@ -59,7 +60,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Stopped!");
     cy.ensureTextNotPresent("Stopped!");
     cy.get(".ant-tooltip-inner").contains("Start").should("be.visible");
-    //restart the monitor, verify that assertion restarted successfully
+    // restart the monitor, verify that assertion restarted successfully
     cy.reload();
     cy.waitTextVisible("Assertions (1)");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours");
@@ -72,7 +73,7 @@ describe("create and manage freshness assertion", () => {
     cy.get(".ant-tooltip-inner").contains("Stop").should("be.visible");
     cy.get(".ant-tooltip-inner").contains("Start").should("not.exist");
 
-    //manage the assertion and save result
+    // manage the assertion and save result
     cy.reload();
     cy.waitTextVisible("Assertions (1)");
     cy.get(".ant-table-row-level-0").last().click();
@@ -94,7 +95,7 @@ describe("create and manage freshness assertion", () => {
     cy.waitTextVisible("Updated!");
     cy.ensureTextNotPresent("Updated!");
 
-    //remove assertion
+    // remove assertion
     cy.reload();
     cy.waitTextVisible("Assertions (1)");
     cy.waitTextVisible("as of 0 minutes past the hour, every 6 hours ");

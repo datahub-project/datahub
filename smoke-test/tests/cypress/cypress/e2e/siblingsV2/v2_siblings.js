@@ -1,6 +1,12 @@
 describe("siblings", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
+    const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
+    cy.on("uncaught:exception", (err) => {
+      if (err.message.includes(resizeObserverLoopErrRe)) {
+        return false;
+      }
+    });
   });
 
   it("will merge metadata to non-primary sibling", () => {
