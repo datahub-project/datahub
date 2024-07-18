@@ -24,12 +24,12 @@ export const getConnectionBlob = (url: string, token: string): string => {
 };
 
 export const getURLFromJson = (json) => {
-    const parsedJson = JSON.parse(json);
+    const parsedJson = JSON.parse(json || '{}');
     return parsedJson.connection?.server;
 };
 
 export const getTokenFromJson = (json) => {
-    const parsedJson = JSON.parse(json);
+    const parsedJson = JSON.parse(json || '{}');
     const token = parsedJson.connection?.token;
     return token;
 };

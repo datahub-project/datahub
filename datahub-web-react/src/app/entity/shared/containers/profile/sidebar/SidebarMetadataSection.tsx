@@ -4,12 +4,12 @@ import SharedByInfo from '@src/app/shared/share/items/MetadataShareItem/SharedBy
 import { useAppConfig } from '../../../../../useAppConfig';
 import { useEntityData } from '../../../EntityContext';
 import { SharedEntityInfo } from './SharedEntityInfo';
-import { ShareResultState } from '../../../../../../types.generated';
 
 const Container = styled.div``;
 
 const Heading = styled.div`
     font-weight: 600;
+    margin-bottom: 4px;
 `;
 
 export const SidebarMetadataSection = () => {
@@ -21,9 +21,7 @@ export const SidebarMetadataSection = () => {
     if (!metadataShareEnabled) return null;
 
     // Get latest share data
-    const lastShareResults = entityData?.share?.lastShareResults.filter(
-        (result) => !!result.lastSuccess?.time || result.status === ShareResultState.Running,
-    );
+    const lastShareResults = entityData?.share?.lastShareResults;
     // Hide if no share result
     if (!lastShareResults || lastShareResults?.length === 0 || !lastShareResults[0]) return null;
 

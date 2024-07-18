@@ -352,14 +352,8 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
     };
 
     const isLoading = loading && searchLoading;
-    const filteredResults = lastShareResults?.filter(
-        (result) =>
-            (!!result.lastSuccess?.time || result.status === ShareResultState.Running) && !result.implicitShareEntity,
-    );
-    const implicitShares = lastShareResults?.filter(
-        (result) =>
-            (!!result.lastSuccess?.time || result.status === ShareResultState.Running) && !!result.implicitShareEntity,
-    );
+    const filteredResults = lastShareResults?.filter((result) => !result.implicitShareEntity);
+    const implicitShares = lastShareResults?.filter((result) => !!result.implicitShareEntity);
 
     return (
         <StyledModal

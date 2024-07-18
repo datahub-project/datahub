@@ -236,6 +236,10 @@ class ShareAgent:
         )  # use the current last attempt id if it exists
         if status == ShareResultStateClass.SUCCESS:
             share_to_add.lastSuccess = current_audit_stamp
+        if status == ShareResultStateClass.PARTIAL_SUCCESS:
+            share_to_add.lastSuccess = current_audit_stamp
+            # message will be presented to the end user
+            share_to_add.message = "Successfully shared asset with some warnings"
         share_to_add.message = None
         share_to_add.shareConfig = share_config
         share_to_add.lastAttemptRequestId = share_request_id
@@ -389,7 +393,7 @@ class ShareAgent:
             for aspect_name, aspect in shareable_aspects.items()
         ]
 
-        failures = False
+        failure_count = 0
         error_messages = []
         for mcp in destination_mcps:
             # TODO: We also need to mark these entities as shared in the
@@ -401,17 +405,23 @@ class ShareAgent:
                     f"Failed to emit entity {mcp.entityUrn}, aspect {mcp.aspectName} to destination: {e}"
                 )
                 error_messages.append(f"{mcp.aspectName}: {e}")
-                failures = True
+                failure_count += 1
+
+        all_aspects_failed = failure_count == len(destination_mcps)
+
+        share_status = ShareResultStateClass.SUCCESS
+        if failure_count > 0:
+            share_status = (
+                ShareResultStateClass.FAILURE
+                if all_aspects_failed
+                else ShareResultStateClass.PARTIAL_SUCCESS
+            )
 
         share_aspect_emitter_func = lambda: self.emit_share_result(  # noqa: E731
             root_entity_urn,
             shared_urn,
             sharer_urn,
-            (
-                ShareResultStateClass.FAILURE
-                if failures
-                else ShareResultStateClass.SUCCESS
-            ),
+            share_status,
             share_config,
         )
         if update_share_aspect:

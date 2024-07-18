@@ -83,6 +83,7 @@ record ShareResult {
 
  /**
   * Optional message for this share result. Error messages will be stored here.
+  * This message will be presented to the end user, so it should not include stack traces etc.
   */
   message: optional string
 }

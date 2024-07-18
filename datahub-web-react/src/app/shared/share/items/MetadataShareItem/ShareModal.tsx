@@ -270,14 +270,8 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
 
     const isLoading = loading && searchLoading;
     const isDisabled = isLoading || !selectedInstances.length;
-    const filteredResults = lastShareResults?.filter(
-        (result) =>
-            (!!result.lastSuccess?.time || result.status === ShareResultState.Running) && !result.implicitShareEntity,
-    );
-    const implicitShares = lastShareResults?.filter(
-        (result) =>
-            (!!result.lastSuccess?.time || result.status === ShareResultState.Running) && !!result.implicitShareEntity,
-    );
+    const filteredResults = lastShareResults?.filter((result) => !result.implicitShareEntity);
+    const implicitShares = lastShareResults?.filter((result) => !!result.implicitShareEntity);
 
     const handleClose = () => {
         setSelectedInstances([]);
