@@ -17,6 +17,7 @@ import datahub as datahub_package
 from datahub.cli import cli_utils
 from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
 from datahub.configuration.config_loader import load_config_file
+from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
@@ -204,6 +205,15 @@ def run(
     # don't raise SystemExit if there's no error
 
 
+def _make_ingestion_urn(name: str) -> str:
+    guid = datahub_guid(
+        {
+            "name": name,
+        }
+    )
+    return f"urn:li:dataHubIngestionSource:deploy-{guid}"
+
+
 @ingest.command()
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
@@ -212,7 +222,6 @@ def run(
     "--name",
     type=str,
     help="Recipe Name",
-    required=True,
 )
 @click.option(
     "-c",
@@ -224,7 +233,7 @@ def run(
 @click.option(
     "--urn",
     type=str,
-    help="Urn of recipe to update. Creates recipe if provided urn does not exist",
+    help="Urn of recipe to update. If not specified here or in the recipe's pipeline_name, this will create a new ingestion source.",
     required=False,
 )
 @click.option(
@@ -256,7 +265,7 @@ def run(
     default="UTC",
 )
 def deploy(
-    name: str,
+    name: Optional[str],
     config: str,
     urn: Optional[str],
     executor_id: str,
@@ -280,6 +289,31 @@ def deploy(
         resolve_env_vars=False,
     )
 
+    deployment_name = pipeline_config.pop("deployment_name", None)
+    if deployment_name:
+        if urn:
+            raise click.UsageError("Cannot specify both --urn and deployment_name")
+        elif name:
+            raise click.UsageError("Cannot specify both --name and deployment_name")
+
+        # When urn/name is not specified, we will generate a unique urn based on the deployment name.
+        name = deployment_name
+        urn = _make_ingestion_urn(name)
+        logger.info(f"Will create or update a recipe with urn: {urn}")
+    elif name:
+        if not urn:
+            # When the urn is not specified, generate an urn based on the name.
+            urn = _make_ingestion_urn(name)
+            logger.info(
+                f"No urn was explicitly specified, will create or update the recipe with urn: {urn}"
+            )
+    else:  # neither deployment_name nor name is set
+        raise click.UsageError(
+            "Either --name must be set or deployment_name specified in the config"
+        )
+
+    # Invariant - at this point, both urn and name are set.
+
     variables: dict = {
         "urn": urn,
         "name": name,
@@ -292,57 +326,31 @@ def deploy(
     if schedule is not None:
         variables["schedule"] = {"interval": schedule, "timezone": time_zone}
 
-    if urn:
+    # The updateIngestionSource endpoint can actually do upserts as well.
+    graphql_query: str = textwrap.dedent(
+        """
+        mutation updateIngestionSource(
+            $urn: String!,
+            $name: String!,
+            $type: String!,
+            $schedule: UpdateIngestionSourceScheduleInput,
+            $recipe: String!,
+            $executorId: String!
+            $version: String) {
 
-        graphql_query: str = textwrap.dedent(
-            """
-            mutation updateIngestionSource(
-                $urn: String!,
-                $name: String!,
-                $type: String!,
-                $schedule: UpdateIngestionSourceScheduleInput,
-                $recipe: String!,
-                $executorId: String!
-                $version: String) {
-
-                updateIngestionSource(urn: $urn, input: {
-                    name: $name,
-                    type: $type,
-                    schedule: $schedule,
-                    config: {
-                        recipe: $recipe,
-                        executorId: $executorId,
-                        version: $version,
-                    }
-                })
-            }
-            """
-        )
-    else:
-        logger.info("No URN specified recipe urn, will create a new recipe.")
-        graphql_query = textwrap.dedent(
-            """
-            mutation createIngestionSource(
-                $name: String!,
-                $type: String!,
-                $schedule: UpdateIngestionSourceScheduleInput,
-                $recipe: String!,
-                $executorId: String!,
-                $version: String) {
-
-                createIngestionSource(input: {
-                    name: $name,
-                    type: $type,
-                    schedule: $schedule,
-                    config: {
-                        recipe: $recipe,
-                        executorId: $executorId,
-                        version: $version,
-                    }
-                })
-            }
-            """
-        )
+            updateIngestionSource(urn: $urn, input: {
+                name: $name,
+                type: $type,
+                schedule: $schedule,
+                config: {
+                    recipe: $recipe,
+                    executorId: $executorId,
+                    version: $version,
+                }
+            })
+        }
+        """
+    )
 
     response = datahub_graph.execute_graphql(graphql_query, variables=variables)
 
