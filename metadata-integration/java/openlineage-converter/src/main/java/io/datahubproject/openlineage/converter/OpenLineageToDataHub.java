@@ -113,12 +113,19 @@ public class OpenLineageToDataHub {
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
           dataset.getFacets().getSymlinks().getIdentifiers()) {
         if (symlink.getType().equals("TABLE")) {
-          if (symlink.getNamespace().startsWith("aws:glue:")) {
+          // Before OpenLineage 0.17.1 the namespace started with "aws:glue:" and after that it was
+          // changed to :arn:aws:glue:"
+          if (symlink.getNamespace().startsWith("aws:glue:")
+              || symlink.getNamespace().startsWith("arn:aws:glue:")) {
             namespace = "glue";
           } else {
             namespace = mappingConfig.getHivePlatformAlias();
           }
-          datasetName = symlink.getName();
+          if (symlink.getName().startsWith("table/")) {
+            datasetName = symlink.getName().replaceFirst("table/", "").replace("/", ".");
+          } else {
+            datasetName = symlink.getName();
+          }
         }
       }
       Optional<DatasetUrn> symlinkedUrn =

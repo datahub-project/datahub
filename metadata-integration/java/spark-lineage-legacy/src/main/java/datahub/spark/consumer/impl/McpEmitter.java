@@ -32,7 +32,8 @@ public class McpEmitter implements LineageConsumer {
   private static final String KAFKA_BOOTSTRAP = "kafka.connection.bootstrap";
   private static final String KAFKA_PRODUCER_CONFIG = "kafka.connection.producer_config";
   private static final String KAFKA_SCHEMA_REGISTRY_URL = "kafka.connection.schema_registry_url";
-  private static final String KAFKA_SCHEMA_REGISTRY_CONFIG = "kafka.connection.schema_registry_config";
+  private static final String KAFKA_SCHEMA_REGISTRY_CONFIG =
+      "kafka.connection.schema_registry_config";
 
   private Optional<Emitter> getEmitter() {
     Optional<Emitter> emitter = Optional.empty();
@@ -106,7 +107,8 @@ public class McpEmitter implements LineageConsumer {
         String token =
             datahubConf.hasPath(GMS_AUTH_TOKEN) ? datahubConf.getString(GMS_AUTH_TOKEN) : null;
         boolean disableSslVerification =
-            datahubConf.hasPath(DISABLE_SSL_VERIFICATION_KEY) && datahubConf.getBoolean(DISABLE_SSL_VERIFICATION_KEY);
+            datahubConf.hasPath(DISABLE_SSL_VERIFICATION_KEY)
+                && datahubConf.getBoolean(DISABLE_SSL_VERIFICATION_KEY);
         log.info(
             "REST Emitter Configuration: GMS url {}{}",
             gmsUrl,
@@ -131,12 +133,12 @@ public class McpEmitter implements LineageConsumer {
             datahubConf.hasPath(KAFKA_BOOTSTRAP)
                 ? datahubConf.getString(KAFKA_BOOTSTRAP)
                 : "localhost:9092";
-          Map<String, String> producerConfig =
+        Map<String, String> producerConfig =
             datahubConf.hasPath(KAFKA_PRODUCER_CONFIG)
                 ? datahubConf.getConfig(KAFKA_PRODUCER_CONFIG).entrySet().stream()
                     .collect(
-                        Collectors.toMap(Map.Entry::getKey,
-                            entry -> entry.getValue().unwrapped().toString()))
+                        Collectors.toMap(
+                            Map.Entry::getKey, entry -> entry.getValue().unwrapped().toString()))
                 : null;
         String schemaRegistryUrl =
             datahubConf.hasPath(KAFKA_SCHEMA_REGISTRY_URL)
@@ -146,8 +148,8 @@ public class McpEmitter implements LineageConsumer {
             datahubConf.hasPath(KAFKA_SCHEMA_REGISTRY_CONFIG)
                 ? datahubConf.getConfig(KAFKA_SCHEMA_REGISTRY_CONFIG).entrySet().stream()
                     .collect(
-                        Collectors.toMap(Map.Entry::getKey,
-                            entry -> entry.getValue().unwrapped().toString()))
+                        Collectors.toMap(
+                            Map.Entry::getKey, entry -> entry.getValue().unwrapped().toString()))
                 : null;
         log.info(
             "Kafka Emitter Configuration: Kafka bootstrap {}{}",

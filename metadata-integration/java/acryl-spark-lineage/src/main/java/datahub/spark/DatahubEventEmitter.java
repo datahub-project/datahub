@@ -13,9 +13,13 @@ import com.linkedin.dataprocess.RunResultType;
 import com.linkedin.domain.Domains;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.Emitter;
+import datahub.client.file.FileEmitter;
+import datahub.client.kafka.KafkaEmitter;
 import datahub.client.rest.RestEmitter;
 import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
+import datahub.spark.conf.FileDatahubEmitterConfig;
+import datahub.spark.conf.KafkaDatahubEmitterConfig;
 import datahub.spark.conf.RestDatahubEmitterConfig;
 import datahub.spark.conf.SparkLineageConf;
 import io.datahubproject.openlineage.converter.OpenLineageToDataHub;
@@ -71,6 +75,19 @@ public class DatahubEventEmitter extends EventEmitter {
         RestDatahubEmitterConfig datahubRestEmitterConfig =
             (RestDatahubEmitterConfig) datahubConf.getDatahubEmitterConfig();
         emitter = Optional.of(new RestEmitter(datahubRestEmitterConfig.getRestEmitterConfig()));
+      } else if (datahubConf.getDatahubEmitterConfig() instanceof KafkaDatahubEmitterConfig) {
+        KafkaDatahubEmitterConfig datahubKafkaEmitterConfig =
+            (KafkaDatahubEmitterConfig) datahubConf.getDatahubEmitterConfig();
+        try {
+          emitter =
+              Optional.of(new KafkaEmitter(datahubKafkaEmitterConfig.getKafkaEmitterConfig()));
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      } else if (datahubConf.getDatahubEmitterConfig() instanceof FileDatahubEmitterConfig) {
+        FileDatahubEmitterConfig datahubFileEmitterConfig =
+            (FileDatahubEmitterConfig) datahubConf.getDatahubEmitterConfig();
+        emitter = Optional.of(new FileEmitter(datahubFileEmitterConfig.getFileEmitterConfig()));
       } else {
         log.error(
             "DataHub Transport {} not recognized. DataHub Lineage emission will not work",

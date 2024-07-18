@@ -25,12 +25,15 @@ import org.slf4j.LoggerFactory;
 
 public class SparkConfigParser {
   public static final String PARENT_JOB_KEY = "parent.datajob_urn";
-  public static final String TRANSPORT_KEY = "transport";
+  public static final String EMITTER_TYPE = "emitter";
   public static final String GMS_URL_KEY = "rest.server";
   public static final String GMS_AUTH_TOKEN = "rest.token";
+  public static final String FILE_EMITTER_FILE_NAME = "file.filename";
   public static final String DISABLE_SSL_VERIFICATION_KEY = "rest.disable_ssl_verification";
   public static final String MAX_RETRIES = "rest.max_retries";
   public static final String RETRY_INTERVAL_IN_SEC = "rest.retry_interval_in_sec";
+  public static final String KAFKA_EMITTER_BOOTSTRAP = "kafka.bootstrap";
+  public static final String KAFKA_EMITTER_SCHEMA_REGISTRY_URL = "kafka.schema_registry_url";
 
   public static final String COALESCE_KEY = "coalesce_jobs";
   public static final String PATCH_ENABLED = "patch.enabled";

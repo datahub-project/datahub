@@ -5,8 +5,12 @@ import static io.openlineage.spark.agent.util.ScalaConversionUtils.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import datahub.client.file.FileEmitterConfig;
+import datahub.client.kafka.KafkaEmitterConfig;
 import datahub.client.rest.RestEmitterConfig;
 import datahub.spark.conf.DatahubEmitterConfig;
+import datahub.spark.conf.FileDatahubEmitterConfig;
+import datahub.spark.conf.KafkaDatahubEmitterConfig;
 import datahub.spark.conf.RestDatahubEmitterConfig;
 import datahub.spark.conf.SparkAppContext;
 import datahub.spark.conf.SparkConfigParser;
@@ -98,57 +102,76 @@ public class DatahubSparkListener extends SparkListener {
 
   public Optional<DatahubEmitterConfig> initializeEmitter(Config sparkConf) {
     String emitterType =
-        sparkConf.hasPath(SparkConfigParser.TRANSPORT_KEY)
-            ? sparkConf.getString(SparkConfigParser.TRANSPORT_KEY)
+        sparkConf.hasPath(SparkConfigParser.EMITTER_TYPE)
+            ? sparkConf.getString(SparkConfigParser.EMITTER_TYPE)
             : "rest";
-    if (emitterType.equals("rest")) {
-      String gmsUrl =
-          sparkConf.hasPath(SparkConfigParser.GMS_URL_KEY)
-              ? sparkConf.getString(SparkConfigParser.GMS_URL_KEY)
-              : "http://localhost:8080";
-      String token =
-          sparkConf.hasPath(SparkConfigParser.GMS_AUTH_TOKEN)
-              ? sparkConf.getString(SparkConfigParser.GMS_AUTH_TOKEN)
-              : null;
-      boolean disableSslVerification =
-          sparkConf.hasPath(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY)
-              && sparkConf.getBoolean(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY);
+    switch (emitterType) {
+      case "rest":
+        String gmsUrl =
+            sparkConf.hasPath(SparkConfigParser.GMS_URL_KEY)
+                ? sparkConf.getString(SparkConfigParser.GMS_URL_KEY)
+                : "http://localhost:8080";
+        String token =
+            sparkConf.hasPath(SparkConfigParser.GMS_AUTH_TOKEN)
+                ? sparkConf.getString(SparkConfigParser.GMS_AUTH_TOKEN)
+                : null;
+        boolean disableSslVerification =
+            sparkConf.hasPath(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY)
+                && sparkConf.getBoolean(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY);
 
-      int retry_interval_in_sec =
-          sparkConf.hasPath(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
-              ? sparkConf.getInt(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
-              : 5;
+        int retry_interval_in_sec =
+            sparkConf.hasPath(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
+                ? sparkConf.getInt(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
+                : 5;
 
-      int max_retries =
-          sparkConf.hasPath(SparkConfigParser.MAX_RETRIES)
-              ? sparkConf.getInt(SparkConfigParser.MAX_RETRIES)
-              : 0;
+        int max_retries =
+            sparkConf.hasPath(SparkConfigParser.MAX_RETRIES)
+                ? sparkConf.getInt(SparkConfigParser.MAX_RETRIES)
+                : 0;
 
-      log.info(
-          "REST Emitter Configuration: GMS url {}{}",
-          gmsUrl,
-          (sparkConf.hasPath(SparkConfigParser.GMS_URL_KEY) ? "" : "(default)"));
-      if (token != null) {
-        log.info("REST Emitter Configuration: Token {}", "XXXXX");
-      }
+        log.info(
+            "REST Emitter Configuration: GMS url {}{}",
+            gmsUrl,
+            (sparkConf.hasPath(SparkConfigParser.GMS_URL_KEY) ? "" : "(default)"));
+        if (token != null) {
+          log.info("REST Emitter Configuration: Token {}", "XXXXX");
+        }
 
-      if (disableSslVerification) {
-        log.warn("REST Emitter Configuration: ssl verification will be disabled.");
-      }
+        if (disableSslVerification) {
+          log.warn("REST Emitter Configuration: ssl verification will be disabled.");
+        }
 
-      RestEmitterConfig restEmitterConf =
-          RestEmitterConfig.builder()
-              .server(gmsUrl)
-              .token(token)
-              .disableSslVerification(disableSslVerification)
-              .maxRetries(max_retries)
-              .retryIntervalSec(retry_interval_in_sec)
-              .build();
-      return Optional.of(new RestDatahubEmitterConfig(restEmitterConf));
-    } else {
-      log.error(
-          "DataHub Transport {} not recognized. DataHub Lineage emission will not work",
-          emitterType);
+        RestEmitterConfig restEmitterConf =
+            RestEmitterConfig.builder()
+                .server(gmsUrl)
+                .token(token)
+                .disableSslVerification(disableSslVerification)
+                .maxRetries(max_retries)
+                .retryIntervalSec(retry_interval_in_sec)
+                .build();
+        return Optional.of(new RestDatahubEmitterConfig(restEmitterConf));
+      case "kafka":
+        KafkaEmitterConfig.KafkaEmitterConfigBuilder kafkaEmitterConfig =
+            KafkaEmitterConfig.builder();
+        if (sparkConf.hasPath(SparkConfigParser.KAFKA_EMITTER_BOOTSTRAP)) {
+          kafkaEmitterConfig.bootstrap(
+              sparkConf.getString(SparkConfigParser.KAFKA_EMITTER_BOOTSTRAP));
+        }
+        if (sparkConf.hasPath(SparkConfigParser.KAFKA_EMITTER_SCHEMA_REGISTRY_URL)) {
+          kafkaEmitterConfig.schemaRegistryUrl(
+              sparkConf.getString(SparkConfigParser.KAFKA_EMITTER_SCHEMA_REGISTRY_URL));
+        }
+        return Optional.of(new KafkaDatahubEmitterConfig(kafkaEmitterConfig.build()));
+      case "file":
+        log.info("File Emitter Configuration: File emitter will be used");
+        FileEmitterConfig.FileEmitterConfigBuilder fileEmitterConfig = FileEmitterConfig.builder();
+        fileEmitterConfig.fileName(sparkConf.getString(SparkConfigParser.FILE_EMITTER_FILE_NAME));
+        return Optional.of(new FileDatahubEmitterConfig(fileEmitterConfig.build()));
+      default:
+        log.error(
+            "DataHub Transport {} not recognized. DataHub Lineage emission will not work",
+            emitterType);
+        break;
     }
 
     return Optional.empty();
@@ -171,9 +194,9 @@ public class DatahubSparkListener extends SparkListener {
     }
 
     log.info("Datahub configuration: {}", datahubConf.root().render());
-    Optional<DatahubEmitterConfig> restEmitter = initializeEmitter(datahubConf);
+    Optional<DatahubEmitterConfig> emitterConfig = initializeEmitter(datahubConf);
     SparkLineageConf sparkLineageConf =
-        SparkLineageConf.toSparkLineageConf(datahubConf, appContext, restEmitter.orElse(null));
+        SparkLineageConf.toSparkLineageConf(datahubConf, appContext, emitterConfig.orElse(null));
 
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("loadDatahubConfig completed successfully in {} ms", elapsedTime);
