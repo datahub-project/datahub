@@ -259,56 +259,56 @@ class Dataset(BaseModel):
                     )
                     yield mcp
 
-                if self.schema_metadata.fields:
-                    for field in self.schema_metadata.fields:
-                        field_urn = field.urn or make_schema_field_urn(
-                            self.urn, field.id  # type: ignore[arg-type]
+            if self.schema_metadata.fields:
+                for field in self.schema_metadata.fields:
+                    field_urn = field.urn or make_schema_field_urn(
+                        self.urn, field.id  # type: ignore[arg-type]
+                    )
+                    assert field_urn.startswith("urn:li:schemaField:")
+
+                    if field.globalTags:
+                        mcp = MetadataChangeProposalWrapper(
+                            entityUrn=field_urn,
+                            aspect=GlobalTagsClass(
+                                tags=[
+                                    TagAssociationClass(tag=make_tag_urn(tag))
+                                    for tag in field.globalTags
+                                ]
+                            ),
                         )
-                        assert field_urn.startswith("urn:li:schemaField:")
+                        yield mcp
 
-                        if field.globalTags:
-                            mcp = MetadataChangeProposalWrapper(
-                                entityUrn=field_urn,
-                                aspect=GlobalTagsClass(
-                                    tags=[
-                                        TagAssociationClass(tag=make_tag_urn(tag))
-                                        for tag in field.globalTags
-                                    ]
-                                ),
-                            )
-                            yield mcp
+                    if field.glossaryTerms:
+                        mcp = MetadataChangeProposalWrapper(
+                            entityUrn=field_urn,
+                            aspect=GlossaryTermsClass(
+                                terms=[
+                                    GlossaryTermAssociationClass(
+                                        urn=make_term_urn(term)
+                                    )
+                                    for term in field.glossaryTerms
+                                ],
+                                auditStamp=self._mint_auditstamp("yaml"),
+                            ),
+                        )
+                        yield mcp
 
-                        if field.glossaryTerms:
-                            mcp = MetadataChangeProposalWrapper(
-                                entityUrn=field_urn,
-                                aspect=GlossaryTermsClass(
-                                    terms=[
-                                        GlossaryTermAssociationClass(
-                                            urn=make_term_urn(term)
-                                        )
-                                        for term in field.glossaryTerms
-                                    ],
-                                    auditStamp=self._mint_auditstamp("yaml"),
-                                ),
-                            )
-                            yield mcp
-
-                        if field.structured_properties:
-                            mcp = MetadataChangeProposalWrapper(
-                                entityUrn=field_urn,
-                                aspect=StructuredPropertiesClass(
-                                    properties=[
-                                        StructuredPropertyValueAssignmentClass(
-                                            propertyUrn=f"urn:li:structuredProperty:{prop_key}",
-                                            values=prop_value
-                                            if isinstance(prop_value, list)
-                                            else [prop_value],
-                                        )
-                                        for prop_key, prop_value in field.structured_properties.items()
-                                    ]
-                                ),
-                            )
-                            yield mcp
+                    if field.structured_properties:
+                        mcp = MetadataChangeProposalWrapper(
+                            entityUrn=field_urn,
+                            aspect=StructuredPropertiesClass(
+                                properties=[
+                                    StructuredPropertyValueAssignmentClass(
+                                        propertyUrn=f"urn:li:structuredProperty:{prop_key}",
+                                        values=prop_value
+                                        if isinstance(prop_value, list)
+                                        else [prop_value],
+                                    )
+                                    for prop_key, prop_value in field.structured_properties.items()
+                                ]
+                            ),
+                        )
+                        yield mcp
 
         if self.subtype or self.subtypes:
             mcp = MetadataChangeProposalWrapper(

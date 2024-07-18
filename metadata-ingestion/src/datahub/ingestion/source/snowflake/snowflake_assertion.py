@@ -11,14 +11,13 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowflake.snowflake_config import (
-    SnowflakeIdentifierConfig,
-    SnowflakeV2Config,
-)
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeIdentifierMixin
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResult,
     AssertionResultType,
@@ -40,22 +39,19 @@ class DataQualityMonitoringResult(BaseModel):
     VALUE: int
 
 
-class SnowflakeAssertionsHandler(SnowflakeIdentifierMixin):
+class SnowflakeAssertionsHandler:
     def __init__(
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
         connection: SnowflakeConnection,
+        identifiers: SnowflakeIdentifierBuilder,
     ) -> None:
         self.config = config
         self.report = report
-        self.logger = logger
         self.connection = connection
+        self.identifiers = identifiers
         self._urns_processed: List[str] = []
-
-    @property
-    def identifier_config(self) -> SnowflakeIdentifierConfig:
-        return self.config
 
     def get_assertion_workunits(
         self, discovered_datasets: List[str]
@@ -80,10 +76,10 @@ class SnowflakeAssertionsHandler(SnowflakeIdentifierMixin):
         return MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=DataPlatformInstance(
-                platform=make_data_platform_urn(self.platform),
+                platform=make_data_platform_urn(self.identifiers.platform),
                 instance=(
                     make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
+                        self.identifiers.platform, self.config.platform_instance
                     )
                     if self.config.platform_instance
                     else None
@@ -98,7 +94,7 @@ class SnowflakeAssertionsHandler(SnowflakeIdentifierMixin):
             result = DataQualityMonitoringResult.parse_obj(result_row)
             assertion_guid = result.METRIC_NAME.split("__")[-1].lower()
             status = bool(result.VALUE)  # 1 if PASS, 0 if FAIL
-            assertee = self.get_dataset_identifier(
+            assertee = self.identifiers.get_dataset_identifier(
                 result.TABLE_NAME, result.TABLE_SCHEMA, result.TABLE_DATABASE
             )
             if assertee in discovered_datasets:
@@ -107,7 +103,7 @@ class SnowflakeAssertionsHandler(SnowflakeIdentifierMixin):
                     aspect=AssertionRunEvent(
                         timestampMillis=datetime_to_ts_millis(result.MEASUREMENT_TIME),
                         runId=result.MEASUREMENT_TIME.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        asserteeUrn=self.gen_dataset_urn(assertee),
+                        asserteeUrn=self.identifiers.gen_dataset_urn(assertee),
                         status=AssertionRunStatus.COMPLETE,
                         assertionUrn=make_assertion_urn(assertion_guid),
                         result=AssertionResult(

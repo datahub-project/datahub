@@ -78,6 +78,15 @@ public class SpringPluginFactory extends PluginFactory {
         config -> config.getSpring() != null && config.getSpring().isEnabled());
   }
 
+  @Nonnull
+  @Override
+  public List<ClassLoader> getClassLoaders() {
+    if (!super.getClassLoaders().isEmpty()) {
+      return super.getClassLoaders();
+    }
+    return List.of(SpringPluginFactory.class.getClassLoader());
+  }
+
   /**
    * Override to inject classes from Spring
    *
@@ -137,7 +146,8 @@ public class SpringPluginFactory extends PluginFactory {
           log.warn(
               "Failed to load class {} from loader {}",
               config.getClassName(),
-              classLoader.getName());
+              classLoader.getName(),
+              e);
         }
       }
 

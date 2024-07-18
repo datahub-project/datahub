@@ -251,11 +251,6 @@ class AthenaConfig(SQLCommonConfig):
         "queries executed by DataHub."
     )
 
-    # overwrite default behavior of SQLAlchemyConfing
-    include_views: Optional[bool] = pydantic.Field(
-        default=True, description="Whether views should be ingested."
-    )
-
     _s3_staging_dir_population = pydantic_renamed_field(
         old_name="s3_staging_dir",
         new_name="query_result_location",
