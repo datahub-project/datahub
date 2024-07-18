@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.Status;
