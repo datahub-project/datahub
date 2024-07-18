@@ -67,10 +67,10 @@
                 "destination_id": "'interval_unconstitutional'"
             },
             "name": "postgres",
-            "env": "PROD",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
         }
     },
     "systemMetadata": {

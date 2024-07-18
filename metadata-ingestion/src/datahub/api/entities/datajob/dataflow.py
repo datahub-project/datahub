@@ -119,6 +119,8 @@ class DataFlow:
             env = None
         else:
             env = self.cluster
+        if env is None and self.env is not None and self.env in ALL_ENV_TYPES:
+            env = self.env
         return env
 
     def generate_mce(self) -> MetadataChangeEventClass:
