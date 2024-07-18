@@ -25,6 +25,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -187,6 +188,12 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     public EntityRegistry entityRegistry(
         @Qualifier("systemOperationContext") final OperationContext testOperationContext) {
       return testOperationContext.getEntityRegistry();
+    }
+
+    @Bean("graphService")
+    @Primary
+    public ElasticSearchGraphService graphService() {
+      return mock(ElasticSearchGraphService.class);
     }
 
     @Bean

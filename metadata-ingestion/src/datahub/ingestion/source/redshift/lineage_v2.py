@@ -419,7 +419,7 @@ class RedshiftSqlLineageV2:
         for mcp in self.aggregator.gen_metadata():
             yield mcp.as_workunit()
         if len(self.aggregator.report.observed_query_parse_failures) > 0:
-            self.report.report_failure(
+            self.report.report_warning(
                 title="Failed to extract some SQL lineage",
                 message="Unexpected error(s) while attempting to extract lineage from SQL queries. See the full logs for more details.",
                 context=f"Query Parsing Failures: {self.aggregator.report.observed_query_parse_failures}",
