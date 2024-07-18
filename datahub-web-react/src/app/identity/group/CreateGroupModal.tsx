@@ -61,6 +61,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                             info: {
                                 description: stagedDescription,
                             },
+                            assetOrigin: null,
                         });
                     }
                 })
