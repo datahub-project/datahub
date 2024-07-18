@@ -1,90 +1,22 @@
-from typing import ClassVar, Iterable, List, Optional, Union
+from typing import Iterable, Optional
 
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import datahub_guid, set_aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     DashboardInfoClass,
     FineGrainedLineageClass,
     MetadataChangeEventClass,
-    MetadataChangeProposalClass,
     SystemMetadataClass,
     UpstreamLineageClass,
 )
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
-
-
-class PatchEntityAspect:
-    SKIPPABLE_ATTRIBUTES: ClassVar[List[str]] = [
-        "ASPECT_INFO",
-        "ASPECT_NAME",
-        "ASPECT_TYPE",
-        "RECORD_SCHEMA",
-    ]
-    aspect: Union[ChartInfoClass, DashboardInfoClass]
-    patch_builder: MetadataPatchProposal
-    attributes: List[str]
-
-    def __init__(
-        self,
-        # The PatchEntityAspect can patch any Aspect, however to silent the lint Union is added for DashboardInfoClass
-        # We can use it with any Aspect
-        aspect: Union[DashboardInfoClass, ChartInfoClass],
-        patch_builder: MetadataPatchProposal,
-    ):
-        self.aspect = aspect
-        self.patch_builder = patch_builder
-        self.attributes = dir(self.aspect)
-
-    def is_attribute_includable(self, attribute_name: str) -> bool:
-        """
-        a child class can override this to add additional attributes to skip while generating patch aspect
-        """
-        if (
-            attribute_name.startswith("__")
-            or attribute_name.startswith("_")
-            or attribute_name in PatchEntityAspect.SKIPPABLE_ATTRIBUTES
-        ):
-            return False
-
-        return True
-
-    def attribute_path(self, attribute_name: str) -> str:
-        """
-        a child class can override this if path is not equal to attribute_name
-        """
-        return f"/{attribute_name}"
-
-    def patch(self) -> Optional[MetadataChangeProposalClass]:
-        # filter property
-        properties = {
-            attr: getattr(self.aspect, attr)
-            for attr in self.attributes
-            if self.is_attribute_includable(attr)
-            and not callable(getattr(self.aspect, attr))
-        }
-
-        for property_ in properties:
-            if properties[property_]:
-                self.patch_builder.add_patch(
-                    aspect_name=self.aspect.ASPECT_NAME,
-                    op="add",
-                    path=self.attribute_path(property_),
-                    value=properties[property_],
-                )
-
-        mcps: List[MetadataChangeProposalClass] = list(self.patch_builder.build())
-        if mcps:
-            return mcps[0]
-
-        return None
 
 
 def convert_upstream_lineage_to_patch(
@@ -101,31 +33,28 @@ def convert_upstream_lineage_to_patch(
     return MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
 
 
-def create_mw_for_patch_aspect(
-    patch_entity_aspect: PatchEntityAspect,
-) -> Optional[MetadataWorkUnit]:
-
-    mcp: Optional[MetadataChangeProposalClass] = patch_entity_aspect.patch()
-
-    if mcp:
-        return MetadataWorkUnit(
-            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
-        )
-
-    return None
-
-
 def convert_chart_info_to_patch(
     urn: str, aspect: ChartInfoClass, system_metadata: Optional[SystemMetadataClass]
 ) -> Optional[MetadataWorkUnit]:
     patch_builder = ChartPatchBuilder(urn, system_metadata)
 
-    patch_entity_aspect: PatchEntityAspect = PatchEntityAspect(
-        aspect=aspect,
-        patch_builder=patch_builder,
-    )
+    if aspect.customProperties:
+        for key in aspect.customProperties:
+            patch_builder.add_custom_property(
+                key, str(aspect.customProperties.get(key))
+            )
 
-    return create_mw_for_patch_aspect(patch_entity_aspect=patch_entity_aspect)
+    if aspect.inputEdges:
+        for inputEdge in aspect.inputEdges:
+            patch_builder.add_input_edge(inputEdge)
+
+    values = patch_builder.build()
+    if values:
+        mcp = next(iter(values))
+        return MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+        )
+    return None
 
 
 def convert_dashboard_info_to_patch(
@@ -133,12 +62,52 @@ def convert_dashboard_info_to_patch(
 ) -> Optional[MetadataWorkUnit]:
     patch_builder = DashboardPatchBuilder(urn, system_metadata)
 
-    patch_entity_aspect: PatchEntityAspect = PatchEntityAspect(
-        aspect=aspect,
-        patch_builder=patch_builder,
-    )
+    if aspect.customProperties:
+        for key in aspect.customProperties:
+            patch_builder.add_custom_property(
+                key, str(aspect.customProperties.get(key))
+            )
 
-    return create_mw_for_patch_aspect(patch_entity_aspect=patch_entity_aspect)
+    if aspect.datasetEdges:
+        for datasetEdge in aspect.datasetEdges:
+            patch_builder.add_dataset_edge(datasetEdge)
+
+    if aspect.chartEdges:
+        for chartEdge in aspect.chartEdges:
+            patch_builder.add_chart_edge(chartEdge)
+
+    if aspect.title:
+        patch_builder.set_title(aspect.title)
+
+    if aspect.description:
+        patch_builder.set_description(aspect.description)
+
+    if aspect.charts:
+        patch_builder.set_charts(aspect.charts)
+
+    if aspect.dashboardUrl:
+        patch_builder.set_dashboard_url(aspect.dashboardUrl)
+
+    if aspect.datasets:
+        patch_builder.set_datasets(aspect.datasets)
+
+    if aspect.access:
+        patch_builder.set_access(aspect.access)
+
+    if aspect.lastRefreshed:
+        patch_builder.set_last_refreshed(aspect.lastRefreshed)
+
+    if aspect.lastModified:
+        patch_builder.set_last_modified(last_modified=aspect.lastModified)
+
+    values = patch_builder.build()
+
+    if values:
+        mcp = next(iter(values))
+        return MetadataWorkUnit(
+            id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+        )
+    return None
 
 
 def get_fine_grained_lineage_key(fine_upstream: FineGrainedLineageClass) -> str:

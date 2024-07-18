@@ -1709,6 +1709,31 @@
         "json": [
             {
                 "op": "add",
+                "path": "/customProperties/chartCount",
+                "value": "2"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/workspaceName",
+                "value": "demo-workspace"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/workspaceId",
+                "value": "64ED5CAD-7C10-4684-8180-826122881108"
+            },
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "test_dashboard"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "Description of test dashboard"
+            },
+            {
+                "op": "add",
                 "path": "/charts",
                 "value": [
                     "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
@@ -1717,22 +1742,8 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties",
-                "value": {
-                    "chartCount": "2",
-                    "workspaceName": "demo-workspace",
-                    "workspaceId": "64ED5CAD-7C10-4684-8180-826122881108"
-                }
-            },
-            {
-                "op": "add",
                 "path": "/dashboardUrl",
                 "value": "https://localhost/dashboards/web/1"
-            },
-            {
-                "op": "add",
-                "path": "/description",
-                "value": "Description of test dashboard"
             },
             {
                 "op": "add",
@@ -1747,11 +1758,6 @@
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
-            },
-            {
-                "op": "add",
-                "path": "/title",
-                "value": "test_dashboard"
             }
         ]
     },
@@ -3136,12 +3142,23 @@
         "json": [
             {
                 "op": "add",
-                "path": "/customProperties",
-                "value": {
-                    "chartCount": "0",
-                    "workspaceName": "second-demo-workspace",
-                    "workspaceId": "64ED5CAD-7C22-4684-8180-826122881108"
-                }
+                "path": "/customProperties/chartCount",
+                "value": "0"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/workspaceName",
+                "value": "second-demo-workspace"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/workspaceId",
+                "value": "64ED5CAD-7C22-4684-8180-826122881108"
+            },
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "test_dashboard2"
             },
             {
                 "op": "add",
@@ -3161,11 +3178,6 @@
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
-            },
-            {
-                "op": "add",
-                "path": "/title",
-                "value": "test_dashboard2"
             }
         ]
     },

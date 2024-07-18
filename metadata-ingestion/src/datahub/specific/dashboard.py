@@ -3,7 +3,9 @@ from typing import Dict, List, Optional, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
+    AccessLevelClass,
     AuditStampClass,
+    ChangeAuditStampsClass,
     DashboardInfoClass as DashboardInfo,
     EdgeClass as Edge,
     GlobalTagsClass as GlobalTags,
@@ -404,4 +406,120 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             The DashboardPatchBuilder instance.
         """
         self.custom_properties_patch_helper.remove_property(key)
+        return self
+
+    def set_title(self, title: str) -> "DashboardPatchBuilder":
+        assert title, "DashboardInfo title should not be None"
+        self._add_patch(
+            DashboardInfo.ASPECT_NAME,
+            "add",
+            path="/title",
+            value=title,
+        )
+
+        return self
+
+    def set_description(self, description: str) -> "DashboardPatchBuilder":
+        assert description, "DashboardInfo description should not be None"
+        self._add_patch(
+            DashboardInfo.ASPECT_NAME,
+            "add",
+            path="/description",
+            value=description,
+        )
+
+        return self
+
+    def add_custom_properties(
+        self, custom_properties: Optional[Dict[str, str]] = None
+    ) -> "DashboardPatchBuilder":
+
+        if custom_properties:
+            for key, value in custom_properties.items():
+                self.custom_properties_patch_helper.add_property(key, value)
+
+        return self
+
+    def set_external_url(self, external_url: Optional[str]) -> "DashboardPatchBuilder":
+        if external_url:
+            self._add_patch(
+                DashboardInfo.ASPECT_NAME,
+                "add",
+                path="/externalUrl",
+                value=external_url,
+            )
+        return self
+
+    def set_charts(self, charts: Optional[List[str]]) -> "DashboardPatchBuilder":
+        if charts:
+            self._add_patch(
+                DashboardInfo.ASPECT_NAME,
+                "add",
+                path="/charts",
+                value=charts,
+            )
+
+        return self
+
+    def set_datasets(self, datasets: Optional[List[str]]) -> "DashboardPatchBuilder":
+        if datasets:
+            self._add_patch(
+                DashboardInfo.ASPECT_NAME,
+                "add",
+                path="/datasets",
+                value=datasets,
+            )
+
+        return self
+
+    def set_dashboard_url(
+        self, dashboard_url: Optional[str]
+    ) -> "DashboardPatchBuilder":
+        if dashboard_url:
+            self._add_patch(
+                DashboardInfo.ASPECT_NAME,
+                "add",
+                path="/dashboardUrl",
+                value=dashboard_url,
+            )
+
+        return self
+
+    def set_access(
+        self, access: Union[None, Union[str, "AccessLevelClass"]] = None
+    ) -> "DashboardPatchBuilder":
+        if access:
+            self._add_patch(
+                DashboardInfo.ASPECT_NAME,
+                "add",
+                path="/access",
+                value=access,
+            )
+
+        return self
+
+    def set_last_refreshed(
+        self, last_refreshed: Optional[int]
+    ) -> "DashboardPatchBuilder":
+        if last_refreshed:
+            self._add_patch(
+                DashboardInfo.ASPECT_NAME,
+                "add",
+                path="/lastRefreshed",
+                value=last_refreshed,
+            )
+
+        return self
+
+    def set_last_modified(
+        self, last_modified: "ChangeAuditStampsClass"
+    ) -> "DashboardPatchBuilder":
+        if last_modified:
+            self._add_patch(
+                DashboardInfo.ASPECT_NAME,
+                "add",
+                path="/lastModified",
+                value=last_modified,
+            )
+
         return self
