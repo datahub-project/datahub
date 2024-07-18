@@ -49,8 +49,10 @@ public class SparkConfigParser {
 
   public static final String DATASET_MATERIALIZE_KEY = "metadata.dataset.materialize";
   public static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
-  public static final String DATASET_INCLUDE_SCHEMA_METADATA =
+  public static final String DATASET_INCLUDE_SCHEMA_METADATA_DEPRECATED_ALIAS =
       "metadata.dataset.experimental_include_schema_metadata";
+  public static final String DATASET_INCLUDE_SCHEMA_METADATA =
+      "metadata.dataset.include_schema_metadata";
   public static final String SPARK_PLATFORM_INSTANCE_KEY = "platformInstance";
   public static final String REMOVE_PARTITION_PATTERN = "metadata.remove_partition_pattern";
   public static final String SPARK_APP_NAME = "spark.app.name";
@@ -296,8 +298,13 @@ public class SparkConfigParser {
   }
 
   public static boolean isIncludeSchemaMetadata(Config datahubConfig) {
-    return datahubConfig.hasPath(DATASET_INCLUDE_SCHEMA_METADATA)
-        && datahubConfig.getBoolean(DATASET_INCLUDE_SCHEMA_METADATA);
+    if (datahubConfig.hasPath(DATASET_INCLUDE_SCHEMA_METADATA)) {
+      return datahubConfig.getBoolean(DATASET_INCLUDE_SCHEMA_METADATA);
+    } else {
+      // TODO: Deprecate eventually
+      return datahubConfig.hasPath(DATASET_INCLUDE_SCHEMA_METADATA_DEPRECATED_ALIAS)
+          && datahubConfig.getBoolean(DATASET_INCLUDE_SCHEMA_METADATA_DEPRECATED_ALIAS);
+    }
   }
 
   public static String getPipelineName(Config datahubConfig, SparkAppContext appContext) {
