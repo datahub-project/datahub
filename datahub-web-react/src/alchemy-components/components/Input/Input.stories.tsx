@@ -11,7 +11,7 @@ const meta = {
     parameters: {
         layout: 'centered',
         docs: {
-            subtitle: 'Input a component that is used to get user input in a text field.',
+            subtitle: 'Input is a component that is used to get user input in a text field.',
         },
     },
     argTypes: {
@@ -134,7 +134,7 @@ const meta = {
 
 export default meta;
 
-type Story = StoryObj<typeof Input>;
+type Story = StoryObj<typeof meta>;
 
 export const sandbox: Story = {
     tags: ['dev'],

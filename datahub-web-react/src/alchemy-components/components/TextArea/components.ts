@@ -1,15 +1,14 @@
 import styled from 'styled-components';
 
-import theme, { borders, colors, radius, spacing, typography } from '@components/theme';
-
+import theme, { colors, radius, borders, spacing, typography, sizes } from '@components/theme';
 import { getStatusColors } from '@components/theme/utils';
-
-import type { InputProps } from './types';
+import { Icon, IconNames } from '../Icon';
+import { TextAreaProps } from './types';
 
 const defaultFlexStyles = {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
 };
 
 const defaultMessageStyles = {
@@ -17,23 +16,36 @@ const defaultMessageStyles = {
     fontSize: typography.fontSizes.sm,
 };
 
-export const InputWrapper = styled.div({
+export const TextAreaWrapper = styled.div({
     ...defaultFlexStyles,
-    alignItems: 'flex-start',
     flexDirection: 'column',
     width: '100%',
 });
 
-export const InputBase = styled.div(
-    ({ isSuccess, warning, isDisabled, isInvalid }: InputProps) => ({
+export const TextAreaContainer = styled.div({
+    ...defaultFlexStyles,
+    flex: 1,
+    width: '100%',
+    color: colors.gray[400], // 1st icon color
+});
+
+export const StyledIcon = styled(Icon)({
+    minWidth: '16px',
+});
+
+export const TextAreaBase = styled.div(
+    ({ isSuccess, warning, isDisabled, isInvalid }: TextAreaProps) => ({
         border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
         backgroundColor: isDisabled ? colors.gray['50'] : colors.white,
     }),
     {
         ...defaultFlexStyles,
-        width: '100%',
-        padding: `${spacing.sm} ${spacing.xsm}`,
+        position: 'relative',
+        minWidth: '160px',
+        minHeight: '64px',
+        width: sizes.full,
         borderRadius: radius.md,
+        padding: spacing.xsm,
 
         '&:focus-within': {
             borderColor: colors.violet[200],
@@ -42,30 +54,21 @@ export const InputBase = styled.div(
     },
 );
 
-export const InputContainer = styled.div({
-    ...defaultFlexStyles,
-    flex: 1,
-    color: colors.gray[400], // 1st icon color
-});
-
-export const InputField = styled.input({
+export const TextAreaField = styled.textarea<{ icon?: IconNames }>(({ icon }) => ({
     padding: spacing.none,
     border: borders.none,
-    margin: `0 ${spacing.xsm}`,
-    width: '100%',
-
-    '&::placeholder': {
-        color: colors.gray[400],
-    },
+    minWidth: icon ? '89% !important' : '-webkit-fill-available !important',
+    minHeight: '64px',
+    fontFamily: typography.fonts.body,
 
     '&:focus': {
         outline: 'none',
     },
-});
 
-export const Required = styled.span({
-    color: colors.red[500],
-});
+    '&::placeholder': {
+        color: colors.gray[400],
+    },
+}));
 
 export const Label = styled.div({
     marginBottom: spacing.xxsm,
@@ -73,6 +76,10 @@ export const Label = styled.div({
     fontSize: typography.fontSizes.md,
     textAlign: 'left',
     color: colors.gray[600],
+});
+
+export const Required = styled.span({
+    color: colors.red[500],
 });
 
 export const ErrorMessage = styled.div({
@@ -83,4 +90,10 @@ export const ErrorMessage = styled.div({
 export const WarningMessage = styled.div({
     ...defaultMessageStyles,
     color: theme.semanticTokens.colors.warning,
+});
+
+export const StyledStatusIcon = styled(Icon)({
+    position: 'absolute',
+    top: spacing.xsm,
+    right: spacing.xxsm,
 });
