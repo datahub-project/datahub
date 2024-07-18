@@ -99,6 +99,7 @@ query appConfig {
             slackBotTokensConfigEnabled
             showSeparateSiblings
             formCreationEnabled
+            schemaFieldCLLEnabled
         }
         chromeExtensionConfig {
             enabled
