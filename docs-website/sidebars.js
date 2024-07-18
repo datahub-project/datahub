@@ -424,7 +424,7 @@ module.exports = {
         },
         {
           type: "doc",
-          id: "metadata-integration/java/spark-lineage-beta/README",
+          id: "metadata-integration/java/acryl-spark-lineage/README",
           label: "Spark",
         },
         //"docker/airflow/local_airflow",
@@ -886,7 +886,7 @@ module.exports = {
     //"docs/how/graph-onboarding",
     //"docs/demo/graph-onboarding",
     //"metadata-integration/java/spark-lineage/README",
-    // "metadata-integration/java/spark-lineage-beta/README.md
+    // "metadata-integration/java/acryl-spark-lineage/README.md
     // "metadata-integration/java/openlineage-converter/README"
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"

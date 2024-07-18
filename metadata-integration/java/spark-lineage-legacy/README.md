@@ -2,7 +2,7 @@
 
 :::note
 
-This is our legacy Spark Integration which is replaced by [Acryl Spark Lineage](https://datahubproject.io/docs/metadata-integration/java/spark-lineage-beta)
+This is our legacy Spark Integration which is replaced by [Acryl Spark Lineage](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage)
 
 :::
 

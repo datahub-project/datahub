@@ -346,10 +346,23 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 
 + 
 ## Changelog
+
+### Next
+- Add Kafka emitter to emit lineage to kafka
+- Add File emitter to emit lineage to file
+- Upgrading OpenLineage to 1.18.0
+- Renaming project to acryl-datahub-spark-lineage
+- Supporting OpenLineage 1.17+ glue identifier changes
+- Removing custom
+-
+
 ### Version 0.2.14
 - Fix warning about MeterFilter warning from Micrometer
 
 ### Version 0.2.13
+-  Add kafka emitter to emit lineage to kafka
+
+### Version 0.2.12
 - Silencing some chatty warnings in RddPathUtils
 
 ### Version 0.2.11
