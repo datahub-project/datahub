@@ -25,6 +25,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
@@ -42,6 +43,10 @@ from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
+from datahub.ingestion.source.snowflake.snowflake_queries import (
+    SnowflakeQueriesExtractor,
+    SnowflakeQueriesExtractorConfig,
+)
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
@@ -56,6 +61,8 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
+    SnowflakeFilter,
+    SnowflakeIdentifierBuilder,
     SnowsightUrlBuilder,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
@@ -72,6 +79,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
+    QUERIES_EXTRACTION,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -127,9 +135,13 @@ class SnowflakeV2Source(
         super().__init__(config, ctx)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
-        self.logger = logger
 
-        self.connection = self.config.get_connection()
+        self.filters = SnowflakeFilter(
+            filter_config=self.config, structured_reporter=self.report
+        )
+        self.identifiers = SnowflakeIdentifierBuilder(
+            identifier_config=self.config, structured_reporter=self.report
+        )
 
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
@@ -137,28 +149,29 @@ class SnowflakeV2Source(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
+        self.connection = self.config.get_connection()
+
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
         self.aggregator: Optional[SqlParsingAggregator] = None
 
-        if self.config.include_table_lineage:
+        if self.config.use_queries_v2 or self.config.include_table_lineage:
             self.aggregator = SqlParsingAggregator(
-                platform=self.platform,
+                platform=self.identifiers.platform,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
-                graph=(
+                graph=self.ctx.graph,
+                eager_graph_load=(
                     # If we're ingestion schema metadata for tables/views, then we will populate
                     # schemas into the resolver as we go. We only need to do a bulk fetch
                     # if we're not ingesting schema metadata as part of ingestion.
-                    self.ctx.graph
-                    if not (
+                    (
                         self.config.include_technical_schema
                         and self.config.include_tables
                         and self.config.include_views
                     )
                     and not self.config.lazy_schema_resolver
-                    else None
                 ),
                 generate_usage_statistics=False,
                 generate_operations=False,
@@ -166,6 +179,8 @@ class SnowflakeV2Source(
             )
             self.report.sql_aggregator = self.aggregator.report
 
+        if self.config.include_table_lineage:
+            assert self.aggregator is not None
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None
@@ -180,7 +195,8 @@ class SnowflakeV2Source(
                 config,
                 self.report,
                 connection=self.connection,
-                dataset_urn_builder=self.gen_dataset_urn,
+                filters=self.filters,
+                identifiers=self.identifiers,
                 redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                 sql_aggregator=self.aggregator,
             )
@@ -201,7 +217,8 @@ class SnowflakeV2Source(
                 config,
                 self.report,
                 connection=self.connection,
-                dataset_urn_builder=self.gen_dataset_urn,
+                filter=self.filters,
+                identifiers=self.identifiers,
                 redundant_run_skip_handler=redundant_usage_run_skip_handler,
             )
 
@@ -277,10 +294,12 @@ class SnowflakeV2Source(
         capabilities: List[SourceCapability] = [c.capability for c in SnowflakeV2Source.get_capabilities() if c.capability not in (SourceCapability.PLATFORM_INSTANCE, SourceCapability.DOMAINS, SourceCapability.DELETION_DETECTION)]  # type: ignore
 
         cur = conn.query("select current_role()")
-        current_role = [row[0] for row in cur][0]
+        current_role = [row["CURRENT_ROLE()"] for row in cur][0]
 
         cur = conn.query("select current_secondary_roles()")
-        secondary_roles_str = json.loads([row[0] for row in cur][0])["roles"]
+        secondary_roles_str = json.loads(
+            [row["CURRENT_SECONDARY_ROLES()"] for row in cur][0]
+        )["roles"]
         secondary_roles = (
             [] if secondary_roles_str == "" else secondary_roles_str.split(",")
         )
@@ -299,7 +318,9 @@ class SnowflakeV2Source(
             cur = conn.query(f'show grants to role "{role}"')
             for row in cur:
                 privilege = SnowflakePrivilege(
-                    privilege=row[1], object_type=row[2], object_name=row[3]
+                    privilege=row["privilege"],
+                    object_type=row["granted_on"],
+                    object_name=row["name"],
                 )
                 privileges.append(privilege)
 
@@ -362,7 +383,7 @@ class SnowflakeV2Source(
                     roles.append(privilege.object_name)
 
         cur = conn.query("select current_warehouse()")
-        current_warehouse = [row[0] for row in cur][0]
+        current_warehouse = [row["CURRENT_WAREHOUSE()"] for row in cur][0]
 
         default_failure_messages = {
             SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them",
@@ -445,7 +466,8 @@ class SnowflakeV2Source(
             profiler=self.profiler,
             aggregator=self.aggregator,
             snowsight_url_builder=snowsight_url_builder,
-            dataset_urn_builder=self.gen_dataset_urn,
+            filters=self.filters,
+            identifiers=self.identifiers,
         )
 
         self.report.set_ingestion_stage("*", METADATA_EXTRACTION)
@@ -453,30 +475,28 @@ class SnowflakeV2Source(
 
         databases = schema_extractor.databases
 
-        self.connection.close()
-
         # TODO: The checkpoint state for stale entity detection can be committed here.
 
         if self.config.shares:
             yield from SnowflakeSharesHandler(
-                self.config, self.report, self.gen_dataset_urn
+                self.config, self.report
             ).get_shares_workunits(databases)
 
         discovered_tables: List[str] = [
-            self.get_dataset_identifier(table_name, schema.name, db.name)
+            self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.tables
         ]
         discovered_views: List[str] = [
-            self.get_dataset_identifier(table_name, schema.name, db.name)
+            self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.views
         ]
 
         if len(discovered_tables) == 0 and len(discovered_views) == 0:
-            self.report_error(
+            self.structured_reporter.failure(
                 GENERIC_PERMISSION_ERROR_KEY,
                 "No tables/views found. Please check permissions.",
             )
@@ -484,33 +504,66 @@ class SnowflakeV2Source(
 
         discovered_datasets = discovered_tables + discovered_views
 
-        if self.config.include_table_lineage and self.lineage_extractor:
-            self.report.set_ingestion_stage("*", LINEAGE_EXTRACTION)
-            yield from self.lineage_extractor.get_workunits(
-                discovered_tables=discovered_tables,
-                discovered_views=discovered_views,
+        if self.config.use_queries_v2:
+            self.report.set_ingestion_stage("*", "View Parsing")
+            assert self.aggregator is not None
+            yield from auto_workunit(self.aggregator.gen_metadata())
+
+            self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
+
+            schema_resolver = self.aggregator._schema_resolver
+
+            queries_extractor = SnowflakeQueriesExtractor(
+                connection=self.connection,
+                config=SnowflakeQueriesExtractorConfig(
+                    window=self.config,
+                    temporary_tables_pattern=self.config.temporary_tables_pattern,
+                    include_lineage=self.config.include_table_lineage,
+                    include_usage_statistics=self.config.include_usage_stats,
+                    include_operations=self.config.include_operational_stats,
+                ),
+                structured_report=self.report,
+                filters=self.filters,
+                identifiers=self.identifiers,
+                schema_resolver=schema_resolver,
             )
 
-        if (
-            self.config.include_usage_stats or self.config.include_operational_stats
-        ) and self.usage_extractor:
-            yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
+            # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
+            # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
+            # it should be pretty straightforward to refactor this and only initialize the aggregator once.
+            self.report.queries_extractor = queries_extractor.report
+            yield from queries_extractor.get_workunits_internal()
+
+        else:
+            if self.config.include_table_lineage and self.lineage_extractor:
+                self.report.set_ingestion_stage("*", LINEAGE_EXTRACTION)
+                yield from self.lineage_extractor.get_workunits(
+                    discovered_tables=discovered_tables,
+                    discovered_views=discovered_views,
+                )
+
+            if (
+                self.config.include_usage_stats or self.config.include_operational_stats
+            ) and self.usage_extractor:
+                yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(
-                self.config, self.report, self.connection
+                self.config, self.report, self.connection, self.identifiers
             ).get_assertion_workunits(discovered_datasets)
+
+        self.connection.close()
 
     def report_warehouse_failure(self) -> None:
         if self.config.warehouse is not None:
-            self.report_error(
+            self.structured_reporter.failure(
                 GENERIC_PERMISSION_ERROR_KEY,
                 f"Current role does not have permissions to use warehouse {self.config.warehouse}. Please update permissions.",
             )
         else:
-            self.report_error(
-                "no-active-warehouse",
-                "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe.",
+            self.structured_reporter.failure(
+                "Could not use a Snowflake warehouse",
+                "No default warehouse set for user. Either set a default warehouse for the user or configure a warehouse in the recipe.",
             )
 
     def get_report(self) -> SourceReport:
@@ -541,19 +594,28 @@ class SnowflakeV2Source(
             for db_row in connection.query(SnowflakeQuery.current_version()):
                 self.report.saas_version = db_row["CURRENT_VERSION()"]
         except Exception as e:
-            self.report_error("version", f"Error: {e}")
+            self.structured_reporter.failure(
+                "Could not determine the current Snowflake version",
+                exc=e,
+            )
         try:
             logger.info("Checking current role")
             for db_row in connection.query(SnowflakeQuery.current_role()):
                 self.report.role = db_row["CURRENT_ROLE()"]
         except Exception as e:
-            self.report_error("version", f"Error: {e}")
+            self.structured_reporter.failure(
+                "Could not determine the current Snowflake role",
+                exc=e,
+            )
         try:
             logger.info("Checking current warehouse")
             for db_row in connection.query(SnowflakeQuery.current_warehouse()):
                 self.report.default_warehouse = db_row["CURRENT_WAREHOUSE()"]
         except Exception as e:
-            self.report_error("current_warehouse", f"Error: {e}")
+            self.structured_reporter.failure(
+                "Could not determine the current Snowflake warehouse",
+                exc=e,
+            )
 
         try:
             logger.info("Checking current edition")

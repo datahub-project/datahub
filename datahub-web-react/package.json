@@ -89,7 +89,7 @@
         "test": "vitest",
         "generate": "graphql-codegen --config codegen.yml",
         "lint": "eslint . --ext .ts,.tsx --quiet && yarn format-check && yarn type-check",
-        "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix",
+        "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix && yarn format",
         "format-check": "prettier --check src",
         "format": "prettier --write src",
         "type-check": "tsc --noEmit",

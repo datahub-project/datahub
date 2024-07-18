@@ -83,10 +83,10 @@ class SQLCommonConfig(
         description='Attach domains to databases, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
     )
 
-    include_views: Optional[bool] = Field(
+    include_views: bool = Field(
         default=True, description="Whether views should be ingested."
     )
-    include_tables: Optional[bool] = Field(
+    include_tables: bool = Field(
         default=True, description="Whether tables should be ingested."
     )
 
