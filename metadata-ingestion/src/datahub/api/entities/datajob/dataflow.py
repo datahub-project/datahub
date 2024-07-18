@@ -111,13 +111,21 @@ class DataFlow:
         )
         return [tags]
 
+    def _get_env(self) -> Optional[str]:
+        env = None
+        if self.env is None:
+            if self.cluster not in ALL_ENV_TYPES:
+                logger.warning(
+                    f"cluster {self.cluster} is not a valid environment type so Environment filter won't work."
+                )
+            else:
+                env = self.cluster
+        else:
+            env = self.env
+        return env
+
     def generate_mce(self) -> MetadataChangeEventClass:
-        env = self.cluster
-        if self.cluster not in ALL_ENV_TYPES:
-            logger.warning(
-                f"cluster {self.cluster} is not a valid environment type so Environment filter won't work."
-            )
-            env = None
+        env = self._get_env()
         flow_mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=str(self.urn),
@@ -138,12 +146,7 @@ class DataFlow:
         return flow_mce
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
-        env = self.cluster
-        if self.cluster not in ALL_ENV_TYPES:
-            logger.warning(
-                f"cluster {self.cluster} is not a valid environment type so Environment filter won't work."
-            )
-            env = None
+        env = self._get_env()
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataFlowInfoClass(
