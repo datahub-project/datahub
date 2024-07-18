@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;

@@ -126,7 +126,7 @@ public abstract class GenericEntitiesController<
       boolean withSystemMetadata);
 
   protected abstract AspectsBatch toMCPBatch(
-      @Nonnull OperationContext opContext, String entityArrayList, Actor actor, boolean validate)
+      @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
       throws JsonProcessingException, InvalidUrnException;
 
   @Tag(name = "Generic Entities", description = "API for interacting with generic entities.")
@@ -371,8 +371,7 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "async", required = false, defaultValue = "true") Boolean async,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
-      @RequestBody @Nonnull String jsonEntityList,
-      @RequestParam(value = "validate", required = false, defaultValue = "true") Boolean validate)
+      @RequestBody @Nonnull String jsonEntityList)
       throws InvalidUrnException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
@@ -391,7 +390,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor(), validate);
+    AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
     Set<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {

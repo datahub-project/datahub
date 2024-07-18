@@ -27,9 +27,6 @@ public class RequestContext implements ContextInterface {
    */
   @Nonnull private final String requestID;
 
-  /** Used for ingestion, marks whether the aspect being ingested is going to be validated */
-  private boolean validated;
-
   @Override
   public Optional<Integer> getCacheKeyComponent() {
     return Optional.empty();
@@ -37,7 +34,7 @@ public class RequestContext implements ContextInterface {
 
   public static class RequestContextBuilder {
     private RequestContext build() {
-      return new RequestContext(this.requestAPI, this.requestID, this.validated);
+      return new RequestContext(this.requestAPI, this.requestID);
     }
 
     public RequestContext buildGraphql(@Nonnull String queryName, Map<String, Object> variables) {

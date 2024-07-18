@@ -123,7 +123,7 @@ public class EntityController
 
   @Override
   protected AspectsBatch toMCPBatch(
-      @Nonnull OperationContext opContext, String entityArrayList, Actor actor, boolean validate)
+      @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
       throws JsonProcessingException, InvalidUrnException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
 
@@ -146,7 +146,24 @@ public class EntityController
 
           AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey());
 
-          if (aspectSpec != null) {
+          if (opContext.getEnvironmentContext().isAlternateValidation()) {
+            ProposedItem.ProposedItemBuilder builder =
+                ProposedItem.builder()
+                    .metadataChangeProposal(
+                        new MetadataChangeProposal()
+                            .setEntityUrn(entityUrn)
+                            .setAspectName(aspect.getKey())
+                            .setEntityType(entityUrn.getEntityType())
+                            .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
+                            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
+                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
+                    .entitySpec(
+                        opContext
+                            .getAspectRetriever()
+                            .getEntityRegistry()
+                            .getEntitySpec(entityUrn.getEntityType()));
+            items.add(builder.build());
+          } else if (aspectSpec != null) {
             ChangeItemImpl.ChangeItemImplBuilder builder =
                 ChangeItemImpl.builder()
                     .urn(entityUrn)
@@ -167,23 +184,6 @@ public class EntityController
             }
 
             items.add(builder.build(opContext.getAspectRetrieverOpt().get()));
-          } else if (!validate) {
-            ProposedItem.ProposedItemBuilder builder =
-                ProposedItem.builder()
-                    .metadataChangeProposal(
-                        new MetadataChangeProposal()
-                            .setEntityUrn(entityUrn)
-                            .setAspectName(aspect.getKey())
-                            .setEntityType(entityUrn.getEntityType())
-                            .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
-                            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
-                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-                    .entitySpec(
-                        opContext
-                            .getAspectRetriever()
-                            .getEntityRegistry()
-                            .getEntitySpec(entityUrn.getEntityType()));
-            items.add(builder.build());
           }
         }
       }

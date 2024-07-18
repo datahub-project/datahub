@@ -81,7 +81,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
   private static final String PARAM_LATEST_VALUE = "latestValue";
   private static final String PARAM_ASYNC = "async";
-  private static final String PARAM_VALIDATE = "validate";
 
   private static final String ASYNC_INGEST_DEFAULT_NAME = "ASYNC_INGEST_DEFAULT";
   private static final String UNSET = "unset";

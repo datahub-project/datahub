@@ -38,9 +38,6 @@ This is over and above updating-datahub.md file
   Regex matching. So instead of querying `datasetProperties.customProperties` with a Regex operator to filter on a specific property
   being present you can just query `datasetProperties.customProperties.myProp`
 
-* Additional optional param on ingestProposal (Rest.li and OpenAPI) that marks a request as needing validation. Allows support of ingesting
-  non-validated proposals based on mutator logic (to be implemented).
-
 ### Environment Variables
 
 `ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY` (default: 2) - Number of concurrent rest.li calls when the number of urns in a getBatchV2 call exceeds the batch
@@ -49,6 +46,8 @@ size of 50. This is typical in metadata tests.
 `SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT` (default: false) - Whether we should
 separate siblings when fetching lineage data in search results by default.
 Typically this is false, but for Apple, we need this to be set to true.
+
+`ALTERNATE_MCP_VALIDATION` (default: false) - Enables an alternate MCP validation pathway for when we have MCPs we want to ingest only after applying a mutation hook
 
 #### Sharing
 
