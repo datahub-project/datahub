@@ -820,7 +820,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return proposals
 
-    def make_dashboard_urn(self, looker_dashboard: LookerDashboard):
+    def make_dashboard_urn(self, looker_dashboard: LookerDashboard) -> str:
         return builder.make_dashboard_urn(
             self.source_config.platform_name, looker_dashboard.get_urn_dashboard_id()
         )
