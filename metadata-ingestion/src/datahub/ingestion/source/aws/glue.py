@@ -24,6 +24,7 @@ import yaml
 from pydantic import validator
 from pydantic.fields import Field
 
+from datahub.api.entities.dataset.dataset import Dataset
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
@@ -793,14 +794,18 @@ class GlueSource(StatefulIngestionSourceBase):
         schema_metadata: SchemaMetadata,
         schema_metadata_for_s3: SchemaMetadata,
     ) -> Optional[List[FineGrainedLineageClass]]:
+        def simplify_field_path(field_path):
+            return Dataset._simplify_field_path(field_path)
+
         if schema_metadata and schema_metadata_for_s3:
             fine_grained_lineages: List[FineGrainedLineageClass] = []
             for field in schema_metadata.fields:
+                field_path_v1 = simplify_field_path(field.fieldPath)
                 matching_s3_field = next(
                     (
                         f
                         for f in schema_metadata_for_s3.fields
-                        if f.fieldPath.split(".")[-1] == field.fieldPath.split(".")[-1]
+                        if simplify_field_path(f.fieldPath) == field_path_v1
                     ),
                     None,
                 )
@@ -810,14 +815,14 @@ class GlueSource(StatefulIngestionSourceBase):
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[
                                 mce_builder.make_schema_field_urn(
-                                    dataset_urn, field.fieldPath.split(".")[-1]
+                                    dataset_urn, field_path_v1
                                 )
                             ],
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
                                 mce_builder.make_schema_field_urn(
                                     s3_dataset_urn,
-                                    matching_s3_field.fieldPath.split(".")[-1],
+                                    simplify_field_path(matching_s3_field.fieldPath),
                                 )
                             ],
                         )
