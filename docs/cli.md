@@ -178,7 +178,7 @@ I.e: Not specifying a schedule in the cli update command will remove the schedul
 
 **Basic example**
 
-To schedule a recipe called "Snowflake Integration", to run at 5am everyday, London time with the recipe configured in a local `recipe.yaml` file:
+To schedule a recipe called "Snowflake Integration", to run at 5am every day, London time with the recipe configured in a local `recipe.yaml` file:
 
 ```shell
 datahub ingest deploy --name "Snowflake Integration" --schedule "5 * * * *" --time-zone "Europe/London" -c recipe.yaml
