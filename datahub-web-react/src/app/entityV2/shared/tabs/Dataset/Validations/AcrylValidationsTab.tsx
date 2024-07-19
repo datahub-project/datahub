@@ -36,7 +36,7 @@ const DEFAULT_TAB = TabPaths.ASSERTIONS;
 export const AcrylValidationsTab = () => {
     const history = useHistory();
     const { pathname } = useLocation();
-    const { urn } = useEntityData();
+    const { urn, entityData } = useEntityData();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
     const appConfig = useAppConfig();
