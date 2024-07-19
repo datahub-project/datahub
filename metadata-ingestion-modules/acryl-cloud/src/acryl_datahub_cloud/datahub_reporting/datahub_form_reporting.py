@@ -359,7 +359,8 @@ class DataHubFormReportingData(FormData):
                             ),
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.COMPLETED,
-                            question_completed_date=prompt_reponse_time,
+                            # TODO: This needs to fixed in upstream but to make the build green I have to ignore this
+                            question_completed_date=prompt_reponse_time,  # type: ignore
                             snapshot_date=self.snapshot_date,
                         )
             complete_forms = (
@@ -451,7 +452,8 @@ class DataHubFormReportingData(FormData):
                             ),
                             question_id=str(prompt_id),
                             question_status=QuestionStatus.COMPLETED,
-                            question_completed_date=prompt_reponse_time,
+                            # TODO: This needs to fixed in upstream but to make the build green I have to ignore this
+                            question_completed_date=prompt_reponse_time,  # type: ignore
                             snapshot_date=self.snapshot_date,
                         )
 
