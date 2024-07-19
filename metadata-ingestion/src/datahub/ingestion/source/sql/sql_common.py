@@ -686,24 +686,26 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         with data_reader or contextlib.nullcontext():
             try:
                 for table in inspector.get_table_names(schema):
-                    dataset_name = self.get_identifier(
-                        schema=schema, entity=table, inspector=inspector
-                    )
-
-                    if dataset_name not in tables_seen:
-                        tables_seen.add(dataset_name)
-                    else:
-                        logger.debug(
-                            f"{dataset_name} has already been seen, skipping..."
-                        )
-                        continue
-
-                    self.report.report_entity_scanned(dataset_name, ent_type="table")
-                    if not sql_config.table_pattern.allowed(dataset_name):
-                        self.report.report_dropped(dataset_name)
-                        continue
-
                     try:
+                        dataset_name = self.get_identifier(
+                            schema=schema, entity=table, inspector=inspector
+                        )
+
+                        if dataset_name not in tables_seen:
+                            tables_seen.add(dataset_name)
+                        else:
+                            logger.debug(
+                                f"{dataset_name} has already been seen, skipping..."
+                            )
+                            continue
+
+                        self.report.report_entity_scanned(
+                            dataset_name, ent_type="table"
+                        )
+                        if not sql_config.table_pattern.allowed(dataset_name):
+                            self.report.report_dropped(dataset_name)
+                            continue
+
                         yield from self._process_table(
                             dataset_name,
                             inspector,
@@ -714,6 +716,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         )
                     except Exception as e:
                         self.warn(logger, f"{schema}.{table}", f"Ingestion error: {e}")
+                        logger.debug(
+                            f"{schema}.{table} - Ingestion error: {e}", exc_info=True
+                        )
             except Exception as e:
                 self.error(logger, f"{schema}", f"Tables error: {e}")
 
@@ -924,7 +929,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             self.warn(
                 logger,
                 dataset_name,
-                f"unable to get column information due to an error -> {e}",
+                f"unable to get column information due to an error: {e}",
+            )
+            logger.debug(
+                f"{dataset_name} - unable to get column information due to an error: {e}",
+                exc_info=True,
             )
         return columns
 
