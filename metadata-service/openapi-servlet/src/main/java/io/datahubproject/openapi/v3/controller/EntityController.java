@@ -1,7 +1,14 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+
 import com.datahub.authentication.Actor;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
@@ -23,24 +30,37 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
+import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.v3.models.GenericAspectV3;
 import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
 import io.datahubproject.openapi.v3.models.GenericEntityV3;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController("EntityControllerV3")
@@ -49,44 +69,74 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class EntityController
     extends GenericEntitiesController<
-        GenericEntityV3, GenericEntityScrollResultV3<GenericEntityV3>> {
+        GenericAspectV3, GenericEntityV3, GenericEntityScrollResultV3> {
+
+  @Tag(name = "Generic Entities")
+  @PostMapping(value = "/{entityName}/batchGet", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(summary = "Get a batch of entities")
+  public ResponseEntity<List<GenericEntityV3>> getEntityBatch(
+      HttpServletRequest httpServletRequest,
+      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
+          Boolean withSystemMetadata,
+      @RequestBody @Nonnull String jsonEntityList)
+      throws URISyntaxException, JsonProcessingException {
+
+    LinkedHashMap<Urn, Map<String, Long>> requestMap = toEntityVersionRequest(jsonEntityList);
+
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    httpServletRequest,
+                    "getEntityBatch",
+                    requestMap.keySet().stream()
+                        .map(Urn::getEntityType)
+                        .collect(Collectors.toSet())),
+            authorizationChain,
+            authentication,
+            true);
+
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        authentication, authorizationChain, READ, requestMap.keySet())) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
+    }
+
+    return ResponseEntity.of(
+        Optional.of(buildEntityVersionedAspectList(opContext, requestMap, withSystemMetadata)));
+  }
 
   @Override
-  public GenericEntityScrollResultV3<GenericEntityV3> buildScrollResult(
+  public GenericEntityScrollResultV3 buildScrollResult(
       @Nonnull OperationContext opContext,
       SearchEntityArray searchEntities,
       Set<String> aspectNames,
       boolean withSystemMetadata,
       @Nullable String scrollId)
       throws URISyntaxException {
-    return GenericEntityScrollResultV3.<GenericEntityV3>builder()
+    return GenericEntityScrollResultV3.builder()
         .entities(toRecordTemplates(opContext, searchEntities, aspectNames, withSystemMetadata))
         .scrollId(scrollId)
         .build();
   }
 
   @Override
-  protected List<GenericEntityV3> buildEntityList(
+  protected List<GenericEntityV3> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
-      List<Urn> urns,
-      Set<String> aspectNames,
+      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
       boolean withSystemMetadata)
       throws URISyntaxException {
-    if (urns.isEmpty()) {
+    if (urnAspectVersions.isEmpty()) {
       return List.of();
     } else {
-      Set<Urn> urnsSet = new HashSet<>(urns);
-
       Map<Urn, List<EnvelopedAspect>> aspects =
-          entityService.getLatestEnvelopedAspects(
-              opContext,
-              urnsSet,
-              resolveAspectNames(urnsSet, aspectNames).stream()
-                  .map(AspectSpec::getName)
-                  .collect(Collectors.toSet()),
-              false);
+          entityService.getEnvelopedVersionedAspects(
+              opContext, resolveAspectNames(urnAspectVersions, 0L), false);
 
-      return urns.stream()
+      return urnAspectVersions.keySet().stream()
           .filter(urn -> aspects.containsKey(urn) && !aspects.get(urn).isEmpty())
           .map(
               u ->
@@ -149,6 +199,62 @@ public class EntityController
         withSystemMetadata);
   }
 
+  private LinkedHashMap<Urn, Map<String, Long>> toEntityVersionRequest(
+      @Nonnull String entityArrayList) throws JsonProcessingException, InvalidUrnException {
+    JsonNode entities = objectMapper.readTree(entityArrayList);
+
+    LinkedHashMap<Urn, Map<String, Long>> items = new LinkedHashMap<>();
+    if (entities.isArray()) {
+      Iterator<JsonNode> entityItr = entities.iterator();
+      while (entityItr.hasNext()) {
+        JsonNode entity = entityItr.next();
+        if (!entity.has("urn")) {
+          throw new IllegalArgumentException("Missing `urn` field");
+        }
+        Urn entityUrn = validatedUrn(entity.get("urn").asText());
+        items.putIfAbsent(entityUrn, new HashMap<>());
+
+        Iterator<Map.Entry<String, JsonNode>> aspectItr = entity.fields();
+        while (aspectItr.hasNext()) {
+          Map.Entry<String, JsonNode> aspect = aspectItr.next();
+
+          if ("urn".equals(aspect.getKey())) {
+            continue;
+          }
+
+          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey());
+
+          if (aspectSpec != null) {
+
+            Map<String, String> headers = null;
+            if (aspect.getValue().has("headers")) {
+              headers =
+                  objectMapper.convertValue(
+                      aspect.getValue().get("headers"), new TypeReference<>() {});
+              items
+                  .get(entityUrn)
+                  .put(
+                      aspectSpec.getName(),
+                      Long.parseLong(headers.getOrDefault(HTTP_HEADER_IF_VERSION_MATCH, "0")));
+            } else {
+              items.get(entityUrn).put(aspectSpec.getName(), 0L);
+            }
+          }
+        }
+
+        // handle no aspects specified, default latest version
+        if (items.get(entityUrn).isEmpty()) {
+          for (AspectSpec aspectSpec :
+              entityRegistry.getEntitySpec(entityUrn.getEntityType()).getAspectSpecs()) {
+            items.get(entityUrn).put(aspectSpec.getName(), 0L);
+          }
+        }
+      }
+    }
+
+    return items;
+  }
+
   @Override
   protected AspectsBatch toMCPBatch(
       @Nonnull OperationContext opContext, String entityArrayList, Actor actor)
@@ -184,6 +290,12 @@ public class EntityController
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata")));
               ((ObjectNode) aspect.getValue()).remove("systemMetadata");
             }
+            Map<String, String> headers = null;
+            if (aspect.getValue().has("headers")) {
+              headers =
+                  objectMapper.convertValue(
+                      aspect.getValue().get("headers"), new TypeReference<>() {});
+            }
 
             ChangeItemImpl.ChangeItemImplBuilder builder =
                 ChangeItemImpl.builder()
@@ -191,10 +303,11 @@ public class EntityController
                     .aspectName(aspectSpec.getName())
                     .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
                     .systemMetadata(systemMetadata)
+                    .headers(headers)
                     .recordTemplate(
                         GenericRecordUtils.deserializeAspect(
                             ByteString.copyString(
-                                objectMapper.writeValueAsString(aspect.getValue()),
+                                objectMapper.writeValueAsString(aspect.getValue().get("value")),
                                 StandardCharsets.UTF_8),
                             GenericRecordUtils.JSON,
                             aspectSpec));

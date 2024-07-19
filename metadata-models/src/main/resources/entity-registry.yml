@@ -110,6 +110,7 @@ entities:
       - dataProcessInstanceProperties
       - dataProcessInstanceRelationships
       - dataProcessInstanceRunEvent
+      - status
   - name: chart
     category: core
     keyAspect: chartKey
@@ -503,6 +504,7 @@ entities:
     aspects:
       - queryProperties
       - querySubjects
+      - queryUsageStatistics
       - status
       - dataPlatformInstance
       - subTypes
@@ -541,6 +543,11 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
+  - name: dataHubPersona
+    category: internal
+    keyAspect: dataHubPersonaKey
+    aspects:
+      - dataHubPersonaInfo
   - name: entityType
     doc: A type of entity in the DataHub Metadata Model.
     category: core
@@ -613,6 +620,18 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
+    - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
+      enabled: true
+      supportedOperations:
+        - CREATE
+        - CREATE_ENTITY
+        - DELETE
+        - UPSERT
+        - UPDATE
+        - PATCH
+      supportedEntityAspectNames:
+        - entityName: '*'
+          aspectName: '*'
   mcpSideEffects:
     - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
       packageScan:
@@ -646,3 +665,9 @@ plugins:
           aspectName: 'schemaMetadata'
         - entityName: '*'
           aspectName: 'editableSchemaMetadata'
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins

@@ -107,7 +107,7 @@ Cypress.Commands.add("goToAccessTokenSettings", () => {
 
 Cypress.Commands.add("goToIngestionPage", () => {
   cy.visit("/ingestion");
-  cy.waitTextVisible("Manage Ingestion");
+  cy.waitTextVisible("Manage Data Sources");
 });
 
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
@@ -196,6 +196,21 @@ Cypress.Commands.add("clickFirstOptionWithText", (text) => {
 
 Cypress.Commands.add("clickOptionWithTextToScrollintoView", (text) => {
   cy.contains(text).scrollIntoView().click();
+});
+
+Cypress.Commands.add("clickOptionInScrollView", (text, selector) => {
+  cy.get(selector).within(() => {
+    cy.contains(text).then((el) => {
+      // Scroll the element into view with options for better alignment
+      el[0].scrollIntoView({ block: "center", inline: "nearest" });
+
+      // Wrap the element for further chaining with Cypress commands
+      cy.wrap(el)
+        .should("be.visible") // Wait until the element is visible
+        .should("not.be.disabled") // Ensure the element is not disabled
+        .click({ force: true }); // Force click if necessary
+    });
+  });
 });
 
 Cypress.Commands.add("deleteFromDropdown", () => {

@@ -51,10 +51,18 @@ know.
 | Feature | DataHub | Acryl DataHub |
 | ---------------------------------------------- | ------- | ------------- |
 | Surface data quality results | ✅ | ✅ |
-| Build and enforce continuous data SLAs | ❌ | ✅ |
-| Continuous monitoring of dataset health | ❌ | ✅ |
-| Data observability alerts and notifications | ❌ | ✅ |
-| Data Incident management | ❌ | ✅ |
+| Create data contracts | ✅ | ✅ |
+| Raise and Resolve Data Incidents | ✅ | ✅ |
+| Monitor Freshness SLAs | ❌ | ✅ |
+| Monitor Table Schemas | ❌ | ✅ |
+| Monitor Table Volume | ❌ | ✅ |
+| Monitor Table Column Integrity | ❌ | ✅ |
+| Monitor Table with Custom SQL | ❌ | ✅ |
+| Receive Notifications via Email & Slack | ❌ | ✅ |
+| Manage Data Incidents via Slack | ❌ | ✅ |
+| View Data Health Dashboard | ❌ | ✅ |
+| Evaluate data quality checks on-demand (API + UI) | ❌ | ✅ |
+| Evaluate data quality checks in your VPC | ❌ | ✅ |
 
 
 ## Enterprise Grade
@@ -108,7 +116,7 @@ Fill out
 
 ## Additional Integrations
 
-- [Slack Integration](docs/managed-datahub/saas-slack-setup.md)
+- [Slack Integration](docs/managed-datahub/slack/saas-slack-setup.md)
 - [Remote Ingestion Executor](docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md)
 - [AWS Privatelink](docs/managed-datahub/integrations/aws-privatelink.md)
 - [AWS Eventbridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)

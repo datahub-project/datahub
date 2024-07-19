@@ -66,6 +66,8 @@ public class DatasetVisitor
   @Builder.Default
   private final ProtobufModelVisitor<Deprecation> deprecationVisitor = new DeprecationVisitor();
 
+  @Builder.Default private final boolean enableProtocCustomProperty = false;
+
   @Override
   public Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> visitGraph(
       VisitContext context) {
@@ -92,7 +94,9 @@ public class DatasetVisitor
                     .setCustomProperties(
                         new StringMap(
                             Stream.concat(
-                                    Stream.of(Map.entry("protoc", protocBase64)),
+                                    enableProtocCustomProperty
+                                        ? Stream.of(Map.entry("protoc", protocBase64))
+                                        : Stream.empty(),
                                     g.accept(context, datasetPropertyVisitors)
                                         .flatMap(
                                             props ->

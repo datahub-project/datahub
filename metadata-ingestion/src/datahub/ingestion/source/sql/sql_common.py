@@ -129,8 +129,6 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-MISSING_COLUMN_INFO = "missing column information"
-
 
 @dataclass
 class SQLSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
@@ -940,7 +938,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.warn(logger, MISSING_COLUMN_INFO, dataset_name)
+                self.warn(logger, "missing column information", dataset_name)
         except Exception as e:
             logger.error(traceback.format_exc())
             self.warn(
@@ -1290,13 +1288,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 tables_seen.add(dataset_name)
             else:
                 logger.debug(f"{dataset_name} has already been seen, skipping...")
-                continue
-
-            missing_column_info_warn = self.report.warnings.get(MISSING_COLUMN_INFO)
-            if (
-                missing_column_info_warn is not None
-                and dataset_name in missing_column_info_warn
-            ):
                 continue
 
             (partition, custom_sql) = self.generate_partition_profiler_query(

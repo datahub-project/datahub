@@ -99,11 +99,11 @@ usage_common = {
 sqlglot_lib = {
     # Using an Acryl fork of sqlglot.
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==24.0.1.dev7",
+    "acryl-sqlglot[rs]==25.3.1.dev3",
 }
 
 classification_lib = {
-    "acryl-datahub-classify==0.0.10",
+    "acryl-datahub-classify==0.0.11",
     # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
     # we need pip to be available.
     "pip",
@@ -163,9 +163,9 @@ looker_common = {
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.4",
-    "sql-metadata==2.2.2",
-    *sqllineage_lib,
+    *sqlglot_lib,
     "GitPython>2",
+    "python-liquid",
 }
 
 bigquery_common = {
@@ -258,6 +258,19 @@ s3_base = {
     *path_spec_common,
 }
 
+abs_base = {
+    "azure-core==1.29.4",
+    "azure-identity>=1.14.0",
+    "azure-storage-blob>=12.19.0",
+    "azure-storage-file-datalake>=12.14.0",
+    "more-itertools>=8.12.0",
+    "pyarrow>=6.0.1",
+    "smart-open[azure]>=5.2.1",
+    "tableschema>=1.20.2",
+    "ujson>=5.2.0",
+    *path_spec_common,
+}
+
 data_lake_profiling = {
     "pydeequ~=1.1.0",
     "pyspark~=3.3.0",
@@ -265,6 +278,7 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
+    *abs_base,
     # Version 0.18.0 broken on ARM Macs: https://github.com/delta-io/delta-rs/issues/2577
     "deltalake>=0.6.3, != 0.6.4, < 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
@@ -350,7 +364,13 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
+        "dask[dataframe]<2024.7.0",
+        # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
+        # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
+        # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+        "numpy<2",
     },
+    "grafana": {"requests"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -412,10 +432,12 @@ plugins: Dict[str, Set[str]] = {
     | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
+    "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-summary": snowflake_common | usage_common | sqlglot_lib,
+    "snowflake-queries": snowflake_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
@@ -518,7 +540,7 @@ base_dev_requirements = {
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
-    "mypy==1.0.0",
+    "mypy==1.10.1",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
@@ -534,6 +556,7 @@ base_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "abs",
             "athena",
             "bigquery",
             "clickhouse",
@@ -622,6 +645,7 @@ full_test_dev_requirements = {
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
+        "abs = datahub.ingestion.source.abs.source:ABSSource",
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",
@@ -640,6 +664,7 @@ entry_points = {
         "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
+        "grafana = datahub.ingestion.source.grafana.grafana_source:GrafanaSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
@@ -668,6 +693,7 @@ entry_points = {
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
+        "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
@@ -722,6 +748,7 @@ entry_points = {
         "replace_external_url = datahub.ingestion.transformer.replace_external_url:ReplaceExternalUrl",
         "pattern_cleanup_dataset_usage_user = datahub.ingestion.transformer.pattern_cleanup_dataset_usage_user:PatternCleanupDatasetUsageUser",
         "domain_mapping_based_on_tags = datahub.ingestion.transformer.dataset_domain_based_on_tags:DatasetTagDomainMapper",
+        "tags_to_term = datahub.ingestion.transformer.tags_to_terms:TagsToTermMapper",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -740,6 +767,11 @@ entry_points = {
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
     "datahub.custom_packages": [],
+    "datahub.fs.plugins": [
+        "s3 = datahub.ingestion.fs.s3_fs:S3FileSystem",
+        "file = datahub.ingestion.fs.local_fs:LocalFileSystem",
+        "http = datahub.ingestion.fs.http_fs:HttpFileSystem",
+    ],
 }
 
 

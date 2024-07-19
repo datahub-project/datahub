@@ -64,6 +64,16 @@ source:
     # extract powerbi dataset table schema
     extract_dataset_schema: true
 
+    # Enable PowerBI dataset profiling
+    profiling:
+      enabled: false
+    # Pattern to limit which resources to profile
+    # Matched resource format is following:
+    # workspace_name.dataset_name.table_name
+    profile_pattern:
+      deny:
+        - .*
+
 
 sink:
   # sink configs
