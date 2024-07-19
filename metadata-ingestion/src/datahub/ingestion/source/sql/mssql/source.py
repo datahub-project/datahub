@@ -538,20 +538,28 @@ class SQLServerSource(SQLAlchemySource):
             """
         )
 
-        for row in _dependencies:
-            _key = (
-                f"{row['current_db']}.{row['procedure_schema']}.{row['procedure_name']}"
-            )
-            _procedures_dependencies.setdefault(_key, []).append(
-                {
-                    "referenced_database_name": row["referenced_database_name"],
-                    "referenced_schema_name": row["referenced_schema_name"],
-                    "referenced_entity_name": row["referenced_entity_name"],
-                    "referenced_object_type": row["referenced_object_type"],
-                    "is_selected": row["is_selected"],
-                    "is_updated": row["is_updated"],
-                }
-            )
+        for row in _dependencies.all():
+            # PAY ATTENTION:
+            # at 19.07.2024 self.get_db_name method converts db name to lowercase forcely:
+            # return str(engine.url.database).strip('"').lower()
+            # to avoid inconsistency, referenced_database_name in this module repeats the same behavior
+            # remove after fixing
+            if row:
+                _key = (
+                    f"{row['current_db'].lower()}.{row['procedure_schema']}.{row['procedure_name']}"
+                )
+
+                _procedures_dependencies.setdefault(_key, []).append(
+                    {
+                        "referenced_database_name": row["referenced_database_name"].lower(),
+                        "referenced_schema_name": row["referenced_schema_name"],
+                        "referenced_entity_name": row["referenced_entity_name"],
+                        "referenced_object_type": row["referenced_object_type"],
+                        "is_selected": int(row["is_selected"]),
+                        "is_select_all": int(row["is_select_all"]),
+                        "is_updated": int(row["is_updated"]),
+                    }
+                )
 
         trans.commit()
 
@@ -883,9 +891,8 @@ class SQLServerSource(SQLAlchemySource):
                     schema=dependency["referenced_schema_name"],
                     name=dependency["referenced_entity_name"],
                     type=dependency["referenced_object_type"],
-                    incoming=int(dependency["is_selected"])
-                    or int(dependency["is_select_all"]),
-                    outgoing=int(dependency["is_updated"]),
+                    incoming=dependency["is_selected"] or dependency["is_select_all"],
+                    outgoing=dependency["is_updated"],
                     env=procedure.flow.env,
                     server=procedure.flow.platform_instance,
                 )
