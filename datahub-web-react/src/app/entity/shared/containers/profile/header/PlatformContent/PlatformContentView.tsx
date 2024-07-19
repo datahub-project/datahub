@@ -12,6 +12,7 @@ import {
     StyledTooltip,
 } from './ParentNodesView';
 import ParentEntities from '../../../../../../search/filters/ParentEntities';
+import { useIsShowSeparateSiblingsEnabled } from '../../../../../../useAppConfig';
 
 export const LogoIcon = styled.span`
     display: flex;
@@ -100,6 +101,10 @@ function PlatformContentView(props: Props) {
     const directParentContainer = parentContainers && parentContainers[0];
     const remainingParentContainers = parentContainers && parentContainers.slice(1, parentContainers.length);
 
+    const shouldShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const showSiblingPlatformLogos = !shouldShowSeparateSiblings && !!platformLogoUrls;
+    const showSiblingPlatformNames = !shouldShowSeparateSiblings && !!platformNames;
+
     return (
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
@@ -110,10 +115,10 @@ function PlatformContentView(props: Props) {
             {platformName && (
                 <LogoIcon>
                     {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
-                    {!!platformLogoUrl && !platformLogoUrls && (
+                    {!!platformLogoUrl && !showSiblingPlatformLogos && (
                         <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
                     )}
-                    {!!platformLogoUrls &&
+                    {showSiblingPlatformLogos &&
                         platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
                             <>
                                 <PreviewImage preview={false} src={platformLogoUrlsEntry || ''} alt={platformName} />
@@ -122,7 +127,7 @@ function PlatformContentView(props: Props) {
                 </LogoIcon>
             )}
             <PlatformText>
-                {platformNames ? platformNames.join(' & ') : platformName}
+                {showSiblingPlatformNames ? platformNames.join(' & ') : platformName}
                 {(directParentContainer || instanceId) && <StyledRightOutlined data-testid="right-arrow" />}
             </PlatformText>
             {instanceId && (
