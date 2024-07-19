@@ -3490,6 +3490,11 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
     Cached, potentially stale information about the entity's lineage.
     """
     lineageFeatures: LineageFeatures
+
+    """
+    The status of the SchemaFieldEntity
+    """
+    status: Status
 }
 
 """

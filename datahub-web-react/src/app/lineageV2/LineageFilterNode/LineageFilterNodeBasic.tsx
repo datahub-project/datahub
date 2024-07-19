@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 import { getFilterIconAndLabel } from '../../searchV2/filters/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
 import { useEntityRegistryV2 } from '../../useEntityRegistry';
-import { isUrnTransformational, LineageFilter } from '../common';
+import { LineageFilter } from '../common';
 import { useAvoidIntersectionsOften } from '../LineageEntityNode/useAvoidIntersections';
 import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
 import useFetchFilterNodeContents, { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
@@ -73,15 +73,9 @@ const PillColumn = styled.div`
 
 export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     const { id, data } = props;
-    const { contents, shown, numShown, limit } = data;
+    const { parent, direction, contents, shown, numShown, limit } = data;
 
-    const entityRegistry = useEntityRegistryV2();
-    const nonTransformationalContents = useMemo(
-        () => contents.filter((urn) => !isUrnTransformational(urn, entityRegistry)),
-        [contents, entityRegistry],
-    );
-
-    const { platforms, subtypes } = useFetchFilterNodeContents(nonTransformationalContents);
+    const { total, platforms, subtypes } = useFetchFilterNodeContents(parent, direction);
 
     useAvoidIntersectionsOften(id, 52);
 
@@ -93,10 +87,10 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             <CustomHandle type="source" position={Position.Right} isConnectable={false} />
             <TitleWrapper>
                 <Title>
-                    <TitleCount>{numShown || shown.size}</TitleCount> of{' '}
-                    <TitleCount>{nonTransformationalContents.length}</TitleCount> shown
+                    <TitleCount>{numShown ?? shown.size}</TitleCount> of{' '}
+                    <TitleCount>{total ?? contents.length}</TitleCount> shown
                 </Title>
-                {limit !== nonTransformationalContents.length && <ShowMoreButton id={id} data={data} />}
+                {limit < contents.length && <ShowMoreButton id={id} data={data} />}
             </TitleWrapper>
             <PillsWrapper>
                 <PillColumn>

@@ -1,10 +1,15 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Pagination, Spin, Typography } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import LanguageIcon from '@mui/icons-material/Language';
 import { SearchCfg } from '../../../../../../conf';
-import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
+import {
+    DataHubView,
+    FacetFilterInput,
+    FacetMetadata,
+    SearchResults as SearchResultType,
+} from '../../../../../../types.generated';
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
 import { UnionType } from '../../../../../search/utils/constants';
@@ -16,6 +21,7 @@ const SearchBody = styled.div`
     height: 100%;
     overflow-y: auto;
     display: flex;
+    background-color: ${REDESIGN_COLORS.BORDER_3};
 `;
 
 const PaginationInfo = styled(Typography.Text)`
@@ -38,16 +44,6 @@ const ResultContainer = styled.div`
     flex: 1;
     position: relative;
     width: 100%;
-    &::-webkit-scrollbar {
-        height: 12px;
-        width: 5px;
-        background: #f2f2f2;
-    }
-    &::-webkit-scrollbar-thumb {
-        background: #cccccc;
-        -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
-    }
 `;
 
 const PaginationInfoContainer = styled.span`
@@ -80,18 +76,12 @@ const StyledLoading = styled(LoadingOutlined)`
 `;
 
 const ViewsContainer = styled.div`
+    background-color: ${REDESIGN_COLORS.BORDER_2};
     padding: 10px 16px;
     width: 100%;
-    background-color: #e9eaee;
     display: flex;
     align-items: center;
     gap: 1rem;
-`;
-
-const ViewsWrapper = styled.div`
-    padding: 0px 16px;
-    background: ${REDESIGN_COLORS.WHITE};
-    transition: 0.5s ease-in;
 `;
 
 const Pill = styled.div<{ selected?: boolean }>`
@@ -152,12 +142,12 @@ interface Props {
     entityAction?: React.FC<EntityActionProps>;
     applyView?: boolean;
     selectedViewUrn?: string;
-    setSelectedUrn?: (selectedViewUrn: string | undefined) => void;
+    setSelectedViewUrn?: (selectedViewUrn: string | undefined) => void;
     compactUserSearchCardStyle?: boolean;
     defaultViewUrn?: string | undefined;
     defaultViewCount?: number;
     allSearchCount?: number;
-    view?: any;
+    view?: DataHubView;
     errorMessage?: string;
 }
 
@@ -181,7 +171,7 @@ export const EmbeddedListSearchResults = ({
     applyView,
     compactUserSearchCardStyle,
     selectedViewUrn,
-    setSelectedUrn,
+    setSelectedViewUrn,
     defaultViewUrn,
     defaultViewCount = 0,
     allSearchCount = 0,
@@ -192,14 +182,6 @@ export const EmbeddedListSearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-
-    const [selectedViewName, setSelectedViewName] = useState<string | undefined>();
-
-    useEffect(() => {
-        if (view) {
-            setSelectedViewName(view?.urn === selectedViewUrn ? view?.name : undefined);
-        }
-    }, [selectedViewUrn, setSelectedViewName, view]);
 
     return (
         <>
@@ -219,30 +201,28 @@ export const EmbeddedListSearchResults = ({
 
                 <ResultContainer>
                     {view && (
-                        <ViewsWrapper>
-                            <ViewsContainer>
-                                <ViewLabel>View</ViewLabel>
+                        <ViewsContainer>
+                            <ViewLabel>View</ViewLabel>
+                            <Pill
+                                selected={!selectedViewUrn}
+                                onClick={() => setSelectedViewUrn && setSelectedViewUrn(undefined)}
+                            >
+                                <LanguageIconStyle selected={!selectedViewUrn} />
+                                <span>All</span>
+                                {allSearchCount > 0 && <Count selected={!selectedViewUrn}>{allSearchCount}</Count>}
+                            </Pill>
+                            {defaultViewUrn === view.urn && (
                                 <Pill
-                                    selected={!selectedViewName}
-                                    onClick={() => setSelectedUrn && setSelectedUrn(undefined)}
+                                    selected={selectedViewUrn === view?.urn}
+                                    onClick={() => view?.urn && setSelectedViewUrn && setSelectedViewUrn(view?.urn)}
                                 >
-                                    <LanguageIconStyle selected={!selectedViewName} />
-                                    <span>All</span>
-                                    {allSearchCount > 0 && <Count selected={!selectedViewName}>{allSearchCount}</Count>}
+                                    <span>{view?.name}</span>
+                                    {defaultViewCount > 0 && (
+                                        <Count selected={selectedViewUrn === view?.urn}>{defaultViewCount}</Count>
+                                    )}
                                 </Pill>
-                                {defaultViewUrn === view.urn && (
-                                    <Pill
-                                        selected={selectedViewName === view?.name}
-                                        onClick={() => view?.urn && setSelectedUrn && setSelectedUrn(view?.urn)}
-                                    >
-                                        <span>{view?.name}</span>
-                                        {defaultViewCount > 0 && (
-                                            <Count selected={selectedViewName === view?.name}>{defaultViewCount}</Count>
-                                        )}
-                                    </Pill>
-                                )}
-                            </ViewsContainer>
-                        </ViewsWrapper>
+                            )}
+                        </ViewsContainer>
                     )}
                     {loading && (
                         <LoadingContainer>
@@ -257,8 +237,7 @@ export const EmbeddedListSearchResults = ({
                                 searchResponse?.searchResults?.map((searchResult) => ({
                                     // when we add impact analysis, we will want to pipe the path to each element to the result this
                                     // eslint-disable-next-line @typescript-eslint/dot-notation
-                                    degree: searchResult['degree'],
-                                    // eslint-disable-next-line @typescript-eslint/dot-notation
+                                    degree: searchResult['degree'], // eslint-disable-next-line @typescript-eslint/dot-notation
                                     paths: searchResult['paths'],
                                 })) || []
                             }
@@ -289,7 +268,15 @@ export const EmbeddedListSearchResults = ({
                     onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                     pageSizeOptions={['10', '20', '50', '100']}
                 />
-                {applyView ? <MatchingViewsLabel /> : <span />}
+                {applyView ? (
+                    <MatchingViewsLabel
+                        view={view}
+                        selectedViewUrn={selectedViewUrn}
+                        setSelectedViewUrn={setSelectedViewUrn}
+                    />
+                ) : (
+                    <span />
+                )}
             </PaginationInfoContainer>
         </>
     );

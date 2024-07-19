@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
 import static com.linkedin.datahub.graphql.AcrylConstants.INGESTION_SOURCE_EXECUTOR_CLI;
+import static com.linkedin.metadata.Constants.DEFAULT_EXECUTOR_ID;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
@@ -180,7 +181,11 @@ public class IngestionResolverUtils {
     final IngestionConfig result = new IngestionConfig();
     result.setRecipe(config.getRecipe());
     result.setVersion(config.getVersion());
-    result.setExecutorId(config.getExecutorId());
+    if (config.hasExecutorId()) {
+      result.setExecutorId(config.getExecutorId());
+    } else {
+      result.setExecutorId(DEFAULT_EXECUTOR_ID);
+    }
     result.setDebugMode(config.isDebugMode());
     if (config.getExtraArgs() != null) {
       List<StringMapEntry> extraArgs =

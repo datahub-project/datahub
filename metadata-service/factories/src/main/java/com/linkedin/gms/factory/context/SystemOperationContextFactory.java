@@ -17,7 +17,6 @@ import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -25,10 +24,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class SystemOperationContextFactory {
-
-  @Autowired
-  @Qualifier("baseElasticSearchComponents")
-  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
   /**
    * Used inside GMS
@@ -45,7 +40,9 @@ public class SystemOperationContextFactory {
       @Nonnull final EntityService<?> entityService,
       @Nonnull final RestrictedService restrictedService,
       @Nonnull final GraphRetriever graphRetriever,
-      @Nonnull final SearchService searchService) {
+      @Nonnull final SearchService searchService,
+      @Qualifier("baseElasticSearchComponents")
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -91,7 +88,9 @@ public class SystemOperationContextFactory {
       @Nonnull final OperationContextConfig operationContextConfig,
       @Nonnull final RestrictedService restrictedService,
       @Nonnull final GraphRetriever graphRetriever,
-      @Nonnull final SearchService searchService) {
+      @Nonnull final SearchService searchService,
+      @Qualifier("baseElasticSearchComponents")
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
 
     EntityClientAspectRetriever entityServiceAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();

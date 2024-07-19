@@ -35,9 +35,9 @@ const deleteQuery = () => {
   cy.waitTextVisible("Deleted Query!");
 };
 
-const verifyViewCardDetails = (query, index) => {
+const verifyViewCardDetails = (query) => {
   cy.get('[data-testid="query-content-undefined"]')
-    .eq(index)
+    .first()
     .should("be.visible")
     .click();
   cy.get(".ant-modal-content").waitTextVisible(query);
@@ -47,6 +47,7 @@ describe("manage queries", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
+    cy.wait(3000);
     cy.handleIntroducePage();
     cy.goToDataset(DATASET_URN, "SampleCypressHdfsDataset");
     cy.get("body").click();
@@ -59,15 +60,16 @@ describe("manage queries", () => {
     cy.waitTextVisible(`+ Test Query-${runId}`);
     cy.waitTextVisible(`Test Table-${runId}`);
     cy.waitTextVisible(`Test Description-${runId}`);
-    cy.waitTextVisible("Date Created");
-    verifyViewCardDetails(`+ Test Query-${runId}`, 1);
+    cy.waitTextVisible("Created Query!");
+    cy.ensureTextNotPresent("Created Query!");
+    verifyViewCardDetails(`+ Test Query-${runId}`);
   });
 
   it("go to queries tab on dataset page then edit the query and verify edited Query card", () => {
     editQuery();
     cy.waitTextVisible(`Edited Table-${runId}`);
     cy.waitTextVisible(`Edited Description-${runId}`);
-    verifyViewCardDetails(`+ Test Query-${runId} + Edited Query-${runId}`, 0);
+    verifyViewCardDetails(`+ Test Query-${runId} + Edited Query-${runId}`);
   });
 
   it("go to queries tab on dataset page then delete the query and verify that query should be gone", () => {

@@ -1,10 +1,11 @@
 import React from 'react';
 import { Tooltip } from 'antd';
-import { ExclamationCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import { CloseCircleOutlined, ExclamationCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import InfoIcon from '@mui/icons-material/Info';
 import SwapVertOutlinedIcon from '@mui/icons-material/SwapVertOutlined';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { WARNING_COLOR_HEX } from '@src/app/entity/shared/tabs/Incident/incidentUtils';
 import { Link } from 'react-router-dom';
 import { useEntityContext } from '../../../../../../entity/shared/EntityContext';
 import AcrylIcon from '../../../../../../../images/acryl-logo.svg?react';
@@ -15,7 +16,7 @@ import { REDESIGN_COLORS } from '../../../../constants';
 import ShareIcon from '../../../../../../../images/share-icon-custom.svg?react';
 import SharedLineageIcon from './SharedLineageIcon';
 import useShareResultsPolling from './useShareResultsPolling';
-import { getRelativeTimeColor, getShareResultStatus } from './utils';
+import { getRelativeTimeColor, getSharedItemInfo } from './utils';
 import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
 
 const StyledShareIcon = styled(ShareIcon)`
@@ -61,10 +62,7 @@ const Content = styled.div`
     display: flex;
     gap: 6px;
     align-items: center;
-
-    svg {
-        color: ${REDESIGN_COLORS.DARK_GREY};
-    }
+    flex-wrap: wrap;
 `;
 
 const Icon = styled.div`
@@ -82,8 +80,13 @@ const StyledLoading = styled(LoadingOutlined)`
     margin-left: 8px;
 `;
 
-const StyledExclamation = styled(ExclamationCircleOutlined)`
+const StyledFailure = styled(CloseCircleOutlined)`
     color: ${REDESIGN_COLORS.RED_ERROR};
+    margin: -2px 0 0 8px;
+`;
+
+const StyledExclamation = styled(ExclamationCircleOutlined)`
+    color: ${WARNING_COLOR_HEX};
     margin: -2px 0 0 8px;
 `;
 
@@ -100,30 +103,20 @@ const SharingList = ({ resultsList }: Props) => {
         <ResultsContainer>
             {resultsList.map((result) => {
                 const hasDestination = !!result.destination;
-                const name = result?.destination?.details.name || result.destination?.urn || 'Deleted connection';
-                const hasSharedLineage =
-                    result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
-                const lastSuccessTime = result.lastSuccess?.time || 0;
-                const unshareResult = entityData?.share?.lastUnshareResults?.find(
-                    (r) =>
-                        r.destination?.urn === result.destination?.urn &&
-                        r.implicitShareEntity?.urn === result.implicitShareEntity?.urn,
-                );
-                const isShareMoreRecent = (result?.statusLastUpdated || 1) > (unshareResult?.statusLastUpdated || 0);
-                const { isInProgress: isSharing, failed: failedToShare } = isShareMoreRecent
-                    ? getShareResultStatus(result)
-                    : { isInProgress: false, failed: false };
-                const { isInProgress: isUnsharing, failed: failedToUnshare } = isShareMoreRecent
-                    ? { isInProgress: false, failed: false }
-                    : getShareResultStatus(unshareResult);
-                const platform = (result as any)?.implicitShareEntity?.platform;
-                const implicitShareEntity = result?.implicitShareEntity;
-                const linkedEntityName = implicitShareEntity
-                    ? entityRegistry.getDisplayName(implicitShareEntity?.type, implicitShareEntity)
-                    : '';
-                const linkedEntityUrl = implicitShareEntity
-                    ? entityRegistry.getEntityUrl(implicitShareEntity.type, implicitShareEntity.urn)
-                    : null;
+                const { message } = result;
+                const {
+                    linkedEntityUrl,
+                    linkedEntityName,
+                    hasSharedLineage,
+                    isInProgress,
+                    isUnsharing,
+                    hasFailed,
+                    failedToUnshare,
+                    partialSuccess,
+                    lastSuccessTime,
+                    lastAttempt,
+                    name,
+                } = getSharedItemInfo({ shareResult: result, entityData, entityRegistry });
 
                 return (
                     <DetailsContainer key={name}>
@@ -133,7 +126,10 @@ const SharingList = ({ resultsList }: Props) => {
                                 {!!result.implicitShareEntity && (
                                     <>
                                         <LabelText>From:</LabelText>
-                                        <PlatformIcon platform={platform} size={14} />
+                                        <PlatformIcon
+                                            platform={(result as any)?.implicitShareEntity?.platform}
+                                            size={14}
+                                        />
                                         <ContentText>
                                             {' '}
                                             <Link to={linkedEntityUrl}>{linkedEntityName}</Link>
@@ -152,13 +148,24 @@ const SharingList = ({ resultsList }: Props) => {
                                             <SharedLineageIcon result={result} size={14} />
                                         </LineageIconWrapper>
                                     )}
-                                    {(isSharing || isUnsharing) && (
+                                    {isInProgress && (
                                         <Tooltip title={isUnsharing ? 'Unsharing asset...' : 'Sharing asset...'}>
                                             <StyledLoading />
                                         </Tooltip>
                                     )}
-                                    {!(isSharing || isUnsharing) && (failedToShare || failedToUnshare) && (
-                                        <Tooltip title={failedToUnshare ? 'Failed to unshare' : 'Failed to share'}>
+                                    {!isInProgress && hasFailed && (
+                                        <Tooltip
+                                            title={
+                                                failedToUnshare
+                                                    ? `Failed to unshare asset${message ? `: ${message}` : ''}`
+                                                    : `Failed to share asset${message ? `: ${message}` : ''}`
+                                            }
+                                        >
+                                            <StyledFailure />
+                                        </Tooltip>
+                                    )}
+                                    {!isInProgress && partialSuccess && (
+                                        <Tooltip title={message || 'Successfully shared asset with some warnings'}>
                                             <StyledExclamation />
                                         </Tooltip>
                                     )}
@@ -167,7 +174,11 @@ const SharingList = ({ resultsList }: Props) => {
                             {!result.implicitShareEntity && (
                                 <Icon>
                                     <Tooltip
-                                        title="This represents the last time an entity was shared."
+                                        title={
+                                            hasFailed
+                                                ? 'This represents the last time sharing this asset was attempted.'
+                                                : 'This represents the last time this asset was shared.'
+                                        }
                                         placement="left"
                                     >
                                         <InfoIcon />
@@ -175,14 +186,24 @@ const SharingList = ({ resultsList }: Props) => {
                                 </Icon>
                             )}
                         </DetailRow>
-                        {!!lastSuccessTime && (
-                            <UpdatedRow>
-                                <LabelText>Date Updated: </LabelText>
-                                <ContentText>{toLocalDateString(lastSuccessTime)}</ContentText>
-                                <RelativeTime relativeTimeColor={getRelativeTimeColor(lastSuccessTime)}>
-                                    {toRelativeTimeString(lastSuccessTime)}
-                                </RelativeTime>
-                            </UpdatedRow>
+                        {!isInProgress && (
+                            <>
+                                {!!lastSuccessTime && (
+                                    <UpdatedRow>
+                                        <LabelText>Date Updated: </LabelText>
+                                        <ContentText>{toLocalDateString(lastSuccessTime)}</ContentText>
+                                        <RelativeTime relativeTimeColor={getRelativeTimeColor(lastSuccessTime)}>
+                                            {toRelativeTimeString(lastSuccessTime)}
+                                        </RelativeTime>
+                                    </UpdatedRow>
+                                )}
+                                {!lastSuccessTime && !!lastAttempt && (
+                                    <UpdatedRow>
+                                        <LabelText>Date Attempted: </LabelText>
+                                        <ContentText>{toLocalDateString(lastAttempt)}</ContentText>
+                                    </UpdatedRow>
+                                )}
+                            </>
                         )}
                     </DetailsContainer>
                 );

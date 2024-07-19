@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { Typography, Button, Tooltip } from 'antd';
-import { LoadingOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { LoadingOutlined, ExclamationCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import SwapVertOutlinedIcon from '@mui/icons-material/SwapVertOutlined';
 import { useHistory } from 'react-router';
 import { Link } from 'react-router-dom';
@@ -16,10 +16,11 @@ import { sortSharedList } from '../../../../../entity/shared/containers/profile/
 import { ShareResult } from '../../../../../../types.generated';
 import { InstanceIcon, StyledLabel } from './shared/styledComponents';
 import { StyledCheckbox, StyledButton } from '../../../../../shared/share/v2/styledComponents';
-import { getShareResultStatus } from './shared/utils';
+import { getSharedItemInfo } from './shared/utils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import PlatformIcon from '../../../../../sharedV2/icons/PlatformIcon';
 import SharedByInfo from './shared/SharedByInfo';
+import { WARNING_COLOR_HEX } from '../../../tabs/Incident/incidentUtils';
 
 const SharingInfoContainer = styled.div`
     margin-bottom: 12px;
@@ -44,7 +45,7 @@ const ButtonContainer = styled.div`
 
 const SharingList = styled.div`
     background-color: #e5e2f8;
-    max-height: 240px;
+    max-height: 250px;
     overflow: auto;
     padding: 10px;
     margin: 20px 0;
@@ -75,7 +76,7 @@ export const StyledTitle = styled.div<{ $color?: string }>`
     display: flex;
     gap: 6px;
     align-items: center;
-    text-wrap: nowrap;
+    flex-wrap: wrap;
     font-size: 16px;
     font-weight: 700;
     color: ${(props) => props.$color || REDESIGN_COLORS.BODY_TEXT};
@@ -122,8 +123,14 @@ const StyledIcon = styled.div`
     width: 24px;
 `;
 
-const StyledExclamation = styled(ExclamationCircleOutlined)`
+const StyledFailure = styled(CloseCircleOutlined)`
     color: ${REDESIGN_COLORS.RED_ERROR};
+    margin-top: -2px;
+    margin-right: 8px;
+`;
+
+const StyledExclamation = styled(ExclamationCircleOutlined)`
+    color: ${WARNING_COLOR_HEX};
     margin-top: -2px;
     margin-right: 8px;
 `;
@@ -215,33 +222,22 @@ export const SharedEntityInfo = ({
             </HeaderContainer>
             <SharingList>
                 {sortedResults.map((result, index) => {
-                    const unshareResult = entityData?.share?.lastUnshareResults?.find(
-                        (r) =>
-                            r.destination?.urn === result.destination?.urn &&
-                            r.implicitShareEntity?.urn === result.implicitShareEntity?.urn,
-                    );
-                    const lastSuccessTime = result.lastSuccess?.time || 0;
-                    const hasSharedLineage =
-                        result.shareConfig?.enableDownstreamLineage || result.shareConfig?.enableUpstreamLineage;
-                    const hasDestination = !!result.destination;
-                    const name = result.destination?.details.name || result.destination?.urn || 'Deleted connection';
                     const isLastItemInList = index === sortedResults.length - 1;
-                    const isShareMoreRecent =
-                        (result?.statusLastUpdated || 1) > (unshareResult?.statusLastUpdated || 0);
-                    const { isInProgress: isSharing, failed: failedToShare } = isShareMoreRecent
-                        ? getShareResultStatus(result)
-                        : { isInProgress: false, failed: false };
-                    const { isInProgress: isUnsharing, failed: failedToUnshare } = isShareMoreRecent
-                        ? { isInProgress: false, failed: false }
-                        : getShareResultStatus(unshareResult);
-                    const platform = (result as any)?.implicitShareEntity?.platform;
-                    const implicitShareEntity = result?.implicitShareEntity;
-                    const linkedEntityName = implicitShareEntity
-                        ? entityRegistry.getDisplayName(implicitShareEntity?.type, implicitShareEntity)
-                        : '';
-                    const linkedEntityUrl = implicitShareEntity
-                        ? entityRegistry.getEntityUrl(implicitShareEntity.type, implicitShareEntity.urn)
-                        : null;
+                    const hasDestination = !!result.destination;
+                    const { message } = result;
+                    const {
+                        linkedEntityUrl,
+                        linkedEntityName,
+                        hasSharedLineage,
+                        isInProgress,
+                        isUnsharing,
+                        hasFailed,
+                        failedToUnshare,
+                        partialSuccess,
+                        lastSuccessTime,
+                        lastAttempt,
+                        name,
+                    } = getSharedItemInfo({ shareResult: result, entityData, entityRegistry });
 
                     return (
                         <StyledContainer>
@@ -255,7 +251,10 @@ export const SharedEntityInfo = ({
                                         {isImplicitList && (
                                             <>
                                                 <LabelText>Shared from:</LabelText>
-                                                <PlatformIcon platform={platform} size={14} />
+                                                <PlatformIcon
+                                                    platform={(result as any)?.implicitShareEntity?.platform}
+                                                    size={14}
+                                                />
                                                 <Link to={linkedEntityUrl}>{linkedEntityName}</Link>
                                                 <LabelText>to</LabelText>
                                             </>
@@ -272,7 +271,7 @@ export const SharedEntityInfo = ({
                                     </StyledTitle>
                                     {hasDestination && (
                                         <>
-                                            {isSharing || isUnsharing ? (
+                                            {isInProgress ? (
                                                 <Tooltip
                                                     title={isUnsharing ? 'Unsharing asset...' : 'Sharing asset...'}
                                                 >
@@ -280,12 +279,26 @@ export const SharedEntityInfo = ({
                                                 </Tooltip>
                                             ) : (
                                                 <>
-                                                    {(failedToShare || failedToUnshare) && (
+                                                    {hasFailed && (
                                                         <Tooltip
                                                             title={
                                                                 failedToUnshare
-                                                                    ? 'Failed to unshare'
-                                                                    : 'Failed to share'
+                                                                    ? `Failed to unshare asset${
+                                                                          message ? `: ${message}` : ''
+                                                                      }`
+                                                                    : `Failed to share asset${
+                                                                          message ? `: ${message}` : ''
+                                                                      }`
+                                                            }
+                                                        >
+                                                            <StyledFailure />
+                                                        </Tooltip>
+                                                    )}
+                                                    {partialSuccess && (
+                                                        <Tooltip
+                                                            title={
+                                                                message ||
+                                                                'Successfully shared asset with some warnings'
                                                             }
                                                         >
                                                             <StyledExclamation />
@@ -296,13 +309,24 @@ export const SharedEntityInfo = ({
                                         </>
                                     )}
                                 </TitleContainer>
-                                {!!lastSuccessTime && (
-                                    <LastSynced $addMarginBottom={!isLastItemInList}>
-                                        Last synced on <SyncedTime>{toLocalDateTimeString(lastSuccessTime)}</SyncedTime>
-                                    </LastSynced>
+                                {!isInProgress && (
+                                    <>
+                                        {!!lastSuccessTime && (
+                                            <LastSynced $addMarginBottom={!isLastItemInList}>
+                                                Last synced on{' '}
+                                                <SyncedTime>{toLocalDateTimeString(lastSuccessTime)}</SyncedTime>
+                                            </LastSynced>
+                                        )}
+                                        {!lastSuccessTime && lastAttempt && (
+                                            <LastSynced $addMarginBottom={!isLastItemInList}>
+                                                Last attempted on{' '}
+                                                <SyncedTime>{toLocalDateTimeString(lastAttempt)}</SyncedTime>
+                                            </LastSynced>
+                                        )}
+                                    </>
                                 )}
                             </InstanceDetails>
-                            {!isImplicitList && hasDestination && !isSharing && !isUnsharing && (
+                            {!isImplicitList && hasDestination && !isInProgress && (
                                 <StyledCheckbox
                                     $color={REDESIGN_COLORS.RED_ERROR}
                                     checked={selectedInstancesToUnshare.includes(result.destination?.urn || '')}

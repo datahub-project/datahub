@@ -3,7 +3,6 @@ package com.linkedin.datahub.upgrade.system.schemafield;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -12,11 +11,9 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
-import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
-import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -99,20 +96,6 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
     assertEquals("schemaMetadata", argsCaptor.getValue().aspectName());
     assertEquals(10, argsCaptor.getValue().batchSize());
     assertEquals(1000, argsCaptor.getValue().limit());
-  }
-
-  /** Test to verify the generation of schema field URNs. */
-  @Test
-  public void testGetSchemaFieldUrn() throws URISyntaxException {
-    Urn parentUrn =
-        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)");
-    SchemaField field = new SchemaField();
-    field.setFieldPath("fieldPath");
-
-    Urn resultUrn = step.getSchemaFieldUrn(parentUrn, field);
-    assertEquals(
-        "urn:li:schemaField:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD,fieldPath)",
-        resultUrn.toString());
   }
 
   // Additional tests can be added to cover more scenarios and edge cases

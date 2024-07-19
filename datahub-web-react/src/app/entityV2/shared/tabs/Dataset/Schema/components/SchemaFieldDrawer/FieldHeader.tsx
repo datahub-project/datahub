@@ -1,4 +1,5 @@
 import { CloseOutlined } from '@ant-design/icons';
+import { useAppConfig } from '@app/useAppConfig';
 import { Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -61,11 +62,13 @@ const CloseIcon = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
+
     &&:hover {
         cursor: pointer;
         stroke: ${REDESIGN_COLORS.WHITE};
         stroke-width: 10px;
     }
+
     svg {
         height: 16px;
         width: 16px;
@@ -86,6 +89,7 @@ const StyledTypeLabel = styled(TypeLabel)`
 
 const StyleLink = styled(Link)`
     color: ${REDESIGN_COLORS.WHITE};
+
     &:hover {
         color: ${REDESIGN_COLORS.WHITE};
         text-decoration: underline;
@@ -98,25 +102,32 @@ interface Props {
 }
 
 export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath }: Props) {
+    const { config } = useAppConfig();
     const displayName = translateFieldPath(expandedField.fieldPath || '');
     const entityRegistry = useEntityRegistry();
+
+    const linkEnabled = config.featureFlags.schemaFieldCLLEnabled;
 
     return (
         <FieldHeaderWrapper>
             <NameTypesWrapper>
                 <FieldText>Field</FieldText>
                 <TitleWrapper>
-                    <StyleLink
-                        to={
-                            expandedField.schemaFieldEntity &&
-                            entityRegistry.getEntityUrl(
-                                expandedField.schemaFieldEntity?.type,
-                                (expandedField.schemaFieldEntity?.urn as string) || '',
-                            )
-                        }
-                    >
-                        {displayName.split('.').pop()}
-                    </StyleLink>
+                    {linkEnabled ? (
+                        <StyleLink
+                            to={
+                                expandedField.schemaFieldEntity &&
+                                entityRegistry.getEntityUrl(
+                                    expandedField.schemaFieldEntity?.type,
+                                    (expandedField.schemaFieldEntity?.urn as string) || '',
+                                )
+                            }
+                        >
+                            {displayName.split('.').pop()}
+                        </StyleLink>
+                    ) : (
+                        displayName.split('.').pop()
+                    )}
                     <VerticalDivider />
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
                     {expandedField.isPartOfKey && <PrimaryKeyLabel />}

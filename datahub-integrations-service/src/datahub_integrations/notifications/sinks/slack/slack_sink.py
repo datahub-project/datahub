@@ -47,7 +47,7 @@ class SlackNotificationSink(NotificationSink):
     A Slack notification sink.
     """
 
-    last_credentials_refresh: Optional[datetime] = None
+    last_credentials_refresh_attempt: Optional[datetime] = None
     base_url: str
     slack_client: WebClient
     slack_connection_config: Optional[SlackConnection] = None
@@ -213,8 +213,8 @@ class SlackNotificationSink(NotificationSink):
     def _maybe_reload_web_client(self) -> None:
         """Reloads the WebClient if the last reload was more than 5 minutes ago."""
         current_time = datetime.now()
-        if self.last_credentials_refresh is None or (
-            current_time - self.last_credentials_refresh
+        if self.last_credentials_refresh_attempt is None or (
+            current_time - self.last_credentials_refresh_attempt
         ) > timedelta(minutes=5):
             self._reload_web_client()
 
@@ -232,6 +232,9 @@ class SlackNotificationSink(NotificationSink):
         # Assuming slack_config has a reload method to refresh its data
         config = slack_config.reload()
 
+        # Set the last credentials refresh time to the current datetime
+        self.last_credentials_refresh_attempt = datetime.now()
+
         if not self._check_is_slack_config_valid(config):
             raise Exception(
                 "Failed to retrieve slack connection details! No valid configuration for slack was found."
@@ -242,9 +245,6 @@ class SlackNotificationSink(NotificationSink):
 
         # Reinitialize the WebClient with possibly updated proxy and token
         self.slack_client = WebClient(proxy=SLACK_PROXY, token=config.bot_token)
-
-        # Set the last credentials refresh time to the current datetime
-        self.last_credentials_refresh = datetime.now()
 
     def _should_save_message_details(self, template_type: str) -> bool:
         if (

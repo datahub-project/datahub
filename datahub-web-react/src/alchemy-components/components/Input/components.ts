@@ -51,7 +51,7 @@ export const InputContainer = styled.div({
 export const InputField = styled.input({
     padding: spacing.none,
     border: borders.none,
-    margin: `0 ${spacing.xxsm}`,
+    margin: `0 ${spacing.xsm}`,
     width: '100%',
 
     '&::placeholder': {

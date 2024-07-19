@@ -19,6 +19,7 @@ import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 import LinkOut from '@images/link-out.svg?react';
+import { downgradeV2FieldPath } from '../lineageUtils';
 
 export const SCHEMA_FIELD_NODE_HEIGHT = 40;
 export const SCHEMA_FIELD_NODE_WIDTH = 160;
@@ -321,7 +322,7 @@ export default function SchemaFieldNodeContents({
                 </ParentWrapper>
                 {entity && (
                     <SchemaFieldDrawer selected={selected} color={NODE_COLOR}>
-                        <Title title={entity.name} />
+                        <Title title={downgradeV2FieldPath(entity.name) || ''} />
                     </SchemaFieldDrawer>
                 )}
             </CardWrapper>

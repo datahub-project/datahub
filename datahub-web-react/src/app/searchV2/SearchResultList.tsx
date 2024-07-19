@@ -9,7 +9,7 @@ import { SEARCH_COLORS } from '../entityV2/shared/constants';
 import { PreviewSection } from '../shared/MatchesContext';
 import { useEntityRegistry } from '../useEntityRegistry';
 import EmptySearchResults from './EmptySearchResults';
-import { MatchContextContianer } from './matches/MatchContextContainer';
+import { MatchContextContainer } from './matches/MatchContextContainer';
 import { useIsSearchV2 } from './useSearchAndBrowseVersion';
 import { CombinedSearchResult } from './utils/combineSiblingsInSearchResults';
 import { PreviewType } from '../entity/Entity';
@@ -224,7 +224,7 @@ export const SearchResultList = ({
                 const expandedSection = isFullViewCard ? urnToExpandedSection[item.entity.urn] : undefined;
                 return (
                     <div style={{ position: 'relative' }}>
-                        <MatchContextContianer
+                        <MatchContextContainer
                             item={item}
                             selected={highlightedIndex === index}
                             onClick={() => onClickResult(item, index)}
@@ -271,7 +271,7 @@ export const SearchResultList = ({
                         render. */}
                                 {!showSearchFiltersV2 && <ThinDivider />}
                             </ResultWrapper>
-                        </MatchContextContianer>
+                        </MatchContextContainer>
                     </div>
                 );
             }}

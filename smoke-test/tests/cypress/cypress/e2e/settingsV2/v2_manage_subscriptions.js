@@ -1,4 +1,5 @@
 import { aliasQuery, hasOperationName } from "../utils";
+
 const test_id = Math.floor(Math.random() * 100000);
 const test_email = `${test_id}@acryl.io`;
 const datasetUrn =
@@ -7,9 +8,7 @@ const datasetName = "daily_temperature";
 
 describe("entity subscription test", () => {
   beforeEach(() => {
-    cy.on("uncaught:exception", (err, runnable) => {
-      return false;
-    });
+    cy.on("uncaught:exception", (err, runnable) => false);
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");
     });
@@ -39,10 +38,10 @@ describe("entity subscription test", () => {
     cy.goToIntegrationsSettings();
     cy.waitTextVisible("Users & Groups");
     cy.clickOptionWithText("Slack");
+    cy.clickOptionWithText("App Configuration Token");
     cy.clickOptionWithText("Bot Token");
     cy.enterTextInTestId("bot-token-input", test_id);
     cy.clickOptionWithTestId("connect-to-slack-button");
-    cy.waitTextVisible("Updated Slack Settings!");
 
     // Subscribe to dataset
     cy.goToDataset(datasetUrn, datasetName);
@@ -122,9 +121,9 @@ describe("entity subscription test", () => {
     cy.clickOptionWithText("Slack");
     cy.waitTextVisible("Users & Groups");
     cy.waitTextVisible("Configure an integration with Slack");
+    cy.clickOptionWithText("App Configuration Token");
     cy.clickOptionWithText("Bot Token");
     cy.get('[data-testid="bot-token-input"]').clear();
     cy.clickOptionWithTestId("connect-to-slack-button");
-    cy.waitTextVisible("Updated Slack Settings!");
   });
 });

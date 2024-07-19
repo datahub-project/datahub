@@ -485,6 +485,66 @@ fragment lineageV2Result on EntityLineageResult {
         entity {
             urn
             type
+            ... on DataJob {
+                status {
+                    removed
+                }
+            }
+            ... on DataFlow {
+                status {
+                    removed
+                }
+            }
+            ... on Dashboard {
+                status {
+                    removed
+                }
+            }
+            ... on Chart {
+                status {
+                    removed
+                }
+            }
+            ... on Dataset {
+                status {
+                    removed
+                }
+            }
+            ... on MLModelGroup {
+                status {
+                    removed
+                }
+            }
+            ... on MLModel {
+                status {
+                    removed
+                }
+            }
+            ... on MLFeatureTable {
+                status {
+                    removed
+                }
+            }
+            ... on MLFeature {
+                status {
+                    removed
+                }
+            }
+            ... on MLPrimaryKey {
+                status {
+                    removed
+                }
+            }
+            ... on ERModelRelationship {
+                status {
+                    removed
+                }
+            }
+            ... on SchemaFieldEntity {
+                status {
+                    removed
+                }
+            }
         }
     }
 }
@@ -555,6 +615,9 @@ fragment entityLineageV2 on Entity {
             urn
             type
             ...lineageNodeProperties
+        }
+        status {
+            removed
         }
     }
     ... on Container {

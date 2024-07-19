@@ -1,5 +1,6 @@
 import json
 from typing import Any, Optional
+from unittest import mock
 from unittest.mock import MagicMock, Mock, patch
 
 import datahub.metadata.schema_classes as models
@@ -10,8 +11,10 @@ from datahub.metadata._schema_classes import (
     ShareResultClass,
     ShareResultStateClass,
 )
+from fastapi.testclient import TestClient
 from freezegun import freeze_time
 
+from datahub_integrations import server
 from datahub_integrations.share import share_router
 from datahub_integrations.share.share_agent import LineageDirection, ShareAgent
 from datahub_integrations.share.share_settings import (
@@ -60,11 +63,6 @@ def test_determine_entities_to_sync_without_container() -> None:
 
 
 def test_determine_entities_to_sync_has_container_in_container() -> None:
-    # share_config = {
-    #     "connection": {
-    #         "details": {"type": "JSON", "json": {"blob": '{"connection": {}}'}}
-    #     }
-    # }
     test_urn = "urn:li:dataset:1"
     test_container_urn = "urn:li:container:199e66d51aeb64f24dbf5a0af94baf7e"
     test_container_2_urn = "urn:li:container:another_container"
@@ -96,7 +94,6 @@ def test_determine_entities_to_sync_has_container_in_container() -> None:
 
 
 def test_share_non_restricted() -> None:
-
     source_graph = Mock()
     destination_graph_mock = Mock()
     response = json.load(
@@ -152,7 +149,6 @@ def test_share_non_restricted() -> None:
 
 
 def test_share_explicit_share_should_not_remove_implicit_shares() -> None:
-
     source_graph = Mock()
     destination_graph_mock = Mock()
     response = json.load(
@@ -288,7 +284,6 @@ def test_share_explicit_share_should_not_remove_implicit_shares() -> None:
 
 
 def test_share_implict_share_should_add_to_implicit_shares() -> None:
-
     source_graph = Mock()
     destination_graph_mock = Mock()
     response = json.load(
@@ -647,16 +642,7 @@ def test_execute_share() -> None:
             return_value={urn_to_unshare},
         ),
     ):
-
         share_agent.share(urn_to_unshare, sharer_urn, lineage)
-    # share_agent_mock.share_one_entity = share_mock
-    # share_agent_mock.get_entities_across_lineage = get_entities_across_lineage_mock
-    # determine_entities_to_sync = MagicMock(return_value={urn_to_unshare})
-    # share_agent_mock.determine_entities_to_sync = determine_entities_to_sync
-
-    # share_router.execute_share(
-    #     "dummy_connection_url", urn_to_unshare, sharer_urn, lineage
-    # )
 
     assert share_mock.call_count == 2
     assert share_mock.call_args_list[0].kwargs.get("restricted") is False
@@ -755,6 +741,64 @@ def test_execute_share_when_owner_does_not_matches_and_share_is_restricted() -> 
     assert share_mock.call_count == 2
     assert share_mock.call_args_list[0].kwargs.get("restricted") is True
     assert share_mock.call_args_list[1].kwargs.get("restricted") is True
+
+
+def test_execute_share_should_ingest_structured_properties_first() -> None:
+    urn_to_share = "urn:li:dataset:1"
+    sharer_urn = "urn:li:corpuser:dummy_user"
+    lineage = LineageDirection.DOWNSTREAM
+    downstream_urn = "urn:li:dataset:2"
+    downstream_urn2 = "urn:li:dataset:3"
+    structured_property_1 = "urn:li:structuredProperty:1"
+    structured_property_2 = "urn:li:structuredProperty:2"
+
+    share_mock = MagicMock(return_value=None)
+    get_entities_across_lineage_mock = MagicMock(
+        return_value={
+            downstream_urn,
+            structured_property_1,
+            downstream_urn2,
+            structured_property_2,
+        }
+    )
+
+    source_graph = Mock()
+    source_graph.get_ownership.return_value = None
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn="dummy_connection_url",
+        destination_graph=Mock(),
+    )
+
+    with (
+        patch.object(
+            share_router, "get_or_create_share_agent", return_value=share_agent
+        ),
+        patch.object(share_agent, "share_one_entity", share_mock),
+        patch.object(
+            share_agent,
+            "get_entities_across_lineage",
+            get_entities_across_lineage_mock,
+        ),
+        patch.object(
+            share_agent,
+            "determine_entities_to_sync",
+            return_value={urn_to_share},
+        ),
+    ):
+        execute_share_result = share_agent.share(urn_to_share, sharer_urn, lineage)
+
+    assert share_mock.call_count == 5
+    assert execute_share_result.entities_shared == [
+        "urn:li:structuredProperty:1",
+        "urn:li:structuredProperty:2",
+        "urn:li:dataset:2",
+        "urn:li:dataset:3",
+        "urn:li:dataset:1",
+    ]
+    assert share_mock.call_args_list[0].kwargs.get("restricted") is False
+    assert share_mock.call_args_list[1].kwargs.get("restricted") is False
 
 
 def test_unshare_implicit_unshare_should_not_remove_entity_if_there_is_another_reference() -> (
@@ -2058,3 +2102,133 @@ def test_update_share_status() -> None:
         source_graph.emit.call_args[0][0].aspect.lastUnshareResults[0].status
         == ShareResultStateClass.SUCCESS
     )
+
+
+def test_determine_lineage_direction_from_share_aspect() -> None:
+    source_graph = Mock()
+    destination_graph_mock = Mock()
+    urn_to_unshare = "urn:li:dataset:1"
+    destination_datahub_instance = "urn:li:dataHubConnection:1"
+
+    share_agent = ShareAgent(
+        source_graph=source_graph,
+        share_connection_urn=destination_datahub_instance,
+        destination_graph=destination_graph_mock,
+    )
+    source_graph.get_aspect.return_value = ShareClass(
+        lastShareResults=[
+            ShareResultClass(
+                destination="urn:li:dataHubConnection:1",
+                implicitShareEntity=None,
+                created=models.AuditStampClass(
+                    time=1649980800000,  # frozen time
+                    actor="urn:li:corpuser:testUser",
+                ),
+                lastAttempt=models.AuditStampClass(
+                    time=1649980800000,  # frozen time
+                    actor="urn:li:corpuser:testUser",
+                ),
+                status=models.ShareResultStateClass.SUCCESS,
+                lastAttemptRequestId="ce3566fd-fa7f-45a2-957b-43a19f5341ff",
+                shareConfig=models.ShareConfigClass(
+                    enableUpstreamLineage=True,
+                    enableDownstreamLineage=True,
+                ),
+                lastSuccess=models.AuditStampClass(
+                    time=1649980800000,  # frozen time
+                    actor="urn:li:corpuser:testUser",
+                ),
+                statusLastUpdated=1649980800000,
+            )
+        ]
+    )
+    lineage_direction = share_agent.get_lineage_direction_from_share_aspect(
+        urn_to_unshare
+    )
+    assert lineage_direction == LineageDirection.BOTH
+
+
+client = TestClient(server.app)
+
+
+@mock.patch("datahub_integrations.share.share_agent.ShareAgent")
+def test_share_without_lineage(share_agent_mock: Mock) -> None:
+    share_agent_mock = MagicMock()
+    share_router.get_or_create_share_agent = (
+        lambda share_connection_urn: share_agent_mock
+    )
+
+    response = client.post(
+        "/private/share/execute_share",
+        params={
+            "entity_urn": "urn:li:dataset:1",
+            "sharer_urn": "urn:li:corpuser:testUser",
+            "share_connection_urn": "urn:li:dataHubConnection:1",
+        },
+    )
+    assert response.status_code == 200
+    share_agent_mock.emit_share_result.assert_called_once()
+    share_result_call = share_agent_mock.emit_share_result.call_args_list[0].kwargs
+    share_result_call["share_config"].enableUpstreamLineage = False
+    share_result_call["share_config"].enableDownstreamLineage = False
+    resp_dict = response.json()
+    assert resp_dict["status"] == "success"
+
+
+@mock.patch("datahub_integrations.share.share_agent.ShareAgent")
+def test_share_with_lineage(share_agent_mock: Mock) -> None:
+    share_agent_mock = MagicMock()
+    share_router.get_or_create_share_agent = (
+        lambda share_connection_urn: share_agent_mock
+    )
+
+    response = client.post(
+        "/private/share/execute_share",
+        params={
+            "entity_urn": "urn:li:dataset:1",
+            "sharer_urn": "urn:li:corpuser:testUser",
+            "share_connection_urn": "urn:li:dataHubConnection:1",
+            "lineage_direction": "BOTH",
+        },
+    )
+    assert response.status_code == 200
+    share_agent_mock.emit_share_result.assert_called_once()
+    share_result_call = share_agent_mock.emit_share_result.call_args_list[0].kwargs
+    share_result_call["share_config"].enableUpstreamLineage = True
+    share_result_call["share_config"].enableDownstreamLineage = True
+    resp_dict = response.json()
+    assert resp_dict["status"] == "success"
+
+
+@mock.patch("datahub_integrations.share.share_agent.ShareAgent")
+def test_share_with_lineage_from_resync(share_agent_mock: Mock) -> None:
+    share_agent_mock = MagicMock()
+    share_router.get_or_create_share_agent = (
+        lambda share_connection_urn: share_agent_mock
+    )
+    share_agent_mock.get_lineage_direction_from_share_aspect.return_value = (
+        LineageDirection.DOWNSTREAM
+    )
+
+    response = client.post(
+        "/private/share/execute_share",
+        params={
+            "entity_urn": "urn:li:dataset:1",
+            "sharer_urn": "urn:li:corpuser:testUser",
+            "share_connection_urn": "urn:li:dataHubConnection:1",
+        },
+    )
+    assert response.status_code == 200
+
+    share_agent_mock.get_lineage_direction_from_share_aspect.assert_called_once()
+    assert (
+        share_agent_mock.get_lineage_direction_from_share_aspect.call_args_list[0][0][0]
+        == "urn:li:dataset:1"
+    )
+
+    share_agent_mock.emit_share_result.assert_called_once()
+    share_result_call = share_agent_mock.emit_share_result.call_args_list[0].kwargs
+    share_result_call["share_config"].enableUpstreamLineage = False
+    share_result_call["share_config"].enableDownstreamLineage = True
+    resp_dict = response.json()
+    assert resp_dict["status"] == "success"

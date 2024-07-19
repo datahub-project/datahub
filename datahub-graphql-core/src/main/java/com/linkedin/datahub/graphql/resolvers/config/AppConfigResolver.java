@@ -229,6 +229,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDocumentationFormsEnabled(_featureFlags.isDocumentationFormsEnabled())
             .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
             .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
+            .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
+            .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

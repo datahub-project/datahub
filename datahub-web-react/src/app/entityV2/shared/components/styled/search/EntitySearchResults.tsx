@@ -5,21 +5,20 @@ import { EntityPath, EntityType, SearchResult } from '../../../../../../types.ge
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { useSearchContext } from '../../../../../search/context/SearchContext';
 import { MATCHES_CONTAINER_HEIGHT } from '../../../../../searchV2/SearchResultList';
-import { MatchContextContianer } from '../../../../../searchV2/matches/MatchContextContainer';
+import { MatchContextContainer } from '../../../../../searchV2/matches/MatchContextContainer';
 import { PreviewSection } from '../../../../../shared/MatchesContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { REDESIGN_COLORS } from '../../../constants';
 import { useInitializeColumnLineageCards } from './useInitializeColumnLineageCards';
 
 export const StyledList = styled(List)`
     height: 100%;
-    background-color: ${REDESIGN_COLORS.WHITE};
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
     flex: 1;
+
     .ant-list-items > .ant-list-item {
         padding-right: 0px;
         padding-left: 0px;
     }
+
     > .ant-list-header {
         padding-right: 0px;
         padding-left: 0px;
@@ -29,16 +28,6 @@ export const StyledList = styled(List)`
         border-bottom: none;
         padding-bottom: 0px;
         padding-top: 15px;
-    }
-    &::-webkit-scrollbar {
-        height: 12px;
-        width: 5px;
-        background: #f2f2f2;
-    }
-    &::-webkit-scrollbar-thumb {
-        background: #cccccc;
-        -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 ` as typeof List;
 
@@ -53,13 +42,11 @@ export const ListItem = styled.div<{ isSelectMode: boolean; areMatchesExpanded; 
     background-color: #ffffff;
     border-radius: 10px;
     overflow: hidden;
-    margin-bottom: ${(props) =>
-        // eslint-disable-next-line no-nested-ternary
-        props.areMatchesExpanded
-            ? props.compactUserSearchCardStyle
-                ? MATCHES_CONTAINER_HEIGHT
-                : MATCHES_CONTAINER_HEIGHT + 20
-            : 0}px;
+    margin-bottom: ${({ areMatchesExpanded, compactUserSearchCardStyle }) => {
+        if (!areMatchesExpanded) return 0;
+        if (compactUserSearchCardStyle) return MATCHES_CONTAINER_HEIGHT;
+        return MATCHES_CONTAINER_HEIGHT + 20;
+    }}px;
     transition: margin-bottom 0.3s ease;
     border: 1px solid #ebecf0;
     ${(props) =>
@@ -166,7 +153,7 @@ export const EntitySearchResults = ({
                 const expandedSection = isFullViewCard ? urnToExpandedSection[entity.urn] : undefined;
                 return (
                     <MatchContextAndEntityContainer>
-                        <MatchContextContianer
+                        <MatchContextContainer
                             selected={false}
                             item={searchResult}
                             onClick={() => {}}
@@ -190,7 +177,7 @@ export const EntitySearchResults = ({
                                 {entityRegistry.renderSearchResult(entity.type, searchResult)}
                                 {entityAction && <EntityAction urn={entity.urn} type={entity.type} />}
                             </ListItem>
-                        </MatchContextContianer>
+                        </MatchContextContainer>
                     </MatchContextAndEntityContainer>
                 );
             }}

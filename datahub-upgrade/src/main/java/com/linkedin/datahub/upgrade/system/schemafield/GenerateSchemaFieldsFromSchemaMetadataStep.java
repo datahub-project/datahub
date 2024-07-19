@@ -2,31 +2,27 @@ package com.linkedin.datahub.upgrade.system.schemafield;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
-import com.linkedin.metadata.key.SchemaFieldKey;
-import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.schema.SchemaField;
-import com.linkedin.schema.SchemaMetadata;
-import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
 
@@ -114,7 +110,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
       // re-using for configuring the sql scan
       RestoreIndicesArgs args =
           new RestoreIndicesArgs()
-              .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+              .aspectNames(List.of(SCHEMA_METADATA_ASPECT_NAME, STATUS_ASPECT_NAME))
               .batchSize(batchSize)
               .limit(limit);
 
@@ -129,17 +125,38 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                 batch -> {
                   log.info("Processing batch of size {}.", batchSize);
 
-                  List<List<UpdateAspectResult>> results;
+                  AspectsBatch aspectsBatch =
+                      AspectsBatchImpl.builder()
+                          .retrieverContext(opContext.getRetrieverContext().get())
+                          .items(
+                              batch
+                                  .flatMap(
+                                      ebeanAspectV2 ->
+                                          EntityUtils.toSystemAspectFromEbeanAspects(
+                                              opContext.getRetrieverContext().get(),
+                                              Set.of(ebeanAspectV2))
+                                              .stream())
+                                  .map(
+                                      systemAspect ->
+                                          ChangeItemImpl.builder()
+                                              .changeType(ChangeType.UPSERT)
+                                              .urn(systemAspect.getUrn())
+                                              .entitySpec(systemAspect.getEntitySpec())
+                                              .aspectName(systemAspect.getAspectName())
+                                              .aspectSpec(systemAspect.getAspectSpec())
+                                              .recordTemplate(systemAspect.getRecordTemplate())
+                                              .auditStamp(systemAspect.getAuditStamp())
+                                              .systemMetadata(systemAspect.getSystemMetadata())
+                                              .build(
+                                                  opContext
+                                                      .getRetrieverContext()
+                                                      .get()
+                                                      .getAspectRetriever()))
+                                  .collect(Collectors.toList()))
+                          .build();
 
-                  results =
-                      EntityUtils.toSystemAspectFromEbeanAspects(
-                              opContext.getRetrieverContext().get(),
-                              batch.collect(Collectors.toList()))
-                          .stream()
-                          .flatMap(
-                              systemAspect ->
-                                  shredAspectToSchemaFieldMCPSAsync(opContext, systemAspect))
-                          .toList();
+                  // re-ingest the aspects to trigger side effects
+                  entityService.ingestAspects(opContext, aspectsBatch, true, false);
 
                   if (batchDelayMs > 0) {
                     log.info("Sleeping for {} ms", batchDelayMs);
@@ -157,36 +174,5 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
 
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
-  }
-
-  private Stream<List<UpdateAspectResult>> shredAspectToSchemaFieldMCPSAsync(
-      OperationContext opContext, SystemAspect systemAspect) {
-    if (systemAspect.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME)) {
-      SchemaMetadata schemaMetadata = systemAspect.getAspect(SchemaMetadata.class);
-      if (schemaMetadata != null) {
-        return schemaMetadata.getFields().stream()
-            .map(
-                field -> {
-                  return entityService.ingestAspects(
-                      opContext,
-                      getSchemaFieldUrn(systemAspect.getUrn(), field),
-                      List.of(
-                          Pair.of(
-                              "schemaFieldKey",
-                              new SchemaFieldKey()
-                                  .setFieldPath(field.getFieldPath())
-                                  .setParent(systemAspect.getUrn()))),
-                      AuditStampUtils.createDefaultAuditStamp(),
-                      systemAspect.getSystemMetadata());
-                });
-      }
-    }
-    return Stream.empty();
-  }
-
-  @VisibleForTesting
-  Urn getSchemaFieldUrn(Urn parentUrn, SchemaField field) {
-    return Urn.createFromTuple(
-        SCHEMA_FIELD_ENTITY_NAME, parentUrn.toString(), field.getFieldPath());
   }
 }

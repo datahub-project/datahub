@@ -1,6 +1,5 @@
-package com.linkedin.datahub.upgrade.config.acryl;
+package com.linkedin.datahub.upgrade.config;
 
-import com.linkedin.datahub.upgrade.config.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.metadata.entity.AspectDao;
@@ -22,14 +21,13 @@ public class SchemaFieldsFromSchemaMetadataConfig {
       final EntityService<?> entityService,
       final AspectDao aspectDao,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED
-      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.enabled:true}") final boolean enabled,
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.enabled}") final boolean enabled,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE
-      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.batchSize:500}")
-          final Integer batchSize,
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.batchSize}") final Integer batchSize,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS
-      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.delayMs:1000}") final Integer delayMs,
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.delayMs}") final Integer delayMs,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT
-      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit:0}") final Integer limit) {
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit) {
     return new GenerateSchemaFieldsFromSchemaMetadata(
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
   }

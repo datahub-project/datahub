@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Button } from 'antd';
+import { Button, Tooltip } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
@@ -38,6 +38,7 @@ export const AcrylValidationsTab = () => {
     const { pathname } = useLocation();
     const { urn } = useEntityData();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
     const appConfig = useAppConfig();
 
     const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
@@ -58,7 +59,7 @@ export const AcrylValidationsTab = () => {
     /**
      * The top-level Toolbar tabs to display.
      */
-    const tabs = [
+    const tabs: any[] = [
         {
             title: (
                 <>
@@ -83,7 +84,15 @@ export const AcrylValidationsTab = () => {
             ),
             path: TabPaths.DATA_CONTRACT,
             content: <DataContractTab />,
-            disabled: false,
+            disabled: isRenderingSiblings,
+            tip: isRenderingSiblings ? (
+                <>
+                    You cannot view a data contract for a group of assets. <br />
+                    <br />
+                    To view the data contract for a specific asset in this group, navigate to them using the{' '}
+                    <b>Composed Of</b> sidebar section on the right.
+                </>
+            ) : null,
         });
     }
 
@@ -92,15 +101,21 @@ export const AcrylValidationsTab = () => {
             <TabToolbar>
                 <div>
                     {tabs.map((tab) => (
-                        <TabButton
-                            key={tab.path}
-                            type="text"
-                            disabled={tab.disabled}
-                            selected={selectedTab === tab.path}
-                            onClick={() => history.replace(`${basePath}/${tab.path}`)}
-                        >
-                            {tab.title}
-                        </TabButton>
+                        <Tooltip showArrow={false} title={tab.tip}>
+                            <TabButton
+                                key={tab.path}
+                                type="text"
+                                disabled={tab.disabled}
+                                selected={selectedTab === tab.path}
+                                onClick={() =>
+                                    history.replace(
+                                        `${basePath}/${tab.path}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`,
+                                    )
+                                }
+                            >
+                                {tab.title}
+                            </TabButton>
+                        </Tooltip>
                     ))}
                 </div>
             </TabToolbar>

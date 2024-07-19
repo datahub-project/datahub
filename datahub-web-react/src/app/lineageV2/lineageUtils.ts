@@ -17,6 +17,14 @@ export function downgradeV2FieldPath(fieldPath?: string | null) {
         .join('.');
 }
 
+export function processDocumentationString(docString): string {
+    if (!docString) {
+        return '';
+    }
+    const fieldRegex = /'(\[version=2\.0\](?:\.\[key=True\])?\.\[type=[^\]]+\]\.[^']+)'/g;
+    return docString.replace(fieldRegex, (_, fieldPath) => `'${downgradeV2FieldPath(fieldPath)}'`);
+}
+
 export function convertFieldsToV1FieldPath(fields: SchemaField[]) {
     return fields.map((field) => ({
         ...field,
