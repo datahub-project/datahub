@@ -217,6 +217,7 @@ def _make_ingestion_urn(name: str) -> str:
 
 class DeployOptions(ConfigModel):
     name: str
+    description: Optional[str] = None
     schedule: Optional[str] = None
     time_zone: str = "UTC"
     cli_version: Optional[str] = None
@@ -231,6 +232,12 @@ class DeployOptions(ConfigModel):
     "--name",
     type=str,
     help="Recipe Name",
+)
+@click.option(
+    "--description",
+    type=str,
+    help="Recipe description",
+    required=False,
 )
 @click.option(
     "-c",
@@ -275,6 +282,7 @@ class DeployOptions(ConfigModel):
 )
 def deploy(
     name: Optional[str],
+    description: Optional[str],
     config: str,
     urn: Optional[str],
     executor_id: str,
@@ -330,6 +338,7 @@ def deploy(
 
         deploy_options = DeployOptions(
             name=name,
+            description=description,
             schedule=schedule,
             time_zone=time_zone,
             cli_version=cli_version,
@@ -347,6 +356,7 @@ def deploy(
     variables: dict = {
         "urn": urn,
         "name": deploy_options.name,
+        "description": deploy_options.description,
         "type": pipeline_config["source"]["type"],
         "recipe": json.dumps(pipeline_config),
         "executorId": deploy_options.executor_id,
@@ -365,6 +375,7 @@ def deploy(
         mutation updateIngestionSource(
             $urn: String!,
             $name: String!,
+            $description: String,
             $type: String!,
             $schedule: UpdateIngestionSourceScheduleInput,
             $recipe: String!,
@@ -373,6 +384,7 @@ def deploy(
 
             updateIngestionSource(urn: $urn, input: {
                 name: $name,
+                description: $description,
                 type: $type,
                 schedule: $schedule,
                 config: {
