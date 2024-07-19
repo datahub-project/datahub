@@ -31,14 +31,11 @@ class LookerViewFileLoader:
         reporter: LookMLSourceReport,
         liquid_variable: Dict[Any, Any],
     ) -> None:
-        self.viewfile_cache: Dict[str, LookerViewFile] = {}
+        self.viewfile_cache: Dict[str, Optional[LookerViewFile]] = {}
         self._root_project_name = root_project_name
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
         self.liquid_variable = liquid_variable
-
-    def is_view_seen(self, path: str) -> bool:
-        return path in self.viewfile_cache
 
     def _load_viewfile(
         self, project_name: str, path: str, reporter: LookMLSourceReport
@@ -56,17 +53,15 @@ class LookerViewFileLoader:
             )
             return None
 
-        if self.is_view_seen(str(path)):
+        if path in self.viewfile_cache:
             return self.viewfile_cache[path]
 
         try:
             with open(path) as file:
                 raw_file_content = file.read()
         except Exception as e:
-            logger.debug(f"An error occurred while reading path {path}", exc_info=True)
-            self.reporter.report_failure(
-                path, f"failed to load view file {path} from disk: {e}"
-            )
+            self.reporter.failure("Failed to read lkml file", path, exc=e)
+            self.viewfile_cache[path] = None
             return None
         try:
             logger.debug(f"Loading viewfile {path}")
@@ -91,8 +86,8 @@ class LookerViewFileLoader:
             self.viewfile_cache[path] = looker_viewfile
             return looker_viewfile
         except Exception as e:
-            logger.debug(f"An error occurred while parsing path {path}", exc_info=True)
-            self.reporter.report_failure(path, f"failed to load view file {path}: {e}")
+            self.reporter.failure("Failed to parse lkml file", path, exc=e)
+            self.viewfile_cache[path] = None
             return None
 
     def load_viewfile(

@@ -211,11 +211,6 @@ module.exports = {
         "docs/managed-datahub/welcome-acryl",
         {
           type: "doc",
-          id: "docs/managed-datahub/saas-slack-setup",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
           id: "docs/managed-datahub/approval-workflows",
           className: "saasOnly",
         },
@@ -243,6 +238,20 @@ module.exports = {
             {
               type: "doc",
               id: "docs/managed-datahub/integrations/oidc-sso-integration",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          Slack: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-setup",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-app",
               className: "saasOnly",
             },
           ],

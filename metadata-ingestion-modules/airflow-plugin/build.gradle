@@ -20,11 +20,7 @@ if (extra_pip_extras != "") {
 
 def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion"
 
-task checkPythonVersion(type: Exec) {
-  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
-}
-
-task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+task environmentSetup(type: Exec) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)

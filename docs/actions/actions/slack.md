@@ -138,7 +138,7 @@ In the next steps, we'll show you how to configure the Slack Action based on the
 
 #### Managed DataHub
 
-Head over to the [Configuring Notifications](../../managed-datahub/saas-slack-setup.md#configuring-notifications) section in the Managed DataHub guide to configure Slack notifications for your Managed DataHub instance.
+Head over to the [Configuring Notifications](../../managed-datahub/slack/saas-slack-setup.md#configuring-notifications) section in the Managed DataHub guide to configure Slack notifications for your Managed DataHub instance.
 
 
 #### Quickstart
