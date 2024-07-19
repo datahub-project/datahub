@@ -426,7 +426,9 @@ public class Constants {
   public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REPORT_TYPE =
       "NOTIFICATION_CONNECTION_TEST_REPORT";
   public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY =
-      "executionRequestUrn";
+      "testNotificationExecutionRequestUrn";
+  public static final String NOTIFICATION_CONNECTION_TEST_REQUEST_TEMPLATE_NAME =
+      "notificationConnectionTest";
   public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_TASK_NAME =
       "NOTIFICATION_CONNECTION_TEST";
 
