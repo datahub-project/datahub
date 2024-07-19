@@ -24,7 +24,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
-import io.datahubproject.metadata.context.EnvironmentContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -172,7 +172,7 @@ public class SystemUpdateConfig {
                 .graphRetriever(graphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
                 .build(),
-            EnvironmentContext.builder()
+            ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
                 .build());

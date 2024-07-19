@@ -70,7 +70,7 @@ public class OperationContext {
         .requestContext(requestContext)
         // Initialize view authorization for user viewable urn tracking
         .viewAuthorizationContext(ViewAuthorizationContext.builder().build())
-        .environmentContext(systemOperationContext.getEnvironmentContext())
+        .validationContext(systemOperationContext.getValidationContext())
         .build(sessionAuthentication);
   }
 
@@ -123,15 +123,14 @@ public class OperationContext {
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
-      @Nonnull EnvironmentContext environmentContext) {
+      @Nonnull ValidationContext validationContext) {
     return asSystem(
         config,
         systemAuthentication,
         entityRegistry,
         servicesRegistryContext,
         indexConvention,
-        retrieverContext,
-        environmentContext,
+        retrieverContext, validationContext,
         ObjectMapperContext.DEFAULT);
   }
 
@@ -142,7 +141,7 @@ public class OperationContext {
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
-      @Nonnull EnvironmentContext environmentContext,
+      @Nonnull ValidationContext validationContext,
       @Nonnull ObjectMapperContext objectMapperContext) {
 
     ActorContext systemActorContext =
@@ -164,7 +163,7 @@ public class OperationContext {
         .authorizerContext(AuthorizerContext.builder().authorizer(Authorizer.EMPTY).build())
         .retrieverContext(retrieverContext)
         .objectMapperContext(objectMapperContext)
-        .environmentContext(environmentContext)
+        .validationContext(validationContext)
         .build(systemAuthentication);
   }
 
@@ -179,7 +178,7 @@ public class OperationContext {
   @Nullable private final ViewAuthorizationContext viewAuthorizationContext;
   @Nullable private final RetrieverContext retrieverContext;
   @Nonnull private final ObjectMapperContext objectMapperContext;
-  @Nonnull private final EnvironmentContext environmentContext;
+  @Nonnull private final ValidationContext validationContext;
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {

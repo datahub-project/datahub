@@ -178,7 +178,7 @@ public class EntityController
 
           AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey());
 
-          if (opContext.getEnvironmentContext().isAlternateValidation()) {
+          if (opContext.getValidationContext().isAlternateValidation()) {
             ProposedItem.ProposedItemBuilder builder =
                 ProposedItem.builder()
                     .metadataChangeProposal(

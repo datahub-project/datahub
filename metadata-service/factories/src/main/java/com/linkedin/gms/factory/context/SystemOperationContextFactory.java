@@ -11,7 +11,7 @@ import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
-import io.datahubproject.metadata.context.EnvironmentContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -67,7 +67,7 @@ public class SystemOperationContextFactory {
                 .graphRetriever(graphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
                 .build(),
-            EnvironmentContext.builder()
+            ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
                 .build());
@@ -117,7 +117,7 @@ public class SystemOperationContextFactory {
                 .graphRetriever(graphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
                 .build(),
-            EnvironmentContext.builder()
+            ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
                 .build());

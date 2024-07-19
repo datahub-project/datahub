@@ -7,7 +7,7 @@ import lombok.Getter;
 /** Context holder for environment variables relevant to operations */
 @Builder
 @Getter
-public class EnvironmentContext implements ContextInterface {
+public class ValidationContext implements ContextInterface {
   // Uses alternate validation flow for MCP ingestion
   private final boolean alternateValidation;
 
