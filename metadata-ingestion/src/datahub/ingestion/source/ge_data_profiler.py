@@ -80,6 +80,8 @@ if TYPE_CHECKING:
 assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
 
+_original_get_column_median = SqlAlchemyDataset.get_column_median
+
 P = ParamSpec("P")
 POSTGRESQL = "postgresql"
 MYSQL = "mysql"
@@ -246,35 +248,7 @@ def _get_column_median_patch(self, column):
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     else:
-
-        nonnull_count = self.get_column_nonnull_count(column)
-        element_values = self.engine.execute(
-            sa.select([sa.column(column)])
-            .order_by(sa.column(column))
-            .where(sa.column(column) is not None)
-            .offset(max(nonnull_count // 2 - 1, 0))
-            .limit(2)
-            .select_from(self._table)
-        )
-
-        column_values = list(element_values.fetchall())
-
-        if len(column_values) == 0:
-            column_median = None
-        elif nonnull_count % 2 == 0:
-            # An even number of column values: take the average of the two center values
-            column_median = (
-                float(
-                    column_values[0][0]
-                    + column_values[1][0]  # left center value  # right center value
-                )
-                / 2.0
-            )  # Average center values
-        else:
-            # An odd number of column values, we can just take the center value
-            column_median = column_values[1][0]  # True center value
-
-        return convert_to_json_serializable(column_median)
+        return _original_get_column_median(self, column)
 
 
 def _is_single_row_query_method(query: Any) -> bool:
