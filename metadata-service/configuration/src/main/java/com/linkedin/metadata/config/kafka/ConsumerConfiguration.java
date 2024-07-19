@@ -8,4 +8,7 @@ public class ConsumerConfiguration {
   private int maxPartitionFetchBytes;
   private boolean stopOnDeserializationError;
   private boolean healthCheckEnabled;
+  private int sessionTimeout;
+  private int maxPollRecords;
+  private int maxPollInterval;
 }
