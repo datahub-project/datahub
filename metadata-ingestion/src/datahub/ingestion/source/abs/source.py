@@ -52,13 +52,15 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.abs.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.abs.report import DataLakeSourceReport
-from datahub.ingestion.source.azure.abs_util import (
+from datahub.ingestion.source.azure.abs_folder_utils import (
     get_abs_properties,
     get_abs_tags,
+    list_folders,
+)
+from datahub.ingestion.source.azure.abs_utils import (
     get_container_name,
     get_container_relative_path,
     get_key_prefix,
-    list_folders,
     strip_abs_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator

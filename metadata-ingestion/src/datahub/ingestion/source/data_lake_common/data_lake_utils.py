@@ -16,7 +16,7 @@ from datahub.ingestion.source.aws.s3_util import (
     get_s3_prefix,
     is_s3_uri,
 )
-from datahub.ingestion.source.azure.abs_util import (
+from datahub.ingestion.source.azure.abs_utils import (
     get_abs_prefix,
     get_container_name,
     get_container_relative_path,
