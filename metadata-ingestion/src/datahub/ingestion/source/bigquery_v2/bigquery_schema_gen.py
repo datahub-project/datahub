@@ -136,6 +136,8 @@ class BigQuerySchemaGenerator:
         "BYTEINT": NumberType,
         "BIGNUMERIC": NumberType,
         "NUMERIC": NumberType,
+        "DECIMAL": NumberType,
+        "BIGDECIMAL": NumberType,
         "FLOAT64": NumberType,
         "RANGE": NullType,
         "STRING": StringType,
