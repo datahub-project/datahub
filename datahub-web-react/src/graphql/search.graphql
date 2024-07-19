@@ -917,6 +917,13 @@ fragment searchResultsWithoutSchemaField on Entity {
             }
         }
     }
+    ... on Form {
+        formInfo: info {
+            name
+            description
+            type
+        }
+    }
 }
 
 fragment searchResultFieldsNoLineage on Entity {

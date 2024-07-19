@@ -48,9 +48,10 @@ const HeaderSkeleton = styled(Skeleton.Button)<{ width?: string }>`
 interface Props {
     Component: React.FC<SkeletonButtonProps>;
     showHeader?: boolean;
+    count?: number;
 }
 
-export const HorizontalListSkeletons = ({ Component, showHeader = true }: Props) => {
+export const HorizontalListSkeletons = ({ Component, showHeader = true, count = 3 }: Props) => {
     return (
         <SkeletonContainer>
             {showHeader && (
@@ -59,9 +60,9 @@ export const HorizontalListSkeletons = ({ Component, showHeader = true }: Props)
                 </SectionHeader>
             )}
             <HorizontalList>
-                <Component active shape="square" block />
-                <Component active shape="square" block />
-                <Component active shape="square" block />
+                {Array.from({ length: count }, (_, index) => (
+                    <Component active shape="square" block key={index} />
+                ))}
             </HorizontalList>
         </SkeletonContainer>
     );
