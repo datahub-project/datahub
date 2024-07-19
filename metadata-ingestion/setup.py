@@ -263,6 +263,12 @@ abs_base = {
     "azure-identity>=1.14.0",
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
+    "more-itertools>=8.12.0",
+    "pyarrow>=6.0.1",
+    "smart-open[azure]>=5.2.1",
+    "tableschema>=1.20.2",
+    "ujson>=5.2.0",
+    *path_spec_common,
 }
 
 data_lake_profiling = {
@@ -352,6 +358,10 @@ plugins: Dict[str, Set[str]] = {
         "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
         "dask[dataframe]<2024.7.0",
+        # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
+        # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
+        # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+        "numpy<2",
     },
     "grafana": {"requests"},
     "glue": aws_common,
@@ -415,7 +425,7 @@ plugins: Dict[str, Set[str]] = {
     | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
-    "abs": {*abs_base},
+    "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
@@ -539,6 +549,7 @@ base_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "abs",
             "athena",
             "bigquery",
             "clickhouse",
@@ -627,6 +638,7 @@ full_test_dev_requirements = {
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
+        "abs = datahub.ingestion.source.abs.source:ABSSource",
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",
@@ -695,7 +707,6 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
-        "abs = datahub.ingestion.source.abs.source:ABSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
