@@ -436,7 +436,7 @@ public class OperationContext {
           this.viewAuthorizationContext,
           this.retrieverContext,
           this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
-          this.environmentContext);
+          this.validationContext);
     }
 
     private OperationContext build() {
