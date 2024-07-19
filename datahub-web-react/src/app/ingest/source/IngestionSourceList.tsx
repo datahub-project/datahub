@@ -32,6 +32,7 @@ import {
     INGESTION_REFRESH_SOURCES_ID,
 } from '../../onboarding/config/IngestionOnboardingConfig';
 import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
+import { useCommandS } from './hooks';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -50,6 +51,8 @@ const StyledSelect = styled(Select)`
 const FilterWrapper = styled.div`
     display: flex;
 `;
+
+const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
 
 export enum IngestionSourceType {
     ALL,
@@ -102,6 +105,17 @@ export const IngestionSourceList = () => {
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
+    const [hideSystemSources, setHideSystemSources] = useState(true);
+
+    /**
+     * Show or hide system ingestion sources using a hidden command S command.
+     */
+    useCommandS(() => setHideSystemSources(!hideSystemSources));
+
+    // Ingestion Source Default Filters
+    const filters = hideSystemSources
+        ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
+        : undefined;
 
     // Ingestion Source Queries
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
@@ -110,6 +124,7 @@ export const IngestionSourceList = () => {
                 start,
                 count: pageSize,
                 query: (query?.length && query) || undefined,
+                filters,
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
