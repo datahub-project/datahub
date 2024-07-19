@@ -10,7 +10,7 @@ import { getRedirectUrl } from '../conf/utils';
 /**
  * Container for all views behind an authentication wall.
  */
-export const ProtectedRoutes = (): JSX.Element => { 
+export const ProtectedRoutes = (): JSX.Element => {
     const location = useLocation();
     const history = useHistory();
 
