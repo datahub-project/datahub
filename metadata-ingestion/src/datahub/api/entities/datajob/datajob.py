@@ -107,12 +107,13 @@ class DataJob:
     def generate_mcp(
         self, materialize_iolets: bool = True
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        env: Optional[str] = self.flow_urn.cluster
-        if self.flow_urn.cluster not in ALL_ENV_TYPES:
+        env: Optional[str] = None
+        if self.flow_urn.cluster in ALL_ENV_TYPES:
+            env = self.flow_urn.cluster
+        else:
             logger.warning(
                 f"cluster {self.flow_urn.cluster} is not a valid environment type so Environment filter won't work."
             )
-            env = None
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataJobInfoClass(
