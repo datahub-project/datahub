@@ -9,7 +9,8 @@ import { toLocalDateString, toRelativeTimeString } from '../../../../../../share
 import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
 import { ContentText, InstanceIcon, LabelText, RelativeTime } from './styledComponents';
 import { DataPlatform, Maybe } from '../../../../../../../types.generated';
-import { ACRYL_PLATFORM, getRelativeTimeColor } from './utils';
+import { ACRYL_PLATFORM, ActionType, getRelativeTimeColor } from './utils';
+import SyncedOrSharedTooltip from './SyncedOrSharedTooltip';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -35,13 +36,19 @@ const DetailRow = styled.div`
 `;
 
 const StyledShareIcon = styled(ShareIcon)`
-    height: 24px;
-    width: 24px;
+    height: 22px;
+    width: 22px;
 `;
 
 const SyncedSharedText = styled(Typography.Text)`
     color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
     font-weight: 700;
+`;
+
+const StyledTooltip = styled(Tooltip)`
+    .ant-tooltip-inner {
+        border-radius: 4px;
+    }
 `;
 
 interface Props {
@@ -50,13 +57,24 @@ interface Props {
     platformName?: string;
     platform?: Maybe<DataPlatform> | undefined;
     instanceName?: string;
+    type: ActionType;
 }
 
-const SyncedOrShared = ({ labelText, time, platformName, platform, instanceName }: Props) => {
+const SyncedOrShared = ({ labelText, time, platformName, platform, instanceName, type }: Props) => {
     return (
         <DetailsContainer>
             <DetailRow>
-                <SyncIcon>{platformName === ACRYL_PLATFORM ? <StyledShareIcon /> : <SwapHorizOutlinedIcon />}</SyncIcon>
+                <StyledTooltip
+                    title={<SyncedOrSharedTooltip type={type} />}
+                    color={REDESIGN_COLORS.TOOLTIP_BACKGROUND}
+                    overlayInnerStyle={{ width: 300, padding: 10 }}
+                    placement="bottomLeft"
+                >
+                    <SyncIcon>
+                        {platformName === ACRYL_PLATFORM ? <StyledShareIcon /> : <SwapHorizOutlinedIcon />}
+                    </SyncIcon>
+                </StyledTooltip>
+
                 <SyncedSharedText>{labelText} </SyncedSharedText>
                 <Tooltip title={toLocalDateString(time)}>
                     <RelativeTime relativeTimeColor={getRelativeTimeColor(time)}>

@@ -10,7 +10,7 @@ import { DataPlatformInstance, EntityType, SyncMechanism } from '../../../../../
 import SyncedOrShared from './SyncedOrShared';
 import { Entity } from '../../../../../Entity';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { ACRYL_PLATFORM } from './utils';
+import { ACRYL_PLATFORM, ActionType } from './utils';
 import DeprecatedIcon from '../../../../../../../images/deprecated-status.svg?react';
 
 const SyncedAssetContainer = styled.div`
@@ -166,6 +166,7 @@ const StatusSection = () => {
                     time={lastIngested}
                     platformName={platformName}
                     platform={platform}
+                    type={ActionType.SYNC}
                 />
             )}
             {!!sourceInstance && (
@@ -174,6 +175,7 @@ const StatusSection = () => {
                     time={sharedTime}
                     platformName={ACRYL_PLATFORM}
                     instanceName={instanceName}
+                    type={ActionType.SHARE}
                 />
             )}
         </SyncedAssetContainer>

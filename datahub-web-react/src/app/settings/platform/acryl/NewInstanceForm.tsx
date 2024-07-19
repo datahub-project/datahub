@@ -101,8 +101,8 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
     const [updateConnection] = useUpdateConnectionMutation();
     const client = useApolloClient();
 
-    const instanceURL = getURLFromJson(selectedInstance?.details?.json?.blob);
-    const initialToken = getTokenFromJson(selectedInstance?.details.json?.blob);
+    const instanceURL = isEditForm && getURLFromJson(selectedInstance?.details?.json?.blob);
+    const initialToken = isEditForm && getTokenFromJson(selectedInstance?.details.json?.blob);
 
     const [isTokenEdited, setIsTokenEdited] = useState(false);
 

@@ -21,6 +21,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import PlatformIcon from '../../../../../sharedV2/icons/PlatformIcon';
 import SharedByInfo from './shared/SharedByInfo';
 import { WARNING_COLOR_HEX } from '../../../tabs/Incident/incidentUtils';
+import { GenericEntityProperties } from '../../../../../entity/shared/types';
 
 const SharingInfoContainer = styled.div`
     margin-bottom: 12px;
@@ -159,16 +160,16 @@ const SectionLabel = styled(StyledLabel)`
 
 interface Props {
     lastShareResults: ShareResult[];
-    selectedInstancesToUnshare: string[];
-    setSelectedInstancesToUnshare: React.Dispatch<React.SetStateAction<string[]>>;
+    selectedInstances: string[];
+    setSelectedInstances: React.Dispatch<React.SetStateAction<string[]>>;
     isImplicitList: boolean;
     showOnSidebar?: boolean;
 }
 
 export const SharedEntityInfo = ({
     lastShareResults,
-    selectedInstancesToUnshare,
-    setSelectedInstancesToUnshare,
+    selectedInstances,
+    setSelectedInstances,
     isImplicitList,
     showOnSidebar,
 }: Props) => {
@@ -181,10 +182,10 @@ export const SharedEntityInfo = ({
 
     const handleCheckboxChange = (instanceUrn: string) => {
         if (instanceUrn) {
-            if (!selectedInstancesToUnshare.includes(instanceUrn)) {
-                setSelectedInstancesToUnshare([...selectedInstancesToUnshare, instanceUrn]);
+            if (!selectedInstances.includes(instanceUrn)) {
+                setSelectedInstances([...selectedInstances, instanceUrn]);
             } else {
-                setSelectedInstancesToUnshare(selectedInstancesToUnshare.filter((urn) => urn !== instanceUrn));
+                setSelectedInstances(selectedInstances.filter((urn) => urn !== instanceUrn));
             }
         }
     };
@@ -209,12 +210,9 @@ export const SharedEntityInfo = ({
                         </SubText>
                     )}
                 </Heading>
-                {!isImplicitList && selectedInstancesToUnshare.length > 0 && (
+                {!isImplicitList && selectedInstances.length > 0 && (
                     <ButtonContainer>
-                        <StyledButton
-                            $color={REDESIGN_COLORS.TITLE_PURPLE}
-                            onClick={() => setSelectedInstancesToUnshare([])}
-                        >
+                        <StyledButton $color={REDESIGN_COLORS.TITLE_PURPLE} onClick={() => setSelectedInstances([])}>
                             Clear
                         </StyledButton>
                     </ButtonContainer>
@@ -252,7 +250,10 @@ export const SharedEntityInfo = ({
                                             <>
                                                 <LabelText>Shared from:</LabelText>
                                                 <PlatformIcon
-                                                    platform={(result as any)?.implicitShareEntity?.platform}
+                                                    platform={
+                                                        (result?.implicitShareEntity as GenericEntityProperties)
+                                                            ?.platform
+                                                    }
                                                     size={14}
                                                 />
                                                 <Link to={linkedEntityUrl}>{linkedEntityName}</Link>
@@ -329,7 +330,7 @@ export const SharedEntityInfo = ({
                             {!isImplicitList && hasDestination && !isInProgress && (
                                 <StyledCheckbox
                                     $color={REDESIGN_COLORS.RED_ERROR}
-                                    checked={selectedInstancesToUnshare.includes(result.destination?.urn || '')}
+                                    checked={selectedInstances.includes(result.destination?.urn || '')}
                                     onChange={() => handleCheckboxChange(result.destination?.urn || '')}
                                 />
                             )}
