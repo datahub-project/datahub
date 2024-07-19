@@ -8,11 +8,12 @@
     }
  *  */
 
-export const getRedirectUrl = (newRoutes: any) => {
+export const getRedirectUrl = (newRoutes: { [key: string]: string }) => {
     let newPathname = `${window.location.pathname}${window.location.search}`;
     if (!newRoutes) {
         return newPathname;
     }
+
     // eslint-disable-next-line no-restricted-syntax
     for (const path of Object.keys(newRoutes)) {
         if (newPathname.indexOf(path) !== -1) {
