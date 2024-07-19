@@ -1,3 +1,4 @@
+import inspect as inspect_objects
 import logging
 import re
 import urllib.parse
@@ -172,7 +173,7 @@ class SQLServerSource(SQLAlchemySource):
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         self.full_lineage: Dict[str, Dict[str, List[Dict[str, str]]]] = {}
-        self.procedures_dependencies: Dict[str, List[Dict[str, str]]] = {}
+        self.procedures_dependencies: Dict[str, List[Dict[str, str | int]]] = {}
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name = self.get_db_name(inspector)
@@ -291,7 +292,7 @@ class SQLServerSource(SQLAlchemySource):
         return result
 
     def _populate_stored_procedures_dependencies(self, conn: Connection) -> None:
-        _procedures_dependencies: Dict[str, List[Dict[str, str]]] = {}
+        _procedures_dependencies: Dict[str, List[Dict[str, str | int]]] = {}
 
         trans = conn.begin()
 
@@ -538,20 +539,27 @@ class SQLServerSource(SQLAlchemySource):
             """
         )
 
-        for row in _dependencies.all():
-            # PAY ATTENTION:
-            # at 19.07.2024 self.get_db_name method converts db name to lowercase forcely:
-            # return str(engine.url.database).strip('"').lower()
-            # to avoid inconsistency, referenced_database_name in this module repeats the same behavior
-            # remove after fixing
+        # PAY ATTENTION:
+        # at 19.07.2024 self.get_db_name method converts db name to lowercase forcely:
+        # return str(engine.url.database).strip('"').lower()
+        # to avoid inconsistency, referenced_database_name in this module repeats the same behavior
+        # remove after fixing
+        db_force_converting = (
+            True if "lower()" in inspect_objects.getsource(self.get_db_name) else False
+        )
+
+        for row in _dependencies:
+
             if row:
-                _key = (
-                    f"{row['current_db'].lower()}.{row['procedure_schema']}.{row['procedure_name']}"
-                )
+                _key = f"{row['current_db'].lower() if db_force_converting else row['current_db']}.{row['procedure_schema']}.{row['procedure_name']}"
 
                 _procedures_dependencies.setdefault(_key, []).append(
                     {
-                        "referenced_database_name": row["referenced_database_name"].lower(),
+                        "referenced_database_name": row[
+                            "referenced_database_name"
+                        ].lower()
+                        if db_force_converting
+                        else row["referenced_database_name"],
                         "referenced_schema_name": row["referenced_schema_name"],
                         "referenced_entity_name": row["referenced_entity_name"],
                         "referenced_object_type": row["referenced_object_type"],
@@ -887,12 +895,13 @@ class SQLServerSource(SQLAlchemySource):
             upstream_dependencies.append(
                 ProcedureDependency(
                     flow_id=f"{dependency['referenced_database_name']}.{dependency['referenced_schema_name']}.stored_procedures",
-                    db=dependency["referenced_database_name"],
-                    schema=dependency["referenced_schema_name"],
-                    name=dependency["referenced_entity_name"],
-                    type=dependency["referenced_object_type"],
-                    incoming=dependency["is_selected"] or dependency["is_select_all"],
-                    outgoing=dependency["is_updated"],
+                    db=str(dependency["referenced_database_name"]),
+                    schema=str(dependency["referenced_schema_name"]),
+                    name=str(dependency["referenced_entity_name"]),
+                    type=str(dependency["referenced_object_type"]),
+                    incoming=int(dependency["is_selected"])
+                    or int(dependency["is_select_all"]),
+                    outgoing=int(dependency["is_updated"]),
                     env=procedure.flow.env,
                     server=procedure.flow.platform_instance,
                 )
