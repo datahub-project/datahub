@@ -263,7 +263,12 @@ abs_base = {
     "azure-identity>=1.14.0",
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
+    "more-itertools>=8.12.0",
+    "pyarrow>=6.0.1",
     "smart-open[azure]>=5.2.1",
+    "tableschema>=1.20.2",
+    "ujson>=5.2.0",
+    *path_spec_common,
 }
 
 data_lake_profiling = {
@@ -420,7 +425,7 @@ plugins: Dict[str, Set[str]] = {
     | {"cachetools"},
     "s3": {*s3_base, *data_lake_profiling},
     "gcs": {*s3_base, *data_lake_profiling},
-    "abs": {*abs_base},
+    "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
