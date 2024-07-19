@@ -9,7 +9,6 @@ import { pluralize } from '../../../../../../shared/textUtil';
 import SectionActionButton from '../SectionActionButton';
 import ShareModal from '../../../../../../shared/share/v2/items/MetadataShareItem/ShareModal';
 import SharingList from './SharingList';
-import { ShareResultState } from '../../../../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../../constants';
 import SharedByInfo from './SharedByInfo';
 
@@ -43,9 +42,7 @@ const NumberText = styled(Typography.Text)`
 const SharingAssetSection = () => {
     const { entityData } = useEntityData();
 
-    const lastShareResults = entityData?.share?.lastShareResults?.filter(
-        (result) => !!result.lastSuccess?.time || result.status === ShareResultState.Running,
-    );
+    const lastShareResults = entityData?.share?.lastShareResults;
     const sortedResults = lastShareResults && sortSharedList(lastShareResults);
     const directShares = sortedResults?.filter((result) => !result.implicitShareEntity);
     const implicitShareResults = sortedResults?.filter((result) => !!result.implicitShareEntity);
@@ -64,9 +61,6 @@ const SharingAssetSection = () => {
                                 <InfoText> Shared with </InfoText>
                                 <NumberText>
                                     {`${distinctInstances.size} Acryl ${pluralize(distinctInstances.size, 'Instance')}`}
-                                    {implicitShareResults &&
-                                        implicitShareResults.length > 0 &&
-                                        `, ${implicitShareResults?.length} via Lineage`}
                                 </NumberText>
                             </SharingInfo>
                         ) : (

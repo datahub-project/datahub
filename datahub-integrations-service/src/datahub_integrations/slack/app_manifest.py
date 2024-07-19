@@ -102,11 +102,7 @@ def get_slack_app_manifest() -> str:
         },
         "oauth_config": {
             "redirect_urls": list(
-                {
-                    f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback",
-                    "http://localhost:9002/integrations/slack/oauth_callback",
-                    "http://localhost:9003/public/slack/oauth_callback",
-                }
+                {f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback"}
             ),
             "scopes": {
                 "bot": slack_bot_scopes,

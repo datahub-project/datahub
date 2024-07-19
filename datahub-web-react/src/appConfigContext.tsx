@@ -81,6 +81,7 @@ export const DEFAULT_APP_CONFIG = {
         slackBotTokensConfigEnabled: false,
         showSeparateSiblings: false,
         formCreationEnabled: false,
+        schemaFieldCLLEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

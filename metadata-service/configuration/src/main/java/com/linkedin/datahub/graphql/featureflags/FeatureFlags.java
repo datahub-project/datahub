@@ -40,4 +40,5 @@ public class FeatureFlags {
   private boolean showSeparateSiblings = false;
   private boolean formCreationEnabled = false;
   private boolean alternateMCPValidation = false;
+  private boolean schemaFieldCLLEnabled = false;
 }

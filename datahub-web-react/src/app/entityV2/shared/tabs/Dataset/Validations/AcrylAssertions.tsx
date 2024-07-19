@@ -49,9 +49,28 @@ export const AcrylAssertions = () => {
     const contract = contractData?.dataset?.contract as any;
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
 
-    const canCreateAssertion =
+    const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
+    const isRenderingSiblingsModeMessage = (
+        <>
+            You cannot create an assertion for a group of assets. <br />
+            <br />
+            To create an assertion for a specific asset in this group, navigate to them using the <b>
+                Composed Of
+            </b>{' '}
+            sidebar section on the right.
+        </>
+    );
+
+    const isAllowedToCreateAssertion =
         (data?.dataset?.privileges?.canEditAssertions || false) &&
         (data?.dataset?.privileges?.canEditMonitors || false);
+    const isNotAllowedToCreateAssertionMessage = 'You do not have permission to create an assertion for this asset';
+
+    /* We do not enable the create button if the user does not have the privilege, OR if sibling mode is enabled */
+    const disableCreateAssertion = !isAllowedToCreateAssertion || isRenderingSiblings;
+    const disableCreateAssertionMessage = isRenderingSiblings
+        ? isRenderingSiblingsModeMessage
+        : isNotAllowedToCreateAssertionMessage;
 
     return (
         <>
@@ -59,14 +78,12 @@ export const AcrylAssertions = () => {
                 <TabToolbar>
                     <Tooltip
                         showArrow={false}
-                        title={
-                            !canCreateAssertion && 'You do not have permission to create an assertion for this asset'
-                        }
+                        title={(disableCreateAssertion && disableCreateAssertionMessage) || null}
                     >
                         <Button
                             type="text"
-                            onClick={() => canCreateAssertion && setShowAssertionBuilder(true)}
-                            disabled={!canCreateAssertion}
+                            onClick={() => !disableCreateAssertion && setShowAssertionBuilder(true)}
+                            disabled={disableCreateAssertion}
                             id="create-assertion-btn-main"
                         >
                             <PlusOutlined /> Create

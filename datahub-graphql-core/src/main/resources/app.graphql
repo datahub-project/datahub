@@ -1150,6 +1150,11 @@ type FeatureFlagsConfig {
   Enables the form creation workflow feature on the documentation page
   """
   formCreationEnabled: Boolean!
+
+  """
+  Enables links to schema field-level lineage on lineage explorer.
+  """
+  schemaFieldCLLEnabled: Boolean!
 }
 
 """

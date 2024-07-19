@@ -7,6 +7,7 @@ import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
 import { AssertionProfileDrawer } from './assertion/profile/AssertionProfileDrawer';
 import { ANTD_GRAY } from '../../../constants';
 import { useOpenAssertionDetailModal } from './assertion/builder/hooks';
+import { getEntityUrnForAssertion, getSiblingWithUrn } from './acrylUtils';
 
 type StyledTableProps = {
     showSelect?: boolean;
@@ -78,8 +79,6 @@ type Props = {
 /**
  * Acryl-specific list of assertions displaying their most recent run status, their human-readable
  * description, and platform.
- *
- * Currently this component supports rendering Dataset Assertions only.
  */
 export const AcrylAssertionsTable = ({
     assertions,
@@ -95,8 +94,11 @@ export const AcrylAssertionsTable = ({
 }: Props) => {
     const { entityData } = useEntityData();
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
-
     const focusedAssertion = assertions.find((assertion) => assertion.urn === focusAssertionUrn);
+    const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion) : undefined;
+    const focusedAssertionEntity =
+        focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
+
     const canEditFocusAssertion = focusedAssertion
         ? (focusedAssertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
         : false;
@@ -218,10 +220,10 @@ export const AcrylAssertionsTable = ({
                 showHeader={false}
                 pagination={false}
             />
-            {focusAssertionUrn && (
+            {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
-                    entity={entityData as Entity}
+                    entity={focusedAssertionEntity as Entity}
                     contract={contract}
                     canEditAssertion={canEditFocusAssertion}
                     canEditMonitor={canEditFocusMonitor}

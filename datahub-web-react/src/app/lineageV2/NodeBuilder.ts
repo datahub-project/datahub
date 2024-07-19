@@ -410,7 +410,7 @@ export default class NodeBuilder {
     createFilterNode(filter: LineageFilter): LineageVisualizationNode {
         return this.createNode(filter, LINEAGE_FILTER_NODE_NAME, (node) => ({
             ...node,
-            numShown: Array.from(node.contents).filter((urn) => urn in this.nodeInformation).length,
+            numShown: Array.from(node.allChildren).filter((urn) => urn in this.nodeInformation).length,
         }));
     }
 }
