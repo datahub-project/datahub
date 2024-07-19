@@ -16,6 +16,7 @@ from tabulate import tabulate
 import datahub as datahub_package
 from datahub.cli import cli_utils
 from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
+from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.graph.client import get_default_graph
@@ -214,6 +215,14 @@ def _make_ingestion_urn(name: str) -> str:
     return f"urn:li:dataHubIngestionSource:deploy-{guid}"
 
 
+class DeployOptions(ConfigModel):
+    name: str
+    schedule: Optional[str] = None
+    time_zone: str = "UTC"
+    cli_version: Optional[str] = None
+    executor_id: str = "default"
+
+
 @ingest.command()
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
@@ -289,16 +298,27 @@ def deploy(
         resolve_env_vars=False,
     )
 
-    deployment_name = pipeline_config.pop("deployment_name", None)
-    if deployment_name:
+    deploy_options_raw = pipeline_config.pop("deployment", None)
+    if deploy_options_raw is not None:
+        deploy_options = DeployOptions.parse_obj(deploy_options_raw)
+
+        logger.info(f"Using {repr(deploy_options)}")
+
         if urn:
-            raise click.UsageError("Cannot specify both --urn and deployment_name")
+            raise click.UsageError(
+                "Cannot specify both --urn and deployment field in config"
+            )
         elif name:
-            raise click.UsageError("Cannot specify both --name and deployment_name")
+            raise click.UsageError(
+                "Cannot specify both --name and deployment field in config"
+            )
+        else:
+            logger.info(
+                "The deployment field is set in the recipe, any CLI args will be ignored"
+            )
 
         # When urn/name is not specified, we will generate a unique urn based on the deployment name.
-        name = deployment_name
-        urn = _make_ingestion_urn(name)
+        urn = _make_ingestion_urn(deploy_options.name)
         logger.info(f"Will create or update a recipe with urn: {urn}")
     elif name:
         if not urn:
@@ -307,24 +327,37 @@ def deploy(
             logger.info(
                 f"No urn was explicitly specified, will create or update the recipe with urn: {urn}"
             )
+
+        deploy_options = DeployOptions(
+            name=name,
+            schedule=schedule,
+            time_zone=time_zone,
+            cli_version=cli_version,
+            executor_id=executor_id,
+        )
+
+        logger.info(f"Using {repr(deploy_options)}")
     else:  # neither deployment_name nor name is set
         raise click.UsageError(
             "Either --name must be set or deployment_name specified in the config"
         )
 
-    # Invariant - at this point, both urn and name are set.
+    # Invariant - at this point, both urn and deploy_options are set.
 
     variables: dict = {
         "urn": urn,
-        "name": name,
+        "name": deploy_options.name,
         "type": pipeline_config["source"]["type"],
         "recipe": json.dumps(pipeline_config),
-        "executorId": executor_id,
-        "version": cli_version,
+        "executorId": deploy_options.executor_id,
+        "version": deploy_options.cli_version,
     }
 
-    if schedule is not None:
-        variables["schedule"] = {"interval": schedule, "timezone": time_zone}
+    if deploy_options.schedule is not None:
+        variables["schedule"] = {
+            "interval": deploy_options.schedule,
+            "timezone": deploy_options.time_zone,
+        }
 
     # The updateIngestionSource endpoint can actually do upserts as well.
     graphql_query: str = textwrap.dedent(
