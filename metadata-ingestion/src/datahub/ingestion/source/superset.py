@@ -8,6 +8,7 @@ import requests
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
+from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -19,7 +20,10 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_domain_urn,
 )
-from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.mcp_builder import (
+    add_domain_to_entity_wu
+)
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -101,7 +105,11 @@ class SupersetConfig(
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
-
+    api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
+    api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
+    manager_uri: str = Field(
+        default="https://api.app.preset.io/", description="Preset.io API URL"
+    )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Superset Stateful Ingestion Config."
@@ -178,7 +186,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
+        self.login()
 
+    def login(self):
         login_response = requests.post(
             f"{self.config.connect_uri}/api/v1/security/login",
             json={
