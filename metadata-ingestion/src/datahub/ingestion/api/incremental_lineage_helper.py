@@ -1,3 +1,4 @@
+import logging
 from typing import Iterable, Optional
 
 from pydantic.fields import Field
@@ -17,6 +18,8 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
+
+logger = logging.getLogger(__name__)
 
 
 def convert_upstream_lineage_to_patch(
@@ -103,6 +106,9 @@ def convert_dashboard_info_to_patch(
     values = patch_builder.build()
 
     if values:
+        logger.debug(
+            f"Generating patch DashboardInfo MetadataWorkUnit for dashboard {aspect.title}"
+        )
         mcp = next(iter(values))
         return MetadataWorkUnit(
             id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
