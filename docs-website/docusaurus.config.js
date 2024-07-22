@@ -74,7 +74,7 @@ module.exports = {
         {
           type: "docSidebar",
           sidebarId: "acrylSidebar",
-          label: "Managed DataHub",
+          label: "Acryl Cloud",
           position: "right",
         },
         {

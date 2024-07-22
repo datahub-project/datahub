@@ -35,8 +35,13 @@ module.exports = {
       ],
     },
     {
+      type: "html",
+      value: "<div>Features</div>",
+      defaultStyle: true,
+    },
+    {
       type: "category",
-      label: "Features",
+      label: "DataHub Features",
       link: {
         type: "generated-index",
         title: "Feature Guides",
@@ -44,43 +49,6 @@ module.exports = {
       },
       items: [
         // "docs/how/ui-tabs-guide",
-        {
-          label: "Assertions",
-          type: "category",
-          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
-          items: [
-            {
-              label: "Column Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/column-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Custom SQL Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/custom-sql-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Freshness Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/freshness-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Schema Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/schema-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Volume Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
-              className: "saasOnly",
-            },
-          ],
-        },
         {
           label: "Business Attributes",
           type: "doc",
@@ -143,12 +111,6 @@ module.exports = {
           ],
         },
         {
-          label: "Metadata Tests",
-          type: "doc",
-          id: "docs/tests/metadata-tests",
-          className: "saasOnly",
-        },
-        {
           label: "Ownership",
           type: "doc",
           id: "docs/ownership/ownership-types",
@@ -183,6 +145,101 @@ module.exports = {
           label: "Tags",
           type: "doc",
           id: "docs/tags",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Acryl Cloud Features",
+      link: {
+        type: "generated-index",
+        title: "Feature Guides",
+        description: "Learn about the features of DataHub.",
+      },
+      items: [
+        {
+          label: "Assertions",
+          type: "category",
+          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
+          items: [
+            {
+              label: "Column Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/column-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Custom SQL Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/custom-sql-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Freshness Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/freshness-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Schema Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/schema-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Volume Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/volume-assertions",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/saas-slack-setup",
+          className: "saasOnly",
+        },
+        {
+              type: "doc",
+              id: "docs/managed-datahub/datahub-api/graphql-api/getting-started",
+              className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/datahub-api/entity-events-api",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/approval-workflows",
+          className: "saasOnly",
+        },
+        "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
+        {
+          label: "Metadata Tests",
+          type: "doc",
+          id: "docs/tests/metadata-tests",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/aws-privatelink",
+          className: "saasOnly",
+          label: "AWS PrivateLink Integration"
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/chrome-extension",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
         },
       ],
     },
@@ -795,37 +852,18 @@ module.exports = {
   acrylSidebar: [
     {
       type: "html",
-      value: "<div>Managed DataHub</div>",
+      value: "<div>Acryl Cloud</div>",
       defaultStyle: true,
     },
-    "docs/managed-datahub/managed-datahub-overview",
-    "docs/managed-datahub/welcome-acryl",
     {
-      "Managed DataHub Release History": [
-        "docs/managed-datahub/release-notes/v_0_3_2",
-        "docs/managed-datahub/release-notes/v_0_3_1",
-        "docs/managed-datahub/release-notes/v_0_2_16",
-        "docs/managed-datahub/release-notes/v_0_2_15",
-        "docs/managed-datahub/release-notes/v_0_2_14",
-        "docs/managed-datahub/release-notes/v_0_2_13",
-        "docs/managed-datahub/release-notes/v_0_2_12",
-        "docs/managed-datahub/release-notes/v_0_2_11",
-        "docs/managed-datahub/release-notes/v_0_2_10",
-        "docs/managed-datahub/release-notes/v_0_2_9",
-        "docs/managed-datahub/release-notes/v_0_2_8",
-        "docs/managed-datahub/release-notes/v_0_2_7",
-        "docs/managed-datahub/release-notes/v_0_2_6",
-        "docs/managed-datahub/release-notes/v_0_2_5",
-        "docs/managed-datahub/release-notes/v_0_2_4",
-        "docs/managed-datahub/release-notes/v_0_2_3",
-        "docs/managed-datahub/release-notes/v_0_2_2",
-        "docs/managed-datahub/release-notes/v_0_2_1",
-        "docs/managed-datahub/release-notes/v_0_2_0",
-        "docs/managed-datahub/release-notes/v_0_1_73",
-        "docs/managed-datahub/release-notes/v_0_1_72",
-        "docs/managed-datahub/release-notes/v_0_1_70",
-        "docs/managed-datahub/release-notes/v_0_1_69",
-      ],
+      type: "doc",
+      id: "docs/managed-datahub/managed-datahub-overview",
+      label: "Why Acryl Cloud?"
+    },
+    {
+      type: "doc",
+      id: "docs/managed-datahub/welcome-acryl",
+      label: "Getting Started With Acryl Cloud"
     },
     {
       type: "html",
@@ -941,12 +979,6 @@ module.exports = {
           ],
         },
         {
-          label: "Metadata Tests",
-          type: "doc",
-          id: "docs/tests/metadata-tests",
-          className: "saasOnly",
-        },
-        {
           label: "Ownership",
           type: "doc",
           id: "docs/ownership/ownership-types",
@@ -986,7 +1018,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Cloud Features",
+      label: "Acryl Cloud Features",
       link: {
         type: "generated-index",
         title: "Feature Guides",
@@ -1004,51 +1036,10 @@ module.exports = {
           className: "saasOnly",
         },
         {
-          "Metadata Ingestion With Acryl": [
-            "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
-          ],
-        },
-        {
-          "DataHub API": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/datahub-api/entity-events-api",
-              className: "saasOnly",
-            },
-            {
-              "GraphQL API": [
-                "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-              ],
-            },
-          ],
-        },
-        {
-          Integrations: [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/aws-privatelink",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/oidc-sso-integration",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          "Operator Guide": [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
-              className: "saasOnly",
-            },
-          ],
+          label: "Metadata Tests",
+          type: "doc",
+          id: "docs/tests/metadata-tests",
+          className: "saasOnly",
         },
         {
           type: "doc",
@@ -1058,6 +1049,177 @@ module.exports = {
           type: "doc",
           id: "docs/managed-datahub/subscription-and-notification",
           className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/aws-privatelink",
+          className: "saasOnly",
+          label: "AWS PrivateLink Integration"
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          className: "saasOnly",
+        },
+      ],
+    },
+        {
+      type: "html",
+      value: "<div>Integrations</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "category",
+      link: {
+        type: "doc",
+        id: "metadata-ingestion/README",
+      },
+      label: "Overview",
+      items: [
+        "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
+        {
+          type: "doc",
+          label: "Recipe",
+          id: "metadata-ingestion/recipe_overview",
+        },
+        {
+          type: "category",
+          label: "Sinks",
+          link: { type: "doc", id: "metadata-ingestion/sink_overview" },
+          items: [
+            {
+              type: "autogenerated",
+              dirName: "metadata-ingestion/sink_docs",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Transformers",
+          link: {
+            type: "doc",
+            id: "metadata-ingestion/docs/transformer/intro",
+          },
+          items: ["metadata-ingestion/docs/transformer/dataset_transformer"],
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Sources",
+      link: { type: "doc", id: "metadata-ingestion/source_overview" },
+      items: [
+        // collapse these; add push-based at top
+        {
+          type: "doc",
+          id: "docs/lineage/airflow",
+          label: "Airflow",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/dagster",
+          label: "Dagster",
+        },
+        {
+          type: "doc",
+          id: "docs/lineage/openlineage",
+          label: "OpenLineage",
+        },
+        {
+          type: "doc",
+          id: "metadata-integration/java/spark-lineage/README",
+          label: "Spark (Legacy)",
+        },
+        {
+          type: "doc",
+          id: "metadata-integration/java/spark-lineage-beta/README",
+          label: "Spark",
+        },
+        //"docker/airflow/local_airflow",
+        "metadata-ingestion/integration_docs/great-expectations",
+        "metadata-integration/java/datahub-protobuf/README",
+        //"metadata-ingestion/source-docs-template",
+        {
+          type: "autogenerated",
+          dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
+        },
+      ],
+    },
+    {
+      "Advanced Guides": [
+        {
+          "Scheduling Ingestion": [
+            "metadata-ingestion/schedule_docs/intro",
+            "metadata-ingestion/schedule_docs/cron",
+            "metadata-ingestion/schedule_docs/airflow",
+            "metadata-ingestion/schedule_docs/kubernetes",
+          ],
+        },
+
+        "docs/platform-instances",
+        "metadata-ingestion/docs/dev_guides/stateful",
+        "metadata-ingestion/docs/dev_guides/classification",
+        "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
+        "metadata-ingestion/docs/dev_guides/sql_profiles",
+        "metadata-ingestion/docs/dev_guides/profiling_ingestions",
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Admin</div>",
+      defaultStyle: true,
+    },
+    "docs/authentication/guides/add-users",
+    "docs/authentication/personal-access-tokens",
+    {
+      Authorization: [
+        "docs/authorization/README",
+        "docs/authorization/roles",
+        "docs/authorization/policies",
+        "docs/authorization/groups",
+      ],
+    },
+    {
+      "Advanced Guides": [
+        "docs/how/delete-metadata",
+        {
+              type: "doc",
+              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+              className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+          className: "saasOnly",
+        },
+    ]
+    },
+        {
+      type: "html",
+      value: "<div>Developers</div>",
+      defaultStyle: true,
+    },
+    {
+      Architecture: [
+        "docs/architecture/architecture",
+        "docs/components",
+        "docs/architecture/metadata-ingestion",
+        "docs/architecture/metadata-serving",
+        "docs/architecture/docker-containers",
+      ],
+    },
+    {
+      "Metadata Model": [
+        "docs/modeling/metadata-model",
+        "docs/modeling/extending-the-metadata-model",
+        "docs/what/mxe",
+        {
+          Entities: [
+            {
+              type: "autogenerated",
+              dirName: "docs/generated/metamodel/entities", // '.' means the current docs folder
+            },
+          ],
         },
       ],
     },
@@ -1081,6 +1243,11 @@ module.exports = {
               label: "Overview",
               type: "doc",
               id: "docs/api/graphql/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/datahub-api/graphql-api/getting-started",
+              className: "saasOnly",
             },
             {
               Reference: [
@@ -1155,6 +1322,11 @@ module.exports = {
               id: "docs/api/openapi/openapi-usage-guide",
             },
           ],
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/datahub-api/entity-events-api",
+          className: "saasOnly",
         },
         "docs/dev-guides/timeline",
         {
@@ -1314,6 +1486,33 @@ module.exports = {
         "docs/links",
         "docs/rfc",
         "SECURITY",
+      ],
+    },
+    {
+      "Acryl Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_2",
+        "docs/managed-datahub/release-notes/v_0_3_1",
+        "docs/managed-datahub/release-notes/v_0_2_16",
+        "docs/managed-datahub/release-notes/v_0_2_15",
+        "docs/managed-datahub/release-notes/v_0_2_14",
+        "docs/managed-datahub/release-notes/v_0_2_13",
+        "docs/managed-datahub/release-notes/v_0_2_12",
+        "docs/managed-datahub/release-notes/v_0_2_11",
+        "docs/managed-datahub/release-notes/v_0_2_10",
+        "docs/managed-datahub/release-notes/v_0_2_9",
+        "docs/managed-datahub/release-notes/v_0_2_8",
+        "docs/managed-datahub/release-notes/v_0_2_7",
+        "docs/managed-datahub/release-notes/v_0_2_6",
+        "docs/managed-datahub/release-notes/v_0_2_5",
+        "docs/managed-datahub/release-notes/v_0_2_4",
+        "docs/managed-datahub/release-notes/v_0_2_3",
+        "docs/managed-datahub/release-notes/v_0_2_2",
+        "docs/managed-datahub/release-notes/v_0_2_1",
+        "docs/managed-datahub/release-notes/v_0_2_0",
+        "docs/managed-datahub/release-notes/v_0_1_73",
+        "docs/managed-datahub/release-notes/v_0_1_72",
+        "docs/managed-datahub/release-notes/v_0_1_70",
+        "docs/managed-datahub/release-notes/v_0_1_69",
       ],
     },
   ],
