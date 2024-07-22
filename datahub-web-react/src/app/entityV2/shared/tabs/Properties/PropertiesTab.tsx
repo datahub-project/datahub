@@ -1,6 +1,7 @@
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
 import { PropertyRow } from '../../../../entity/shared/tabs/Properties/types';
@@ -54,6 +55,14 @@ export const PropertiesTab = ({ properties }: Props) => {
             render: (propertyRow: PropertyRow) => <ValuesColumn propertyRow={propertyRow} filterText={filterText} />,
         },
     ];
+
+    if (entityData?.privileges?.canEditProperties) {
+        propertyTableColumns.push({
+            title: '',
+            width: '10%',
+            render: (propertyRow: PropertyRow) => <EditColumn propertyRow={propertyRow} />,
+        } as any);
+    }
 
     const { structuredPropertyRows, expandedRowsFromFilter } = useStructuredProperties(
         entityRegistry,
