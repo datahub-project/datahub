@@ -508,7 +508,7 @@ public abstract class GenericEntitiesController<
       @PathVariable("aspectName") String aspectName,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
-      @RequestParam(value = "createIfNotExists", required = false, defaultValue = "false")
+      @RequestParam(value = "createIfNotExists", required = false, defaultValue = "true")
           Boolean createIfNotExists,
       @RequestBody @Nonnull String jsonAspect)
       throws URISyntaxException {
