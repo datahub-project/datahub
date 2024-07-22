@@ -19,6 +19,11 @@ module.exports = {
       async: true,
       defer: true,
     },
+    {
+      src: "/scripts/rb2b.js",
+      async: true,
+      defer: true,
+    }
   ],
   noIndex: isSaas,
   customFields: {
@@ -75,6 +80,11 @@ module.exports = {
           type: "docSidebar",
           sidebarId: "acrylSidebar",
           label: "Acryl Cloud",
+        },
+        {
+          to: "/learn",
+          activeBasePath: "learn",
+          label: "Learn",
           position: "right",
         },
         {
@@ -103,6 +113,10 @@ module.exports = {
             {
               to: "/champions",
               label: "Champions",
+            },
+            {
+              label: "Share Your Journey",
+              href: "/customer-stories-survey",
             },
           ],
         },
@@ -296,7 +310,15 @@ module.exports = {
           showLastUpdateAuthor: false,
           showLastUpdateTime: false,
         },
-        blog: false,
+        blog: {
+          blogTitle: "DataHub Learn",
+          blogSidebarTitle: "DataHub Learn",
+          blogDescription: "Learn about the hot topics in the data ecosystem and how DataHub can help you with your data journey.",
+          path: "src/learn",
+          routeBasePath: "learn",
+          postsPerPage: "ALL",
+          blogListComponent: "../src/learn/_components/LearnListPage",
+        },
         theme: {
           customCss: [
             isSaas ? require.resolve("./src/styles/acryl.scss") : require.resolve("./src/styles/datahub.scss"),

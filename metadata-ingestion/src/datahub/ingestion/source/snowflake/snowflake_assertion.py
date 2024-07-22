@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Callable, Iterable, List, Optional
+from typing import Iterable, List, Optional
 
 from pydantic import BaseModel
 
@@ -12,12 +12,11 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeConnectionMixin,
-    SnowflakeQueryMixin,
+    SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResult,
@@ -40,31 +39,24 @@ class DataQualityMonitoringResult(BaseModel):
     VALUE: int
 
 
-class SnowflakeAssertionsHandler(
-    SnowflakeCommonMixin, SnowflakeQueryMixin, SnowflakeConnectionMixin
-):
+class SnowflakeAssertionsHandler:
     def __init__(
         self,
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
-        dataset_urn_builder: Callable[[str], str],
+        connection: SnowflakeConnection,
+        identifiers: SnowflakeIdentifierBuilder,
     ) -> None:
         self.config = config
         self.report = report
-        self.logger = logger
-        self.dataset_urn_builder = dataset_urn_builder
-        self.connection = None
+        self.connection = connection
+        self.identifiers = identifiers
         self._urns_processed: List[str] = []
 
     def get_assertion_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-
-        self.connection = self.create_connection()
-        if self.connection is None:
-            return
-
-        cur = self.query(
+        cur = self.connection.query(
             SnowflakeQuery.dmf_assertion_results(
                 datetime_to_ts_millis(self.config.start_time),
                 datetime_to_ts_millis(self.config.end_time),
@@ -80,15 +72,14 @@ class SnowflakeAssertionsHandler(
                     yield self._gen_platform_instance_wu(mcp.entityUrn)
 
     def _gen_platform_instance_wu(self, urn: str) -> MetadataWorkUnit:
-
         # Construct a MetadataChangeProposalWrapper object for assertion platform
         return MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=DataPlatformInstance(
-                platform=make_data_platform_urn(self.platform),
+                platform=make_data_platform_urn(self.identifiers.platform),
                 instance=(
                     make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
+                        self.identifiers.platform, self.config.platform_instance
                     )
                     if self.config.platform_instance
                     else None
@@ -103,7 +94,7 @@ class SnowflakeAssertionsHandler(
             result = DataQualityMonitoringResult.parse_obj(result_row)
             assertion_guid = result.METRIC_NAME.split("__")[-1].lower()
             status = bool(result.VALUE)  # 1 if PASS, 0 if FAIL
-            assertee = self.get_dataset_identifier(
+            assertee = self.identifiers.get_dataset_identifier(
                 result.TABLE_NAME, result.TABLE_SCHEMA, result.TABLE_DATABASE
             )
             if assertee in discovered_datasets:
@@ -112,7 +103,7 @@ class SnowflakeAssertionsHandler(
                     aspect=AssertionRunEvent(
                         timestampMillis=datetime_to_ts_millis(result.MEASUREMENT_TIME),
                         runId=result.MEASUREMENT_TIME.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        asserteeUrn=self.dataset_urn_builder(assertee),
+                        asserteeUrn=self.identifiers.gen_dataset_urn(assertee),
                         status=AssertionRunStatus.COMPLETE,
                         assertionUrn=make_assertion_urn(assertion_guid),
                         result=AssertionResult(

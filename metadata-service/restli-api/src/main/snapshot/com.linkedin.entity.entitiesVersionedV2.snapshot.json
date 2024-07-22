@@ -155,6 +155,11 @@
                 },
                 "doc" : "Additional properties",
                 "optional" : true
+              }, {
+                "name" : "version",
+                "type" : "string",
+                "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
+                "optional" : true
               } ]
             },
             "doc" : "The system metadata for this aspect\n",

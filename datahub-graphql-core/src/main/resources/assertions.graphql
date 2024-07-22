@@ -1,3 +1,138 @@
+extend type Mutation {
+  """
+  Upsert a Custom Assertion
+  """
+  upsertCustomAssertion(
+    """
+    Urn of custom assertion. If not provided, one will be generated.
+    """
+    urn: String
+
+    """
+    Input for upserting a custom assertion.
+    """
+    input: UpsertCustomAssertionInput!
+  ): Assertion!
+
+  """
+  Report result for an assertion
+  """
+  reportAssertionResult(
+    """
+    Urn of custom assertion.
+    """
+    urn: String!
+
+    """
+    Input for reporting result of the assertion
+    """
+    result: AssertionResultInput!
+  ): Boolean!
+}
+
+"""
+Input for upserting a Custom Assertion.
+"""
+input UpsertCustomAssertionInput {
+  """
+  The entity targeted by this assertion.
+  """
+  entityUrn: String!
+
+  """
+  The type of the custom assertion.
+  """
+  type: String!
+
+  """
+  The description of this assertion.
+  """
+  description: String!
+
+  """
+  The dataset field targeted by this assertion, if any.
+  """
+  fieldPath: String
+
+  """
+  The external Platform associated with the assertion
+  """
+  platform: PlatformInput!
+
+  """
+  Native platform URL of the Assertion
+  """
+  externalUrl: String
+
+  """
+  Logic comprising a raw, unstructured assertion. for example - custom SQL query for the assertion.
+  """
+  logic: String
+
+}
+
+"""
+Input for reporting result of the assertion
+"""
+input AssertionResultInput {
+  """
+  Optional: Provide a timestamp associated with the run event. If not provided, one will be generated for you based
+  on the current time.
+  """
+  timestampMillis: Long
+
+  """
+  The final result of assertion, e.g. either SUCCESS or FAILURE.
+  """
+  type: AssertionResultType!
+
+  """
+  Additional metadata representing about the native results of the assertion.
+  These will be displayed alongside the result.
+  It should be used to capture additional context that is useful for the user.
+  """
+  properties: [StringMapEntryInput!]
+
+  """
+  Native platform URL of the Assertion Run Event
+  """
+  externalUrl: String
+
+  """
+  Error details, if type is ERROR
+  """
+  error: AssertionResultErrorInput
+}
+
+"""
+Input for reporting an Error during Assertion Run
+"""
+input AssertionResultErrorInput {
+  """
+  The type of error encountered
+  """
+  type: AssertionResultErrorType!
+
+  """
+  The error message with details of error encountered
+  """
+  message: String!
+}
+"""
+Input representing A Data Platform
+"""
+input PlatformInput {
+  """
+  Urn of platform
+  """
+  urn: String
+
+  """
+  Name of platform
+  """
+  name: String
+}
+
 """
 Defines a schema field, each with a specified path and type.
 """
@@ -95,6 +230,11 @@ extend type AssertionInfo {
   Schema assertion, e.g. defining the expected structure for an asset.
   """
   schemaAssertion: SchemaAssertionInfo
+
+  """
+  Information about Custom assertion
+  """
+  customAssertion: CustomAssertionInfo
 
   """
   The source or origin of the Assertion definition.
@@ -213,6 +353,11 @@ enum FreshnessAssertionScheduleType {
   A scheduled based on a recurring fixed schedule which is used to compute the expected operation window. E.g. "every 24 hours".
   """
   FIXED_INTERVAL
+
+  """
+  A schedule computed based on when the assertion was last evaluated, to the current moment in time.
+  """
+  SINCE_THE_LAST_CHECK
 }
 
 """
@@ -893,4 +1038,29 @@ type SchemaAssertionInfo {
   The compatibility level required for the assertion to pass.
   """
   compatibility: SchemaAssertionCompatibility!
+}
+
+"""
+Information about a custom assertion
+"""
+type CustomAssertionInfo {
+  """
+  The type of custom assertion.
+  """
+  type: String!
+
+  """
+  The entity targeted by this custom assertion.
+  """
+  entityUrn: String!
+
+  """
+  The field serving as input to the assertion, if any.
+  """
+  field: SchemaFieldRef
+
+  """
+  Logic comprising a raw, unstructured assertion.
+  """
+  logic: String
 }

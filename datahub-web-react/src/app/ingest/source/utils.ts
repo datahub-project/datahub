@@ -2,18 +2,18 @@ import {
     CheckCircleOutlined,
     ClockCircleOutlined,
     CloseCircleOutlined,
-    ExclamationCircleOutlined,
     LoadingOutlined,
     StopOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
 import YAML from 'yamljs';
 import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '../../../graphql/ingestion.generated';
-import { EntityType, FacetMetadata } from '../../../types.generated';
+import { EntityType, ExecutionRequestResult, FacetMetadata } from '../../../types.generated';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
 import { SourceConfig } from './builder/types';
+import { StructuredReport, StructuredReportLogEntry, StructuredReportItemLevel } from './types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -42,10 +42,12 @@ export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: st
 
 export const RUNNING = 'RUNNING';
 export const SUCCESS = 'SUCCESS';
+export const SUCCEEDED_WITH_WARNINGS = 'SUCCEEDED_WITH_WARNINGS';
 export const WARNING = 'WARNING';
 export const FAILURE = 'FAILURE';
 export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
 export const CANCELLED = 'CANCELLED';
+export const ABORTED = 'ABORTED';
 export const UP_FOR_RETRY = 'UP_FOR_RETRY';
 export const ROLLING_BACK = 'ROLLING_BACK';
 export const ROLLED_BACK = 'ROLLED_BACK';
@@ -60,14 +62,14 @@ export const getExecutionRequestStatusIcon = (status: string) => {
     return (
         (status === RUNNING && LoadingOutlined) ||
         (status === SUCCESS && CheckCircleOutlined) ||
-        (status === WARNING && ExclamationCircleOutlined) ||
+        (status === SUCCEEDED_WITH_WARNINGS && CheckCircleOutlined) ||
         (status === FAILURE && CloseCircleOutlined) ||
-        (status === CONNECTION_FAILURE && CloseCircleOutlined) ||
         (status === CANCELLED && StopOutlined) ||
         (status === UP_FOR_RETRY && ClockCircleOutlined) ||
         (status === ROLLED_BACK && WarningOutlined) ||
         (status === ROLLING_BACK && LoadingOutlined) ||
         (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
+        (status === ABORTED && CloseCircleOutlined) ||
         ClockCircleOutlined
     );
 };
@@ -76,14 +78,14 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
     return (
         (status === RUNNING && 'Running') ||
         (status === SUCCESS && 'Succeeded') ||
-        (status === WARNING && 'Completed') ||
+        (status === SUCCEEDED_WITH_WARNINGS && 'Succeeded With Warnings') ||
         (status === FAILURE && 'Failed') ||
-        (status === CONNECTION_FAILURE && 'Connection Failed') ||
         (status === CANCELLED && 'Cancelled') ||
         (status === UP_FOR_RETRY && 'Up for Retry') ||
         (status === ROLLED_BACK && 'Rolled Back') ||
         (status === ROLLING_BACK && 'Rolling Back') ||
         (status === ROLLBACK_FAILED && 'Rollback Failed') ||
+        (status === ABORTED && 'Aborted') ||
         status
     );
 };
@@ -93,13 +95,11 @@ export const getExecutionRequestSummaryText = (status: string) => {
         case RUNNING:
             return 'Ingestion is running...';
         case SUCCESS:
-            return 'Ingestion succeeded with no errors or suspected missing data.';
-        case WARNING:
-            return 'Ingestion completed with minor or intermittent errors.';
+            return 'Ingestion completed with no errors or warnings.';
+        case SUCCEEDED_WITH_WARNINGS:
+            return 'Ingestion completed with some warnings.';
         case FAILURE:
-            return 'Ingestion failed to complete, or completed with serious errors.';
-        case CONNECTION_FAILURE:
-            return 'Ingestion failed due to network, authentication, or permission issues.';
+            return 'Ingestion failed to complete, or completed with errors.';
         case CANCELLED:
             return 'Ingestion was cancelled.';
         case ROLLED_BACK:
@@ -108,6 +108,8 @@ export const getExecutionRequestSummaryText = (status: string) => {
             return 'Ingestion is in the process of rolling back.';
         case ROLLBACK_FAILED:
             return 'Ingestion rollback failed.';
+        case ABORTED:
+            return 'Ingestion job got aborted due to worker restart.';
         default:
             return 'Ingestion status not recognized.';
     }
@@ -117,14 +119,14 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
     return (
         (status === RUNNING && REDESIGN_COLORS.BLUE) ||
         (status === SUCCESS && 'green') ||
-        (status === WARNING && 'orangered') ||
+        (status === SUCCEEDED_WITH_WARNINGS && '#b88806') ||
         (status === FAILURE && 'red') ||
-        (status === CONNECTION_FAILURE && 'crimson') ||
         (status === UP_FOR_RETRY && 'orange') ||
         (status === CANCELLED && ANTD_GRAY[9]) ||
         (status === ROLLED_BACK && 'orange') ||
         (status === ROLLING_BACK && 'orange') ||
         (status === ROLLBACK_FAILED && 'red') ||
+        (status === ABORTED && 'red') ||
         ANTD_GRAY[7]
     );
 };
@@ -132,7 +134,9 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
 export const validateURL = (fieldName: string) => {
     return {
         validator(_, value) {
-            const URLPattern = new RegExp(/^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w.-]+)+[\w\-._~:/?#[\]@!$&'()*+,;=.]+$/);
+            const URLPattern = new RegExp(
+                /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[a-zA-Z0-9.-]{2,})+[\w\-._~:/?#[\]@!$&'()*+,;=.]+$/,
+            );
             const isURLValid = URLPattern.test(value);
             if (!value || isURLValid) {
                 return Promise.resolve();
@@ -142,6 +146,125 @@ export const validateURL = (fieldName: string) => {
     };
 };
 
+const createStructuredReport = (items: StructuredReportLogEntry[]): StructuredReport => {
+    const errorCount = items.filter((item) => item.level === StructuredReportItemLevel.ERROR).length;
+    const warnCount = items.filter((item) => item.level === StructuredReportItemLevel.WARN).length;
+    const infoCount = items.filter((item) => item.level === StructuredReportItemLevel.INFO).length;
+    return {
+        errorCount,
+        warnCount,
+        infoCount,
+        items,
+    };
+};
+
+const transformToStructuredReport = (structuredReportObj: any): StructuredReport | null => {
+    if (!structuredReportObj) {
+        return null;
+    }
+
+    /* Legacy helper function to map backend failure or warning ingestion objects into StructuredReportLogEntry[] */
+    const mapItemObject = (
+        items: { [key: string]: string[] },
+        level: StructuredReportItemLevel,
+    ): StructuredReportLogEntry[] => {
+        return Object.entries(items).map(([rawMessage, context]) => ({
+            level,
+            title: 'An unexpected issue occurred',
+            message: rawMessage,
+            context,
+        }));
+    };
+
+    /* V2 helper function to map backend failure or warning lists into StructuredReportLogEntry[] */
+    const mapItemArray = (items, level: StructuredReportItemLevel): StructuredReportLogEntry[] => {
+        return items
+            .map((item) => {
+                if (typeof item === 'string') {
+                    // Handle "sampled from" case..
+                    return null;
+                }
+
+                return {
+                    level,
+                    title: item.title || 'An unexpected issue occurred',
+                    message: item.message,
+                    context: item.context,
+                };
+            })
+            .filter((item) => item != null);
+    };
+
+    try {
+        const sourceReport = structuredReportObj.source?.report;
+
+        if (!sourceReport) {
+            return null;
+        }
+
+        // Else fallback to using the legacy fields
+        const failures = Array.isArray(sourceReport.failures)
+            ? /* Use V2 failureList if present */
+              mapItemArray(sourceReport.failures || [], StructuredReportItemLevel.ERROR)
+            : /* Else use the legacy object type */
+              mapItemObject(sourceReport.failures || {}, StructuredReportItemLevel.ERROR);
+
+        const warnings = Array.isArray(sourceReport.warnings)
+            ? /* Use V2 warning if present */
+              mapItemArray(sourceReport.warnings || [], StructuredReportItemLevel.WARN)
+            : /* Else use the legacy object type */
+              mapItemObject(sourceReport.warnings || {}, StructuredReportItemLevel.WARN);
+
+        const infos = Array.isArray(sourceReport.infos)
+            ? /* Use V2 infos if present */
+              mapItemArray(sourceReport.infos || [], StructuredReportItemLevel.INFO)
+            : /* Else use the legacy object type */
+              mapItemObject(sourceReport.infos || {}, StructuredReportItemLevel.INFO);
+
+        return createStructuredReport([...failures, ...warnings, ...infos]);
+    } catch (e) {
+        console.warn('Failed to extract structured report from ingestion report!', e);
+        return null;
+    }
+};
+
+export const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
+    // 1. Extract Serialized Structured Report
+    const structuredReportStr = result?.structuredReport?.serializedValue;
+
+    if (!structuredReportStr) {
+        return null;
+    }
+
+    // 2. Convert into JSON
+    const structuredReportObject = JSON.parse(structuredReportStr);
+
+    // 3. Transform into the typed model that we have.
+    const structuredReport = transformToStructuredReport(structuredReportObject);
+
+    // 4. Return JSON report
+    return structuredReport;
+};
+
+export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
+    if (!result) {
+        return undefined;
+    }
+
+    const { status } = result;
+    const structuredReport = getStructuredReport(result);
+
+    /**
+     * Simply map SUCCESS in the presence of warnings to SUCCEEDED_WITH_WARNINGS
+     *
+     * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
+     */
+    if (status === SUCCESS && (structuredReport?.warnCount || 0) > 0) {
+        return SUCCEEDED_WITH_WARNINGS;
+    }
+    // Else return the raw status.
+    return status;
+};
 
 const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dataset.toLowerCase(),

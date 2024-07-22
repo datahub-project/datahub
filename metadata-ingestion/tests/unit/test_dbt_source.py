@@ -148,7 +148,7 @@ def test_dbt_source_patching_tags():
         ["new_non_dbt", "dbt:new_dbt"]
     )
     transformed_tags = source.get_transformed_tags_by_prefix(
-        new_tag_aspect.tags, "urn:li:dataset:dummy", "urn:li:tag:dbt:"
+        new_tag_aspect.tags, "urn:li:dataset:dummy", "dbt:"
     )
     expected_tags = {
         "urn:li:tag:new_non_dbt",

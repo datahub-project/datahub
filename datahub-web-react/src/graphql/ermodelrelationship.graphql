@@ -37,7 +37,6 @@ query getERModelRelationship($urn: String!) {
                     ... on ERModelRelationship {
                         urn
                     }
-
                 }
             }
         }

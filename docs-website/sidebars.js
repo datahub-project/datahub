@@ -31,6 +31,7 @@ module.exports = {
           label: "Demo",
           href: "https://demo.datahubproject.io/",
         },
+        "docs/what-is-datahub/customer-stories",
         "docs/what-is-datahub/datahub-concepts",
       ],
     },
@@ -180,6 +181,36 @@ module.exports = {
               id: "docs/managed-datahub/observe/freshness-assertions",
               className: "saasOnly",
             },
+            {
+              label: "Open Assertions Specification",
+              type: "category",
+              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          Slack: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-setup",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          "Operator Guide": [
             {
               label: "Schema Assertions",
               type: "doc",
@@ -706,7 +737,7 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Datahub Actions",
+      label: "DataHub Actions",
       link: { type: "doc", id: "docs/act-on-metadata" },
       items: [
         "docs/actions/README",
@@ -752,6 +783,12 @@ module.exports = {
         "docs/api/tutorials/datasets",
         "docs/api/tutorials/deprecation",
         "docs/api/tutorials/descriptions",
+        "docs/api/tutorials/custom-properties",
+        "docs/api/tutorials/assertions",
+        "docs/api/tutorials/custom-assertions",
+        "docs/api/tutorials/incidents",
+        "docs/api/tutorials/operations",
+        "docs/api/tutorials/data-contracts",
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
