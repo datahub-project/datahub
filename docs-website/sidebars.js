@@ -231,9 +231,9 @@ module.exports = {
           className: "saasOnly",
         },
         {
-              type: "doc",
-              id: "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-              className: "saasOnly",
+          type: "doc",
+          id: "docs/managed-datahub/datahub-api/graphql-api/getting-started",
+          className: "saasOnly",
         },
         {
           type: "doc",
@@ -256,7 +256,7 @@ module.exports = {
           type: "doc",
           id: "docs/managed-datahub/integrations/aws-privatelink",
           className: "saasOnly",
-          label: "AWS PrivateLink Integration"
+          label: "AWS PrivateLink Integration",
         },
         {
           type: "doc",
@@ -895,12 +895,12 @@ module.exports = {
     {
       type: "doc",
       id: "docs/managed-datahub/managed-datahub-overview",
-      label: "Why Acryl Cloud?"
+      label: "Why Acryl Cloud?",
     },
     {
       type: "doc",
       id: "docs/managed-datahub/welcome-acryl",
-      label: "Getting Started With Acryl Cloud"
+      label: "Getting Started With Acryl Cloud",
     },
     {
       type: "html",
@@ -1091,7 +1091,7 @@ module.exports = {
           type: "doc",
           id: "docs/managed-datahub/integrations/aws-privatelink",
           className: "saasOnly",
-          label: "AWS PrivateLink Integration"
+          label: "AWS PrivateLink Integration",
         },
         {
           type: "doc",
@@ -1100,7 +1100,7 @@ module.exports = {
         },
       ],
     },
-        {
+    {
       type: "html",
       value: "<div>Integrations</div>",
       defaultStyle: true,
@@ -1220,18 +1220,18 @@ module.exports = {
       "Advanced Guides": [
         "docs/how/delete-metadata",
         {
-              type: "doc",
-              id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
-              className: "saasOnly",
+          type: "doc",
+          id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+          className: "saasOnly",
         },
         {
           type: "doc",
           id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
           className: "saasOnly",
         },
-    ]
+      ],
     },
-        {
+    {
       type: "html",
       value: "<div>Developers</div>",
       defaultStyle: true,
