@@ -22,6 +22,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - Protobuf CLI will no longer create binary encoded protoc custom properties. Flag added `-protocProp` in case this 
   behavior is required.
+- #10814 Data flow info and data job info aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
 - #10868 - OpenAPI V3 - Creation of aspects will need to be wrapped within a `value` key and the API is now symmetric with respect to input and outputs.
 
 Example Global Tags Aspect:
