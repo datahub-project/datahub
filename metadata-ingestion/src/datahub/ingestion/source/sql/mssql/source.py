@@ -172,8 +172,8 @@ class SQLServerSource(SQLAlchemySource):
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
-        self.full_lineage: Dict[str, Dict[str, List[Dict[str, str]]]] = {}
-        self.procedures_dependencies: Dict[str, List[Dict[str, str | int]]] = {}
+        self.full_lineage: Dict[str, List[Dict[str, str]]] = {}
+        self.procedures_dependencies: Dict[str, List[Dict[str, str]]] = {}
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name = self.get_db_name(inspector)
@@ -274,9 +274,11 @@ class SQLServerSource(SQLAlchemySource):
         if not self.config.mssql_lineage:
             return []
         result = []
-        for dest in self.full_lineage.get(key, {}):
+        for dest in self.full_lineage.get(key, []):
             dest_name = self.get_identifier(
-                schema=dest.get("schema"), entity=dest.get("name"), inspector=inspector  # type: ignore[attr-defined]
+                schema=dest.get("schema", ""),
+                entity=dest.get("name", ""),
+                inspector=inspector,
             )
             dest_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
@@ -292,7 +294,7 @@ class SQLServerSource(SQLAlchemySource):
         return result
 
     def _populate_stored_procedures_dependencies(self, conn: Connection) -> None:
-        _procedures_dependencies: Dict[str, List[Dict[str, str | int]]] = {}
+        _procedures_dependencies: Dict[str, List[Dict[str, str]]] = {}
 
         trans = conn.begin()
 
@@ -563,9 +565,9 @@ class SQLServerSource(SQLAlchemySource):
                         "referenced_schema_name": row["referenced_schema_name"],
                         "referenced_entity_name": row["referenced_entity_name"],
                         "referenced_object_type": row["referenced_object_type"],
-                        "is_selected": int(row["is_selected"]),
-                        "is_select_all": int(row["is_select_all"]),
-                        "is_updated": int(row["is_updated"]),
+                        "is_selected": row["is_selected"],
+                        "is_select_all": row["is_select_all"],
+                        "is_updated": row["is_updated"],
                     }
                 )
 
@@ -597,7 +599,7 @@ class SQLServerSource(SQLAlchemySource):
         # {"U ": "USER_TABLE", "V ": "VIEW", "P ": "SQL_STORED_PROCEDURE"}
         for row in _links:
             _key = f"{db_name}.{row['dst_schema_name']}.{row['dst_object_name']}"
-            self.full_lineage.setdefault(_key, []).append(  # type: ignore[attr-defined, arg-type]
+            self.full_lineage.setdefault(_key, []).append(
                 {
                     "schema": row["src_schema_name"] or row["dst_schema_name"],
                     "name": row["src_object_name"],
@@ -895,13 +897,12 @@ class SQLServerSource(SQLAlchemySource):
             upstream_dependencies.append(
                 ProcedureDependency(
                     flow_id=f"{dependency['referenced_database_name']}.{dependency['referenced_schema_name']}.stored_procedures",
-                    db=str(dependency["referenced_database_name"]),
-                    schema=str(dependency["referenced_schema_name"]),
-                    name=str(dependency["referenced_entity_name"]),
-                    type=str(dependency["referenced_object_type"]),
-                    incoming=int(dependency["is_selected"])
-                    or int(dependency["is_select_all"]),
-                    outgoing=int(dependency["is_updated"]),
+                    db=dependency["referenced_database_name"],
+                    schema=dependency["referenced_schema_name"],
+                    name=dependency["referenced_entity_name"],
+                    type=dependency["referenced_object_type"],
+                    incoming=dependency["is_selected"] or dependency["is_select_all"],
+                    outgoing=dependency["is_updated"],
                     env=procedure.flow.env,
                     server=procedure.flow.platform_instance,
                 )

@@ -797,8 +797,8 @@
             "customProperties": {
                 "code": "CREATE PROCEDURE schema_with_lineage.procedure_with_lineage\nAS\nBEGIN\n    INSERT INTO destination_table_3\n    SELECT ID, original_source\n    FROM schema_with_lineage.source_table_2\nEND;\n",
                 "input parameters": "[]",
-                "date_created": "2024-07-19 08:24:16.697000",
-                "date_modified": "2024-07-19 08:24:16.697000"
+                "date_created": "2024-07-22 06:53:18.693000",
+                "date_modified": "2024-07-22 06:53:18.693000"
             },
             "externalUrl": "",
             "name": "lineagedb.schema_with_lineage.procedure_with_lineage",

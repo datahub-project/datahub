@@ -22,9 +22,13 @@ class ProcedureDependency:
     schema: str
     name: str
     type: str
-    incoming: int
-    outgoing: int
+    incoming: Union[str, int]
+    outgoing: Union[str, int]
     source: str = "mssql"
+
+    def __post_init__(self):
+        self.incoming = int(self.incoming)
+        self.outgoing = int(self.outgoing)
 
 
 @dataclass

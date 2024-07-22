@@ -112,11 +112,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "4ab477a3-0899-4044-81d8-b57a7fb00ae8",
+                "job_id": "1ac53c0f-b8d0-4f58-8349-f61e4700afb7",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-07-19 05:44:50.180000",
-                "date_modified": "2024-07-19 05:44:50.353000",
+                "date_created": "2024-07-22 06:53:18.037000",
+                "date_modified": "2024-07-22 06:53:18.213000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -1959,8 +1959,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-07-19 05:44:50.100000",
-                "date_modified": "2024-07-19 05:44:50.100000"
+                "date_created": "2024-07-22 06:53:17.953000",
+                "date_modified": "2024-07-22 06:53:17.953000"
             },
             "externalUrl": "",
             "name": "demodata.Foo.Proc.With.SpecialChar",
@@ -4401,8 +4401,8 @@
             "customProperties": {
                 "code": "CREATE PROCEDURE schema_with_lineage.procedure_with_lineage\nAS\nBEGIN\n    INSERT INTO destination_table_3\n    SELECT ID, original_source\n    FROM schema_with_lineage.source_table_2\nEND;\n",
                 "input parameters": "[]",
-                "date_created": "2024-07-19 05:44:50.830000",
-                "date_modified": "2024-07-19 05:44:50.830000"
+                "date_created": "2024-07-22 06:53:18.693000",
+                "date_modified": "2024-07-22 06:53:18.693000"
             },
             "externalUrl": "",
             "name": "lineagedb.schema_with_lineage.procedure_with_lineage",
