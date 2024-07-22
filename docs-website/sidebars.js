@@ -54,6 +54,7 @@ module.exports = {
           type: "doc",
           id: "docs/glossary/business-glossary",
         },
+        "docs/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
@@ -104,12 +105,15 @@ module.exports = {
           type: "doc",
           id: "docs/tags",
         },
+        "docs/features/dataset-usage-and-query-history",
       ],
     },
     {
       type: "category",
       label: "Data Governance",
       items: [
+        "docs/managed-datahub/approval-workflows",
+        "docs/managed-datahub/chrome-extension",
         {
           label: "Data Contract",
           type: "doc",
@@ -191,9 +195,50 @@ module.exports = {
           id: "docs/incidents/incidents",
         },
         {
+          label: "Metadata Tests",
+          type: "doc",
+          id: "docs/tests/metadata-tests",
+          className: "saasOnly",
+        },
+        {
+          label: "Subscriptions & Notifications",
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
+        },
+      ],
+    },
+    {
+      Integrations: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/aws-privatelink",
+          label: "AWS PrivateLink Intergration",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          className: "saasOnly",
+        },
+        {
+          Slack: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-setup",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+          ],
         },
       ],
     },
@@ -766,6 +811,7 @@ module.exports = {
     //"docs/what/graph",
     //"docs/what/search-index",
     //"docs/how/add-new-aspect",
+    // "docs/how/ui-tabs-guide",
     //"docs/how/build-metadata-service",
     //"docs/how/graph-onboarding",
     //"docs/demo/graph-onboarding",
@@ -841,6 +887,7 @@ module.exports = {
           type: "doc",
           id: "docs/glossary/business-glossary",
         },
+        "docs/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
@@ -891,12 +938,15 @@ module.exports = {
           type: "doc",
           id: "docs/tags",
         },
+        "docs/features/dataset-usage-and-query-history",
       ],
     },
     {
       type: "category",
       label: "Data Governance",
       items: [
+        "docs/managed-datahub/approval-workflows",
+        "docs/managed-datahub/chrome-extension",
         {
           label: "Data Contract",
           type: "doc",
@@ -912,6 +962,7 @@ module.exports = {
           type: "doc",
           id: "docs/authorization/access-policies-guide",
         },
+        "docs/posts",
       ],
     },
     {
@@ -978,9 +1029,44 @@ module.exports = {
           id: "docs/incidents/incidents",
         },
         {
-          label: "Sync Status",
+          label: "Subscriptions & Notifications",
+          type: "doc",
+          id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
+          label: "Sync Status", // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
           type: "doc",
           id: "docs/sync-status",
+        },
+      ],
+    },
+    {
+      Integrations: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/aws-privatelink",
+          label: "AWS PrivateLink Intergration",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/integrations/oidc-sso-integration",
+          className: "saasOnly",
+        },
+        {
+          Slack: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-setup",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+          ],
         },
       ],
     },
