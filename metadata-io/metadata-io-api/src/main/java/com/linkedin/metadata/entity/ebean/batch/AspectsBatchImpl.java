@@ -48,7 +48,7 @@ public class AspectsBatchImpl implements AspectsBatch {
       final Map<String, Map<String, SystemAspect>> latestAspects) {
 
     // Process proposals to change items
-    Stream<ChangeMCP> mutatedProposalsStream =
+    Stream<? extends BatchItem> mutatedProposalsStream =
         proposedItemsToChangeItemStream(
             items.stream()
                 .filter(item -> item instanceof ProposedItem)
@@ -99,15 +99,22 @@ public class AspectsBatchImpl implements AspectsBatch {
     return Pair.of(newUrnAspectNames, upsertBatchItems);
   }
 
-  private Stream<ChangeMCP> proposedItemsToChangeItemStream(List<MCPItem> proposedItems) {
-    return applyProposalMutationHooks(proposedItems, retrieverContext)
-        .filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
+  private Stream<? extends BatchItem> proposedItemsToChangeItemStream(List<MCPItem> proposedItems) {
+    List<MCPItem> mutatedItems = applyProposalMutationHooks(proposedItems, retrieverContext)
+        .collect(Collectors.toList());
+    Stream<ChangeMCP> proposedItemsToChangeItems =
+        mutatedItems.stream().filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
+        // Filter on proposed items again to avoid applying builder to Patch Item side effects
+        .filter(mcpItem -> mcpItem instanceof ProposedItem)
         .map(
             mcpItem ->
                 ChangeItemImpl.ChangeItemImplBuilder.build(
                     mcpItem.getMetadataChangeProposal(),
                     mcpItem.getAuditStamp(),
                     retrieverContext.getAspectRetriever()));
+    Stream<? extends BatchItem> sideEffectItems = mutatedItems.stream()
+        .filter(mcpItem -> !(mcpItem instanceof ProposedItem));
+    return Stream.concat(proposedItemsToChangeItems, sideEffectItems);
   }
 
   public static class AspectsBatchImplBuilder {
