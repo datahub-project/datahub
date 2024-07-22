@@ -828,7 +828,8 @@ public class OpenAPIV3Generator {
                                 new Schema()
                                     .$ref(
                                         String.format(
-                                            "#/components/schemas/%s", upperFirstAspect)))));
+                                            "#/components/schemas/%s%s",
+                                            upperFirstAspect, ASPECT_REQUEST_SUFFIX)))));
     final Operation postOperation =
         new Operation()
             .summary(String.format("Create aspect %s on %s ", aspect, upperFirstEntity))
