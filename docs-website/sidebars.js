@@ -42,14 +42,8 @@ module.exports = {
     },
     {
       type: "category",
-      label: "DataHub Features",
-      link: {
-        type: "generated-index",
-        title: "Feature Guides",
-        description: "Learn about the features of DataHub.",
-      },
+      label: "Data Discovery",
       items: [
-        // "docs/how/ui-tabs-guide",
         {
           label: "Business Attributes",
           type: "doc",
@@ -61,30 +55,9 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
-          label: "Data Contract",
-          type: "doc",
-          id: "docs/managed-datahub/observe/data-contract",
-        },
-        {
-          label: "Data Products",
-          type: "doc",
-          id: "docs/dataproducts",
-        },
-        {
-          label: "Dataset Usage and Query History",
-          type: "doc",
-          id: "docs/features/dataset-usage-and-query-history",
-        },
-        "docs/features/feature-guides/documentation-forms",
-        {
           label: "Domains",
           type: "doc",
           id: "docs/domains",
-        },
-        {
-          label: "Incidents",
-          type: "doc",
-          id: "docs/incidents/incidents",
         },
         {
           label: "Ingestion",
@@ -112,21 +85,10 @@ module.exports = {
           ],
         },
         {
-          label: "Ownership",
+          label: "Properties",
           type: "doc",
-          id: "docs/ownership/ownership-types",
+          id: "docs/features/feature-guides/properties",
         },
-        {
-          label: "Policies",
-          type: "doc",
-          id: "docs/authorization/access-policies-guide",
-        },
-        {
-          label: "Posts",
-          type: "doc",
-          id: "docs/posts",
-        },
-        "docs/features/feature-guides/properties",
         {
           label: "Schema history",
           type: "doc",
@@ -138,11 +100,6 @@ module.exports = {
           id: "docs/how/search",
         },
         {
-          label: "Sync Status",
-          type: "doc",
-          id: "docs/sync-status",
-        },
-        {
           label: "Tags",
           type: "doc",
           id: "docs/tags",
@@ -151,12 +108,28 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Acryl Cloud Features",
-      link: {
-        type: "generated-index",
-        title: "Feature Guides",
-        description: "Learn about the features of DataHub.",
-      },
+      label: "Data Governance",
+      items: [
+        {
+          label: "Data Contract",
+          type: "doc",
+          id: "docs/managed-datahub/observe/data-contract",
+        },
+        {
+          label: "Ownership",
+          type: "doc",
+          id: "docs/ownership/ownership-types",
+        },
+        {
+          label: "Policies",
+          type: "doc",
+          id: "docs/authorization/access-policies-guide",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Data Quality",
       items: [
         {
           label: "Assertions",
@@ -182,6 +155,18 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Schema Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/schema-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Volume Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/volume-assertions",
+              className: "saasOnly",
+            },
+            {
               label: "Open Assertions Specification",
               type: "category",
               link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
@@ -196,81 +181,19 @@ module.exports = {
           ],
         },
         {
-          Slack: [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-setup",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/slack/saas-slack-app",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
-          "Operator Guide": [
-            {
-              label: "Schema Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/schema-assertions",
-              className: "saasOnly",
-            },
-            {
-              label: "Volume Assertions",
-              type: "doc",
-              id: "docs/managed-datahub/observe/volume-assertions",
-              className: "saasOnly",
-            },
-          ],
-        },
-        {
+          label: "Data Products",
           type: "doc",
-          id: "docs/managed-datahub/saas-slack-setup",
-          className: "saasOnly",
+          id: "docs/dataproducts",
         },
         {
+          label: "Incidents",
           type: "doc",
-          id: "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-          className: "saasOnly",
+          id: "docs/incidents/incidents",
         },
         {
+          label: "Sync Status",
           type: "doc",
-          id: "docs/managed-datahub/datahub-api/entity-events-api",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/approval-workflows",
-          className: "saasOnly",
-        },
-        "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
-        {
-          label: "Metadata Tests",
-          type: "doc",
-          id: "docs/tests/metadata-tests",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/aws-privatelink",
-          className: "saasOnly",
-          label: "AWS PrivateLink Integration",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/oidc-sso-integration",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/chrome-extension",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
-          className: "saasOnly",
+          id: "docs/sync-status",
         },
       ],
     },
@@ -574,12 +497,8 @@ module.exports = {
       defaultStyle: true,
     },
     {
-      type: "doc",
-      id: "docs/api/datahub-apis",
-      label: "Overview",
-    },
-    {
       type: "category",
+      link: { type: "doc", id: "docs/api/datahub-apis" },
       label: "API",
       items: [
         {
@@ -897,6 +816,7 @@ module.exports = {
       id: "docs/managed-datahub/managed-datahub-overview",
       label: "Why Acryl Cloud?",
     },
+    "docs/what-is-datahub/customer-stories",
     {
       type: "doc",
       id: "docs/managed-datahub/welcome-acryl",
@@ -909,14 +829,95 @@ module.exports = {
     },
     {
       type: "category",
-      label: "Features",
-      link: {
-        type: "generated-index",
-        title: "Feature Guides",
-        description: "Learn about the features of DataHub.",
-      },
+      label: "Data Discovery",
       items: [
-        // "docs/how/ui-tabs-guide",
+        {
+          label: "Business Attributes",
+          type: "doc",
+          id: "docs/businessattributes",
+        },
+        {
+          label: "Business Glossary",
+          type: "doc",
+          id: "docs/glossary/business-glossary",
+        },
+        {
+          label: "Domains",
+          type: "doc",
+          id: "docs/domains",
+        },
+        {
+          label: "Ingestion",
+          type: "doc",
+          id: "docs/ui-ingestion",
+        },
+        {
+          label: "Lineage",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/generated/lineage/lineage-feature-guide",
+          },
+          items: [
+            {
+              label: "Lineage Impact analysis",
+              type: "doc",
+              id: "docs/act-on-metadata/impact-analysis",
+            },
+            {
+              label: "Managing Lineage via UI",
+              type: "doc",
+              id: "docs/features/feature-guides/ui-lineage",
+            },
+          ],
+        },
+        {
+          label: "Properties",
+          type: "doc",
+          id: "docs/features/feature-guides/properties",
+        },
+        {
+          label: "Schema history",
+          type: "doc",
+          id: "docs/schema-history",
+        },
+        {
+          label: "Search",
+          type: "doc",
+          id: "docs/how/search",
+        },
+        {
+          label: "Tags",
+          type: "doc",
+          id: "docs/tags",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Data Governance",
+      items: [
+        {
+          label: "Data Contract",
+          type: "doc",
+          id: "docs/managed-datahub/observe/data-contract",
+        },
+        {
+          label: "Ownership",
+          type: "doc",
+          id: "docs/ownership/ownership-types",
+        },
+        {
+          label: "Policies",
+          type: "doc",
+          id: "docs/authorization/access-policies-guide",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Data Quality",
+      items: [
         {
           label: "Assertions",
           type: "category",
@@ -952,22 +953,19 @@ module.exports = {
               id: "docs/managed-datahub/observe/volume-assertions",
               className: "saasOnly",
             },
+            {
+              label: "Open Assertions Specification",
+              type: "category",
+              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
+            },
           ],
-        },
-        {
-          label: "Business Attributes",
-          type: "doc",
-          id: "docs/businessattributes",
-        },
-        {
-          label: "Business Glossary",
-          type: "doc",
-          id: "docs/glossary/business-glossary",
-        },
-        {
-          label: "Data Contract",
-          type: "doc",
-          id: "docs/managed-datahub/observe/data-contract",
         },
         {
           label: "Data Products",
@@ -975,128 +973,14 @@ module.exports = {
           id: "docs/dataproducts",
         },
         {
-          label: "Dataset Usage and Query History",
-          type: "doc",
-          id: "docs/features/dataset-usage-and-query-history",
-        },
-        "docs/features/feature-guides/documentation-forms",
-        {
-          label: "Domains",
-          type: "doc",
-          id: "docs/domains",
-        },
-        {
           label: "Incidents",
           type: "doc",
           id: "docs/incidents/incidents",
         },
         {
-          label: "Ingestion",
-          type: "doc",
-          id: "docs/ui-ingestion",
-        },
-        {
-          label: "Lineage",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "docs/generated/lineage/lineage-feature-guide",
-          },
-          items: [
-            {
-              label: "Lineage Impact analysis",
-              type: "doc",
-              id: "docs/act-on-metadata/impact-analysis",
-            },
-            {
-              label: "Managing Lineage via UI",
-              type: "doc",
-              id: "docs/features/feature-guides/ui-lineage",
-            },
-          ],
-        },
-        {
-          label: "Ownership",
-          type: "doc",
-          id: "docs/ownership/ownership-types",
-        },
-        {
-          label: "Policies",
-          type: "doc",
-          id: "docs/authorization/access-policies-guide",
-        },
-        {
-          label: "Posts",
-          type: "doc",
-          id: "docs/posts",
-        },
-        "docs/features/feature-guides/properties",
-        {
-          label: "Schema history",
-          type: "doc",
-          id: "docs/schema-history",
-        },
-        {
-          label: "Search",
-          type: "doc",
-          id: "docs/how/search",
-        },
-        {
           label: "Sync Status",
           type: "doc",
           id: "docs/sync-status",
-        },
-        {
-          label: "Tags",
-          type: "doc",
-          id: "docs/tags",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Acryl Cloud Features",
-      link: {
-        type: "generated-index",
-        title: "Feature Guides",
-        description: "Learn about the features of DataHub.",
-      },
-      items: [
-        {
-          type: "doc",
-          id: "docs/managed-datahub/saas-slack-setup",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/approval-workflows",
-          className: "saasOnly",
-        },
-        {
-          label: "Metadata Tests",
-          type: "doc",
-          id: "docs/tests/metadata-tests",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/chrome-extension",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
-          className: "saasOnly",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/aws-privatelink",
-          className: "saasOnly",
-          label: "AWS PrivateLink Integration",
-        },
-        {
-          type: "doc",
-          id: "docs/managed-datahub/integrations/oidc-sso-integration",
-          className: "saasOnly",
         },
       ],
     },
@@ -1113,7 +997,6 @@ module.exports = {
       },
       label: "Overview",
       items: [
-        "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
         {
           type: "doc",
           label: "Recipe",
@@ -1266,12 +1149,8 @@ module.exports = {
       defaultStyle: true,
     },
     {
-      type: "doc",
-      id: "docs/api/datahub-apis",
-      label: "Overview",
-    },
-    {
       type: "category",
+      link: { type: "doc", id: "docs/api/datahub-apis" },
       label: "API",
       items: [
         {
@@ -1527,6 +1406,7 @@ module.exports = {
     },
     {
       "Acryl Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_3",
         "docs/managed-datahub/release-notes/v_0_3_2",
         "docs/managed-datahub/release-notes/v_0_3_1",
         "docs/managed-datahub/release-notes/v_0_2_16",

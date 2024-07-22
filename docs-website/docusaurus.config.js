@@ -73,13 +73,14 @@ module.exports = {
         {
           type: "docSidebar",
           sidebarId: "overviewSidebar",
-          label: "Docs",
+          label: "DataHub",
           position: "right",
         },
         {
           type: "docSidebar",
           sidebarId: "acrylSidebar",
           label: "Acryl Cloud",
+          position: "right",
         },
         {
           to: "/learn",
