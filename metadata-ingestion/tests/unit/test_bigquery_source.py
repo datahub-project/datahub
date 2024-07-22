@@ -31,6 +31,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     BigqueryTableSnapshot,
     BigqueryView,
+    get_projects,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
@@ -179,7 +180,12 @@ def test_get_projects_with_project_ids(get_bq_client_mock):
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
-    assert source._get_projects() == [
+    assert get_projects(
+        source.config,
+        source.bq_schema_extractor.schema_api,
+        source.report,
+        source.filters,
+    ) == [
         BigqueryProject("test-1", "test-1"),
         BigqueryProject("test-2", "test-2"),
     ]
@@ -189,7 +195,12 @@ def test_get_projects_with_project_ids(get_bq_client_mock):
         {"project_ids": ["test-1", "test-2"], "project_id": "test-3"}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test2"))
-    assert source._get_projects() == [
+    assert get_projects(
+        source.config,
+        source.bq_schema_extractor.schema_api,
+        source.report,
+        source.filters,
+    ) == [
         BigqueryProject("test-1", "test-1"),
         BigqueryProject("test-2", "test-2"),
     ]
@@ -207,7 +218,12 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects()
+    projects = get_projects(
+        source.config,
+        source.bq_schema_extractor.schema_api,
+        source.report,
+        source.filters,
+    )
     assert projects == [
         BigqueryProject(id="test-project", name="test-project"),
         BigqueryProject(id="test-project-2", name="test-project-2"),
@@ -220,8 +236,10 @@ def test_platform_instance_config_always_none():
     )
     assert config.platform_instance is None
 
-    config = BigQueryV2Config(platform_instance="something", project_id="project_id")
-    assert config.project_id == "project_id"
+    config = BigQueryV2Config.parse_obj(
+        dict(platform_instance="something", project_id="project_id")
+    )
+    assert config.project_ids == ["project_id"]
     assert config.platform_instance is None
 
 
@@ -268,7 +286,12 @@ def test_get_projects_with_single_project_id(get_bq_client_mock):
     get_bq_client_mock.return_value = client_mock
     config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
-    assert source._get_projects() == [
+    assert get_projects(
+        source.config,
+        source.bq_schema_extractor.schema_api,
+        source.report,
+        source.filters,
+    ) == [
         BigqueryProject("test-3", "test-3"),
     ]
     assert client_mock.list_projects.call_count == 0
@@ -300,7 +323,12 @@ def test_get_projects_by_list(get_bq_client_mock):
 
     config = BigQueryV2Config.parse_obj({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
-    assert source._get_projects() == [
+    assert get_projects(
+        source.config,
+        source.bq_schema_extractor.schema_api,
+        source.report,
+        source.filters,
+    ) == [
         BigqueryProject("test-1", "one"),
         BigqueryProject("test-2", "two"),
         BigqueryProject("test-3", "three"),
@@ -321,7 +349,12 @@ def test_get_projects_filter_by_pattern(get_bq_client_mock, get_projects_mock):
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects()
+    projects = get_projects(
+        source.config,
+        source.bq_schema_extractor.schema_api,
+        source.report,
+        source.filters,
+    )
     assert projects == [
         BigqueryProject(id="test-project-2", name="Test Project 2"),
     ]
@@ -336,7 +369,12 @@ def test_get_projects_list_empty(get_bq_client_mock, get_projects_mock):
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects()
+    projects = get_projects(
+        source.config,
+        source.bq_schema_extractor.schema_api,
+        source.report,
+        source.filters,
+    )
     assert len(source.report.failures) == 1
     assert projects == []
 
@@ -357,7 +395,12 @@ def test_get_projects_list_failure(
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     caplog.clear()
     with caplog.at_level(logging.ERROR):
-        projects = source._get_projects()
+        projects = get_projects(
+            source.config,
+            source.bq_schema_extractor.schema_api,
+            source.report,
+            source.filters,
+        )
         assert len(caplog.records) == 2
         assert error_str in caplog.records[0].msg
     assert len(source.report.failures) == 1
@@ -373,7 +416,12 @@ def test_get_projects_list_fully_filtered(get_projects_mock, get_bq_client_mock)
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects()
+    projects = get_projects(
+        source.config,
+        source.bq_schema_extractor.schema_api,
+        source.report,
+        source.filters,
+    )
     assert len(source.report.failures) == 0
     assert projects == []
 

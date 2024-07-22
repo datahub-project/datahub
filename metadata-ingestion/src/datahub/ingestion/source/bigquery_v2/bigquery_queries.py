@@ -18,6 +18,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQuerySchemaApiPerfReport,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractor,
     BigQueryQueriesExtractorConfig,
@@ -47,6 +51,9 @@ class BigQueryQueriesSource(Source):
         self.config = config
         self.report = BigQueryQueriesSourceReport()
 
+        self.filters = BigQueryFilter(self.config, self.report)
+        self.identifiers = BigQueryIdentifierBuilder(self.config, self.report)
+
         self.connection = self.config.connection.get_bigquery_client()
 
         self.queries_extractor = BigQueryQueriesExtractor(
@@ -56,8 +63,8 @@ class BigQueryQueriesSource(Source):
             ),
             config=self.config,
             structured_report=self.report,
-            filter_config=self.config,
-            identifier_config=self.config,
+            filters=self.filters,
+            identifiers=self.identifiers,
             graph=self.ctx.graph,
         )
         self.report.queries_extractor = self.queries_extractor.report
@@ -71,6 +78,7 @@ class BigQueryQueriesSource(Source):
         self.report.window = self.config.window
 
         # TODO: Disable auto status processor?
+        # TODO: Don't emit lineage, usage, operations  for ghost entities
         return self.queries_extractor.get_workunits_internal()
 
     def get_report(self) -> BigQueryQueriesSourceReport:

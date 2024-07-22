@@ -4,7 +4,6 @@ import logging
 import os
 from typing import Iterable, List, Optional
 
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -21,21 +20,22 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
-    BigqueryTableIdentifier,
-    BigQueryTableRef,
-)
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
-    BigqueryProject,
     BigQuerySchemaApi,
+    get_projects,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_test_connection import (
     BigQueryTestConnection,
+)
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
@@ -122,6 +122,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
         self.sql_parser_schema_resolver = self._init_schema_resolver()
+        self.filters = BigQueryFilter(self.config, self.report)
+        self.identifiers = BigQueryIdentifierBuilder(self.config, self.report)
 
         redundant_lineage_run_skip_handler: Optional[
             RedundantLineageRunSkipHandler
@@ -138,7 +140,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = BigqueryLineageExtractor(
             config,
             self.report,
-            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
+            identifiers=self.identifiers,
             redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
@@ -155,7 +157,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config,
             self.report,
             schema_resolver=self.sql_parser_schema_resolver,
-            dataset_urn_builder=self.gen_dataset_urn_from_raw_ref,
+            identifiers=self.identifiers,
             redundant_run_skip_handler=redundant_usage_run_skip_handler,
         )
 
@@ -178,7 +180,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.domain_registry,
             self.sql_parser_schema_resolver,
             self.profiler,
-            self.gen_dataset_urn,
+            self.identifiers,
         )
 
         self.add_config_to_report()
@@ -231,7 +233,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        projects = self._get_projects()
+        projects = get_projects(
+            self.config,
+            self.bq_schema_extractor.schema_api,
+            self.report,
+            self.filters,
+        )
         if not projects:
             return
 
@@ -254,66 +261,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.bq_schema_extractor.snapshots_by_ref,
                 self.bq_schema_extractor.table_refs,
             )
-
-    def _get_projects(self) -> List[BigqueryProject]:
-        logger.info("Getting projects")
-        if self.config.project_ids or self.config.project_id:
-            project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
-            return [
-                BigqueryProject(id=project_id, name=project_id)
-                for project_id in project_ids
-            ]
-        else:
-            return list(self._query_project_list())
-
-    def _query_project_list(self) -> Iterable[BigqueryProject]:
-        try:
-            projects = self.bigquery_data_dictionary.get_projects()
-
-            if (
-                not projects
-            ):  # Report failure on exception and if empty list is returned
-                self.report.failure(
-                    title="Get projects didn't return any project. ",
-                    message="Maybe resourcemanager.projects.get permission is missing for the service account. "
-                    "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-                )
-        except Exception as e:
-            self.report.failure(
-                title="Failed to get BigQuery Projects",
-                message="Maybe resourcemanager.projects.get permission is missing for the service account. "
-                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-                exc=e,
-            )
-            projects = []
-
-        for project in projects:
-            if self.config.project_id_pattern.allowed(project.id):
-                yield project
-            else:
-                self.report.report_dropped(project.id)
-
-    def gen_dataset_urn(
-        self, project_id: str, dataset_name: str, table: str, use_raw_name: bool = False
-    ) -> str:
-        datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
-        return make_dataset_urn(
-            self.platform,
-            (
-                str(datahub_dataset_name)
-                if not use_raw_name
-                else datahub_dataset_name.raw_table_name()
-            ),
-            self.config.env,
-        )
-
-    def gen_dataset_urn_from_raw_ref(self, ref: BigQueryTableRef) -> str:
-        return self.gen_dataset_urn(
-            ref.table_identifier.project_id,
-            ref.table_identifier.dataset,
-            ref.table_identifier.table,
-            use_raw_name=True,
-        )
 
     def get_report(self) -> BigQueryV2Report:
         return self.report

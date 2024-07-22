@@ -13,12 +13,15 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryBaseConfig
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQuerySchemaApiPerfReport,
     BigQueryV2Report,
 )
+from datahub.ingestion.source.bigquery_v2.common import BigQueryFilter
 from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryQuery,
     BigqueryTableType,
@@ -578,4 +581,57 @@ class BigQuerySchemaApi:
                 dataset=snapshot.base_table_schema,
                 table=snapshot.base_table_name,
             ),
+        )
+
+
+def query_project_list(
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> Iterable[BigqueryProject]:
+    try:
+        projects = schema_api.get_projects()
+
+        if not projects:  # Report failure on exception and if empty list is returned
+            report.failure(
+                title="Get projects didn't return any project. ",
+                message="Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+    except Exception as e:
+        report.failure(
+            title="Failed to get BigQuery Projects",
+            message="Maybe resourcemanager.projects.get permission is missing for the service account. "
+            "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            exc=e,
+        )
+        projects = []
+
+    for project in projects:
+        if filters.filter_config.project_id_pattern.allowed(project.id):
+            yield project
+        # TODO: suppport reporting dropped projects for queries extractor report
+        # else:
+        #    report.report_dropped(project.id)
+
+
+def get_projects(
+    config: BigQueryBaseConfig,
+    schema_api: BigQuerySchemaApi,
+    report: SourceReport,
+    filters: BigQueryFilter,
+) -> List[BigqueryProject]:
+    logger.info("Getting projects")
+    if config.project_ids:
+        return [
+            BigqueryProject(id=project_id, name=project_id)
+            for project_id in config.project_ids
+        ]
+    else:
+        return list(
+            query_project_list(
+                schema_api,
+                report,
+                filters,
+            )
         )

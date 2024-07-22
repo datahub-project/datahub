@@ -83,6 +83,19 @@ class BigQueryBaseConfig(ConfigModel):
             )
         return v
 
+    @root_validator(pre=True, skip_on_failure=True)
+    def project_id_backward_compatibility_configs_set(cls, values: Dict) -> Dict:
+        project_id = values.pop("project_id", None)
+        project_ids = values.get("project_ids")
+
+        if not project_ids and project_id:
+            values["project_ids"] = [project_id]
+        elif project_ids and project_id:
+            logging.warning(
+                "Please use `project_ids` config. Config `project_id` will be ignored."
+            )
+        return values
+
 
 class BigQueryUsageConfig(BaseUsageConfig):
     _query_log_delay_removed = pydantic_removed_field("query_log_delay")
@@ -195,29 +208,6 @@ class BigQueryConnectionConfig(ConfigModel):
         return "bigquery://"
 
 
-class BigQueryConnection:
-    _connection: bigquery.Client
-
-    def __init__(self, connection: bigquery.Client):
-        self._connection = connection
-
-    def native_connection(self) -> bigquery.Client:
-        return self._connection
-
-    def query(self, query: str) -> Any:
-        try:
-            logger.info(f"Query: {query}", stacklevel=2)
-            resp = self._connection.query(query)
-            return resp
-
-        except Exception:
-            # TODO: is it possible to handle any generic error type here ?
-            raise
-
-    def close(self):
-        self._connection.close()
-
-
 class BigQueryFilterConfig(SQLFilterConfig):
 
     project_id_pattern: AllowDenyPattern = Field(
@@ -303,7 +293,6 @@ class BigQueryV2Config(
     BigQueryBaseConfig,
     BigQueryFilterConfig,
     BigQueryIdentifierConfig,
-    # BigQueryFilterConfig must come before (higher precedence) the SQLCommon config, so that the documentation overrides are applied.
     SQLCommonConfig,
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
@@ -384,13 +373,6 @@ class BigQueryV2Config(
     column_limit: int = Field(
         default=300,
         description="Maximum number of columns to process in a table. This is a low level config property which should be touched with care. This restriction is needed because excessively wide tables can result in failure to ingest the schema.",
-    )
-
-    # TODO- remove project_id
-    # The inheritance hierarchy is wonky here, but these options need modifications.
-    project_id: Optional[str] = Field(
-        default=None,
-        description="[deprecated] Use project_id_pattern or project_ids instead.",
     )
 
     lineage_use_sql_parser: bool = Field(
@@ -498,22 +480,6 @@ class BigQueryV2Config(
         description="Number of worker threads to use to parallelize BigQuery Dataset Metadata Extraction."
         " Set to 1 to disable.",
     )
-
-    @root_validator(pre=False, skip_on_failure=True)
-    def project_id_backward_compatibility_configs_set(cls, values: Dict) -> Dict:
-        project_id = values.get("project_id")
-        project_id_pattern = values.get("project_id_pattern")
-
-        if project_id_pattern == AllowDenyPattern.allow_all() and project_id:
-            logging.warning(
-                "project_id_pattern is not set but project_id is set, source will only ingest the project_id project. project_id will be deprecated, please use project_id_pattern instead."
-            )
-            values["project_id_pattern"] = AllowDenyPattern(allow=[f"^{project_id}$"])
-        elif project_id_pattern != AllowDenyPattern.allow_all() and project_id:
-            logging.warning(
-                "use project_id_pattern whenever possible. project_id will be deprecated, please use project_id_pattern only if possible."
-            )
-        return values
 
     @root_validator(skip_on_failure=True)
     def profile_default_settings(cls, values: Dict) -> Dict:

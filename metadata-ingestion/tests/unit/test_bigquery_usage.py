@@ -8,7 +8,6 @@ import pytest
 from freezegun import freeze_time
 
 from datahub.configuration.time_window_config import BucketDuration
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
@@ -23,6 +22,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryV2Config,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilder
 from datahub.ingestion.source.bigquery_v2.usage import (
     OPERATION_STATEMENT_TYPES,
     BigQueryUsageExtractor,
@@ -204,9 +204,7 @@ def usage_extractor(config: BigQueryV2Config) -> BigQueryUsageExtractor:
         config,
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
-        dataset_urn_builder=lambda ref: make_dataset_urn(
-            "bigquery", str(ref.table_identifier)
-        ),
+        identifiers=BigQueryIdentifierBuilder(config, report),
     )
 
 

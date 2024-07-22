@@ -44,7 +44,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_DATETIME_FORMAT,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_USAGE,
     bigquery_audit_metadata_query_template_usage,
@@ -313,13 +316,13 @@ class BigQueryUsageExtractor:
         report: BigQueryV2Report,
         *,
         schema_resolver: SchemaResolver,
-        dataset_urn_builder: Callable[[BigQueryTableRef], str],
+        identifiers: BigQueryIdentifierBuilder,
         redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
     ):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = report
         self.schema_resolver = schema_resolver
-        self.dataset_urn_builder = dataset_urn_builder
+        self.identifiers = identifiers
         # Replace hash of query with uuid if there are hash conflicts
         self.uuid_to_query: Dict[str, str] = {}
 
@@ -404,7 +407,9 @@ class BigQueryUsageExtractor:
                         bucket_duration=self.config.bucket_duration,
                     ),
                     dataset_urns={
-                        self.dataset_urn_builder(BigQueryTableRef.from_string_name(ref))
+                        self.identifiers.gen_dataset_urn_from_raw_ref(
+                            BigQueryTableRef.from_string_name(ref)
+                        )
                         for ref in table_refs
                     },
                 )
@@ -535,7 +540,7 @@ class BigQueryUsageExtractor:
                     user_freq=entry.user_freq,
                     column_freq=entry.column_freq,
                     bucket_duration=self.config.bucket_duration,
-                    resource_urn_builder=self.dataset_urn_builder,
+                    resource_urn_builder=self.identifiers.gen_dataset_urn_from_raw_ref,
                     top_n_queries=self.config.usage.top_n_queries,
                     format_sql_queries=self.config.usage.format_sql_queries,
                     queries_character_limit=self.config.usage.queries_character_limit,

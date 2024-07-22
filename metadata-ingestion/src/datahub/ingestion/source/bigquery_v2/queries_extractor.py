@@ -9,6 +9,7 @@ from typing import Iterable, List, Optional, TypedDict, Union
 from google.cloud.bigquery import Client
 from pydantic import Field
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.ingestion.api.report import Report
@@ -17,16 +18,17 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.ingestion.source.bigquery_v2.bigquery_config import (
-    BigQueryBaseConfig,
-    BigQueryFilterConfig,
-    BigQueryIdentifierConfig,
-)
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryBaseConfig
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryProject,
     BigQuerySchemaApi,
+    get_projects,
 )
-from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_DATETIME_FORMAT,
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -85,6 +87,11 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         hidden_from_docs=True,
     )
 
+    user_email_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for user emails to filter in usage.",
+    )
+
     include_lineage: bool = True
     include_queries: bool = True
     include_usage_statistics: bool = True
@@ -106,9 +113,8 @@ class BigQueryQueriesExtractor:
         schema_api: BigQuerySchemaApi,
         config: BigQueryQueriesExtractorConfig,
         structured_report: SourceReport,
-        # TODO: take mixins for filter and identifier instead of config itself
-        filter_config: BigQueryFilterConfig,
-        identifier_config: BigQueryIdentifierConfig,
+        filters: BigQueryFilter,
+        identifiers: BigQueryIdentifierBuilder,
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
         discovered_tables: Optional[List[str]] = None,
@@ -116,8 +122,8 @@ class BigQueryQueriesExtractor:
         self.connection = connection
 
         self.config = config
-        self.filter_config = filter_config
-        self.identifier_config = identifier_config
+        self.filters = filters
+        self.identifiers = identifiers
         self.schema_api = schema_api
         self.report = BigQueryQueriesExtractorReport()
         # self.filters = filters
@@ -126,9 +132,9 @@ class BigQueryQueriesExtractor:
         self._structured_report = structured_report
 
         self.aggregator = SqlParsingAggregator(
-            platform="bigquery",
-            platform_instance=self.identifier_config.platform_instance,
-            env=self.identifier_config.env,
+            platform=self.identifiers.platform,
+            platform_instance=self.identifiers.identifier_config.platform_instance,
+            env=self.identifiers.identifier_config.env,
             schema_resolver=schema_resolver,
             graph=graph,
             eager_graph_load=False,
@@ -140,7 +146,7 @@ class BigQueryQueriesExtractor:
                 bucket_duration=self.config.window.bucket_duration,
                 start_time=self.config.window.start_time,
                 end_time=self.config.window.end_time,
-                # TODO make the rest of the fields configurable
+                user_email_pattern=self.config.user_email_pattern,
             ),
             generate_operations=self.config.include_operations,
             is_temp_table=self.is_temp_table,
@@ -170,49 +176,11 @@ class BigQueryQueriesExtractor:
         )
 
     def is_allowed_table(self, name: str) -> bool:
-        if (
-            self.discovered_tables
-            and str(BigqueryTableIdentifier.from_string_name(name))
-            not in self.discovered_tables
-        ):
+        table_id = BigqueryTableIdentifier.from_string_name(name)
+        if self.discovered_tables and str(table_id) not in self.discovered_tables:
             return False
-        return True
 
-    # TODO: Remove the code duplication. Also present in main bigquery source
-    def _get_projects(self) -> List[BigqueryProject]:
-        logger.info("Getting projects")
-        if self.config.project_ids:
-            return [
-                BigqueryProject(id=project_id, name=project_id)
-                for project_id in self.config.project_ids
-            ]
-        else:
-            return list(self._query_project_list())
-
-    def _query_project_list(self) -> Iterable[BigqueryProject]:
-        try:
-            projects = self.schema_api.get_projects()
-
-            if (
-                not projects
-            ):  # Report failure on exception and if empty list is returned
-                self.structured_report.failure(
-                    title="Get projects didn't return any project. ",
-                    message="Maybe resourcemanager.projects.get permission is missing for the service account. "
-                    "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-                )
-        except Exception as e:
-            self.structured_report.failure(
-                title="Failed to get BigQuery Projects",
-                message="Maybe resourcemanager.projects.get permission is missing for the service account. "
-                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-                exc=e,
-            )
-            projects = []
-
-        for project in projects:
-            if self.filter_config.project_id_pattern.allowed(project.id):
-                yield project
+        return self.filters.is_allowed(table_id)
 
     def get_workunits_internal(
         self,
@@ -234,7 +202,9 @@ class BigQueryQueriesExtractor:
             entry: Union[PreparsedQuery, ObservedQuery]
 
             with self.report.query_log_fetch_timer:
-                for project in self._get_projects():
+                for project in get_projects(
+                    self.config, self.schema_api, self.structured_report, self.filters
+                ):
                     for entry in self.fetch_query_log(project):
                         queries.append(entry)
 
@@ -248,8 +218,9 @@ class BigQueryQueriesExtractor:
         self, project: BigqueryProject
     ) -> Iterable[Union[PreparsedQuery, ObservedQuery]]:
 
-        # TODO: support all regions - maybe a config
-        regions = ["region-us"]
+        # Multi-regions from https://cloud.google.com/bigquery/docs/locations#supported_locations
+        regions = ["region-us", "region-eu"]
+        # TODO: support other regions as required - via a config
 
         for region in regions:
             # Each region needs to be a different query
@@ -311,9 +282,9 @@ def _build_enriched_query_log_query(
     audit_start_time = start_time.strftime(BQ_DATETIME_FORMAT)
     audit_end_time = end_time.strftime(BQ_DATETIME_FORMAT)
 
-    # NOTE the use of creation_time instead of start_time
-    # as JOBS table is partitioned by creation_time
-    # Using this column significantly reduces processed bytes
+    # NOTE the use of creation_time as timestamp here
+    # as JOBS table is partitioned by creation_time.
+    # Using this column filter significantly reduces processed bytes.
     return f"""
         SELECT
             job_id,
@@ -336,5 +307,6 @@ def _build_enriched_query_log_query(
             `{project_id}`.`{region}`.INFORMATION_SCHEMA.JOBS
         WHERE
             creation_time >= '{audit_start_time}' AND
-            creation_time <= '{audit_end_time}'
+            creation_time <= '{audit_end_time}' AND
+            error_result is not null
     """
