@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Optional
 
 import requests
 from pydantic.class_validators import root_validator, validator
@@ -24,16 +24,14 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
-    StatefulIngestionSourceBase
 )
 
 from datahub.utilities import config_clean\
 
-from datahub.ingestion.source.superset import SupersetSource, SupersetConfig
+from datahub.ingestion.source.superset import SupersetSource
 
 logger = logging.getLogger(__name__)
 class PresetConfig(StatefulIngestionConfigBase, ConfigModel):
-    # See the Preset.io API docs: https://api-docs.preset.io/
     manager_uri: str = Field(
         default="https://api.app.preset.io/", description="Preset.io API URL"
     )
