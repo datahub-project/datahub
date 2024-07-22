@@ -93,9 +93,9 @@ public class EntityRelationshipsResultResolver
     final Set<Urn> existentUrns;
     if (context != null && _entityService != null && !includeSoftDelete) {
       Set<Urn> allRelatedUrns =
-              entityRelationships.getRelationships().stream()
-                      .map(EntityRelationship::getEntity)
-                      .collect(Collectors.toSet());
+          entityRelationships.getRelationships().stream()
+              .map(EntityRelationship::getEntity)
+              .collect(Collectors.toSet());
       existentUrns = _entityService.exists(context.getOperationContext(), allRelatedUrns, false);
     } else {
       existentUrns = null;
