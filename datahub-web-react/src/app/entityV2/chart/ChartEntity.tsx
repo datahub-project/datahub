@@ -5,7 +5,6 @@ import {
     LayoutOutlined,
     LineChartOutlined,
     PartitionOutlined,
-    UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
 import * as React from 'react';
@@ -172,6 +171,10 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
+                {
                     name: 'Dashboards',
                     component: ChartDashboardsTab,
                     icon: DashboardOutlined,
@@ -240,12 +243,6 @@ export class ChartEntity implements Entity<Chart> {
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
-        },
-        {
-            name: 'Properties',
-            component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
         },
     ];
 

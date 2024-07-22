@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { CodeSandboxOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { CodeSandboxOutlined } from '@ant-design/icons';
 import { MlModel, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -96,6 +96,10 @@ export class MLModelEntity implements Entity<MlModel> {
                     component: DocumentationTab,
                 },
                 {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
+                {
                     name: 'Group',
                     component: MLModelGroupsTab,
                 },
@@ -140,14 +144,7 @@ export class MLModelEntity implements Entity<MlModel> {
         },
     ];
 
-    getSidebarTabs = () => [
-        {
-            name: 'Properties',
-            component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
-        },
-    ];
+    getSidebarTabs = () => [];
 
     renderPreview = (previewType: PreviewType, data: MlModel) => {
         return <Preview model={data} headerDropdownItems={headerDropdownItems} previewType={previewType} />;
