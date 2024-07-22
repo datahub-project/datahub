@@ -629,7 +629,7 @@ class JsonSchemaTranslator:
                     logger.error(
                         "Failed to get fields from schema, continuing...", exc_info=e
                     )
-                    return []
+                    return
                 else:
                     raise
             json_type = cls._get_type_from_schema(jsonref_schema_dict)

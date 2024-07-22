@@ -22,11 +22,25 @@ fragment entityFields on Entity {
   urn
   type
   ... on EntityWithRelationships {
-    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100, separateSiblings: false }) {
-        total
+    upstream: lineage(
+      input: {
+        direction: UPSTREAM
+        start: 0
+        count: 100
+        separateSiblings: false
+      }
+    ) {
+      total
     }
-    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: false }) {
-        total
+    downstream: lineage(
+      input: {
+        direction: DOWNSTREAM
+        start: 0
+        count: 100
+        separateSiblings: false
+      }
+    ) {
+      total
     }
   }
   ... on Dataset {
@@ -118,27 +132,27 @@ fragment entityFields on Entity {
       ...entityHealth
     }
     statsSummary {
-        viewCount
-        viewCountLast30Days
-        viewCountPercentileLast30Days
-        uniqueUserCountLast30Days
-        uniqueUserPercentileLast30Days
-        uniqueUserRankLast30Days
-        topUsersLast30Days {
-            urn
-            type
-            username
-            properties {
-                displayName
-                firstName
-                lastName
-                fullName
-            }
-            editableProperties {
-                displayName
-                pictureLink
-            }
+      viewCount
+      viewCountLast30Days
+      viewCountPercentileLast30Days
+      uniqueUserCountLast30Days
+      uniqueUserPercentileLast30Days
+      uniqueUserRankLast30Days
+      topUsersLast30Days {
+        urn
+        type
+        username
+        properties {
+          displayName
+          firstName
+          lastName
+          fullName
         }
+        editableProperties {
+          displayName
+          pictureLink
+        }
+      }
     }
   }
   ... on Chart {
@@ -453,6 +467,13 @@ fragment entityFields on Entity {
   ... on DataHubConnection {
     details {
       name
+    }
+  }
+  ... on Form {
+    info {
+      name
+      description
+      type
     }
   }
 }

@@ -17,6 +17,7 @@ import useShareResultsPolling from '../../../../../entityV2/shared/containers/pr
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import PlatformIcon from '../../../../../sharedV2/icons/PlatformIcon';
 import { WARNING_COLOR_HEX } from '../../../tabs/Incident/incidentUtils';
+import { GenericEntityProperties } from '../../../types';
 
 export const StyledContainer = styled.div`
     font-size: 11px;
@@ -124,8 +125,8 @@ const LabelText = styled.div`
 
 interface Props {
     lastShareResults: ShareResult[];
-    selectedInstancesToUnshare?: string[];
-    setSelectedInstancesToUnshare?: React.Dispatch<React.SetStateAction<string[]>>;
+    selectedInstances?: string[];
+    setSelectedInstances?: React.Dispatch<React.SetStateAction<string[]>>;
     showMore?: boolean;
     showSelectMode?: boolean;
     isImplicitList?: boolean;
@@ -134,8 +135,8 @@ interface Props {
 
 export const SharedEntityInfo = ({
     lastShareResults,
-    selectedInstancesToUnshare = [],
-    setSelectedInstancesToUnshare,
+    selectedInstances = [],
+    setSelectedInstances,
     showMore = true,
     showSelectMode = false,
     isImplicitList,
@@ -155,11 +156,11 @@ export const SharedEntityInfo = ({
     const sortedResults = sortSharedList(lastShareResults);
 
     const handleCheckboxChange = (instanceUrn: string) => {
-        if (instanceUrn && setSelectedInstancesToUnshare) {
-            if (!selectedInstancesToUnshare.includes(instanceUrn)) {
-                setSelectedInstancesToUnshare([...selectedInstancesToUnshare, instanceUrn]);
+        if (instanceUrn && setSelectedInstances) {
+            if (!selectedInstances.includes(instanceUrn)) {
+                setSelectedInstances([...selectedInstances, instanceUrn]);
             } else {
-                setSelectedInstancesToUnshare(selectedInstancesToUnshare.filter((urn) => urn !== instanceUrn));
+                setSelectedInstances(selectedInstances.filter((urn) => urn !== instanceUrn));
             }
         }
     };
@@ -185,11 +186,11 @@ export const SharedEntityInfo = ({
                             </SubText>
                         )}
                     </TitleContainer>
-                    {!isImplicitList && selectedInstancesToUnshare.length > 0 && (
+                    {!isImplicitList && selectedInstances.length > 0 && (
                         <ButtonContainer>
                             <StyledButton
                                 type="primary"
-                                onClick={() => setSelectedInstancesToUnshare && setSelectedInstancesToUnshare([])}
+                                onClick={() => setSelectedInstances && setSelectedInstances([])}
                             >
                                 Clear
                             </StyledButton>
@@ -223,7 +224,10 @@ export const SharedEntityInfo = ({
                                             <>
                                                 <LabelText>Shared from:</LabelText>
                                                 <PlatformIcon
-                                                    platform={(shareResult as any)?.implicitShareEntity?.platform}
+                                                    platform={
+                                                        (shareResult?.implicitShareEntity as GenericEntityProperties)
+                                                            ?.platform
+                                                    }
                                                     size={14}
                                                 />
                                                 <Link to={linkedEntityUrl}>{linkedEntityName}</Link>
@@ -286,9 +290,9 @@ export const SharedEntityInfo = ({
                                     </>
                                 )}
                             </TitleContainer>
-                            {!isImplicitList && showSelectMode && !isInProgress && (
+                            {!isImplicitList && hasDestination && showSelectMode && !isInProgress && (
                                 <Checkbox
-                                    checked={selectedInstancesToUnshare.includes(shareResult.destination!.urn)}
+                                    checked={selectedInstances.includes(shareResult.destination!.urn)}
                                     onChange={() => handleCheckboxChange(shareResult.destination!.urn)}
                                 />
                             )}
