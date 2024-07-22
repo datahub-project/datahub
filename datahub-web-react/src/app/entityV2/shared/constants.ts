@@ -83,6 +83,8 @@ export const REDESIGN_COLORS = {
     TOOLTIP_BACKGROUND: '#272D48',
     ICON_ON_DARK: '#F9FAFC',
     SILVER_GREY: '#E9EAEE',
+    GREY_100: '#C1C4D0',
+    PURPLE_LIGHT: '#CAC3F1',
 };
 
 export const SEARCH_COLORS = {

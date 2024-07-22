@@ -12,6 +12,9 @@ import { MissingPermissions } from './charts/AuxViews';
 import { useIsThemeV2 } from '../../useIsThemeV2';
 
 const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
+    height: 100%;
+    flex: 1;
+
     .ant-tabs-tab {
         padding: 10px 20px;
         font-size: 14px;
@@ -30,6 +33,18 @@ const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
             background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
         }
     `}
+
+    .ant-tabs-nav {
+        margin: 0;
+    }
+
+    .ant-tabs-content-holder {
+        display: flex;
+    }
+
+    .ant-tabs-tabpane {
+        height: 100%;
+    }
 `;
 
 export const PageHeading = styled(Typography.Text)`

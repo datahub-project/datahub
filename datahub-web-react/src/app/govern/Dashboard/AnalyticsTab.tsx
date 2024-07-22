@@ -14,6 +14,8 @@ import { mergeRowAndHeaderData, freshnessColor } from './utils';
 import { useFormAnalyticsContext } from './FormAnalyticsContext';
 import { useFormAnalyticsQuery } from '../../../graphql/analytics.generated';
 import { TabsContainer, Body, BodyHeader, Filters, DataFreshness } from './components';
+import { useIsThemeV2 } from '../../useIsThemeV2';
+import { useAppConfig } from '../../useAppConfig';
 
 interface Tab {
     key: string;
@@ -33,6 +35,10 @@ const AnalyticsTab = () => {
         byAssignee: { hasAssignees },
         byDomain: { hasDomains },
     } = useFormAnalyticsContext();
+
+    const isThemeV2 = useIsThemeV2();
+    const { config } = useAppConfig();
+    const { formCreationEnabled } = config.featureFlags;
 
     const [isDownloadingCSV, setIsDownloadingCSV] = useState(false);
 
@@ -119,7 +125,7 @@ const AnalyticsTab = () => {
                 <IntegrationServiceOffline />
             ) : (
                 <>
-                    <TabsContainer>
+                    <TabsContainer isThemeV2={isThemeV2} formCreationEnabled={formCreationEnabled}>
                         <Tabs activeKey={selectedTab} items={tabs} onChange={handleSetTab} />
 
                         <DataFreshness>

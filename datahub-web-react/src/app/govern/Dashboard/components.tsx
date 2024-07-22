@@ -1,6 +1,7 @@
 import { Select, Typography } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 export const Layout = styled.div`
     flex: 1;
@@ -17,21 +18,69 @@ export const Header = styled.div`
     padding: 0 1rem;
 `;
 
-export const TabsContainer = styled.div`
+export const TabsContainer = styled.div<{ isThemeV2: boolean; formCreationEnabled: boolean }>`
     display: flex;
-    align-items: flex-end;
     justify-content: space-between;
-    height: 40px;
-    border-bottom: 1px solid #e8ebed;
+    align-items: center;
     padding: 0 1rem;
 
-    .ant-tabs {
-        margin-bottom: -17px;
-    }
+    ${(props) =>
+        !props.formCreationEnabled
+            ? `
+        
+        height: 50px;
+        border-bottom: 1px solid #e8ebed;
 
-    .ant-tabs-tab {
-        font-size: 16px;
-    }
+        .ant-tabs {
+            margin-bottom: -17px;
+        }
+
+        .ant-tabs-tab {
+            font-size: 16px;
+        }
+
+    `
+            : `
+
+        align-items: center;
+        height: 70px;
+
+        .ant-tabs-nav {
+            margin: 0;
+
+            &:before {
+                border-bottom: none !important;
+            }
+        }
+
+        .ant-tabs-ink-bar {
+            display: none;
+        }
+
+        .ant-tabs-tab {
+            font-size: 14px;
+            font-weight: 600;
+            color: ${REDESIGN_COLORS.GREY_300};
+            padding: 8px 16px !important;
+            border-radius: 36px;
+            border: 1px solid ${REDESIGN_COLORS.GREY_100};
+            background-color: ${REDESIGN_COLORS.WHITE};
+        }
+
+        ${
+            props.isThemeV2 &&
+            `
+                .ant-tabs-tab-active  {
+                    background-color: ${REDESIGN_COLORS.PURPLE_LIGHT};
+                    border: 1px solid ${REDESIGN_COLORS.PURPLE_LIGHT};
+                }
+                
+                .ant-tabs-tab-active .ant-tabs-tab-btn {
+                    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+                }
+            `
+        }
+    `}
 `;
 
 export const SeriesContainer = styled.div`
@@ -89,8 +138,6 @@ export const BodyHeader = styled.div`
 `;
 
 export const DataFreshness = styled.div`
-    margin-bottom: 11px;
-
     span {
         display: flex;
         align-items: center;
