@@ -1310,7 +1310,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspect=self._make_data_platform_instance_aspect(),
                 ).as_workunit()
 
-                standalone_aspects, aspects = more_itertools.partition(
+                standalone_aspects, snapshot_aspects = more_itertools.partition(
                     (
                         lambda aspect: mce_builder.can_add_aspect_to_snapshot(
                             DatasetSnapshot, type(aspect)
@@ -1326,7 +1326,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     ).as_workunit()
 
                 dataset_snapshot = DatasetSnapshot(
-                    urn=node_datahub_urn, aspects=list(aspects)
+                    urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
