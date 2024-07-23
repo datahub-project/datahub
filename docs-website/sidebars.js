@@ -891,6 +891,7 @@ module.exports = {
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/dagster-plugin/README"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
+    // "metadata-integration/java/spark-lineage-legacy/README.md", // this is deprecated and eventually it is needed to be removed
     // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
     // "docs/what/entity",
     // "docs/what/aspect",
@@ -919,7 +920,6 @@ module.exports = {
     // "docs/_api-guide-template"
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
-    // "metadata-integration/java/spark-lineage-legacy/README.md"
     // ],
   ],
 };
