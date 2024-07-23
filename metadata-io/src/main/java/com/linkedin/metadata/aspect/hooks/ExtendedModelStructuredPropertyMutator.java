@@ -360,8 +360,7 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
         return;
       }
       if (value instanceof DataMap) {
-        if (isSchemaField(0, fieldParts, item)
-            && ((DataMap) value).containsKey(SCHEMA_FIELD_PATH)) {
+        if (isSchemaField(fieldParts, item) && ((DataMap) value).containsKey(SCHEMA_FIELD_PATH)) {
           schemaFieldPath = (String) ((DataMap) value).get(SCHEMA_FIELD_PATH);
         }
         value = ((DataMap) value).get(fieldParts[i]);
@@ -380,7 +379,7 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
       if (structuredPropertyDefinition.getValueType().equals(STRING_DATA_TYPE_URN)
           || structuredPropertyDefinition.getValueType().equals(URN_DATA_TYPE_URN)) {
         if (PropertyCardinality.SINGLE.equals(structuredPropertyDefinition.getCardinality())) {
-          String valueString = convertMaybeString(value);
+          String valueString = value.toString();
           propertiesBuilder.setStringProperty(
               StructuredPropertyUtils.toURNFromFQN(structuredPropertyDefinition.getQualifiedName()),
               valueString);
@@ -388,12 +387,9 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
           List<String> valueStrings;
           if (value instanceof List) {
             valueStrings =
-                ((List<?>) value)
-                    .stream()
-                        .map(ExtendedModelStructuredPropertyMutator::convertMaybeString)
-                        .collect(Collectors.toList());
+                ((List<?>) value).stream().map(obj -> obj.toString()).collect(Collectors.toList());
           } else {
-            valueStrings = Collections.singletonList(convertMaybeString(value));
+            valueStrings = Collections.singletonList(value.toString());
           }
           propertiesBuilder.setStringProperty(
               StructuredPropertyUtils.toURNFromFQN(structuredPropertyDefinition.getQualifiedName()),
@@ -437,16 +433,6 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
     }
   }
 
-  private static String convertMaybeString(Object value) {
-    String valueString;
-    if (value instanceof String) {
-      valueString = (String) value;
-    } else {
-      valueString = value.toString();
-    }
-    return valueString;
-  }
-
   /**
    * Only SchemaFields are handled in a special way, if there are other virtual entities that need
    * to be specially handled those will need to be implemented later
@@ -461,11 +447,11 @@ public class ExtendedModelStructuredPropertyMutator extends MutationHook {
     return item.getUrn();
   }
 
-  private static boolean isSchemaField(int index, String[] fieldParts, MCPItem item) {
+  private static boolean isSchemaField(String[] fieldParts, MCPItem item) {
     return (EDITABLE_SCHEMA_METADATA_ASPECT_NAME.equals(item.getAspectName())
                 || SCHEMA_METADATA_ASPECT_NAME.equals(item.getAspectName()))
-            && EDITABLE_SCHEMA_FIELD_INFO.equals(fieldParts[index])
-        || SCHEMA_FIELDS.equals(fieldParts[index]);
+            && EDITABLE_SCHEMA_FIELD_INFO.equals(fieldParts[0])
+        || SCHEMA_FIELDS.equals(fieldParts[0]);
   }
 
   private static Urn getSchemaFieldUrn(MCPItem item, String schemaFieldPath) {
