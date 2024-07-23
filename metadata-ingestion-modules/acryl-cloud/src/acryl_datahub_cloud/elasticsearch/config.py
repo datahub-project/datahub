@@ -17,6 +17,7 @@ class ElasticSearchClientConfig(ConfigModel):
     username: Optional[str] = os.getenv("ELASTICSEARCH_USERNAME", "admin")
     password: Optional[str] = os.getenv("ELASTICSEARCH_PASSWORD", "admin")
     index_prefix: str = os.getenv("INDEX_PREFIX", "")
+    opensearch_dialect: bool = False
 
     @pydantic.validator("index_prefix", always=True)
     def index_prefix_must_end_with_underscore_if_not_empty(cls, v: str) -> str:

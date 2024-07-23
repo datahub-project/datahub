@@ -5,6 +5,8 @@ import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
@@ -17,7 +19,6 @@ import com.linkedin.data.ByteString;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -96,7 +97,7 @@ public class SchemaFieldSideEffectTest {
     test.setConfig(TEST_PLUGIN_CONFIG);
     SchemaMetadata schemaMetadata = getTestSchemaMetadata();
 
-    List<ChangeMCP> testOutput;
+    List<MCPItem> testOutput;
     for (ChangeType changeType :
         List.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT)) {
       // Run test
@@ -114,7 +115,16 @@ public class SchemaFieldSideEffectTest {
               .auditStamp(AuditStampUtils.createDefaultAuditStamp())
               .build(mockAspectRetriever);
       testOutput =
-          test.applyMCPSideEffect(List.of(schemaMetadataChangeItem), retrieverContext).toList();
+          test.postMCPSideEffect(
+                  List.of(
+                      MCLItemImpl.builder()
+                          .build(
+                              schemaMetadataChangeItem,
+                              null,
+                              null,
+                              retrieverContext.getAspectRetriever())),
+                  retrieverContext)
+              .toList();
 
       // Verify test
       switch (changeType) {
@@ -182,7 +192,7 @@ public class SchemaFieldSideEffectTest {
             Map.of(
                 TEST_URN, Map.of(SCHEMA_METADATA_ASPECT_NAME, new Aspect(schemaMetadata.data()))));
 
-    List<ChangeMCP> testOutput;
+    List<MCPItem> testOutput;
     for (ChangeType changeType : List.of(ChangeType.CREATE, ChangeType.UPSERT)) {
       // Run Status test
       ChangeItemImpl statusChangeItem =
@@ -198,7 +208,14 @@ public class SchemaFieldSideEffectTest {
               .recordTemplate(status)
               .auditStamp(AuditStampUtils.createDefaultAuditStamp())
               .build(mockAspectRetriever);
-      testOutput = test.applyMCPSideEffect(List.of(statusChangeItem), retrieverContext).toList();
+      testOutput =
+          test.postMCPSideEffect(
+                  List.of(
+                      MCLItemImpl.builder()
+                          .build(
+                              statusChangeItem, null, null, retrieverContext.getAspectRetriever())),
+                  retrieverContext)
+              .collect(Collectors.toList());
 
       // Verify test
       switch (changeType) {
@@ -265,7 +282,16 @@ public class SchemaFieldSideEffectTest {
               .auditStamp(AuditStampUtils.createDefaultAuditStamp())
               .build(mockAspectRetriever);
       testOutput =
-          test.applyMCPSideEffect(List.of(schemaMetadataChangeItem), retrieverContext).toList();
+          test.postMCPSideEffect(
+                  List.of(
+                      MCLItemImpl.builder()
+                          .build(
+                              schemaMetadataChangeItem,
+                              null,
+                              null,
+                              retrieverContext.getAspectRetriever())),
+                  retrieverContext)
+              .collect(Collectors.toList());
 
       // Verify test
       switch (changeType) {
@@ -410,8 +436,7 @@ public class SchemaFieldSideEffectTest {
     // mock response
     reset(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(
-            Set.of(TEST_URN), Set.of(SCHEMA_METADATA_ASPECT_NAME)))
+    when(mockAspectRetriever.getLatestAspectObjects(eq(Set.of(TEST_URN)), anySet()))
         .thenReturn(
             Map.of(
                 TEST_URN,

@@ -366,16 +366,19 @@ public class SlackNotificationSink implements NotificationSink {
       return;
     }
 
-    // 2. Emit ExecutionRequestResult aspects if this was triggered via a connection test request
-    final String executionRequestUrnString =
+    // 2. Check for post send actions
+    final String requestName = parameters.get("requestName");
+    // 2.1 Emit ExecutionRequestResult aspects if this was triggered via a connection test request
+    final String connectionTestRequestUrn =
         parameters.get(Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY);
-    if (executionRequestUrnString != null) {
-      executePostNotificationActionEmitExecutionResult(
-          opContext, responses, executionRequestUrnString);
+    if (requestName != null
+        && requestName.equals(Constants.NOTIFICATION_CONNECTION_TEST_REQUEST_TEMPLATE_NAME)
+        && connectionTestRequestUrn != null) {
+      executePostSendActionForConnectionTest(opContext, responses, connectionTestRequestUrn);
     }
   }
 
-  private void executePostNotificationActionEmitExecutionResult(
+  private void executePostSendActionForConnectionTest(
       final OperationContext opContext,
       final Set<ChatPostMessageResponse> responses,
       final String executionRequestUrnString) {
@@ -415,7 +418,7 @@ public class SlackNotificationSink implements NotificationSink {
       executionReport.setSerializedValue(JSON.serialize(responseReports));
       result.setStructuredReport(executionReport);
 
-      // 6. emit MCP with the final execution result aspect
+      // 6. Emit MCP with the final execution result aspect
       MetadataChangeProposal mcp =
           AspectUtils.buildMetadataChangeProposal(
               requestUrn, Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME, result);

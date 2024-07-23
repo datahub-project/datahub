@@ -16,6 +16,11 @@ export enum PopularityTier {
 
 export const ACRYL_PLATFORM = 'Acryl';
 
+export enum ActionType {
+    SHARE,
+    SYNC,
+}
+
 /**
  * Retrieve a tier of popularity for dataset given statistics about the dataset.
  * The tier is a function of the query count + unique users

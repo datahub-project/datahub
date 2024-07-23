@@ -27,6 +27,12 @@ const StyledShareIcon = styled(ShareIcon)`
     }
 `;
 
+const StyledSwapVertOutlinedIcon = styled(SwapVertOutlinedIcon)`
+    height: 18px;
+    width: 18px;
+    color: ${REDESIGN_COLORS.BODY_TEXT};
+`;
+
 const ResultsContainer = styled.div`
     & > div {
         padding-top: 12px;
@@ -122,7 +128,7 @@ const SharingList = ({ resultsList }: Props) => {
                     <DetailsContainer key={name}>
                         <DetailRow>
                             <Content>
-                                {!result.implicitShareEntity ? <StyledShareIcon /> : <SwapVertOutlinedIcon />}
+                                {!result.implicitShareEntity ? <StyledShareIcon /> : <StyledSwapVertOutlinedIcon />}
                                 {!!result.implicitShareEntity && (
                                     <>
                                         <LabelText>From:</LabelText>

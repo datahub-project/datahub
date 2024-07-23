@@ -19,4 +19,14 @@ record BatchTestRunResult {
   */
   testDefinition: optional string
 
+  /**
+   * Reporting information about the run event of this metadata test
+  */
+  report: optional record TestReport {
+    /**
+    * Report related to the actions applied in this test
+    */
+    actions: optional TestActionsReport
+  }
+
 }

@@ -116,7 +116,7 @@ class ClickHouseUsageSource(Source):
         access_events = self._get_clickhouse_history()
         # If the query results is empty, we don't want to proceed
         if not access_events:
-            return []
+            return
 
         joined_access_event = self._get_joined_access_event(access_events)
         aggregated_info = self._aggregate_access_events(joined_access_event)

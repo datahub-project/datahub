@@ -146,6 +146,7 @@ public class ConnectionTestNotificationGenerator extends BaseMclNotificationGene
     templateParams.put(
         Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY,
         requestUrn.toString());
+    templateParams.put("requestName", Constants.NOTIFICATION_CONNECTION_TEST_REQUEST_TEMPLATE_NAME);
     final NotificationRequest notificationRequest =
         buildNotificationRequest(
             NotificationTemplateType.CUSTOM.name(), templateParams, notificationRecipients);

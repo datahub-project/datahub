@@ -137,17 +137,17 @@ record UsageFeatures {
   /**
    * Multiplier for search score coming from usage
    */
-  usageSearchScoreMultiplier: optional float
+   usageSearchScoreMultiplier: optional float
 
   /**
    * Multiplier for search score coming from freshness
    */
-  usageFreshnessScoreMultiplier: optional float
+   usageFreshnessScoreMultiplier: optional float
 
   /**
    * Multiplier for search score coming from property based adjustment- e.g. URN
    */
-  customDatahubScoreMultiplier: optional float
+   customDatahubScoreMultiplier: optional float
 
   /**
    * Combined score of all multipliers
@@ -155,5 +155,5 @@ record UsageFeatures {
   @Searchable = {
     "fieldName": "combinedSearchRankingMultiplier",
   }
-  combinedSearchRankingMultiplier: optional float
+   combinedSearchRankingMultiplier: optional float
 }

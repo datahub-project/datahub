@@ -8,7 +8,6 @@ import {
     Required,
     StyledIcon,
     StyledStatusIcon,
-    TextAreaBase,
     TextAreaContainer,
     TextAreaField,
     TextAreaWrapper,
@@ -60,22 +59,20 @@ export const TextArea = ({
             <Label>
                 {label} {isRequired && <Required>*</Required>}
             </Label>
-            <TextAreaBase {...textAreaBaseProps}>
-                <TextAreaContainer>
-                    {icon && <StyledIcon icon={icon} size="lg" />}
-                    <TextAreaField
-                        icon={icon}
-                        placeholder={placeholder}
-                        readOnly={isReadOnly}
-                        disabled={isDisabled}
-                        required={isRequired}
-                        {...props}
-                    />
-                    {isSuccess && <StyledStatusIcon icon="CheckCircle" color="green" size="lg" />}
-                    {invalid && <StyledStatusIcon icon="WarningAmber" color="red" size="lg" />}
-                    {warning && <StyledStatusIcon icon="ErrorOutline" color="yellow" size="lg" />}
-                </TextAreaContainer>
-            </TextAreaBase>
+            <TextAreaContainer {...textAreaBaseProps}>
+                {icon && <StyledIcon icon={icon} size="lg" />}
+                <TextAreaField
+                    icon={icon}
+                    placeholder={placeholder}
+                    readOnly={isReadOnly}
+                    disabled={isDisabled}
+                    required={isRequired}
+                    {...props}
+                />
+                {isSuccess && <StyledStatusIcon icon="CheckCircle" color="green" size="lg" />}
+                {invalid && <StyledStatusIcon icon="WarningAmber" color="red" size="lg" />}
+                {warning && <StyledStatusIcon icon="ErrorOutline" color="yellow" size="lg" />}
+            </TextAreaContainer>
             {invalid && error && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}
         </TextAreaWrapper>

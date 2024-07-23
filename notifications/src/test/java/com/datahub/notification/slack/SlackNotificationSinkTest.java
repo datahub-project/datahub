@@ -50,7 +50,9 @@ import io.datahubproject.integrations.invoker.JSON;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import okhttp3.Response;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -806,34 +808,36 @@ public class SlackNotificationSinkTest {
 
     // Now, construct an assertion message request and verify that it is sent to the slack client.
     NotificationRequest notificationRequest = new NotificationRequest();
+    Map<String, String> paramsMap =
+        new HashMap<>(
+            Map.of(
+                "assertionUrn",
+                "urn:li:assertion:test",
+                "assertionType",
+                "DATASET",
+                "entityName",
+                "SampleName",
+                "entityPath",
+                "/datasets/test",
+                "result",
+                "SUCCESS",
+                "description",
+                "urn:li:assertion:test",
+                "sourceType",
+                "EXTERNAL",
+                "externalPlatform",
+                "dbt",
+                "externalUrl",
+                "http://localhost:8084/dbt/results",
+                Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY,
+                TEST_EXECUTION_REQUEST_URN));
+    paramsMap.put("requestName", Constants.NOTIFICATION_CONNECTION_TEST_REQUEST_TEMPLATE_NAME);
     notificationRequest.setMessage(
         new NotificationMessage()
             .setTemplate(
                 com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
                     NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name()))
-            .setParameters(
-                new StringMap(
-                    ImmutableMap.of(
-                        "assertionUrn",
-                        "urn:li:assertion:test",
-                        "assertionType",
-                        "DATASET",
-                        "entityName",
-                        "SampleName",
-                        "entityPath",
-                        "/datasets/test",
-                        "result",
-                        "SUCCESS",
-                        "description",
-                        "urn:li:assertion:test",
-                        "sourceType",
-                        "EXTERNAL",
-                        "externalPlatform",
-                        "dbt",
-                        "externalUrl",
-                        "http://localhost:8084/dbt/results",
-                        Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY,
-                        TEST_EXECUTION_REQUEST_URN))));
+            .setParameters(new StringMap(paramsMap)));
 
     notificationRequest.setRecipients(
         new NotificationRecipientArray(

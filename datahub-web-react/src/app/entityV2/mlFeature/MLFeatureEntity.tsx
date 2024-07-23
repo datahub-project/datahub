@@ -1,4 +1,4 @@
-import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { DotChartOutlined, PartitionOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
 import { EntityType, MlFeature, SearchResult } from '../../../types.generated';
@@ -100,6 +100,10 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                     name: 'Lineage',
                     component: LineageTab,
                 },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
             ]}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
@@ -145,12 +149,6 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
-        },
-        {
-            name: 'Properties',
-            component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
         },
     ];
 
