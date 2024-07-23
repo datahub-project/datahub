@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.servers.Server;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -150,6 +151,11 @@ public class SpringWebConfig implements WebMvcConfigurer {
         : b.get() == null
             ? a.get()
             : Stream.concat(a.get().entrySet().stream(), b.get().entrySet().stream())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (v1, v2) -> v2,
+                        LinkedHashMap::new));
   }
 }
