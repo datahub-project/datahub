@@ -9,11 +9,11 @@ ARG VIRTUAL_ENV=/datahub-ingestion/.venv
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
 USER 0
 
-# Install OpenJDK 11 in the base image
-RUN apt-get update && apt-get install -y openjdk-11-jdk
+# Install OpenJDK 17 in the base image
+RUN apt-get update && apt-get install -y openjdk-17-jdk
 
 # Set JAVA_HOME environment variable
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 FROM base as build
 
