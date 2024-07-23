@@ -8,10 +8,12 @@ import com.typesafe.config.ConfigFactory;
 import datahub.client.file.FileEmitterConfig;
 import datahub.client.kafka.KafkaEmitterConfig;
 import datahub.client.rest.RestEmitterConfig;
+import datahub.client.s3.S3EmitterConfig;
 import datahub.spark.conf.DatahubEmitterConfig;
 import datahub.spark.conf.FileDatahubEmitterConfig;
 import datahub.spark.conf.KafkaDatahubEmitterConfig;
 import datahub.spark.conf.RestDatahubEmitterConfig;
+import datahub.spark.conf.S3DatahubEmitterConfig;
 import datahub.spark.conf.SparkAppContext;
 import datahub.spark.conf.SparkConfigParser;
 import datahub.spark.conf.SparkLineageConf;
@@ -167,6 +169,42 @@ public class DatahubSparkListener extends SparkListener {
         FileEmitterConfig.FileEmitterConfigBuilder fileEmitterConfig = FileEmitterConfig.builder();
         fileEmitterConfig.fileName(sparkConf.getString(SparkConfigParser.FILE_EMITTER_FILE_NAME));
         return Optional.of(new FileDatahubEmitterConfig(fileEmitterConfig.build()));
+      case "s3":
+        log.info("S3 Emitter Configuration: S3 emitter will be used");
+        S3EmitterConfig.S3EmitterConfigBuilder s3EmitterConfig = S3EmitterConfig.builder();
+        if (sparkConf.hasPath(SparkConfigParser.S3_EMITTER_BUCKET)) {
+          s3EmitterConfig.bucketName(sparkConf.getString(SparkConfigParser.S3_EMITTER_BUCKET));
+        }
+
+        if (sparkConf.hasPath(SparkConfigParser.S3_EMITTER_PREFIX)) {
+          s3EmitterConfig.pathPrefix(sparkConf.getString(SparkConfigParser.S3_EMITTER_PREFIX));
+        }
+
+        if (sparkConf.hasPath(SparkConfigParser.S3_EMITTER_REGION)) {
+          s3EmitterConfig.region(sparkConf.getString(SparkConfigParser.S3_EMITTER_REGION));
+        }
+
+        if (sparkConf.hasPath(S3_EMITTER_PROFILE)) {
+          s3EmitterConfig.profileName(sparkConf.getString(S3_EMITTER_PROFILE));
+        }
+
+        if (sparkConf.hasPath(S3_EMITTER_ENDPOINT)) {
+          s3EmitterConfig.endpoint(sparkConf.getString(S3_EMITTER_ENDPOINT));
+        }
+
+        if (sparkConf.hasPath(S3_EMITTER_ACCESS_KEY)) {
+          s3EmitterConfig.accessKey(sparkConf.getString(S3_EMITTER_ACCESS_KEY));
+        }
+
+        if (sparkConf.hasPath(S3_EMITTER_SECRET_KEY)) {
+          s3EmitterConfig.secretKey(sparkConf.getString(S3_EMITTER_SECRET_KEY));
+        }
+
+        if (sparkConf.hasPath(S3_EMITTER_FILE_NAME)) {
+          s3EmitterConfig.fileName(sparkConf.getString(S3_EMITTER_FILE_NAME));
+        }
+
+        return Optional.of(new S3DatahubEmitterConfig(s3EmitterConfig.build()));
       default:
         log.error(
             "DataHub Transport {} not recognized. DataHub Lineage emission will not work",
@@ -205,6 +243,7 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onApplicationEnd(SparkListenerApplicationEnd applicationEnd) {
     long startTime = System.currentTimeMillis();
+    initializeContextFactoryIfNotInitialized();
 
     log.debug("Application end called");
     listener.onApplicationEnd(applicationEnd);

@@ -16,11 +16,13 @@ import datahub.client.Emitter;
 import datahub.client.file.FileEmitter;
 import datahub.client.kafka.KafkaEmitter;
 import datahub.client.rest.RestEmitter;
+import datahub.client.s3.S3Emitter;
 import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.spark.conf.FileDatahubEmitterConfig;
 import datahub.spark.conf.KafkaDatahubEmitterConfig;
 import datahub.spark.conf.RestDatahubEmitterConfig;
+import datahub.spark.conf.S3DatahubEmitterConfig;
 import datahub.spark.conf.SparkLineageConf;
 import io.datahubproject.openlineage.converter.OpenLineageToDataHub;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
@@ -88,6 +90,14 @@ public class DatahubEventEmitter extends EventEmitter {
         FileDatahubEmitterConfig datahubFileEmitterConfig =
             (FileDatahubEmitterConfig) datahubConf.getDatahubEmitterConfig();
         emitter = Optional.of(new FileEmitter(datahubFileEmitterConfig.getFileEmitterConfig()));
+      } else if (datahubConf.getDatahubEmitterConfig() instanceof S3DatahubEmitterConfig) {
+        S3DatahubEmitterConfig datahubFileEmitterConfig =
+            (S3DatahubEmitterConfig) datahubConf.getDatahubEmitterConfig();
+        try {
+          emitter = Optional.of(new S3Emitter(datahubFileEmitterConfig.getS3EmitterConfig()));
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
       } else {
         log.error(
             "DataHub Transport {} not recognized. DataHub Lineage emission will not work",

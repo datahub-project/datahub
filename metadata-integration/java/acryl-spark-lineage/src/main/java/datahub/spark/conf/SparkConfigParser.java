@@ -35,6 +35,15 @@ public class SparkConfigParser {
   public static final String KAFKA_EMITTER_BOOTSTRAP = "kafka.bootstrap";
   public static final String KAFKA_EMITTER_SCHEMA_REGISTRY_URL = "kafka.schema_registry_url";
 
+  public static final String S3_EMITTER_BUCKET = "s3.bucket";
+  public static final String S3_EMITTER_REGION = "s3.region";
+  public static final String S3_EMITTER_ENDPOINT = "s3.endpoint";
+  public static final String S3_EMITTER_PREFIX = "s3.prefix";
+  public static final String S3_EMITTER_ACCESS_KEY = "s3.access_key";
+  public static final String S3_EMITTER_SECRET_KEY = "s3.secret_key";
+  public static final String S3_EMITTER_PROFILE = "s3.profile";
+  public static final String S3_EMITTER_FILE_NAME = "s3.filename";
+
   public static final String COALESCE_KEY = "coalesce_jobs";
   public static final String PATCH_ENABLED = "patch.enabled";
   public static final String DISABLE_SYMLINK_RESOLUTION = "disableSymlinkResolution";
