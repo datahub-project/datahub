@@ -9,12 +9,6 @@ ARG VIRTUAL_ENV=/datahub-ingestion/.venv
 FROM $BASE_IMAGE:$DOCKER_VERSION as base
 USER 0
 
-# Install OpenJDK 17 in the base image
-RUN apt-get update && apt-get install -y openjdk-17-jdk
-
-# Set JAVA_HOME environment variable
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-
 FROM base as build
 
 COPY ./datahub-executor /datahub-executor
@@ -44,6 +38,12 @@ RUN uv pip install --no-cache -e .
 
 ## Production Image Built From Build Image
 FROM build as prod-install
+
+# Install OpenJDK 17 in the base image
+RUN apt-get update && apt-get install -y openjdk-17-jdk
+
+# Set JAVA_HOME environment variable
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 USER datahub
 
