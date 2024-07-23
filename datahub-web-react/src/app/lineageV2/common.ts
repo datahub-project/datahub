@@ -47,6 +47,7 @@ export interface LineageEntity extends NodeBase {
     rawEntity?: Entity; // TODO: Don't store this -- waste of memory? Currently used for manual lineage modal
     fetchStatus: Record<LineageDirection, FetchStatus>;
     filters?: Record<LineageDirection, Filters>;
+    isSoftDeleted?: boolean;
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
@@ -62,7 +63,8 @@ export interface LineageFilter extends NodeBase {
     type: typeof LINEAGE_FILTER_TYPE;
     direction: LineageDirection;
     parent: Urn; // TODO: Consider removing in favor of parents
-    contents: Urn[];
+    contents: Urn[]; // Paginated nodes in order. Includes non-transformational nodes and transformational leaves
+    allChildren: Set<Urn>; // Includes all transformational children
     shown: Set<Urn>;
     limit: number;
     numShown?: number; // Includes nodes in contents shown due to a different path, not through `parent`

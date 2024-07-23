@@ -1,4 +1,6 @@
 import moment from 'moment';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { EntityRegistry } from '@src/entityRegistryContext';
 import { REDESIGN_COLORS } from '../../../../constants';
 import { CorpUser, ShareResult, ShareResultState } from '../../../../../../../types.generated';
 
@@ -13,6 +15,11 @@ export enum PopularityTier {
 }
 
 export const ACRYL_PLATFORM = 'Acryl';
+
+export enum ActionType {
+    SHARE,
+    SYNC,
+}
 
 /**
  * Retrieve a tier of popularity for dataset given statistics about the dataset.
@@ -123,8 +130,9 @@ export function getShareResultStatus(result?: ShareResult) {
     const isRunning = result?.status === ShareResultState.Running;
     const isAttemptedRecently = moment() < moment(result?.statusLastUpdated).add(5, 'minutes');
     const isInProgress = isRunning && isAttemptedRecently;
-    const failed = isRunning && !isAttemptedRecently;
-    return { isInProgress, failed };
+    const failed = result?.status === ShareResultState.Failure || (isRunning && !isAttemptedRecently);
+    const partialSuccess = result?.status === ShareResultState.PartialSuccess;
+    return { isInProgress, failed, partialSuccess };
 }
 
 export function getRelativeTimeColor(time: number) {
@@ -136,4 +144,73 @@ export function getRelativeTimeColor(time: number) {
         return `${REDESIGN_COLORS.WARNING_YELLOW}`;
     }
     return `${REDESIGN_COLORS.WARNING_RED}`;
+}
+
+interface SharedItemStatusProps {
+    shareResult: ShareResult;
+    unshareResult?: ShareResult;
+}
+
+function getSharedItemStatus({ shareResult, unshareResult }: SharedItemStatusProps) {
+    const isShareMoreRecent = (shareResult?.statusLastUpdated || 1) > (unshareResult?.statusLastUpdated || 0);
+    const {
+        isInProgress: isSharing,
+        failed: failedToShare,
+        partialSuccess,
+    } = isShareMoreRecent
+        ? getShareResultStatus(shareResult)
+        : { isInProgress: false, failed: false, partialSuccess: false };
+    const { isInProgress: isUnsharing, failed: failedToUnshare } = isShareMoreRecent
+        ? { isInProgress: false, failed: false }
+        : getShareResultStatus(unshareResult);
+
+    const isInProgress = isSharing || isUnsharing;
+    const hasFailed = failedToShare || failedToUnshare;
+
+    return { isInProgress, isUnsharing, hasFailed, failedToUnshare, partialSuccess };
+}
+
+interface SharedItemInfoProps {
+    shareResult: ShareResult;
+    entityData?: GenericEntityProperties | null;
+    entityRegistry: EntityRegistry;
+}
+
+export function getSharedItemInfo({ shareResult, entityData, entityRegistry }: SharedItemInfoProps) {
+    const unshareResult = entityData?.share?.lastUnshareResults?.find(
+        (r) =>
+            r.destination?.urn === shareResult.destination?.urn &&
+            r.implicitShareEntity?.urn === shareResult.implicitShareEntity?.urn,
+    );
+    const lastSuccessTime = shareResult.lastSuccess?.time || 0;
+    const lastAttempt = shareResult.lastAttempt.time || 0;
+    const hasSharedLineage =
+        shareResult.shareConfig?.enableDownstreamLineage || shareResult.shareConfig?.enableUpstreamLineage;
+    const name = shareResult.destination?.details.name || shareResult.destination?.urn || 'Deleted connection';
+    const implicitShareEntity = (shareResult as any)?.implicitShareEntity;
+    const linkedEntityName = implicitShareEntity
+        ? entityRegistry.getDisplayName(implicitShareEntity?.type, implicitShareEntity)
+        : '';
+    const linkedEntityUrl = implicitShareEntity
+        ? entityRegistry.getEntityUrl(implicitShareEntity.type, implicitShareEntity.urn)
+        : null;
+
+    const { isInProgress, isUnsharing, hasFailed, failedToUnshare, partialSuccess } = getSharedItemStatus({
+        shareResult,
+        unshareResult,
+    });
+
+    return {
+        linkedEntityUrl,
+        linkedEntityName,
+        hasSharedLineage,
+        isInProgress,
+        isUnsharing,
+        hasFailed,
+        failedToUnshare,
+        partialSuccess,
+        lastSuccessTime,
+        lastAttempt,
+        name,
+    };
 }

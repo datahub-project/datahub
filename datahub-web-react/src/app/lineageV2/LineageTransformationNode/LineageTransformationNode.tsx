@@ -84,38 +84,41 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const opacity = selectedColumn && !cllHighlightedNodes.has(urn) ? 0.3 : 1;
 
     // TODO: Combine home node code with LineageEntityNode
-    return (
-        <Tooltip title={name}>
-            <NodeWrapper
-                opacity={opacity}
-                selected={selected}
-                onMouseEnter={() => setHoveredNode(urn)}
-                onMouseLeave={() => setHoveredNode(null)}
-            >
-                {urn === rootUrn && (
-                    <HomeNodeBubble>
-                        <HomeOutlined style={{ marginRight: 4 }} />
-                        Home
-                    </HomeNodeBubble>
-                )}
-                {icon && <CustomIcon src={icon} />}
-                {!icon && isQuery && <ConsoleSqlOutlined />}
-                {!icon && !isQuery && <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />}
-                {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
-                    <LoadingWrapper className="nodrag" style={{ left: -30 }}>
-                        <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
-                    </LoadingWrapper>
-                )}
-                {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
-                    <LoadingWrapper className="nodrag" style={{ right: -30 }}>
-                        <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
-                    </LoadingWrapper>
-                )}
-                <CustomHandle type="target" position={Position.Left} isConnectable={false} $onEdge={!isQuery} />
-                <CustomHandle type="source" position={Position.Right} isConnectable={false} $onEdge={!isQuery} />
-            </NodeWrapper>
-        </Tooltip>
+    const contents = (
+        <NodeWrapper
+            opacity={opacity}
+            selected={selected}
+            onMouseEnter={() => setHoveredNode(urn)}
+            onMouseLeave={() => setHoveredNode(null)}
+        >
+            {urn === rootUrn && (
+                <HomeNodeBubble>
+                    <HomeOutlined style={{ marginRight: 4 }} />
+                    Home
+                </HomeNodeBubble>
+            )}
+            {icon && <CustomIcon src={icon} />}
+            {!icon && isQuery && <ConsoleSqlOutlined />}
+            {!icon && !isQuery && <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />}
+            {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
+                <LoadingWrapper className="nodrag" style={{ left: -30 }}>
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                </LoadingWrapper>
+            )}
+            {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
+                <LoadingWrapper className="nodrag" style={{ right: -30 }}>
+                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                </LoadingWrapper>
+            )}
+            <CustomHandle type="target" position={Position.Left} isConnectable={false} $onEdge={!isQuery} />
+            <CustomHandle type="source" position={Position.Right} isConnectable={false} $onEdge={!isQuery} />
+        </NodeWrapper>
     );
+
+    if (isQuery) {
+        return contents;
+    }
+    return <Tooltip title={name}>{contents}</Tooltip>;
 }
 
 function useFetchQuery(urn: string) {

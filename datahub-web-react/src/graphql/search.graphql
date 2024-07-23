@@ -917,6 +917,13 @@ fragment searchResultsWithoutSchemaField on Entity {
             }
         }
     }
+    ... on Form {
+        formInfo: info {
+            name
+            description
+            type
+        }
+    }
 }
 
 fragment searchResultFieldsNoLineage on Entity {
@@ -1173,6 +1180,17 @@ query searchAcrossLineageStructure($input: SearchAcrossLineageInput!) {
             }
             explored
             ignoredAsHop
+        }
+    }
+}
+
+query aggregateAcrossLineage($input: SearchAcrossLineageInput!) {
+    searchAcrossLineage(input: $input) {
+        start
+        count
+        total
+        facets {
+            ...facetFields
         }
     }
 }

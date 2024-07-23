@@ -31,4 +31,3 @@ py3="$(which python3)"
 rm "$py3"
 ln "$(which python3.10)" "$py3"
 python3 --version
-

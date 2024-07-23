@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 
 class FormAnalyticsConfig(BaseModel):
     enabled: bool
-    dataset_urn: Optional[str]
-    physical_uri_prefix: Optional[str]
+    dataset_urn: Optional[str] = None
+    physical_uri_prefix: Optional[str] = None
 
 
 @platform_name(id="datahub", platform_name="DataHub")

@@ -80,8 +80,8 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
     const client = useApolloClient();
     const hasHistory = (history as any)?.length > 2;
 
-    const instanceURL = getURLFromJson(selectedInstance?.details?.json?.blob);
-    const initialToken = getTokenFromJson(selectedInstance?.details.json?.blob);
+    const instanceURL = isEditForm && getURLFromJson(selectedInstance?.details?.json?.blob);
+    const initialToken = isEditForm && getTokenFromJson(selectedInstance?.details.json?.blob);
 
     const [isTokenEdited, setIsTokenEdited] = useState(false);
 

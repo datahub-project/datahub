@@ -25,6 +25,7 @@ import { ViewSelect } from '../entityV2/view/select/ViewSelect';
 import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 import { CommandK } from './CommandK';
 import { V2_SEARCH_BAR_VIEWS } from '../onboarding/configV2/HomePageOnboardingConfig';
+import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -187,6 +188,8 @@ export const SearchBar = ({
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
+    const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
+    const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
 
     const updateQuickFilterAutoCompleteOption = useCallback(() => {
         return {
@@ -270,7 +273,9 @@ export const SearchBar = ({
 
     const autoCompleteEntityOptions = useMemo(() => {
         return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
-            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, { combineSiblings });
+            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, {
+                combineSiblings: finalCombineSiblings,
+            });
             return {
                 label: <SectionHeader entityType={combinedSuggestion.type} />,
                 options: combinedSuggestion.combinedEntities.map((combinedEntity) => ({
@@ -279,7 +284,7 @@ export const SearchBar = ({
                         <AutoCompleteItem
                             query={effectiveQuery}
                             entity={combinedEntity.entity}
-                            siblings={combineSiblings ? combinedEntity.matchedEntities : undefined}
+                            siblings={finalCombineSiblings ? combinedEntity.matchedEntities : undefined}
                         />
                     ),
                     type: combinedEntity.entity.type,
@@ -287,7 +292,7 @@ export const SearchBar = ({
                 })),
             };
         });
-    }, [combineSiblings, effectiveQuery, suggestions]);
+    }, [finalCombineSiblings, effectiveQuery, suggestions]);
 
     const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
     useEffect(() => {

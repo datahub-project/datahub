@@ -1,3 +1,4 @@
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Tooltip } from 'antd';
 import React, { useContext, useMemo } from 'react';
@@ -86,6 +87,7 @@ const ColumnLinkWrapper = styled(Link)`
 type Props = LineageDisplayColumn & { urn: string; entityType: EntityType };
 
 export default function Column({ urn, entityType, fieldPath, highlighted, hasLineage, type, nativeDataType }: Props) {
+    const { config } = useAppConfig();
     const entityRegistry = useEntityRegistry();
     const { selectedColumn, setSelectedColumn, setHoveredColumn } = useContext(LineageDisplayContext);
     const id = useMemo(() => createColumnRef(urn, fieldPath), [urn, fieldPath]);
@@ -132,7 +134,7 @@ export default function Column({ urn, entityType, fieldPath, highlighted, hasLin
                 </TypeWrapper>
             )}
             <OverflowTitle title={columnName} placement="right" />
-            {hasLineage && (
+            {config.featureFlags.schemaFieldCLLEnabled && hasLineage && (
                 <ColumnLinkWrapper
                     to={`${entityRegistry.getEntityUrl(EntityType.SchemaField, schemaFieldUrn)}/Lineage`}
                     onClick={(e) => e.stopPropagation()}

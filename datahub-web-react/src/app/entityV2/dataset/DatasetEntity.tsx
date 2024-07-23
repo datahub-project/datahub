@@ -8,7 +8,6 @@ import {
     LayoutOutlined,
     PartitionOutlined,
     UnlockOutlined,
-    UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
@@ -178,6 +177,10 @@ export class DatasetEntity implements Entity<Dataset> {
                     icon: PartitionOutlined,
                 },
                 {
+                    name: 'Properties',
+                    component: PropertiesTab,
+                },
+                {
                     name: 'Queries',
                     component: QueriesTab,
                     icon: ConsoleSqlOutlined,
@@ -290,12 +293,6 @@ export class DatasetEntity implements Entity<Dataset> {
             properties: {
                 fullHeight: true,
             },
-        },
-        {
-            name: 'Properties',
-            component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
         },
     ];
 

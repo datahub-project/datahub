@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 import MatchContext, { PreviewSection } from '../../shared/MatchesContext';
 import { SearchCardSlideoutContent } from '../searchSlideout/SearchCardSlideoutContent';
@@ -12,11 +11,9 @@ const MATCHES_CONTAINER_HEIGHT = 52;
 
 const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; compactUserSearchCardStyle: boolean }>`
     z-index: 1;
-    border-radius: 8px;
+    border-radius: 10px;
     margin: 0 auto 12px auto;
     padding: 4px;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
-    border-bottom: 1px solid ${ANTD_GRAY[5]};
     :hover {
         ${(props) => !props.selected && `outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};}`};
     }
@@ -36,7 +33,6 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
         props.selected &&
         `
         outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};
-        // border-left: 5px solid ${SEARCH_COLORS.TITLE_PURPLE};
         left: -5px;
         width: calc(100% + 5px);
     `}
@@ -73,7 +69,7 @@ type Props = {
  * You can wrap it around any search result in a search list to enable the match drawer.
  * The state is managed in the parent component in order to enable expand all and collapse all in the future.
  */
-export const MatchContextContianer = ({
+export const MatchContextContainer = ({
     item,
     selected,
     onClick,

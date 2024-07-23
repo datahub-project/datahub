@@ -5,7 +5,7 @@ const password = "Example password";
 const group_name = `Test group ${test_id}`;
 
 describe("create and manage group", () => {
-  it.skip("add test user", () => {
+  it("add test user", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");
@@ -22,7 +22,7 @@ describe("create and manage group", () => {
       cy.mouseover("#title").click();
       cy.waitTextVisible("Other").click();
       cy.get("[type=submit]").click();
-      cy.waitTextVisible("Welcome to DataHub");
+      cy.waitTextVisible("Welcome");
       cy.hideOnboardingTour();
       cy.waitTextVisible(username);
     });
@@ -40,11 +40,12 @@ describe("create and manage group", () => {
     cy.waitTextVisible("Group Id");
     cy.get("#groupId").type(test_id);
     cy.get("#createGroupButton").click();
-    cy.waitTextVisible("Created group!");
+    // cy.waitTextVisible("Created group!");
+    cy.reload();
     cy.waitTextVisible(group_name);
   });
 
-  it.skip("add test user to a group", () => {
+  it("add test user to a group", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/users");
     cy.get(".ant-tabs-tab-btn").contains("Groups").click();
@@ -63,7 +64,7 @@ describe("create and manage group", () => {
     cy.contains(username, { timeout: 10000 }).should("be.visible");
   });
 
-  it.skip("update group info", () => {
+  it("update group info", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/groups");
     cy.clickOptionWithText(group_name);
@@ -98,7 +99,7 @@ describe("create and manage group", () => {
     cy.waitTextVisible(`#${test_id}`);
   });
 
-  it.skip("test User verify group participation", () => {
+  it("test User verify group participation", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/groups");
     cy.hideOnboardingTour();

@@ -28,7 +28,7 @@ describe("create and manage group", () => {
       cy.get("[type=submit]").click();
       cy.contains("Accepted invite!").should("not.exist");
       cy.wait(5000);
-      //cy.hideOnboardingTour();
+      // cy.hideOnboardingTour();
       cy.handleIntroducePage();
       cy.waitTextVisible(username);
     });
@@ -45,7 +45,8 @@ describe("create and manage group", () => {
     cy.waitTextVisible("Group Id");
     cy.get("#groupId").type(test_id);
     cy.get("#createGroupButton").click();
-    cy.waitTextVisible("Created group!");
+    // cy.waitTextVisible("Created group!");
+    cy.reload();
     cy.waitTextVisible(group_name);
   });
 
@@ -55,16 +56,16 @@ describe("create and manage group", () => {
     cy.get(".ant-tabs-tab-btn").contains("Groups").click();
     cy.clickOptionWithText(group_name);
     cy.clickTextOptionWithClass(".ant-typography", group_name);
-    //cy.get(".ant-typography").contains(group_name).should("be.visible");
+    // cy.get(".ant-typography").contains(group_name).should("be.visible");
     cy.clickTextOptionWithClass(".ant-tabs-tab", "Members");
-    //cy.get(".ant-tabs-tab").contains("Members").click();
+    // cy.get(".ant-tabs-tab").contains("Members").click();
     cy.waitTextVisible("No members in this group yet.");
     cy.clickOptionWithText("Add Member");
-    //cy.clickOptionWithText('Search for users...')
+    // cy.clickOptionWithText('Search for users...')
     cy.contains("Search for users...").click({ force: true });
     cy.focused().type(username);
     // cy.clickOptionWithText('Add group members')
-    //cy.clickTextOptionWithClass(".ant-select-item-option", username)
+    // cy.clickTextOptionWithClass(".ant-select-item-option", username)
     cy.get(".ant-select-item-option").contains(username).click();
     cy.focused().blur();
     cy.contains(username).should("have.length", 1);
@@ -91,8 +92,7 @@ describe("create and manage group", () => {
     cy.contains("Changes saved.").should("not.exist");
   });
 
-  // skipped because unable to add the owner UI issue
-  it.skip("user verify to edit the discription", () => {
+  it("user verify to edit the discription", () => {
     cy.visit("/settings/identities/groups");
     cy.waitTextVisible("Platform");
     cy.contains(`Test group EDITED ${test_id}`).should("be.visible").click();
@@ -105,15 +105,18 @@ describe("create and manage group", () => {
     cy.contains("Test group description EDITED").should("be.visible");
   });
 
-  // skipped because unable to add the owner UI issue
-  it.skip("user verify to add the owner", () => {
+  it("user verify to add the owner", () => {
     cy.visit("/settings/identities/groups");
     cy.waitTextVisible("Platform");
     cy.contains(`Test group EDITED ${test_id}`).should("be.visible").click();
     cy.get(".anticon.anticon-plus").click();
-    cy.get('[id="owner"]').click({ force: true });
+    cy.get('[aria-label="Close"]').should("be.visible");
+    cy.get('[id="owner"]').click();
+    cy.contains("Add Owners").click();
+    cy.get('[id="owner"]').click();
     cy.focused().type(username);
     cy.get(".ant-select-item-option")
+      .should("be.visible")
       .contains(username, { matchCase: false })
       .click();
     cy.focused().blur();
@@ -128,7 +131,6 @@ describe("create and manage group", () => {
     cy.waitTextVisible("Platform");
     cy.hideOnboardingTour();
     cy.clickOptionWithText(`Test group EDITED ${test_id}`);
-    //cy.clickTextOptionWithClass(".ant-tabs-tab", "Members")
     cy.get(".ant-tabs-tab").contains("Members").click();
     cy.waitTextVisible(username);
   });

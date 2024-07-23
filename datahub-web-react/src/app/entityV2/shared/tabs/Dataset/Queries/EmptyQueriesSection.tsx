@@ -91,7 +91,7 @@ export default function EmptyQueriesSection({
             <ContentContainer>
                 <LeftContainer>
                     <StyledEmpty
-                        description={<Description>No highlighted queries available</Description>}
+                        description={<Description>No highlighted queries yet</Description>}
                         image={NoDocs}
                     />
                 </LeftContainer>

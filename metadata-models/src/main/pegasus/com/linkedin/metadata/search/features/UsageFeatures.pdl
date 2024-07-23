@@ -133,4 +133,27 @@ record UsageFeatures {
    * Deprecated - use StorageFeatures.pdl instead. The percentile of row count relative to other assets from the data platform instance.
    */
   rowCountPercentile: optional int
+
+  /**
+   * Multiplier for search score coming from usage
+   */
+   usageSearchScoreMultiplier: optional float
+
+  /**
+   * Multiplier for search score coming from freshness
+   */
+   usageFreshnessScoreMultiplier: optional float
+
+  /**
+   * Multiplier for search score coming from property based adjustment- e.g. URN
+   */
+   customDatahubScoreMultiplier: optional float
+
+  /**
+   * Combined score of all multipliers
+   */
+  @Searchable = {
+    "fieldName": "combinedSearchRankingMultiplier",
+  }
+   combinedSearchRankingMultiplier: optional float
 }

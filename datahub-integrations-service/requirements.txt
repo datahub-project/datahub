@@ -746,5 +746,5 @@ wrapt==1.16.0
     # via deprecated
 yarl==1.9.4
     # via aiohttp
-zipp==3.18.1
+zipp==3.19.1
     # via importlib-metadata

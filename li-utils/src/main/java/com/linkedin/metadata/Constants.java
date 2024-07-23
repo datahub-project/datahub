@@ -338,6 +338,7 @@ public class Constants {
   public static final String EXECUTION_REQUEST_STATUS_SUCCESS = "SUCCESS";
   public static final String EXECUTION_REQUEST_STATUS_TIMEOUT = "TIMEOUT";
   public static final String EXECUTION_REQUEST_STATUS_CANCELLED = "CANCELLED";
+  public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
   public static final String EXECUTION_REQUEST_SOURCE_MANUAL_INGESTION_SOURCE =
       "MANUAL_INGESTION_SOURCE";
   public static final String EXECUTION_REQUEST_SOURCE_SCHEDULED_INGESTION_SOURCE =
@@ -425,7 +426,9 @@ public class Constants {
   public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REPORT_TYPE =
       "NOTIFICATION_CONNECTION_TEST_REPORT";
   public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY =
-      "executionRequestUrn";
+      "testNotificationExecutionRequestUrn";
+  public static final String NOTIFICATION_CONNECTION_TEST_REQUEST_TEMPLATE_NAME =
+      "notificationConnectionTest";
   public static final String NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_TASK_NAME =
       "NOTIFICATION_CONNECTION_TEST";
 

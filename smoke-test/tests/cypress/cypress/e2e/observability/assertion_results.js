@@ -4,7 +4,7 @@ const datasetName = "SampleCypressHdfsAssertionDataset";
 
 describe("dataset assertion results test", () => {
   it("go to dataset with assertions and verify assertion results", () => {
-    //View assertions list
+    // View assertions list
     cy.login();
     cy.goToDataset(urn, datasetName);
     cy.clickOptionWithText("Validation");

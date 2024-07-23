@@ -74,7 +74,7 @@ const SidebarDatasetHeaderSection = () => {
     /**
      * Rows column
      */
-    if (isValuePresent(dataset?.datasetProfiles[0]?.rowCount)) {
+    if (isValuePresent(dataset?.datasetProfiles?.[0]?.rowCount)) {
         columns.push({
             title: 'Rows',
             content: <StatContent>{formatNumber(dataset?.datasetProfiles[0]?.rowCount)} rows</StatContent>,
@@ -84,7 +84,7 @@ const SidebarDatasetHeaderSection = () => {
     /**
      * Column column
      */
-    if (isValuePresent(dataset?.datasetProfiles[0]?.columnCount)) {
+    if (isValuePresent(dataset?.datasetProfiles?.[0]?.columnCount)) {
         columns.push({
             title: 'Columns',
             content: <StatContent>{formatNumber(dataset?.datasetProfiles[0]?.columnCount)} columns</StatContent>,
@@ -94,7 +94,7 @@ const SidebarDatasetHeaderSection = () => {
     /**
      * Size column
      */
-    if (isValuePresent(dataset?.datasetProfiles[0]?.sizeInBytes)) {
+    if (isValuePresent(dataset?.datasetProfiles?.[0]?.sizeInBytes)) {
         const formattedBytes = formatBytes(dataset?.datasetProfiles[0]?.sizeInBytes, 0);
         const { number, unit } = formattedBytes;
         columns.push({

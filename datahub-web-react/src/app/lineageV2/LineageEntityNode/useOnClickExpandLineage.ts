@@ -5,7 +5,7 @@ import useSearchAcrossLineage from '../useSearchAcrossLineage';
 
 export function useOnClickExpandLineage(urn: string, type: EntityType, direction: LineageDirection, maxDepth: boolean) {
     const context = useContext(LineageNodesContext);
-    const { nodes, setDataVersion, setDisplayVersion } = context;
+    const { nodes, adjacencyList, setDataVersion, setDisplayVersion } = context;
     const { fetchLineage } = useSearchAcrossLineage(urn, type, context, direction, true, maxDepth);
 
     return function onClick(e?: React.MouseEvent<HTMLDivElement | HTMLSpanElement, MouseEvent>) {
@@ -20,7 +20,7 @@ export function useOnClickExpandLineage(urn: string, type: EntityType, direction
         } else if (node && !node.isExpanded[direction]) {
             node.isExpanded = { ...node.isExpanded, [direction]: true };
             setDataVersion((v) => v + 1);
-            setDisplayVersion(([version]) => [version + 1, []]);
+            setDisplayVersion(([version]) => [version + 1, [urn, ...(adjacencyList[direction].get(urn) || [])]]);
         }
     };
 }

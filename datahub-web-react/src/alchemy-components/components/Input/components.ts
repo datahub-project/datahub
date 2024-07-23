@@ -24,16 +24,18 @@ export const InputWrapper = styled.div({
     width: '100%',
 });
 
-export const InputBase = styled.div(
+export const InputContainer = styled.div(
     ({ isSuccess, warning, isDisabled, isInvalid }: InputProps) => ({
         border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
-        backgroundColor: isDisabled ? colors.gray['50'] : colors.white,
+        backgroundColor: isDisabled ? colors.gray[100] : colors.white,
     }),
     {
         ...defaultFlexStyles,
         width: '100%',
         padding: `${spacing.sm} ${spacing.xsm}`,
         borderRadius: radius.md,
+        flex: 1,
+        color: colors.gray[400], // 1st icon color
 
         '&:focus-within': {
             borderColor: colors.violet[200],
@@ -42,16 +44,10 @@ export const InputBase = styled.div(
     },
 );
 
-export const InputContainer = styled.div({
-    ...defaultFlexStyles,
-    flex: 1,
-    color: colors.gray[400], // 1st icon color
-});
-
 export const InputField = styled.input({
     padding: spacing.none,
     border: borders.none,
-    margin: `0 ${spacing.xxsm}`,
+    margin: `0 ${spacing.xsm}`,
     width: '100%',
 
     '&::placeholder': {

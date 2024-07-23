@@ -206,7 +206,7 @@ export const SlackSinkSettingsSection = ({
                                         <a
                                             target="_blank"
                                             rel="noreferrer"
-                                            href="https://datahubproject.io/docs/managed-datahub/saas-slack-setup/#how-to-find-user-id-in-slack"
+                                            href="https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/#how-to-find-user-id-in-slack"
                                         >
                                             {' '}
                                             See instructions.

@@ -54,47 +54,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
       Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
-
-    // fetch existing aspects
-    Map<Urn, Map<String, Aspect>> aspectData =
-        fetchRequiredAspects(
-            changeMCPs.stream().map(i -> (BatchItem) i).collect(Collectors.toList()),
-            REQUIRED_ASPECTS,
-            retrieverContext.getAspectRetriever());
-
-    Map<Urn, Set<String>> batchMCPAspectNames =
-        changeMCPs.stream()
-            .collect(
-                Collectors.groupingBy(
-                    ChangeMCP::getUrn,
-                    Collectors.mapping(ChangeMCP::getAspectName, Collectors.toSet())));
-
-    Stream<ChangeMCP> schemaFieldSideEffects =
-        changeMCPs.stream()
-            .filter(
-                changeMCP ->
-                    DATASET_ENTITY_NAME.equals(changeMCP.getUrn().getEntityType())
-                        && Constants.SCHEMA_METADATA_ASPECT_NAME.equals(changeMCP.getAspectName()))
-            .flatMap(
-                item ->
-                    buildSchemaFieldKeyMCPs(
-                        item, aspectData, retrieverContext.getAspectRetriever()));
-
-    Stream<ChangeMCP> statusSideEffects =
-        changeMCPs.stream()
-            .filter(
-                changeMCP ->
-                    DATASET_ENTITY_NAME.equals(changeMCP.getUrn().getEntityType())
-                        && Constants.STATUS_ASPECT_NAME.equals(changeMCP.getAspectName())
-                        // if present, already computed above
-                        && !batchMCPAspectNames
-                            .getOrDefault(changeMCP.getUrn(), Set.of())
-                            .contains(Constants.SCHEMA_METADATA_ASPECT_NAME))
-            .flatMap(
-                item ->
-                    mirrorStatusAspect(item, aspectData, retrieverContext.getAspectRetriever()));
-
-    return Stream.concat(statusSideEffects, schemaFieldSideEffects);
+    return Stream.of();
   }
 
   /**
@@ -108,6 +68,19 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
   protected Stream<MCPItem> postMCPSideEffect(
       Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
 
+    // fetch existing aspects, if not already in the batch just committed
+    Map<Urn, Map<String, Aspect>> aspectData =
+        fetchRequiredAspects(mclItems, REQUIRED_ASPECTS, retrieverContext.getAspectRetriever());
+
+    return Stream.concat(
+        processUpserts(mclItems, aspectData, retrieverContext),
+        processDelete(mclItems, aspectData, retrieverContext));
+  }
+
+  private static Stream<MCPItem> processDelete(
+      Collection<MCLItem> mclItems,
+      Map<Urn, Map<String, Aspect>> aspectData,
+      @Nonnull RetrieverContext retrieverContext) {
     List<MCLItem> schemaMetadataDeletes =
         mclItems.stream()
             .filter(
@@ -131,15 +104,11 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
                         && DATASET_ENTITY_NAME.equals(item.getUrn().getEntityType())
                         && STATUS_ASPECT_NAME.equals(item.getAspectName()))
             .collect(Collectors.toList());
+
     final Stream<MCPItem> statusSchemaFieldMCPs;
     if (statusDeletes.isEmpty()) {
       statusSchemaFieldMCPs = Stream.empty();
     } else {
-      Map<Urn, Map<String, Aspect>> aspectData =
-          fetchRequiredAspects(
-              statusDeletes.stream().map(item -> (BatchItem) item).collect(Collectors.toList()),
-              Set.of(SCHEMA_METADATA_ASPECT_NAME),
-              retrieverContext.getAspectRetriever());
       statusSchemaFieldMCPs =
           statusDeletes.stream()
               .flatMap(
@@ -156,6 +125,48 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
     }
 
     return Stream.concat(schemaMetadataSchemaFieldMCPs, statusSchemaFieldMCPs);
+  }
+
+  private static Stream<MCPItem> processUpserts(
+      Collection<MCLItem> mclItems,
+      Map<Urn, Map<String, Aspect>> aspectData,
+      @Nonnull RetrieverContext retrieverContext) {
+    Map<Urn, Set<String>> batchMCPAspectNames =
+        mclItems.stream()
+            .filter(item -> item.getChangeType() != ChangeType.DELETE)
+            .collect(
+                Collectors.groupingBy(
+                    MCLItem::getUrn,
+                    Collectors.mapping(MCLItem::getAspectName, Collectors.toSet())));
+
+    Stream<ChangeMCP> schemaFieldSideEffects =
+        mclItems.stream()
+            .filter(
+                changeMCP ->
+                    changeMCP.getChangeType() != ChangeType.DELETE
+                        && DATASET_ENTITY_NAME.equals(changeMCP.getUrn().getEntityType())
+                        && Constants.SCHEMA_METADATA_ASPECT_NAME.equals(changeMCP.getAspectName()))
+            .flatMap(
+                item ->
+                    buildSchemaFieldKeyMCPs(
+                        item, aspectData, retrieverContext.getAspectRetriever()));
+
+    Stream<ChangeMCP> statusSideEffects =
+        mclItems.stream()
+            .filter(
+                changeMCP ->
+                    changeMCP.getChangeType() != ChangeType.DELETE
+                        && DATASET_ENTITY_NAME.equals(changeMCP.getUrn().getEntityType())
+                        && Constants.STATUS_ASPECT_NAME.equals(changeMCP.getAspectName())
+                        // if present, already computed above
+                        && !batchMCPAspectNames
+                            .getOrDefault(changeMCP.getUrn(), Set.of())
+                            .contains(Constants.SCHEMA_METADATA_ASPECT_NAME))
+            .flatMap(
+                item ->
+                    mirrorStatusAspect(item, aspectData, retrieverContext.getAspectRetriever()));
+
+    return Stream.concat(statusSideEffects, schemaFieldSideEffects);
   }
 
   /**
@@ -343,18 +354,18 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
   /**
    * Fetch missing aspects if not already in the batch
    *
-   * @param batchItems batch mcps
+   * @param mclItems batch mcps
    * @param aspectRetriever aspect retriever
    * @return required aspects for the side effect processing
    */
   private static Map<Urn, Map<String, Aspect>> fetchRequiredAspects(
-      Collection<BatchItem> batchItems,
+      Collection<MCLItem> mclItems,
       Set<String> requiredAspectNames,
       AspectRetriever aspectRetriever) {
     Map<Urn, Map<String, Aspect>> aspectData = new HashMap<>();
 
     // Aspects included data in batch
-    batchItems.stream()
+    mclItems.stream()
         .filter(item -> item.getRecordTemplate() != null)
         .forEach(
             item ->
@@ -364,7 +375,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
 
     // Aspect to fetch
     Map<Urn, Set<String>> missingAspectData =
-        batchItems.stream()
+        mclItems.stream()
             .flatMap(
                 item ->
                     requiredAspectNames.stream()

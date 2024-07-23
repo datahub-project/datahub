@@ -45,7 +45,7 @@ export default function LineageExplorer(props: Props) {
         setDisplayVersion,
     };
 
-    const loaded = useInitializeNodes(context, urn, type, setNodeVersion);
+    const loaded = useInitializeNodes(context, urn, type);
 
     const { setTabFullsize } = useContext(TabFullsizedContext);
     useEffect(() => {
@@ -66,19 +66,19 @@ export default function LineageExplorer(props: Props) {
 /**
  * Initialize lineage node context with upstreams and downstreams of the given urn.
  */
-function useInitializeNodes(
-    context: NodeContext,
-    urn: string,
-    type: EntityType,
-    setNodeVersion: NodeContext['setNodeVersion'],
-): boolean {
+function useInitializeNodes(context: NodeContext, urn: string, type: EntityType): boolean {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+    const { nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion } = context;
 
     useEffect(() => {
-        context.nodes.clear();
-        context.nodes.set(urn, makeInitialNode(urn, type));
-        setNodeVersion((prev) => prev + 1);
-    }, [urn, type, context.nodes, startTimeMillis, endTimeMillis, setNodeVersion]);
+        nodes.clear();
+        adjacencyList[LineageDirection.Upstream].clear();
+        adjacencyList[LineageDirection.Downstream].clear();
+        edges.clear();
+        nodes.set(urn, makeInitialNode(urn, type));
+        setNodeVersion(0);
+        setDisplayVersion([0, []]);
+    }, [urn, type, startTimeMillis, endTimeMillis, nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion]);
 
     const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Upstream);
     const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Downstream);

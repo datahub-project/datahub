@@ -101,7 +101,9 @@ class ShareAgent:
 
         def _recursive_check_entity(entity_urn: str) -> None:
             if entity_urn in entities_to_sync:
+                logger.debug(f"Already checked {entity_urn}")
                 return
+
             entities_to_sync.add(entity_urn)
             container_aspect = self.source_graph.get_aspect(
                 entity_urn, models.ContainerClass
@@ -234,6 +236,10 @@ class ShareAgent:
         )  # use the current last attempt id if it exists
         if status == ShareResultStateClass.SUCCESS:
             share_to_add.lastSuccess = current_audit_stamp
+        if status == ShareResultStateClass.PARTIAL_SUCCESS:
+            share_to_add.lastSuccess = current_audit_stamp
+            # message will be presented to the end user
+            share_to_add.message = "Successfully shared asset with some warnings"
         share_to_add.message = None
         share_to_add.shareConfig = share_config
         share_to_add.lastAttemptRequestId = share_request_id
@@ -387,7 +393,7 @@ class ShareAgent:
             for aspect_name, aspect in shareable_aspects.items()
         ]
 
-        failures = False
+        failure_count = 0
         error_messages = []
         for mcp in destination_mcps:
             # TODO: We also need to mark these entities as shared in the
@@ -399,17 +405,23 @@ class ShareAgent:
                     f"Failed to emit entity {mcp.entityUrn}, aspect {mcp.aspectName} to destination: {e}"
                 )
                 error_messages.append(f"{mcp.aspectName}: {e}")
-                failures = True
+                failure_count += 1
+
+        all_aspects_failed = failure_count == len(destination_mcps)
+
+        share_status = ShareResultStateClass.SUCCESS
+        if failure_count > 0:
+            share_status = (
+                ShareResultStateClass.FAILURE
+                if all_aspects_failed
+                else ShareResultStateClass.PARTIAL_SUCCESS
+            )
 
         share_aspect_emitter_func = lambda: self.emit_share_result(  # noqa: E731
             root_entity_urn,
             shared_urn,
             sharer_urn,
-            (
-                ShareResultStateClass.FAILURE
-                if failures
-                else ShareResultStateClass.SUCCESS
-            ),
+            share_status,
             share_config,
         )
         if update_share_aspect:
@@ -552,11 +564,6 @@ class ShareAgent:
 
         logger.debug(f"Using destination graph: {self.destination_graph!r}")
 
-        if not lineage_direction:
-            # If lineage direction is not provided, we need to determine the lineage direction from the share aspect.
-            # This only applies to re-shares. If this is a new share, nothing is impacted.
-            lineage_direction = self.get_lineage_direction_from_share_aspect(entity_urn)
-
         # First, we need to build the full set of entities to sync.
         entities_to_sync = self.determine_entities_to_sync(entity_urn)
         if lineage_direction:
@@ -594,7 +601,20 @@ class ShareAgent:
         # The shared entity should have shared an share with IN_PROGRESS status earlier
 
         entities_to_sync.remove(entity_urn)
-        entities_to_sync_list = [entity_urn] + list(entities_to_sync)
+        # We want structured properties to send first to do this we create a simple key function which makes sure structured properties are sent first
+        structured_properties = sorted(
+            list(
+                filter(
+                    lambda x: x.startswith("urn:li:structuredProperty:"),
+                    entities_to_sync,
+                )
+            )
+        )
+        entities_to_sync_list = (
+            structured_properties
+            + sorted(list(entities_to_sync.difference(structured_properties)))
+            + [entity_urn]
+        )
         root_entity_status_emitter = None
         # Then, we sync each entity.
         for shared_urn in entities_to_sync_list:
@@ -636,12 +656,7 @@ class ShareAgent:
                         entity_urn,
                         sharer_urn,
                         ShareResultStateClass.RUNNING,
-                        ShareConfigClass(
-                            enableUpstreamLineage=lineage_direction
-                            in [LineageDirection.UPSTREAM, LineageDirection.BOTH],
-                            enableDownstreamLineage=lineage_direction
-                            in [LineageDirection.DOWNSTREAM, LineageDirection.BOTH],
-                        ),
+                        share_config=share_config,
                         share_request_id=share_request_id,
                     )
                     last_report_time = time.time()
@@ -653,7 +668,7 @@ class ShareAgent:
         logger.info(f"Shared {len(entities_to_sync_list)} entities.")
         result = ExecuteShareResult(
             status="ok",
-            entities_shared=list(entities_to_sync),
+            entities_shared=entities_to_sync_list,
         )
 
         logger.debug(f"Result: {result}")
@@ -667,6 +682,7 @@ class ShareAgent:
             logger.info(f"Entity {entity_urn} does not have a share aspect.")
             return None
         if share_aspect.lastShareResults:
+            logger.debug(f"Share aspect: {share_aspect}")
             this_share_result = [
                 x
                 for x in share_aspect.lastShareResults

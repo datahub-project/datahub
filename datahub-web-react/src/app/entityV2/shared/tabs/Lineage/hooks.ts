@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 
 const IS_VISUALIZE_VIEW_DEFAULT = true;
@@ -18,9 +18,19 @@ export function useLineageViewState() {
             setIsVisualizeView(view);
 
             // Update the URL with the new view state
-            const searchParams = new URLSearchParams(location.search);
-            searchParams.set('lineageView', view ? 'explorer' : 'impact');
-            history.replace({ search: searchParams.toString() });
+            const newParam = `lineageView=${view ? 'explorer' : 'impact'}`;
+
+            let newSearch = location.search;
+            if (newSearch.includes('lineageView=')) {
+                // Replace the existing parameter
+                newSearch = newSearch.replace(/(lineageView=)[^&]+/, newParam);
+            } else {
+                // Add the new parameter
+                newSearch += (newSearch ? '&' : '?') + newParam;
+            }
+
+            // Update the URL without reloading the page
+            history.replace({ search: newSearch });
         },
         [location.search, history],
     );

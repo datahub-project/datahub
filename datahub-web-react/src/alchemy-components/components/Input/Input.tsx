@@ -2,16 +2,7 @@ import React from 'react';
 
 import { InputProps } from './types';
 
-import {
-    InputBase,
-    InputWrapper,
-    InputContainer,
-    InputField,
-    Label,
-    Required,
-    WarningMessage,
-    ErrorMessage,
-} from './components';
+import { InputWrapper, InputContainer, InputField, Label, Required, WarningMessage, ErrorMessage } from './components';
 
 import { Icon } from '../Icon';
 
@@ -65,28 +56,24 @@ export const Input = ({
             <Label>
                 {label} {isRequired && <Required>*</Required>}
             </Label>
-            <InputBase {...inputBaseProps}>
-                <InputContainer>
-                    {icon && <Icon icon={icon} size="lg" />}
-                    <InputField
-                        type={isPassword && !showPassword ? 'password' : 'text'}
-                        placeholder={placeholder}
-                        readOnly={isReadOnly}
-                        disabled={isDisabled}
-                        required={isRequired}
-                    />
-                    {!isPassword && (
-                        <>
-                            {invalid && <Icon icon="WarningAmber" color="red" size="lg" />}
-                            {isSuccess && <Icon icon="CheckCircle" color="green" size="lg" />}
-                            {warning && <Icon icon="ErrorOutline" color="yellow" size="lg" />}
-                        </>
-                    )}
-                    {isPassword && (
-                        <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />
-                    )}
-                </InputContainer>
-            </InputBase>
+            <InputContainer {...inputBaseProps}>
+                {icon && <Icon icon={icon} size="lg" />}
+                <InputField
+                    type={isPassword && !showPassword ? 'password' : 'text'}
+                    placeholder={placeholder}
+                    readOnly={isReadOnly}
+                    disabled={isDisabled}
+                    required={isRequired}
+                />
+                {!isPassword && (
+                    <>
+                        {invalid && <Icon icon="WarningAmber" color="red" size="lg" />}
+                        {isSuccess && <Icon icon="CheckCircle" color="green" size="lg" />}
+                        {warning && <Icon icon="ErrorOutline" color="yellow" size="lg" />}
+                    </>
+                )}
+                {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
+            </InputContainer>
             {invalid && error && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}
         </InputWrapper>
